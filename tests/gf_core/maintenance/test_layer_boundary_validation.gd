@@ -27,18 +27,9 @@ const KERNEL_FORBIDDEN_TEXTS: Array[String] = [
 	"GFNodeState",
 	"GFNodeStateMachine",
 ]
-const STANDARD_FORBIDDEN_EXTENSION_PATHS: Array[String] = [
-	"res://addons/gf/extensions/",
-	"addons/gf/extensions/",
-]
-const KERNEL_EXTENSION_INFRASTRUCTURE_PATHS: Array[String] = [
-	"res://addons/gf/kernel/extension/gf_extension_catalog.gd",
-	"res://addons/gf/kernel/extension/gf_extension_usage_audit.gd",
-]
-const EXTENSION_ALLOWED_DEPENDENCIES: Array[String] = [
-	"gf.kernel",
-	"gf.standard",
-]
+const STANDARD_FORBIDDEN_EXTENSION_PATHS: Array[String] = ["res://addons/gf/extensions/", "addons/gf/extensions/",]
+const KERNEL_EXTENSION_INFRASTRUCTURE_PATHS: Array[String] = ["res://addons/gf/kernel/extension/gf_extension_catalog.gd", "res://addons/gf/kernel/extension/gf_extension_usage_audit.gd",]
+const EXTENSION_ALLOWED_DEPENDENCIES: Array[String] = ["gf.kernel", "gf.standard",]
 const EXTENSION_ALLOWED_MANIFEST_FIELDS: Array[String] = [
 	"dependencies",
 	"description",
@@ -92,14 +83,10 @@ const EXTENSION_FORBIDDEN_SOFT_REFERENCES: Dictionary = {
 		"should_wait_for_result",
 	],
 }
-const BUSINESS_EXTENSION_CANDIDATES: Array[String] = [
-	"combat",
-	"domain",
-]
-const EXTENSION_FORBIDDEN_INTERNAL_TAGS: Array[String] = [
-	"externalization-candidate",
-]
+const BUSINESS_EXTENSION_CANDIDATES: Array[String] = ["combat", "domain",]
+const EXTENSION_FORBIDDEN_INTERNAL_TAGS: Array[String] = ["externalization-candidate",]
 const GF_VARIANT_ACCESS = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+const CONTRACT_SOURCES = preload("res://tests/gf_core/maintenance/helpers/gf_comment_contract_sources.gd")
 
 
 # --- 测试用例 ---
@@ -110,10 +97,27 @@ func test_kernel_does_not_depend_on_standard_layer() -> void:
 
 	var issues: Array[String] = []
 	for path: String in files:
-		var source: String = _read_text(path)
+		var source: String = _dependency_source_projection(
+			_read_text(path),
+			"uncommented"
+		)
+		var code: String = _dependency_source_projection(source, "code")
 		for forbidden_text: String in KERNEL_FORBIDDEN_TEXTS:
-			if source.contains(forbidden_text):
-				issues.append("%s contains %s" % [path, forbidden_text])
+			var is_path: bool = forbidden_text.contains("/")
+			if (
+				(
+					is_path
+					and source.contains(forbidden_text)
+				)
+				or (
+					not is_path
+					and _contains_identifier(code, forbidden_text)
+				)
+			):
+				issues.append(
+					"%s contains %s"
+					% [path, forbidden_text]
+				)
 
 	assert_eq(
 		issues,
@@ -130,10 +134,16 @@ func test_only_kernel_extension_infrastructure_knows_extension_root_path() -> vo
 	for path: String in files:
 		if KERNEL_EXTENSION_INFRASTRUCTURE_PATHS.has(path):
 			continue
-		var source: String = _read_text(path)
+		var source: String = _dependency_source_projection(
+			_read_text(path),
+			"uncommented"
+		)
 		for forbidden_path: String in STANDARD_FORBIDDEN_EXTENSION_PATHS:
 			if source.contains(forbidden_path):
-				issues.append("%s contains %s" % [path, forbidden_path])
+				issues.append(
+					"%s contains %s"
+					% [path, forbidden_path]
+				)
 
 	assert_eq(
 		issues,
@@ -164,10 +174,16 @@ func test_kernel_editor_does_not_hardcode_extension_ids() -> void:
 
 	var issues: Array[String] = []
 	for path: String in files:
-		var source: String = _read_text(path)
+		var source: String = _dependency_source_projection(
+			_read_text(path),
+			"uncommented"
+		)
 		for extension_id: String in extension_ids:
 			if source.contains(extension_id):
-				issues.append("%s contains %s" % [path, extension_id])
+				issues.append(
+					"%s contains %s"
+					% [path, extension_id]
+				)
 
 	assert_eq(
 		issues,
@@ -183,10 +199,16 @@ func test_kernel_does_not_hardcode_extension_ids() -> void:
 
 	var issues: Array[String] = []
 	for path: String in files:
-		var source: String = _read_text(path)
+		var source: String = _dependency_source_projection(
+			_read_text(path),
+			"uncommented"
+		)
 		for extension_id: String in extension_ids:
 			if source.contains(extension_id):
-				issues.append("%s contains %s" % [path, extension_id])
+				issues.append(
+					"%s contains %s"
+					% [path, extension_id]
+				)
 
 	assert_eq(
 		issues,
@@ -202,13 +224,23 @@ func test_standard_does_not_hard_depend_on_extension_paths_or_classes() -> void:
 
 	var issues: Array[String] = []
 	for path: String in files:
-		var source: String = _read_text(path)
+		var source: String = _dependency_source_projection(
+			_read_text(path),
+			"uncommented"
+		)
+		var code: String = _dependency_source_projection(source, "code")
 		for forbidden_path: String in STANDARD_FORBIDDEN_EXTENSION_PATHS:
 			if source.contains(forbidden_path):
-				issues.append("%s contains %s" % [path, forbidden_path])
+				issues.append(
+					"%s contains %s"
+					% [path, forbidden_path]
+				)
 		for extension_class_name: String in extension_class_names:
-			if _contains_identifier(source, extension_class_name):
-				issues.append("%s references extension class %s" % [path, extension_class_name])
+			if _contains_identifier(code, extension_class_name):
+				issues.append(
+					"%s references extension class %s"
+					% [path, extension_class_name]
+				)
 
 	assert_eq(
 		issues,
@@ -224,10 +256,16 @@ func test_standard_does_not_reference_extension_ids() -> void:
 
 	var issues: Array[String] = []
 	for path: String in files:
-		var source: String = _read_text(path)
+		var source: String = _dependency_source_projection(
+			_read_text(path),
+			"uncommented"
+		)
 		for extension_id: String in extension_ids:
 			if source.contains(extension_id):
-				issues.append("%s contains %s" % [path, extension_id])
+				issues.append(
+					"%s contains %s"
+					% [path, extension_id]
+				)
 
 	assert_eq(
 		issues,
@@ -256,22 +294,39 @@ func test_bundled_extension_manifests_are_atomic() -> void:
 			issues.append("%s must declare kind=extension" % extension_name)
 		if not manifest_data.has("enabled_by_default"):
 			issues.append("%s missing enabled_by_default" % extension_name)
-		elif GF_VARIANT_ACCESS.get_option_bool(manifest_data, "enabled_by_default", true):
+		elif GF_VARIANT_ACCESS.get_option_bool(
+			manifest_data,
+			"enabled_by_default",
+			true
+		):
 			issues.append("%s must declare enabled_by_default=false" % extension_name)
 		for field_name_variant: Variant in manifest_data.keys():
 			var field_name: String = GF_VARIANT_ACCESS.to_text(field_name_variant)
 			if not EXTENSION_ALLOWED_MANIFEST_FIELDS.has(field_name):
-				issues.append("%s declares unsupported manifest field %s" % [extension_name, field_name])
+				issues.append(
+					"%s declares unsupported manifest field %s"
+					% [extension_name, field_name]
+				)
 
-		var dependencies: Array = GF_VARIANT_ACCESS.get_option_array(manifest_data, "dependencies", [])
+		var dependencies: Array = GF_VARIANT_ACCESS.get_option_array(
+			manifest_data,
+			"dependencies",
+			[]
+		)
 		for dependency_variant: Variant in dependencies:
 			var dependency_id: String = GF_VARIANT_ACCESS.to_text(dependency_variant)
 			if not EXTENSION_ALLOWED_DEPENDENCIES.has(dependency_id):
-				issues.append("%s declares dependency %s" % [extension_name, dependency_id])
+				issues.append(
+					"%s declares dependency %s"
+					% [extension_name, dependency_id]
+				)
 
 		for field_name: String in EXTENSION_FORBIDDEN_MANIFEST_FIELDS:
 			if manifest_data.has(field_name):
-				issues.append("%s declares unsupported manifest field %s" % [extension_name, field_name])
+				issues.append(
+					"%s declares unsupported manifest field %s"
+					% [extension_name, field_name]
+				)
 
 	assert_eq(
 		issues,
@@ -289,21 +344,34 @@ func test_bundled_extensions_do_not_reference_other_bundled_extensions() -> void
 		var files: Array[String] = []
 		_collect_gd_files(extension_root, files)
 		for path: String in files:
-			var source: String = _read_text(path)
+			var source: String = _dependency_source_projection(
+				_read_text(path),
+				"uncommented"
+			)
+			var code: String = _dependency_source_projection(source, "code")
 			for other_extension_name: String in extension_names:
 				if other_extension_name == extension_name:
 					continue
 				var other_extension_path: String = "addons/gf/extensions/%s" % other_extension_name
 				var other_extension_id: String = "gf.%s" % other_extension_name
 				if source.contains(other_extension_path):
-					issues.append("%s references %s" % [path, other_extension_path])
+					issues.append(
+						"%s references %s"
+						% [path, other_extension_path]
+					)
 				if source.contains(other_extension_id):
-					issues.append("%s references %s" % [path, other_extension_id])
+					issues.append(
+						"%s references %s"
+						% [path, other_extension_id]
+					)
 			for class_name_variant: Variant in class_root_by_name.keys():
 				var class_name_text: String = GF_VARIANT_ACCESS.to_text(class_name_variant)
 				var class_root: String = GF_VARIANT_ACCESS.to_text(class_root_by_name[class_name_text])
-				if class_root != extension_root and _contains_identifier(source, class_name_text):
-					issues.append("%s references extension class %s" % [path, class_name_text])
+				if class_root != extension_root and _contains_identifier(code, class_name_text):
+					issues.append(
+						"%s references extension class %s"
+						% [path, class_name_text]
+					)
 
 	assert_eq(
 		issues,
@@ -324,18 +392,36 @@ func test_business_extensions_remain_optional_atomic_extensions_without_internal
 		if manifest_data.is_empty():
 			issues.append("%s missing manifest" % extension_name)
 			continue
-		if GF_VARIANT_ACCESS.get_option_bool(manifest_data, "enabled_by_default", true):
+		if GF_VARIANT_ACCESS.get_option_bool(
+			manifest_data,
+			"enabled_by_default",
+			true
+		):
 			issues.append("%s must stay disabled by default" % extension_name)
-		var dependencies: Array = GF_VARIANT_ACCESS.get_option_array(manifest_data, "dependencies", [])
+		var dependencies: Array = GF_VARIANT_ACCESS.get_option_array(
+			manifest_data,
+			"dependencies",
+			[]
+		)
 		for dependency_variant: Variant in dependencies:
 			var dependency_id: String = GF_VARIANT_ACCESS.to_text(dependency_variant)
 			if not EXTENSION_ALLOWED_DEPENDENCIES.has(dependency_id):
-				issues.append("%s declares non-foundation dependency %s" % [extension_name, dependency_id])
-		var tags: Array = GF_VARIANT_ACCESS.get_option_array(manifest_data, "tags", [])
+				issues.append(
+					"%s declares non-foundation dependency %s"
+					% [extension_name, dependency_id]
+				)
+		var tags: Array = GF_VARIANT_ACCESS.get_option_array(
+			manifest_data,
+			"tags",
+			[]
+		)
 		for tag_variant: Variant in tags:
 			var tag: String = GF_VARIANT_ACCESS.to_text(tag_variant)
 			if EXTENSION_FORBIDDEN_INTERNAL_TAGS.has(tag):
-				issues.append("%s leaks internal tag %s" % [extension_name, tag])
+				issues.append(
+					"%s leaks internal tag %s"
+					% [extension_name, tag]
+				)
 
 	assert_eq(
 		issues,
@@ -351,7 +437,11 @@ func test_standard_input_module_closure_stays_runtime_only() -> void:
 
 	assert_eq(
 		actual_ids,
-		["gf.kernel", "gf.standard.base", "gf.standard.input"],
+		[
+			"gf.kernel",
+			"gf.standard.base",
+			"gf.standard.input",
+		],
 		"Input runtime module 只能依赖自身和基础运行时模块。"
 	)
 	assert_false(
@@ -365,8 +455,11 @@ func test_bundled_extensions_do_not_call_global_gf_facade() -> void:
 	_collect_gd_files(EXTENSIONS_ROOT, files)
 	var issues: Array[String] = []
 	for path: String in files:
-		var source: String = _read_text(path)
-		if source.contains("Gf."):
+		var source: String = _dependency_source_projection(
+			_read_text(path),
+			"code"
+		)
+		if _contains_code_reference(source, "Gf."):
 			issues.append("%s calls global Gf facade" % path)
 
 	assert_eq(
@@ -389,11 +482,17 @@ func test_known_extension_soft_collaboration_protocols_do_not_return() -> void:
 			[]
 		)
 		for path: String in files:
-			var source: String = _read_text(path)
+			var source: String = _dependency_source_projection(
+				_read_text(path),
+				"code"
+			)
 			for forbidden_text_variant: Variant in forbidden_texts:
 				var forbidden_text: String = GF_VARIANT_ACCESS.to_text(forbidden_text_variant)
-				if source.contains(forbidden_text):
-					issues.append("%s contains soft collaboration marker %s" % [path, forbidden_text])
+				if _contains_code_reference(source, forbidden_text):
+					issues.append(
+						"%s contains soft collaboration marker %s"
+						% [path, forbidden_text]
+					)
 
 	assert_eq(
 		issues,
@@ -402,7 +501,134 @@ func test_known_extension_soft_collaboration_protocols_do_not_return() -> void:
 	)
 
 
+func test_dependency_code_ignores_comments_and_string_examples() -> void:
+	var source: String = "# GFTimeUtility Gf.send() get_capability()\nconst EXAMPLE = \"GFTimeUtility Gf.send() get_capability()\"\nconst BLOCK = '''GFTimeUtility\nGf.send() get_capability()\n'''\nconst REFLECTION_EXAMPLE = \"object.get(\\\"ActionQueue\\\")\"\n"
+	var code: String = _dependency_source_projection(source, "code")
+	assert_false(_contains_identifier(code, "GFTimeUtility"))
+	assert_false(_contains_code_reference(code, "Gf."))
+	assert_false(_contains_code_reference(code, "get_capability("))
+	assert_false(_contains_identifier(code, "ActionQueue"))
+	code = _dependency_source_projection(
+		source + "var value: GFTimeUtility = Gf .send()\nget_capability ()\n",
+		"code"
+	)
+	assert_true(_contains_identifier(code, "GFTimeUtility"))
+	assert_true(_contains_code_reference(code, "Gf."))
+	assert_true(_contains_code_reference(code, "get_capability("))
+	assert_false(_contains_code_reference("OtherGf.send() get_capability_extra()", "Gf."))
+	assert_false(_contains_code_reference("get_capability_extra()", "get_capability("))
+	code = _dependency_source_projection("object.call(&\"get_capability\")\nobject.get(\"ActionQueue\")\nClassDB.instantiate(\"GFTimeUtility\")\n", "code")
+	assert_true(_contains_code_reference(code, "get_capability("))
+	assert_true(_contains_identifier(code, "ActionQueue"))
+	assert_true(_contains_identifier(code, "GFTimeUtility"))
+
+
+func test_callable_method_dependencies_use_the_second_top_level_argument() -> void:
+	var code: String = _dependency_source_projection("Callable(resolve_object({\"items\": [1, 2]}, \"a,b\"), &\"sender_as\")\n", "code")
+	assert_true(_contains_identifier(code, "sender_as"))
+	code = _dependency_source_projection("# Callable(object, \"sender_as\")\nconst EXAMPLE = 'Callable(object, \"sender_as\")'\nCallable(resolve_object(\"sender_as\", {\"items\": [1, 2]}), \"safe\")\nCallable(existing_callable)\nconsume(\"sender_as\")\n", "code")
+	assert_false(_contains_identifier(code, "sender_as"))
+
+
+func test_dependency_paths_and_ids_remain_visible_only_outside_comments() -> void:
+	var comment_source: String = "# res://addons/gf/extensions/feedback/runtime.gd gf.feedback\n"
+	var source: String = _dependency_source_projection(comment_source, "uncommented")
+	assert_false(source.contains("addons/gf/extensions/feedback"))
+	assert_false(source.contains("gf.feedback"))
+	source = _dependency_source_projection(
+		comment_source + "const PATH = \"res://addons/gf/extensions/feedback/runtime.gd\"\nconst ID = &\"gf.feedback\"\n",
+		"uncommented"
+	)
+	assert_true(source.contains("addons/gf/extensions/feedback"))
+	assert_true(source.contains("gf.feedback"))
+
+
 # --- 私有/辅助方法 ---
+
+func _dependency_source_projection(source: String, projection: String) -> String:
+	var lines: Array[String] = []
+	var uncommented_lines: Array[String] = []
+	var delimiter: String = ""
+	for line: String in source.split("\n"):
+		var lexical: Dictionary = CONTRACT_SOURCES.lex_line(line, delimiter)
+		delimiter = GF_VARIANT_ACCESS.get_option_string(lexical, "multiline_delimiter")
+		lines.append(GF_VARIANT_ACCESS.get_option_string(lexical, projection))
+		uncommented_lines.append(GF_VARIANT_ACCESS.get_option_string(lexical, "uncommented"))
+	var result: String = "\n".join(lines)
+	if projection == "code":
+		var callable_identifiers: Array[String] = _callable_method_identifiers(
+			"\n".join(uncommented_lines),
+			result
+		)
+		var regex: RegEx = RegEx.new()
+		var _compile_result: Error = regex.compile("\\b(call|call_deferred|callv|has_method|get|set|set_deferred|get_indexed|set_indexed|instantiate|can_instantiate|class_exists)\\s*\\(\\s*&?([\"'])([A-Za-z_]\\w*)\\2")
+		for match_result: RegExMatch in regex.search_all(source):
+			var method_name: String = match_result.get_string(1)
+			if result.substr(
+				match_result.get_start(1),
+				method_name.length()
+			) == method_name:
+				# 反射首参是实际成员/类型名，需保留与直接标识符相同的依赖约束。
+				result += "\n%s()" % match_result.get_string(3)
+		for identifier: String in callable_identifiers:
+			result += "\n%s()" % identifier
+	return result
+
+
+func _callable_method_identifiers(source: String, code: String) -> Array[String]:
+	var result: Array[String] = []
+	var callable_regex: RegEx = RegEx.new()
+	var _callable_compile_result: Error = callable_regex.compile("\\bCallable\\s*\\(")
+	var literal_regex: RegEx = RegEx.new()
+	var _literal_compile_result: Error = literal_regex.compile("^\\s*&?([\"'])([A-Za-z_]\\w*)\\1\\s*$")
+	for callable_match: RegExMatch in callable_regex.search_all(code):
+		var depth: int = 0
+		var second_start: int = -1
+		var second_end: int = -1
+		for index: int in range(
+			callable_match.get_end(),
+			code.length()
+		):
+			var character: String = code[index]
+			if "([{".contains(character):
+				depth += 1
+			elif ")]}".contains(character):
+				if depth == 0:
+					second_end = index
+					break
+				depth -= 1
+			elif character == "," and depth == 0:
+				if second_start >= 0:
+					second_end = index
+					break
+				second_start = index + 1
+		if second_start < 0 or second_end < second_start:
+			continue
+		var method_match: RegExMatch = literal_regex.search(
+			source.substr(
+				second_start,
+				second_end - second_start
+			)
+		)
+		if method_match != null:
+			result.append(method_match.get_string(2))
+	return result
+
+
+func _contains_code_reference(source: String, reference_text: String) -> bool:
+	var identifier: String = reference_text.trim_suffix("(").trim_suffix(".")
+	var suffix: String = ""
+	if reference_text.ends_with("("):
+		suffix = "\\s*\\("
+	elif reference_text.ends_with("."):
+		suffix = "\\s*\\."
+	var regex: RegEx = RegEx.new()
+	var _compile_result: Error = regex.compile(
+		"(?<![A-Za-z0-9_])%s(?![A-Za-z0-9_])%s"
+		% [identifier, suffix]
+	)
+	return regex.search(source) != null
+
 
 func _collect_gd_files(root_path: String, result: Array[String]) -> void:
 	var dir: DirAccess = DirAccess.open(root_path)
@@ -491,7 +717,12 @@ func _collect_json_files(root_path: String, result: Array[String]) -> void:
 func _resolve_package_closure(root_package_id: String, manifests_by_id: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	var visiting: Dictionary = {}
-	_resolve_package_closure_recursive(root_package_id, manifests_by_id, result, visiting)
+	_resolve_package_closure_recursive(
+		root_package_id,
+		manifests_by_id,
+		result,
+		visiting
+	)
 	return result
 
 
@@ -506,11 +737,24 @@ func _resolve_package_closure_recursive(
 
 	visiting[package_id] = true
 	result[package_id] = true
-	var manifest_data: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(manifests_by_id, package_id, {})
-	var child_ids: Array = GF_VARIANT_ACCESS.get_option_array(manifest_data, "dependencies", [])
+	var manifest_data: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(
+		manifests_by_id,
+		package_id,
+		{}
+	)
+	var child_ids: Array = GF_VARIANT_ACCESS.get_option_array(
+		manifest_data,
+		"dependencies",
+		[]
+	)
 	for child_id_variant: Variant in child_ids:
 		var child_id: String = GF_VARIANT_ACCESS.to_text(child_id_variant)
-		_resolve_package_closure_recursive(child_id, manifests_by_id, result, visiting)
+		_resolve_package_closure_recursive(
+			child_id,
+			manifests_by_id,
+			result,
+			visiting
+		)
 	var _remove_visiting_result: bool = visiting.erase(package_id)
 
 
@@ -550,7 +794,10 @@ func _collect_class_names(root_path: String) -> Array[String]:
 	var regex: RegEx = RegEx.new()
 	var _compile_result_365: Variant = regex.compile("(?m)^\\s*class_name\\s+([A-Za-z_]\\w*)")
 	for path: String in files:
-		var source: String = _read_text(path)
+		var source: String = _dependency_source_projection(
+			_read_text(path),
+			"code"
+		)
 		for match_result: RegExMatch in regex.search_all(source):
 			var discovered_class_name: String = match_result.get_string(1)
 			if not result.has(discovered_class_name):
@@ -568,7 +815,10 @@ func _collect_extension_class_root_by_name() -> Dictionary:
 	var _compile_result_382: Variant = regex.compile("(?m)^\\s*class_name\\s+([A-Za-z_]\\w*)")
 	for path: String in files:
 		var extension_root: String = _get_extension_root(path)
-		var source: String = _read_text(path)
+		var source: String = _dependency_source_projection(
+			_read_text(path),
+			"code"
+		)
 		for match_result: RegExMatch in regex.search_all(source):
 			result[match_result.get_string(1)] = extension_root
 	return result
@@ -579,22 +829,28 @@ func _get_extension_root(path: String) -> String:
 	if not path.begins_with(marker):
 		return ""
 
-	var slash_index: int = path.find("/", marker.length())
+	var slash_index: int = path.find(
+		"/",
+		marker.length()
+	)
 	if slash_index == -1:
 		return ""
 	return path.substr(0, slash_index)
 
 
-func _collect_forbidden_class_reference_issues(
-	files: Array[String],
-	forbidden_class_names: Array[String]
-) -> Array[String]:
+func _collect_forbidden_class_reference_issues(files: Array[String], forbidden_class_names: Array[String]) -> Array[String]:
 	var issues: Array[String] = []
 	for path: String in files:
-		var source: String = _read_text(path)
+		var source: String = _dependency_source_projection(
+			_read_text(path),
+			"code"
+		)
 		for forbidden_class_name: String in forbidden_class_names:
 			if _contains_identifier(source, forbidden_class_name):
-				issues.append("%s references %s" % [path, forbidden_class_name])
+				issues.append(
+					"%s references %s"
+					% [path, forbidden_class_name]
+				)
 	return issues
 
 

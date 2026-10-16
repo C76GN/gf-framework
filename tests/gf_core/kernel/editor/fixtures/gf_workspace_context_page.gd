@@ -8,7 +8,6 @@ extends Control
 static var next_context_callback: Callable = Callable()
 static var next_enter_callback: Callable = Callable()
 static var next_exit_callback: Callable = Callable()
-
 var current_context: GFEditorToolContext = null
 var context_at_first_enter: GFEditorToolContext = null
 var context_at_last_exit: GFEditorToolContext = null

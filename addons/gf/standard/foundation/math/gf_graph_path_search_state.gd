@@ -162,7 +162,13 @@ static func create(
 	heuristic: Callable = Callable()
 ) -> GFGraphPathSearchState:
 	var state: GFGraphPathSearchState = GFGraphPathSearchState.new()
-	state._configure(start, goal, get_neighbors, get_step_cost, heuristic)
+	state._configure(
+		start,
+		goal,
+		get_neighbors,
+		get_step_cost,
+		heuristic
+	)
 	return state
 
 
@@ -183,7 +189,11 @@ static func create(
 ## @param reason: 无效原因。
 ## [br]
 ## @return 已标记为 invalid 的搜索状态句柄。
-static func make_invalid(start: Variant, goal: Variant, reason: StringName) -> GFGraphPathSearchState:
+static func make_invalid(
+	start: Variant,
+	goal: Variant,
+	reason: StringName
+) -> GFGraphPathSearchState:
 	var state: GFGraphPathSearchState = GFGraphPathSearchState.new()
 	state._start = start
 	state._goal = goal
@@ -218,14 +228,26 @@ func advance(max_iterations: int = 64) -> Dictionary:
 		var current: Variant = GFVariantData.get_option_value(current_entry, "node")
 		if _closed.has(current):
 			continue
-		if _get_entry_priority(current_entry) > GFVariantData.get_option_float(_f_score, current, INF):
+		if _get_entry_priority(current_entry) > GFVariantData.get_option_float(
+			_f_score,
+			current,
+			INF
+		):
 			continue
 
 		iterations += 1
 		_iteration_count += 1
 		if current == _goal:
-			_path = _reconstruct_path(_start, _goal, _came_from)
-			_cost = GFVariantData.get_option_float(_g_score, current, INF)
+			_path = _reconstruct_path(
+				_start,
+				_goal,
+				_came_from
+			)
+			_cost = GFVariantData.get_option_float(
+				_g_score,
+				current,
+				INF
+			)
 			_finish(STATUS_FOUND, &"")
 			return make_report(iterations)
 
@@ -239,14 +261,29 @@ func advance(max_iterations: int = 64) -> Dictionary:
 			if move_cost < 0.0:
 				continue
 
-			var tentative_score: float = GFVariantData.get_option_float(_g_score, current, INF) + move_cost
-			if tentative_score >= GFVariantData.get_option_float(_g_score, next_node, INF):
+			var tentative_score: float = GFVariantData.get_option_float(
+				_g_score,
+				current,
+				INF
+			) + move_cost
+			if tentative_score >= GFVariantData.get_option_float(
+				_g_score,
+				next_node,
+				INF
+			):
 				continue
 
 			_came_from[next_node] = current
 			_g_score[next_node] = tentative_score
 			_f_score[next_node] = tentative_score + _get_heuristic_for(next_node, _goal)
-			_push_node_priority(next_node, GFVariantData.get_option_float(_f_score, next_node, INF))
+			_push_node_priority(
+				next_node,
+				GFVariantData.get_option_float(
+					_f_score,
+					next_node,
+					INF
+				)
+			)
 
 	if _open_queue.is_empty():
 		_finish(STATUS_UNREACHABLE, &"unreachable")
@@ -377,7 +414,14 @@ func _configure(
 		_finish(STATUS_FOUND, &"")
 		return
 
-	_push_node_priority(start, GFVariantData.get_option_float(_f_score, start, INF))
+	_push_node_priority(
+		start,
+		GFVariantData.get_option_float(
+			_f_score,
+			start,
+			INF
+		)
+	)
 
 
 ## 写入最终搜索状态及对应原因。
@@ -404,7 +448,10 @@ func _get_neighbors_for(node: Variant) -> Array:
 ## @api private
 func _get_step_cost_for(from_node: Variant, to_node: Variant) -> float:
 	if _get_step_cost.is_valid():
-		return GFVariantData.to_float(_get_step_cost.call(from_node, to_node), -1.0)
+		return GFVariantData.to_float(
+			_get_step_cost.call(from_node, to_node),
+			-1.0
+		)
 
 	return 1.0
 
@@ -414,7 +461,13 @@ func _get_step_cost_for(from_node: Variant, to_node: Variant) -> float:
 ## @api private
 func _get_heuristic_for(node: Variant, goal: Variant) -> float:
 	if _heuristic.is_valid():
-		return maxf(0.0, GFVariantData.to_float(_heuristic.call(node, goal), 0.0))
+		return maxf(
+			0.0,
+			GFVariantData.to_float(
+				_heuristic.call(node, goal),
+				0.0
+			)
+		)
 
 	return 0.0
 
@@ -425,11 +478,15 @@ func _get_heuristic_for(node: Variant, goal: Variant) -> float:
 func _push_node_priority(node: Variant, priority: float) -> void:
 	var sequence: int = _sequence
 	_sequence += 1
-	var _node_queued: bool = _open_queue.push_with_order({
-		"node": node,
-		"priority": priority,
-		"sequence": sequence,
-	}, priority, sequence)
+	var _node_queued: bool = _open_queue.push_with_order(
+		{
+			"node": node,
+			"priority": priority,
+			"sequence": sequence,
+		},
+		priority,
+		sequence
+	)
 
 
 ## 从 frontier 队列取出元素，并转换为 Dictionary。
@@ -442,7 +499,11 @@ func _pop_node_priority() -> Dictionary:
 ## 沿前驱字典从目标回溯并反向构造路径；链路缺失时返回空数组。
 ## [br]
 ## @api private
-static func _reconstruct_path(start: Variant, goal: Variant, came_from: Dictionary) -> Array:
+static func _reconstruct_path(
+	start: Variant,
+	goal: Variant,
+	came_from: Dictionary
+) -> Array:
 	var path: Array = [goal]
 	var current: Variant = goal
 
@@ -460,4 +521,8 @@ static func _reconstruct_path(start: Variant, goal: Variant, came_from: Dictiona
 ## [br]
 ## @api private
 static func _get_entry_priority(entry: Dictionary, fallback: float = INF) -> float:
-	return GFVariantData.get_option_float(entry, "priority", fallback)
+	return GFVariantData.get_option_float(
+		entry,
+		"priority",
+		fallback
+	)

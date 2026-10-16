@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFPriorityWorkQueue" path="addons/gf/standard/foundation/collections/gf_priority_work_queue.gd" module="standard" extends="RefCounted" classDigest="8dd5ce9b193a96a4c1bc7b39f09dbd693ddf007e92ded6ed0a09ffd0077734ec">
+<class name="GFPriorityWorkQueue" path="addons/gf/standard/foundation/collections/gf_priority_work_queue.gd" module="standard" extends="RefCounted" classDigest="4edf49b1b415f71e5abf34a10d9f8a65a1bf62a3b1dccc77bf7b4a1d7ee2f79b">
 	<description>GFPriorityWorkQueue: 带等待加成的稳定优先级工作队列。
 以基础优先级、入队时间和稳定顺序选择下一个值。等待加成不设上限，
 因此在新任务优先级有限的前提下，旧低优先级任务最终能够获得执行机会。
@@ -42,7 +42,7 @@
 	</properties>
 	<methods>
 		<member kind="method" name="push">
-			<signature>func push(value: Variant, priority: float = 0.0, front: bool = false) -&gt; bool:</signature>
+			<signature>func push( value: Variant, priority: float = 0.0, front: bool = false ) -&gt; bool:</signature>
 			<description>使用当前单调时钟推入一个值。</description>
 			<tags>
 				<tag name="api">public</tag>

@@ -92,7 +92,10 @@ func duplicate_entry() -> Resource:
 	entry.set("id", id)
 	entry.set("path", path)
 	entry.set("type_hint", type_hint)
-	entry.set("fields", fields.duplicate(true))
+	entry.set(
+		"fields",
+		fields.duplicate(true)
+	)
 	return entry
 
 
@@ -104,7 +107,12 @@ func duplicate_entry() -> Resource:
 ## [br]
 ## @return 资源身份对象。
 func get_resource_identity() -> GFResourceIdentity:
-	return GFResourceIdentity.from_path(path, id, type_hint, { "check_exists": false })
+	return GFResourceIdentity.from_path(
+		path,
+		id,
+		type_hint,
+		{ "check_exists": false }
+	)
 
 
 ## 获取条目的推荐缓存键。
@@ -152,7 +160,11 @@ func to_dict() -> Dictionary:
 ## @return 新条目。
 static func from_dict(data: Dictionary) -> Resource:
 	var entry: Resource = GFResourceRegistryEntry.new()
-	var raw_fields: Variant = GFVariantData.get_option_value(data, "fields", {})
+	var raw_fields: Variant = GFVariantData.get_option_value(
+		data,
+		"fields",
+		{}
+	)
 	entry.call(
 		"configure",
 		GFVariantData.get_option_string_name(data, "id"),

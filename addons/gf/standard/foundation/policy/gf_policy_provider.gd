@@ -142,10 +142,23 @@ func supports_artifact(artifact: Dictionary) -> bool:
 ## @schema return: Dictionary with ok, status, provider_id, artifact_kind, issues, data, and metadata.
 func evaluate(artifact: Dictionary, context: Dictionary = {}) -> Dictionary:
 	if not supports_artifact(artifact):
-		return make_result(true, &"skipped", artifact, [], { "reason": "unsupported_artifact_kind" })
-	var result: Dictionary = _evaluate_policy(artifact.duplicate(true), context.duplicate(true))
+		return make_result(
+			true,
+			&"skipped",
+			artifact,
+			[],
+			{ "reason": "unsupported_artifact_kind" }
+		)
+	var result: Dictionary = _evaluate_policy(
+		artifact.duplicate(true),
+		context.duplicate(true)
+	)
 	if result.is_empty():
-		return make_result(true, &"passed", artifact)
+		return make_result(
+			true,
+			&"passed",
+			artifact
+		)
 	return _normalize_result(result, artifact)
 
 
@@ -241,8 +254,16 @@ func _evaluate_policy(_artifact: Dictionary, _context: Dictionary) -> Dictionary
 ## [br]
 ## @api private
 func _normalize_result(result: Dictionary, artifact: Dictionary) -> Dictionary:
-	var status: StringName = GFVariantData.get_option_string_name(result, "status", &"passed")
-	var ok: bool = GFVariantData.get_option_bool(result, "ok", not _status_implies_failure(status))
+	var status: StringName = GFVariantData.get_option_string_name(
+		result,
+		"status",
+		&"passed"
+	)
+	var ok: bool = GFVariantData.get_option_bool(
+		result,
+		"ok",
+		not _status_implies_failure(status)
+	)
 	if _status_implies_failure(status):
 		ok = false
 	var normalized: Dictionary = make_result(
@@ -264,7 +285,11 @@ func _normalize_result(result: Dictionary, artifact: Dictionary) -> Dictionary:
 	for key: Variant in result.keys():
 		if _is_reserved_result_key(key):
 			continue
-		normalized[key] = GFVariantData.duplicate_variant(result[key], true, true)
+		normalized[key] = GFVariantData.duplicate_variant(
+			result[key],
+			true,
+			true
+		)
 	return normalized
 
 

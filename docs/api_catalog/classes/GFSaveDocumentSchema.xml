@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveDocumentSchema" path="addons/gf/extensions/save/document/gf_save_document_schema.gd" module="extensions/save" extends="Resource" classDigest="4fbbb92ccea11795ba49a3796bced8f39b0642c2ca7f564936033d618073cc44">
+<class name="GFSaveDocumentSchema" path="addons/gf/extensions/save/document/gf_save_document_schema.gd" module="extensions/save" extends="Resource" classDigest="3f135fc26e4396b7e1cb5516ab0aa093429a00a4f36b85e825418da609077557">
 	<description>GFSaveDocumentSchema: 项目存档文档的当前版本契约。
 项目用该 Resource 声明 schema_id、当前文档版本、已知分区版本和必需分区。
 GF 只校验结构与版本，不解释任何业务字段。</description>
@@ -110,7 +110,7 @@ GF 只校验结构与版本，不解释任何业务字段。</description>
 			</tags>
 		</member>
 		<member kind="method" name="validate_document">
-			<signature>func validate_document( document: GFSaveDocument, require_current_versions: bool = true ) -&gt; Dictionary:</signature>
+			<signature>func validate_document(document: GFSaveDocument, require_current_versions: bool = true) -&gt; Dictionary:</signature>
 			<description>校验文档是否符合该 schema。</description>
 			<tags>
 				<tag name="api">public</tag>

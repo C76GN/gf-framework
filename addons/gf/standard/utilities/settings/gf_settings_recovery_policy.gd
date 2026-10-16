@@ -65,19 +65,27 @@ const ACTION_RESET_TO_DEFAULTS: StringName = &"reset_to_defaults"
 ## [br]
 ## @schema return: GFValidationReportDictionary-compatible report with issues, counts, summary, and next_actions.
 func validate_policy() -> Dictionary:
-	var report: Dictionary = {"issues": []}
-	_append_action_issue(report, "missing_file_action", missing_file_action)
-	_append_action_issue(report, "corrupt_file_action", corrupt_file_action)
-	return GFValidationReportDictionary.finalize_report(report, "Settings recovery policy", {
-		"include_issue_count": true,
-		"next_actions": {
-			"invalid_recovery_action": (
-				"Use fail, use_current_state, or reset_to_defaults."
-			),
-		},
-		"fallback_action": "Review the first recovery policy issue.",
-		"no_action": "Settings recovery policy is valid.",
-	})
+	var report: Dictionary = { "issues": [] }
+	_append_action_issue(
+		report,
+		"missing_file_action",
+		missing_file_action
+	)
+	_append_action_issue(
+		report,
+		"corrupt_file_action",
+		corrupt_file_action
+	)
+	return GFValidationReportDictionary.finalize_report(
+		report,
+		"Settings recovery policy",
+		{
+			"include_issue_count": true,
+			"next_actions": { "invalid_recovery_action": "Use fail, use_current_state, or reset_to_defaults.", },
+			"fallback_action": "Review the first recovery policy issue.",
+			"no_action": "Settings recovery policy is valid.",
+		}
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -86,13 +94,21 @@ func validate_policy() -> Dictionary:
 ## [br]
 ## @api private
 ## [br]
-func _append_action_issue(report: Dictionary, path: String, action: StringName) -> void:
-	if action in [ACTION_FAIL, ACTION_USE_CURRENT_STATE, ACTION_RESET_TO_DEFAULTS]:
+func _append_action_issue(
+	report: Dictionary,
+	path: String,
+	action: StringName
+) -> void:
+	if action in [
+		ACTION_FAIL,
+		ACTION_USE_CURRENT_STATE,
+		ACTION_RESET_TO_DEFAULTS,
+	]:
 		return
 	var _action_issue: Variant = GFValidationReportDictionary.append_issue(
 		report,
 		"error",
 		&"invalid_recovery_action",
 		"Recovery action is not supported.",
-		{"path": path, "value": action}
+		{ "path": path, "value": action }
 	)

@@ -19,7 +19,7 @@
 | 方法 | [`dispose`](#member-gftimerutility-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`tick`](#member-gftimerutility-methods-tick) | `func tick(delta: float) -> void:` |
 | 方法 | [`execute_after`](#member-gftimerutility-methods-execute_after) | `func execute_after(delay: float, callback: Callable) -> int:` |
-| 方法 | [`execute_after_owned`](#member-gftimerutility-methods-execute_after_owned) | `func execute_after_owned(owner: Object, delay: float, callback: Callable) -> int:` |
+| 方法 | [`execute_after_owned`](#member-gftimerutility-methods-execute_after_owned) | `func execute_after_owned( owner: Object, delay: float, callback: Callable ) -> int:` |
 | 方法 | [`execute_repeating`](#member-gftimerutility-methods-execute_repeating) | `func execute_repeating( interval: float, callback: Callable, repeat_count: int = -1, initial_delay: float = -1.0 ) -> int:` |
 | 方法 | [`execute_repeating_owned`](#member-gftimerutility-methods-execute_repeating_owned) | `func execute_repeating_owned( owner: Object, interval: float, callback: Callable, repeat_count: int = -1, initial_delay: float = -1.0 ) -> int:` |
 | 方法 | [`cancel`](#member-gftimerutility-methods-cancel) | `func cancel(handle: int) -> bool:` |
@@ -100,7 +100,7 @@ func execute_after(delay: float, callback: Callable) -> int:
 - 首次版本：`11.0.0`
 
 ```gdscript
-func execute_after_owned(owner: Object, delay: float, callback: Callable) -> int:
+func execute_after_owned( owner: Object, delay: float, callback: Callable ) -> int:
 ```
 
 在指定延迟后执行一次 owner 绑定回调。owner 释放后任务会自动丢弃。

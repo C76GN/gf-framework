@@ -32,7 +32,11 @@ func get_spawn_transforms(
 	launch_input: GFProjectileLaunchInput2D = null,
 	emit_count: int = -1
 ) -> Array[Transform2D]:
-	return _get_spawn_transforms(emitter, launch_input, emit_count)
+	return _get_spawn_transforms(
+		emitter,
+		launch_input,
+		emit_count
+	)
 
 
 ## 解析模式本次请求的最终数量，不生成变换。
@@ -47,7 +51,10 @@ func get_spawn_transforms(
 func resolve_spawn_count(emit_count: int = -1) -> int:
 	if emit_count > 0:
 		return emit_count
-	return maxi(_get_default_spawn_count(), 1)
+	return maxi(
+		_get_default_spawn_count(),
+		1
+	)
 
 
 # --- 可重写钩子 / 虚方法 ---

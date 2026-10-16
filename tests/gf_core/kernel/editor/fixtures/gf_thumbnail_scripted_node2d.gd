@@ -44,7 +44,15 @@ func _get_property_list() -> Array[Dictionary]:
 
 
 func _draw() -> void:
-	draw_rect(Rect2(0.0, 0.0, 8.0, 8.0), Color.GREEN)
+	draw_rect(
+		Rect2(
+			0.0,
+			0.0,
+			8.0,
+			8.0
+		),
+		Color.GREEN
+	)
 
 
 # --- 公共方法 ---

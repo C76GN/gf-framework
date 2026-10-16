@@ -72,6 +72,61 @@ class DiagnosticPolicyTests(unittest.TestCase):
 		report = self.check_source(source)
 		self.assertTrue(report["ok"], report)
 
+	def test_parenthesized_formatted_tail_keeps_static_diagnostic_prefix(self) -> None:
+		prefix = '"[GFFixture][fixture.failed] Cannot load the target."'
+		tails = (
+			'" Path=%s." % path',
+			'" Path={path}.".format({"path": path})',
+		)
+		for tail in tails:
+			with self.subTest(tail=tail):
+				before = self.check_source("push_error(" + prefix + " + " + tail + ")")
+				after = self.check_source(
+					"push_error(\n\t(\n\t\t(" + prefix + ")\n"
+					"\t\t+ ((" + tail + "))\n\t)\n)\n",
+				)
+				self.assertTrue(before["ok"], before)
+				self.assertTrue(after["ok"], after)
+				self.assertEqual(after["native_call_count"], 1)
+				self.assertEqual(after["diagnostic_code_count"], 1)
+		constant = (
+			'const _PREFIX = "[GFFixture][fixture.failed] Cannot load the target."\n'
+			'push_error((_PREFIX + ((" Path=%s." % path))))\n'
+		)
+		self.assertTrue(self.check_source(constant)["ok"])
+
+	def test_parenthesized_formatted_tail_does_not_hide_placeholder_failures(self) -> None:
+		prefix = '"[GFFixture][fixture.failed] Cannot load the target."'
+		for tail, expected in (
+			('" Path=%q." % path', "diagnostic.format_placeholder"),
+			('" Paths=%s %s." % [path]', "diagnostic.format_arity"),
+		):
+			with self.subTest(tail=tail):
+				report = self.check_source("push_error(" + prefix + " + ((" + tail + ")))")
+				self.assertIn(expected, self.kinds(report))
+
+	def test_parentheses_do_not_admit_dynamic_diagnostic_concatenation(self) -> None:
+		prefix = '"[GFFixture][fixture.failed] Cannot load the target."'
+		for expression in (
+			prefix + ' + (runtime_template)',
+			'runtime_prefix + (" Path=%s." % path)',
+			prefix + ' + ((" Path=%s." % path) + runtime_suffix)',
+			prefix + ' + (" Path=%s." % path if enabled else runtime_template)',
+			'(' + prefix + '.format({})) + "Unchecked tail."',
+		):
+			with self.subTest(expression=expression):
+				report = self.check_source("push_error((" + expression + "))")
+				self.assertIn("diagnostic.unreviewed_forwarder", self.kinds(report))
+
+	def test_grouped_formatted_tail_preserves_structural_and_byte_budgets(self) -> None:
+		prefix = '"[GFFixture][fixture.failed] Failed."'
+		grouped = "(" * (policy.MAX_DEPTH + 1) + '" Path=%s." % path' + ")" * (policy.MAX_DEPTH + 1)
+		report = self.check_source("push_error(" + prefix + " + " + grouped + ")")
+		self.assertIn("diagnostic.unreadable_syntax", self.kinds(report))
+		large_prefix = '"[GFFixture][fixture.failed] ' + "x" * policy.MAX_TEMPLATE_BYTES + '"'
+		report = self.check_source("push_error(" + large_prefix + ' + (" Path=%s." % path))')
+		self.assertIn("diagnostic.unreadable_syntax", self.kinds(report))
+
 	def test_constant_template_is_checked_at_every_emission(self) -> None:
 		source = 'const _MESSAGE: String = "' + MESSAGE + '"\nfunc run():\n\tpush_error(_MESSAGE)\n\tpush_error(_MESSAGE)\n'
 		report = self.check_source(source)

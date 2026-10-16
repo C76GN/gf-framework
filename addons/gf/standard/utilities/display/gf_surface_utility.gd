@@ -139,22 +139,50 @@ func get_active_material(source: Object, face_index: int) -> Material:
 ## @schema return: Dictionary，包含 ok、reason、face_index、surface_index、base_material、override_material、active_material、has_*_material 以及对应 *_material_name、*_material_path、*_material_type 字段；material 字段为 JSON-safe 资源摘要，不包含运行时 Object 引用。
 func describe_surface_hit(source: Object, face_index: int) -> Dictionary:
 	if face_index < 0:
-		return _make_surface_hit_report(false, _REASON_INVALID_FACE_INDEX, face_index, -1)
+		return _make_surface_hit_report(
+			false,
+			_REASON_INVALID_FACE_INDEX,
+			face_index,
+			-1
+		)
 
 	var mesh_instance: MeshInstance3D = _resolve_mesh_instance(source)
 	if mesh_instance == null:
-		return _make_surface_hit_report(false, _REASON_MESH_INSTANCE_NOT_FOUND, face_index, -1)
+		return _make_surface_hit_report(
+			false,
+			_REASON_MESH_INSTANCE_NOT_FOUND,
+			face_index,
+			-1
+		)
 	if mesh_instance.mesh == null:
-		return _make_surface_hit_report(false, _REASON_MESH_NOT_FOUND, face_index, -1)
+		return _make_surface_hit_report(
+			false,
+			_REASON_MESH_NOT_FOUND,
+			face_index,
+			-1
+		)
 
 	var surface_index: int = _get_surface_index_for_mesh(mesh_instance.mesh, face_index)
 	if surface_index < 0:
-		return _make_surface_hit_report(false, _REASON_SURFACE_NOT_FOUND, face_index, -1)
+		return _make_surface_hit_report(
+			false,
+			_REASON_SURFACE_NOT_FOUND,
+			face_index,
+			-1
+		)
 
 	var base_material: Material = mesh_instance.mesh.surface_get_material(surface_index)
 	var override_material: Material = mesh_instance.get_surface_override_material(surface_index)
 	var active_material: Material = mesh_instance.get_active_material(surface_index)
-	return _make_surface_hit_report(true, "", face_index, surface_index, base_material, override_material, active_material)
+	return _make_surface_hit_report(
+		true,
+		"",
+		face_index,
+		surface_index,
+		base_material,
+		override_material,
+		active_material
+	)
 
 
 ## 描述 Mesh 的 surface 布局。
@@ -227,7 +255,11 @@ func get_surface_override_material(source: Object, face_index: int) -> Material:
 func get_base_material(source: Object, face_index: int) -> Material:
 	var mesh_instance: MeshInstance3D = _resolve_mesh_instance(source)
 	var surface_index: int = get_surface_index(source, face_index)
-	if mesh_instance == null or mesh_instance.mesh == null or surface_index < 0:
+	if (
+		mesh_instance == null
+		or mesh_instance.mesh == null
+		or surface_index < 0
+	):
 		return null
 	return mesh_instance.mesh.surface_get_material(surface_index)
 
@@ -420,7 +452,12 @@ func _get_surface_face_counts(mesh: Mesh) -> Array[int]:
 
 	var face_counts: Array[int] = _compute_surface_face_counts(mesh)
 	if cache_mode == CacheMode.AUTOMATIC:
-		_store_surface_face_counts(cache_key, face_counts, signature, false)
+		_store_surface_face_counts(
+			cache_key,
+			face_counts,
+			signature,
+			false
+		)
 	return face_counts
 
 
@@ -429,7 +466,10 @@ func _get_surface_face_counts(mesh: Mesh) -> Array[int]:
 ## @api private
 ## [br]
 func _compute_surface_face_counts(mesh: Mesh) -> Array[int]:
-	return GFVariantData.get_option_int_array(_compute_surface_face_count_data(mesh), "face_counts")
+	return GFVariantData.get_option_int_array(
+		_compute_surface_face_count_data(mesh),
+		"face_counts"
+	)
 
 
 ## 从 surface 面数数据中提取用于缓存校验的签名。
@@ -437,7 +477,10 @@ func _compute_surface_face_counts(mesh: Mesh) -> Array[int]:
 ## @api private
 ## [br]
 func _compute_surface_face_count_signature(mesh: Mesh) -> Array[int]:
-	return GFVariantData.get_option_int_array(_compute_surface_face_count_data(mesh), "signature")
+	return GFVariantData.get_option_int_array(
+		_compute_surface_face_count_data(mesh),
+		"signature"
+	)
 
 
 ## 汇总各 surface 的图元类型、索引数、顶点数、面数及缓存签名。
@@ -455,11 +498,16 @@ func _compute_surface_face_count_data(mesh: Mesh) -> Dictionary:
 		signature.append(primitive_type)
 		signature.append(index_count)
 		signature.append(vertex_count)
-		face_counts.append(_get_surface_face_count(mesh, surface_index, primitive_type, index_count, vertex_count))
-	return {
-		"face_counts": face_counts,
-		"signature": signature,
-	}
+		face_counts.append(
+			_get_surface_face_count(
+				mesh,
+				surface_index,
+				primitive_type,
+				index_count,
+				vertex_count
+			)
+		)
+	return { "face_counts": face_counts, "signature": signature, }
 
 
 ## 在缓存策略允许时复制并保存面数与签名，更新使用顺序并裁剪自动缓存。
@@ -512,10 +560,7 @@ func _trim_auto_cache() -> void:
 ## @api private
 ## [br]
 func _cached_surface_signature_matches(cache_key: int, signature: Array[int]) -> bool:
-	var cached_signature: Array[int] = GFVariantData.get_option_int_array(
-		_surface_face_count_signatures_by_mesh,
-		cache_key
-	)
+	var cached_signature: Array[int] = GFVariantData.get_option_int_array(_surface_face_count_signatures_by_mesh, cache_key)
 	return cached_signature == signature
 
 
@@ -535,7 +580,10 @@ func _get_surface_face_count(
 		Mesh.PRIMITIVE_TRIANGLES:
 			return floori(float(element_count) / 3.0)
 		Mesh.PRIMITIVE_TRIANGLE_STRIP:
-			return maxi(element_count - 2, 0)
+			return maxi(
+				element_count - 2,
+				0
+			)
 
 	return _get_surface_face_count_with_mesh_data_tool(mesh, surface_index)
 
@@ -604,7 +652,13 @@ func _describe_mesh_surface(mesh: Mesh, surface_index: int) -> Dictionary:
 	var primitive_type: int = _get_surface_primitive_type(mesh, surface_index)
 	var index_count: int = _get_surface_index_count(arrays)
 	var vertex_count: int = _get_surface_vertex_count(arrays)
-	var face_count: int = _get_surface_face_count(mesh, surface_index, primitive_type, index_count, vertex_count)
+	var face_count: int = _get_surface_face_count(
+		mesh,
+		surface_index,
+		primitive_type,
+		index_count,
+		vertex_count
+	)
 	var material: Material = mesh.surface_get_material(surface_index)
 	return {
 		"surface_index": surface_index,

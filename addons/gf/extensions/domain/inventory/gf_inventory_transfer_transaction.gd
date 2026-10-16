@@ -229,14 +229,20 @@ func commit() -> GFInventoryTransferResult:
 	if _commit_in_progress:
 		return _complete_reentrant_commit()
 	if not is_prepared():
-		_complete(_prepare_result if _prepare_result != null else _make_result(
-			GFInventoryTransferResult.STATUS_INVALID_REQUEST,
-			&"",
-			0,
-			0,
-			-1,
-			-1
-		))
+		_complete(
+			(
+				_prepare_result
+				if _prepare_result != null
+				else _make_result(
+					GFInventoryTransferResult.STATUS_INVALID_REQUEST,
+					&"",
+					0,
+					0,
+					-1,
+					-1
+				)
+			)
+		)
 		_emit_completed()
 		return _result.duplicate_result()
 	var source: GFSlotInventoryModel = _get_source()
@@ -247,14 +253,16 @@ func commit() -> GFInventoryTransferResult:
 		or source.get_instance_id() != _source_instance_id
 		or target.get_instance_id() != _target_instance_id
 	):
-		_complete(_make_result(
-			GFInventoryTransferResult.STATUS_STALE_REVISION,
-			_prepare_result.get_item_id(),
-			_prepare_result.get_requested_amount(),
-			0,
-			-1,
-			-1
-		))
+		_complete(
+			_make_result(
+				GFInventoryTransferResult.STATUS_STALE_REVISION,
+				_prepare_result.get_item_id(),
+				_prepare_result.get_requested_amount(),
+				0,
+				-1,
+				-1
+			)
+		)
 		_emit_completed()
 		return _result.duplicate_result()
 	_commit_in_progress = true
@@ -284,7 +292,12 @@ func _prepare(
 	_target_slot = target_slot
 	_requested_amount_input = amount
 	_allow_partial = allow_partial
-	if source == null or target == null or source_slot < 0 or target_slot < -1:
+	if (
+		source == null
+		or target == null
+		or source_slot < 0
+		or target_slot < -1
+	):
 		_prepare_result = _make_result(
 			GFInventoryTransferResult.STATUS_INVALID_REQUEST,
 			&"",
@@ -321,11 +334,7 @@ func _prepare(
 		return
 	_source_revision = source.get_revision()
 	_target_revision = target.get_revision()
-	var bundle: Dictionary = (
-		_build_same_plan(source)
-		if _same_model
-		else _build_cross_plan(source, target)
-	)
+	var bundle: Dictionary = (_build_same_plan(source) if _same_model else _build_cross_plan(source, target))
 	_unlock_models(source, target)
 	var status: StringName = GFVariantData.get_option_string_name(
 		bundle,
@@ -356,31 +365,32 @@ func _prepare(
 ## 重新锁定并验证两侧模型及计划，再原子替换两侧候选和派发通知。
 ## [br]
 ## @api private
-func _commit_cross_model(
-	source: GFSlotInventoryModel,
-	target: GFSlotInventoryModel
-) -> GFInventoryTransferResult:
+func _commit_cross_model(source: GFSlotInventoryModel, target: GFSlotInventoryModel) -> GFInventoryTransferResult:
 	if not _lock_models(source, target):
-		_complete(_make_result(
-			GFInventoryTransferResult.STATUS_BUSY,
-			_prepare_result.get_item_id(),
-			_prepare_result.get_requested_amount(),
-			0,
-			source.get_revision(),
-			target.get_revision()
-		))
+		_complete(
+			_make_result(
+				GFInventoryTransferResult.STATUS_BUSY,
+				_prepare_result.get_item_id(),
+				_prepare_result.get_requested_amount(),
+				0,
+				source.get_revision(),
+				target.get_revision()
+			)
+		)
 		_emit_completed()
 		return _result.duplicate_result()
 	if source.get_revision() != _source_revision or target.get_revision() != _target_revision:
 		_unlock_models(source, target)
-		_complete(_make_result(
-			GFInventoryTransferResult.STATUS_STALE_REVISION,
-			_prepare_result.get_item_id(),
-			_prepare_result.get_requested_amount(),
-			0,
-			source.get_revision(),
-			target.get_revision()
-		))
+		_complete(
+			_make_result(
+				GFInventoryTransferResult.STATUS_STALE_REVISION,
+				_prepare_result.get_item_id(),
+				_prepare_result.get_requested_amount(),
+				0,
+				source.get_revision(),
+				target.get_revision()
+			)
+		)
 		_emit_completed()
 		return _result.duplicate_result()
 	var bundle: Dictionary = _build_cross_plan(source, target)
@@ -388,35 +398,46 @@ func _commit_cross_model(
 		_unlock_models(source, target)
 		return _result.duplicate_result()
 	if (
-		GFVariantData.get_option_string_name(bundle, "status")
-		!= GFInventoryTransferResult.STATUS_PREPARED
+		GFVariantData.get_option_string_name(bundle, "status") != GFInventoryTransferResult.STATUS_PREPARED
 		or GFVariantData.get_option_int(bundle, "accepted_amount") != _prepared_amount
 		or GFVariantData.get_option_string(bundle, "source_sha") != _prepared_source_sha
 		or GFVariantData.get_option_string(bundle, "plan_sha") != _prepared_plan_sha
 	):
 		_unlock_models(source, target)
-		_complete(_make_result(
-			GFInventoryTransferResult.STATUS_STALE_PLAN,
-			_prepare_result.get_item_id(),
-			_prepare_result.get_requested_amount(),
-			0,
-			source.get_revision(),
-			target.get_revision()
-		))
+		_complete(
+			_make_result(
+				GFInventoryTransferResult.STATUS_STALE_PLAN,
+				_prepare_result.get_item_id(),
+				_prepare_result.get_requested_amount(),
+				0,
+				source.get_revision(),
+				target.get_revision()
+			)
+		)
 		_emit_completed()
 		return _result.duplicate_result()
 	var source_plan: Dictionary = GFVariantData.get_option_dictionary(bundle, "source_plan")
 	var target_plan: Dictionary = GFVariantData.get_option_dictionary(bundle, "target_plan")
-	source.apply_inventory_transfer_plan_for_framework(self, source_plan, true)
-	target.apply_inventory_transfer_plan_for_framework(self, target_plan, false)
-	_complete(_make_result(
-		GFInventoryTransferResult.STATUS_COMMITTED,
-		_prepare_result.get_item_id(),
-		_prepare_result.get_requested_amount(),
-		_prepared_amount,
-		source.get_revision(),
-		target.get_revision()
-	))
+	source.apply_inventory_transfer_plan_for_framework(
+		self,
+		source_plan,
+		true
+	)
+	target.apply_inventory_transfer_plan_for_framework(
+		self,
+		target_plan,
+		false
+	)
+	_complete(
+		_make_result(
+			GFInventoryTransferResult.STATUS_COMMITTED,
+			_prepare_result.get_item_id(),
+			_prepare_result.get_requested_amount(),
+			_prepared_amount,
+			source.get_revision(),
+			target.get_revision()
+		)
+	)
 	source.flush_inventory_transfer_events_for_framework(self)
 	target.flush_inventory_transfer_events_for_framework(self)
 	_emit_completed()
@@ -429,26 +450,30 @@ func _commit_cross_model(
 ## @api private
 func _commit_same_model(model: GFSlotInventoryModel) -> GFInventoryTransferResult:
 	if not _lock_models(model, model):
-		_complete(_make_result(
-			GFInventoryTransferResult.STATUS_BUSY,
-			_prepare_result.get_item_id(),
-			_prepare_result.get_requested_amount(),
-			0,
-			model.get_revision(),
-			model.get_revision()
-		))
+		_complete(
+			_make_result(
+				GFInventoryTransferResult.STATUS_BUSY,
+				_prepare_result.get_item_id(),
+				_prepare_result.get_requested_amount(),
+				0,
+				model.get_revision(),
+				model.get_revision()
+			)
+		)
 		_emit_completed()
 		return _result.duplicate_result()
 	if model.get_revision() != _source_revision:
 		_unlock_models(model, model)
-		_complete(_make_result(
-			GFInventoryTransferResult.STATUS_STALE_REVISION,
-			_prepare_result.get_item_id(),
-			_prepare_result.get_requested_amount(),
-			0,
-			model.get_revision(),
-			model.get_revision()
-		))
+		_complete(
+			_make_result(
+				GFInventoryTransferResult.STATUS_STALE_REVISION,
+				_prepare_result.get_item_id(),
+				_prepare_result.get_requested_amount(),
+				0,
+				model.get_revision(),
+				model.get_revision()
+			)
+		)
 		_emit_completed()
 		return _result.duplicate_result()
 	var bundle: Dictionary = _build_same_plan(model)
@@ -456,33 +481,40 @@ func _commit_same_model(model: GFSlotInventoryModel) -> GFInventoryTransferResul
 		_unlock_models(model, model)
 		return _result.duplicate_result()
 	if (
-		GFVariantData.get_option_string_name(bundle, "status")
-		!= GFInventoryTransferResult.STATUS_PREPARED
+		GFVariantData.get_option_string_name(bundle, "status") != GFInventoryTransferResult.STATUS_PREPARED
 		or GFVariantData.get_option_int(bundle, "accepted_amount") != _prepared_amount
 		or GFVariantData.get_option_string(bundle, "source_sha") != _prepared_source_sha
 		or GFVariantData.get_option_string(bundle, "plan_sha") != _prepared_plan_sha
 	):
 		_unlock_models(model, model)
-		_complete(_make_result(
-			GFInventoryTransferResult.STATUS_STALE_PLAN,
-			_prepare_result.get_item_id(),
-			_prepare_result.get_requested_amount(),
-			0,
-			model.get_revision(),
-			model.get_revision()
-		))
+		_complete(
+			_make_result(
+				GFInventoryTransferResult.STATUS_STALE_PLAN,
+				_prepare_result.get_item_id(),
+				_prepare_result.get_requested_amount(),
+				0,
+				model.get_revision(),
+				model.get_revision()
+			)
+		)
 		_emit_completed()
 		return _result.duplicate_result()
 	var plan: Dictionary = GFVariantData.get_option_dictionary(bundle, "same_plan")
-	model.apply_inventory_transfer_plan_for_framework(self, plan, true)
-	_complete(_make_result(
-		GFInventoryTransferResult.STATUS_COMMITTED,
-		_prepare_result.get_item_id(),
-		_prepare_result.get_requested_amount(),
-		_prepared_amount,
-		model.get_revision(),
-		model.get_revision()
-	))
+	model.apply_inventory_transfer_plan_for_framework(
+		self,
+		plan,
+		true
+	)
+	_complete(
+		_make_result(
+			GFInventoryTransferResult.STATUS_COMMITTED,
+			_prepare_result.get_item_id(),
+			_prepare_result.get_requested_amount(),
+			_prepared_amount,
+			model.get_revision(),
+			model.get_revision()
+		)
+	)
 	model.flush_inventory_transfer_events_for_framework(self)
 	_emit_completed()
 	_unlock_models(model, model)
@@ -492,10 +524,7 @@ func _commit_same_model(model: GFSlotInventoryModel) -> GFInventoryTransferResul
 ## 组合来源和目标候选，并复核接受数量及最终计划摘要。
 ## [br]
 ## @api private
-func _build_cross_plan(
-	source: GFSlotInventoryModel,
-	target: GFSlotInventoryModel
-) -> Dictionary:
+func _build_cross_plan(source: GFSlotInventoryModel, target: GFSlotInventoryModel) -> Dictionary:
 	var initial_budget: Dictionary = _make_budget()
 	var initial_source: Dictionary = GFInventoryTransferPlanner.plan_source(
 		source,
@@ -512,14 +541,8 @@ func _build_cross_plan(
 	)
 	if source_status != GFInventoryTransferResult.STATUS_PREPARED:
 		return _failure_bundle(initial_source, source_status)
-	var requested_amount: int = GFVariantData.get_option_int(
-		initial_source,
-		"requested_amount"
-	)
-	var transferable_amount: int = GFVariantData.get_option_int(
-		initial_source,
-		"transferable_amount"
-	)
+	var requested_amount: int = GFVariantData.get_option_int(initial_source, "requested_amount")
+	var transferable_amount: int = GFVariantData.get_option_int(initial_source, "transferable_amount")
 	var initial_target: Dictionary = GFInventoryTransferPlanner.plan_target(
 		target,
 		self,
@@ -539,10 +562,7 @@ func _build_cross_plan(
 	)
 	if target_status != GFInventoryTransferResult.STATUS_PREPARED:
 		var failed_target: Dictionary = _failure_bundle(initial_target, target_status)
-		failed_target["item_id"] = GFVariantData.get_option_string_name(
-			initial_source,
-			"item_id"
-		)
+		failed_target["item_id"] = GFVariantData.get_option_string_name(initial_source, "item_id")
 		failed_target["requested_amount"] = requested_amount
 		return failed_target
 	var accepted_amount: int = GFVariantData.get_option_int(initial_target, "accepted_amount")
@@ -567,27 +587,24 @@ func _build_cross_plan(
 		true,
 		final_budget
 	)
-	if (
-		GFVariantData.get_option_string_name(source_plan, "status")
-		!= GFInventoryTransferResult.STATUS_PREPARED
-		or GFVariantData.get_option_string_name(target_plan, "status")
-		!= GFInventoryTransferResult.STATUS_PREPARED
-	):
+	if (GFVariantData.get_option_string_name(source_plan, "status") != GFInventoryTransferResult.STATUS_PREPARED or GFVariantData.get_option_string_name(target_plan, "status") != GFInventoryTransferResult.STATUS_PREPARED):
 		return {
 			"status": GFInventoryTransferResult.STATUS_STALE_PLAN,
 			"item_id": GFVariantData.get_option_string_name(initial_source, "item_id"),
 			"requested_amount": requested_amount,
 			"accepted_amount": 0,
 		}
-	var plan_sha: String = _plan_sha([
-		GFVariantData.get_option_string(source_plan, "before_sha"),
-		GFVariantData.get_option_string(source_plan, "after_sha"),
-		GFVariantData.get_option_string(source_plan, "config_sha"),
-		GFVariantData.get_option_string(target_plan, "before_sha"),
-		GFVariantData.get_option_string(target_plan, "after_sha"),
-		GFVariantData.get_option_string(target_plan, "config_sha"),
-		accepted_amount,
-	])
+	var plan_sha: String = _plan_sha(
+		[
+			GFVariantData.get_option_string(source_plan, "before_sha"),
+			GFVariantData.get_option_string(source_plan, "after_sha"),
+			GFVariantData.get_option_string(source_plan, "config_sha"),
+			GFVariantData.get_option_string(target_plan, "before_sha"),
+			GFVariantData.get_option_string(target_plan, "after_sha"),
+			GFVariantData.get_option_string(target_plan, "config_sha"),
+			accepted_amount,
+		]
+	)
 	return {
 		"status": GFInventoryTransferResult.STATUS_PREPARED,
 		"item_id": GFVariantData.get_option_string_name(source_plan, "item_id"),
@@ -627,12 +644,14 @@ func _build_same_plan(model: GFSlotInventoryModel) -> Dictionary:
 		"accepted_amount": GFVariantData.get_option_int(plan, "accepted_amount"),
 		"same_plan": plan,
 		"source_sha": GFVariantData.get_option_string(plan, "before_sha"),
-		"plan_sha": _plan_sha([
-			GFVariantData.get_option_string(plan, "before_sha"),
-			GFVariantData.get_option_string(plan, "after_sha"),
-			GFVariantData.get_option_string(plan, "config_sha"),
-			GFVariantData.get_option_int(plan, "accepted_amount"),
-		]),
+		"plan_sha": _plan_sha(
+			[
+				GFVariantData.get_option_string(plan, "before_sha"),
+				GFVariantData.get_option_string(plan, "after_sha"),
+				GFVariantData.get_option_string(plan, "config_sha"),
+				GFVariantData.get_option_int(plan, "accepted_amount"),
+			]
+		),
 	}
 
 
@@ -663,14 +682,16 @@ func _complete_reentrant_commit() -> GFInventoryTransferResult:
 	if source != null and target != null:
 		source_revision = source.get_revision()
 		target_revision = target.get_revision()
-	_complete(_make_result(
-		GFInventoryTransferResult.STATUS_BUSY,
-		_prepare_result.get_item_id(),
-		_prepare_result.get_requested_amount(),
-		0,
-		source_revision,
-		target_revision
-	))
+	_complete(
+		_make_result(
+			GFInventoryTransferResult.STATUS_BUSY,
+			_prepare_result.get_item_id(),
+			_prepare_result.get_requested_amount(),
+			0,
+			source_revision,
+			target_revision
+		)
+	)
 	_emit_completed()
 	return _result.duplicate_result()
 
@@ -678,10 +699,7 @@ func _complete_reentrant_commit() -> GFInventoryTransferResult:
 ## 按实例 ID 顺序取得一个或两个模型锁；第二把锁失败时回滚第一把。
 ## [br]
 ## @api private
-func _lock_models(
-	source: GFSlotInventoryModel,
-	target: GFSlotInventoryModel
-) -> bool:
+func _lock_models(source: GFSlotInventoryModel, target: GFSlotInventoryModel) -> bool:
 	if source == target:
 		return source.lock_inventory_transfer_for_framework(self)
 	var first: GFSlotInventoryModel = source
@@ -700,10 +718,7 @@ func _lock_models(
 ## 按加锁时相反的顺序释放一个或两个模型锁。
 ## [br]
 ## @api private
-func _unlock_models(
-	source: GFSlotInventoryModel,
-	target: GFSlotInventoryModel
-) -> void:
+func _unlock_models(source: GFSlotInventoryModel, target: GFSlotInventoryModel) -> void:
 	if source == target:
 		source.unlock_inventory_transfer_for_framework(self)
 		return
@@ -758,7 +773,11 @@ func _make_result(
 		status,
 		item_id,
 		maxi(requested_amount, 0),
-		clampi(transferred_amount, 0, maxi(requested_amount, 0)),
+		clampi(
+			transferred_amount,
+			0,
+			maxi(requested_amount, 0)
+		),
 		_source_slot,
 		_target_slot,
 		source_revision,

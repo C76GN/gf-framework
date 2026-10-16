@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFGridTransform2D" path="addons/gf/standard/foundation/math/gf_grid_transform_2d.gd" module="standard" extends="RefCounted" classDigest="125661f6ebb84d60620bba666b79b29fc0912d5b8bdf429c39304c28a8365506">
+<class name="GFGridTransform2D" path="addons/gf/standard/foundation/math/gf_grid_transform_2d.gd" module="standard" extends="RefCounted" classDigest="c48ca6f3c0b7bae5ab30c8e58b73fac8d0af808c412d03e41b96107b659f9387">
 	<description>GFGridTransform2D: 2D 矩形网格坐标变换工具。
 提供旋转、镜像和对角翻转的纯坐标映射，可用于格子模板、画刷、
 房间蓝图、棋盘片段或编辑器工具。它只处理 Vector2i / Vector2 坐标，
@@ -85,7 +85,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="transform_local_cell">
-			<signature>static func transform_local_cell(cell: Vector2i, source_size: Vector2i, transform: int) -&gt; Vector2i:</signature>
+			<signature>static func transform_local_cell( cell: Vector2i, source_size: Vector2i, transform: int ) -&gt; Vector2i:</signature>
 			<description>变换局部格坐标。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -93,6 +93,7 @@
 				<tag name="param">source_size: 原始矩形尺寸。</tag>
 				<tag name="param">transform: Transform 枚举值。</tag>
 				<tag name="return">变换后的局部格坐标。</tag>
+				<tag name="since">3.21.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="transform_cell">
@@ -133,7 +134,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="transform_local_point">
-			<signature>static func transform_local_point(point: Vector2, source_size: Vector2, transform: int) -&gt; Vector2:</signature>
+			<signature>static func transform_local_point( point: Vector2, source_size: Vector2, transform: int ) -&gt; Vector2:</signature>
 			<description>变换局部连续坐标。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -141,6 +142,7 @@
 				<tag name="param">source_size: 原始矩形尺寸。</tag>
 				<tag name="param">transform: Transform 枚举值。</tag>
 				<tag name="return">变换后的局部坐标。</tag>
+				<tag name="since">3.21.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="transform_point">

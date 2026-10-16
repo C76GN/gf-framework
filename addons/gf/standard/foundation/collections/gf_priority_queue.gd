@@ -88,7 +88,11 @@ static func from_array(
 	if priority_queue == null:
 		return null
 	for value: Variant in values:
-		var _push_result: Variant = priority_queue.call("push", value, priority)
+		var _push_result: Variant = priority_queue.call(
+			"push",
+			value,
+			priority
+		)
 	return priority_queue
 
 
@@ -108,12 +112,21 @@ static func from_array(
 ## @return priority 有限并成功入队时返回 true。
 ## [br]
 ## @schema value: Variant queue value.
-func push(value: Variant, priority: float = 0.0, front: bool = false) -> bool:
+func push(
+	value: Variant,
+	priority: float = 0.0,
+	front: bool = false
+) -> bool:
 	if not is_finite(priority):
 		return false
 	_reset_order_if_empty()
 	var order: int = _make_order(front)
-	_push_entry(value, priority, order, front)
+	_push_entry(
+		value,
+		priority,
+		order,
+		front
+	)
 	return true
 
 
@@ -133,12 +146,20 @@ func push(value: Variant, priority: float = 0.0, front: bool = false) -> bool:
 ## @return priority 有限并成功入队时返回 true。
 ## [br]
 ## @schema value: Variant queue value.
-func push_with_order(value: Variant, priority: float = 0.0, order: int = 0) -> bool:
+func push_with_order(
+	value: Variant,
+	priority: float = 0.0,
+	order: int = 0
+) -> bool:
 	if not is_finite(priority):
 		return false
 	_reset_order_if_empty()
 	_next_front_order = mini(_next_front_order, order)
-	_push_entry(value, priority, order)
+	_push_entry(
+		value,
+		priority,
+		order
+	)
 	return true
 
 
@@ -160,7 +181,11 @@ func pop(default_value: Variant = null) -> Variant:
 		return default_value
 	var entry: Dictionary = _pop_entry_from(_entries)
 	_reset_order_if_empty()
-	return GFVariantData.get_option_value(entry, "value", default_value)
+	return GFVariantData.get_option_value(
+		entry,
+		"value",
+		default_value
+	)
 
 
 ## 读取当前最高优先级值但不移除。
@@ -179,7 +204,11 @@ func pop(default_value: Variant = null) -> Variant:
 func peek(default_value: Variant = null) -> Variant:
 	if _entries.is_empty():
 		return default_value
-	return GFVariantData.get_option_value(_entries[0], "value", default_value)
+	return GFVariantData.get_option_value(
+		_entries[0],
+		"value",
+		default_value
+	)
 
 
 ## 读取当前最高优先级。
@@ -194,7 +223,11 @@ func peek(default_value: Variant = null) -> Variant:
 func peek_priority(default_value: float = 0.0) -> float:
 	if _entries.is_empty():
 		return default_value
-	return GFVariantData.get_option_float(_entries[0], "priority", default_value)
+	return GFVariantData.get_option_float(
+		_entries[0],
+		"priority",
+		default_value
+	)
 
 
 ## 移除第一个等于 value 的队列值。
@@ -210,7 +243,13 @@ func peek_priority(default_value: float = 0.0) -> float:
 ## @schema value: Variant queue value.
 func remove_value(value: Variant) -> bool:
 	for index: int in range(_entries.size()):
-		if _values_equal(GFVariantData.get_option_value(_entries[index], "value"), value):
+		if _values_equal(
+			GFVariantData.get_option_value(
+				_entries[index],
+				"value"
+			),
+			value
+		):
 			_remove_entry_at(index)
 			_reset_order_if_empty()
 			return true
@@ -230,8 +269,18 @@ func remove_value(value: Variant) -> bool:
 ## @schema value: Variant queue value.
 func remove_all(value: Variant) -> int:
 	var removed_count: int = 0
-	for index: int in range(_entries.size() - 1, -1, -1):
-		if _values_equal(GFVariantData.get_option_value(_entries[index], "value"), value):
+	for index: int in range(
+		_entries.size() - 1,
+		-1,
+		-1
+	):
+		if _values_equal(
+			GFVariantData.get_option_value(
+				_entries[index],
+				"value"
+			),
+			value
+		):
 			_entries.remove_at(index)
 			removed_count += 1
 	if removed_count > 0:
@@ -253,7 +302,10 @@ func remove_all(value: Variant) -> int:
 ## @schema value: Variant queue value.
 func has_value(value: Variant) -> bool:
 	for entry: Dictionary in _entries:
-		if _values_equal(GFVariantData.get_option_value(entry, "value"), value):
+		if _values_equal(
+			GFVariantData.get_option_value(entry, "value"),
+			value
+		):
 			return true
 	return false
 
@@ -273,11 +325,21 @@ func has_value(value: Variant) -> bool:
 ## @return 找到并更新时返回 true。
 ## [br]
 ## @schema value: Variant queue value.
-func set_priority(value: Variant, priority: float, front: bool = false) -> bool:
+func set_priority(
+	value: Variant,
+	priority: float,
+	front: bool = false
+) -> bool:
 	if not is_finite(priority):
 		return false
 	for index: int in range(_entries.size()):
-		if _values_equal(GFVariantData.get_option_value(_entries[index], "value"), value):
+		if _values_equal(
+			GFVariantData.get_option_value(
+				_entries[index],
+				"value"
+			),
+			value
+		):
 			_entries[index]["priority"] = priority
 			if front:
 				_entries[index]["order"] = _make_order(true)
@@ -361,11 +423,13 @@ func to_entry_array(deep: bool = false) -> Array[Dictionary]:
 	while not entries.is_empty():
 		var entry: Dictionary = _pop_entry_from(entries)
 		var value: Variant = GFVariantData.get_option_value(entry, "value")
-		result.append({
-			"value": GFVariantData.duplicate_variant(value) if deep else value,
-			"priority": GFVariantData.get_option_float(entry, "priority"),
-			"order": GFVariantData.get_option_int(entry, "order"),
-		})
+		result.append(
+			{
+				"value": GFVariantData.duplicate_variant(value) if deep else value,
+				"priority": GFVariantData.get_option_float(entry, "priority"),
+				"order": GFVariantData.get_option_int(entry, "order"),
+			}
+		)
 	return result
 
 
@@ -384,7 +448,10 @@ func duplicate_priority_queue(deep: bool = false) -> RefCounted:
 	var priority_queue: RefCounted = _new_queue_instance(high_priority_first)
 	if priority_queue == null:
 		return null
-	priority_queue.set("_entries", _duplicate_entries(deep))
+	priority_queue.set(
+		"_entries",
+		_duplicate_entries(deep)
+	)
 	priority_queue.set("_next_order", _next_order)
 	priority_queue.set("_next_front_order", _next_front_order)
 	priority_queue.set("_next_insertion_sequence", _next_insertion_sequence)
@@ -426,14 +493,21 @@ func _make_order(front: bool) -> int:
 ## 追加完整堆条目、分配入队序号并向上恢复堆序。
 ## [br]
 ## @api private
-func _push_entry(value: Variant, priority: float, order: int, front: bool = false) -> void:
-	_entries.append({
-		"value": value,
-		"priority": priority,
-		"order": order,
-		"front": front,
-		"insertion_sequence": _next_insertion_sequence,
-	})
+func _push_entry(
+	value: Variant,
+	priority: float,
+	order: int,
+	front: bool = false
+) -> void:
+	_entries.append(
+		{
+			"value": value,
+			"priority": priority,
+			"order": order,
+			"front": front,
+			"insertion_sequence": _next_insertion_sequence,
+		}
+	)
 	_next_insertion_sequence += 1
 	_sift_up(_entries.size() - 1)
 
@@ -454,7 +528,11 @@ func _reset_order_if_empty() -> void:
 ## @api private
 func _heapify() -> void:
 	var start_index: int = floori(float(_entries.size()) / 2.0) - 1
-	for index: int in range(start_index, -1, -1):
+	for index: int in range(
+		start_index,
+		-1,
+		-1
+	):
 		_sift_down(index)
 
 
@@ -465,7 +543,10 @@ func _sift_up(index: int) -> void:
 	var current_index: int = index
 	while current_index > 0:
 		var parent_index: int = floori(float(current_index - 1) / 2.0)
-		if not _entry_is_before(_entries[current_index], _entries[parent_index]):
+		if not _entry_is_before(
+			_entries[current_index],
+			_entries[parent_index]
+		):
 			return
 		_swap_entries(current_index, parent_index)
 		current_index = parent_index
@@ -480,9 +561,15 @@ func _sift_down(index: int) -> void:
 		var left_index: int = current_index * 2 + 1
 		var right_index: int = left_index + 1
 		var best_index: int = current_index
-		if left_index < _entries.size() and _entry_is_before(_entries[left_index], _entries[best_index]):
+		if left_index < _entries.size() and _entry_is_before(
+			_entries[left_index],
+			_entries[best_index]
+		):
 			best_index = left_index
-		if right_index < _entries.size() and _entry_is_before(_entries[right_index], _entries[best_index]):
+		if right_index < _entries.size() and _entry_is_before(
+			_entries[right_index],
+			_entries[best_index]
+		):
 			best_index = right_index
 		if best_index == current_index:
 			return
@@ -532,9 +619,15 @@ func _sift_down_entries(entries: Array[Dictionary], index: int) -> void:
 		var left_index: int = current_index * 2 + 1
 		var right_index: int = left_index + 1
 		var best_index: int = current_index
-		if left_index < entries.size() and _entry_is_before(entries[left_index], entries[best_index]):
+		if left_index < entries.size() and _entry_is_before(
+			entries[left_index],
+			entries[best_index]
+		):
 			best_index = left_index
-		if right_index < entries.size() and _entry_is_before(entries[right_index], entries[best_index]):
+		if right_index < entries.size() and _entry_is_before(
+			entries[right_index],
+			entries[best_index]
+		):
 			best_index = right_index
 		if best_index == current_index:
 			return
@@ -563,14 +656,8 @@ func _entry_is_before(left: Dictionary, right: Dictionary) -> bool:
 	if left_front != right_front:
 		return left_front
 	if left_front:
-		return (
-			GFVariantData.get_option_int(left, "insertion_sequence")
-			> GFVariantData.get_option_int(right, "insertion_sequence")
-		)
-	return (
-		GFVariantData.get_option_int(left, "insertion_sequence")
-		< GFVariantData.get_option_int(right, "insertion_sequence")
-	)
+		return (GFVariantData.get_option_int(left, "insertion_sequence") > GFVariantData.get_option_int(right, "insertion_sequence"))
+	return (GFVariantData.get_option_int(left, "insertion_sequence") < GFVariantData.get_option_int(right, "insertion_sequence"))
 
 
 ## 交换堆数组中两个索引的条目。
@@ -589,13 +676,15 @@ func _duplicate_entries(deep: bool) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for entry: Dictionary in _entries:
 		var value: Variant = GFVariantData.get_option_value(entry, "value")
-		result.append({
-			"value": GFVariantData.duplicate_variant(value) if deep else value,
-			"priority": GFVariantData.get_option_float(entry, "priority"),
-			"order": GFVariantData.get_option_int(entry, "order"),
-			"front": GFVariantData.get_option_bool(entry, "front"),
-			"insertion_sequence": GFVariantData.get_option_int(entry, "insertion_sequence"),
-		})
+		result.append(
+			{
+				"value": GFVariantData.duplicate_variant(value) if deep else value,
+				"priority": GFVariantData.get_option_float(entry, "priority"),
+				"order": GFVariantData.get_option_int(entry, "order"),
+				"front": GFVariantData.get_option_bool(entry, "front"),
+				"insertion_sequence": GFVariantData.get_option_int(entry, "insertion_sequence"),
+			}
+		)
 	return result
 
 

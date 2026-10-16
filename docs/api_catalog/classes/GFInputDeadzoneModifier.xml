@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputDeadzoneModifier" path="addons/gf/standard/input/modifiers/gf_input_deadzone_modifier.gd" module="standard" extends="GFInputModifier" classDigest="9e91c7ba4eb8cfda197249b10a7133a453f689c0e85e025d302612dc93467143">
+<class name="GFInputDeadzoneModifier" path="addons/gf/standard/input/modifiers/gf_input_deadzone_modifier.gd" module="standard" extends="GFInputModifier" classDigest="e20aaaaea9bb28bf7c2b98dad72ed95269fe6fd99ab8c8a6438a2bb8bbeed1ed">
 	<description>GFInputDeadzoneModifier: 输入死区修饰器。
 可对一维或二维轴值应用径向死区，并可选择把剩余范围重新映射到 0..1。</description>
 	<tags>
@@ -38,7 +38,7 @@
 	</properties>
 	<methods>
 		<member kind="method" name="modify">
-			<signature>func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = null) -&gt; Vector2:</signature>
+			<signature>func modify( value: Vector2, _event: InputEvent = null, _action: GFInputAction = null ) -&gt; Vector2:</signature>
 			<description>修改二维输入值。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -46,10 +46,11 @@
 				<tag name="param">_event: 原始输入事件，默认实现不直接使用。</tag>
 				<tag name="param">_action: 当前输入动作配置，默认实现不直接使用。</tag>
 				<tag name="return">应用死区后的二维输入值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="modify_3d">
-			<signature>func modify_3d(value: Vector3, _event: InputEvent = null, _action: GFInputAction = null) -&gt; Vector3:</signature>
+			<signature>func modify_3d( value: Vector3, _event: InputEvent = null, _action: GFInputAction = null ) -&gt; Vector3:</signature>
 			<description>修改三维输入值。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -57,6 +58,7 @@
 				<tag name="param">_event: 原始输入事件，默认实现不直接使用。</tag>
 				<tag name="param">_action: 当前输入动作配置，默认实现不直接使用。</tag>
 				<tag name="return">应用死区后的三维输入值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

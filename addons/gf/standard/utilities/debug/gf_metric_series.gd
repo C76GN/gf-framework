@@ -93,10 +93,22 @@ func configure(metric_id: StringName, options: Dictionary = {}) -> GFMetricSerie
 		if not option_group.is_empty():
 			group = option_group
 	if options.has("visible"):
-		visible = GFVariantData.get_option_bool(options, "visible", visible)
+		visible = GFVariantData.get_option_bool(
+			options,
+			"visible",
+			visible
+		)
 	if options.has("max_samples"):
-		max_samples = GFVariantData.get_option_int(options, "max_samples", max_samples)
-	var metadata_value: Variant = GFVariantData.get_option_value(options, "metadata", null)
+		max_samples = GFVariantData.get_option_int(
+			options,
+			"max_samples",
+			max_samples
+		)
+	var metadata_value: Variant = GFVariantData.get_option_value(
+		options,
+		"metadata",
+		null
+	)
 	if metadata_value is Dictionary:
 		metadata = GFVariantData.to_dictionary(metadata_value)
 	return self
@@ -106,6 +118,8 @@ func configure(metric_id: StringName, options: Dictionary = {}) -> GFMetricSerie
 ## [br]
 ## @api public
 ## [br]
+## @since 3.23.0
+## [br]
 ## @param value: 采样值。
 ## [br]
 ## @param timestamp_seconds: 采样时间；小于 0 时使用当前运行时间。
@@ -113,18 +127,24 @@ func configure(metric_id: StringName, options: Dictionary = {}) -> GFMetricSerie
 ## @param sample_metadata: 单个采样的自定义元数据。
 ## [br]
 ## @schema sample_metadata: Dictionary[String, Variant]，单个采样的项目自定义元数据。
-func add_sample(value: float, timestamp_seconds: float = -1.0, sample_metadata: Dictionary = {}) -> void:
+func add_sample(
+	value: float,
+	timestamp_seconds: float = -1.0,
+	sample_metadata: Dictionary = {}
+) -> void:
 	if not _is_finite_float(value):
 		return
 	var timestamp: float = timestamp_seconds
 	if not _is_finite_float(timestamp) or timestamp < 0.0:
 		timestamp = float(Time.get_ticks_msec()) / 1000.0
 
-	_samples.append({
-		"value": value,
-		"timestamp_seconds": timestamp,
-		"metadata": sample_metadata.duplicate(true),
-	})
+	_samples.append(
+		{
+			"value": value,
+			"timestamp_seconds": timestamp,
+			"metadata": sample_metadata.duplicate(true),
+		}
+	)
 	_trim_samples()
 
 
@@ -175,7 +195,10 @@ func get_latest_value() -> float:
 ## [br]
 ## @return 最小采样值；没有采样时返回 0。
 func get_min_value() -> float:
-	return GFVariantData.get_option_float(_calculate_statistics(), "min_value")
+	return GFVariantData.get_option_float(
+		_calculate_statistics(),
+		"min_value"
+	)
 
 
 ## 获取最大采样值。
@@ -184,7 +207,10 @@ func get_min_value() -> float:
 ## [br]
 ## @return 最大采样值；没有采样时返回 0。
 func get_max_value() -> float:
-	return GFVariantData.get_option_float(_calculate_statistics(), "max_value")
+	return GFVariantData.get_option_float(
+		_calculate_statistics(),
+		"max_value"
+	)
 
 
 ## 获取平均采样值。
@@ -193,7 +219,10 @@ func get_max_value() -> float:
 ## [br]
 ## @return 平均采样值；没有采样时返回 0。
 func get_average_value() -> float:
-	return GFVariantData.get_option_float(_calculate_statistics(), "average_value")
+	return GFVariantData.get_option_float(
+		_calculate_statistics(),
+		"average_value"
+	)
 
 
 ## 获取归一化后的采样值。
@@ -227,6 +256,8 @@ func make_sparkline(width: int = 32) -> String:
 		GFVariantData.get_option_float(statistics, "min_value"),
 		GFVariantData.get_option_float(statistics, "max_value")
 	)
+
+
 ## 转换为 Dictionary。
 ## [br]
 ## @api public
@@ -255,7 +286,15 @@ func to_dict(include_samples: bool = false, sparkline_width: int = 32) -> Dictio
 		"min_value": min_value,
 		"max_value": max_value,
 		"average_value": GFVariantData.get_option_float(statistics, "average_value"),
-		"sparkline": _make_sparkline_for_range(sparkline_width, min_value, max_value) if sparkline_width > 0 and not _samples.is_empty() else "",
+		"sparkline": (
+			_make_sparkline_for_range(
+				sparkline_width,
+				min_value,
+				max_value
+			)
+			if sparkline_width > 0 and not _samples.is_empty()
+			else ""
+		),
 		"metadata": metadata.duplicate(true),
 	}
 	if include_samples:
@@ -290,16 +329,32 @@ func duplicate_series(include_samples: bool = true) -> GFMetricSeries:
 ## [br]
 ## @api private
 ## [br]
-func _make_sparkline_for_range(width: int, min_value: float, max_value: float) -> String:
+func _make_sparkline_for_range(
+	width: int,
+	min_value: float,
+	max_value: float
+) -> String:
 	# 范围仍来自全部保留采样，只为实际显示的尾段分配归一化值。
-	var start_index: int = maxi(_samples.size() - width, 0)
-	var normalized: PackedFloat32Array = _get_normalized_values_for_range(min_value, max_value, start_index)
+	var start_index: int = maxi(
+		_samples.size() - width,
+		0
+	)
+	var normalized: PackedFloat32Array = _get_normalized_values_for_range(
+		min_value,
+		max_value,
+		start_index
+	)
 	var output: PackedStringArray = PackedStringArray()
 	for index: int in range(normalized.size()):
 		var value: float = normalized[index]
-		var char_index: int = clampi(roundi(value * float(SPARKLINE_CHARACTERS.length() - 1)), 0, SPARKLINE_CHARACTERS.length() - 1)
+		var char_index: int = clampi(
+			roundi(value * float(SPARKLINE_CHARACTERS.length() - 1)),
+			0,
+			SPARKLINE_CHARACTERS.length() - 1
+		)
 		var _appended: bool = output.append(SPARKLINE_CHARACTERS.substr(char_index, 1))
 	return "".join(output)
+
 
 ## 移除最旧样本，直到数量不超过 max_samples。
 ## [br]
@@ -315,7 +370,11 @@ func _trim_samples() -> void:
 ## @api private
 ## [br]
 func _get_sample_value(sample: Dictionary) -> float:
-	return GFVariantData.get_option_float(sample, "value", 0.0)
+	return GFVariantData.get_option_float(
+		sample,
+		"value",
+		0.0
+	)
 
 
 ## 计算保留样本的最小值、最大值和算术平均值；空序列的三项均为零。
@@ -349,15 +408,26 @@ func _calculate_statistics() -> Dictionary:
 ## [br]
 ## @api private
 ## [br]
-func _get_normalized_values_for_range(min_value: float, max_value: float, start_index: int = 0) -> PackedFloat32Array:
+func _get_normalized_values_for_range(
+	min_value: float,
+	max_value: float,
+	start_index: int = 0
+) -> PackedFloat32Array:
 	var values: PackedFloat32Array = PackedFloat32Array()
 	var span: float = max_value - min_value
-	for index: int in range(start_index, _samples.size()):
+	for index: int in range(
+		start_index,
+		_samples.size()
+	):
 		if is_zero_approx(span):
 			var _appended: bool = values.append(0.5)
 		else:
 			var sample: Dictionary = _samples[index]
-			var normalized_value: float = clampf((_get_sample_value(sample) - min_value) / span, 0.0, 1.0)
+			var normalized_value: float = clampf(
+				(_get_sample_value(sample) - min_value) / span,
+				0.0,
+				1.0
+			)
 			var _appended: bool = values.append(normalized_value)
 	return values
 

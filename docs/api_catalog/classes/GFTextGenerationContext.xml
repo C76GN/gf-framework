@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTextGenerationContext" path="addons/gf/standard/foundation/text/gf_text_generation_context.gd" module="standard" extends="RefCounted" classDigest="bbc708501f242e6b757a652ab3ab9bfbce22e6a4a0970c153711af71f397314e">
+<class name="GFTextGenerationContext" path="addons/gf/standard/foundation/text/gf_text_generation_context.gd" module="standard" extends="RefCounted" classDigest="d6652f1d0f5efc3c2e57242a1f876c24e6f5097e86434af2a109e48124dbd9a2">
 	<description>GFTextGenerationContext: 安全的纯数据文本生成上下文。
 提供显式数据 scope、严格缺失检查、简单 token 替换、可选输出格式化、输出缓冲和预算诊断。
 token 只解析数据路径，不执行表达式、脚本或宿主对象方法。</description>
@@ -132,7 +132,7 @@ token 只解析数据路径，不执行表达式、脚本或宿主对象方法�
 			</tags>
 		</member>
 		<member kind="method" name="get_value">
-			<signature>func get_value(data_path: String, default_value: Variant = null, source_span: Variant = null) -&gt; Variant:</signature>
+			<signature>func get_value( data_path: String, default_value: Variant = null, source_span: Variant = null ) -&gt; Variant:</signature>
 			<description>读取路径值。</description>
 			<tags>
 				<tag name="api">public</tag>

@@ -18,6 +18,8 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
+## @since 4.4.0
+## [br]
 ## @param path: 输入路径。
 ## [br]
 ## @param fallback: 输入为空时返回的兜底路径。
@@ -25,7 +27,11 @@ extends RefCounted
 ## @param simplify: 是否调用 Godot simplify_path() 折叠 `.` 和 `..`。
 ## [br]
 ## @return 规范化后的路径。
-static func normalize_path(path: String, fallback: String = "", simplify: bool = true) -> String:
+static func normalize_path(
+	path: String,
+	fallback: String = "",
+	simplify: bool = true
+) -> String:
 	var normalized_path: String = path.strip_edges().replace("\\", "/")
 	if normalized_path.is_empty():
 		return fallback
@@ -38,6 +44,8 @@ static func normalize_path(path: String, fallback: String = "", simplify: bool =
 ## [br]
 ## @api public
 ## [br]
+## @since 4.4.0
+## [br]
 ## @param path: 输入路径，通常是 `res://`、`user://`、`uid://` 或相对路径。
 ## [br]
 ## @param fallback: 输入为空时返回的兜底路径。
@@ -45,13 +53,23 @@ static func normalize_path(path: String, fallback: String = "", simplify: bool =
 ## @param simplify: 是否调用 Godot simplify_path() 折叠 `.` 和 `..`。
 ## [br]
 ## @return 规范化后的资源路径文本。
-static func normalize_resource_path(path: String, fallback: String = "", simplify: bool = true) -> String:
-	return normalize_path(path, fallback, simplify)
+static func normalize_resource_path(
+	path: String,
+	fallback: String = "",
+	simplify: bool = true
+) -> String:
+	return normalize_path(
+		path,
+		fallback,
+		simplify
+	)
 
 
 ## 规范化根目录路径，并移除多余尾随斜杠。
 ## [br]
 ## @api public
+## [br]
+## @since 4.4.0
 ## [br]
 ## @param path: 输入根目录。
 ## [br]
@@ -60,10 +78,21 @@ static func normalize_resource_path(path: String, fallback: String = "", simplif
 ## @param simplify: 是否调用 Godot simplify_path() 折叠 `.` 和 `..`。
 ## [br]
 ## @return 规范化后的根目录路径。
-static func normalize_root_path(path: String, fallback: String = "", simplify: bool = true) -> String:
-	var normalized_path: String = normalize_resource_path(path, fallback, simplify)
+static func normalize_root_path(
+	path: String,
+	fallback: String = "",
+	simplify: bool = true
+) -> String:
+	var normalized_path: String = normalize_resource_path(
+		path,
+		fallback,
+		simplify
+	)
 	while normalized_path.ends_with("/") and not normalized_path.ends_with("://"):
-		normalized_path = normalized_path.substr(0, normalized_path.length() - 1)
+		normalized_path = normalized_path.substr(
+			0,
+			normalized_path.length() - 1
+		)
 	return normalized_path
 
 
@@ -79,7 +108,11 @@ static func normalize_root_path(path: String, fallback: String = "", simplify: b
 static func normalize_root_paths(paths: PackedStringArray, simplify: bool = true) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for path: String in paths:
-		var normalized_path: String = normalize_root_path(path, "", simplify)
+		var normalized_path: String = normalize_root_path(
+			path,
+			"",
+			simplify
+		)
 		if normalized_path.is_empty() or result.has(normalized_path):
 			continue
 		var _appended: bool = result.append(normalized_path)
@@ -153,10 +186,7 @@ static func is_path_excluded(path: String, excluded_paths: PackedStringArray) ->
 		var normalized_excluded: String = normalize_root_path(excluded_path)
 		if normalized_excluded.is_empty():
 			continue
-		if (
-			normalized_path == normalized_excluded
-			or normalized_path.begins_with(_descendant_prefix(normalized_excluded))
-		):
+		if (normalized_path == normalized_excluded or normalized_path.begins_with(_descendant_prefix(normalized_excluded))):
 			return true
 	return false
 

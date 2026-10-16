@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSpatialCanvas2D" path="addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_2d.gd" module="standard" extends="Control" classDigest="1adaa8d00a068a950aad9f88bdccff1d397f0566f34087793b4323df95eeba9f">
+<class name="GFSpatialCanvas2D" path="addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_2d.gd" module="standard" extends="Control" classDigest="c613e1ac1828402608b21f259a3755c7317b57395477cf83b9f3fc857b30a94f">
 	<description>GFSpatialCanvas2D: 有界运行时 2D 空间交互画布。
 统一管理画布视图、世界/画布/格子坐标转换、显式条目查询、稳定选择和项目校验的
 放置会话。项目仍拥有内容节点、占位与权限规则、业务命令、存档和网络同步。</description>
@@ -436,7 +436,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 			</tags>
 		</member>
 		<member kind="method" name="query_items_in_rect">
-			<signature>func query_items_in_rect( world_rect: Rect2, fully_contained: bool = false ) -&gt; PackedStringArray:</signature>
+			<signature>func query_items_in_rect(world_rect: Rect2, fully_contained: bool = false) -&gt; PackedStringArray:</signature>
 			<description>查询与世界矩形相交的条目。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -447,7 +447,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 			</tags>
 		</member>
 		<member kind="method" name="set_selection">
-			<signature>func set_selection( item_ids: PackedStringArray, mode: SelectionMode = SelectionMode.REPLACE ) -&gt; PackedStringArray:</signature>
+			<signature>func set_selection(item_ids: PackedStringArray, mode: SelectionMode = SelectionMode.REPLACE) -&gt; PackedStringArray:</signature>
 			<description>按模式更新选择。
 只接受已登记且可选的稳定 ID；容量只限制替换或新增，不截断减去候选。</description>
 			<tags>
@@ -459,7 +459,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 			</tags>
 		</member>
 		<member kind="method" name="select_point">
-			<signature>func select_point( canvas_position: Vector2, mode: SelectionMode = SelectionMode.REPLACE ) -&gt; PackedStringArray:</signature>
+			<signature>func select_point(canvas_position: Vector2, mode: SelectionMode = SelectionMode.REPLACE) -&gt; PackedStringArray:</signature>
 			<description>在画布坐标点选最高优先级条目。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -556,7 +556,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 			</tags>
 		</member>
 		<member kind="method" name="update_placement">
-			<signature>func update_placement( world_position: Vector2, options: Dictionary = {} ) -&gt; bool:</signature>
+			<signature>func update_placement(world_position: Vector2, options: Dictionary = {}) -&gt; bool:</signature>
 			<description>更新活动放置预览。</description>
 			<tags>
 				<tag name="api">public</tag>

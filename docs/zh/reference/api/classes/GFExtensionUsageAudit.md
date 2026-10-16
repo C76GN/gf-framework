@@ -30,9 +30,9 @@
 | 常量 | [`DEFAULT_MAX_TOTAL_BYTES`](#member-gfextensionusageaudit-constants-default_max_total_bytes) | `const DEFAULT_MAX_TOTAL_BYTES: int = 64 * 1024 * 1024` |
 | 常量 | [`DEFAULT_IGNORED_ROOTS`](#member-gfextensionusageaudit-constants-default_ignored_roots) | `const DEFAULT_IGNORED_ROOTS: Array[String] = [ 	"res://.godot", 	"res://.git", 	"res://.gf", 	"res://addons/gf", 	"res://build", 	"res://packages", ]` |
 | 常量 | [`TEXT_FILE_EXTENSIONS`](#member-gfextensionusageaudit-constants-text_file_extensions) | `const TEXT_FILE_EXTENSIONS: Array[String] = [ 	"cfg", 	"csv", 	"gd", 	"gdshader", 	"godot", 	"import", 	"json", 	"shader", 	"tscn", 	"tres", ]` |
-| 方法 | [`audit_disabled_extensions`](#member-gfextensionusageaudit-methods-audit_disabled_extensions) | `static func audit_disabled_extensions( manifests: Array[GFExtensionManifest], options: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`audit_disabled_extensions`](#member-gfextensionusageaudit-methods-audit_disabled_extensions) | `static func audit_disabled_extensions(manifests: Array[GFExtensionManifest], options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`find_references_to_root`](#member-gfextensionusageaudit-methods-find_references_to_root) | `static func find_references_to_root(root_path: String, options: Dictionary = {}) -> Array[Dictionary]:` |
-| 方法 | [`find_references_to_root_report`](#member-gfextensionusageaudit-methods-find_references_to_root_report) | `static func find_references_to_root_report( root_path: String, options: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`find_references_to_root_report`](#member-gfextensionusageaudit-methods-find_references_to_root_report) | `static func find_references_to_root_report(root_path: String, options: Dictionary = {}) -> Dictionary:` |
 
 ## 常量
 
@@ -259,7 +259,7 @@ const TEXT_FILE_EXTENSIONS: Array[String] = [
 - 首次版本：`3.17.0`
 
 ```gdscript
-static func audit_disabled_extensions( manifests: Array[GFExtensionManifest], options: Dictionary = {} ) -> Dictionary:
+static func audit_disabled_extensions(manifests: Array[GFExtensionManifest], options: Dictionary = {}) -> Dictionary:
 ```
 
 检查一组禁用扩展是否仍被项目文件直接引用。
@@ -313,7 +313,7 @@ static func find_references_to_root(root_path: String, options: Dictionary = {})
 - 首次版本：`11.0.0`
 
 ```gdscript
-static func find_references_to_root_report( root_path: String, options: Dictionary = {} ) -> Dictionary:
+static func find_references_to_root_report(root_path: String, options: Dictionary = {}) -> Dictionary:
 ```
 
 查找项目文件中对指定扩展根目录的直接引用，并返回扫描完整性报告。

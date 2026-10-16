@@ -59,7 +59,11 @@ extends Resource
 ## [br]
 ## @return: 有事件 ID、路径或片段时返回 true。
 func has_request() -> bool:
-	return event_id != &"" or not path.is_empty() or clip != null
+	return (
+		event_id != &""
+		or not path.is_empty()
+		or clip != null
+	)
 
 
 ## 转换为请求选项。

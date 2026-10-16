@@ -49,11 +49,11 @@
 | 方法 | [`record_phase`](#member-gfoperationdiagnosticsutility-methods-record_phase) | `func record_phase( operation_id: StringName, phase_id: StringName, duration_ms: float, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`record_phase_from_ticks`](#member-gfoperationdiagnosticsutility-methods-record_phase_from_ticks) | `func record_phase_from_ticks( operation_id: StringName, phase_id: StringName, started_ticks_usec: int, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`record_state_snapshot`](#member-gfoperationdiagnosticsutility-methods-record_state_snapshot) | `func record_state_snapshot( operation_id: StringName, state_id: StringName, status: StringName = STATE_RUNNING, options: Dictionary = {} ) -> Dictionary:` |
-| 方法 | [`finish_operation`](#member-gfoperationdiagnosticsutility-methods-finish_operation) | `func finish_operation(operation_id: StringName, success: bool = true, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`finish_operation`](#member-gfoperationdiagnosticsutility-methods-finish_operation) | `func finish_operation( operation_id: StringName, success: bool = true, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`record_incident`](#member-gfoperationdiagnosticsutility-methods-record_incident) | `func record_incident( severity: StringName, code: StringName, message: String = "", options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`record_async_snapshot`](#member-gfoperationdiagnosticsutility-methods-record_async_snapshot) | `func record_async_snapshot( operation_type: StringName, snapshot: Dictionary, options: Dictionary = {} ) -> Dictionary:` |
-| 方法 | [`record_sample`](#member-gfoperationdiagnosticsutility-methods-record_sample) | `func record_sample(sample_id: StringName, duration_ms: float, options: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`record_sample_from_ticks`](#member-gfoperationdiagnosticsutility-methods-record_sample_from_ticks) | `func record_sample_from_ticks(sample_id: StringName, started_ticks_usec: int, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`record_sample`](#member-gfoperationdiagnosticsutility-methods-record_sample) | `func record_sample( sample_id: StringName, duration_ms: float, options: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`record_sample_from_ticks`](#member-gfoperationdiagnosticsutility-methods-record_sample_from_ticks) | `func record_sample_from_ticks( sample_id: StringName, started_ticks_usec: int, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`clear_sample_stats`](#member-gfoperationdiagnosticsutility-methods-clear_sample_stats) | `func clear_sample_stats(sample_id: StringName = &"") -> int:` |
 | 方法 | [`has_operation`](#member-gfoperationdiagnosticsutility-methods-has_operation) | `func has_operation(operation_id: StringName) -> bool:` |
 | 方法 | [`get_operation`](#member-gfoperationdiagnosticsutility-methods-get_operation) | `func get_operation(operation_id: StringName) -> Dictionary:` |
@@ -603,7 +603,7 @@ func record_state_snapshot( operation_id: StringName, state_id: StringName, stat
 - 首次版本：`7.0.0`
 
 ```gdscript
-func finish_operation(operation_id: StringName, success: bool = true, options: Dictionary = {}) -> Dictionary:
+func finish_operation( operation_id: StringName, success: bool = true, options: Dictionary = {} ) -> Dictionary:
 ```
 
 结束一个操作并写入最终状态。
@@ -689,7 +689,7 @@ func record_async_snapshot( operation_type: StringName, snapshot: Dictionary, op
 - 首次版本：`8.0.0`
 
 ```gdscript
-func record_sample(sample_id: StringName, duration_ms: float, options: Dictionary = {}) -> Dictionary:
+func record_sample( sample_id: StringName, duration_ms: float, options: Dictionary = {} ) -> Dictionary:
 ```
 
 记录一次命名耗时采样并更新聚合统计。 采样统计适合记录高频、短生命周期或不需要完整 begin/finish 生命周期的诊断点。 GF 只聚合调用次数、耗时和 metadata，不解释 sample_id 的业务含义。
@@ -717,7 +717,7 @@ func record_sample(sample_id: StringName, duration_ms: float, options: Dictionar
 - 首次版本：`8.0.0`
 
 ```gdscript
-func record_sample_from_ticks(sample_id: StringName, started_ticks_usec: int, options: Dictionary = {}) -> Dictionary:
+func record_sample_from_ticks( sample_id: StringName, started_ticks_usec: int, options: Dictionary = {} ) -> Dictionary:
 ```
 
 使用 Godot tick 起点记录一次命名耗时采样。

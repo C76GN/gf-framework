@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigPipelineCommitStage" path="addons/gf/tools/config_pipeline/gf_config_pipeline_commit_stage.gd" module="tools" extends="RefCounted" classDigest="b1fe45cbe966e5c713a18be40c2258bd747eefd39fbd5d10b5c18588c0575d9f">
+<class name="GFConfigPipelineCommitStage" path="addons/gf/tools/config_pipeline/gf_config_pipeline_commit_stage.gd" module="tools" extends="RefCounted" classDigest="c41d3586cbd51096b892ea7ae0066c8eecb7e98083a1c9c5b98a5230aebadc01">
 	<description>GFConfigPipelineCommitStage: Config Pipeline 的文件提交事务阶段。
 将 Config Pipeline 的 ResourceSaver 等专用写入器接到框架级
 GFArtifactWriteTransaction。该阶段不复制事务实现、不解释产物内容，
@@ -32,7 +32,7 @@ GFArtifactWriteTransaction。该阶段不复制事务实现、不解释产物内
 	<properties />
 	<methods>
 		<member kind="method" name="begin">
-			<signature>func begin( paths: PackedStringArray, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<signature>func begin(paths: PackedStringArray, options: Dictionary = {}) -&gt; Dictionary:</signature>
 			<description>捕获待写入路径的事务前状态。</description>
 			<tags>
 				<tag name="api">public</tag>

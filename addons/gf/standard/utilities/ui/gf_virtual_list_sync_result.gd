@@ -200,7 +200,11 @@ var _error: String = ""
 ## [br]
 ## @return 完整、无变化或按显式预算截断完成时返回 true。
 func is_successful() -> bool:
-	return _status in [STATUS_SYNCED, STATUS_UNCHANGED, STATUS_TRUNCATED]
+	return _status in [
+		STATUS_SYNCED,
+		STATUS_UNCHANGED,
+		STATUS_TRUNCATED,
+	]
 
 
 ## 获取稳定同步状态。
@@ -440,18 +444,62 @@ func to_dict() -> Dictionary:
 func configure_for_framework(data: Dictionary) -> bool:
 	if _configured:
 		return false
-	var status: StringName = GFVariantData.get_option_string_name(data, "status", STATUS_UNBOUND)
+	var status: StringName = GFVariantData.get_option_string_name(
+		data,
+		"status",
+		STATUS_UNBOUND
+	)
 	if not _is_known_status(status):
 		return false
 	if (
-		not _has_bounded_json_integer(data, "layout_revision", 0, 0)
-		or not _has_bounded_json_integer(data, "data_revision", 0, 0)
-		or not _has_bounded_json_integer(data, "pooled_count", 0, 0)
-		or not _has_bounded_json_integer(data, "created_count", 0, 0)
-		or not _has_bounded_json_integer(data, "reused_count", 0, 0)
-		or not _has_bounded_json_integer(data, "released_count", 0, 0)
-		or not _has_bounded_json_integer(data, "measured_count", 0, 0)
-		or not _has_bounded_json_integer(data, "error_index", -1, -1)
+		not _has_bounded_json_integer(
+			data,
+			"layout_revision",
+			0,
+			0
+		)
+		or not _has_bounded_json_integer(
+			data,
+			"data_revision",
+			0,
+			0
+		)
+		or not _has_bounded_json_integer(
+			data,
+			"pooled_count",
+			0,
+			0
+		)
+		or not _has_bounded_json_integer(
+			data,
+			"created_count",
+			0,
+			0
+		)
+		or not _has_bounded_json_integer(
+			data,
+			"reused_count",
+			0,
+			0
+		)
+		or not _has_bounded_json_integer(
+			data,
+			"released_count",
+			0,
+			0
+		)
+		or not _has_bounded_json_integer(
+			data,
+			"measured_count",
+			0,
+			0
+		)
+		or not _has_bounded_json_integer(
+			data,
+			"error_index",
+			-1,
+			-1
+		)
 	):
 		return false
 	_configured = true
@@ -469,7 +517,11 @@ func configure_for_framework(data: Dictionary) -> bool:
 	var anchor_adjustment: float = GFVariantData.get_option_float(data, "anchor_adjustment")
 	_anchor_adjustment = anchor_adjustment if is_finite(anchor_adjustment) else 0.0
 	_truncated = GFVariantData.get_option_bool(data, "truncated")
-	_error_index = GFVariantData.get_option_int(data, "error_index", -1)
+	_error_index = GFVariantData.get_option_int(
+		data,
+		"error_index",
+		-1
+	)
 	_error = GFVariantData.get_option_string(data, "error").left(_MAX_ERROR_LENGTH)
 	return true
 
@@ -480,19 +532,22 @@ func configure_for_framework(data: Dictionary) -> bool:
 ## [br]
 ## @api private
 func _is_known_status(status: StringName) -> bool:
-	return status in [
-		STATUS_SYNCED,
-		STATUS_UNCHANGED,
-		STATUS_DEFERRED,
-		STATUS_TRUNCATED,
-		STATUS_UNBOUND,
-		STATUS_DISPOSED,
-		STATUS_INVALID_IDENTITY,
-		STATUS_DUPLICATE_IDENTITY,
-		STATUS_INVALID_REUSE_KEY,
-		STATUS_FACTORY_FAILED,
-		STATUS_BIND_FAILED,
-	]
+	return (
+		status
+		in [
+			STATUS_SYNCED,
+			STATUS_UNCHANGED,
+			STATUS_DEFERRED,
+			STATUS_TRUNCATED,
+			STATUS_UNBOUND,
+			STATUS_DISPOSED,
+			STATUS_INVALID_IDENTITY,
+			STATUS_DUPLICATE_IDENTITY,
+			STATUS_INVALID_REUSE_KEY,
+			STATUS_FACTORY_FAILED,
+			STATUS_BIND_FAILED,
+		]
+	)
 
 
 ## 接受范围内的 int 或有限整数值 float，并限制在 JSON 安全整数上界内。
@@ -504,7 +559,11 @@ func _has_bounded_json_integer(
 	default_value: int,
 	minimum_value: int
 ) -> bool:
-	var value: Variant = GFVariantData.get_option_value(data, key, default_value)
+	var value: Variant = GFVariantData.get_option_value(
+		data,
+		key,
+		default_value
+	)
 	if value is int:
 		var integer_value: int = value
 		return integer_value >= minimum_value and integer_value <= _MAX_JSON_SAFE_INTEGER
@@ -523,7 +582,11 @@ func _has_bounded_json_integer(
 ## [br]
 ## @api private
 func _get_vector_2i(data: Dictionary, key: String) -> Vector2i:
-	var value: Variant = GFVariantData.get_option_value(data, key, Vector2i.ZERO)
+	var value: Variant = GFVariantData.get_option_value(
+		data,
+		key,
+		Vector2i.ZERO
+	)
 	if value is Vector2i:
 		var vector: Vector2i = value
 		return vector
@@ -540,7 +603,11 @@ func _get_vector_2i(data: Dictionary, key: String) -> Vector2i:
 ## [br]
 ## @api private
 func _get_packed_int_32_array(data: Dictionary, key: String) -> PackedInt32Array:
-	var value: Variant = GFVariantData.get_option_value(data, key, PackedInt32Array())
+	var value: Variant = GFVariantData.get_option_value(
+		data,
+		key,
+		PackedInt32Array()
+	)
 	if value is PackedInt32Array:
 		var packed_values: PackedInt32Array = value
 		return packed_values.duplicate()
@@ -569,7 +636,4 @@ func _get_packed_int_32_array(data: Dictionary, key: String) -> PackedInt32Array
 ## [br]
 ## @api private
 func _range_to_json_dictionary(range_value: Vector2i) -> Dictionary:
-	return {
-		"start": range_value.x,
-		"end_exclusive": range_value.y,
-	}
+	return { "start": range_value.x, "end_exclusive": range_value.y, }

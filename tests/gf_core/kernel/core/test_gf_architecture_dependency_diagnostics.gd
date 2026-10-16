@@ -1,7 +1,6 @@
 ## 测试 GFArchitecture 的声明式依赖诊断报告。
 extends GutTest
 
-
 const GF_VARIANT_ACCESS = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
@@ -19,10 +18,25 @@ func test_dependency_diagnostics_reads_only_four_typed_hooks() -> void:
 
 	var report: Dictionary = arch.get_dependency_diagnostics()
 
-	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "所有声明依赖已注册时诊断应通过。")
-	assert_eq(GF_VARIANT_ACCESS.get_option_array(report, "missing_dependencies").size(), 0, "不应报告缺失依赖。")
-	assert_eq(GF_VARIANT_ACCESS.get_option_array(report, "resolved_dependencies").size(), 4, "四类 typed hook 都应成为唯一声明来源。")
-	assert_eq(factory_provider.call_count, 0, "Factory 依赖诊断只能校验 binding，不得实例化对象。")
+	assert_true(
+		GF_VARIANT_ACCESS.get_option_bool(report, "ok"),
+		"所有声明依赖已注册时诊断应通过。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_array(report, "missing_dependencies").size(),
+		0,
+		"不应报告缺失依赖。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_array(report, "resolved_dependencies").size(),
+		4,
+		"四类 typed hook 都应成为唯一声明来源。"
+	)
+	assert_eq(
+		factory_provider.call_count,
+		0,
+		"Factory 依赖诊断只能校验 binding，不得实例化对象。"
+	)
 	arch.dispose()
 
 
@@ -33,9 +47,20 @@ func test_dependency_diagnostics_reports_missing_dependencies() -> void:
 	var report: Dictionary = arch.get_dependency_diagnostics()
 	var issue_counts_by_kind: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(report, "issue_counts_by_kind")
 
-	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "缺失依赖时诊断不应通过。")
-	assert_eq(GF_VARIANT_ACCESS.get_option_array(report, "missing_dependencies").size(), 1, "应报告一个缺失依赖。")
-	assert_eq(GF_VARIANT_ACCESS.get_option_int(issue_counts_by_kind, "missing_model_dependency"), 1, "问题类别应标记缺失 Model。")
+	assert_false(
+		GF_VARIANT_ACCESS.get_option_bool(report, "ok"),
+		"缺失依赖时诊断不应通过。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_array(report, "missing_dependencies").size(),
+		1,
+		"应报告一个缺失依赖。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_int(issue_counts_by_kind, "missing_model_dependency"),
+		1,
+		"问题类别应标记缺失 Model。"
+	)
 	arch.dispose()
 
 
@@ -50,8 +75,15 @@ func test_dependency_diagnostics_can_resolve_parent_dependencies() -> void:
 	var resolved: Array = GF_VARIANT_ACCESS.get_option_array(report, "resolved_dependencies")
 	var first_dependency: Dictionary = GF_VARIANT_ACCESS.as_dictionary(resolved[0])
 
-	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "默认允许父级回退时，父级依赖应视为已解析。")
-	assert_eq(GF_VARIANT_ACCESS.get_option_string(first_dependency, "scope"), "parent", "父级解析应标记 scope。")
+	assert_true(
+		GF_VARIANT_ACCESS.get_option_bool(report, "ok"),
+		"默认允许父级回退时，父级依赖应视为已解析。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string(first_dependency, "scope"),
+		"parent",
+		"父级解析应标记 scope。"
+	)
 	child_arch.dispose()
 	parent_arch.dispose()
 
@@ -64,38 +96,44 @@ func test_dependency_diagnostics_rejects_dependency_from_parent_that_is_not_read
 
 	var report: Dictionary = child_arch.get_dependency_diagnostics()
 
-	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "未 READY 父架构不能满足子架构依赖。")
-	assert_eq(GF_VARIANT_ACCESS.get_option_array(report, "missing_dependencies").size(), 1, "未 READY parent 依赖应保持缺失。")
+	assert_false(
+		GF_VARIANT_ACCESS.get_option_bool(report, "ok"),
+		"未 READY 父架构不能满足子架构依赖。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_array(report, "missing_dependencies").size(),
+		1,
+		"未 READY parent 依赖应保持缺失。"
+	)
 	child_arch.dispose()
 	parent_arch.dispose()
 
 
 func test_dependency_diagnostics_treats_corrupt_registry_entries_as_hard_errors() -> void:
 	var arch: GFArchitecture = GFArchitecture.new()
-	var invalid_item: InvalidHookItemDiagnosticObject = (
-		InvalidHookItemDiagnosticObject.new()
-	)
-	var invalid_return: InvalidHookReturnDiagnosticObject = (
-		InvalidHookReturnDiagnosticObject.new()
-	)
-	arch._system_registry.instances[InvalidHookItemDiagnosticObject] = (
-		invalid_item
-	)
-	arch._system_registry.instances[InvalidHookReturnDiagnosticObject] = (
-		invalid_return
-	)
+	var invalid_item: InvalidHookItemDiagnosticObject = InvalidHookItemDiagnosticObject.new()
+	var invalid_return: InvalidHookReturnDiagnosticObject = InvalidHookReturnDiagnosticObject.new()
+	arch._system_registry.instances[InvalidHookItemDiagnosticObject] = (invalid_item)
+	arch._system_registry.instances[InvalidHookReturnDiagnosticObject] = (invalid_return)
 
 	var report: Dictionary = arch.get_dependency_diagnostics()
 	var issue_counts_by_kind: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(report, "issue_counts_by_kind")
 
-	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "损坏的注册表条目必须 hard fail。")
-	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "healthy"), "损坏的注册表条目应让报告不健康。")
-	assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "error_count"), 2, "两个损坏条目都应计入 error。")
+	assert_false(
+		GF_VARIANT_ACCESS.get_option_bool(report, "ok"),
+		"损坏的注册表条目必须 hard fail。"
+	)
+	assert_false(
+		GF_VARIANT_ACCESS.get_option_bool(report, "healthy"),
+		"损坏的注册表条目应让报告不健康。"
+	)
 	assert_eq(
-		GF_VARIANT_ACCESS.get_option_int(
-			issue_counts_by_kind,
-			"invalid_registration_instance"
-		),
+		GF_VARIANT_ACCESS.get_option_int(report, "error_count"),
+		2,
+		"两个损坏条目都应计入 error。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_int(issue_counts_by_kind, "invalid_registration_instance"),
 		2,
 		"非 GFSystem 实例应在强类型注册表边界被拒绝。"
 	)
@@ -108,19 +146,23 @@ func test_stale_local_alias_blocks_ready_parent_fallback_without_output_side_eff
 	assert_true(await parent_arch.init())
 	var child_arch: GFArchitecture = GFArchitecture.new(parent_arch)
 	await child_arch.register_system_instance(UtilityDependentSystem.new())
-	child_arch._utility_registry.aliases[DiagnosticUtility] = (
-		MissingDiagnosticUtility
-	)
+	child_arch._utility_registry.aliases[DiagnosticUtility] = (MissingDiagnosticUtility)
 
 	var report: Dictionary = child_arch.get_dependency_diagnostics()
-	var issue_counts: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(
-		report,
-		"issue_counts_by_kind"
-	)
+	var issue_counts: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(report, "issue_counts_by_kind")
 
-	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "本地 stale alias 必须阻断 READY parent fallback。")
-	assert_eq(GF_VARIANT_ACCESS.get_option_int(issue_counts, "stale_alias_dependency"), 1)
-	assert_eq(GF_VARIANT_ACCESS.get_option_array(report, "resolved_dependencies").size(), 0)
+	assert_false(
+		GF_VARIANT_ACCESS.get_option_bool(report, "ok"),
+		"本地 stale alias 必须阻断 READY parent fallback。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_int(issue_counts, "stale_alias_dependency"),
+		1
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_array(report, "resolved_dependencies").size(),
+		0
+	)
 	child_arch.dispose()
 	parent_arch.dispose()
 
@@ -135,23 +177,27 @@ func test_multiple_local_assignable_matches_block_ready_parent_fallback_without_
 	await child_arch.register_system_instance(UtilityDependentSystem.new())
 
 	var report: Dictionary = child_arch.get_dependency_diagnostics()
-	var issue_counts: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(
-		report,
-		"issue_counts_by_kind"
-	)
+	var issue_counts: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(report, "issue_counts_by_kind")
 
-	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "多个本地 assignable 匹配必须阻断 parent fallback。")
-	assert_eq(GF_VARIANT_ACCESS.get_option_int(issue_counts, "ambiguous_dependency"), 1)
-	assert_eq(GF_VARIANT_ACCESS.get_option_array(report, "resolved_dependencies").size(), 0)
+	assert_false(
+		GF_VARIANT_ACCESS.get_option_bool(report, "ok"),
+		"多个本地 assignable 匹配必须阻断 parent fallback。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_int(issue_counts, "ambiguous_dependency"),
+		1
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_array(report, "resolved_dependencies").size(),
+		0
+	)
 	child_arch.dispose()
 	parent_arch.dispose()
 
 
 func test_factory_dependency_requires_exact_binding_without_instantiation() -> void:
 	var arch: GFArchitecture = GFArchitecture.new()
-	var derived_provider: CountingDerivedFactoryProvider = (
-		CountingDerivedFactoryProvider.new()
-	)
+	var derived_provider: CountingDerivedFactoryProvider = CountingDerivedFactoryProvider.new()
 	var exact_provider: CountingFactoryProvider = CountingFactoryProvider.new()
 	assert_true(
 		arch.register_factory(
@@ -162,7 +208,10 @@ func test_factory_dependency_requires_exact_binding_without_instantiation() -> v
 	await arch.register_system_instance(FactoryDependentSystem.new())
 
 	var missing_report: Dictionary = arch.get_dependency_diagnostics()
-	assert_false(GF_VARIANT_ACCESS.get_option_bool(missing_report, "ok"), "可赋值 Factory binding 不得冒充 exact binding。")
+	assert_false(
+		GF_VARIANT_ACCESS.get_option_bool(missing_report, "ok"),
+		"可赋值 Factory binding 不得冒充 exact binding。"
+	)
 	assert_eq(derived_provider.call_count, 0)
 
 	assert_true(
@@ -172,9 +221,16 @@ func test_factory_dependency_requires_exact_binding_without_instantiation() -> v
 		)
 	)
 	var resolved_report: Dictionary = arch.get_dependency_diagnostics()
-	assert_true(GF_VARIANT_ACCESS.get_option_bool(resolved_report, "ok"), "exact Factory binding 应满足声明。")
+	assert_true(
+		GF_VARIANT_ACCESS.get_option_bool(resolved_report, "ok"),
+		"exact Factory binding 应满足声明。"
+	)
 	assert_eq(derived_provider.call_count, 0)
-	assert_eq(exact_provider.call_count, 0, "Factory 诊断不得调用 exact provider。")
+	assert_eq(
+		exact_provider.call_count,
+		0,
+		"Factory 诊断不得调用 exact provider。"
+	)
 	arch.dispose()
 
 
@@ -191,21 +247,29 @@ func test_parent_factory_dependency_requires_ready_owner_without_instantiation()
 	await child_arch.register_system_instance(FactoryDependentSystem.new())
 
 	var unavailable_report: Dictionary = child_arch.get_dependency_diagnostics()
-	assert_false(GF_VARIANT_ACCESS.get_option_bool(unavailable_report, "ok"), "未 READY parent 的 Factory binding 不可用。")
+	assert_false(
+		GF_VARIANT_ACCESS.get_option_bool(unavailable_report, "ok"),
+		"未 READY parent 的 Factory binding 不可用。"
+	)
 	assert_eq(provider.call_count, 0)
 
 	assert_true(await parent_arch.init())
 	var available_report: Dictionary = child_arch.get_dependency_diagnostics()
-	var resolved: Array = GF_VARIANT_ACCESS.get_option_array(
-		available_report,
-		"resolved_dependencies"
+	var resolved: Array = GF_VARIANT_ACCESS.get_option_array(available_report, "resolved_dependencies")
+	var first_dependency: Dictionary = GF_VARIANT_ACCESS.as_dictionary(resolved[0])
+	assert_true(
+		GF_VARIANT_ACCESS.get_option_bool(available_report, "ok"),
+		"READY parent 的 exact Factory binding 应满足声明。"
 	)
-	var first_dependency: Dictionary = GF_VARIANT_ACCESS.as_dictionary(
-		resolved[0]
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string(first_dependency, "scope"),
+		"parent"
 	)
-	assert_true(GF_VARIANT_ACCESS.get_option_bool(available_report, "ok"), "READY parent 的 exact Factory binding 应满足声明。")
-	assert_eq(GF_VARIANT_ACCESS.get_option_string(first_dependency, "scope"), "parent")
-	assert_eq(provider.call_count, 0, "父级 Factory availability 校验不得实例化对象。")
+	assert_eq(
+		provider.call_count,
+		0,
+		"父级 Factory availability 校验不得实例化对象。"
+	)
 	child_arch.dispose()
 	parent_arch.dispose()
 
@@ -236,17 +300,39 @@ func test_binding_diagnostics_reports_registries_aliases_factories_and_parent_ch
 	var parent_entry: Dictionary = GF_VARIANT_ACCESS.as_dictionary(parent_chain[0])
 	var parent_counts: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(parent_entry, "registry_counts")
 
-	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "有效绑定图诊断应通过。")
-	assert_eq(GF_VARIANT_ACCESS.get_option_int(counts, "utilities"), 1, "诊断应统计本地 Utility。")
-	assert_eq(GF_VARIANT_ACCESS.get_option_int(counts, "factories"), 1, "诊断应统计工厂绑定。")
-	assert_eq(GF_VARIANT_ACCESS.get_option_int(counts, "aliases"), 1, "诊断应统计别名。")
-	assert_true(GF_VARIANT_ACCESS.get_option_bool(first_alias, "target_registered"), "有效别名应报告目标已注册。")
+	assert_true(
+		GF_VARIANT_ACCESS.get_option_bool(report, "ok"),
+		"有效绑定图诊断应通过。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_int(counts, "utilities"),
+		1,
+		"诊断应统计本地 Utility。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_int(counts, "factories"),
+		1,
+		"诊断应统计工厂绑定。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_int(counts, "aliases"),
+		1,
+		"诊断应统计别名。"
+	)
+	assert_true(
+		GF_VARIANT_ACCESS.get_option_bool(first_alias, "target_registered"),
+		"有效别名应报告目标已注册。"
+	)
 	assert_eq(
 		GF_VARIANT_ACCESS.get_option_string(first_factory, "lifetime_name"),
 		"singleton",
 		"工厂诊断应报告生命周期。"
 	)
-	assert_eq(GF_VARIANT_ACCESS.get_option_int(parent_counts, "models"), 1, "父级链摘要应报告父架构 Model。")
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_int(parent_counts, "models"),
+		1,
+		"父级链摘要应报告父架构 Model。"
+	)
 	child_arch.dispose()
 	parent_arch.dispose()
 
@@ -306,13 +392,16 @@ class CompleteDiagnosticSystem extends GFSystem:
 		var models: Array[Script] = [DiagnosticModel]
 		return models
 
+
 	func get_required_systems() -> Array[Script]:
 		var systems: Array[Script] = [DiagnosticDependencySystem]
 		return systems
 
+
 	func get_required_utilities() -> Array[Script]:
 		var utilities: Array[Script] = [DiagnosticUtility]
 		return utilities
+
 
 	func get_required_factories() -> Array[Script]:
 		var factories: Array[Script] = [DiagnosticFactoryObject]

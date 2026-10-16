@@ -61,7 +61,11 @@ func get_adjacent_scene_paths() -> PackedStringArray:
 	for raw_path: String in adjacent_scene_paths:
 		var identity: GFResourceIdentity = _make_scene_identity(raw_path)
 		var path: String = _get_identity_scene_path(identity)
-		if path.is_empty() or identity.cache_key.is_empty() or identity.cache_key == source_cache_key:
+		if (
+			path.is_empty()
+			or identity.cache_key.is_empty()
+			or identity.cache_key == source_cache_key
+		):
 			continue
 		if _paths_have_cache_key(result, identity.cache_key):
 			continue
@@ -128,7 +132,12 @@ static func _normalize_scene_path(raw_path: String) -> String:
 ## @api private
 ## [br]
 static func _make_scene_identity(raw_path: String) -> GFResourceIdentity:
-	return GFResourceIdentity.from_path(raw_path, &"", "PackedScene", { "check_exists": false })
+	return GFResourceIdentity.from_path(
+		raw_path,
+		&"",
+		"PackedScene",
+		{ "check_exists": false }
+	)
 
 
 ## 优先读取身份规范路径，没有规范路径时返回原始路径。

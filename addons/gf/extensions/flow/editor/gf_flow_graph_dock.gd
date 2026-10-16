@@ -32,20 +32,25 @@ enum _ClipboardOperation {
 ## 编辑器流程图工具使用的默认布局选项常量。
 ## [br]
 ## @api private
-const _DEFAULT_LAYOUT_OPTIONS: Dictionary = {
-	"x_spacing": 280.0,
-	"y_spacing": 160.0,
-}
+const _DEFAULT_LAYOUT_OPTIONS: Dictionary = { "x_spacing": 280.0, "y_spacing": 160.0, }
 
 ## 编辑器流程图工具使用的默认节点颜色常量。
 ## [br]
 ## @api private
-const _DEFAULT_NODE_COLOR: Color = Color(0.52, 0.68, 0.92)
+const _DEFAULT_NODE_COLOR: Color = Color(
+	0.52,
+	0.68,
+	0.92
+)
 
 ## 编辑器流程图工具使用的执行端口颜色常量。
 ## [br]
 ## @api private
-const _EXECUTION_PORT_COLOR: Color = Color(0.95, 0.78, 0.38)
+const _EXECUTION_PORT_COLOR: Color = Color(
+	0.95,
+	0.78,
+	0.38
+)
 
 ## 编辑器流程图工具使用的侧栏面板最小宽度常量。
 ## [br]
@@ -409,7 +414,15 @@ func set_graph(graph: GFFlowGraph, path: String = "") -> void:
 	_move_graph = null
 	_last_edit_report.clear()
 	_graph = graph
-	var candidate_path: String = path if not path.is_empty() else (graph.resource_path if graph != null else "")
+	var candidate_path: String = (
+		path
+		if not path.is_empty()
+		else (
+			graph.resource_path
+			if graph != null
+			else ""
+		)
+	)
 	_graph_path = candidate_path if candidate_path.is_empty() or _is_project_resource_path(candidate_path) else ""
 	if _path_edit != null:
 		_path_edit.text = _graph_path
@@ -512,21 +525,52 @@ func accept_flow_edit_result(command: GFFlowGraphEditCommand) -> void:
 ## [br]
 ## @api private
 func _can_edit() -> bool:
-	return _graph != null and is_inside_tree() and not is_queued_for_deletion() and _editor_context != null and is_instance_valid(_editor_context.undo_manager) and _history_binding_is_available() and not _has_pending_recovery() and not _history_operation_is_busy() and (_history_state == null or not _history_state.is_blocked())
+	return (
+		_graph != null
+		and is_inside_tree()
+		and not is_queued_for_deletion()
+		and _editor_context != null
+		and is_instance_valid(_editor_context.undo_manager)
+		and _history_binding_is_available()
+		and not _has_pending_recovery()
+		and not _history_operation_is_busy()
+		and (
+			_history_state == null
+			or not _history_state.is_blocked()
+		)
+	)
 
 
 ## 保存当前完整内存图不创建历史动作；失配允许保存，半提交补偿和清除回调期间禁止保存。
 ## [br]
 ## @api private
 func _can_save() -> bool:
-	return _graph != null and is_inside_tree() and not is_queued_for_deletion() and _editor_context != null and is_instance_valid(_editor_context.undo_manager) and _history_binding_is_available() and not _has_pending_recovery() and not _history_operation_is_busy()
+	return (
+		_graph != null
+		and is_inside_tree()
+		and not is_queued_for_deletion()
+		and _editor_context != null
+		and is_instance_valid(_editor_context.undo_manager)
+		and _history_binding_is_available()
+		and not _has_pending_recovery()
+		and not _history_operation_is_busy()
+	)
 
 
 ## 原生回调尚未结束或共享清除在途时不能读取可能半提交的图；静止失配不影响复制和保存。
 ## [br]
 ## @api private
 func _history_operation_is_busy() -> bool:
-	return _history_reset_busy or (_history_state != null and GFVariantData.get_option_bool(_history_state.get_status(), "busy"))
+	return (
+		_history_reset_busy
+		or (
+			_history_state != null
+			and GFVariantData.get_option_bool(
+				_history_state.get_status(),
+				"busy"
+			)
+		)
+	)
 
 
 ## 读取真正待补偿命令；原生历史任务可以来自共享该历史的另一个页面。
@@ -534,7 +578,10 @@ func _history_operation_is_busy() -> bool:
 ## @api private
 func _get_recovery_command() -> GFFlowGraphEditCommand:
 	if _recovery_command != null:
-		var transaction: Dictionary = GFVariantData.get_option_dictionary(_recovery_command.get_flow_edit_result(), "transaction")
+		var transaction: Dictionary = GFVariantData.get_option_dictionary(
+			_recovery_command.get_flow_edit_result(),
+			"transaction"
+		)
 		if GFVariantData.get_option_bool(transaction, "recovery_required"):
 			return _recovery_command
 		_recovery_command = null
@@ -547,7 +594,10 @@ func _get_recovery_command() -> GFFlowGraphEditCommand:
 func _has_pending_recovery() -> bool:
 	if _get_recovery_command() != null:
 		return true
-	return _history_state != null and GFVariantData.get_option_bool(_history_state.get_status(), "compensation_required")
+	return _history_state != null and GFVariantData.get_option_bool(
+		_history_state.get_status(),
+		"compensation_required"
+	)
 
 
 ## 实际原生宿主必须具备可核实的当前共享状态；普通 Object 继续沿用原提交能力。
@@ -558,13 +608,21 @@ func _history_binding_is_available() -> bool:
 		return _history_state == null
 	if not _editor_context.undo_manager is EditorUndoRedoManager:
 		return _history_state == null
-	if _history_state == null or _history_manager == null or _history_manager.get_ref() != _editor_context.undo_manager:
+	if (
+		_history_state == null
+		or _history_manager == null
+		or _history_manager.get_ref() != _editor_context.undo_manager
+	):
 		return false
 	var status: Dictionary = _history_state.get_status()
 	if _graph == null or not GFVariantData.get_option_bool(status, "supported"):
 		return false
 	var manager: EditorUndoRedoManager = _editor_context.undo_manager
-	return manager.get_object_history_id(_graph) == GFVariantData.get_option_int(status, "history_id", -1)
+	return manager.get_object_history_id(_graph) == GFVariantData.get_option_int(
+		status,
+		"history_id",
+		-1
+	)
 
 
 ## 只为实际 EditorUndoRedoManager 绑定共享状态；未知宿主不被推测为可清除的原生历史。
@@ -577,17 +635,36 @@ func _bind_history_state() -> void:
 	var generation: int = _edit_generation
 	var candidate: GFFlowEditorHistoryState = null
 	var manager: EditorUndoRedoManager = null
-	if is_inside_tree() and graph != null and context != null and is_instance_valid(context.undo_manager) and context.undo_manager is EditorUndoRedoManager:
+	if (
+		is_inside_tree()
+		and graph != null
+		and context != null
+		and is_instance_valid(context.undo_manager)
+		and context.undo_manager is EditorUndoRedoManager
+	):
 		manager = context.undo_manager
 		candidate = GFFlowEditorHistoryState.acquire(manager, graph)
-	if not is_instance_valid(self) or graph != _graph or context != _editor_context or generation != _edit_generation:
+	if (
+		not is_instance_valid(self)
+		or graph != _graph
+		or context != _editor_context
+		or generation != _edit_generation
+	):
 		return
 	if candidate == _history_state:
 		return
-	if _history_state != null and GFVariantData.get_option_bool(_history_state.get_status(), "compensation_required"):
+	if _history_state != null and GFVariantData.get_option_bool(
+		_history_state.get_status(),
+		"compensation_required"
+	):
 		return
 	_invalidate_history_reset_request()
-	if not is_instance_valid(self) or graph != _graph or context != _editor_context or generation != _edit_generation:
+	if (
+		not is_instance_valid(self)
+		or graph != _graph
+		or context != _editor_context
+		or generation != _edit_generation
+	):
 		return
 	_disconnect_history_state()
 	_history_feedback = ""
@@ -633,33 +710,63 @@ func _update_history_feedback() -> void:
 	var status: Dictionary = _history_state.get_status() if _history_state != null else {}
 	var blocked: bool = GFVariantData.get_option_bool(status, "blocked")
 	var text: String = GFVariantData.get_option_string(status, "summary") if blocked else _history_feedback
-	if _graph != null and _editor_context != null and is_instance_valid(_editor_context.undo_manager) and _editor_context.undo_manager is EditorUndoRedoManager and not _history_binding_is_available():
+	if (
+		_graph != null
+		and _editor_context != null
+		and is_instance_valid(_editor_context.undo_manager)
+		and _editor_context.undo_manager is EditorUndoRedoManager
+		and not _history_binding_is_available()
+	):
 		text = "无法确认当前原生撤销历史，图编辑已暂停；历史重置不可用。"
 	elif blocked and not _history_feedback.is_empty():
 		text += "\n" + _history_feedback
 	_history_status.text = text
 	_history_status.visible = not text.is_empty()
 	if _history_reset_button != null:
-		_history_reset_button.visible = _history_state != null and (blocked or GFVariantData.get_option_bool(status, "desynchronized"))
-		_history_reset_button.disabled = not GFVariantData.get_option_bool(status, "can_reset") or not _clipboard_is_visible() or _clipboard_busy or _history_reset_busy or _has_pending_recovery()
+		_history_reset_button.visible = (
+			_history_state != null
+			and (
+				blocked
+				or GFVariantData.get_option_bool(status, "desynchronized")
+			)
+		)
+		_history_reset_button.disabled = (
+			not GFVariantData.get_option_bool(status, "can_reset")
+			or not _clipboard_is_visible()
+			or _clipboard_busy
+			or _history_reset_busy
+			or _has_pending_recovery()
+		)
 
 
 ## 完成反馈只绑定状态和原生历史标量；不以相同正常状态误认后来动作的通知。
 ## [br]
 ## @api private
 func _capture_history_feedback_state() -> Dictionary:
-	if _history_state == null or _editor_context == null or not _editor_context.undo_manager is EditorUndoRedoManager or not _history_binding_is_available():
+	if (
+		_history_state == null
+		or _editor_context == null
+		or not _editor_context.undo_manager is EditorUndoRedoManager
+		or not _history_binding_is_available()
+	):
 		return {}
 	var manager: EditorUndoRedoManager = _editor_context.undo_manager
 	var status: Dictionary = _history_state.get_status()
-	var history_id: int = GFVariantData.get_option_int(status, "history_id", -1)
+	var history_id: int = GFVariantData.get_option_int(
+		status,
+		"history_id",
+		-1
+	)
 	var history: UndoRedo = manager.get_history_undo_redo(history_id)
 	if not is_instance_valid(history):
 		return {}
 	return {
-		"guard_id": _history_state.get_instance_id(), "status": status,
-		"history_object_id": history.get_instance_id(), "version": history.get_version(),
-		"cursor": history.get_current_action(), "count": history.get_history_count(),
+		"guard_id": _history_state.get_instance_id(),
+		"status": status,
+		"history_object_id": history.get_instance_id(),
+		"version": history.get_version(),
+		"cursor": history.get_current_action(),
+		"count": history.get_history_count(),
 	}
 
 
@@ -682,8 +789,27 @@ func _make_history_reset_text(scope: StringName) -> String:
 ## 只接受仍可见且没有写操作在途的当前图确认，原生历史 token 由共享 guard 再次验证。
 ## [br]
 ## @api private
-func _is_history_reset_view_current(graph: GFFlowGraph, context: GFEditorToolContext, state: GFFlowEditorHistoryState, generation: int) -> bool:
-	return graph != null and graph == _graph and context != null and context == _editor_context and state != null and state == _history_state and generation == _edit_generation and _clipboard_is_visible() and not is_queued_for_deletion() and _history_binding_is_available() and not _clipboard_busy and not _history_reset_busy and not _has_pending_recovery()
+func _is_history_reset_view_current(
+	graph: GFFlowGraph,
+	context: GFEditorToolContext,
+	state: GFFlowEditorHistoryState,
+	generation: int
+) -> bool:
+	return (
+		graph != null
+		and graph == _graph
+		and context != null
+		and context == _editor_context
+		and state != null
+		and state == _history_state
+		and generation == _edit_generation
+		and _clipboard_is_visible()
+		and not is_queued_for_deletion()
+		and _history_binding_is_available()
+		and not _clipboard_busy
+		and not _history_reset_busy
+		and not _has_pending_recovery()
+	)
 
 
 ## 根据编辑上下文更新按钮状态和节点可拖动状态。
@@ -691,7 +817,11 @@ func _is_history_reset_view_current(graph: GFFlowGraph, context: GFEditorToolCon
 ## @api private
 func _update_edit_availability() -> void:
 	var editable: bool = _can_edit()
-	var clipboard_editable: bool = editable and _clipboard_is_visible() and not _clipboard_busy
+	var clipboard_editable: bool = (
+		editable
+		and _clipboard_is_visible()
+		and not _clipboard_busy
+	)
 	var selected: bool = not _selected_node_ids().is_empty()
 	for key: Variant in _clipboard_buttons:
 		var button: Button = _get_button_value(_clipboard_buttons[key])
@@ -713,7 +843,19 @@ func _update_edit_availability() -> void:
 		_save_button.disabled = not _can_save()
 	if _recovery_button != null:
 		_recovery_button.visible = _get_recovery_command() != null
-		_recovery_button.disabled = _editor_context == null or not is_instance_valid(_editor_context.undo_manager) or not _history_binding_is_available() or _history_reset_busy or (_history_state != null and GFVariantData.get_option_bool(_history_state.get_status(), "busy"))
+		_recovery_button.disabled = (
+			_editor_context == null
+			or not is_instance_valid(_editor_context.undo_manager)
+			or not _history_binding_is_available()
+			or _history_reset_busy
+			or (
+				_history_state != null
+				and GFVariantData.get_option_bool(
+					_history_state.get_status(),
+					"busy"
+				)
+			)
+		)
 	for value: Variant in _node_controls_by_id.values():
 		var node: GraphNode = _get_graph_node_value(value)
 		if node != null:
@@ -725,14 +867,28 @@ func _update_edit_availability() -> void:
 ## [br]
 ## @api private
 func _can_copy() -> bool:
-	return _graph != null and _clipboard_is_visible() and not is_queued_for_deletion() and _selection_graph == _graph and _history_binding_is_available() and not _has_pending_recovery() and not _clipboard_busy and not _history_operation_is_busy()
+	return (
+		_graph != null
+		and _clipboard_is_visible()
+		and not is_queued_for_deletion()
+		and _selection_graph == _graph
+		and _history_binding_is_available()
+		and not _has_pending_recovery()
+		and not _clipboard_busy
+		and not _history_operation_is_busy()
+	)
 
 
 ## 页面和所属窗口都可见才接受复制与插入；隐藏不会丢失已完成的复制包。
 ## [br]
 ## @api private
 func _clipboard_is_visible() -> bool:
-	return is_inside_tree() and is_visible_in_tree() and is_instance_valid(_clipboard_window) and _clipboard_window.visible
+	return (
+		is_inside_tree()
+		and is_visible_in_tree()
+		and is_instance_valid(_clipboard_window)
+		and _clipboard_window.visible
+	)
 
 
 ## 按资源稳定顺序收集当前画布选中的节点；不使用旧控件的索引或项目图查询。
@@ -746,8 +902,15 @@ func _selected_node_ids() -> PackedStringArray:
 		if node == null:
 			continue
 		var control: GraphNode = _get_graph_node_value(_node_controls_by_id.get(node.node_id))
-		if control != null and control.selected and control.get_parent() == _graph_edit:
-			_append_packed_string(result, String(node.node_id))
+		if (
+			control != null
+			and control.selected
+			and control.get_parent() == _graph_edit
+		):
+			_append_packed_string(
+				result,
+				String(node.node_id)
+			)
 	return result
 
 
@@ -768,11 +931,20 @@ func _select_node_ids(identifiers: PackedStringArray) -> void:
 ## 复用已保存资源的原生复制与统一属性事务；成功后只更新仍属于本页面的选择。
 ## [br]
 ## @api private
-func _commit_insert(command: GFFlowGraphEditCommand, generation: int, graph: GFFlowGraph) -> void:
+func _commit_insert(
+	command: GFFlowGraphEditCommand,
+	generation: int,
+	graph: GFFlowGraph
+) -> void:
 	if command == null:
 		_set_status(_clipboard_status, "无法插入：节点包、端口或预算不满足要求；图未改变。")
 		return
-	if generation != _edit_generation or graph != _graph or not _can_edit() or not _clipboard_is_visible():
+	if (
+		generation != _edit_generation
+		or graph != _graph
+		or not _can_edit()
+		or not _clipboard_is_visible()
+	):
 		return
 	var context: GFEditorToolContext = _editor_context
 	_clipboard_busy = true
@@ -781,11 +953,19 @@ func _commit_insert(command: GFFlowGraphEditCommand, generation: int, graph: GFF
 		return
 	_clipboard_busy = false
 	_update_edit_availability()
-	if graph != _graph or context != _editor_context or not _can_edit() or not _clipboard_is_visible():
+	if (
+		graph != _graph
+		or context != _editor_context
+		or not _can_edit()
+		or not _clipboard_is_visible()
+	):
 		return
 	if command.get_last_execute_error() == OK and command.is_executed():
 		_select_node_ids(command.get_inserted_node_ids())
-		_set_status(_clipboard_status, "已插入 %d 个独立节点；可在当前资源历史中撤销。" % command.get_inserted_node_ids().size())
+		_set_status(
+			_clipboard_status,
+			"已插入 %d 个独立节点；可在当前资源历史中撤销。" % command.get_inserted_node_ids().size()
+		)
 	else:
 		_set_status(_clipboard_status, "插入未完成，请查看事务报告；需要恢复时先点击“恢复编辑”。")
 
@@ -824,7 +1004,11 @@ func _clipboard_origin() -> Vector2:
 ## [br]
 ## @api private
 func _connect_graph_changes() -> void:
-	if _graph != null and is_inside_tree() and not _graph.changed.is_connected(_on_graph_changed):
+	if (
+		_graph != null
+		and is_inside_tree()
+		and not _graph.changed.is_connected(_on_graph_changed)
+	):
 		var _error: Error = _graph.changed.connect(_on_graph_changed) as Error
 
 
@@ -861,7 +1045,13 @@ func _commit_edit(command: GFFlowGraphEditCommand) -> void:
 	var context: GFEditorToolContext = _editor_context
 	var generation: int = _edit_generation
 	var preflight: Dictionary = command.validate()
-	if not is_instance_valid(self) or graph != _graph or context != _editor_context or generation != _edit_generation or not _can_edit():
+	if (
+		not is_instance_valid(self)
+		or graph != _graph
+		or context != _editor_context
+		or generation != _edit_generation
+		or not _can_edit()
+	):
 		return
 	if not GFVariantData.get_option_bool(preflight, "ok"):
 		refresh()
@@ -869,7 +1059,12 @@ func _commit_edit(command: GFFlowGraphEditCommand) -> void:
 		return
 	command.observe_page(self)
 	var result: Dictionary = _command_session.commit_command(command, context)
-	if not is_instance_valid(self) or graph != _graph or context != _editor_context or not _can_edit():
+	if (
+		not is_instance_valid(self)
+		or graph != _graph
+		or context != _editor_context
+		or not _can_edit()
+	):
 		return
 	refresh()
 	if not GFVariantData.get_option_bool(result, "ok"):
@@ -890,6 +1085,7 @@ func _get_canvas_positions() -> Dictionary:
 		if node != null:
 			positions[key] = node.position_offset
 	return positions
+
 
 ## 将文本值规范化为非空 StringName。
 ## [br]
@@ -918,28 +1114,44 @@ func _get_color_value(value: Variant, default_value: Color = Color.TRANSPARENT) 
 ## [br]
 ## @api private
 func _get_connection_from_node_id(connection: Dictionary) -> StringName:
-	return GFVariantData.get_option_string_name(connection, "from_node_id", &"")
+	return GFVariantData.get_option_string_name(
+		connection,
+		"from_node_id",
+		&""
+	)
 
 
 ## 读取连接源端口ID。
 ## [br]
 ## @api private
 func _get_connection_from_port_id(connection: Dictionary) -> StringName:
-	return GFVariantData.get_option_string_name(connection, "from_port_id", &"")
+	return GFVariantData.get_option_string_name(
+		connection,
+		"from_port_id",
+		&""
+	)
 
 
 ## 读取连接目标节点ID。
 ## [br]
 ## @api private
 func _get_connection_to_node_id(connection: Dictionary) -> StringName:
-	return GFVariantData.get_option_string_name(connection, "to_node_id", &"")
+	return GFVariantData.get_option_string_name(
+		connection,
+		"to_node_id",
+		&""
+	)
 
 
 ## 读取连接目标端口ID。
 ## [br]
 ## @api private
 func _get_connection_to_port_id(connection: Dictionary) -> StringName:
-	return GFVariantData.get_option_string_name(connection, "to_port_id", &"")
+	return GFVariantData.get_option_string_name(
+		connection,
+		"to_port_id",
+		&""
+	)
 
 
 ## 读取资源值。
@@ -1037,8 +1249,19 @@ func _make_toolbar() -> HFlowContainer:
 ## 构造工作区按钮。
 ## [br]
 ## @api private
-func _make_workspace_button(text: String, tooltip: String, handler: Callable) -> Button:
-	var button: Button = _get_button_value(_GF_EDITOR_WORKSPACE_UI_SCRIPT.call("make_button", text, tooltip, handler))
+func _make_workspace_button(
+	text: String,
+	tooltip: String,
+	handler: Callable
+) -> Button:
+	var button: Button = _get_button_value(
+		_GF_EDITOR_WORKSPACE_UI_SCRIPT.call(
+			"make_button",
+			text,
+			tooltip,
+			handler
+		)
+	)
 	return button if button != null else Button.new()
 
 
@@ -1078,7 +1301,11 @@ func _make_details_output(min_height: float) -> TextEdit:
 ## [br]
 ## @api private
 func _set_status(label: Label, text: String) -> void:
-	var result: Variant = _GF_EDITOR_WORKSPACE_UI_SCRIPT.call("set_status", label, text)
+	var result: Variant = _GF_EDITOR_WORKSPACE_UI_SCRIPT.call(
+		"set_status",
+		label,
+		text
+	)
 	if result != null:
 		return
 
@@ -1087,7 +1314,10 @@ func _set_status(label: Label, text: String) -> void:
 ## [br]
 ## @api private
 func _get_report_color(report: Dictionary) -> Color:
-	return _get_color_value(_GF_EDITOR_WORKSPACE_UI_SCRIPT.call("get_report_color", report), Color.WHITE)
+	return _get_color_value(
+		_GF_EDITOR_WORKSPACE_UI_SCRIPT.call("get_report_color", report),
+		Color.WHITE
+	)
 
 
 ## 创建页面控件并连接 UI 信号。
@@ -1115,17 +1345,51 @@ func _build_ui() -> void:
 	root_box.add_child(_path_edit)
 	root_box.add_child(toolbar)
 
-	toolbar.add_child(_make_workspace_button("选择资源…", "选择 FlowGraph 资源。", _on_browse_pressed))
-	toolbar.add_child(_make_workspace_button("定位资源", "在原生文件系统中定位当前流程图。", _on_locate_resource_pressed))
-	toolbar.add_child(_make_workspace_button("刷新", "重新加载并校验当前 FlowGraph。", _on_refresh_pressed))
-	_auto_layout_button = _make_workspace_button("自动布局", "按通用分层布局写入节点 editor_position。", _on_auto_layout_pressed)
+	toolbar.add_child(
+		_make_workspace_button(
+			"选择资源…",
+			"选择 FlowGraph 资源。",
+			_on_browse_pressed
+		)
+	)
+	toolbar.add_child(
+		_make_workspace_button(
+			"定位资源",
+			"在原生文件系统中定位当前流程图。",
+			_on_locate_resource_pressed
+		)
+	)
+	toolbar.add_child(
+		_make_workspace_button(
+			"刷新",
+			"重新加载并校验当前 FlowGraph。",
+			_on_refresh_pressed
+		)
+	)
+	_auto_layout_button = _make_workspace_button(
+		"自动布局",
+		"按通用分层布局写入节点 editor_position。",
+		_on_auto_layout_pressed
+	)
 	toolbar.add_child(_auto_layout_button)
-	_save_button = _make_workspace_button("保存", "保存当前 FlowGraph 资源。", _on_save_pressed)
+	_save_button = _make_workspace_button(
+		"保存",
+		"保存当前 FlowGraph 资源。",
+		_on_save_pressed
+	)
 	toolbar.add_child(_save_button)
-	_recovery_button = _make_workspace_button("恢复编辑", "恢复未完整补偿的属性事务后再继续编辑。", _on_recover_pressed)
+	_recovery_button = _make_workspace_button(
+		"恢复编辑",
+		"恢复未完整补偿的属性事务后再继续编辑。",
+		_on_recover_pressed
+	)
 	_recovery_button.visible = false
 	toolbar.add_child(_recovery_button)
-	_history_reset_button = _make_workspace_button("重置撤销历史…", "保留当前图数据，经确认后清除实际共享历史中的撤销和重做记录。", _on_history_reset_pressed)
+	_history_reset_button = _make_workspace_button(
+		"重置撤销历史…",
+		"保留当前图数据，经确认后清除实际共享历史中的撤销和重做记录。",
+		_on_history_reset_pressed
+	)
 	_history_reset_button.name = "HistoryResetButton"
 	_history_reset_button.visible = false
 	toolbar.add_child(_history_reset_button)
@@ -1135,18 +1399,35 @@ func _build_ui() -> void:
 	root_box.add_child(_history_status)
 	var edit_toolbar: HFlowContainer = _make_toolbar()
 	root_box.add_child(edit_toolbar)
-	var labels: PackedStringArray = PackedStringArray(["复制", "剪切", "粘贴", "重复"])
-	var hints: PackedStringArray = PackedStringArray([
-		"复制选中节点及内部连接（Ctrl+C）；可在本工作区切换图后粘贴。",
-		"复制并删除选中节点（Ctrl+X）；一次撤销恢复节点、连接和起点。",
-		"插入独立节点副本（Ctrl+V）；只连接包内节点，不接管已有起点。",
-		"原位偏移重复选中节点（Ctrl+D）；一笔资源历史。",
-	])
+	var labels: PackedStringArray = PackedStringArray(
+		[
+			"复制",
+			"剪切",
+			"粘贴",
+			"重复",
+		]
+	)
+	var hints: PackedStringArray = PackedStringArray(
+		[
+			"复制选中节点及内部连接（Ctrl+C）；可在本工作区切换图后粘贴。",
+			"复制并删除选中节点（Ctrl+X）；一次撤销恢复节点、连接和起点。",
+			"插入独立节点副本（Ctrl+V）；只连接包内节点，不接管已有起点。",
+			"原位偏移重复选中节点（Ctrl+D）；一笔资源历史。",
+		]
+	)
 	for operation: int in range(labels.size()):
-		var button: Button = _make_workspace_button(labels[operation], hints[operation], _on_clipboard_action.bind(operation))
+		var button: Button = _make_workspace_button(
+			labels[operation],
+			hints[operation],
+			_on_clipboard_action.bind(operation)
+		)
 		_clipboard_buttons[operation] = button
 		edit_toolbar.add_child(button)
-	_template_button = _make_workspace_button("添加节点模板…", "选择已保存的 GFFlowNode 资源，插入独立副本。", _on_template_pressed)
+	_template_button = _make_workspace_button(
+		"添加节点模板…",
+		"选择已保存的 GFFlowNode 资源，插入独立副本。",
+		_on_template_pressed
+	)
 	edit_toolbar.add_child(_template_button)
 	_template_start = CheckButton.new()
 	_template_start.text = "设为起始节点"
@@ -1175,10 +1456,22 @@ func _build_ui() -> void:
 	_connect_graph_edit_signal("delete_nodes_request", _on_delete_nodes_request)
 	_connect_graph_edit_signal("node_selected", _on_node_selected)
 	_connect_graph_edit_signal("node_deselected", _on_node_deselected)
-	_connect_graph_edit_signal("copy_nodes_request", _on_clipboard_action.bind(_ClipboardOperation.COPY))
-	_connect_graph_edit_signal("cut_nodes_request", _on_clipboard_action.bind(_ClipboardOperation.CUT))
-	_connect_graph_edit_signal("paste_nodes_request", _on_clipboard_action.bind(_ClipboardOperation.PASTE))
-	_connect_graph_edit_signal("duplicate_nodes_request", _on_clipboard_action.bind(_ClipboardOperation.DUPLICATE))
+	_connect_graph_edit_signal(
+		"copy_nodes_request",
+		_on_clipboard_action.bind(_ClipboardOperation.COPY)
+	)
+	_connect_graph_edit_signal(
+		"cut_nodes_request",
+		_on_clipboard_action.bind(_ClipboardOperation.CUT)
+	)
+	_connect_graph_edit_signal(
+		"paste_nodes_request",
+		_on_clipboard_action.bind(_ClipboardOperation.PASTE)
+	)
+	_connect_graph_edit_signal(
+		"duplicate_nodes_request",
+		_on_clipboard_action.bind(_ClipboardOperation.DUPLICATE)
+	)
 	_connect_graph_edit_signal("popup_request", _on_clipboard_popup_requested)
 	_connect_graph_edit_signal("begin_node_move", _on_begin_node_move)
 	_connect_graph_edit_signal("end_node_move", _on_end_node_move)
@@ -1223,7 +1516,10 @@ func _build_ui() -> void:
 	add_child(_file_dialog)
 	_clipboard_menu = PopupMenu.new()
 	for operation: int in range(labels.size()):
-		_clipboard_menu.add_item(labels[operation], operation)
+		_clipboard_menu.add_item(
+			labels[operation],
+			operation
+		)
 	var _menu_connected: int = _clipboard_menu.id_pressed.connect(_on_clipboard_menu_pressed)
 	add_child(_clipboard_menu)
 	_template_dialog = FileDialog.new()
@@ -1308,13 +1604,37 @@ func _render_graph() -> void:
 	var editor_model: GFFlowGraphEditorModel = GFFlowGraphEditorModel.new()
 	_last_view_model = editor_model.build_view_model(_graph)
 	var validation: Dictionary = GFVariantData.get_option_dictionary(_last_view_model, "validation")
-	_summary_label.text = "%s\n节点：%d  连接：%d  下一步：%s" % [
-		GFVariantData.get_option_string(validation, "summary", ""),
-		GFVariantData.get_option_int(_last_view_model, "node_count", 0),
-		GFVariantData.get_option_int(_last_view_model, "connection_count", 0),
-		GFVariantData.get_option_string(validation, "next_action", ""),
-	]
-	var _status_result: Variant = _GF_EDITOR_WORKSPACE_UI_SCRIPT.call("set_status", _summary_label, _summary_label.text, _get_report_color(validation))
+	_summary_label.text = (
+		"%s\n节点：%d  连接：%d  下一步：%s"
+		% [
+			GFVariantData.get_option_string(
+				validation,
+				"summary",
+				""
+			),
+			GFVariantData.get_option_int(
+				_last_view_model,
+				"node_count",
+				0
+			),
+			GFVariantData.get_option_int(
+				_last_view_model,
+				"connection_count",
+				0
+			),
+			GFVariantData.get_option_string(
+				validation,
+				"next_action",
+				""
+			),
+		]
+	)
+	var _status_result: Variant = _GF_EDITOR_WORKSPACE_UI_SCRIPT.call(
+		"set_status",
+		_summary_label,
+		_summary_label.text,
+		_get_report_color(validation)
+	)
 	_content_split.visible = true
 	_graph_edit.visible = true
 	_render_graph_canvas(_last_view_model)
@@ -1335,14 +1655,22 @@ func _render_graph_canvas(view_model: Dictionary) -> void:
 			continue
 		var graph_node: GraphNode = _make_graph_node(node, index)
 		_graph_edit.add_child(graph_node)
-		var node_id: StringName = GFVariantData.get_option_string_name(node, "node_id", &"")
+		var node_id: StringName = GFVariantData.get_option_string_name(
+			node,
+			"node_id",
+			&""
+		)
 		_node_controls_by_id[node_id] = graph_node
 		_node_ids_by_control_name[StringName(graph_node.name)] = node_id
 
 	var connections: Array = GFVariantData.get_option_array(view_model, "connections")
 	for connection_variant: Variant in connections:
 		var connection: Dictionary = GFVariantData.as_dictionary(connection_variant)
-		if not connection.is_empty() and GFVariantData.get_option_bool(connection, "valid", false):
+		if not connection.is_empty() and GFVariantData.get_option_bool(
+			connection,
+			"valid",
+			false
+		):
 			_connect_graph_edit_nodes(connection)
 
 
@@ -1351,13 +1679,34 @@ func _render_graph_canvas(view_model: Dictionary) -> void:
 ## @api private
 func _make_graph_node(node_entry: Dictionary, index: int) -> GraphNode:
 	var graph_node: GraphNode = GraphNode.new()
-	var node_id: StringName = GFVariantData.get_option_string_name(node_entry, "node_id", &"")
-	var display_name: String = GFVariantData.get_option_string(node_entry, "display_name", "")
+	var node_id: StringName = GFVariantData.get_option_string_name(
+		node_entry,
+		"node_id",
+		&""
+	)
+	var display_name: String = GFVariantData.get_option_string(
+		node_entry,
+		"display_name",
+		""
+	)
 	graph_node.name = "FlowNode%d" % index
-	graph_node.title = "%s  [%s]" % [display_name, String(node_id)]
-	graph_node.position_offset = GFVariantData.to_vector2(GFVariantData.get_option_value(node_entry, "position", Vector2.ZERO))
+	graph_node.title = (
+		"%s  [%s]"
+		% [display_name, String(node_id)]
+	)
+	graph_node.position_offset = GFVariantData.to_vector2(
+		GFVariantData.get_option_value(
+			node_entry,
+			"position",
+			Vector2.ZERO
+		)
+	)
 	graph_node.custom_minimum_size = GFVariantData.to_vector2(
-		GFVariantData.get_option_value(node_entry, "size", Vector2(220.0, 120.0)),
+		GFVariantData.get_option_value(
+			node_entry,
+			"size",
+			Vector2(220.0, 120.0)
+		),
 		Vector2(220.0, 120.0)
 	)
 	graph_node.set_meta("node_id", node_id)
@@ -1375,7 +1724,15 @@ func _add_execution_slot(graph_node: GraphNode) -> void:
 	row.add_child(_make_slot_label("in", HORIZONTAL_ALIGNMENT_LEFT))
 	row.add_child(_make_slot_label("flow", HORIZONTAL_ALIGNMENT_RIGHT))
 	graph_node.add_child(row)
-	graph_node.set_slot(0, true, 0, _EXECUTION_PORT_COLOR, true, 0, _EXECUTION_PORT_COLOR)
+	graph_node.set_slot(
+		0,
+		true,
+		0,
+		_EXECUTION_PORT_COLOR,
+		true,
+		0,
+		_EXECUTION_PORT_COLOR
+	)
 
 
 ## 根据端口条目添加 GraphNode 数据槽位。
@@ -1385,14 +1742,27 @@ func _add_data_port_slots(graph_node: GraphNode, node_entry: Dictionary) -> void
 	var input_ports: Array = GFVariantData.get_option_array(node_entry, "input_ports")
 	var output_ports: Array = GFVariantData.get_option_array(node_entry, "output_ports")
 
-	var row_count: int = maxi(input_ports.size(), output_ports.size())
+	var row_count: int = maxi(
+		input_ports.size(),
+		output_ports.size()
+	)
 	for index: int in range(row_count):
 		var input_entry: Dictionary = GFVariantData.as_dictionary(input_ports[index]) if index < input_ports.size() else {}
 		var output_entry: Dictionary = GFVariantData.as_dictionary(output_ports[index]) if index < output_ports.size() else {}
 		var row: HBoxContainer = HBoxContainer.new()
 		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(_make_slot_label(_get_port_label(input_entry), HORIZONTAL_ALIGNMENT_LEFT))
-		row.add_child(_make_slot_label(_get_port_label(output_entry), HORIZONTAL_ALIGNMENT_RIGHT))
+		row.add_child(
+			_make_slot_label(
+				_get_port_label(input_entry),
+				HORIZONTAL_ALIGNMENT_LEFT
+			)
+		)
+		row.add_child(
+			_make_slot_label(
+				_get_port_label(output_entry),
+				HORIZONTAL_ALIGNMENT_RIGHT
+			)
+		)
 		graph_node.add_child(row)
 		graph_node.set_slot(
 			index + 1,
@@ -1423,10 +1793,18 @@ func _make_slot_label(text: String, alignment: HorizontalAlignment) -> Label:
 func _get_port_label(port_entry: Dictionary) -> String:
 	if port_entry == null or port_entry.is_empty():
 		return ""
-	var display_name: String = GFVariantData.get_option_string(port_entry, "display_name", "")
+	var display_name: String = GFVariantData.get_option_string(
+		port_entry,
+		"display_name",
+		""
+	)
 	if not display_name.is_empty():
 		return display_name
-	return GFVariantData.get_option_string(port_entry, "port_id", "")
+	return GFVariantData.get_option_string(
+		port_entry,
+		"port_id",
+		""
+	)
 
 
 ## 读取端口颜色。
@@ -1435,7 +1813,13 @@ func _get_port_label(port_entry: Dictionary) -> String:
 func _get_port_color(port_entry: Dictionary) -> Color:
 	if port_entry == null or port_entry.is_empty():
 		return _DEFAULT_NODE_COLOR
-	var color: Color = _get_color_value(GFVariantData.get_option_value(port_entry, "editor_color", Color.TRANSPARENT))
+	var color: Color = _get_color_value(
+		GFVariantData.get_option_value(
+			port_entry,
+			"editor_color",
+			Color.TRANSPARENT
+		)
+	)
 	if color.a > 0.0:
 		return color
 	return _DEFAULT_NODE_COLOR
@@ -1452,11 +1836,33 @@ func _connect_graph_edit_nodes(connection: Dictionary) -> void:
 	if from_node == null or to_node == null:
 		return
 
-	var from_slot: int = GFVariantData.get_option_int(connection, "from_graph_slot_index", GFVariantData.get_option_int(connection, "from_port_index", 0))
-	var to_slot: int = GFVariantData.get_option_int(connection, "to_graph_slot_index", GFVariantData.get_option_int(connection, "to_port_index", 0))
+	var from_slot: int = GFVariantData.get_option_int(
+		connection,
+		"from_graph_slot_index",
+		GFVariantData.get_option_int(
+			connection,
+			"from_port_index",
+			0
+		)
+	)
+	var to_slot: int = GFVariantData.get_option_int(
+		connection,
+		"to_graph_slot_index",
+		GFVariantData.get_option_int(
+			connection,
+			"to_port_index",
+			0
+		)
+	)
 	if from_slot < 0 or to_slot < 0:
 		return
-	_graph_edit.call("connect_node", from_node.name, from_slot, to_node.name, to_slot)
+	_graph_edit.call(
+		"connect_node",
+		from_node.name,
+		from_slot,
+		to_node.name,
+		to_slot
+	)
 
 
 ## 清除画布中的节点与连接，并重置控件映射。
@@ -1489,10 +1895,44 @@ func _render_entries(view_model: Dictionary) -> void:
 			continue
 		var item: TreeItem = _tree.create_item(root_item)
 		item.set_text(0, "节点")
-		item.set_text(1, GFVariantData.get_option_string(node, "node_id", ""))
-		item.set_text(2, GFVariantData.get_option_string(node, "category", ""))
-		item.set_text(3, "%s  @ %s" % [GFVariantData.get_option_string(node, "display_name", ""), str(GFVariantData.get_option_value(node, "position", Vector2.ZERO))])
-		item.set_metadata(0, node.duplicate(true))
+		item.set_text(
+			1,
+			GFVariantData.get_option_string(
+				node,
+				"node_id",
+				""
+			)
+		)
+		item.set_text(
+			2,
+			GFVariantData.get_option_string(
+				node,
+				"category",
+				""
+			)
+		)
+		item.set_text(
+			3,
+			"%s  @ %s"
+			% [
+				GFVariantData.get_option_string(
+					node,
+					"display_name",
+					""
+				),
+				str(
+					GFVariantData.get_option_value(
+						node,
+						"position",
+						Vector2.ZERO
+					)
+				),
+			]
+		)
+		item.set_metadata(
+			0,
+			node.duplicate(true)
+		)
 		visible_count += 1
 
 	for connection_variant: Variant in GFVariantData.get_option_array(view_model, "connections"):
@@ -1501,10 +1941,30 @@ func _render_entries(view_model: Dictionary) -> void:
 			continue
 		var item: TreeItem = _tree.create_item(root_item)
 		item.set_text(0, "连接")
-		item.set_text(1, "%s -> %s" % [String(_get_connection_from_node_id(connection)), String(_get_connection_to_node_id(connection))])
-		item.set_text(2, "%s -> %s" % [String(_get_connection_from_port_id(connection)), String(_get_connection_to_port_id(connection))])
-		item.set_text(3, "valid=%s" % str(GFVariantData.get_option_bool(connection, "valid", false)))
-		item.set_metadata(0, connection.duplicate(true))
+		item.set_text(
+			1,
+			"%s -> %s"
+			% [String(_get_connection_from_node_id(connection)), String(_get_connection_to_node_id(connection))]
+		)
+		item.set_text(
+			2,
+			"%s -> %s"
+			% [String(_get_connection_from_port_id(connection)), String(_get_connection_to_port_id(connection))]
+		)
+		item.set_text(
+			3,
+			"valid=%s" % str(
+				GFVariantData.get_option_bool(
+					connection,
+					"valid",
+					false
+				)
+			)
+		)
+		item.set_metadata(
+			0,
+			connection.duplicate(true)
+		)
 		visible_count += 1
 
 	var validation: Dictionary = GFVariantData.get_option_dictionary(view_model, "validation")
@@ -1513,11 +1973,42 @@ func _render_entries(view_model: Dictionary) -> void:
 		if issue.is_empty():
 			continue
 		var item: TreeItem = _tree.create_item(root_item)
-		item.set_text(0, GFVariantData.get_option_string(issue, "severity", ""))
-		item.set_text(1, GFVariantData.get_option_string(issue, "kind", ""))
-		item.set_text(2, GFVariantData.get_option_string(issue, "key", ""))
-		item.set_text(3, GFVariantData.get_option_string(issue, "message", ""))
-		item.set_metadata(0, issue.duplicate(true))
+		item.set_text(
+			0,
+			GFVariantData.get_option_string(
+				issue,
+				"severity",
+				""
+			)
+		)
+		item.set_text(
+			1,
+			GFVariantData.get_option_string(
+				issue,
+				"kind",
+				""
+			)
+		)
+		item.set_text(
+			2,
+			GFVariantData.get_option_string(
+				issue,
+				"key",
+				""
+			)
+		)
+		item.set_text(
+			3,
+			GFVariantData.get_option_string(
+				issue,
+				"message",
+				""
+			)
+		)
+		item.set_metadata(
+			0,
+			issue.duplicate(true)
+		)
 		visible_count += 1
 
 	_tree.visible = visible_count > 0
@@ -1550,28 +2041,43 @@ func _save_graph() -> Error:
 ## [br]
 ## @api private
 func _get_node_id_for_control(control_name: StringName) -> StringName:
-	return _get_string_name_value(GFVariantData.get_option_value(_node_ids_by_control_name, control_name, &""))
+	return _get_string_name_value(
+		GFVariantData.get_option_value(
+			_node_ids_by_control_name,
+			control_name,
+			&""
+		)
+	)
 
 
 ## 按节点和图形槽位索引反查端口 ID。
 ## [br]
 ## @api private
-func _get_port_lookup_for_slot(node_id: StringName, ports_key: String, slot_index: int) -> Dictionary:
+func _get_port_lookup_for_slot(
+	node_id: StringName,
+	ports_key: String,
+	slot_index: int
+) -> Dictionary:
 	if slot_index <= 0:
-		return {
-			"ok": true,
-			"port_id": &"",
-		}
+		return { "ok": true, "port_id": &"", }
 
 	var node_entry: Dictionary = _get_node_entry(node_id)
 	var ports: Array = GFVariantData.get_option_array(node_entry, ports_key)
 
 	for port_variant: Variant in ports:
 		var port: Dictionary = GFVariantData.as_dictionary(port_variant)
-		if not port.is_empty() and GFVariantData.get_option_int(port, "graph_slot_index", -1) == slot_index:
+		if not port.is_empty() and GFVariantData.get_option_int(
+			port,
+			"graph_slot_index",
+			-1
+		) == slot_index:
 			return {
 				"ok": true,
-				"port_id": GFVariantData.get_option_string_name(port, "port_id", &""),
+				"port_id": GFVariantData.get_option_string_name(
+					port,
+					"port_id",
+					&""
+				),
 			}
 	return _make_port_lookup(false)
 
@@ -1580,10 +2086,7 @@ func _get_port_lookup_for_slot(node_id: StringName, ports_key: String, slot_inde
 ## [br]
 ## @api private
 func _make_port_lookup(ok: bool) -> Dictionary:
-	return {
-		"ok": ok,
-		"port_id": &"",
-	}
+	return { "ok": ok, "port_id": &"", }
 
 
 ## 读取节点条目。
@@ -1592,7 +2095,13 @@ func _make_port_lookup(ok: bool) -> Dictionary:
 func _get_node_entry(node_id: StringName) -> Dictionary:
 	var lookup: Dictionary = GFVariantData.get_option_dictionary(_last_view_model, "node_lookup")
 	if lookup.has(node_id):
-		return GFVariantData.as_dictionary(GFVariantData.get_option_value(lookup, node_id, {}))
+		return GFVariantData.as_dictionary(
+			GFVariantData.get_option_value(
+				lookup,
+				node_id,
+				{}
+			)
+		)
 	return {}
 
 
@@ -1607,12 +2116,16 @@ func _show_details(value: Variant) -> void:
 ## [br]
 ## @api private
 func _safe_json(value: Variant) -> String:
-	return GFReportValueCodec.stringify_json_compatible(value, "\t", false, {
-		"path_redaction": "basename",
-	})
+	return GFReportValueCodec.stringify_json_compatible(
+		value,
+		"\t",
+		false,
+		{ "path_redaction": "basename", }
+	)
 
 
 # --- 信号处理函数 ---
+
 
 # --- 信号处理函数 ---
 
@@ -1657,7 +2170,15 @@ func _on_begin_node_move() -> void:
 ## @api private
 func _on_recover_pressed() -> void:
 	var command: GFFlowGraphEditCommand = _get_recovery_command()
-	if command == null or not _clipboard_is_visible() or is_queued_for_deletion() or _editor_context == null or not is_instance_valid(_editor_context.undo_manager) or not _history_binding_is_available() or _history_operation_is_busy():
+	if (
+		command == null
+		or not _clipboard_is_visible()
+		or is_queued_for_deletion()
+		or _editor_context == null
+		or not is_instance_valid(_editor_context.undo_manager)
+		or not _history_binding_is_available()
+		or _history_operation_is_busy()
+	):
 		return
 	var page_ref: WeakRef = weakref(self)
 	var view_graph: GFFlowGraph = _graph
@@ -1668,10 +2189,18 @@ func _on_recover_pressed() -> void:
 	if error == OK and command_graph != null:
 		command_graph.emit_changed()
 	var page_value: Variant = page_ref.get_ref()
-	if not page_value is GFFlowGraphDock or not is_inside_tree() or is_queued_for_deletion():
+	if (
+		not page_value is GFFlowGraphDock
+		or not is_inside_tree()
+		or is_queued_for_deletion()
+	):
 		return
 	refresh()
-	if view_graph != _graph or context != _editor_context or state != _history_state:
+	if (
+		view_graph != _graph
+		or context != _editor_context
+		or state != _history_state
+	):
 		return
 	_show_details(command.get_flow_edit_result())
 
@@ -1682,7 +2211,11 @@ func _on_recover_pressed() -> void:
 ## @api private
 func _on_history_state_changed() -> void:
 	_invalidate_history_reset_request(false)
-	if not is_instance_valid(self) or not is_inside_tree() or is_queued_for_deletion():
+	if (
+		not is_instance_valid(self)
+		or not is_inside_tree()
+		or is_queued_for_deletion()
+	):
 		return
 	_edit_generation += 1
 	_menu_generation = -1
@@ -1696,7 +2229,12 @@ func _on_history_state_changed() -> void:
 		_clipboard_menu.hide()
 	if _template_dialog != null:
 		_template_dialog.hide()
-	if _history_state != null and not _has_pending_recovery() and not _history_binding_is_available() and not _refresh_pending:
+	if (
+		_history_state != null
+		and not _has_pending_recovery()
+		and not _history_binding_is_available()
+		and not _refresh_pending
+	):
 		_refresh_pending = true
 		_refresh_after_graph_change.call_deferred()
 	_update_edit_availability()
@@ -1707,7 +2245,17 @@ func _on_history_state_changed() -> void:
 ## @api private
 func _on_history_reset_pressed() -> void:
 	_invalidate_history_reset_request()
-	if not is_instance_valid(self) or _history_state == null or _graph == null or _editor_context == null or not _clipboard_is_visible() or is_queued_for_deletion() or _clipboard_busy or _history_reset_busy or _has_pending_recovery():
+	if (
+		not is_instance_valid(self)
+		or _history_state == null
+		or _graph == null
+		or _editor_context == null
+		or not _clipboard_is_visible()
+		or is_queued_for_deletion()
+		or _clipboard_busy
+		or _history_reset_busy
+		or _has_pending_recovery()
+	):
 		return
 	var graph: GFFlowGraph = _graph
 	var context: GFEditorToolContext = _editor_context
@@ -1718,7 +2266,12 @@ func _on_history_reset_pressed() -> void:
 		_update_edit_availability()
 		return
 	var token: Dictionary = state.capture_reset_token()
-	if not is_instance_valid(self) or not _is_history_reset_view_current(graph, context, state, generation):
+	if not is_instance_valid(self) or not _is_history_reset_view_current(
+		graph,
+		context,
+		state,
+		generation
+	):
 		return
 	if not GFVariantData.get_option_bool(token, "ok"):
 		_history_feedback = "当前原生历史暂不可重置，请查看诊断并重新发起。"
@@ -1726,7 +2279,11 @@ func _on_history_reset_pressed() -> void:
 		_show_details(token)
 		_update_edit_availability()
 		return
-	var scope: StringName = GFVariantData.get_option_string_name(status, "scope", &"unavailable")
+	var scope: StringName = GFVariantData.get_option_string_name(
+		status,
+		"scope",
+		&"unavailable"
+	)
 	var text: String = _make_history_reset_text(scope)
 	if text.is_empty():
 		return
@@ -1760,7 +2317,12 @@ func _on_history_reset_confirmed() -> void:
 	var generation: int = _history_reset_generation
 	var page_ref: WeakRef = weakref(self)
 	_invalidate_history_reset_request(false)
-	if not is_instance_valid(self) or not _is_history_reset_view_current(graph, context, state, generation):
+	if not is_instance_valid(self) or not _is_history_reset_view_current(
+		graph,
+		context,
+		state,
+		generation
+	):
 		return
 	_history_reset_busy = true
 	_history_reset_view_invalidated = false
@@ -1772,7 +2334,14 @@ func _on_history_reset_confirmed() -> void:
 	_history_reset_busy = false
 	if is_inside_tree() and not is_queued_for_deletion():
 		_update_edit_availability()
-	if not is_inside_tree() or is_queued_for_deletion() or _history_reset_view_invalidated or graph != _graph or context != _editor_context or state != _history_state:
+	if (
+		not is_inside_tree()
+		or is_queued_for_deletion()
+		or _history_reset_view_invalidated
+		or graph != _graph
+		or context != _editor_context
+		or state != _history_state
+	):
 		return
 	if GFVariantData.get_option_bool(result, "ok"):
 		_history_feedback = "撤销历史已重置，当前图数据保留；后续编辑从当前状态开始。"
@@ -1845,7 +2414,13 @@ func _on_auto_layout_pressed() -> void:
 
 	var editor_model: GFFlowGraphEditorModel = GFFlowGraphEditorModel.new()
 	var positions: Dictionary = editor_model.build_layout_positions(_graph, _DEFAULT_LAYOUT_OPTIONS)
-	_commit_edit(GFFlowGraphEditCommand.create_layout_edit(_graph, positions, "自动布局 Flow 节点"))
+	_commit_edit(
+		GFFlowGraphEditCommand.create_layout_edit(
+			_graph,
+			positions,
+			"自动布局 Flow 节点"
+		)
+	)
 
 
 ## 处理保存按钮并显示保存结果。
@@ -1870,23 +2445,49 @@ func _on_connection_request(
 
 	var from_node_id: StringName = _get_node_id_for_control(from_control_name)
 	var to_node_id: StringName = _get_node_id_for_control(to_control_name)
-	var from_lookup: Dictionary = _get_port_lookup_for_slot(from_node_id, "output_ports", from_port_index)
-	var to_lookup: Dictionary = _get_port_lookup_for_slot(to_node_id, "input_ports", to_port_index)
-	if not GFVariantData.get_option_bool(from_lookup, "ok", false) or not GFVariantData.get_option_bool(to_lookup, "ok", false):
-		_show_details({
-			"ok": false,
-			"error": "missing_port_for_slot",
-			"from_slot": from_port_index,
-			"to_slot": to_port_index,
-		})
+	var from_lookup: Dictionary = _get_port_lookup_for_slot(
+		from_node_id,
+		"output_ports",
+		from_port_index
+	)
+	var to_lookup: Dictionary = _get_port_lookup_for_slot(
+		to_node_id,
+		"input_ports",
+		to_port_index
+	)
+	if not GFVariantData.get_option_bool(
+		from_lookup,
+		"ok",
+		false
+	) or not GFVariantData.get_option_bool(
+		to_lookup,
+		"ok",
+		false
+	):
+		_show_details(
+			{
+				"ok": false,
+				"error": "missing_port_for_slot",
+				"from_slot": from_port_index,
+				"to_slot": to_port_index,
+			}
+		)
 		return
 
 	var command: GFFlowGraphEditCommand = GFFlowGraphEditCommand.create_connection_edit(
 		_graph,
 		from_node_id,
-		GFVariantData.get_option_string_name(from_lookup, "port_id", &""),
+		GFVariantData.get_option_string_name(
+			from_lookup,
+			"port_id",
+			&""
+		),
 		to_node_id,
-		GFVariantData.get_option_string_name(to_lookup, "port_id", &"")
+		GFVariantData.get_option_string_name(
+			to_lookup,
+			"port_id",
+			&""
+		)
 	)
 	_commit_edit(command)
 
@@ -1905,17 +2506,43 @@ func _on_disconnection_request(
 
 	var from_node_id: StringName = _get_node_id_for_control(from_control_name)
 	var to_node_id: StringName = _get_node_id_for_control(to_control_name)
-	var from_lookup: Dictionary = _get_port_lookup_for_slot(from_node_id, "output_ports", from_port_index)
-	var to_lookup: Dictionary = _get_port_lookup_for_slot(to_node_id, "input_ports", to_port_index)
-	if GFVariantData.get_option_bool(from_lookup, "ok", false) and GFVariantData.get_option_bool(to_lookup, "ok", false):
-		_commit_edit(GFFlowGraphEditCommand.create_connection_edit(
-			_graph,
-			from_node_id,
-			GFVariantData.get_option_string_name(from_lookup, "port_id", &""),
-			to_node_id,
-			GFVariantData.get_option_string_name(to_lookup, "port_id", &""),
-			true
-		))
+	var from_lookup: Dictionary = _get_port_lookup_for_slot(
+		from_node_id,
+		"output_ports",
+		from_port_index
+	)
+	var to_lookup: Dictionary = _get_port_lookup_for_slot(
+		to_node_id,
+		"input_ports",
+		to_port_index
+	)
+	if GFVariantData.get_option_bool(
+		from_lookup,
+		"ok",
+		false
+	) and GFVariantData.get_option_bool(
+		to_lookup,
+		"ok",
+		false
+	):
+		_commit_edit(
+			GFFlowGraphEditCommand.create_connection_edit(
+				_graph,
+				from_node_id,
+				GFVariantData.get_option_string_name(
+					from_lookup,
+					"port_id",
+					&""
+				),
+				to_node_id,
+				GFVariantData.get_option_string_name(
+					to_lookup,
+					"port_id",
+					&""
+				),
+				true
+			)
+		)
 
 
 ## 处理 GraphEdit 节点删除请求并创建图编辑命令。
@@ -1929,9 +2556,15 @@ func _on_delete_nodes_request(control_names: Array) -> void:
 	for control_name_variant: Variant in control_names:
 		var node_id: StringName = _get_node_id_for_control(_get_string_name_value(control_name_variant))
 		if node_id != &"":
-			_append_packed_string(node_ids, String(node_id))
+			_append_packed_string(
+				node_ids,
+				String(node_id)
+			)
 	if node_ids.is_empty() and _selected_node_id != &"":
-		_append_packed_string(node_ids, String(_selected_node_id))
+		_append_packed_string(
+			node_ids,
+			String(_selected_node_id)
+		)
 
 	_commit_edit(GFFlowGraphEditCommand.create_node_removal(_graph, node_ids))
 
@@ -1969,25 +2602,47 @@ func _on_clipboard_action(operation: int, offset: Vector2 = Vector2(30, 30)) -> 
 	var generation: int = _edit_generation
 	if operation == _ClipboardOperation.PASTE:
 		if _can_edit() and not _clipboard.is_empty():
-			var command: GFFlowGraphEditCommand = GFFlowGraphEditCommand.create_selection_paste(graph, _clipboard, offset)
+			var command: GFFlowGraphEditCommand = GFFlowGraphEditCommand.create_selection_paste(
+				graph,
+				_clipboard,
+				offset
+			)
 			if is_instance_valid(self):
-				_commit_insert(command, generation, graph)
+				_commit_insert(
+					command,
+					generation,
+					graph
+				)
 		return
 	var identifiers: PackedStringArray = _selected_node_ids()
 	if identifiers.is_empty():
 		return
 	var model: GFFlowGraphEditorModel = GFFlowGraphEditorModel.new()
 	var package: Dictionary = model.build_selection_package(graph, identifiers)
-	if not is_instance_valid(self) or generation != _edit_generation or graph != _graph or not _can_copy():
+	if (
+		not is_instance_valid(self)
+		or generation != _edit_generation
+		or graph != _graph
+		or not _can_copy()
+	):
 		return
 	if not GFVariantData.get_option_bool(package, "ok"):
 		_show_clipboard_failure(package)
 		return
 	if operation == _ClipboardOperation.DUPLICATE:
 		if _can_edit():
-			var command: GFFlowGraphEditCommand = GFFlowGraphEditCommand.create_selection_paste(graph, package, offset, "重复 Flow 节点")
+			var command: GFFlowGraphEditCommand = GFFlowGraphEditCommand.create_selection_paste(
+				graph,
+				package,
+				offset,
+				"重复 Flow 节点"
+			)
 			if is_instance_valid(self):
-				_commit_insert(command, generation, graph)
+				_commit_insert(
+					command,
+					generation,
+					graph
+				)
 		return
 	if operation == _ClipboardOperation.CUT:
 		if not _can_edit():
@@ -1999,13 +2654,22 @@ func _on_clipboard_action(operation: int, offset: Vector2 = Vector2(30, 30)) -> 
 			return
 		_clipboard_busy = false
 		_update_edit_availability()
-		if command == null or command.get_last_execute_error() != OK or not command.is_executed() or graph != _graph or not is_inside_tree():
+		if (
+			command == null
+			or command.get_last_execute_error() != OK
+			or not command.is_executed()
+			or graph != _graph
+			or not is_inside_tree()
+		):
 			return
 	elif operation != _ClipboardOperation.COPY:
 		return
 	_clipboard = package
 	_update_edit_availability()
-	_set_status(_clipboard_status, "已复制 %d 个节点及内部连接；选择外部的后继不包含在复制包中。" % GFVariantData.get_option_int(package, "node_count"))
+	_set_status(
+		_clipboard_status,
+		"已复制 %d 个节点及内部连接；选择外部的后继不包含在复制包中。" % GFVariantData.get_option_int(package, "node_count")
+	)
 
 
 ## 打开右键菜单并固定当前资源、选择与粘贴位置；菜单不会执行节点业务。
@@ -2020,7 +2684,10 @@ func _on_clipboard_popup_requested(_at_position: Vector2) -> void:
 	_menu_paste_offset = (_graph_edit.get_local_mouse_position() + _graph_edit.scroll_offset) / _graph_edit.zoom - _clipboard_origin()
 	for operation: int in range(4):
 		var button: Button = _get_button_value(_clipboard_buttons.get(operation))
-		_clipboard_menu.set_item_disabled(operation, button == null or button.disabled)
+		_clipboard_menu.set_item_disabled(
+			operation,
+			button == null or button.disabled
+		)
 	_clipboard_menu.position = Vector2i(get_global_mouse_position())
 	_clipboard_menu.popup()
 
@@ -2032,14 +2699,21 @@ func _on_clipboard_menu_pressed(operation: int) -> void:
 	if _menu_generation != _edit_generation or _menu_selection != _selected_node_ids():
 		return
 	_menu_generation = -1
-	_on_clipboard_action(operation, _menu_paste_offset if operation == _ClipboardOperation.PASTE else Vector2(30, 30))
+	_on_clipboard_action(
+		operation,
+		_menu_paste_offset if operation == _ClipboardOperation.PASTE else Vector2(30, 30)
+	)
 
 
 ## 用户明确请求已保存资源模板；冻结本次资源和权限代次，不扫描项目脚本。
 ## [br]
 ## @api private
 func _on_template_pressed() -> void:
-	if not _can_edit() or not _clipboard_is_visible() or _clipboard_busy:
+	if (
+		not _can_edit()
+		or not _clipboard_is_visible()
+		or _clipboard_busy
+	):
 		return
 	_template_generation = _edit_generation
 	_template_requested_start = _template_start.button_pressed
@@ -2052,34 +2726,69 @@ func _on_template_pressed() -> void:
 func _on_template_selected(path: String) -> void:
 	var generation: int = _template_generation
 	_template_generation = -1
-	if generation != _edit_generation or not _can_edit() or not _clipboard_is_visible() or _clipboard_busy:
+	if (
+		generation != _edit_generation
+		or not _can_edit()
+		or not _clipboard_is_visible()
+		or _clipboard_busy
+	):
 		return
-	if not _is_project_resource_path(path) or path != path.simplify_path() or path.get_extension().to_lower() not in ["tres", "res"] or not FileAccess.file_exists(path):
+	if (
+		not _is_project_resource_path(path)
+		or path != path.simplify_path()
+		or path.get_extension().to_lower() not in ["tres", "res"]
+		or not FileAccess.file_exists(path)
+	):
 		return
 	var graph: GFFlowGraph = _graph
 	var resource: Resource = ResourceLoader.load(path)
-	if not is_instance_valid(self) or generation != _edit_generation or graph != _graph or not _can_edit() or not _clipboard_is_visible():
+	if (
+		not is_instance_valid(self)
+		or generation != _edit_generation
+		or graph != _graph
+		or not _can_edit()
+		or not _clipboard_is_visible()
+	):
 		return
 	if not (resource is GFFlowNode):
 		_set_status(_clipboard_status, "所选文件不是 GFFlowNode 节点资源；请选择已保存的节点模板。")
 		return
 	var template: GFFlowNode = resource
 	var insertion_position: Vector2 = (_graph_edit.scroll_offset + _graph_edit.size * 0.5) / _graph_edit.zoom
-	var command: GFFlowGraphEditCommand = GFFlowGraphEditCommand.create_template_insertion(graph, template, insertion_position, _template_requested_start)
+	var command: GFFlowGraphEditCommand = GFFlowGraphEditCommand.create_template_insertion(
+		graph,
+		template,
+		insertion_position,
+		_template_requested_start
+	)
 	if is_instance_valid(self):
-		_commit_insert(command, generation, graph)
+		_commit_insert(
+			command,
+			generation,
+			graph
+		)
 
 
 ## 处理节点拖动结束并提交位置变更。
 ## [br]
 ## @api private
 func _on_end_node_move() -> void:
-	if _move_graph == null or _move_graph != _graph or not _can_edit():
+	if (
+		_move_graph == null
+		or _move_graph != _graph
+		or not _can_edit()
+	):
 		_move_graph = null
 		refresh()
 		return
 	_move_graph = null
-	_commit_edit(GFFlowGraphEditCommand.create_layout_edit(_graph, _get_canvas_positions(), "移动 Flow 节点"))
+	_commit_edit(
+		GFFlowGraphEditCommand.create_layout_edit(
+			_graph,
+			_get_canvas_positions(),
+			"移动 Flow 节点"
+		)
+	)
 
 
 ## 处理条目树选择事件并显示所选详情。

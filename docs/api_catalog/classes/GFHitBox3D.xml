@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFHitBox3D" path="addons/gf/extensions/combat/hit_detection/gf_hit_box_3d.gd" module="extensions/combat" extends="Area3D" classDigest="29fba1803d4436c383cce8c3f6bbe6be58fb529bfc36b6a7c1520998c5adc8a1">
+<class name="GFHitBox3D" path="addons/gf/extensions/combat/hit_detection/gf_hit_box_3d.gd" module="extensions/combat" extends="Area3D" classDigest="346542749e81e60e42968427e37465b1139861060b2332f3a0c1e7a03cbdc82b">
 	<description>GFHitBox3D: 3D 通用命中发送区域。
 节点负责构建 GFCombatHitContext 并发送给具备 receive_hit() 的接收对象，
 不规定伤害、阵营、冷却、命中特效或生命值规则。</description>
@@ -10,7 +10,7 @@
 	</tags>
 	<signals>
 		<member kind="signal" name="hit_sent">
-			<signature>signal hit_sent(context: GFCombatHitContext, receiver: Object, report: Dictionary)</signature>
+			<signature>signal hit_sent( context: GFCombatHitContext, receiver: Object, report: Dictionary )</signature>
 			<description>命中已发送。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -22,7 +22,7 @@
 			</tags>
 		</member>
 		<member kind="signal" name="hit_accepted">
-			<signature>signal hit_accepted(context: GFCombatHitContext, receiver: Object, report: Dictionary)</signature>
+			<signature>signal hit_accepted( context: GFCombatHitContext, receiver: Object, report: Dictionary )</signature>
 			<description>命中被接收对象接受。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -34,7 +34,7 @@
 			</tags>
 		</member>
 		<member kind="signal" name="hit_rejected">
-			<signature>signal hit_rejected(context: GFCombatHitContext, receiver: Object, report: Dictionary)</signature>
+			<signature>signal hit_rejected( context: GFCombatHitContext, receiver: Object, report: Dictionary )</signature>
 			<description>命中被接收对象拒绝或发送失败。</description>
 			<tags>
 				<tag name="api">public</tag>

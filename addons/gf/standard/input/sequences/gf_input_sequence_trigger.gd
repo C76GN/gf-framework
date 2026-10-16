@@ -117,6 +117,8 @@ func prepare_runtime(
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param raw_active: 原始输入是否处于激活状态。
 ## [br]
 ## @param _value: 输入值，默认实现不直接使用。
@@ -130,13 +132,22 @@ func prepare_runtime(
 ## @schema state: Dictionary，由输入运行时持有，包含分支进度字段。
 ## [br]
 ## @return 触发状态。
-func update(raw_active: bool, _value: Variant, delta: float, state: Dictionary) -> TriggerState:
+func update(
+	raw_active: bool,
+	_value: Variant,
+	delta: float,
+	state: Dictionary
+) -> TriggerState:
 	var effective_branches: Array[GFInputSequenceBranch] = _get_effective_branches()
 	_ensure_branch_configuration_state(state, effective_branches)
 	if effective_branches.is_empty():
 		return TriggerState.TRIGGERED if raw_active else TriggerState.INACTIVE
 
-	_advance_branches(state, delta, effective_branches)
+	_advance_branches(
+		state,
+		delta,
+		effective_branches
+	)
 	if _has_completed_branch(state) and raw_active:
 		_reset_all_branch_progress(state)
 		return TriggerState.TRIGGERED
@@ -175,15 +186,28 @@ func _advance_branches(
 	if input_runtime == null or not input_runtime.has_method("get_action_edge_revision_for_framework"):
 		return
 	var player_index: int = _get_runtime_player_index(state)
-	if player_scoped and player_index >= 0 and not _has_complete_player_query_protocol(input_runtime):
+	if (
+		player_scoped
+		and player_index >= 0
+		and not _has_complete_player_query_protocol(input_runtime)
+	):
 		return
 
-	var branch_states: Array[Dictionary] = _get_branch_states(state, effective_branches.size())
+	var branch_states: Array[Dictionary] = _get_branch_states(
+		state,
+		effective_branches.size()
+	)
 	for branch_index: int in range(effective_branches.size()):
 		var branch: GFInputSequenceBranch = effective_branches[branch_index]
 		if branch == null:
 			continue
-		_advance_branch(branch_states[branch_index], branch, input_runtime, delta, player_index)
+		_advance_branch(
+			branch_states[branch_index],
+			branch,
+			input_runtime,
+			delta,
+			player_index
+		)
 
 
 ## 按动作列表和默认间隔签名缓存兼容分支；配置变化或缓存为空时重新构建。
@@ -208,9 +232,15 @@ func _get_required_action_branches() -> Array[GFInputSequenceBranch]:
 ## [br]
 func _make_required_action_signature() -> String:
 	var parts: PackedStringArray = PackedStringArray()
-	_append_signature_part(parts, str(max_gap_seconds))
+	_append_signature_part(
+		parts,
+		str(max_gap_seconds)
+	)
 	for action_id: StringName in required_action_ids:
-		_append_signature_part(parts, String(action_id))
+		_append_signature_part(
+			parts,
+			String(action_id)
+		)
 	return "|".join(parts)
 
 
@@ -219,7 +249,10 @@ func _make_required_action_signature() -> String:
 ## @api private
 ## [br]
 func _append_signature_part(parts: PackedStringArray, value: String) -> void:
-	var _append_result: bool = parts.append("%d:%s" % [value.length(), value])
+	var _append_result: bool = parts.append(
+		"%d:%s"
+		% [value.length(), value]
+	)
 
 
 ## 编码全局间隔、玩家作用域、分支顺序及有效步骤配置，用于检测运行时配置变化。
@@ -228,18 +261,45 @@ func _append_signature_part(parts: PackedStringArray, value: String) -> void:
 ## [br]
 func _make_branch_configuration_signature(effective_branches: Array[GFInputSequenceBranch]) -> String:
 	var parts: PackedStringArray = PackedStringArray()
-	_append_signature_part(parts, str(max_gap_seconds))
-	_append_signature_part(parts, "1" if player_scoped else "0")
-	_append_signature_part(parts, str(effective_branches.size()))
+	_append_signature_part(
+		parts,
+		str(max_gap_seconds)
+	)
+	_append_signature_part(
+		parts,
+		"1" if player_scoped else "0"
+	)
+	_append_signature_part(
+		parts,
+		str(effective_branches.size())
+	)
 	for branch: GFInputSequenceBranch in effective_branches:
-		_append_signature_part(parts, str(branch.max_gap_seconds))
+		_append_signature_part(
+			parts,
+			str(branch.max_gap_seconds)
+		)
 		var steps: Array[GFInputSequenceStep] = _get_valid_steps(branch)
-		_append_signature_part(parts, str(steps.size()))
+		_append_signature_part(
+			parts,
+			str(steps.size())
+		)
 		for step: GFInputSequenceStep in steps:
-			_append_signature_part(parts, String(step.action_id))
-			_append_signature_part(parts, str(step.max_gap_seconds))
-			_append_signature_part(parts, str(step.min_hold_seconds))
-			_append_signature_part(parts, "1" if step.trigger_on_release else "0")
+			_append_signature_part(
+				parts,
+				String(step.action_id)
+			)
+			_append_signature_part(
+				parts,
+				str(step.max_gap_seconds)
+			)
+			_append_signature_part(
+				parts,
+				str(step.min_hold_seconds)
+			)
+			_append_signature_part(
+				parts,
+				"1" if step.trigger_on_release else "0"
+			)
 	return "|".join(parts)
 
 
@@ -247,10 +307,7 @@ func _make_branch_configuration_signature(effective_branches: Array[GFInputSeque
 ## [br]
 ## @api private
 ## [br]
-func _ensure_branch_configuration_state(
-	state: Dictionary,
-	effective_branches: Array[GFInputSequenceBranch]
-) -> void:
+func _ensure_branch_configuration_state(state: Dictionary, effective_branches: Array[GFInputSequenceBranch]) -> void:
 	var signature: String = _make_branch_configuration_signature(effective_branches)
 	if GFVariantData.get_option_string(state, _BRANCH_CONFIGURATION_SIGNATURE_KEY) == signature:
 		return
@@ -273,7 +330,11 @@ func _advance_branch(
 	player_index: int
 ) -> void:
 	if _is_branch_completed(branch_state):
-		_advance_completed_branch_gap(branch_state, branch, delta)
+		_advance_completed_branch_gap(
+			branch_state,
+			branch,
+			delta
+		)
 		return
 
 	var sequence_index: int = _get_branch_sequence_index(branch_state)
@@ -283,12 +344,23 @@ func _advance_branch(
 		return
 
 	var current_step: GFInputSequenceStep = steps[sequence_index]
-	if _should_reset_for_gap(branch_state, current_step, branch, delta):
+	if _should_reset_for_gap(
+		branch_state,
+		current_step,
+		branch,
+		delta
+	):
 		_reset_branch_progress(branch_state)
 		sequence_index = 0
 		current_step = steps[sequence_index]
 
-	if _advance_step(branch_state, current_step, input_runtime, delta, player_index):
+	if _advance_step(
+		branch_state,
+		current_step,
+		input_runtime,
+		delta,
+		player_index
+	):
 		sequence_index += 1
 		branch_state["sequence_index"] = sequence_index
 		branch_state["gap_elapsed"] = 0.0
@@ -322,18 +394,43 @@ func _advance_step(
 	if step == null or step.action_id == &"":
 		return true
 
-	var is_active: bool = _is_action_active(input_runtime, step.action_id, player_index)
+	var is_active: bool = _is_action_active(
+		input_runtime,
+		step.action_id,
+		player_index
+	)
 	var was_active: bool = _was_step_active(branch_state)
 	var started: bool = _has_step_started(branch_state)
 	var elapsed: float = _get_step_elapsed(branch_state)
-	var just_started: bool = _was_action_just_started(input_runtime, step.action_id, player_index)
+	var just_started: bool = _was_action_just_started(
+		input_runtime,
+		step.action_id,
+		player_index
+	)
 
 	if (
 		step.trigger_on_release
-		and _was_action_just_completed(input_runtime, step.action_id, player_index)
-		and _consume_action_edge(branch_state, input_runtime, step.action_id, player_index, true)
+		and _was_action_just_completed(
+			input_runtime,
+			step.action_id,
+			player_index
+		)
+		and _consume_action_edge(
+			branch_state,
+			input_runtime,
+			step.action_id,
+			player_index,
+			true
+		)
 	):
-		elapsed = maxf(elapsed, _get_last_completed_duration(input_runtime, step.action_id, player_index))
+		elapsed = maxf(
+			elapsed,
+			_get_last_completed_duration(
+				input_runtime,
+				step.action_id,
+				player_index
+			)
+		)
 		branch_state["step_elapsed"] = elapsed
 		branch_state["step_started"] = false
 		branch_state["step_was_active"] = false
@@ -342,10 +439,24 @@ func _advance_step(
 		_reset_branch_progress(branch_state)
 		return false
 
-	var may_start: bool = just_started or (
-		not started and is_active and (step.trigger_on_release or step.min_hold_seconds > 0.0)
+	var may_start: bool = (
+		just_started
+		or (
+			not started
+			and is_active
+			and (
+				step.trigger_on_release
+				or step.min_hold_seconds > 0.0
+			)
+		)
 	)
-	if may_start and _consume_action_edge(branch_state, input_runtime, step.action_id, player_index, false):
+	if may_start and _consume_action_edge(
+		branch_state,
+		input_runtime,
+		step.action_id,
+		player_index,
+		false
+	):
 		started = true
 		elapsed = maxf(delta, 0.0) if is_active else 0.0
 	elif started and is_active:
@@ -356,7 +467,11 @@ func _advance_step(
 	branch_state["step_was_active"] = is_active
 
 	if step.trigger_on_release:
-		if started and was_active and not is_active:
+		if (
+			started
+			and was_active
+			and not is_active
+		):
 			if elapsed >= step.min_hold_seconds:
 				return true
 			_reset_branch_progress(branch_state)
@@ -384,12 +499,14 @@ func _consume_action_edge(
 	player_index: int,
 	completed: bool
 ) -> bool:
-	var revision: int = GFVariantData.to_int(input_runtime.call(
-		"get_action_edge_revision_for_framework",
-		action_id,
-		player_index if player_scoped else -1,
-		completed
-	))
+	var revision: int = GFVariantData.to_int(
+		input_runtime.call(
+			"get_action_edge_revision_for_framework",
+			action_id,
+			player_index if player_scoped else -1,
+			completed
+		)
+	)
 	var key: String = "consumed_completed_edges" if completed else "consumed_started_edges"
 	var consumed_edges: Dictionary = GFVariantData.get_option_dictionary(branch_state, key)
 	if revision <= GFVariantData.get_option_int(consumed_edges, action_id):
@@ -532,11 +649,21 @@ func _has_completed_branch(state: Dictionary) -> bool:
 ## [br]
 ## @api private
 ## [br]
-func _is_action_active(input_runtime: Object, action_id: StringName, player_index: int) -> bool:
+func _is_action_active(
+	input_runtime: Object,
+	action_id: StringName,
+	player_index: int
+) -> bool:
 	if player_scoped and player_index >= 0:
 		if not input_runtime.has_method("is_action_active_for_player"):
 			return false
-		return GFVariantData.to_bool(input_runtime.call("is_action_active_for_player", player_index, action_id))
+		return GFVariantData.to_bool(
+			input_runtime.call(
+				"is_action_active_for_player",
+				player_index,
+				action_id
+			)
+		)
 	if input_runtime.has_method("is_action_active"):
 		return GFVariantData.to_bool(input_runtime.call("is_action_active", action_id))
 	return false
@@ -546,11 +673,21 @@ func _is_action_active(input_runtime: Object, action_id: StringName, player_inde
 ## [br]
 ## @api private
 ## [br]
-func _was_action_just_started(input_runtime: Object, action_id: StringName, player_index: int) -> bool:
+func _was_action_just_started(
+	input_runtime: Object,
+	action_id: StringName,
+	player_index: int
+) -> bool:
 	if player_scoped and player_index >= 0:
 		if not input_runtime.has_method("was_action_just_started_for_player"):
 			return false
-		return GFVariantData.to_bool(input_runtime.call("was_action_just_started_for_player", player_index, action_id))
+		return GFVariantData.to_bool(
+			input_runtime.call(
+				"was_action_just_started_for_player",
+				player_index,
+				action_id
+			)
+		)
 	if input_runtime.has_method("was_action_just_started"):
 		return GFVariantData.to_bool(input_runtime.call("was_action_just_started", action_id))
 	return false
@@ -560,11 +697,21 @@ func _was_action_just_started(input_runtime: Object, action_id: StringName, play
 ## [br]
 ## @api private
 ## [br]
-func _was_action_just_completed(input_runtime: Object, action_id: StringName, player_index: int) -> bool:
+func _was_action_just_completed(
+	input_runtime: Object,
+	action_id: StringName,
+	player_index: int
+) -> bool:
 	if player_scoped and player_index >= 0:
 		if not input_runtime.has_method("was_action_just_completed_for_player"):
 			return false
-		return GFVariantData.to_bool(input_runtime.call("was_action_just_completed_for_player", player_index, action_id))
+		return GFVariantData.to_bool(
+			input_runtime.call(
+				"was_action_just_completed_for_player",
+				player_index,
+				action_id
+			)
+		)
 	if input_runtime.has_method("was_action_just_completed"):
 		return GFVariantData.to_bool(input_runtime.call("was_action_just_completed", action_id))
 	return false
@@ -574,11 +721,21 @@ func _was_action_just_completed(input_runtime: Object, action_id: StringName, pl
 ## [br]
 ## @api private
 ## [br]
-func _get_last_completed_duration(input_runtime: Object, action_id: StringName, player_index: int) -> float:
+func _get_last_completed_duration(
+	input_runtime: Object,
+	action_id: StringName,
+	player_index: int
+) -> float:
 	if player_scoped and player_index >= 0:
 		if not input_runtime.has_method("get_last_completed_duration_for_player"):
 			return 0.0
-		return GFVariantData.to_float(input_runtime.call("get_last_completed_duration_for_player", player_index, action_id))
+		return GFVariantData.to_float(
+			input_runtime.call(
+				"get_last_completed_duration_for_player",
+				player_index,
+				action_id
+			)
+		)
 	if input_runtime.has_method("get_last_completed_duration"):
 		return GFVariantData.to_float(input_runtime.call("get_last_completed_duration", action_id))
 	return 0.0
@@ -631,7 +788,11 @@ func _reset_branch_progress(branch_state: Dictionary) -> void:
 ## @api private
 ## [br]
 func _get_runtime_player_index(state: Dictionary) -> int:
-	return GFVariantData.get_option_int(state, "player_index", -1)
+	return GFVariantData.get_option_int(
+		state,
+		"player_index",
+		-1
+	)
 
 
 ## 读取分支状态的 completed 标记。

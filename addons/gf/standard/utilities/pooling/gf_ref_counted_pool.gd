@@ -164,7 +164,11 @@ func acquire() -> RefCounted:
 	var acquire_token: RefCounted = RefCounted.new()
 	_active_ids[item_id] = acquire_token
 	_call_optional_hook(item, HOOK_ON_ACQUIRE)
-	if not _token_matches(_active_ids, item_id, acquire_token):
+	if not _token_matches(
+		_active_ids,
+		item_id,
+		acquire_token
+	):
 		return null
 	return item
 
@@ -189,7 +193,11 @@ func release(item: RefCounted) -> bool:
 	var release_token: RefCounted = RefCounted.new()
 	_transition_tokens[item_id] = release_token
 	_prepare_item_for_reuse(item)
-	if not _token_matches(_transition_tokens, item_id, release_token):
+	if not _token_matches(
+		_transition_tokens,
+		item_id,
+		release_token
+	):
 		return true
 	var _transition_erased: bool = _transition_tokens.erase(item_id)
 	if max_available > 0 and _available.size() >= max_available:
@@ -222,7 +230,11 @@ func prewarm(count: int) -> int:
 		var prepare_token: RefCounted = RefCounted.new()
 		_transition_tokens[item_id] = prepare_token
 		_prepare_item_for_reuse(item)
-		if not _token_matches(_transition_tokens, item_id, prepare_token):
+		if not _token_matches(
+			_transition_tokens,
+			item_id,
+			prepare_token
+		):
 			break
 		var _transition_erased: bool = _transition_tokens.erase(item_id)
 		if max_available > 0 and _available.size() >= max_available:
@@ -343,7 +355,11 @@ func _available_has_item(item: RefCounted) -> bool:
 ## [br]
 ## @api private
 ## [br]
-func _token_matches(records: Dictionary, item_id: int, expected_token: RefCounted) -> bool:
+func _token_matches(
+	records: Dictionary,
+	item_id: int,
+	expected_token: RefCounted
+) -> bool:
 	if not records.has(item_id):
 		return false
 	var token_value: Variant = records[item_id]

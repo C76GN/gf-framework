@@ -128,13 +128,47 @@ func _init(p_root_path: String = "", options: Dictionary = {}) -> void:
 ## @schema options: Dictionary，包含加载器配置。
 func configure(p_root_path: String = "", options: Dictionary = {}) -> GFSourceTextLoader:
 	root_path = _normalize_path(p_root_path)
-	allow_registered_text = GFVariantData.get_option_bool(options, "allow_registered_text", allow_registered_text)
-	allow_custom_loaders = GFVariantData.get_option_bool(options, "allow_custom_loaders", allow_custom_loaders)
-	allow_file_access = GFVariantData.get_option_bool(options, "allow_file_access", allow_file_access)
-	cache_enabled = GFVariantData.get_option_bool(options, "cache_enabled", cache_enabled)
-	max_bytes = maxi(GFVariantData.get_option_int(options, "max_bytes", max_bytes), 0)
-	metadata = GFVariantData.get_option_dictionary(options, "metadata", metadata)
-	_report = GFValidationReport.new(GFVariantData.get_option_string(options, "subject", "Source text loader"), metadata)
+	allow_registered_text = GFVariantData.get_option_bool(
+		options,
+		"allow_registered_text",
+		allow_registered_text
+	)
+	allow_custom_loaders = GFVariantData.get_option_bool(
+		options,
+		"allow_custom_loaders",
+		allow_custom_loaders
+	)
+	allow_file_access = GFVariantData.get_option_bool(
+		options,
+		"allow_file_access",
+		allow_file_access
+	)
+	cache_enabled = GFVariantData.get_option_bool(
+		options,
+		"cache_enabled",
+		cache_enabled
+	)
+	max_bytes = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"max_bytes",
+			max_bytes
+		),
+		0
+	)
+	metadata = GFVariantData.get_option_dictionary(
+		options,
+		"metadata",
+		metadata
+	)
+	_report = GFValidationReport.new(
+		GFVariantData.get_option_string(
+			options,
+			"subject",
+			"Source text loader"
+		),
+		metadata
+	)
 	return self
 
 
@@ -174,13 +208,14 @@ func clear_cache() -> void:
 ## @return 注册成功时返回 true。
 ## [br]
 ## @schema entry_metadata: Dictionary，包含调用方定义的文本条目上下文。
-func register_text(source_key: String, text: String, entry_metadata: Dictionary = {}) -> bool:
+func register_text(
+	source_key: String,
+	text: String,
+	entry_metadata: Dictionary = {}
+) -> bool:
 	if source_key.is_empty():
 		return false
-	_registered_texts[source_key] = {
-		"text": text,
-		"metadata": entry_metadata.duplicate(true),
-	}
+	_registered_texts[source_key] = { "text": text, "metadata": entry_metadata.duplicate(true), }
 	var _cache_erase_result: bool = _cache.erase(_make_cache_key("registered", source_key))
 	return true
 
@@ -217,10 +252,7 @@ func unregister_text(source_key: String) -> bool:
 func add_custom_loader(loader: Callable, loader_metadata: Dictionary = {}) -> bool:
 	if not loader.is_valid():
 		return false
-	_custom_loaders.append({
-		"loader": loader,
-		"metadata": loader_metadata.duplicate(true),
-	})
+	_custom_loaders.append({ "loader": loader, "metadata": loader_metadata.duplicate(true), })
 	return true
 
 
@@ -251,22 +283,39 @@ func clear_custom_loaders() -> void:
 ## @schema return: Dictionary，包含 ok、source_key、resolved_path、cache_key、registered 和 report。
 func resolve_key(source_key: String, caller_span: Variant = null) -> Dictionary:
 	if source_key.is_empty():
-		return _failure(&"empty_key", "Source text key is empty.", caller_span, { "source_key": source_key })
+		return _failure(
+			&"empty_key",
+			"Source text key is empty.",
+			caller_span,
+			{ "source_key": source_key }
+		)
 
 	if allow_registered_text and _registered_texts.has(source_key):
-		return GFResultDictionary.make_success({
-			"source_key": source_key,
-			"resolved_path": source_key,
-			"cache_key": _make_cache_key("registered", source_key),
-			"registered": true,
-			"root_path": root_path,
-			"report": duplicate_report(),
-		})
+		return GFResultDictionary.make_success(
+			{
+				"source_key": source_key,
+				"resolved_path": source_key,
+				"cache_key": _make_cache_key("registered", source_key),
+				"registered": true,
+				"root_path": root_path,
+				"report": duplicate_report(),
+			}
+		)
 
 	if not allow_file_access:
-		return _failure(&"file_access_disabled", "Source text file access is disabled.", caller_span, { "source_key": source_key })
+		return _failure(
+			&"file_access_disabled",
+			"Source text file access is disabled.",
+			caller_span,
+			{ "source_key": source_key }
+		)
 	if root_path.is_empty():
-		return _failure(&"missing_root_path", "Source text root_path is required for file access.", caller_span, { "source_key": source_key })
+		return _failure(
+			&"missing_root_path",
+			"Source text root_path is required for file access.",
+			caller_span,
+			{ "source_key": source_key }
+		)
 
 	var normalized_root: String = _normalize_path(root_path)
 	var resolved_path: String = _resolve_file_path(source_key, normalized_root)
@@ -282,14 +331,16 @@ func resolve_key(source_key: String, caller_span: Variant = null) -> Dictionary:
 			}
 		)
 
-	return GFResultDictionary.make_success({
-		"source_key": source_key,
-		"resolved_path": resolved_path,
-		"cache_key": _make_cache_key("file", resolved_path),
-		"registered": false,
-		"root_path": normalized_root,
-		"report": duplicate_report(),
-	})
+	return GFResultDictionary.make_success(
+		{
+			"source_key": source_key,
+			"resolved_path": resolved_path,
+			"cache_key": _make_cache_key("file", resolved_path),
+			"registered": false,
+			"root_path": normalized_root,
+			"report": duplicate_report(),
+		}
+	)
 
 
 ## 加载 UTF-8 文本。
@@ -325,10 +376,22 @@ func load_text(source_key: String, caller_span: Variant = null) -> Dictionary:
 		return _get_cached_result(cache_key, caller_span)
 
 	var result: Dictionary
-	if GFVariantData.get_option_bool(resolved, "registered", false):
-		result = _load_registered_text(source_key, resolved, caller_span)
+	if GFVariantData.get_option_bool(
+		resolved,
+		"registered",
+		false
+	):
+		result = _load_registered_text(
+			source_key,
+			resolved,
+			caller_span
+		)
 	else:
-		result = _load_file_text(GFVariantData.get_option_string(resolved, "resolved_path"), resolved, caller_span)
+		result = _load_file_text(
+			GFVariantData.get_option_string(resolved, "resolved_path"),
+			resolved,
+			caller_span
+		)
 
 	if cache_enabled and GFResultDictionary.is_ok(result):
 		_cache[cache_key] = result.duplicate(true)
@@ -392,19 +455,39 @@ func get_debug_snapshot() -> Dictionary:
 ## [br]
 ## @api private
 ## [br]
-func _load_registered_text(source_key: String, resolved: Dictionary, caller_span: Variant) -> Dictionary:
+func _load_registered_text(
+	source_key: String,
+	resolved: Dictionary,
+	caller_span: Variant
+) -> Dictionary:
 	var entry: Dictionary = GFVariantData.get_option_dictionary(_registered_texts, source_key)
 	var text: String = GFVariantData.get_option_string(entry, "text")
-	return _make_loaded_result(text, resolved, true, false, caller_span, GFVariantData.get_option_dictionary(entry, "metadata"))
+	return _make_loaded_result(
+		text,
+		resolved,
+		true,
+		false,
+		caller_span,
+		GFVariantData.get_option_dictionary(entry, "metadata")
+	)
 
 
 ## 按 max_bytes 读取文件，拒绝不完整读取或无效 UTF-8 后构造结果。
 ## [br]
 ## @api private
 ## [br]
-func _load_file_text(path: String, resolved: Dictionary, caller_span: Variant) -> Dictionary:
+func _load_file_text(
+	path: String,
+	resolved: Dictionary,
+	caller_span: Variant
+) -> Dictionary:
 	if not FileAccess.file_exists(path):
-		return _failure(&"file_not_found", "Source text file does not exist.", caller_span, resolved)
+		return _failure(
+			&"file_not_found",
+			"Source text file does not exist.",
+			caller_span,
+			resolved
+		)
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
 		return _failure(
@@ -417,16 +500,43 @@ func _load_file_text(path: String, resolved: Dictionary, caller_span: Variant) -
 	var byte_size: int = int(file.get_length())
 	if max_bytes > 0 and byte_size > max_bytes:
 		file.close()
-		return _failure(&"file_too_large", "Source text file exceeds max_bytes.", caller_span, resolved)
+		return _failure(
+			&"file_too_large",
+			"Source text file exceeds max_bytes.",
+			caller_span,
+			resolved
+		)
 
 	var bytes: PackedByteArray = file.get_buffer(byte_size)
 	var read_error: Error = file.get_error()
 	file.close()
-	if bytes.size() != byte_size or (read_error != OK and read_error != ERR_FILE_EOF):
-		return _failure(&"read_failed", "Source text file could not be read completely.", caller_span, resolved)
+	if (
+		bytes.size() != byte_size
+		or (
+			read_error != OK
+			and read_error != ERR_FILE_EOF
+		)
+	):
+		return _failure(
+			&"read_failed",
+			"Source text file could not be read completely.",
+			caller_span,
+			resolved
+		)
 	if not _is_valid_utf8_bytes(bytes):
-		return _failure(&"invalid_utf8", "Source text file is not valid UTF-8.", caller_span, resolved)
-	return _make_loaded_result(bytes.get_string_from_utf8(), resolved, false, false, caller_span)
+		return _failure(
+			&"invalid_utf8",
+			"Source text file is not valid UTF-8.",
+			caller_span,
+			resolved
+		)
+	return _make_loaded_result(
+		bytes.get_string_from_utf8(),
+		resolved,
+		false,
+		false,
+		caller_span
+	)
 
 
 ## 按注册顺序调用可用加载器；空结果表示继续，首个非空结果结束尝试。
@@ -451,7 +561,15 @@ func _load_custom_text(source_key: String, caller_span: Variant) -> Dictionary:
 			continue
 
 		var loader_metadata: Dictionary = GFVariantData.get_option_dictionary(entry, "metadata")
-		var raw_result: Variant = loader.call(source_key, _make_custom_loader_context(source_key, loader_index, loader_metadata, caller_span))
+		var raw_result: Variant = loader.call(
+			source_key,
+			_make_custom_loader_context(
+				source_key,
+				loader_index,
+				loader_metadata,
+				caller_span
+			)
+		)
 		var normalized: Dictionary = _normalize_custom_loader_result(
 			raw_result,
 			source_key,
@@ -482,24 +600,35 @@ func _make_loaded_result(
 ) -> Dictionary:
 	var byte_size: int = text.to_utf8_buffer().size()
 	if max_bytes > 0 and byte_size > max_bytes:
-		return _failure(&"text_too_large", "Source text exceeds max_bytes.", caller_span, resolved)
+		return _failure(
+			&"text_too_large",
+			"Source text exceeds max_bytes.",
+			caller_span,
+			resolved
+		)
 	var source_key: String = GFVariantData.get_option_string(resolved, "source_key")
 	var resolved_path: String = GFVariantData.get_option_string(resolved, "resolved_path")
-	return GFResultDictionary.make_success({
-		"source_key": source_key,
-		"resolved_path": resolved_path,
-		"cache_key": GFVariantData.get_option_string(resolved, "cache_key"),
-		"registered": registered,
-		"custom_loader": GFVariantData.get_option_bool(resolved, "custom_loader", false),
-		"from_cache": from_cache,
-		"text": text,
-		"content": text,
-		"content_hash": text.sha256_text(),
-		"byte_size": byte_size,
-		"root_path": root_path,
-		"entry_metadata": entry_metadata.duplicate(true),
-		"report": duplicate_report(),
-	})
+	return GFResultDictionary.make_success(
+		{
+			"source_key": source_key,
+			"resolved_path": resolved_path,
+			"cache_key": GFVariantData.get_option_string(resolved, "cache_key"),
+			"registered": registered,
+			"custom_loader": GFVariantData.get_option_bool(
+				resolved,
+				"custom_loader",
+				false
+			),
+			"from_cache": from_cache,
+			"text": text,
+			"content": text,
+			"content_hash": text.sha256_text(),
+			"byte_size": byte_size,
+			"root_path": root_path,
+			"entry_metadata": entry_metadata.duplicate(true),
+			"report": duplicate_report(),
+		}
+	)
 
 
 ## 将自定义加载器的 String、字节数组或结果字典转换为统一结果。
@@ -519,34 +648,97 @@ func _normalize_custom_loader_result(
 		return {}
 	if raw_result is String:
 		var text: String = raw_result
-		return _make_custom_loaded_result(text, {}, source_key, cache_key, loader_index, caller_span, loader_metadata)
+		return _make_custom_loaded_result(
+			text,
+			{},
+			source_key,
+			cache_key,
+			loader_index,
+			caller_span,
+			loader_metadata
+		)
 	if raw_result is PackedByteArray:
 		var bytes: PackedByteArray = raw_result
-		return _make_custom_bytes_loaded_result(bytes, {}, source_key, cache_key, loader_index, caller_span, loader_metadata)
+		return _make_custom_bytes_loaded_result(
+			bytes,
+			{},
+			source_key,
+			cache_key,
+			loader_index,
+			caller_span,
+			loader_metadata
+		)
 	if raw_result is Dictionary:
 		var data: Dictionary = GFVariantData.as_dictionary(raw_result)
-		if data.has("handled") and not GFVariantData.get_option_bool(data, "handled", false):
+		if data.has("handled") and not GFVariantData.get_option_bool(
+			data,
+			"handled",
+			false
+		):
 			return {}
 		if data.has(GFResultDictionary.KEY_OK) and not GFResultDictionary.is_ok(data, true):
-			return _make_custom_loader_failure(data, source_key, loader_index, caller_span)
+			return _make_custom_loader_failure(
+				data,
+				source_key,
+				loader_index,
+				caller_span
+			)
 		if data.has("text"):
-			return _make_custom_text_value_result(data["text"], data, source_key, cache_key, loader_index, caller_span, loader_metadata)
+			return _make_custom_text_value_result(
+				data["text"],
+				data,
+				source_key,
+				cache_key,
+				loader_index,
+				caller_span,
+				loader_metadata
+			)
 		if data.has("content"):
-			return _make_custom_text_value_result(data["content"], data, source_key, cache_key, loader_index, caller_span, loader_metadata)
+			return _make_custom_text_value_result(
+				data["content"],
+				data,
+				source_key,
+				cache_key,
+				loader_index,
+				caller_span,
+				loader_metadata
+			)
 		if data.has("bytes"):
-			return _make_custom_text_value_result(data["bytes"], data, source_key, cache_key, loader_index, caller_span, loader_metadata)
-		if GFVariantData.get_option_bool(data, "handled", false):
-			return _failure(&"invalid_custom_loader_result", "Custom source text loader returned no text.", caller_span, {
-				"source_key": source_key,
-				"custom_loader": true,
-				"loader_index": loader_index,
-			})
+			return _make_custom_text_value_result(
+				data["bytes"],
+				data,
+				source_key,
+				cache_key,
+				loader_index,
+				caller_span,
+				loader_metadata
+			)
+		if GFVariantData.get_option_bool(
+			data,
+			"handled",
+			false
+		):
+			return _failure(
+				&"invalid_custom_loader_result",
+				"Custom source text loader returned no text.",
+				caller_span,
+				{
+					"source_key": source_key,
+					"custom_loader": true,
+					"loader_index": loader_index,
+				}
+			)
 		return {}
-	return _failure(&"invalid_custom_loader_result", "Custom source text loader returned an unsupported value.", caller_span, {
-		"source_key": source_key,
-		"custom_loader": true,
-		"loader_index": loader_index,
-	})
+	return _failure(
+		&"invalid_custom_loader_result",
+		"Custom source text loader returned an unsupported value.",
+		caller_span,
+		{
+			"source_key": source_key,
+			"custom_loader": true,
+			"loader_index": loader_index,
+		}
+	)
 
 
 ## 接受 String 或 PackedByteArray 作为字典中的文本值，其余类型生成失败结果。
@@ -564,15 +756,36 @@ func _make_custom_text_value_result(
 ) -> Dictionary:
 	if text_value is String:
 		var text: String = text_value
-		return _make_custom_loaded_result(text, data, source_key, cache_key, loader_index, caller_span, loader_metadata)
+		return _make_custom_loaded_result(
+			text,
+			data,
+			source_key,
+			cache_key,
+			loader_index,
+			caller_span,
+			loader_metadata
+		)
 	if text_value is PackedByteArray:
 		var bytes: PackedByteArray = text_value
-		return _make_custom_bytes_loaded_result(bytes, data, source_key, cache_key, loader_index, caller_span, loader_metadata)
-	return _failure(&"invalid_custom_loader_result", "Custom source text loader text must be String or PackedByteArray.", caller_span, {
-		"source_key": source_key,
-		"custom_loader": true,
-		"loader_index": loader_index,
-	})
+		return _make_custom_bytes_loaded_result(
+			bytes,
+			data,
+			source_key,
+			cache_key,
+			loader_index,
+			caller_span,
+			loader_metadata
+		)
+	return _failure(
+		&"invalid_custom_loader_result",
+		"Custom source text loader text must be String or PackedByteArray.",
+		caller_span,
+		{
+			"source_key": source_key,
+			"custom_loader": true,
+			"loader_index": loader_index,
+		}
+	)
 
 
 ## 验证自定义加载器字节为 UTF-8 后解码并构造标准成功结果。
@@ -589,11 +802,16 @@ func _make_custom_bytes_loaded_result(
 	loader_metadata: Dictionary
 ) -> Dictionary:
 	if not _is_valid_utf8_bytes(bytes):
-		return _failure(&"invalid_utf8", "Custom source text loader returned invalid UTF-8 bytes.", caller_span, {
-			"source_key": source_key,
-			"custom_loader": true,
-			"loader_index": loader_index,
-		})
+		return _failure(
+			&"invalid_utf8",
+			"Custom source text loader returned invalid UTF-8 bytes.",
+			caller_span,
+			{
+				"source_key": source_key,
+				"custom_loader": true,
+				"loader_index": loader_index,
+			}
+		)
 	return _make_custom_loaded_result(
 		bytes.get_string_from_utf8(),
 		data,
@@ -627,14 +845,25 @@ func _make_custom_loaded_result(
 	)
 	var resolved: Dictionary = {
 		"source_key": source_key,
-		"resolved_path": GFVariantData.get_option_string(data, "resolved_path", source_key),
+		"resolved_path": GFVariantData.get_option_string(
+			data,
+			"resolved_path",
+			source_key
+		),
 		"cache_key": cache_key,
 		"registered": false,
 		"custom_loader": true,
 		"root_path": root_path,
 		"report": duplicate_report(),
 	}
-	var result: Dictionary = _make_loaded_result(text, resolved, false, false, caller_span, entry_metadata)
+	var result: Dictionary = _make_loaded_result(
+		text,
+		resolved,
+		false,
+		false,
+		caller_span,
+		entry_metadata
+	)
 	result["custom_loader"] = true
 	result["loader_index"] = loader_index
 	return result
@@ -644,14 +873,32 @@ func _make_custom_loaded_result(
 ## [br]
 ## @api private
 ## [br]
-func _make_custom_loader_failure(data: Dictionary, source_key: String, loader_index: int, caller_span: Variant) -> Dictionary:
-	var reason: StringName = GFVariantData.get_option_string_name(data, GFResultDictionary.KEY_REASON, &"custom_loader_failed")
-	var message: String = GFVariantData.get_option_string(data, GFResultDictionary.KEY_MESSAGE, "Custom source text loader failed.")
-	_add_error(reason, message, caller_span, {
-		"source_key": source_key,
-		"custom_loader": true,
-		"loader_index": loader_index,
-	})
+func _make_custom_loader_failure(
+	data: Dictionary,
+	source_key: String,
+	loader_index: int,
+	caller_span: Variant
+) -> Dictionary:
+	var reason: StringName = GFVariantData.get_option_string_name(
+		data,
+		GFResultDictionary.KEY_REASON,
+		&"custom_loader_failed"
+	)
+	var message: String = GFVariantData.get_option_string(
+		data,
+		GFResultDictionary.KEY_MESSAGE,
+		"Custom source text loader failed."
+	)
+	_add_error(
+		reason,
+		message,
+		caller_span,
+		{
+			"source_key": source_key,
+			"custom_loader": true,
+			"loader_index": loader_index,
+		}
+	)
 	var result: Dictionary = GFResultDictionary.normalize(data, false)
 	result["source_key"] = source_key
 	result["custom_loader"] = true
@@ -664,11 +911,25 @@ func _make_custom_loader_failure(data: Dictionary, source_key: String, loader_in
 ## [br]
 ## @api private
 ## [br]
-func _failure(reason: StringName, message: String, caller_span: Variant, fields: Dictionary = {}) -> Dictionary:
-	_add_error(reason, message, caller_span, fields)
+func _failure(
+	reason: StringName,
+	message: String,
+	caller_span: Variant,
+	fields: Dictionary = {}
+) -> Dictionary:
+	_add_error(
+		reason,
+		message,
+		caller_span,
+		fields
+	)
 	var result: Dictionary = fields.duplicate(true)
 	result["report"] = duplicate_report()
-	return GFResultDictionary.make_rejected(reason, message, result)
+	return GFResultDictionary.make_rejected(
+		reason,
+		message,
+		result
+	)
 
 
 ## 取出缓存结果；超出当前字节上限时删除该项并返回错误，否则标记为缓存命中。
@@ -677,16 +938,25 @@ func _failure(reason: StringName, message: String, caller_span: Variant, fields:
 ## [br]
 func _get_cached_result(cache_key: String, caller_span: Variant) -> Dictionary:
 	var cached: Dictionary = GFVariantData.get_option_dictionary(_cache, cache_key)
-	var byte_size: int = GFVariantData.get_option_int(cached, "byte_size", -1)
+	var byte_size: int = GFVariantData.get_option_int(
+		cached,
+		"byte_size",
+		-1
+	)
 	if max_bytes > 0 and byte_size > max_bytes:
 		var _cache_erase_result: bool = _cache.erase(cache_key)
-		return _failure(&"text_too_large", "Cached source text exceeds max_bytes.", caller_span, {
-			"source_key": GFVariantData.get_option_string(cached, "source_key"),
-			"resolved_path": GFVariantData.get_option_string(cached, "resolved_path"),
-			"cache_key": cache_key,
-			"registered": GFVariantData.get_option_bool(cached, "registered"),
-			"custom_loader": GFVariantData.get_option_bool(cached, "custom_loader"),
-		})
+		return _failure(
+			&"text_too_large",
+			"Cached source text exceeds max_bytes.",
+			caller_span,
+			{
+				"source_key": GFVariantData.get_option_string(cached, "source_key"),
+				"resolved_path": GFVariantData.get_option_string(cached, "resolved_path"),
+				"cache_key": cache_key,
+				"registered": GFVariantData.get_option_bool(cached, "registered"),
+				"custom_loader": GFVariantData.get_option_bool(cached, "custom_loader"),
+			}
+		)
 	cached["from_cache"] = true
 	cached["report"] = duplicate_report()
 	return GFResultDictionary.normalize(cached, true)
@@ -715,11 +985,27 @@ static func _is_valid_utf8_bytes(bytes: PackedByteArray) -> bool:
 			var third: int = bytes[index + 2]
 			if not _is_utf8_continuation(third):
 				return false
-			if first == 0xe0 and (second < 0xa0 or second > 0xbf):
+			if (
+				first == 0xe0
+				and (
+					second < 0xa0
+					or second > 0xbf
+				)
+			):
 				return false
-			if first == 0xed and (second < 0x80 or second > 0x9f):
+			if (
+				first == 0xed
+				and (
+					second < 0x80
+					or second > 0x9f
+				)
+			):
 				return false
-			if first != 0xe0 and first != 0xed and not _is_utf8_continuation(second):
+			if (
+				first != 0xe0
+				and first != 0xed
+				and not _is_utf8_continuation(second)
+			):
 				return false
 			index += 3
 			continue
@@ -727,16 +1013,29 @@ static func _is_valid_utf8_bytes(bytes: PackedByteArray) -> bool:
 			if index + 3 >= bytes.size():
 				return false
 			var second: int = bytes[index + 1]
-			if first == 0xf0 and (second < 0x90 or second > 0xbf):
-				return false
-			if first == 0xf4 and (second < 0x80 or second > 0x8f):
-				return false
-			if first != 0xf0 and first != 0xf4 and not _is_utf8_continuation(second):
+			if (
+				first == 0xf0
+				and (
+					second < 0x90
+					or second > 0xbf
+				)
+			):
 				return false
 			if (
-				not _is_utf8_continuation(bytes[index + 2])
-				or not _is_utf8_continuation(bytes[index + 3])
+				first == 0xf4
+				and (
+					second < 0x80
+					or second > 0x8f
+				)
 			):
+				return false
+			if (
+				first != 0xf0
+				and first != 0xf4
+				and not _is_utf8_continuation(second)
+			):
+				return false
+			if (not _is_utf8_continuation(bytes[index + 2]) or not _is_utf8_continuation(bytes[index + 3])):
 				return false
 			index += 4
 			continue
@@ -756,13 +1055,36 @@ static func _is_utf8_continuation(value: int) -> bool:
 ## [br]
 ## @api private
 ## [br]
-func _add_error(reason: StringName, message: String, caller_span: Variant, fields: Dictionary) -> void:
+func _add_error(
+	reason: StringName,
+	message: String,
+	caller_span: Variant,
+	fields: Dictionary
+) -> void:
 	var issue_metadata: Dictionary = metadata.duplicate(true)
-	var _merged_fields: Dictionary = GFVariantData.merge_dictionary(issue_metadata, fields, true, true)
+	var _merged_fields: Dictionary = GFVariantData.merge_dictionary(
+		issue_metadata,
+		fields,
+		true,
+		true
+	)
 	if caller_span is GFSourceSpan or caller_span is Dictionary:
-		var _source_issue: RefCounted = _report.add_source_error(reason, message, caller_span, null, "", issue_metadata)
+		var _source_issue: RefCounted = _report.add_source_error(
+			reason,
+			message,
+			caller_span,
+			null,
+			"",
+			issue_metadata
+		)
 	else:
-		var _issue: RefCounted = _report.add_error(reason, message, null, "", issue_metadata)
+		var _issue: RefCounted = _report.add_error(
+			reason,
+			message,
+			null,
+			"",
+			issue_metadata
+		)
 
 
 ## 返回规范化绝对来源路径，或将相对 key 拼入已规范化根路径。
@@ -807,7 +1129,11 @@ static func _is_under_root(path: String, root: String) -> bool:
 ## @api private
 ## [br]
 static func _is_absolute_source_path(path: String) -> bool:
-	return path.begins_with("res://") or path.begins_with("user://") or path.is_absolute_path()
+	return (
+		path.begins_with("res://")
+		or path.begins_with("user://")
+		or path.is_absolute_path()
+	)
 
 
 ## 规范化比较路径；带盘符冒号的普通路径转为小写，Godot URI 保留原大小写。
@@ -816,7 +1142,11 @@ static func _is_absolute_source_path(path: String) -> bool:
 ## [br]
 static func _to_comparable_path(path: String) -> String:
 	var normalized: String = _normalize_path(path)
-	if normalized.find(":") >= 0 and not normalized.begins_with("res://") and not normalized.begins_with("user://"):
+	if (
+		normalized.find(":") >= 0
+		and not normalized.begins_with("res://")
+		and not normalized.begins_with("user://")
+	):
 		return normalized.to_lower()
 	return normalized
 
@@ -825,7 +1155,12 @@ static func _to_comparable_path(path: String) -> String:
 ## [br]
 ## @api private
 ## [br]
-static func _make_custom_loader_context(source_key: String, loader_index: int, loader_metadata: Dictionary, caller_span: Variant) -> Dictionary:
+static func _make_custom_loader_context(
+	source_key: String,
+	loader_index: int,
+	loader_metadata: Dictionary,
+	caller_span: Variant
+) -> Dictionary:
 	return {
 		"source_key": source_key,
 		"loader_index": loader_index,

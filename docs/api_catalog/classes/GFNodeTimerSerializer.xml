@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNodeTimerSerializer" path="addons/gf/extensions/save/serializers/gf_node_timer_serializer.gd" module="extensions/save" extends="GFNodeSerializer" classDigest="77df11cc1d8bb48a76879d4542f3730eb6f09b3caeda5c0f7398d7e9ee8e92da">
+<class name="GFNodeTimerSerializer" path="addons/gf/extensions/save/serializers/gf_node_timer_serializer.gd" module="extensions/save" extends="GFNodeSerializer" classDigest="ef351d1145adc160a191996ade165dabc25976fc306b118ea69200cb0bc763be">
 	<description>GFNodeTimerSerializer: Timer 通用状态序列化器。
 保存 Timer 的等待时间、暂停、一次性和当前剩余时间等通用状态。</description>
 	<tags>
@@ -34,7 +34,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="apply">
-			<signature>func apply(node: Node, payload: Dictionary, _context: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>func apply( node: Node, payload: Dictionary, _context: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>将序列化数据应用到节点。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -45,6 +45,7 @@
 				<tag name="schema">payload: Dictionary，可包含 wait_time、one_shot、autostart、paused、time_left 与 stopped。</tag>
 				<tag name="schema">_context: Dictionary，调用方附加上下文；当前实现不读取。</tag>
 				<tag name="schema">return: Dictionary，包含 ok: bool 与 error: String。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

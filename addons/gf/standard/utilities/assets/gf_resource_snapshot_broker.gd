@@ -51,11 +51,20 @@ func configure(resources: Dictionary) -> Error:
 		if not key is String or not resources[key] is Resource:
 			return ERR_INVALID_PARAMETER
 		var path: String = key
-		var identity: GFResourceIdentity = GFResourceIdentity.from_path(path, &"", "", { "check_exists": false })
+		var identity: GFResourceIdentity = GFResourceIdentity.from_path(
+			path,
+			&"",
+			"",
+			{ "check_exists": false }
+		)
 		var supported_path: bool = identity.canonical_path.begins_with("res://")
 		if identity.canonical_path.begins_with("uid://"):
 			supported_path = ResourceUID.text_to_id(identity.canonical_path) != ResourceUID.INVALID_ID
-		if not identity.has_identity() or not supported_path or prepared.has(identity.canonical_path):
+		if (
+			not identity.has_identity()
+			or not supported_path
+			or prepared.has(identity.canonical_path)
+		):
 			return ERR_INVALID_PARAMETER
 		var resource: Resource = resources[key]
 		prepared[identity.canonical_path] = resource
@@ -113,4 +122,10 @@ func _request_threaded_resource(path: String, type_hint: String) -> Error:
 ## [br]
 ## @schema return: Dictionary with status: StringName, progress: float, resource: Resource, has_resource: bool, error: String.
 func _poll_threaded_resource(path: String, _previous_progress: float) -> Dictionary:
-	return { "status": &"loaded", "progress": 1.0, "resource": _resources[path], "has_resource": true, "error": "" }
+	return {
+		"status": &"loaded",
+		"progress": 1.0,
+		"resource": _resources[path],
+		"has_resource": true,
+		"error": "",
+	}

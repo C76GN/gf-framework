@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFFlowContext" path="addons/gf/extensions/flow/runtime/gf_flow_context.gd" module="extensions/flow" extends="RefCounted" classDigest="0299389cf584f7e1cfd35a1fb6a48ea1f42125c8fc1d7e75f536f0ecd5d5f88b">
+<class name="GFFlowContext" path="addons/gf/extensions/flow/runtime/gf_flow_context.gd" module="extensions/flow" extends="RefCounted" classDigest="46d5a3900127c5340fef8d6a590296b7ad37fc2aa8e3f49891c616178347dad8">
 	<description>GFFlowContext: 通用流程图执行上下文。
 用于在流程节点之间共享数据，并提供可选的 GFArchitecture 访问入口。</description>
 	<tags>
@@ -161,7 +161,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="set_node_runtime_value">
-			<signature>func set_node_runtime_value(node_id: StringName, key: StringName, value: Variant) -&gt; void:</signature>
+			<signature>func set_node_runtime_value( node_id: StringName, key: StringName, value: Variant ) -&gt; void:</signature>
 			<description>写入指定流程节点的运行态值。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -173,7 +173,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="get_node_runtime_value">
-			<signature>func get_node_runtime_value(node_id: StringName, key: StringName, default_value: Variant = null) -&gt; Variant:</signature>
+			<signature>func get_node_runtime_value( node_id: StringName, key: StringName, default_value: Variant = null ) -&gt; Variant:</signature>
 			<description>读取指定流程节点的运行态值。</description>
 			<tags>
 				<tag name="api">public</tag>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAudioBeatClock" path="addons/gf/standard/utilities/audio/gf_audio_beat_clock.gd" module="standard" extends="RefCounted" classDigest="b1c85cd24648327fe5b4c2596e41cab6b672e26f475f87a8a27b14e4321d2d42">
+<class name="GFAudioBeatClock" path="addons/gf/standard/utilities/audio/gf_audio_beat_clock.gd" module="standard" extends="RefCounted" classDigest="72175c314276279cd696a19c00796036af37aa01a373bf3887266ad82f420ce2">
 	<description>GFAudioBeatClock: 通用音频节拍时钟。
 将任意播放时间映射为 beat、measure 和进度快照，并在手动 update() 时发出越过的节拍边界。
 它不持有播放器、不创建节点，也不规定节奏玩法、字幕或演出语义。</description>
@@ -19,23 +19,25 @@
 			</tags>
 		</member>
 		<member kind="signal" name="beat_reached">
-			<signature>signal beat_reached(beat_index: int, beat_in_measure: int, position_seconds: float)</signature>
+			<signature>signal beat_reached( beat_index: int, beat_in_measure: int, position_seconds: float )</signature>
 			<description>update() 检测到新的 beat 边界后发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">beat_index: 从 0 开始的全局 beat 索引。</tag>
 				<tag name="param">beat_in_measure: 当前小节内的 beat 索引。</tag>
 				<tag name="param">position_seconds: 该 beat 边界对应的播放时间。</tag>
+				<tag name="since">4.2.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="measure_reached">
-			<signature>signal measure_reached(measure_index: int, beat_index: int, position_seconds: float)</signature>
+			<signature>signal measure_reached( measure_index: int, beat_index: int, position_seconds: float )</signature>
 			<description>update() 检测到新的 measure 边界后发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">measure_index: 从 0 开始的小节索引。</tag>
 				<tag name="param">beat_index: 该小节起点对应的全局 beat 索引。</tag>
 				<tag name="param">position_seconds: 该小节边界对应的播放时间。</tag>
+				<tag name="since">4.2.0</tag>
 			</tags>
 		</member>
 	</signals>

@@ -90,7 +90,11 @@ static func from_method(
 	debug_label: String = ""
 ) -> GFEventListener:
 	var callback: Callable = Callable(owner, method_name) if owner != null else Callable()
-	return GFEventListener.from_callable(callback, dispatch_argument_count, debug_label).with_owner(owner)
+	return GFEventListener.from_callable(
+		callback,
+		dispatch_argument_count,
+		debug_label
+	).with_owner(owner)
 
 
 ## 返回带 owner 的监听器副本。
@@ -192,7 +196,11 @@ func get_debug_label() -> String:
 ## [br]
 ## @return 监听器是否有效。
 func is_valid() -> bool:
-	return _callback.is_valid() and _dispatch_argument_count >= 0 and not _owner_is_released()
+	return (
+		_callback.is_valid()
+		and _dispatch_argument_count >= 0
+		and not _owner_is_released()
+	)
 
 
 # --- 框架内部方法 ---
@@ -219,29 +227,43 @@ func validate_for_dispatch(
 		push_error("[GFEventListener][event_listener.callback_invalid] The registered %s is invalid." % callback_label)
 		return false
 	if _dispatch_argument_count != dispatch_argument_count:
-		push_error("[GFEventListener][event_listener.dispatch_argument_count_mismatch] The registered %s %s declares %d dispatch arguments, but this event supplies %d." % [
-			callback_label,
-			get_debug_label(),
-			_dispatch_argument_count,
-			dispatch_argument_count,
-		])
+		push_error(
+			"[GFEventListener][event_listener.dispatch_argument_count_mismatch] The registered %s %s declares %d dispatch arguments, but this event supplies %d."
+			% [
+				callback_label,
+				get_debug_label(),
+				_dispatch_argument_count,
+				dispatch_argument_count,
+			]
+		)
 		return false
 	if _owner_is_released():
-		push_error("[GFEventListener][event_listener.callback_owner_freed] The owner of the registered %s %s has been freed." % [callback_label, get_debug_label()])
+		push_error(
+			"[GFEventListener][event_listener.callback_owner_freed] The owner of the registered %s %s has been freed."
+			% [callback_label, get_debug_label()]
+		)
 		return false
 
 	var target_obj: Object = _callback.get_object()
 	if target_obj == null:
 		return true
 	if not is_instance_valid(target_obj):
-		push_error("[GFEventListener][event_listener.callback_target_invalid] The target object of the registered %s %s is invalid." % [callback_label, get_debug_label()])
+		push_error(
+			"[GFEventListener][event_listener.callback_target_invalid] The target object of the registered %s %s is invalid."
+			% [callback_label, get_debug_label()]
+		)
 		return false
 
 	var method_name: StringName = _callback.get_method()
 	var methods: Array[Dictionary] = target_obj.get_method_list()
 	for method: Dictionary in methods:
 		if method["name"] == String(method_name):
-			return _validate_method_arguments(method, dispatch_argument_count, callback_label, argument_label)
+			return _validate_method_arguments(
+				method,
+				dispatch_argument_count,
+				callback_label,
+				argument_label
+			)
 	return true
 
 
@@ -279,34 +301,50 @@ func _validate_method_arguments(
 ) -> bool:
 	var args: Array = _get_dictionary_array(method, "args")
 	var default_args: Array = _get_dictionary_array(method, "default_args")
-	var required_arg_count: int = maxi(args.size() - default_args.size(), 0)
+	var required_arg_count: int = maxi(
+		args.size() - default_args.size(),
+		0
+	)
 	var provided_arg_count: int = dispatch_argument_count + _callback.get_bound_arguments_count()
-	var flags: int = _get_dictionary_int(method, "flags", 0)
+	var flags: int = _get_dictionary_int(
+		method,
+		"flags",
+		0
+	)
 	var accepts_varargs: bool = (flags & METHOD_FLAG_VARARG) != 0
 	var method_name: StringName = _callback.get_method()
 	if args.size() < dispatch_argument_count:
-		push_error("[GFEventListener][event_listener.callback_arguments_missing] The registered %s %s must accept at least %d arguments for %s." % [
-			callback_label,
-			method_name,
-			dispatch_argument_count,
-			argument_label,
-		])
+		push_error(
+			"[GFEventListener][event_listener.callback_arguments_missing] The registered %s %s must accept at least %d arguments for %s."
+			% [
+				callback_label,
+				method_name,
+				dispatch_argument_count,
+				argument_label,
+			]
+		)
 		return false
 	if not accepts_varargs and args.size() < provided_arg_count:
-		push_error("[GFEventListener][event_listener.callback_arguments_exceeded] The registered %s %s accepts at most %d arguments, but %d will be supplied." % [
-			callback_label,
-			method_name,
-			args.size(),
-			provided_arg_count,
-		])
+		push_error(
+			"[GFEventListener][event_listener.callback_arguments_exceeded] The registered %s %s accepts at most %d arguments, but %d will be supplied."
+			% [
+				callback_label,
+				method_name,
+				args.size(),
+				provided_arg_count,
+			]
+		)
 		return false
 	if required_arg_count > provided_arg_count:
-		push_error("[GFEventListener][event_listener.callback_required_arguments_exceeded] The registered %s %s must require at most %d unbound arguments, but currently requires %d." % [
-			callback_label,
-			method_name,
-			dispatch_argument_count,
-			required_arg_count - _callback.get_bound_arguments_count(),
-		])
+		push_error(
+			"[GFEventListener][event_listener.callback_required_arguments_exceeded] The registered %s %s must require at most %d unbound arguments, but currently requires %d."
+			% [
+				callback_label,
+				method_name,
+				dispatch_argument_count,
+				required_arg_count - _callback.get_bound_arguments_count(),
+			]
+		)
 		return false
 	return true
 
@@ -325,7 +363,11 @@ func _get_dictionary_array(source: Dictionary, key: String) -> Array:
 ## 从方法描述字典读取整数；缺失或类型不符时返回给定默认值。
 ## [br]
 ## @api private
-func _get_dictionary_int(source: Dictionary, key: String, default_value: int) -> int:
+func _get_dictionary_int(
+	source: Dictionary,
+	key: String,
+	default_value: int
+) -> int:
 	var value: Variant = source.get(key, default_value)
 	if value is int:
 		var result: int = value

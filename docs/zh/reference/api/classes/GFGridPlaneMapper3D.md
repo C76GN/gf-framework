@@ -19,10 +19,10 @@
 | 方法 | [`is_axis_aligned_normal`](#member-gfgridplanemapper3d-methods-is_axis_aligned_normal) | `static func is_axis_aligned_normal(normal: Vector3i) -> bool:` |
 | 方法 | [`normalize_axis_normal`](#member-gfgridplanemapper3d-methods-normalize_axis_normal) | `static func normalize_axis_normal(normal: Vector3i) -> Vector3i:` |
 | 方法 | [`get_plane_basis`](#member-gfgridplanemapper3d-methods-get_plane_basis) | `static func get_plane_basis(normal: Vector3i) -> Dictionary:` |
-| 方法 | [`map_cell_to_plane`](#member-gfgridplanemapper3d-methods-map_cell_to_plane) | `static func map_cell_to_plane(cell: Vector3i, origin: Vector3i, normal: Vector3i) -> Vector2i:` |
+| 方法 | [`map_cell_to_plane`](#member-gfgridplanemapper3d-methods-map_cell_to_plane) | `static func map_cell_to_plane( cell: Vector3i, origin: Vector3i, normal: Vector3i ) -> Vector2i:` |
 | 方法 | [`map_plane_to_cell`](#member-gfgridplanemapper3d-methods-map_plane_to_cell) | `static func map_plane_to_cell( plane_cell: Vector2i, origin: Vector3i, normal: Vector3i, depth: int = 0 ) -> Vector3i:` |
-| 方法 | [`get_cell_depth`](#member-gfgridplanemapper3d-methods-get_cell_depth) | `static func get_cell_depth(cell: Vector3i, origin: Vector3i, normal: Vector3i) -> int:` |
-| 方法 | [`get_neighbor_cells`](#member-gfgridplanemapper3d-methods-get_neighbor_cells) | `static func get_neighbor_cells(center: Vector3i, normal: Vector3i, offsets: Array[Vector2i] = []) -> Array[Vector3i]:` |
+| 方法 | [`get_cell_depth`](#member-gfgridplanemapper3d-methods-get_cell_depth) | `static func get_cell_depth( cell: Vector3i, origin: Vector3i, normal: Vector3i ) -> int:` |
+| 方法 | [`get_neighbor_cells`](#member-gfgridplanemapper3d-methods-get_neighbor_cells) | `static func get_neighbor_cells( center: Vector3i, normal: Vector3i, offsets: Array[Vector2i] = [] ) -> Array[Vector3i]:` |
 | 方法 | [`sample_neighbor_values`](#member-gfgridplanemapper3d-methods-sample_neighbor_values) | `static func sample_neighbor_values( center: Vector3i, normal: Vector3i, value_getter: Callable, offsets: Array[Vector2i] = [], fallback_value: Variant = null ) -> Array:` |
 
 ## 常量
@@ -115,9 +115,10 @@ static func get_plane_basis(normal: Vector3i) -> Dictionary:
 ### `map_cell_to_plane`
 
 - API：`public`
+- 首次版本：`3.18.0`
 
 ```gdscript
-static func map_cell_to_plane(cell: Vector3i, origin: Vector3i, normal: Vector3i) -> Vector2i:
+static func map_cell_to_plane( cell: Vector3i, origin: Vector3i, normal: Vector3i ) -> Vector2i:
 ```
 
 将 3D 格坐标映射为平面局部 2D 坐标。
@@ -160,9 +161,10 @@ static func map_plane_to_cell( plane_cell: Vector2i, origin: Vector3i, normal: V
 ### `get_cell_depth`
 
 - API：`public`
+- 首次版本：`3.18.0`
 
 ```gdscript
-static func get_cell_depth(cell: Vector3i, origin: Vector3i, normal: Vector3i) -> int:
+static func get_cell_depth( cell: Vector3i, origin: Vector3i, normal: Vector3i ) -> int:
 ```
 
 获取格坐标相对平面的深度。
@@ -182,9 +184,10 @@ static func get_cell_depth(cell: Vector3i, origin: Vector3i, normal: Vector3i) -
 ### `get_neighbor_cells`
 
 - API：`public`
+- 首次版本：`3.18.0`
 
 ```gdscript
-static func get_neighbor_cells(center: Vector3i, normal: Vector3i, offsets: Array[Vector2i] = []) -> Array[Vector3i]:
+static func get_neighbor_cells( center: Vector3i, normal: Vector3i, offsets: Array[Vector2i] = [] ) -> Array[Vector3i]:
 ```
 
 按 2D offset 获取同一平面上的 3D 邻居格。

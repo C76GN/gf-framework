@@ -9,6 +9,7 @@ import hashlib
 import io
 import json
 import os
+import re
 import shutil
 import stat
 import struct
@@ -6637,8 +6638,8 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertEqual(public_save.count("ProjectStorageValueLimits.validate_payload("), 1)
 		self.assertEqual(hook_save.count("ProjectStorageValueLimits.validate_payload("), 1)
 		self.assertNotIn("ProjectStorageValueLimits.validate_payload(", validated_save)
-		self.assertIn("return _save_validated_data(storage_key, data, metadata)", public_save)
-		self.assertIn("return _save_validated_data(storage_key, data, metadata)", hook_save)
+		self.assertIn("return _save_validated_data(\n\t\tstorage_key,\n\t\tdata,\n\t\tmetadata\n\t)", public_save)
+		self.assertIn("return _save_validated_data(\n\t\tstorage_key,\n\t\tdata,\n\t\tmetadata\n\t)", hook_save)
 		for fragment in (
 			"extends ProjectStorageBackendConformance",
 			"class MemoryStorageProviderFactory extends ProjectStorageProviderFactory",
@@ -9013,6 +9014,46 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 					Path("synthetic")
 				)
 			)
+
+	def test_platform_adapter_template_calls_accept_structural_whitespace(self) -> None:
+		methods_by_template = {
+			"platform_adapter.gd.txt": ("_release_request", "_succeed_request"),
+			"lobby_backend.gd.txt": ("_release_operation", "_succeed_operation"),
+		}
+		for separator in ("\n\t\t\t", "\n\t\t\t# First argument remains the operation handle.\n\t\t\t"):
+			with self.subTest(separator=separator), tempfile.TemporaryDirectory(prefix="gf-ai-template-call-layout-") as temporary:
+				copied_root = Path(temporary) / "platform"
+				shutil.copytree(build_gf_ai_developer_kit.PLATFORM_ADAPTER_TEMPLATE_ROOT, copied_root)
+				for relative_path, methods in methods_by_template.items():
+					path = copied_root / relative_path
+					text = path.read_text(encoding="utf-8")
+					for method in methods:
+						text = re.sub(rf"\b{method}\s*\(\s*handle\b", method + " (" + separator + "handle", text)
+					path.write_text(text, encoding="utf-8")
+				self.assertEqual(build_gf_ai_developer_kit.validate_platform_adapter_templates(copied_root), [])
+
+	def test_platform_adapter_template_calls_reject_decoys_and_incomplete_handle_arguments(self) -> None:
+		methods_by_template = {
+			"platform_adapter.gd.txt": ("_release_request", "_succeed_request"),
+			"lobby_backend.gd.txt": ("_release_operation", "_succeed_operation"),
+		}
+		for relative_path, methods in methods_by_template.items():
+			for method in methods:
+				for decoy in (
+					f"# {method}(handle)\n",
+					f'var decoy = "{method}(handle)"\n',
+					f"{method}(handle_suffix)\n",
+					f"{method}(handle.member)\n",
+					f"{method}(handle + other)\n",
+				):
+					with self.subTest(method=method, decoy=decoy), tempfile.TemporaryDirectory(prefix="gf-ai-template-call-decoy-") as temporary:
+						copied_root = Path(temporary) / "platform"
+						shutil.copytree(build_gf_ai_developer_kit.PLATFORM_ADAPTER_TEMPLATE_ROOT, copied_root)
+						path = copied_root / relative_path
+						text = path.read_text(encoding="utf-8").replace(method, "_removed_contract_call")
+						path.write_text(text + "\n" + decoy, encoding="utf-8")
+						issues = build_gf_ai_developer_kit.validate_platform_adapter_templates(copied_root)
+						self.assertTrue(any("missing required contract text" in issue and method in issue for issue in issues), issues)
 
 	def test_platform_adapter_templates_are_strictly_validated(self) -> None:
 		self.assertEqual(build_gf_ai_developer_kit.validate_platform_adapter_templates(), [])

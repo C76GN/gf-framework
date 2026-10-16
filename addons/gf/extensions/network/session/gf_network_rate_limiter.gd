@@ -54,9 +54,16 @@ func _init(p_capacity: float = 10.0, p_refill_per_second: float = 10.0) -> void:
 ## [br]
 ## @param delta: 秒数。
 func tick(delta: float) -> void:
-	if delta <= 0.0 or is_nan(delta) or is_inf(delta):
+	if (
+		delta <= 0.0
+		or is_nan(delta)
+		or is_inf(delta)
+	):
 		return
-	_tokens = minf(capacity, _tokens + delta * refill_per_second)
+	_tokens = minf(
+		capacity,
+		_tokens + delta * refill_per_second
+	)
 
 
 ## 尝试消费令牌。
@@ -99,6 +106,10 @@ func reset() -> void:
 ## @api private
 ## [br]
 func _normalize_non_negative_finite(value: float) -> float:
-	if value < 0.0 or is_nan(value) or is_inf(value):
+	if (
+		value < 0.0
+		or is_nan(value)
+		or is_inf(value)
+	):
 		return 0.0
 	return value

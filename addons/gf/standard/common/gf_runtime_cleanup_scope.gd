@@ -53,20 +53,26 @@ func register_cleanup(
 	priority: int = 0,
 	metadata: Dictionary = {}
 ) -> bool:
-	if scope_id == &"" or cleanup_id == &"" or not callback.is_valid():
+	if (
+		scope_id == &""
+		or cleanup_id == &""
+		or not callback.is_valid()
+	):
 		return false
 
 	var _unregistered_existing: bool = unregister_cleanup(scope_id, cleanup_id)
 	_next_order += 1
 	var records: Array[Dictionary] = _get_scope_records(scope_id)
-	records.append({
-		"scope_id": scope_id,
-		"cleanup_id": cleanup_id,
-		"callback": callback,
-		"priority": priority,
-		"order": _next_order,
-		"metadata": metadata.duplicate(true),
-	})
+	records.append(
+		{
+			"scope_id": scope_id,
+			"cleanup_id": cleanup_id,
+			"callback": callback,
+			"priority": priority,
+			"order": _next_order,
+			"metadata": metadata.duplicate(true),
+		}
+	)
 	_records_by_scope[scope_id] = records
 	return true
 
@@ -87,8 +93,15 @@ func unregister_cleanup(scope_id: StringName, cleanup_id: StringName) -> bool:
 		return false
 
 	var records: Array[Dictionary] = _get_scope_records(scope_id)
-	for index: int in range(records.size() - 1, -1, -1):
-		if GFVariantData.get_option_string_name(records[index], "cleanup_id") != cleanup_id:
+	for index: int in range(
+		records.size() - 1,
+		-1,
+		-1
+	):
+		if GFVariantData.get_option_string_name(
+			records[index],
+			"cleanup_id"
+		) != cleanup_id:
 			continue
 		records.remove_at(index)
 		_set_scope_records(scope_id, records)
@@ -119,11 +132,13 @@ func run_scope(scope_id: StringName) -> Dictionary:
 		var callback: Callable = _get_record_callback(record)
 		if not callback.is_valid():
 			skipped_count += 1
-			issues.append({
-				"kind": &"invalid_cleanup_callback",
-				"cleanup_id": cleanup_id,
-				"metadata": GFVariantData.get_option_dictionary(record, "metadata"),
-			})
+			issues.append(
+				{
+					"kind": &"invalid_cleanup_callback",
+					"cleanup_id": cleanup_id,
+					"metadata": GFVariantData.get_option_dictionary(record, "metadata"),
+				}
+			)
 			continue
 		var _callback_result: Variant = callback.call()
 		var _cleanup_id_appended: bool = executed_ids.append(String(cleanup_id))

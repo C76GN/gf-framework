@@ -71,9 +71,7 @@ const GFGeneratedArtifactReportBase = preload("res://addons/gf/kernel/editor/gf_
 ## 提供带字节数和嵌套深度限制的 JSON sidecar 读取与解析。
 ## [br]
 ## @api private
-const _GF_BOUNDED_JSON_READER_SCRIPT = preload(
-	"res://addons/gf/kernel/editor/gf_bounded_json_reader.gd"
-)
+const _GF_BOUNDED_JSON_READER_SCRIPT = preload("res://addons/gf/kernel/editor/gf_bounded_json_reader.gd")
 
 ## 将摘要字段转换为 JSON-safe 报告值并应用支持报告脱敏规则。
 ## [br]
@@ -120,8 +118,16 @@ static func make_manifest(
 		"template_path": template_path,
 		"output_path": output_path,
 		"generator_id": _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(options, "generator_id"),
-		"source_id": _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(options, "source_id", template_id),
-		"artifact_owner": _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(options, "artifact_owner", &"generated"),
+		"source_id": _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+			options,
+			"source_id",
+			template_id
+		),
+		"artifact_owner": _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+			options,
+			"artifact_owner",
+			&"generated"
+		),
 		"variables": _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(options, "variables"),
 		"requirements": _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(options, "requirements"),
 		"metadata": _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(options, "metadata"),
@@ -149,7 +155,12 @@ static func make_manifest(
 ## @schema return: Dictionary containing valid, status, template_id, template_path, output_path, generator_id, source_id, artifact_owner, variables, requirements, metadata, and errors.
 static func from_dictionary(data: Dictionary, defaults: Dictionary = {}) -> Dictionary:
 	var merged: Dictionary = defaults.duplicate(true)
-	var _merge_result: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.merge_dictionary(merged, data, true, true)
+	var _merge_result: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.merge_dictionary(
+		merged,
+		data,
+		true,
+		true
+	)
 	return make_manifest(
 		_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(merged, "template_id"),
 		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(merged, "template_path"),
@@ -157,7 +168,11 @@ static func from_dictionary(data: Dictionary, defaults: Dictionary = {}) -> Dict
 		{
 			"generator_id": _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(merged, "generator_id"),
 			"source_id": _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(merged, "source_id"),
-			"artifact_owner": _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(merged, "artifact_owner", &"generated"),
+			"artifact_owner": _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+				merged,
+				"artifact_owner",
+				&"generated"
+			),
 			"variables": _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(merged, "variables"),
 			"requirements": _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(merged, "requirements"),
 			"metadata": _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(merged, "metadata"),
@@ -186,19 +201,17 @@ static func from_json_text(text: String, defaults: Dictionary = {}) -> Dictionar
 		MAX_JSON_BYTES,
 		MAX_JSON_DEPTH
 	)
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(parse_result, "ok", false):
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		parse_result,
+		"ok",
+		false
+	):
 		return _make_invalid_manifest(
 			STATUS_PARSE_FAILED,
-			"清单 JSON 无效：%s" % _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-				parse_result,
-				"error"
-			),
+			"清单 JSON 无效：%s" % (_GF_VARIANT_ACCESS_SCRIPT.get_option_string(parse_result, "error")),
 			defaults
 		)
-	var data: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-		parse_result,
-		"data"
-	)
+	var data: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(parse_result, "data")
 	return from_dictionary(data, defaults)
 
 
@@ -219,33 +232,41 @@ static func from_json_text(text: String, defaults: Dictionary = {}) -> Dictionar
 ## @schema return: Dictionary containing valid, status, fields, sidecar_path, and errors.
 static func load_sidecar(sidecar_path: String, defaults: Dictionary = {}) -> Dictionary:
 	if sidecar_path.is_empty():
-		return _make_invalid_manifest(STATUS_LOAD_FAILED, "sidecar 路径为空。", defaults)
+		return _make_invalid_manifest(
+			STATUS_LOAD_FAILED,
+			"sidecar 路径为空。",
+			defaults
+		)
 	if not FileAccess.file_exists(sidecar_path):
-		return _make_invalid_manifest(STATUS_LOAD_FAILED, "sidecar 文件不存在：%s。" % sidecar_path, defaults)
+		return _make_invalid_manifest(
+			STATUS_LOAD_FAILED,
+			"sidecar 文件不存在：%s。" % sidecar_path,
+			defaults
+		)
 
 	var read_result: Dictionary = _GF_BOUNDED_JSON_READER_SCRIPT.read_object(
 		sidecar_path,
 		MAX_JSON_BYTES,
 		MAX_JSON_DEPTH
 	)
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(read_result, "ok", false):
-		var error_kind: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
-			read_result,
-			"error_kind"
-		)
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		read_result,
+		"ok",
+		false
+	):
+		var error_kind: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(read_result, "error_kind")
 		var failure_status: StringName = (
 			STATUS_PARSE_FAILED
-			if error_kind == &"parse_failed"
-			or error_kind == &"invalid_root_type"
-			or error_kind == &"nesting_too_deep"
+			if (
+				error_kind == &"parse_failed"
+				or error_kind == &"invalid_root_type"
+				or error_kind == &"nesting_too_deep"
+			)
 			else STATUS_LOAD_FAILED
 		)
 		return _make_invalid_manifest(
 			failure_status,
-			"sidecar 文件无效：%s" % _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-				read_result,
-				"error"
-			),
+			"sidecar 文件无效：%s" % (_GF_VARIANT_ACCESS_SCRIPT.get_option_string(read_result, "error")),
 			defaults
 		)
 	var manifest: Dictionary = from_dictionary(
@@ -279,12 +300,20 @@ static func validate_manifest(manifest: Dictionary) -> Dictionary:
 	if template_path.strip_edges().is_empty():
 		errors.append("template_path 不能为空。")
 	else:
-		_append_manifest_path_errors("template_path", template_path, errors)
+		_append_manifest_path_errors(
+			"template_path",
+			template_path,
+			errors
+		)
 		result["template_path"] = _normalize_manifest_path(template_path)
 	if output_path.strip_edges().is_empty():
 		errors.append("output_path 不能为空。")
 	else:
-		_append_manifest_path_errors("output_path", output_path, errors)
+		_append_manifest_path_errors(
+			"output_path",
+			output_path,
+			errors
+		)
 		result["output_path"] = _normalize_manifest_path(output_path)
 
 	result["errors"] = errors
@@ -319,12 +348,21 @@ static func make_artifact_options(manifest: Dictionary, extra_options: Dictionar
 	metadata_payload["requirements"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(manifest, "requirements")
 
 	var result: Dictionary = {
-		"artifact_owner": _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(manifest, "artifact_owner", &"generated"),
+		"artifact_owner": _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+			manifest,
+			"artifact_owner",
+			&"generated"
+		),
 		"generator_id": String(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(manifest, "generator_id")),
 		"source_id": String(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(manifest, "source_id")),
 		"metadata": metadata_payload,
 	}
-	var _merge_options_result: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.merge_dictionary(result, extra_options, true, true)
+	var _merge_options_result: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.merge_dictionary(
+		result,
+		extra_options,
+		true,
+		true
+	)
 	return result
 
 
@@ -347,10 +385,18 @@ static func make_artifact_options(manifest: Dictionary, extra_options: Dictionar
 ## @return 生成产物报告。
 ## [br]
 ## @schema return: Dictionary returned by GFGeneratedArtifactReport.save_text().
-static func save_text_from_manifest(manifest: Dictionary, text: String, options: Dictionary = {}) -> Dictionary:
+static func save_text_from_manifest(
+	manifest: Dictionary,
+	text: String,
+	options: Dictionary = {}
+) -> Dictionary:
 	var checked: Dictionary = validate_manifest(manifest)
 	var output_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(checked, "output_path")
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(checked, "valid", false):
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		checked,
+		"valid",
+		false
+	):
 		return GFGeneratedArtifactReportBase.make_report(
 			output_path,
 			GFGeneratedArtifactReportBase.STATUS_FAILED,
@@ -358,7 +404,11 @@ static func save_text_from_manifest(manifest: Dictionary, text: String, options:
 			"; ".join(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(checked, "errors")),
 			make_artifact_options(checked, options)
 		)
-	return GFGeneratedArtifactReportBase.save_text(output_path, text, make_artifact_options(checked, options))
+	return GFGeneratedArtifactReportBase.save_text(
+		output_path,
+		text,
+		make_artifact_options(checked, options)
+	)
 
 
 ## 汇总多份模板生成清单。
@@ -396,15 +446,21 @@ static func summarize_manifests(manifests: Array[Dictionary], options: Dictionar
 		if not output_path.is_empty():
 			var _append_output_path: bool = output_paths.append(output_path)
 
-		if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(checked, "valid", false):
+		if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			checked,
+			"valid",
+			false
+		):
 			valid_count += 1
 		else:
 			invalid_count += 1
-			errors.append({
-				"template_id": template_id,
-				"output_path": output_path,
-				"errors": _GF_VARIANT_ACCESS_SCRIPT.get_option_array(checked, "errors"),
-			})
+			errors.append(
+				{
+					"template_id": template_id,
+					"output_path": output_path,
+					"errors": _GF_VARIANT_ACCESS_SCRIPT.get_option_array(checked, "errors"),
+				}
+			)
 
 	var summary: Dictionary = {
 		"valid": invalid_count == 0,
@@ -416,7 +472,11 @@ static func summarize_manifests(manifests: Array[Dictionary], options: Dictionar
 		"errors": errors,
 		"metadata": _to_report_dictionary(_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(options, "metadata")),
 	}
-	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "include_manifests", false):
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		options,
+		"include_manifests",
+		false
+	):
 		summary["manifests"] = _to_manifest_report_array(checked_manifests)
 	return summary
 
@@ -441,11 +501,19 @@ static func _to_manifest_report_dictionary(manifest: Dictionary) -> Dictionary:
 	var status_text: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(manifest, "status")
 	if status_text.is_empty():
 		status_text = String(STATUS_INVALID)
-	var artifact_owner: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(manifest, "artifact_owner", "generated")
+	var artifact_owner: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+		manifest,
+		"artifact_owner",
+		"generated"
+	)
 	if artifact_owner.is_empty():
 		artifact_owner = "generated"
 	var result: Dictionary = {
-		"valid": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(manifest, "valid", false),
+		"valid": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			manifest,
+			"valid",
+			false
+		),
 		"status": status_text,
 		"template_id": String(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(manifest, "template_id")),
 		"template_path": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(manifest, "template_path"),
@@ -467,7 +535,10 @@ static func _to_manifest_report_dictionary(manifest: Dictionary) -> Dictionary:
 ## [br]
 ## @api private
 static func _to_report_dictionary(value: Dictionary) -> Dictionary:
-	return _GF_REPORT_VALUE_CODEC_SCRIPT.to_report_dictionary(value, _make_report_codec_options())
+	return _GF_REPORT_VALUE_CODEC_SCRIPT.to_report_dictionary(
+		value,
+		_make_report_codec_options()
+	)
 
 
 ## 创建支持报告 codec 选项，并将路径脱敏模式设为 basename。
@@ -494,7 +565,11 @@ static func _packed_to_array(values: PackedStringArray) -> Array:
 ## 每项不满足条件时向 errors 追加字段名对应的错误文本。
 ## [br]
 ## @api private
-static func _append_manifest_path_errors(field_name: String, path: String, errors: Array[String]) -> void:
+static func _append_manifest_path_errors(
+	field_name: String,
+	path: String,
+	errors: Array[String]
+) -> void:
 	var normalized: String = _normalize_manifest_path(path)
 	if not (normalized.begins_with("res://") or normalized.begins_with("user://")):
 		errors.append("%s 必须使用 res:// 或 user:// 路径。" % field_name)
@@ -530,8 +605,16 @@ static func _path_has_parent_segment(path: String) -> bool:
 ## 从默认字段派生或创建空清单，再覆盖无效状态和单条错误说明。
 ## [br]
 ## @api private
-static func _make_invalid_manifest(status: StringName, message: String, defaults: Dictionary = {}) -> Dictionary:
-	var manifest: Dictionary = from_dictionary(defaults) if not defaults.is_empty() else make_manifest(&"", "", "")
+static func _make_invalid_manifest(
+	status: StringName,
+	message: String,
+	defaults: Dictionary = {}
+) -> Dictionary:
+	var manifest: Dictionary = from_dictionary(defaults) if not defaults.is_empty() else make_manifest(
+		&"",
+		"",
+		""
+	)
 	manifest["valid"] = false
 	manifest["status"] = status
 	manifest["errors"] = [message]

@@ -31,18 +31,18 @@
 | 方法 | [`release_dependencies`](#member-gfassetutility-methods-release_dependencies) | `func release_dependencies() -> void:` |
 | 方法 | [`set_resource_broker`](#member-gfassetutility-methods-set_resource_broker) | `func set_resource_broker(broker: GFResourceBroker) -> Error:` |
 | 方法 | [`set_resource_service_domain`](#member-gfassetutility-methods-set_resource_service_domain) | `func set_resource_service_domain(domain: GFResourceServiceDomain) -> Error:` |
-| 方法 | [`setup_standalone_resource_broker`](#member-gfassetutility-methods-setup_standalone_resource_broker) | `func setup_standalone_resource_broker( max_active_requests: int = 4, max_pending_requests: int = 256 ) -> GFResourceBroker:` |
+| 方法 | [`setup_standalone_resource_broker`](#member-gfassetutility-methods-setup_standalone_resource_broker) | `func setup_standalone_resource_broker(max_active_requests: int = 4, max_pending_requests: int = 256) -> GFResourceBroker:` |
 | 方法 | [`get_resource_broker`](#member-gfassetutility-methods-get_resource_broker) | `func get_resource_broker() -> GFResourceBroker:` |
-| 方法 | [`load_async`](#member-gfassetutility-methods-load_async) | `func load_async(path: String, on_loaded: Callable, type_hint: String = "", options: Dictionary = {}) -> void:` |
+| 方法 | [`load_async`](#member-gfassetutility-methods-load_async) | `func load_async( path: String, on_loaded: Callable, type_hint: String = "", options: Dictionary = {} ) -> void:` |
 | 方法 | [`load_handle_async`](#member-gfassetutility-methods-load_handle_async) | `func load_handle_async( path: String, on_loaded: Callable, type_hint: String = "", owner: Object = null, group_id: StringName = &"", options: Dictionary = {} ) -> void:` |
 | 方法 | [`acquire_handle`](#member-gfassetutility-methods-acquire_handle) | `func acquire_handle( path: String, owner: Object = null, group_id: StringName = &"", type_hint: String = "", resource_override: Resource = null ) -> GFAssetHandle:` |
 | 方法 | [`release_handle`](#member-gfassetutility-methods-release_handle) | `func release_handle(handle: GFAssetHandle) -> bool:` |
 | 方法 | [`release_owner`](#member-gfassetutility-methods-release_owner) | `func release_owner(owner: Object) -> int:` |
 | 方法 | [`get_asset_reference_count`](#member-gfassetutility-methods-get_asset_reference_count) | `func get_asset_reference_count(path: String) -> int:` |
-| 方法 | [`register_group_path`](#member-gfassetutility-methods-register_group_path) | `func register_group_path(group_id: StringName, path: String, pin: bool = false) -> void:` |
+| 方法 | [`register_group_path`](#member-gfassetutility-methods-register_group_path) | `func register_group_path( group_id: StringName, path: String, pin: bool = false ) -> void:` |
 | 方法 | [`get_group_paths`](#member-gfassetutility-methods-get_group_paths) | `func get_group_paths(group_id: StringName) -> PackedStringArray:` |
 | 方法 | [`preload_plan_async`](#member-gfassetutility-methods-preload_plan_async) | `func preload_plan_async( asset_plan: GFAssetPreloadPlan, on_completed: Callable = Callable(), options: Dictionary = {} ) -> void:` |
-| 方法 | [`start_preload_session`](#member-gfassetutility-methods-start_preload_session) | `func start_preload_session( asset_plan: GFAssetPreloadPlan, options: Dictionary = {} ) -> GFAssetLoadSession:` |
+| 方法 | [`start_preload_session`](#member-gfassetutility-methods-start_preload_session) | `func start_preload_session(asset_plan: GFAssetPreloadPlan, options: Dictionary = {}) -> GFAssetLoadSession:` |
 | 方法 | [`get_active_preload_session_count`](#member-gfassetutility-methods-get_active_preload_session_count) | `func get_active_preload_session_count() -> int:` |
 | 方法 | [`preload_group_async`](#member-gfassetutility-methods-preload_group_async) | `func preload_group_async( group_id: StringName, entries: Array, on_completed: Callable = Callable(), options: Dictionary = {} ) -> void:` |
 | 方法 | [`unload_group`](#member-gfassetutility-methods-unload_group) | `func unload_group(group_id: StringName, remove_unreferenced_cache: bool = false) -> void:` |
@@ -51,7 +51,7 @@
 | 方法 | [`is_loading`](#member-gfassetutility-methods-is_loading) | `func is_loading(path: String, type_hint: String = "") -> bool:` |
 | 方法 | [`get_load_progress`](#member-gfassetutility-methods-get_load_progress) | `func get_load_progress(path: String) -> float:` |
 | 方法 | [`is_cached`](#member-gfassetutility-methods-is_cached) | `func is_cached(path: String) -> bool:` |
-| 方法 | [`cancel`](#member-gfassetutility-methods-cancel) | `func cancel(path: String, type_hint: String = "", generation: int = -1) -> void:` |
+| 方法 | [`cancel`](#member-gfassetutility-methods-cancel) | `func cancel( path: String, type_hint: String = "", generation: int = -1 ) -> void:` |
 | 方法 | [`put_cache`](#member-gfassetutility-methods-put_cache) | `func put_cache(path: String, resource: Resource) -> void:` |
 | 方法 | [`remove_cache`](#member-gfassetutility-methods-remove_cache) | `func remove_cache(path: String) -> void:` |
 | 方法 | [`clear_cache`](#member-gfassetutility-methods-clear_cache) | `func clear_cache() -> void:` |
@@ -345,7 +345,7 @@ func set_resource_service_domain(domain: GFResourceServiceDomain) -> Error:
 - 首次版本：`11.0.0`
 
 ```gdscript
-func setup_standalone_resource_broker( max_active_requests: int = 4, max_pending_requests: int = 256 ) -> GFResourceBroker:
+func setup_standalone_resource_broker(max_active_requests: int = 4, max_pending_requests: int = 256) -> GFResourceBroker:
 ```
 
 为独立使用显式创建当前 Utility 私有拥有的 Resource Broker。 多个独立 Utility 需要协调时，应由项目创建一个 GFResourceBroker，并分别调用 set_resource_broker()；本入口只适合单个独立 Utility。
@@ -382,7 +382,7 @@ func get_resource_broker() -> GFResourceBroker:
 - 首次版本：`6.0.0`
 
 ```gdscript
-func load_async(path: String, on_loaded: Callable, type_hint: String = "", options: Dictionary = {}) -> void:
+func load_async( path: String, on_loaded: Callable, type_hint: String = "", options: Dictionary = {} ) -> void:
 ```
 
 发起异步资源加载。
@@ -517,9 +517,10 @@ func get_asset_reference_count(path: String) -> int:
 ### `register_group_path`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func register_group_path(group_id: StringName, path: String, pin: bool = false) -> void:
+func register_group_path( group_id: StringName, path: String, pin: bool = false ) -> void:
 ```
 
 注册资源路径到分组。
@@ -585,7 +586,7 @@ func preload_plan_async( asset_plan: GFAssetPreloadPlan, on_completed: Callable 
 - 首次版本：`9.0.0`
 
 ```gdscript
-func start_preload_session( asset_plan: GFAssetPreloadPlan, options: Dictionary = {} ) -> GFAssetLoadSession:
+func start_preload_session(asset_plan: GFAssetPreloadPlan, options: Dictionary = {}) -> GFAssetLoadSession:
 ```
 
 启动可回滚资产预加载会话。 会话使用唯一 staging group；默认在全部成功后自动提交，失败时自动回滚。
@@ -773,7 +774,7 @@ func is_cached(path: String) -> bool:
 - 首次版本：`unreleased`
 
 ```gdscript
-func cancel(path: String, type_hint: String = "", generation: int = -1) -> void:
+func cancel( path: String, type_hint: String = "", generation: int = -1 ) -> void:
 ```
 
 取消指定路径的异步加载请求。

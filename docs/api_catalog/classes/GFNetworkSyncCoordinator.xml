@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkSyncCoordinator" path="addons/gf/extensions/network/simulation/gf_network_sync_coordinator.gd" module="extensions/network" extends="RefCounted" classDigest="0a614970b6fe87aa5af58b47a87f1cd0a98c10e2110ea3b31ed3e7e49e584b33">
+<class name="GFNetworkSyncCoordinator" path="addons/gf/extensions/network/simulation/gf_network_sync_coordinator.gd" module="extensions/network" extends="RefCounted" classDigest="48b2dbf4f13ea4c921a879b960f1d246e2a72187cd00cab34b7972da73c72764">
 	<description>GFNetworkSyncCoordinator: 有界的权威快照与预测纠偏协调器。
 协调器在项目模拟 Adapter 与 GFNetworkMessage 之间编排固定 tick、输入顺序、
 全量权威快照、有限历史和事务式预测重放。它不创建 transport、不扫描节点树、
@@ -21,7 +21,7 @@
 			</tags>
 		</member>
 		<member kind="signal" name="input_finalized">
-			<signature>signal input_finalized(peer_id: int, sequence: int, accepted: bool, reason: StringName)</signature>
+			<signature>signal input_finalized( peer_id: int, sequence: int, accepted: bool, reason: StringName )</signature>
 			<description>权威端最终裁决输入后发出。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -53,7 +53,7 @@
 			</tags>
 		</member>
 		<member kind="signal" name="synchronization_rejected">
-			<signature>signal synchronization_rejected(peer_id: int, reason: StringName, details: Dictionary)</signature>
+			<signature>signal synchronization_rejected( peer_id: int, reason: StringName, details: Dictionary )</signature>
 			<description>同步消息被拒绝后发出。
 details 只包含协议元数据和稳定原因，不包含 state、input 或原始消息。</description>
 			<tags>
@@ -254,7 +254,7 @@ prediction_enabled=false 时该入口保持关闭；项目仍可提交输入并�
 			</tags>
 		</member>
 		<member kind="method" name="make_snapshot_message">
-			<signature>func make_snapshot_message( snapshot: GFNetworkSnapshot, replica_peer_id: int ) -&gt; GFNetworkMessage:</signature>
+			<signature>func make_snapshot_message(snapshot: GFNetworkSnapshot, replica_peer_id: int) -&gt; GFNetworkMessage:</signature>
 			<description>Authority 为指定 replica 构建最新的全量快照消息。
 只接受最近一次 advance_authority_tick() 签发且内容未被调用方修改的快照。
 ack_input_sequence 是该 replica 在该最新 tick 已连续最终裁决的输入序号；消息构建不执行发送。</description>

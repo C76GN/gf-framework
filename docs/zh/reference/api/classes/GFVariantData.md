@@ -15,11 +15,11 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 方法 | [`duplicate_variant`](#member-gfvariantdata-methods-duplicate_variant) | `static func duplicate_variant(value: Variant, deep: bool = true, duplicate_resources: bool = false) -> Variant:` |
+| 方法 | [`duplicate_variant`](#member-gfvariantdata-methods-duplicate_variant) | `static func duplicate_variant( value: Variant, deep: bool = true, duplicate_resources: bool = false ) -> Variant:` |
 | 方法 | [`duplicate_collection`](#member-gfvariantdata-methods-duplicate_collection) | `static func duplicate_collection(value: Variant, deep: bool = true) -> Variant:` |
-| 方法 | [`to_dictionary`](#member-gfvariantdata-methods-to_dictionary) | `static func to_dictionary(value: Variant, default_value: Dictionary = {}, deep: bool = true) -> Dictionary:` |
+| 方法 | [`to_dictionary`](#member-gfvariantdata-methods-to_dictionary) | `static func to_dictionary( value: Variant, default_value: Dictionary = {}, deep: bool = true ) -> Dictionary:` |
 | 方法 | [`as_dictionary`](#member-gfvariantdata-methods-as_dictionary) | `static func as_dictionary(value: Variant, default_value: Variant = null) -> Dictionary:` |
-| 方法 | [`to_array`](#member-gfvariantdata-methods-to_array) | `static func to_array(value: Variant, default_value: Array = [], deep: bool = true) -> Array:` |
+| 方法 | [`to_array`](#member-gfvariantdata-methods-to_array) | `static func to_array( value: Variant, default_value: Array = [], deep: bool = true ) -> Array:` |
 | 方法 | [`as_array`](#member-gfvariantdata-methods-as_array) | `static func as_array(value: Variant, default_value: Variant = null) -> Array:` |
 | 方法 | [`to_bool`](#member-gfvariantdata-methods-to_bool) | `static func to_bool(value: Variant, default_value: bool = false) -> bool:` |
 | 方法 | [`to_int`](#member-gfvariantdata-methods-to_int) | `static func to_int(value: Variant, default_value: int = 0) -> int:` |
@@ -34,21 +34,21 @@
 | 方法 | [`to_string_name_array`](#member-gfvariantdata-methods-to_string_name_array) | `static func to_string_name_array(value: Variant, default_value: Array[StringName] = []) -> Array[StringName]:` |
 | 方法 | [`to_int_array`](#member-gfvariantdata-methods-to_int_array) | `static func to_int_array(value: Variant, default_value: Array[int] = []) -> Array[int]:` |
 | 方法 | [`duplicate_metadata`](#member-gfvariantdata-methods-duplicate_metadata) | `static func duplicate_metadata(metadata: Dictionary) -> Dictionary:` |
-| 方法 | [`values_equal`](#member-gfvariantdata-methods-values_equal) | `static func values_equal(left: Variant, right: Variant, options: Dictionary = {}) -> bool:` |
+| 方法 | [`values_equal`](#member-gfvariantdata-methods-values_equal) | `static func values_equal( left: Variant, right: Variant, options: Dictionary = {} ) -> bool:` |
 | 方法 | [`merge_dictionary`](#member-gfvariantdata-methods-merge_dictionary) | `static func merge_dictionary( target: Dictionary, source: Dictionary, overwrite: bool = true, recursive: bool = true ) -> Dictionary:` |
 | 方法 | [`merge_metadata`](#member-gfvariantdata-methods-merge_metadata) | `static func merge_metadata( target: Dictionary, source: Dictionary, overwrite: bool = true, recursive: bool = true ) -> Dictionary:` |
 | 方法 | [`deep_merge_defaults`](#member-gfvariantdata-methods-deep_merge_defaults) | `static func deep_merge_defaults(base: Dictionary, defaults: Dictionary) -> Dictionary:` |
-| 方法 | [`diff_variant`](#member-gfvariantdata-methods-diff_variant) | `static func diff_variant(before: Variant, after: Variant, options: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`get_option_value`](#member-gfvariantdata-methods-get_option_value) | `static func get_option_value(options: Dictionary, key: Variant, default_value: Variant = null) -> Variant:` |
-| 方法 | [`get_option_bool`](#member-gfvariantdata-methods-get_option_bool) | `static func get_option_bool(options: Dictionary, key: Variant, default_value: bool = false) -> bool:` |
-| 方法 | [`get_option_int`](#member-gfvariantdata-methods-get_option_int) | `static func get_option_int(options: Dictionary, key: Variant, default_value: int = 0) -> int:` |
-| 方法 | [`get_option_float`](#member-gfvariantdata-methods-get_option_float) | `static func get_option_float(options: Dictionary, key: Variant, default_value: float = 0.0) -> float:` |
-| 方法 | [`get_option_string`](#member-gfvariantdata-methods-get_option_string) | `static func get_option_string(options: Dictionary, key: Variant, default_value: String = "") -> String:` |
-| 方法 | [`get_option_string_name`](#member-gfvariantdata-methods-get_option_string_name) | `static func get_option_string_name(options: Dictionary, key: Variant, default_value: StringName = &"") -> StringName:` |
-| 方法 | [`get_option_vector2`](#member-gfvariantdata-methods-get_option_vector2) | `static func get_option_vector2(options: Dictionary, key: Variant, default_value: Vector2 = Vector2.ZERO) -> Vector2:` |
-| 方法 | [`get_option_vector3`](#member-gfvariantdata-methods-get_option_vector3) | `static func get_option_vector3(options: Dictionary, key: Variant, default_value: Vector3 = Vector3.ZERO) -> Vector3:` |
-| 方法 | [`get_option_dictionary`](#member-gfvariantdata-methods-get_option_dictionary) | `static func get_option_dictionary(options: Dictionary, key: Variant, default_value: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`get_option_array`](#member-gfvariantdata-methods-get_option_array) | `static func get_option_array(options: Dictionary, key: Variant, default_value: Array = []) -> Array:` |
+| 方法 | [`diff_variant`](#member-gfvariantdata-methods-diff_variant) | `static func diff_variant( before: Variant, after: Variant, options: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`get_option_value`](#member-gfvariantdata-methods-get_option_value) | `static func get_option_value( options: Dictionary, key: Variant, default_value: Variant = null ) -> Variant:` |
+| 方法 | [`get_option_bool`](#member-gfvariantdata-methods-get_option_bool) | `static func get_option_bool( options: Dictionary, key: Variant, default_value: bool = false ) -> bool:` |
+| 方法 | [`get_option_int`](#member-gfvariantdata-methods-get_option_int) | `static func get_option_int( options: Dictionary, key: Variant, default_value: int = 0 ) -> int:` |
+| 方法 | [`get_option_float`](#member-gfvariantdata-methods-get_option_float) | `static func get_option_float( options: Dictionary, key: Variant, default_value: float = 0.0 ) -> float:` |
+| 方法 | [`get_option_string`](#member-gfvariantdata-methods-get_option_string) | `static func get_option_string( options: Dictionary, key: Variant, default_value: String = "" ) -> String:` |
+| 方法 | [`get_option_string_name`](#member-gfvariantdata-methods-get_option_string_name) | `static func get_option_string_name( options: Dictionary, key: Variant, default_value: StringName = &"" ) -> StringName:` |
+| 方法 | [`get_option_vector2`](#member-gfvariantdata-methods-get_option_vector2) | `static func get_option_vector2( options: Dictionary, key: Variant, default_value: Vector2 = Vector2.ZERO ) -> Vector2:` |
+| 方法 | [`get_option_vector3`](#member-gfvariantdata-methods-get_option_vector3) | `static func get_option_vector3( options: Dictionary, key: Variant, default_value: Vector3 = Vector3.ZERO ) -> Vector3:` |
+| 方法 | [`get_option_dictionary`](#member-gfvariantdata-methods-get_option_dictionary) | `static func get_option_dictionary( options: Dictionary, key: Variant, default_value: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`get_option_array`](#member-gfvariantdata-methods-get_option_array) | `static func get_option_array( options: Dictionary, key: Variant, default_value: Array = [] ) -> Array:` |
 | 方法 | [`get_option_string_array`](#member-gfvariantdata-methods-get_option_string_array) | `static func get_option_string_array( options: Dictionary, key: Variant, default_value: Array[String] = [] ) -> Array[String]:` |
 | 方法 | [`get_option_string_name_array`](#member-gfvariantdata-methods-get_option_string_name_array) | `static func get_option_string_name_array( options: Dictionary, key: Variant, default_value: Array[StringName] = [] ) -> Array[StringName]:` |
 | 方法 | [`get_option_int_array`](#member-gfvariantdata-methods-get_option_int_array) | `static func get_option_int_array( options: Dictionary, key: Variant, default_value: Array[int] = [] ) -> Array[int]:` |
@@ -61,9 +61,10 @@
 ### `duplicate_variant`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-static func duplicate_variant(value: Variant, deep: bool = true, duplicate_resources: bool = false) -> Variant:
+static func duplicate_variant( value: Variant, deep: bool = true, duplicate_resources: bool = false ) -> Variant:
 ```
 
 深拷贝 Dictionary 或 Array；其他 Variant 原样返回。
@@ -114,9 +115,10 @@ static func duplicate_collection(value: Variant, deep: bool = true) -> Variant:
 ### `to_dictionary`
 
 - API：`public`
+- 首次版本：`3.22.0`
 
 ```gdscript
-static func to_dictionary(value: Variant, default_value: Dictionary = {}, deep: bool = true) -> Dictionary:
+static func to_dictionary( value: Variant, default_value: Dictionary = {}, deep: bool = true ) -> Dictionary:
 ```
 
 将 Variant 归一为 Dictionary 副本。
@@ -169,9 +171,10 @@ static func as_dictionary(value: Variant, default_value: Variant = null) -> Dict
 ### `to_array`
 
 - API：`public`
+- 首次版本：`4.0.0`
 
 ```gdscript
-static func to_array(value: Variant, default_value: Array = [], deep: bool = true) -> Array:
+static func to_array( value: Variant, default_value: Array = [], deep: bool = true ) -> Array:
 ```
 
 将 Variant 归一为 Array 副本。
@@ -559,7 +562,7 @@ static func duplicate_metadata(metadata: Dictionary) -> Dictionary:
 - 首次版本：`6.0.0`
 
 ```gdscript
-static func values_equal(left: Variant, right: Variant, options: Dictionary = {}) -> bool:
+static func values_equal( left: Variant, right: Variant, options: Dictionary = {} ) -> bool:
 ```
 
 安全比较两个 Variant 值是否等价。 int/int 始终精确比较；int/float 仅在 float 有限、为整数且双向转换安全时等价。 需要容忍两个 float 之间的误差时可传入 numeric_epsilon。
@@ -674,7 +677,7 @@ static func deep_merge_defaults(base: Dictionary, defaults: Dictionary) -> Dicti
 - 首次版本：`4.4.0`
 
 ```gdscript
-static func diff_variant(before: Variant, after: Variant, options: Dictionary = {}) -> Dictionary:
+static func diff_variant( before: Variant, after: Variant, options: Dictionary = {} ) -> Dictionary:
 ```
 
 对比两个 Variant 并返回结构化差异报告。 该方法只比较纯 Variant 数据形状，不读取文件、不实例化脚本，也不解释业务字段。 Array/Dictionary 按展开后的数据内容比较，不比较共享引用拓扑；活动引用 pair 重入只记录为 traversal diagnostic。
@@ -701,9 +704,10 @@ static func diff_variant(before: Variant, after: Variant, options: Dictionary = 
 ### `get_option_value`
 
 - API：`public`
+- 首次版本：`3.22.0`
 
 ```gdscript
-static func get_option_value(options: Dictionary, key: Variant, default_value: Variant = null) -> Variant:
+static func get_option_value( options: Dictionary, key: Variant, default_value: Variant = null ) -> Variant:
 ```
 
 读取 options 字典中的原始值，支持 String 与 StringName 键互查。
@@ -730,9 +734,10 @@ static func get_option_value(options: Dictionary, key: Variant, default_value: V
 ### `get_option_bool`
 
 - API：`public`
+- 首次版本：`3.22.0`
 
 ```gdscript
-static func get_option_bool(options: Dictionary, key: Variant, default_value: bool = false) -> bool:
+static func get_option_bool( options: Dictionary, key: Variant, default_value: bool = false ) -> bool:
 ```
 
 读取 bool 选项。
@@ -757,9 +762,10 @@ static func get_option_bool(options: Dictionary, key: Variant, default_value: bo
 ### `get_option_int`
 
 - API：`public`
+- 首次版本：`3.22.0`
 
 ```gdscript
-static func get_option_int(options: Dictionary, key: Variant, default_value: int = 0) -> int:
+static func get_option_int( options: Dictionary, key: Variant, default_value: int = 0 ) -> int:
 ```
 
 读取 int 选项。
@@ -784,9 +790,10 @@ static func get_option_int(options: Dictionary, key: Variant, default_value: int
 ### `get_option_float`
 
 - API：`public`
+- 首次版本：`3.22.0`
 
 ```gdscript
-static func get_option_float(options: Dictionary, key: Variant, default_value: float = 0.0) -> float:
+static func get_option_float( options: Dictionary, key: Variant, default_value: float = 0.0 ) -> float:
 ```
 
 读取 float 选项。
@@ -811,9 +818,10 @@ static func get_option_float(options: Dictionary, key: Variant, default_value: f
 ### `get_option_string`
 
 - API：`public`
+- 首次版本：`3.22.0`
 
 ```gdscript
-static func get_option_string(options: Dictionary, key: Variant, default_value: String = "") -> String:
+static func get_option_string( options: Dictionary, key: Variant, default_value: String = "" ) -> String:
 ```
 
 读取 String 选项。
@@ -838,9 +846,10 @@ static func get_option_string(options: Dictionary, key: Variant, default_value: 
 ### `get_option_string_name`
 
 - API：`public`
+- 首次版本：`3.22.0`
 
 ```gdscript
-static func get_option_string_name(options: Dictionary, key: Variant, default_value: StringName = &"") -> StringName:
+static func get_option_string_name( options: Dictionary, key: Variant, default_value: StringName = &"" ) -> StringName:
 ```
 
 读取 StringName 选项。
@@ -865,9 +874,10 @@ static func get_option_string_name(options: Dictionary, key: Variant, default_va
 ### `get_option_vector2`
 
 - API：`public`
+- 首次版本：`4.0.0`
 
 ```gdscript
-static func get_option_vector2(options: Dictionary, key: Variant, default_value: Vector2 = Vector2.ZERO) -> Vector2:
+static func get_option_vector2( options: Dictionary, key: Variant, default_value: Vector2 = Vector2.ZERO ) -> Vector2:
 ```
 
 读取 Vector2 选项。
@@ -892,9 +902,10 @@ static func get_option_vector2(options: Dictionary, key: Variant, default_value:
 ### `get_option_vector3`
 
 - API：`public`
+- 首次版本：`4.0.0`
 
 ```gdscript
-static func get_option_vector3(options: Dictionary, key: Variant, default_value: Vector3 = Vector3.ZERO) -> Vector3:
+static func get_option_vector3( options: Dictionary, key: Variant, default_value: Vector3 = Vector3.ZERO ) -> Vector3:
 ```
 
 读取 Vector3 选项。
@@ -919,9 +930,10 @@ static func get_option_vector3(options: Dictionary, key: Variant, default_value:
 ### `get_option_dictionary`
 
 - API：`public`
+- 首次版本：`3.22.0`
 
 ```gdscript
-static func get_option_dictionary(options: Dictionary, key: Variant, default_value: Dictionary = {}) -> Dictionary:
+static func get_option_dictionary( options: Dictionary, key: Variant, default_value: Dictionary = {} ) -> Dictionary:
 ```
 
 读取 Dictionary 选项副本。
@@ -948,9 +960,10 @@ static func get_option_dictionary(options: Dictionary, key: Variant, default_val
 ### `get_option_array`
 
 - API：`public`
+- 首次版本：`3.22.0`
 
 ```gdscript
-static func get_option_array(options: Dictionary, key: Variant, default_value: Array = []) -> Array:
+static func get_option_array( options: Dictionary, key: Variant, default_value: Array = [] ) -> Array:
 ```
 
 读取 Array 选项副本。

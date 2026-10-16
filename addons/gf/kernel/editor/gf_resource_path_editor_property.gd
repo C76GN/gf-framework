@@ -55,12 +55,22 @@ const _STATUS_UNSUPPORTED_SCHEME: String = "unsupported_scheme"
 ## 有效路径状态和普通信息提示使用的颜色。
 ## [br]
 ## @api private
-const _INFO_TEXT_COLOR: Color = Color(0.62, 0.66, 0.72, 1.0)
+const _INFO_TEXT_COLOR: Color = Color(
+	0.62,
+	0.66,
+	0.72,
+	1.0
+)
 
 ## 无效路径状态使用的颜色。
 ## [br]
 ## @api private
-const _WARNING_TEXT_COLOR: Color = Color(1.0, 0.58, 0.30, 1.0)
+const _WARNING_TEXT_COLOR: Color = Color(
+	1.0,
+	0.58,
+	0.30,
+	1.0
+)
 
 ## 提供 GF 资源路径 hint 常量的脚本。
 ## [br]
@@ -207,7 +217,10 @@ func setup(base_type: String = DEFAULT_BASE_TYPE, prefer_uid: bool = true) -> vo
 	_base_type = base_type if not base_type.strip_edges().is_empty() else DEFAULT_BASE_TYPE
 	_prefer_uid = prefer_uid
 	if _picker != null:
-		_picker.call(&"setup", get_resource_file_filters(_base_type))
+		_picker.call(
+			&"setup",
+			get_resource_file_filters(_base_type)
+		)
 
 
 ## 判断属性是否适合用资源路径编辑器接管。
@@ -223,7 +236,11 @@ func setup(base_type: String = DEFAULT_BASE_TYPE, prefer_uid: bool = true) -> vo
 ## @param hint_string: Godot 属性 hint 字符串。
 ## [br]
 ## @return 适合接管时返回 true。
-static func should_handle_property(type: Variant.Type, hint_type: int, hint_string: String) -> bool:
+static func should_handle_property(
+	type: Variant.Type,
+	hint_type: int,
+	hint_string: String
+) -> bool:
 	if type != TYPE_STRING:
 		return false
 	if hint_type != PROPERTY_HINT_FILE and hint_type != _GF_RESOURCE_PATH_HINT_SCRIPT.RESOURCE_PATH:
@@ -276,9 +293,7 @@ static func get_base_type_for_hint(hint_type: int, hint_string: String) -> Strin
 static func get_resource_file_filters(base_type: String) -> PackedStringArray:
 	var normalized_base_type: String = _normalize_base_type(base_type)
 	var native_base_type: String = _get_native_resource_base_type(normalized_base_type)
-	var extensions: PackedStringArray = ResourceLoader.get_recognized_extensions_for_type(
-		native_base_type
-	)
+	var extensions: PackedStringArray = ResourceLoader.get_recognized_extensions_for_type(native_base_type)
 	var normalized_extensions: PackedStringArray = PackedStringArray()
 	for extension: String in extensions:
 		var normalized_extension: String = extension.strip_edges().trim_prefix(".").to_lower()
@@ -292,9 +307,12 @@ static func get_resource_file_filters(base_type: String) -> PackedStringArray:
 	var patterns: PackedStringArray = PackedStringArray()
 	for extension: String in normalized_extensions:
 		var _append_pattern_result: bool = patterns.append("*.%s" % extension)
-	return PackedStringArray([
-		"%s ; %s" % [", ".join(patterns), normalized_base_type],
-	])
+	return PackedStringArray(
+		[
+			"%s ; %s"
+			% [", ".join(patterns), normalized_base_type],
+		]
+	)
 
 
 ## 把资源转换为可保存的稳定路径。
@@ -355,7 +373,13 @@ static func get_resource_path_status(path: String, base_type: String = DEFAULT_B
 	var normalized_path: String = path.strip_edges()
 	var normalized_base_type: String = _normalize_base_type(base_type)
 	if normalized_path.is_empty():
-		return _make_resource_path_status(normalized_path, "", true, _STATUS_EMPTY, "")
+		return _make_resource_path_status(
+			normalized_path,
+			"",
+			true,
+			_STATUS_EMPTY,
+			""
+		)
 
 	if normalized_path.begins_with(RESOURCE_PREFIX):
 		if not ResourceLoader.exists(normalized_path, normalized_base_type):
@@ -366,7 +390,13 @@ static func get_resource_path_status(path: String, base_type: String = DEFAULT_B
 				_STATUS_MISSING_OR_TYPE_MISMATCH,
 				"资源不存在或类型不匹配: %s" % normalized_path
 			)
-		return _make_resource_path_status(normalized_path, normalized_path, true, _STATUS_OK, "")
+		return _make_resource_path_status(
+			normalized_path,
+			normalized_path,
+			true,
+			_STATUS_OK,
+			""
+		)
 
 	if normalized_path.begins_with(UID_PREFIX):
 		var uid: int = ResourceUID.text_to_id(normalized_path)
@@ -393,7 +423,8 @@ static func get_resource_path_status(path: String, base_type: String = DEFAULT_B
 			resolved_path,
 			true,
 			_STATUS_OK,
-			"%s -> %s" % [normalized_path, resolved_path]
+			"%s -> %s"
+			% [normalized_path, resolved_path]
 		)
 
 	return _make_resource_path_status(
@@ -426,7 +457,11 @@ static func load_resource_from_path(path: String, base_type: String = DEFAULT_BA
 	if not ResourceLoader.exists(normalized_path, normalized_base_type):
 		return null
 
-	var resource: Resource = ResourceLoader.load(normalized_path, normalized_base_type, ResourceLoader.CACHE_MODE_REUSE)
+	var resource: Resource = ResourceLoader.load(
+		normalized_path,
+		normalized_base_type,
+		ResourceLoader.CACHE_MODE_REUSE
+	)
 	return resource
 
 
@@ -468,10 +503,7 @@ static func _get_native_resource_base_type(type_name: String) -> String:
 ## 递归解析 global class 的 base；遇到空名、已访问类型或非 Resource 类时返回默认 Resource。
 ## [br]
 ## @api private
-static func _get_native_resource_base_type_with_seen(
-	type_name: String,
-	seen_types: Dictionary
-) -> String:
+static func _get_native_resource_base_type_with_seen(type_name: String, seen_types: Dictionary) -> String:
 	if type_name.is_empty() or seen_types.has(type_name):
 		return DEFAULT_BASE_TYPE
 	seen_types[type_name] = true

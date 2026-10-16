@@ -47,6 +47,7 @@ const DEFAULT_MAX_SCAN_DEPTH: int = 32
 ## @api public
 const DEFAULT_MAX_FILE_COUNT: int = 10000
 
+
 # --- 公共变量 ---
 
 ## 是否递归扫描子目录。
@@ -118,16 +119,46 @@ var _has_snapshot: bool = false
 ## [br]
 ## @schema options: Dictionary controlling scan behavior.
 func configure(options: Dictionary = {}) -> GFDirectoryWatchUtility:
-	recursive = GFVariantData.get_option_bool(options, "recursive", recursive)
-	include_hidden = GFVariantData.get_option_bool(options, "include_hidden", include_hidden)
+	recursive = GFVariantData.get_option_bool(
+		options,
+		"recursive",
+		recursive
+	)
+	include_hidden = GFVariantData.get_option_bool(
+		options,
+		"include_hidden",
+		include_hidden
+	)
 	extensions = _normalize_extensions(
-		GFVariantData.get_option_packed_string_array(options, "extensions", extensions)
+		GFVariantData.get_option_packed_string_array(
+			options,
+			"extensions",
+			extensions
+		)
 	)
 	excluded_paths = _normalize_paths(
-		GFVariantData.get_option_packed_string_array(options, "excluded_paths", excluded_paths)
+		GFVariantData.get_option_packed_string_array(
+			options,
+			"excluded_paths",
+			excluded_paths
+		)
 	)
-	max_scan_depth = maxi(GFVariantData.get_option_int(options, "max_scan_depth", max_scan_depth), 0)
-	max_file_count = maxi(GFVariantData.get_option_int(options, "max_file_count", max_file_count), 0)
+	max_scan_depth = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"max_scan_depth",
+			max_scan_depth
+		),
+		0
+	)
+	max_file_count = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"max_file_count",
+			max_file_count
+		),
+		0
+	)
 	report_existing_on_first_scan = GFVariantData.get_option_bool(
 		options,
 		"report_existing_on_first_scan",
@@ -267,10 +298,7 @@ func _scan_watch_paths(scan_state: Dictionary) -> Dictionary:
 		var paths: PackedStringArray = GFVariantData.get_option_packed_string_array(scan_report, "paths")
 		for path: String in paths:
 			result[path] = _make_file_snapshot(path)
-		scan_state["scanned_count"] = (
-			GFVariantData.get_option_int(scan_state, "scanned_count")
-			+ GFVariantData.get_option_int(scan_report, "scanned_count")
-		)
+		scan_state["scanned_count"] = (GFVariantData.get_option_int(scan_state, "scanned_count") + GFVariantData.get_option_int(scan_report, "scanned_count"))
 		if GFVariantData.get_option_bool(scan_report, "truncated"):
 			scan_state["truncated"] = true
 	return result
@@ -301,14 +329,16 @@ func _make_change_set(next_snapshot: Dictionary, scan_state: Dictionary) -> GFDi
 	created.sort()
 	modified.sort()
 	deleted.sort()
-	return GFDirectoryChangeSet.new().configure(
-		get_watch_paths(),
-		created,
-		modified,
-		deleted,
-		GFVariantData.get_option_int(scan_state, "scanned_count"),
-		next_snapshot.size(),
-		GFVariantData.get_option_bool(scan_state, "truncated")
+	return (
+		GFDirectoryChangeSet.new().configure(
+			get_watch_paths(),
+			created,
+			modified,
+			deleted,
+			GFVariantData.get_option_int(scan_state, "scanned_count"),
+			next_snapshot.size(),
+			GFVariantData.get_option_bool(scan_state, "truncated")
+		)
 	)
 
 
@@ -317,10 +347,7 @@ func _make_change_set(next_snapshot: Dictionary, scan_state: Dictionary) -> GFDi
 ## @api private
 ## [br]
 func _make_scan_state() -> Dictionary:
-	return {
-		"scanned_count": 0,
-		"truncated": false,
-	}
+	return { "scanned_count": 0, "truncated": false, }
 
 
 ## 组装枚举选项，并按累计扫描数计算剩余文件预算。
@@ -330,7 +357,10 @@ func _make_scan_state() -> Dictionary:
 func _make_enumeration_options(scan_state: Dictionary) -> Dictionary:
 	var remaining_file_count: int = 0
 	if max_file_count > 0:
-		remaining_file_count = maxi(max_file_count - GFVariantData.get_option_int(scan_state, "scanned_count"), 0)
+		remaining_file_count = maxi(
+			max_file_count - GFVariantData.get_option_int(scan_state, "scanned_count"),
+			0
+		)
 		if remaining_file_count <= 0:
 			scan_state["truncated"] = true
 	return {
@@ -362,9 +392,42 @@ func _make_file_snapshot(path: String) -> Dictionary:
 ## [br]
 func _snapshot_entries_equal(left: Dictionary, right: Dictionary) -> bool:
 	return (
-		GFVariantData.get_option_int(left, "modified_time", -1) == GFVariantData.get_option_int(right, "modified_time", -2)
-		and GFVariantData.get_option_int(left, "size_bytes", -1) == GFVariantData.get_option_int(right, "size_bytes", -2)
-		and GFVariantData.get_option_string(left, "content_sha256", "") == GFVariantData.get_option_string(right, "content_sha256", " ")
+		(
+			GFVariantData.get_option_int(
+				left,
+				"modified_time",
+				-1
+			)
+			== GFVariantData.get_option_int(
+				right,
+				"modified_time",
+				-2
+			)
+		)
+		and (
+			GFVariantData.get_option_int(
+				left,
+				"size_bytes",
+				-1
+			)
+			== GFVariantData.get_option_int(
+				right,
+				"size_bytes",
+				-2
+			)
+		)
+		and (
+			GFVariantData.get_option_string(
+				left,
+				"content_sha256",
+				""
+			)
+			== GFVariantData.get_option_string(
+				right,
+				"content_sha256",
+				" "
+			)
+		)
 	)
 
 
@@ -443,4 +506,8 @@ func _normalize_paths(values: PackedStringArray) -> PackedStringArray:
 ## @api private
 ## [br]
 func _normalize_dir_path(path: String) -> String:
-	return _GF_PATH_TOOLS.normalize_root_path(path, "", false)
+	return _GF_PATH_TOOLS.normalize_root_path(
+		path,
+		"",
+		false
+	)

@@ -148,10 +148,21 @@ static func tween(
 		push_warning("[GFAction][action.invalid_replacement_scope] tween failed: replacement_scope must be a GFTweenReplacementScope or null.")
 		return null
 	var config: GFTweenActionConfig = GFTweenActionConfig.new()
-	var step: GFTweenActionStep = config.add_property_step(property_name, target_value, duration)
-	_apply_tween_options(config, step, options)
+	var step: GFTweenActionStep = config.add_property_step(
+		property_name,
+		target_value,
+		duration
+	)
+	_apply_tween_options(
+		config,
+		step,
+		options
+	)
 	var action: GFConfiguredTweenAction = _get_configured_tween_action_value(
-		config.create_action(target, _get_node_value(GFVariantData.get_option_value(options, "host_node")))
+		config.create_action(
+			target,
+			_get_node_value(GFVariantData.get_option_value(options, "host_node"))
+		)
 	)
 	if action != null and replacement_value is GFTweenReplacementScope:
 		var replacement_scope: GFTweenReplacementScope = replacement_value
@@ -187,7 +198,13 @@ static func tween_by(
 ) -> GFConfiguredTweenAction:
 	var merged_options: Dictionary = options.duplicate(true)
 	merged_options["as_relative"] = true
-	return tween(target, property_name, offset, duration, merged_options)
+	return tween(
+		target,
+		property_name,
+		offset,
+		duration,
+		merged_options
+	)
 
 
 ## 创建移动到目标位置的 Tween 动作。
@@ -211,7 +228,12 @@ static func move_to(
 	duration: float = 0.2,
 	property_name: NodePath = ^"position"
 ) -> GFMoveTweenAction:
-	return GFMoveTweenAction.new(target, target_position, duration, property_name)
+	return GFMoveTweenAction.new(
+		target,
+		target_position,
+		duration,
+		property_name
+	)
 
 
 ## 创建相对移动 Tween 动作。
@@ -240,7 +262,13 @@ static func move_by(
 	property_name: NodePath = ^"position",
 	options: Dictionary = {}
 ) -> GFConfiguredTweenAction:
-	return tween_by(target, property_name, offset, duration, options)
+	return tween_by(
+		target,
+		property_name,
+		offset,
+		duration,
+		options
+	)
 
 
 ## 创建缩放到目标值的 Tween 动作。
@@ -269,7 +297,13 @@ static func scale_to(
 	property_name: NodePath = ^"scale",
 	options: Dictionary = {}
 ) -> GFConfiguredTweenAction:
-	return tween(target, property_name, scale_value, duration, options)
+	return tween(
+		target,
+		property_name,
+		scale_value,
+		duration,
+		options
+	)
 
 
 ## 创建相对缩放 Tween 动作。
@@ -298,7 +332,13 @@ static func scale_by(
 	property_name: NodePath = ^"scale",
 	options: Dictionary = {}
 ) -> GFConfiguredTweenAction:
-	return tween_by(target, property_name, scale_delta, duration, options)
+	return tween_by(
+		target,
+		property_name,
+		scale_delta,
+		duration,
+		options
+	)
 
 
 ## 创建旋转到目标值的 Tween 动作。
@@ -327,7 +367,13 @@ static func rotate_to(
 	property_name: NodePath = ^"rotation",
 	options: Dictionary = {}
 ) -> GFConfiguredTweenAction:
-	return tween(target, property_name, rotation_value, duration, options)
+	return tween(
+		target,
+		property_name,
+		rotation_value,
+		duration,
+		options
+	)
 
 
 ## 创建相对旋转 Tween 动作。
@@ -356,7 +402,13 @@ static func rotate_by(
 	property_name: NodePath = ^"rotation",
 	options: Dictionary = {}
 ) -> GFConfiguredTweenAction:
-	return tween_by(target, property_name, rotation_delta, duration, options)
+	return tween_by(
+		target,
+		property_name,
+		rotation_delta,
+		duration,
+		options
+	)
 
 
 ## 创建透明度 Tween 动作。
@@ -380,7 +432,13 @@ static func fade_to(
 	duration: float = 0.2,
 	options: Dictionary = {}
 ) -> GFConfiguredTweenAction:
-	return tween(target, ^"modulate:a", alpha, duration, options)
+	return tween(
+		target,
+		^"modulate:a",
+		alpha,
+		duration,
+		options
+	)
 
 
 ## 创建相对透明度 Tween 动作。
@@ -404,7 +462,13 @@ static func fade_by(
 	duration: float = 0.2,
 	options: Dictionary = {}
 ) -> GFConfiguredTweenAction:
-	return tween_by(target, ^"modulate:a", alpha_delta, duration, options)
+	return tween_by(
+		target,
+		^"modulate:a",
+		alpha_delta,
+		duration,
+		options
+	)
 
 
 ## 创建整体颜色 Tween 动作。
@@ -428,7 +492,13 @@ static func colorize(
 	duration: float = 0.2,
 	options: Dictionary = {}
 ) -> GFConfiguredTweenAction:
-	return tween(target, ^"modulate", color, duration, options)
+	return tween(
+		target,
+		^"modulate",
+		color,
+		duration,
+		options
+	)
 
 
 ## 创建 ShaderMaterial 参数 Tween 动作。
@@ -482,26 +552,19 @@ static func shader_parameter(
 			action.ease_type
 		)
 	if options.has("duplicate_material_on_execute"):
-		action.duplicate_material_on_execute = GFVariantData.get_option_bool(
-			options,
-			"duplicate_material_on_execute"
-		)
+		action.duplicate_material_on_execute = GFVariantData.get_option_bool(options, "duplicate_material_on_execute")
 	if options.has("restore_initial_value_on_cancel"):
-		action.restore_initial_value_on_cancel = GFVariantData.get_option_bool(
-			options,
-			"restore_initial_value_on_cancel"
-		)
+		action.restore_initial_value_on_cancel = GFVariantData.get_option_bool(options, "restore_initial_value_on_cancel")
 	if options.has("restore_initial_value_on_finish"):
-		action.restore_initial_value_on_finish = GFVariantData.get_option_bool(
-			options,
-			"restore_initial_value_on_finish"
-		)
+		action.restore_initial_value_on_finish = GFVariantData.get_option_bool(options, "restore_initial_value_on_finish")
 	return action
 
 
 ## 创建设置任意属性的瞬时动作。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param target: 目标对象。
 ## [br]
@@ -512,16 +575,23 @@ static func shader_parameter(
 ## @return 回调动作。
 ## [br]
 ## @schema value: Variant，会通过 target.set_indexed(property_name, value) 写入的值。
-static func set_property(target: Object, property_name: NodePath, value: Variant) -> GFCallableAction:
-	return GFCallableAction.new(func() -> void:
-		if is_instance_valid(target):
-			target.set_indexed(property_name, value)
+static func set_property(
+	target: Object,
+	property_name: NodePath,
+	value: Variant
+) -> GFCallableAction:
+	return GFCallableAction.new(
+		func() -> void:
+			if is_instance_valid(target):
+				target.set_indexed(property_name, value)
 	)
 
 
 ## 创建设置 visible 属性的瞬时动作。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param target: 目标对象。
 ## [br]
@@ -530,8 +600,16 @@ static func set_property(target: Object, property_name: NodePath, value: Variant
 ## @param property_name: 可见性属性路径。
 ## [br]
 ## @return 回调动作。
-static func set_visible(target: Object, visible: bool, property_name: NodePath = ^"visible") -> GFCallableAction:
-	return set_property(target, property_name, visible)
+static func set_visible(
+	target: Object,
+	visible: bool,
+	property_name: NodePath = ^"visible"
+) -> GFCallableAction:
+	return set_property(
+		target,
+		property_name,
+		visible
+	)
 
 
 ## 创建显示目标的瞬时动作。
@@ -544,7 +622,11 @@ static func set_visible(target: Object, visible: bool, property_name: NodePath =
 ## [br]
 ## @return 回调动作。
 static func show(target: Object, property_name: NodePath = ^"visible") -> GFCallableAction:
-	return set_visible(target, true, property_name)
+	return set_visible(
+		target,
+		true,
+		property_name
+	)
 
 
 ## 创建隐藏目标的瞬时动作。
@@ -557,7 +639,11 @@ static func show(target: Object, property_name: NodePath = ^"visible") -> GFCall
 ## [br]
 ## @return 回调动作。
 static func hide(target: Object, property_name: NodePath = ^"visible") -> GFCallableAction:
-	return set_visible(target, false, property_name)
+	return set_visible(
+		target,
+		false,
+		property_name
+	)
 
 
 ## 创建释放节点的瞬时动作。
@@ -568,9 +654,10 @@ static func hide(target: Object, property_name: NodePath = ^"visible") -> GFCall
 ## [br]
 ## @return 回调动作。
 static func remove_node(target: Node) -> GFCallableAction:
-	return GFCallableAction.new(func() -> void:
-		if is_instance_valid(target):
-			target.queue_free()
+	return GFCallableAction.new(
+		func() -> void:
+			if is_instance_valid(target):
+				target.queue_free()
 	)
 
 
@@ -587,7 +674,10 @@ static func _apply_tween_options(
 	if options.has("duration_scale"):
 		config.duration_scale = GFVariantData.get_option_float(options, "duration_scale")
 	if options.has("loop_count"):
-		config.loop_count = maxi(GFVariantData.get_option_int(options, "loop_count"), 0)
+		config.loop_count = maxi(
+			GFVariantData.get_option_int(options, "loop_count"),
+			0
+		)
 	if options.has("enable_playback_control"):
 		config.enable_playback_control = GFVariantData.get_option_bool(options, "enable_playback_control")
 	if options.has("ping_pong"):
@@ -606,7 +696,10 @@ static func _apply_tween_options(
 		)
 
 	if options.has("delay"):
-		step.delay = maxf(GFVariantData.get_option_float(options, "delay"), 0.0)
+		step.delay = maxf(
+			GFVariantData.get_option_float(options, "delay"),
+			0.0
+		)
 	if options.has("parallel"):
 		step.parallel = GFVariantData.get_option_bool(options, "parallel")
 	if options.has("as_relative"):
@@ -659,10 +752,7 @@ static func _get_configured_tween_action_value(value: Variant) -> GFConfiguredTw
 ## 仅接受 idle 或 physics 处理模式，其余值回退到给定默认值。
 ## [br]
 ## @api private
-static func _to_tween_process_mode(
-	value: Variant,
-	default_value: Tween.TweenProcessMode
-) -> Tween.TweenProcessMode:
+static func _to_tween_process_mode(value: Variant, default_value: Tween.TweenProcessMode) -> Tween.TweenProcessMode:
 	match GFVariantData.to_int(value, default_value):
 		Tween.TWEEN_PROCESS_PHYSICS:
 			return Tween.TWEEN_PROCESS_PHYSICS
@@ -675,10 +765,7 @@ static func _to_tween_process_mode(
 ## 仅接受 bound、stop 或 process 暂停模式，其余值回退到给定默认值。
 ## [br]
 ## @api private
-static func _to_tween_pause_mode(
-	value: Variant,
-	default_value: Tween.TweenPauseMode
-) -> Tween.TweenPauseMode:
+static func _to_tween_pause_mode(value: Variant, default_value: Tween.TweenPauseMode) -> Tween.TweenPauseMode:
 	match GFVariantData.to_int(value, default_value):
 		Tween.TWEEN_PAUSE_BOUND:
 			return Tween.TWEEN_PAUSE_BOUND
@@ -693,10 +780,7 @@ static func _to_tween_pause_mode(
 ## 仅接受 Tween 支持的过渡类型常量，其余值回退到给定默认值。
 ## [br]
 ## @api private
-static func _to_tween_transition_type(
-	value: Variant,
-	default_value: Tween.TransitionType
-) -> Tween.TransitionType:
+static func _to_tween_transition_type(value: Variant, default_value: Tween.TransitionType) -> Tween.TransitionType:
 	match GFVariantData.to_int(value, default_value):
 		Tween.TRANS_LINEAR:
 			return Tween.TRANS_LINEAR
@@ -729,10 +813,7 @@ static func _to_tween_transition_type(
 ## 仅接受四种 Tween 缓动类型常量，其余值回退到给定默认值。
 ## [br]
 ## @api private
-static func _to_tween_ease_type(
-	value: Variant,
-	default_value: Tween.EaseType
-) -> Tween.EaseType:
+static func _to_tween_ease_type(value: Variant, default_value: Tween.EaseType) -> Tween.EaseType:
 	match GFVariantData.to_int(value, default_value):
 		Tween.EASE_IN:
 			return Tween.EASE_IN

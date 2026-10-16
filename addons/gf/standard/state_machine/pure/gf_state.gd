@@ -245,10 +245,19 @@ func send_simple_event(event_id: StringName, payload: Variant = null) -> void:
 ## @param listener: 事件监听器契约。
 ## [br]
 ## @param priority: 回调优先级，数值越大越先执行，默认为 0。
-func register_event(event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
+func register_event(
+	event_type: Script,
+	listener: GFEventListener,
+	priority: int = 0
+) -> void:
 	var machine: GFStateMachine = _get_machine()
 	if machine != null:
-		machine.register_event_owned(self, event_type, listener, priority)
+		machine.register_event_owned(
+			self,
+			event_type,
+			listener,
+			priority
+		)
 
 
 ## 注销类型事件监听器。
@@ -263,7 +272,11 @@ func register_event(event_type: Script, listener: GFEventListener, priority: int
 func unregister_event(event_type: Script, listener: GFEventListener) -> void:
 	var machine: GFStateMachine = _get_machine()
 	if machine != null:
-		machine.unregister_event(event_type, listener, self)
+		machine.unregister_event(
+			event_type,
+			listener,
+			self
+		)
 
 
 ## 注册可赋值类型事件监听器，默认以当前状态作为 owner。
@@ -277,10 +290,19 @@ func unregister_event(event_type: Script, listener: GFEventListener) -> void:
 ## @param listener: 事件监听器契约。
 ## [br]
 ## @param priority: 回调优先级，数值越大越先执行，默认为 0。
-func register_assignable_event(base_event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
+func register_assignable_event(
+	base_event_type: Script,
+	listener: GFEventListener,
+	priority: int = 0
+) -> void:
 	var machine: GFStateMachine = _get_machine()
 	if machine != null:
-		machine.register_assignable_event_owned(self, base_event_type, listener, priority)
+		machine.register_assignable_event_owned(
+			self,
+			base_event_type,
+			listener,
+			priority
+		)
 
 
 ## 注销可赋值类型事件监听器。
@@ -295,7 +317,11 @@ func register_assignable_event(base_event_type: Script, listener: GFEventListene
 func unregister_assignable_event(base_event_type: Script, listener: GFEventListener) -> void:
 	var machine: GFStateMachine = _get_machine()
 	if machine != null:
-		machine.unregister_assignable_event(base_event_type, listener, self)
+		machine.unregister_assignable_event(
+			base_event_type,
+			listener,
+			self
+		)
 
 
 ## 注册轻量级 StringName 事件监听器，默认以当前状态作为 owner。
@@ -310,7 +336,11 @@ func unregister_assignable_event(base_event_type: Script, listener: GFEventListe
 func register_simple_event(event_id: StringName, listener: GFEventListener) -> void:
 	var machine: GFStateMachine = _get_machine()
 	if machine != null:
-		machine.register_simple_event_owned(self, event_id, listener)
+		machine.register_simple_event_owned(
+			self,
+			event_id,
+			listener
+		)
 
 
 ## 注销轻量级 StringName 事件监听器。
@@ -325,7 +355,11 @@ func register_simple_event(event_id: StringName, listener: GFEventListener) -> v
 func unregister_simple_event(event_id: StringName, listener: GFEventListener) -> void:
 	var machine: GFStateMachine = _get_machine()
 	if machine != null:
-		machine.unregister_simple_event(event_id, listener, self)
+		machine.unregister_simple_event(
+			event_id,
+			listener,
+			self
+		)
 
 
 ## 注销当前状态通过事件代理注册过的全部监听器。

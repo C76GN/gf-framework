@@ -37,6 +37,8 @@ signal state_changed(from_state: StringName, to_state: StringName)
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param from_state: 当前叶子状态名。
 ## [br]
 ## @param to_state: 请求进入的目标叶子状态名。
@@ -46,11 +48,18 @@ signal state_changed(from_state: StringName, to_state: StringName)
 ## @param reason: 阻止原因，常见为 exit_guard 或 enter_guard。
 ## [br]
 ## @schema msg: Dictionary state transition payload.
-signal transition_blocked(from_state: StringName, to_state: StringName, msg: Dictionary, reason: StringName)
+signal transition_blocked(
+	from_state: StringName,
+	to_state: StringName,
+	msg: Dictionary,
+	reason: StringName
+)
 
 ## 当状态事件被某个激活状态处理后发出。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param event_id: 状态事件标识。
 ## [br]
@@ -59,7 +68,11 @@ signal transition_blocked(from_state: StringName, to_state: StringName, msg: Dic
 ## @param payload: 状态事件载荷。
 ## [br]
 ## @schema payload: Variant state event payload.
-signal state_event_handled(event_id: StringName, handler_state: StringName, payload: Variant)
+signal state_event_handled(
+	event_id: StringName,
+	handler_state: StringName,
+	payload: Variant
+)
 
 
 # --- 公共变量 ---
@@ -175,12 +188,18 @@ func _init(context: Object = null) -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param state_name: 用于标识和切换该状态的唯一名称。
 ## [br]
 ## @param state: GFState 实例。
 ## [br]
 ## @param parent_state_name: 可选父状态名；为空表示根状态。
-func add_state(state_name: StringName, state: GFState, parent_state_name: StringName = &"") -> void:
+func add_state(
+	state_name: StringName,
+	state: GFState,
+	parent_state_name: StringName = &""
+) -> void:
 	if state_name == &"":
 		push_warning("[GFStateMachine][state_machine.state_name_empty] Cannot register state: state_name is empty.")
 		return
@@ -190,8 +209,12 @@ func add_state(state_name: StringName, state: GFState, parent_state_name: String
 
 	var normalized_parent: StringName = _normalize_parent_state_name(state_name, parent_state_name)
 	var old_state: GFState = _get_registered_state(state_name)
-	var is_replacing_current: bool = old_state != null and old_state == _current_state and old_state != state
-	var changes_active_parent: bool = _active_path.has(state_name) and _get_parent_state_name(state_name) != normalized_parent
+	var is_replacing_current: bool = (
+		old_state != null
+		and old_state == _current_state
+		and old_state != state
+	)
+	var changes_active_parent: bool = (_active_path.has(state_name) and _get_parent_state_name(state_name) != normalized_parent)
 	var is_replacing_active_ancestor: bool = (
 		old_state != null
 		and old_state != state
@@ -224,9 +247,17 @@ func add_state(state_name: StringName, state: GFState, parent_state_name: String
 
 	if should_enter_replacement:
 		if replacement_redirect != null:
-			_transition_to_state(replacement_redirect._state_name, replacement_redirect._msg, true)
+			_transition_to_state(
+				replacement_redirect._state_name,
+				replacement_redirect._msg,
+				true
+			)
 		else:
-			_transition_to_state(state_name, {}, false)
+			_transition_to_state(
+				state_name,
+				{},
+				false
+			)
 
 
 ## 设置已注册状态的父状态。
@@ -258,6 +289,8 @@ func set_state_parent(state_name: StringName, parent_state_name: StringName = &"
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param initial_state_name: 首个要进入的状态名。
 ## [br]
 ## @param msg: 传递给初始状态 enter() 的可选参数字典。
@@ -265,13 +298,21 @@ func set_state_parent(state_name: StringName, parent_state_name: StringName = &"
 ## @param emit_changed: 是否发出 state_changed 信号；默认为 true，from_state 为空字符串。
 ## [br]
 ## @schema msg: Dictionary state transition payload.
-func start(initial_state_name: StringName, msg: Dictionary = {}, emit_changed: bool = true) -> void:
+func start(
+	initial_state_name: StringName,
+	msg: Dictionary = {},
+	emit_changed: bool = true
+) -> void:
 	if not _states.has(initial_state_name):
 		push_warning("[GFStateMachine][state_machine.start_state_missing] Cannot start: state not found: %s." % initial_state_name)
 		return
 
 	_clear_queued_exit_transition()
-	_transition_to_state(initial_state_name, msg, emit_changed)
+	_transition_to_state(
+		initial_state_name,
+		msg,
+		emit_changed
+	)
 
 
 ## 切换到指定状态。分层状态会按最近公共祖先执行退出/进入链。
@@ -293,7 +334,11 @@ func change_state(state_name: StringName, msg: Dictionary = {}) -> void:
 		_queue_exit_transition(state_name, msg)
 		return
 
-	_transition_to_state(state_name, msg, true)
+	_transition_to_state(
+		state_name,
+		msg,
+		true
+	)
 
 
 ## 驱动当前状态的 update() 逻辑，应在宿主的 _process() 中调用。
@@ -332,14 +377,15 @@ func update(delta: float, include_ancestors: bool = false) -> void:
 func dispatch_state_event(event_id: StringName, payload: Variant = null) -> bool:
 	var dispatch_epoch: int = _activation_epoch
 	var candidates: Array[Dictionary] = []
-	for index: int in range(_active_path.size() - 1, -1, -1):
+	for index: int in range(
+		_active_path.size() - 1,
+		-1,
+		-1
+	):
 		var state_name: StringName = _active_path[index]
 		var state: GFState = _get_registered_state(state_name)
 		if state != null:
-			candidates.append({
-				"state_name": state_name,
-				"state": state,
-			})
+			candidates.append({ "state_name": state_name, "state": state, })
 
 	for candidate: Dictionary in candidates:
 		var state_name: StringName = GFVariantData.to_string_name(candidate["state_name"])
@@ -348,7 +394,11 @@ func dispatch_state_event(event_id: StringName, payload: Variant = null) -> bool
 		if dispatch_epoch != _activation_epoch:
 			return false
 		if handled:
-			state_event_handled.emit(event_id, state_name, payload)
+			state_event_handled.emit(
+				event_id,
+				state_name,
+				payload
+			)
 			return true
 	return false
 
@@ -360,7 +410,11 @@ func stop() -> void:
 	_transition_serial += 1
 	if not _active_path.is_empty():
 		_activation_epoch += 1
-	var _exit_finished: bool = _exit_active_path_to(0, false, false)
+	var _exit_finished: bool = _exit_active_path_to(
+		0,
+		false,
+		false
+	)
 	_active_path.clear()
 	_set_current_from_active_path()
 	_clear_queued_exit_transition()
@@ -501,7 +555,12 @@ func get_state_snapshot() -> Dictionary:
 ## @schema return: Dictionary with JSON-safe current_state, active_path, states, parents, and blackboard.
 func get_json_compatible_state_snapshot(options: Dictionary = {}) -> Dictionary:
 	var codec_options: Dictionary = options.duplicate(true)
-	return GFVariantData.as_dictionary(GFReportValueCodec.to_json_compatible(get_state_snapshot(), codec_options))
+	return GFVariantData.as_dictionary(
+		GFReportValueCodec.to_json_compatible(
+			get_state_snapshot(),
+			codec_options
+		)
+	)
 
 
 ## 代理获取框架内的 Model 实例。
@@ -617,10 +676,20 @@ func send_simple_event(event_id: StringName, payload: Variant = null) -> void:
 ## @param listener: 事件监听器契约。
 ## [br]
 ## @param priority: 回调优先级，数值越大越先执行，默认为 0。
-func register_event_owned(owner: Object, event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
+func register_event_owned(
+	owner: Object,
+	event_type: Script,
+	listener: GFEventListener,
+	priority: int = 0
+) -> void:
 	var architecture: GFArchitecture = _get_available_architecture("Event")
 	if architecture != null:
-		architecture.register_event_owned(owner, event_type, listener, priority)
+		architecture.register_event_owned(
+			owner,
+			event_type,
+			listener,
+			priority
+		)
 		_remember_event_architecture(architecture)
 
 
@@ -635,10 +704,18 @@ func register_event_owned(owner: Object, event_type: Script, listener: GFEventLi
 ## @param listener: 要移除的事件监听器契约。
 ## [br]
 ## @param owner: 注册监听时使用的拥有者；为空时只注销无 owner 监听。
-func unregister_event(event_type: Script, listener: GFEventListener, owner: Object = null) -> void:
+func unregister_event(
+	event_type: Script,
+	listener: GFEventListener,
+	owner: Object = null
+) -> void:
 	for architecture: GFArchitecture in _get_tracked_event_architectures():
 		if owner != null:
-			architecture.unregister_event_owned(owner, event_type, listener)
+			architecture.unregister_event_owned(
+				owner,
+				event_type,
+				listener
+			)
 		else:
 			architecture.unregister_event(event_type, listener)
 
@@ -664,7 +741,12 @@ func register_assignable_event_owned(
 ) -> void:
 	var architecture: GFArchitecture = _get_available_architecture("Event")
 	if architecture != null:
-		architecture.register_assignable_event_owned(owner, base_event_type, listener, priority)
+		architecture.register_assignable_event_owned(
+			owner,
+			base_event_type,
+			listener,
+			priority
+		)
 		_remember_event_architecture(architecture)
 
 
@@ -679,10 +761,18 @@ func register_assignable_event_owned(
 ## @param listener: 要移除的事件监听器契约。
 ## [br]
 ## @param owner: 注册监听时使用的拥有者；为空时只注销无 owner 监听。
-func unregister_assignable_event(base_event_type: Script, listener: GFEventListener, owner: Object = null) -> void:
+func unregister_assignable_event(
+	base_event_type: Script,
+	listener: GFEventListener,
+	owner: Object = null
+) -> void:
 	for architecture: GFArchitecture in _get_tracked_event_architectures():
 		if owner != null:
-			architecture.unregister_assignable_event_owned(owner, base_event_type, listener)
+			architecture.unregister_assignable_event_owned(
+				owner,
+				base_event_type,
+				listener
+			)
 		else:
 			architecture.unregister_assignable_event(base_event_type, listener)
 
@@ -698,10 +788,18 @@ func unregister_assignable_event(base_event_type: Script, listener: GFEventListe
 ## @param event_id: StringName 事件标识符。
 ## [br]
 ## @param listener: 简单事件监听器契约。
-func register_simple_event_owned(owner: Object, event_id: StringName, listener: GFEventListener) -> void:
+func register_simple_event_owned(
+	owner: Object,
+	event_id: StringName,
+	listener: GFEventListener
+) -> void:
 	var architecture: GFArchitecture = _get_available_architecture("Event")
 	if architecture != null:
-		architecture.register_simple_event_owned(owner, event_id, listener)
+		architecture.register_simple_event_owned(
+			owner,
+			event_id,
+			listener
+		)
 		_remember_event_architecture(architecture)
 
 
@@ -716,10 +814,18 @@ func register_simple_event_owned(owner: Object, event_id: StringName, listener: 
 ## @param listener: 要移除的简单事件监听器契约。
 ## [br]
 ## @param owner: 注册监听时使用的拥有者；为空时只注销无 owner 监听。
-func unregister_simple_event(event_id: StringName, listener: GFEventListener, owner: Object = null) -> void:
+func unregister_simple_event(
+	event_id: StringName,
+	listener: GFEventListener,
+	owner: Object = null
+) -> void:
 	for architecture: GFArchitecture in _get_tracked_event_architectures():
 		if owner != null:
-			architecture.unregister_simple_event_owned(owner, event_id, listener)
+			architecture.unregister_simple_event_owned(
+				owner,
+				event_id,
+				listener
+			)
 		else:
 			architecture.unregister_simple_event(event_id, listener)
 
@@ -744,7 +850,10 @@ func _exit_current_state_for_replacement(state_name: StringName, state: GFState)
 	var exit_serial: int = _transition_serial
 	var exit_epoch: int = _activation_epoch
 	# 先从激活路径撤下旧实例；退出回调的重定向等新注册关系提交后再处理。
-	_active_path = _copy_path_prefix(_active_path, _active_path.size() - 1)
+	_active_path = _copy_path_prefix(
+		_active_path,
+		_active_path.size() - 1
+	)
 	_set_current_from_active_path()
 	_is_exiting_current_state = true
 	state.exit()
@@ -753,7 +862,10 @@ func _exit_current_state_for_replacement(state_name: StringName, state: GFState)
 	return (
 		exit_epoch == _activation_epoch
 		and _get_registered_state(state_name) == state
-		and (exit_serial == _transition_serial or _has_queued_exit_transition)
+		and (
+			exit_serial == _transition_serial
+			or _has_queued_exit_transition
+		)
 	)
 
 
@@ -761,7 +873,11 @@ func _exit_current_state_for_replacement(state_name: StringName, state: GFState)
 ## 只有最终仍位于请求目标且序号未过期时才发送 state_changed；同路径切换会重新进出末端状态。
 ## [br]
 ## @api private
-func _transition_to_state(state_name: StringName, msg: Dictionary, emit_changed: bool) -> void:
+func _transition_to_state(
+	state_name: StringName,
+	msg: Dictionary,
+	emit_changed: bool
+) -> void:
 	var target_path: Array[StringName] = _build_state_path(state_name)
 	if target_path.is_empty():
 		return
@@ -779,12 +895,21 @@ func _transition_to_state(state_name: StringName, msg: Dictionary, emit_changed:
 		msg,
 		current_serial
 	)
-	if GFVariantData.get_option_bool(guard_result, "stale", false):
+	if GFVariantData.get_option_bool(
+		guard_result,
+		"stale",
+		false
+	):
 		return
 
 	var block_reason: StringName = GFVariantData.get_option_string_name(guard_result, "block_reason")
 	if block_reason != &"":
-		transition_blocked.emit(from_name, state_name, msg.duplicate(true), block_reason)
+		transition_blocked.emit(
+			from_name,
+			state_name,
+			msg.duplicate(true),
+			block_reason
+		)
 		return
 
 	_activation_epoch += 1
@@ -792,7 +917,10 @@ func _transition_to_state(state_name: StringName, msg: Dictionary, emit_changed:
 	if not _exit_active_path_to(common_count):
 		return
 
-	for index: int in range(common_count, target_path.size()):
+	for index: int in range(
+		common_count,
+		target_path.size()
+	):
 		var entering_state_name: StringName = target_path[index]
 		var entering_state: GFState = _get_registered_state(entering_state_name)
 		if entering_state == null:
@@ -804,7 +932,11 @@ func _transition_to_state(state_name: StringName, msg: Dictionary, emit_changed:
 		if current_serial != _transition_serial or current_state_name != entering_state_name:
 			return
 
-	if emit_changed and current_serial == _transition_serial and current_state_name == state_name:
+	if (
+		emit_changed
+		and current_serial == _transition_serial
+		and current_state_name == state_name
+	):
 		state_changed.emit(from_name, state_name)
 
 
@@ -822,7 +954,11 @@ func _exit_active_path_to(
 
 	_is_exiting_current_state = true
 	var keep_count: int = common_count
-	for index: int in range(_active_path.size() - 1, common_count - 1, -1):
+	for index: int in range(
+		_active_path.size() - 1,
+		common_count - 1,
+		-1
+	):
 		var exiting_state_name: StringName = _active_path[index]
 		var exiting_state: GFState = _get_registered_state(exiting_state_name)
 		if exiting_state != null:
@@ -845,7 +981,11 @@ func _exit_active_path_to(
 	var queued_transition: _QueuedExitTransition = _take_queued_exit_transition(&"", {})
 	var queued_state_name: StringName = queued_transition._state_name
 	var queued_msg: Dictionary = queued_transition._msg
-	_transition_to_state(queued_state_name, queued_msg, true)
+	_transition_to_state(
+		queued_state_name,
+		queued_msg,
+		true
+	)
 	return false
 
 
@@ -860,7 +1000,11 @@ func _get_transition_guard_result(
 	expected_serial: int
 ) -> Dictionary:
 	var target_state_name: StringName = target_path[target_path.size() - 1]
-	for index: int in range(_active_path.size() - 1, common_count - 1, -1):
+	for index: int in range(
+		_active_path.size() - 1,
+		common_count - 1,
+		-1
+	):
 		var active_state: GFState = _get_registered_state(_active_path[index])
 		if active_state == null:
 			continue
@@ -871,7 +1015,10 @@ func _get_transition_guard_result(
 			return { "block_reason": &"exit_guard" }
 
 	var previous_state_name: StringName = current_state_name
-	for index: int in range(common_count, target_path.size()):
+	for index: int in range(
+		common_count,
+		target_path.size()
+	):
 		var target_state: GFState = _get_registered_state(target_path[index])
 		if target_state == null:
 			continue
@@ -895,10 +1042,16 @@ func _normalize_parent_state_name(state_name: StringName, parent_state_name: Str
 		push_error("[GFStateMachine][state_machine.self_parent] A state cannot be its own parent: %s." % state_name)
 		return &""
 	if not _states.has(parent_state_name):
-		push_warning("[GFStateMachine][state_machine.parent_unregistered] Parent state is not registered; registered as a root state: %s -> %s." % [state_name, parent_state_name])
+		push_warning(
+			"[GFStateMachine][state_machine.parent_unregistered] Parent state is not registered; registered as a root state: %s -> %s."
+			% [state_name, parent_state_name]
+		)
 		return &""
 	if _creates_parent_cycle(state_name, parent_state_name):
-		push_error("[GFStateMachine][state_machine.parent_cycle] Detected a state parent cycle: %s -> %s." % [state_name, parent_state_name])
+		push_error(
+			"[GFStateMachine][state_machine.parent_cycle] Detected a state parent cycle: %s -> %s."
+			% [state_name, parent_state_name]
+		)
 		return &""
 	return parent_state_name
 
@@ -954,7 +1107,11 @@ func _build_state_path(state_name: StringName) -> Array[StringName]:
 		current_name = _get_parent_state_name(current_name)
 
 	var result: Array[StringName] = []
-	for index: int in range(reversed_path.size() - 1, -1, -1):
+	for index: int in range(
+		reversed_path.size() - 1,
+		-1,
+		-1
+	):
 		result.append(reversed_path[index])
 	return result
 
@@ -964,7 +1121,10 @@ func _build_state_path(state_name: StringName) -> Array[StringName]:
 ## @api private
 ## [br]
 func _get_common_prefix_count(left: Array[StringName], right: Array[StringName]) -> int:
-	var count: int = mini(left.size(), right.size())
+	var count: int = mini(
+		left.size(),
+		right.size()
+	)
 	for index: int in range(count):
 		if left[index] != right[index]:
 			return index
@@ -1001,7 +1161,11 @@ func _copy_path(path: Array[StringName]) -> Array[StringName]:
 ## [br]
 func _copy_path_prefix(path: Array[StringName], count: int) -> Array[StringName]:
 	var result: Array[StringName] = []
-	var safe_count: int = clampi(count, 0, path.size())
+	var safe_count: int = clampi(
+		count,
+		0,
+		path.size()
+	)
 	for index: int in range(safe_count):
 		result.append(path[index])
 	return result
@@ -1182,6 +1346,8 @@ func _variant_to_architecture(value: Variant) -> GFArchitecture:
 ## [br]
 ## @api private
 class _QueuedExitTransition:
+
+
 	# --- 私有变量 ---
 
 	## 退出回调要求随后进入的注册状态名。
@@ -1193,6 +1359,7 @@ class _QueuedExitTransition:
 	## [br]
 	## @api private
 	var _msg: Dictionary = {}
+
 
 	# --- Godot 生命周期方法 ---
 

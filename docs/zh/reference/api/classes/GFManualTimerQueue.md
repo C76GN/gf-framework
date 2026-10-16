@@ -16,9 +16,9 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 属性 | [`max_callbacks_per_advance`](#member-gfmanualtimerqueue-properties-max_callbacks_per_advance) | `var max_callbacks_per_advance: int = 1024:` |
-| 方法 | [`schedule_at`](#member-gfmanualtimerqueue-methods-schedule_at) | `func schedule_at(target_tick: int, callback: Callable, options: Dictionary = {}) -> int:` |
-| 方法 | [`schedule_after`](#member-gfmanualtimerqueue-methods-schedule_after) | `func schedule_after(delay_ticks: int, callback: Callable, options: Dictionary = {}) -> int:` |
-| 方法 | [`schedule_at_owned`](#member-gfmanualtimerqueue-methods-schedule_at_owned) | `func schedule_at_owned(owner: Object, target_tick: int, callback: Callable, options: Dictionary = {}) -> int:` |
+| 方法 | [`schedule_at`](#member-gfmanualtimerqueue-methods-schedule_at) | `func schedule_at( target_tick: int, callback: Callable, options: Dictionary = {} ) -> int:` |
+| 方法 | [`schedule_after`](#member-gfmanualtimerqueue-methods-schedule_after) | `func schedule_after( delay_ticks: int, callback: Callable, options: Dictionary = {} ) -> int:` |
+| 方法 | [`schedule_at_owned`](#member-gfmanualtimerqueue-methods-schedule_at_owned) | `func schedule_at_owned( owner: Object, target_tick: int, callback: Callable, options: Dictionary = {} ) -> int:` |
 | 方法 | [`advance_to`](#member-gfmanualtimerqueue-methods-advance_to) | `func advance_to(target_tick: int, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`advance_by`](#member-gfmanualtimerqueue-methods-advance_by) | `func advance_by(delta_ticks: int, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`cancel`](#member-gfmanualtimerqueue-methods-cancel) | `func cancel(handle: int) -> bool:` |
@@ -53,7 +53,7 @@ var max_callbacks_per_advance: int = 1024:
 - 首次版本：`7.0.0`
 
 ```gdscript
-func schedule_at(target_tick: int, callback: Callable, options: Dictionary = {}) -> int:
+func schedule_at( target_tick: int, callback: Callable, options: Dictionary = {} ) -> int:
 ```
 
 在绝对 tick 上调度回调。
@@ -80,7 +80,7 @@ func schedule_at(target_tick: int, callback: Callable, options: Dictionary = {})
 - 首次版本：`7.0.0`
 
 ```gdscript
-func schedule_after(delay_ticks: int, callback: Callable, options: Dictionary = {}) -> int:
+func schedule_after( delay_ticks: int, callback: Callable, options: Dictionary = {} ) -> int:
 ```
 
 在当前 tick 之后延迟若干 tick 调度回调。
@@ -107,7 +107,7 @@ func schedule_after(delay_ticks: int, callback: Callable, options: Dictionary = 
 - 首次版本：`7.0.0`
 
 ```gdscript
-func schedule_at_owned(owner: Object, target_tick: int, callback: Callable, options: Dictionary = {}) -> int:
+func schedule_at_owned( owner: Object, target_tick: int, callback: Callable, options: Dictionary = {} ) -> int:
 ```
 
 在绝对 tick 上调度 owner 绑定回调。owner 释放后回调会被跳过。

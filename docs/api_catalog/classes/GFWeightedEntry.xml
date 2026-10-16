@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFWeightedEntry" path="addons/gf/standard/foundation/math/gf_weighted_entry.gd" module="standard" extends="Resource" classDigest="2336cb3aab2d043e3ec092fab48af28d3644639202ca64bd0659c21c30611106">
+<class name="GFWeightedEntry" path="addons/gf/standard/foundation/math/gf_weighted_entry.gd" module="standard" extends="Resource" classDigest="30a9a208375b603e25f74d1039439d09d406eb564a305c0739991c947d99f2fe">
 	<description>GFWeightedEntry: 权重表中的单个候选项。
 只保存值、权重和可选元数据，不约束 value 的业务类型。</description>
 	<tags>
@@ -38,7 +38,7 @@
 	</properties>
 	<methods>
 		<member kind="method" name="configure">
-			<signature>func configure(p_value: Variant, p_weight: float = 1.0, p_metadata: Dictionary = {}) -&gt; GFWeightedEntry:</signature>
+			<signature>func configure( p_value: Variant, p_weight: float = 1.0, p_metadata: Dictionary = {} ) -&gt; GFWeightedEntry:</signature>
 			<description>配置条目内容。</description>
 			<tags>
 				<tag name="api">public</tag>

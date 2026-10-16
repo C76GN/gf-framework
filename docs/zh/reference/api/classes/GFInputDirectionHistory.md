@@ -19,7 +19,7 @@
 | 方法 | [`release_action`](#member-gfinputdirectionhistory-methods-release_action) | `func release_action(action_id: StringName) -> void:` |
 | 方法 | [`press_direction`](#member-gfinputdirectionhistory-methods-press_direction) | `func press_direction(direction: Vector2i) -> void:` |
 | 方法 | [`release_direction`](#member-gfinputdirectionhistory-methods-release_direction) | `func release_direction(direction: Vector2i) -> void:` |
-| 方法 | [`update_action`](#member-gfinputdirectionhistory-methods-update_action) | `func update_action(action_id: StringName, direction: Vector2i, pressed: bool) -> void:` |
+| 方法 | [`update_action`](#member-gfinputdirectionhistory-methods-update_action) | `func update_action( action_id: StringName, direction: Vector2i, pressed: bool ) -> void:` |
 | 方法 | [`get_current_direction`](#member-gfinputdirectionhistory-methods-get_current_direction) | `func get_current_direction() -> Vector2i:` |
 | 方法 | [`get_current_action`](#member-gfinputdirectionhistory-methods-get_current_action) | `func get_current_action() -> StringName:` |
 | 方法 | [`get_history`](#member-gfinputdirectionhistory-methods-get_history) | `func get_history() -> Array[StringName]:` |
@@ -105,9 +105,10 @@ func release_direction(direction: Vector2i) -> void:
 ### `update_action`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func update_action(action_id: StringName, direction: Vector2i, pressed: bool) -> void:
+func update_action( action_id: StringName, direction: Vector2i, pressed: bool ) -> void:
 ```
 
 根据 pressed 状态更新动作。

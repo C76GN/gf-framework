@@ -18,7 +18,7 @@
 | 枚举 | [`TriggerState`](#member-gfinputtrigger-enums-triggerstate) | `enum TriggerState` |
 | 方法 | [`reset_trigger_state`](#member-gfinputtrigger-methods-reset_trigger_state) | `func reset_trigger_state(state: Dictionary) -> void:` |
 | 方法 | [`prepare_runtime`](#member-gfinputtrigger-methods-prepare_runtime) | `func prepare_runtime( _action_id: StringName, _input_runtime: Object, _player_index: int, _state: Dictionary ) -> void:` |
-| 方法 | [`update`](#member-gfinputtrigger-methods-update) | `func update(raw_active: bool, _value: Variant, _delta: float, _state: Dictionary) -> TriggerState:` |
+| 方法 | [`update`](#member-gfinputtrigger-methods-update) | `func update( raw_active: bool, _value: Variant, _delta: float, _state: Dictionary ) -> TriggerState:` |
 | 方法 | [`duplicate_trigger`](#member-gfinputtrigger-methods-duplicate_trigger) | `func duplicate_trigger() -> GFInputTrigger:` |
 
 ## 枚举
@@ -96,9 +96,10 @@ func prepare_runtime( _action_id: StringName, _input_runtime: Object, _player_in
 ### `update`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func update(raw_active: bool, _value: Variant, _delta: float, _state: Dictionary) -> TriggerState:
+func update( raw_active: bool, _value: Variant, _delta: float, _state: Dictionary ) -> TriggerState:
 ```
 
 更新触发器状态。

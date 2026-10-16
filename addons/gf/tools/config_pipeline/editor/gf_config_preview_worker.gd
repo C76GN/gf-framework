@@ -46,10 +46,19 @@ func run_request(request: Dictionary) -> Dictionary:
 	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
 	source.source_path = GFVariantData.get_option_string(request, "source_path")
 	source.table_name = GFVariantData.get_option_string_name(request, "table_name")
-	source.source_format = GFVariantData.get_option_string_name(request, "source_format", &"auto")
+	source.source_format = GFVariantData.get_option_string_name(
+		request,
+		"source_format",
+		&"auto"
+	)
 	source.parse_options = GFVariantData.get_option_dictionary(request, "parse_options").duplicate(true)
 	var start: int = Time.get_ticks_usec()
-	var read_result: Dictionary = GFConfigPipelineReaderStage.new().read_source(source, { "max_source_file_bytes": 2 * 1024 * 1024, "max_xlsx_file_bytes": 2 * 1024 * 1024 })
+	var read_result: Dictionary = (
+		GFConfigPipelineReaderStage.new().read_source(
+			source,
+			{ "max_source_file_bytes": 2 * 1024 * 1024, "max_xlsx_file_bytes": 2 * 1024 * 1024 }
+		)
+	)
 	var read_msec: float = float(Time.get_ticks_usec() - start) / 1000.0
 	if _is_cancelled():
 		return { "cancelled": true, "generation": generation }
@@ -93,9 +102,18 @@ func _inspect_batch(request: Dictionary) -> Dictionary:
 			return result
 		total_cells += GFVariantData.get_option_int(result, "cell_count")
 		if total_cells > 4000:
-			return { "success": false, "generation": request["generation"], "error": "同步校验/提交上限为 4,000 个单元格；当前至少 %d。请复制等价 CLI，在独立终端按实际任务调整 --max-validation-cells 后执行。" % total_cells }
+			return {
+				"success": false,
+				"generation": request["generation"],
+				"error": "同步校验/提交上限为 4,000 个单元格；当前至少 %d。请复制等价 CLI，在独立终端按实际任务调整 --max-validation-cells 后执行。" % total_cells,
+			}
 		receipts[GFVariantData.get_option_string(source, "source_path")] = GFVariantData.get_option_dictionary(result, "source_receipt")
-	return { "success": true, "generation": request["generation"], "cell_count": total_cells, "receipts": receipts }
+	return {
+		"success": true,
+		"generation": request["generation"],
+		"cell_count": total_cells,
+		"receipts": receipts,
+	}
 
 
 ## 在互斥锁内读取取消请求；调用点决定阶段边界，不能中断已进入的解析器。

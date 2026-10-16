@@ -29,10 +29,10 @@
 | 方法 | [`has_platform`](#member-gfcompatibilityprofile-methods-has_platform) | `func has_platform(platform_id: String) -> bool:` |
 | 方法 | [`add_feature`](#member-gfcompatibilityprofile-methods-add_feature) | `func add_feature(feature_id: StringName) -> bool:` |
 | 方法 | [`has_feature`](#member-gfcompatibilityprofile-methods-has_feature) | `func has_feature(feature_id: StringName) -> bool:` |
-| 方法 | [`add_package`](#member-gfcompatibilityprofile-methods-add_package) | `func add_package(package_id: StringName, version: String = "", options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`add_package`](#member-gfcompatibilityprofile-methods-add_package) | `func add_package( package_id: StringName, version: String = "", options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`get_package`](#member-gfcompatibilityprofile-methods-get_package) | `func get_package(package_id: StringName) -> Dictionary:` |
 | 方法 | [`has_package`](#member-gfcompatibilityprofile-methods-has_package) | `func has_package(package_id: StringName) -> bool:` |
-| 方法 | [`add_artifact`](#member-gfcompatibilityprofile-methods-add_artifact) | `func add_artifact(artifact_id: StringName, path: String = "", options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`add_artifact`](#member-gfcompatibilityprofile-methods-add_artifact) | `func add_artifact( artifact_id: StringName, path: String = "", options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`get_artifact`](#member-gfcompatibilityprofile-methods-get_artifact) | `func get_artifact(artifact_id: StringName) -> Dictionary:` |
 | 方法 | [`to_dict`](#member-gfcompatibilityprofile-methods-to_dict) | `func to_dict() -> Dictionary:` |
 | 方法 | [`apply_dict`](#member-gfcompatibilityprofile-methods-apply_dict) | `func apply_dict(data: Dictionary) -> void:` |
@@ -295,7 +295,7 @@ func has_feature(feature_id: StringName) -> bool:
 - 首次版本：`7.0.0`
 
 ```gdscript
-func add_package(package_id: StringName, version: String = "", options: Dictionary = {}) -> Dictionary:
+func add_package( package_id: StringName, version: String = "", options: Dictionary = {} ) -> Dictionary:
 ```
 
 添加包条目。
@@ -369,7 +369,7 @@ func has_package(package_id: StringName) -> bool:
 - 首次版本：`7.0.0`
 
 ```gdscript
-func add_artifact(artifact_id: StringName, path: String = "", options: Dictionary = {}) -> Dictionary:
+func add_artifact( artifact_id: StringName, path: String = "", options: Dictionary = {} ) -> Dictionary:
 ```
 
 添加 artifact 条目。

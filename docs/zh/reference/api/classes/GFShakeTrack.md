@@ -33,7 +33,7 @@
 | 属性 | [`metadata`](#member-gfshaketrack-properties-metadata) | `var metadata: Dictionary = {}` |
 | 方法 | [`sample`](#member-gfshaketrack-methods-sample) | `func sample( preset_progress: float, elapsed_seconds: float, strength: float = 1.0, phase_offset: float = 0.0 ) -> Dictionary:` |
 | 方法 | [`zero_sample`](#member-gfshaketrack-methods-zero_sample) | `static func zero_sample() -> Dictionary:` |
-| 方法 | [`blend_sample`](#member-gfshaketrack-methods-blend_sample) | `static func blend_sample(base_sample: Dictionary, track_sample: Dictionary, mode: BlendMode) -> Dictionary:` |
+| 方法 | [`blend_sample`](#member-gfshaketrack-methods-blend_sample) | `static func blend_sample( base_sample: Dictionary, track_sample: Dictionary, mode: BlendMode ) -> Dictionary:` |
 
 ## 枚举
 
@@ -332,7 +332,7 @@ static func zero_sample() -> Dictionary:
 - 首次版本：`3.17.0`
 
 ```gdscript
-static func blend_sample(base_sample: Dictionary, track_sample: Dictionary, mode: BlendMode) -> Dictionary:
+static func blend_sample( base_sample: Dictionary, track_sample: Dictionary, mode: BlendMode ) -> Dictionary:
 ```
 
 将轨道采样混合到当前采样。

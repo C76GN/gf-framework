@@ -27,7 +27,7 @@
 | 方法 | [`pop_scope`](#member-gftextgenerationcontext-methods-pop_scope) | `func pop_scope() -> Dictionary:` |
 | 方法 | [`set_value`](#member-gftextgenerationcontext-methods-set_value) | `func set_value(key: StringName, value: Variant) -> void:` |
 | 方法 | [`has_value`](#member-gftextgenerationcontext-methods-has_value) | `func has_value(data_path: String) -> bool:` |
-| 方法 | [`get_value`](#member-gftextgenerationcontext-methods-get_value) | `func get_value(data_path: String, default_value: Variant = null, source_span: Variant = null) -> Variant:` |
+| 方法 | [`get_value`](#member-gftextgenerationcontext-methods-get_value) | `func get_value( data_path: String, default_value: Variant = null, source_span: Variant = null ) -> Variant:` |
 | 方法 | [`replace_tokens`](#member-gftextgenerationcontext-methods-replace_tokens) | `func replace_tokens(text: String, options: Dictionary = {}) -> String:` |
 | 方法 | [`render_template`](#member-gftextgenerationcontext-methods-render_template) | `func render_template(template_text: String, options: Dictionary = {}) -> String:` |
 | 方法 | [`append_text`](#member-gftextgenerationcontext-methods-append_text) | `func append_text(text: String, source_span: Variant = null) -> bool:` |
@@ -276,7 +276,7 @@ func has_value(data_path: String) -> bool:
 - 首次版本：`7.0.0`
 
 ```gdscript
-func get_value(data_path: String, default_value: Variant = null, source_span: Variant = null) -> Variant:
+func get_value( data_path: String, default_value: Variant = null, source_span: Variant = null ) -> Variant:
 ```
 
 读取路径值。

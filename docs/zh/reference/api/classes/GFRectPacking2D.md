@@ -18,7 +18,7 @@
 | 常量 | [`DEFAULT_MAX_RECTS`](#member-gfrectpacking2d-constants-default_max_rects) | `const DEFAULT_MAX_RECTS: int = 4096` |
 | 方法 | [`pack_fixed`](#member-gfrectpacking2d-methods-pack_fixed) | `static func pack_fixed( rect_sizes: Array[Vector2i], container_size: Vector2i, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`pack_square`](#member-gfrectpacking2d-methods-pack_square) | `static func pack_square(rect_sizes: Array[Vector2i], options: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`normalize_placements`](#member-gfrectpacking2d-methods-normalize_placements) | `static func normalize_placements( placements: Array[Rect2i], container_size: Vector2i ) -> Array[Rect2]:` |
+| 方法 | [`normalize_placements`](#member-gfrectpacking2d-methods-normalize_placements) | `static func normalize_placements(placements: Array[Rect2i], container_size: Vector2i) -> Array[Rect2]:` |
 
 ## 常量
 
@@ -102,7 +102,7 @@ static func pack_square(rect_sizes: Array[Vector2i], options: Dictionary = {}) -
 - 首次版本：`5.0.0`
 
 ```gdscript
-static func normalize_placements( placements: Array[Rect2i], container_size: Vector2i ) -> Array[Rect2]:
+static func normalize_placements(placements: Array[Rect2i], container_size: Vector2i) -> Array[Rect2]:
 ```
 
 将像素 Rect2i 放置结果归一化为 0 到 1 的 Rect2。

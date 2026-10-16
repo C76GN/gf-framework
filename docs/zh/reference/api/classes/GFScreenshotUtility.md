@@ -34,7 +34,7 @@
 | 方法 | [`capture_viewport_image`](#member-gfscreenshotutility-methods-capture_viewport_image) | `func capture_viewport_image(viewport: Viewport = null) -> Image:` |
 | 方法 | [`capture_viewport_png_buffer`](#member-gfscreenshotutility-methods-capture_viewport_png_buffer) | `func capture_viewport_png_buffer(viewport: Viewport = null) -> PackedByteArray:` |
 | 方法 | [`save_viewport_screenshot`](#member-gfscreenshotutility-methods-save_viewport_screenshot) | `func save_viewport_screenshot(file_path: String = "", options: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`save_image`](#member-gfscreenshotutility-methods-save_image) | `func save_image(image: Image, file_path: String = "", options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`save_image`](#member-gfscreenshotutility-methods-save_image) | `func save_image( image: Image, file_path: String = "", options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`build_screenshot_path`](#member-gfscreenshotutility-methods-build_screenshot_path) | `func build_screenshot_path(options: Dictionary = {}) -> String:` |
 | 方法 | [`capture_burst`](#member-gfscreenshotutility-methods-capture_burst) | `func capture_burst(options: Dictionary = {}) -> Dictionary:` |
 
@@ -369,7 +369,7 @@ func save_viewport_screenshot(file_path: String = "", options: Dictionary = {}) 
 - 首次版本：`5.0.0`
 
 ```gdscript
-func save_image(image: Image, file_path: String = "", options: Dictionary = {}) -> Dictionary:
+func save_image( image: Image, file_path: String = "", options: Dictionary = {} ) -> Dictionary:
 ```
 
 保存已有 Image 为截图文件。

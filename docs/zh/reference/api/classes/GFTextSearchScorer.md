@@ -17,9 +17,9 @@
 |---|---|---|
 | 常量 | [`DEFAULT_FIELDS`](#member-gftextsearchscorer-constants-default_fields) | `const DEFAULT_FIELDS: Array[Dictionary] = [ 	{ "key": "title", "weight": 4.0 }, 	{ "key": "name", "weight": 3.0 }, 	{ "key": "keywords", "weight": 2.0 }, 	{ "key": "detail", "weight": 1.0 }, 	{ "key": "path", "weight": 1.0 }, ]` |
 | 方法 | [`tokenize`](#member-gftextsearchscorer-methods-tokenize) | `static func tokenize(query: String, options: Dictionary = {}) -> PackedStringArray:` |
-| 方法 | [`score_text`](#member-gftextsearchscorer-methods-score_text) | `static func score_text(query: String, text: String, options: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`score_candidate`](#member-gftextsearchscorer-methods-score_candidate) | `static func score_candidate(query: String, candidate: Dictionary, options: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`rank_candidates`](#member-gftextsearchscorer-methods-rank_candidates) | `static func rank_candidates(query: String, candidates: Array[Dictionary], options: Dictionary = {}) -> Array[Dictionary]:` |
+| 方法 | [`score_text`](#member-gftextsearchscorer-methods-score_text) | `static func score_text( query: String, text: String, options: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`score_candidate`](#member-gftextsearchscorer-methods-score_candidate) | `static func score_candidate( query: String, candidate: Dictionary, options: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`rank_candidates`](#member-gftextsearchscorer-methods-rank_candidates) | `static func rank_candidates( query: String, candidates: Array[Dictionary], options: Dictionary = {} ) -> Array[Dictionary]:` |
 
 ## 常量
 
@@ -82,7 +82,7 @@ static func tokenize(query: String, options: Dictionary = {}) -> PackedStringArr
 - 首次版本：`5.0.0`
 
 ```gdscript
-static func score_text(query: String, text: String, options: Dictionary = {}) -> Dictionary:
+static func score_text( query: String, text: String, options: Dictionary = {} ) -> Dictionary:
 ```
 
 计算查询文本与单段候选文本的匹配报告。
@@ -110,7 +110,7 @@ static func score_text(query: String, text: String, options: Dictionary = {}) ->
 - 首次版本：`5.0.0`
 
 ```gdscript
-static func score_candidate(query: String, candidate: Dictionary, options: Dictionary = {}) -> Dictionary:
+static func score_candidate( query: String, candidate: Dictionary, options: Dictionary = {} ) -> Dictionary:
 ```
 
 计算查询文本与一个候选字典的匹配报告。
@@ -139,7 +139,7 @@ static func score_candidate(query: String, candidate: Dictionary, options: Dicti
 - 首次版本：`5.0.0`
 
 ```gdscript
-static func rank_candidates(query: String, candidates: Array[Dictionary], options: Dictionary = {}) -> Array[Dictionary]:
+static func rank_candidates( query: String, candidates: Array[Dictionary], options: Dictionary = {} ) -> Array[Dictionary]:
 ```
 
 按查询文本排序候选字典。

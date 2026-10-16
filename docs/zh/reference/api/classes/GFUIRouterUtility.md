@@ -15,8 +15,8 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 信号 | [`route_open_requested`](#member-gfuirouterutility-signals-route_open_requested) | `signal route_open_requested(route_id: StringName, operation: Operation, params: Dictionary)` |
-| 信号 | [`route_opened`](#member-gfuirouterutility-signals-route_opened) | `signal route_opened(route_id: StringName, panel: Node, operation: Operation)` |
+| 信号 | [`route_open_requested`](#member-gfuirouterutility-signals-route_open_requested) | `signal route_open_requested( route_id: StringName, operation: Operation, params: Dictionary )` |
+| 信号 | [`route_opened`](#member-gfuirouterutility-signals-route_opened) | `signal route_opened( route_id: StringName, panel: Node, operation: Operation )` |
 | 信号 | [`route_open_failed`](#member-gfuirouterutility-signals-route_open_failed) | `signal route_open_failed(route_id: StringName, reason: String)` |
 | 信号 | [`route_operation_completed`](#member-gfuirouterutility-signals-route_operation_completed) | `signal route_operation_completed(result: GFUIRouteResult)` |
 | 信号 | [`route_back_completed`](#member-gfuirouterutility-signals-route_back_completed) | `signal route_back_completed(route_id: StringName, layer: int)` |
@@ -55,9 +55,10 @@
 ### `route_open_requested`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal route_open_requested(route_id: StringName, operation: Operation, params: Dictionary)
+signal route_open_requested( route_id: StringName, operation: Operation, params: Dictionary )
 ```
 
 路由打开请求发出时触发。
@@ -79,9 +80,10 @@ signal route_open_requested(route_id: StringName, operation: Operation, params: 
 ### `route_opened`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal route_opened(route_id: StringName, panel: Node, operation: Operation)
+signal route_opened( route_id: StringName, panel: Node, operation: Operation )
 ```
 
 路由面板成功打开后触发。

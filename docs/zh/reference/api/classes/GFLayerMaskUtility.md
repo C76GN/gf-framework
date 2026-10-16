@@ -17,13 +17,13 @@
 |---|---|---|
 | 常量 | [`DEFAULT_LAYER_COUNT`](#member-gflayermaskutility-constants-default_layer_count) | `const DEFAULT_LAYER_COUNT: int = 32` |
 | 常量 | [`INVALID_LAYER_INDEX`](#member-gflayermaskutility-constants-invalid_layer_index) | `const INVALID_LAYER_INDEX: int = -1` |
-| 方法 | [`names_to_mask`](#member-gflayermaskutility-methods-names_to_mask) | `static func names_to_mask(names: Array, layer_names: Array, case_sensitive: bool = true) -> int:` |
-| 方法 | [`mask_to_names`](#member-gflayermaskutility-methods-mask_to_names) | `static func mask_to_names(mask: int, layer_names: Array, include_unnamed: bool = false) -> PackedStringArray:` |
-| 方法 | [`find_layer_index`](#member-gflayermaskutility-methods-find_layer_index) | `static func find_layer_index(layer_name: String, layer_names: Array, case_sensitive: bool = true) -> int:` |
+| 方法 | [`names_to_mask`](#member-gflayermaskutility-methods-names_to_mask) | `static func names_to_mask( names: Array, layer_names: Array, case_sensitive: bool = true ) -> int:` |
+| 方法 | [`mask_to_names`](#member-gflayermaskutility-methods-mask_to_names) | `static func mask_to_names( mask: int, layer_names: Array, include_unnamed: bool = false ) -> PackedStringArray:` |
+| 方法 | [`find_layer_index`](#member-gflayermaskutility-methods-find_layer_index) | `static func find_layer_index( layer_name: String, layer_names: Array, case_sensitive: bool = true ) -> int:` |
 | 方法 | [`layer_index_to_mask`](#member-gflayermaskutility-methods-layer_index_to_mask) | `static func layer_index_to_mask(layer_index: int) -> int:` |
 | 方法 | [`is_layer_index_valid`](#member-gflayermaskutility-methods-is_layer_index_valid) | `static func is_layer_index_valid(layer_index: int, layer_count: int = DEFAULT_LAYER_COUNT) -> bool:` |
-| 方法 | [`get_missing_names`](#member-gflayermaskutility-methods-get_missing_names) | `static func get_missing_names(names: Array, layer_names: Array, case_sensitive: bool = true) -> PackedStringArray:` |
-| 方法 | [`get_project_physics_layer_names`](#member-gflayermaskutility-methods-get_project_physics_layer_names) | `static func get_project_physics_layer_names( dimension: int = 2, fallback_to_default_names: bool = false ) -> PackedStringArray:` |
+| 方法 | [`get_missing_names`](#member-gflayermaskutility-methods-get_missing_names) | `static func get_missing_names( names: Array, layer_names: Array, case_sensitive: bool = true ) -> PackedStringArray:` |
+| 方法 | [`get_project_physics_layer_names`](#member-gflayermaskutility-methods-get_project_physics_layer_names) | `static func get_project_physics_layer_names(dimension: int = 2, fallback_to_default_names: bool = false) -> PackedStringArray:` |
 
 ## 常量
 
@@ -58,9 +58,10 @@ const INVALID_LAYER_INDEX: int = -1
 ### `names_to_mask`
 
 - API：`public`
+- 首次版本：`3.21.0`
 
 ```gdscript
-static func names_to_mask(names: Array, layer_names: Array, case_sensitive: bool = true) -> int:
+static func names_to_mask( names: Array, layer_names: Array, case_sensitive: bool = true ) -> int:
 ```
 
 将层名列表转换为 bitmask。
@@ -85,9 +86,10 @@ static func names_to_mask(names: Array, layer_names: Array, case_sensitive: bool
 ### `mask_to_names`
 
 - API：`public`
+- 首次版本：`3.21.0`
 
 ```gdscript
-static func mask_to_names(mask: int, layer_names: Array, include_unnamed: bool = false) -> PackedStringArray:
+static func mask_to_names( mask: int, layer_names: Array, include_unnamed: bool = false ) -> PackedStringArray:
 ```
 
 将 bitmask 转换为层名列表。
@@ -111,9 +113,10 @@ static func mask_to_names(mask: int, layer_names: Array, include_unnamed: bool =
 ### `find_layer_index`
 
 - API：`public`
+- 首次版本：`3.21.0`
 
 ```gdscript
-static func find_layer_index(layer_name: String, layer_names: Array, case_sensitive: bool = true) -> int:
+static func find_layer_index( layer_name: String, layer_names: Array, case_sensitive: bool = true ) -> int:
 ```
 
 查找层名对应的零基索引。
@@ -178,9 +181,10 @@ static func is_layer_index_valid(layer_index: int, layer_count: int = DEFAULT_LA
 ### `get_missing_names`
 
 - API：`public`
+- 首次版本：`3.21.0`
 
 ```gdscript
-static func get_missing_names(names: Array, layer_names: Array, case_sensitive: bool = true) -> PackedStringArray:
+static func get_missing_names( names: Array, layer_names: Array, case_sensitive: bool = true ) -> PackedStringArray:
 ```
 
 获取输入层名中无法解析的名称。
@@ -205,9 +209,10 @@ static func get_missing_names(names: Array, layer_names: Array, case_sensitive: 
 ### `get_project_physics_layer_names`
 
 - API：`public`
+- 首次版本：`3.21.0`
 
 ```gdscript
-static func get_project_physics_layer_names( dimension: int = 2, fallback_to_default_names: bool = false ) -> PackedStringArray:
+static func get_project_physics_layer_names(dimension: int = 2, fallback_to_default_names: bool = false) -> PackedStringArray:
 ```
 
 读取项目的 2D 或 3D 物理层名称。

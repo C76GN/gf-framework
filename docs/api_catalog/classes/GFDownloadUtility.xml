@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDownloadUtility" path="addons/gf/standard/utilities/io/gf_download_utility.gd" module="standard" extends="GFUtility" classDigest="1af16801dca5b86b07c282935dfc54e0f090a11ea0c5f9eadda2137938098a97">
+<class name="GFDownloadUtility" path="addons/gf/standard/utilities/io/gf_download_utility.gd" module="standard" extends="GFUtility" classDigest="4dec2706fa06edccd69933d15c1c63c4558e36bfbcab7970f1949aa2b4d3cd9d">
 	<description>GFDownloadUtility: 通用文件下载队列。
 提供顺序下载、临时文件提交、可选续传、SHA-256 校验、暂停、取消和诊断快照。</description>
 	<tags>
@@ -18,13 +18,14 @@
 			</tags>
 		</member>
 		<member kind="signal" name="download_progressed">
-			<signature>signal download_progressed(task_id: int, received_bytes: int, total_bytes: int)</signature>
+			<signature>signal download_progressed( task_id: int, received_bytes: int, total_bytes: int )</signature>
 			<description>下载进度更新时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">task_id: 下载任务句柄。</tag>
 				<tag name="param">received_bytes: 已接收字节数。</tag>
 				<tag name="param">total_bytes: 总字节数；未知时为 -1。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="download_completed">

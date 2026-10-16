@@ -212,14 +212,22 @@ func has_feature(feature_id: StringName) -> bool:
 ## @return 添加后的包条目副本。
 ## [br]
 ## @schema return: Dictionary package entry.
-func add_package(package_id: StringName, version: String = "", options: Dictionary = {}) -> Dictionary:
+func add_package(
+	package_id: StringName,
+	version: String = "",
+	options: Dictionary = {}
+) -> Dictionary:
 	if package_id == &"":
 		return {}
 	var entry: Dictionary = options.duplicate(true)
 	entry["id"] = package_id
 	entry["package_id"] = package_id
 	entry["version"] = version.strip_edges()
-	var existing_index: int = _find_entry_index(packages, package_id, "package_id")
+	var existing_index: int = _find_entry_index(
+		packages,
+		package_id,
+		"package_id"
+	)
 	if existing_index >= 0:
 		packages[existing_index] = entry
 	else:
@@ -275,14 +283,22 @@ func has_package(package_id: StringName) -> bool:
 ## @return 添加后的 artifact 条目副本。
 ## [br]
 ## @schema return: Dictionary artifact entry.
-func add_artifact(artifact_id: StringName, path: String = "", options: Dictionary = {}) -> Dictionary:
+func add_artifact(
+	artifact_id: StringName,
+	path: String = "",
+	options: Dictionary = {}
+) -> Dictionary:
 	if artifact_id == &"":
 		return {}
 	var entry: Dictionary = options.duplicate(true)
 	entry["id"] = artifact_id
 	entry["artifact_id"] = artifact_id
 	entry["path"] = path.strip_edges()
-	var existing_index: int = _find_entry_index(artifacts, artifact_id, "artifact_id")
+	var existing_index: int = _find_entry_index(
+		artifacts,
+		artifact_id,
+		"artifact_id"
+	)
 	if existing_index >= 0:
 		artifacts[existing_index] = entry
 	else:
@@ -381,17 +397,24 @@ static func from_current_environment(options: Dictionary = {}) -> GFCompatibilit
 	var version_info: Dictionary = Engine.get_version_info()
 	var godot_text: String = GFVariantData.get_option_string(version_info, "string")
 	if godot_text.is_empty():
-		godot_text = "%d.%d.%d" % [
-			GFVariantData.get_option_int(version_info, "major"),
-			GFVariantData.get_option_int(version_info, "minor"),
-			GFVariantData.get_option_int(version_info, "patch"),
-		]
+		godot_text = (
+			"%d.%d.%d"
+			% [
+				GFVariantData.get_option_int(version_info, "major"),
+				GFVariantData.get_option_int(version_info, "minor"),
+				GFVariantData.get_option_int(version_info, "patch"),
+			]
+		)
 
 	var option_platforms: PackedStringArray = GFVariantData.get_option_packed_string_array(options, "platforms")
 	if option_platforms.is_empty():
 		var _platform_appended: bool = option_platforms.append(OS.get_name())
 	var _configured: GFCompatibilityProfile = profile.configure(
-		GFVariantData.get_option_string_name(options, "profile_id", &"current"),
+		GFVariantData.get_option_string_name(
+			options,
+			"profile_id",
+			&"current"
+		),
 		godot_text,
 		GFVariantData.get_option_string(options, "framework_version"),
 		option_platforms,
@@ -472,8 +495,15 @@ static func _get_entry_id(entry: Dictionary, fallback_key: String) -> StringName
 ## 返回 ID 匹配的首个条目索引；遍历结束仍未找到时返回 -1。
 ## [br]
 ## @api private
-static func _find_entry_index(entries: Array[Dictionary], entry_id: StringName, fallback_key: String) -> int:
+static func _find_entry_index(
+	entries: Array[Dictionary],
+	entry_id: StringName,
+	fallback_key: String
+) -> int:
 	for index: int in range(entries.size()):
-		if _get_entry_id(entries[index], fallback_key) == entry_id:
+		if _get_entry_id(
+			entries[index],
+			fallback_key
+		) == entry_id:
 			return index
 	return -1

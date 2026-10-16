@@ -21,7 +21,12 @@ extends RefCounted
 ## @api public
 ## [br]
 ## @since 7.0.0
-const DEFAULT_OVERLAY_COLOR: Color = Color(0.2, 0.65, 1.0, 0.45)
+const DEFAULT_OVERLAY_COLOR: Color = Color(
+	0.2,
+	0.65,
+	1.0,
+	0.45
+)
 
 
 # --- 公共方法 ---
@@ -103,7 +108,11 @@ static func make_paint_patch(
 ## [br]
 ## @schema return: Dictionary，包含 ok、changed_count 和 changed_cells。
 static func apply_paint_patch(layer: GFTileMetadataLayer, patch: Dictionary) -> Dictionary:
-	return _apply_patch_side(layer, patch, "after")
+	return _apply_patch_side(
+		layer,
+		patch,
+		"after"
+	)
 
 
 ## 回滚 paint patch。
@@ -122,7 +131,11 @@ static func apply_paint_patch(layer: GFTileMetadataLayer, patch: Dictionary) -> 
 ## [br]
 ## @schema return: Dictionary，包含 ok、changed_count 和 changed_cells。
 static func revert_paint_patch(layer: GFTileMetadataLayer, patch: Dictionary) -> Dictionary:
-	return _apply_patch_side(layer, patch, "before")
+	return _apply_patch_side(
+		layer,
+		patch,
+		"before"
+	)
 
 
 ## 将 paint patch 写入 UndoRedo 兼容对象。
@@ -153,7 +166,11 @@ static func commit_paint_patch(
 ) -> Error:
 	if layer == null or undo_manager == null:
 		return ERR_INVALID_PARAMETER
-	if not GFVariantData.get_option_bool(patch, "ok", false):
+	if not GFVariantData.get_option_bool(
+		patch,
+		"ok",
+		false
+	):
 		return ERR_INVALID_PARAMETER
 	if GFVariantData.get_option_int(patch, "changed_count") <= 0:
 		return OK
@@ -167,10 +184,30 @@ static func commit_paint_patch(
 		return ERR_INVALID_PARAMETER
 
 	undo_manager.call("create_action", action_name)
-	_add_patch_side_to_undo(layer, patch, undo_manager, "after", true)
-	_add_patch_side_to_undo(layer, patch, undo_manager, "before", false)
-	undo_manager.call("add_do_method", layer, "emit_changed")
-	undo_manager.call("add_undo_method", layer, "emit_changed")
+	_add_patch_side_to_undo(
+		layer,
+		patch,
+		undo_manager,
+		"after",
+		true
+	)
+	_add_patch_side_to_undo(
+		layer,
+		patch,
+		undo_manager,
+		"before",
+		false
+	)
+	undo_manager.call(
+		"add_do_method",
+		layer,
+		"emit_changed"
+	)
+	undo_manager.call(
+		"add_undo_method",
+		layer,
+		"emit_changed"
+	)
 	undo_manager.call("commit_action", execute_immediately)
 	return OK
 
@@ -200,12 +237,14 @@ static func get_schema_field_options(layer: GFTileMetadataLayer) -> Array[Dictio
 
 	for key: StringName in keys:
 		var metadata: Dictionary = layer.get_schema_entry(key)
-		result.append({
-			"key": key,
-			"metadata": metadata.duplicate(true),
-			"color": _get_schema_color(metadata, DEFAULT_OVERLAY_COLOR),
-			"value": _get_schema_paint_value(metadata),
-		})
+		result.append(
+			{
+				"key": key,
+				"metadata": metadata.duplicate(true),
+				"color": _get_schema_color(metadata, DEFAULT_OVERLAY_COLOR),
+				"value": _get_schema_paint_value(metadata),
+			}
+		)
 	return result
 
 
@@ -240,9 +279,25 @@ static func get_cell_overlay_segments(
 		return result
 
 	var ordered_keys: Array[StringName] = _get_ordered_cell_keys(cell_data, options)
-	var include_unconfigured: bool = GFVariantData.get_option_bool(options, "include_unconfigured", true)
-	var default_color: Color = _get_option_color(options, "default_color", DEFAULT_OVERLAY_COLOR)
-	var alpha: float = clampf(GFVariantData.get_option_float(options, "alpha", 1.0), 0.0, 1.0)
+	var include_unconfigured: bool = GFVariantData.get_option_bool(
+		options,
+		"include_unconfigured",
+		true
+	)
+	var default_color: Color = _get_option_color(
+		options,
+		"default_color",
+		DEFAULT_OVERLAY_COLOR
+	)
+	var alpha: float = clampf(
+		GFVariantData.get_option_float(
+			options,
+			"alpha",
+			1.0
+		),
+		0.0,
+		1.0
+	)
 	var segments: Array[Dictionary] = []
 	for key: StringName in ordered_keys:
 		var schema_entry: Dictionary = layer.get_schema_entry(key)
@@ -250,11 +305,13 @@ static func get_cell_overlay_segments(
 			continue
 		var color: Color = _get_schema_color(schema_entry, default_color)
 		color.a *= alpha
-		segments.append({
-			"key": key,
-			"value": GFVariantData.duplicate_variant(GFVariantData.get_option_value(cell_data, key)),
-			"color": color,
-		})
+		segments.append(
+			{
+				"key": key,
+				"value": GFVariantData.duplicate_variant(GFVariantData.get_option_value(cell_data, key)),
+				"color": color,
+			}
+		)
 
 	var count: int = segments.size()
 	for index: int in range(count):
@@ -290,9 +347,17 @@ static func _make_empty_patch(key: StringName, erase: bool) -> Dictionary:
 ## [br]
 ## @api private
 ## [br]
-static func _apply_patch_side(layer: GFTileMetadataLayer, patch: Dictionary, side_key: String) -> Dictionary:
+static func _apply_patch_side(
+	layer: GFTileMetadataLayer,
+	patch: Dictionary,
+	side_key: String
+) -> Dictionary:
 	var report: Dictionary = {
-		"ok": layer != null and GFVariantData.get_option_bool(patch, "ok", false),
+		"ok": layer != null and GFVariantData.get_option_bool(
+			patch,
+			"ok",
+			false
+		),
 		"changed_count": 0,
 		"changed_cells": [],
 	}
@@ -300,9 +365,21 @@ static func _apply_patch_side(layer: GFTileMetadataLayer, patch: Dictionary, sid
 		return report
 
 	var side: Dictionary = GFVariantData.get_option_dictionary(patch, side_key)
-	var changed_cells: Array[Vector2i] = _variant_to_cell_array(GFVariantData.get_option_value(patch, "changed_cells", []))
+	var changed_cells: Array[Vector2i] = _variant_to_cell_array(
+		GFVariantData.get_option_value(
+			patch,
+			"changed_cells",
+			[]
+		)
+	)
 	for cell: Vector2i in changed_cells:
-		var data: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(side, cell, {}))
+		var data: Dictionary = GFVariantData.as_dictionary(
+			GFVariantData.get_option_value(
+				side,
+				cell,
+				{}
+			)
+		)
 		if data.is_empty():
 			layer.erase_cell(cell)
 		else:
@@ -327,13 +404,36 @@ static func _add_patch_side_to_undo(
 ) -> void:
 	var method_name: String = "add_do_method" if do_side else "add_undo_method"
 	var side: Dictionary = GFVariantData.get_option_dictionary(patch, side_key)
-	var changed_cells: Array[Vector2i] = _variant_to_cell_array(GFVariantData.get_option_value(patch, "changed_cells", []))
+	var changed_cells: Array[Vector2i] = _variant_to_cell_array(
+		GFVariantData.get_option_value(
+			patch,
+			"changed_cells",
+			[]
+		)
+	)
 	for cell: Vector2i in changed_cells:
-		var data: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(side, cell, {}))
+		var data: Dictionary = GFVariantData.as_dictionary(
+			GFVariantData.get_option_value(
+				side,
+				cell,
+				{}
+			)
+		)
 		if data.is_empty():
-			undo_manager.call(method_name, layer, "erase_cell", cell)
+			undo_manager.call(
+				method_name,
+				layer,
+				"erase_cell",
+				cell
+			)
 		else:
-			undo_manager.call(method_name, layer, "set_cell_data", cell, data)
+			undo_manager.call(
+				method_name,
+				layer,
+				"set_cell_data",
+				cell,
+				data
+			)
 
 
 ## 去除重复格坐标并按 y、x 顺序排序。
@@ -376,7 +476,11 @@ static func _get_ordered_cell_keys(cell_data: Dictionary, options: Dictionary) -
 	var seen: Dictionary = {}
 	for key_variant: Variant in GFVariantData.get_option_array(options, "field_order"):
 		var ordered_key: StringName = GFVariantData.to_string_name(key_variant)
-		if ordered_key == &"" or seen.has(ordered_key) or not cell_data.has(ordered_key):
+		if (
+			ordered_key == &""
+			or seen.has(ordered_key)
+			or not cell_data.has(ordered_key)
+		):
 			continue
 		seen[ordered_key] = true
 		result.append(ordered_key)
@@ -396,8 +500,20 @@ static func _get_ordered_cell_keys(cell_data: Dictionary, options: Dictionary) -
 ## @api private
 ## [br]
 static func _get_schema_color(metadata: Dictionary, fallback: Color) -> Color:
-	for key: StringName in [&"paint_color", &"editor_color", &"color"]:
-		var color: Color = _variant_to_color(GFVariantData.get_option_value(metadata, key), Color(-1.0, -1.0, -1.0, -1.0))
+	for key: StringName in [
+		&"paint_color",
+		&"editor_color",
+		&"color",
+	]:
+		var color: Color = _variant_to_color(
+			GFVariantData.get_option_value(metadata, key),
+			Color(
+				-1.0,
+				-1.0,
+				-1.0,
+				-1.0
+			)
+		)
 		if color.r >= 0.0:
 			return color
 	return fallback
@@ -437,8 +553,15 @@ static func _get_metadata_value(metadata: Dictionary, key: StringName) -> Varian
 ## [br]
 ## @api private
 ## [br]
-static func _get_option_color(options: Dictionary, key: String, fallback: Color) -> Color:
-	return _variant_to_color(GFVariantData.get_option_value(options, key), fallback)
+static func _get_option_color(
+	options: Dictionary,
+	key: String,
+	fallback: Color
+) -> Color:
+	return _variant_to_color(
+		GFVariantData.get_option_value(options, key),
+		fallback
+	)
 
 
 ## 接受 Color 或 HTML 色值文本，无法识别时返回给定颜色。
@@ -451,7 +574,11 @@ static func _variant_to_color(value: Variant, fallback: Color) -> Color:
 		return color
 	if value is String or value is StringName:
 		var text: String = GFVariantData.to_text(value)
-		if text.begins_with("#") or text.length() == 6 or text.length() == 8:
+		if (
+			text.begins_with("#")
+			or text.length() == 6
+			or text.length() == 8
+		):
 			return Color.html(text)
 	return fallback
 

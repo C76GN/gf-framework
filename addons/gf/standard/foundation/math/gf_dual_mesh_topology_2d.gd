@@ -53,14 +53,22 @@ static func build_from_points(points: PackedVector2Array, options: Dictionary = 
 ## @schema return: Dictionary，包含 ok、points、triangles、edges、triangle_centers、neighbors_by_point、triangles_by_point、edge_records、triangles_by_edge、hull_edges、hull_points 和可选 cells。
 static func build_from_voronoi(voronoi_result: Dictionary, options: Dictionary = {}) -> Dictionary:
 	var topology: Dictionary = build_from_delaunay(voronoi_result, options)
-	if not GFVariantData.get_option_bool(topology, "ok", false):
+	if not GFVariantData.get_option_bool(
+		topology,
+		"ok",
+		false
+	):
 		return topology
 
 	var vertices: PackedVector2Array = _get_packed_vector2_array(voronoi_result, "vertices")
 	var triangles: Array[PackedInt32Array] = _get_triangle_array(voronoi_result)
 	if vertices.size() == triangles.size():
 		topology["triangle_centers"] = vertices
-	if GFVariantData.get_option_bool(options, "include_cells", false):
+	if GFVariantData.get_option_bool(
+		options,
+		"include_cells",
+		false
+	):
 		topology["cells"] = _get_cells(voronoi_result)
 	return topology
 
@@ -83,8 +91,18 @@ static func build_from_voronoi(voronoi_result: Dictionary, options: Dictionary =
 ## [br]
 ## @schema return: Dictionary，包含 ok、points、triangles、edges、triangle_centers、neighbors_by_point、triangles_by_point、edge_records、triangles_by_edge、hull_edges 和 hull_points。
 static func build_from_delaunay(delaunay_result: Dictionary, _options: Dictionary = {}) -> Dictionary:
-	if not GFVariantData.get_option_bool(delaunay_result, "ok", false):
-		return _make_failure(GFVariantData.get_option_string(delaunay_result, "error", "delaunay result is not ok."))
+	if not GFVariantData.get_option_bool(
+		delaunay_result,
+		"ok",
+		false
+	):
+		return _make_failure(
+			GFVariantData.get_option_string(
+				delaunay_result,
+				"error",
+				"delaunay result is not ok."
+			)
+		)
 
 	var points: PackedVector2Array = _get_packed_vector2_array(delaunay_result, "points")
 	var triangles: Array[PackedInt32Array] = _get_triangle_array(delaunay_result)
@@ -99,9 +117,17 @@ static func build_from_delaunay(delaunay_result: Dictionary, _options: Dictionar
 		if not _is_valid_triangle(triangle, point_count):
 			var _invalid_appended: bool = invalid_triangle_indices.append(triangle_index)
 			continue
-		_add_triangle_to_points(triangles_by_point, triangle, triangle_index)
+		_add_triangle_to_points(
+			triangles_by_point,
+			triangle,
+			triangle_index
+		)
 		_add_triangle_neighbors(neighbors_by_point, triangle)
-		_add_triangle_edges(triangles_by_edge, triangle, triangle_index)
+		_add_triangle_edges(
+			triangles_by_edge,
+			triangle,
+			triangle_index
+		)
 
 	var edge_records: Array[Dictionary] = _make_edge_records(triangles_by_edge)
 	var edges: Array[PackedInt32Array] = []
@@ -112,7 +138,11 @@ static func build_from_delaunay(delaunay_result: Dictionary, _options: Dictionar
 		if edge.is_empty():
 			continue
 		edges.append(edge)
-		if GFVariantData.get_option_bool(edge_record, "is_hull", false):
+		if GFVariantData.get_option_bool(
+			edge_record,
+			"is_hull",
+			false
+		):
 			hull_edges.append(edge)
 			hull_point_lookup[edge[0]] = true
 			hull_point_lookup[edge[1]] = true
@@ -149,7 +179,10 @@ static func build_from_delaunay(delaunay_result: Dictionary, _options: Dictionar
 ## [br]
 ## @return 稳定边键。
 static func make_edge_key(a: int, b: int) -> String:
-	return "%d:%d" % [mini(a, b), maxi(a, b)]
+	return (
+		"%d:%d"
+		% [mini(a, b), maxi(a, b)]
+	)
 
 
 ## 获取指定点的邻接点索引。
@@ -187,9 +220,17 @@ static func get_point_neighbors(topology: Dictionary, point_index: int) -> Packe
 ## @return 共享该边的三角形索引。
 ## [br]
 ## @schema topology: Dictionary，build_from_* 返回的拓扑报告。
-static func get_edge_triangles(topology: Dictionary, a: int, b: int) -> PackedInt32Array:
+static func get_edge_triangles(
+	topology: Dictionary,
+	a: int,
+	b: int
+) -> PackedInt32Array:
 	var triangles_by_edge: Dictionary = GFVariantData.get_option_dictionary(topology, "triangles_by_edge")
-	var value: Variant = GFVariantData.get_option_value(triangles_by_edge, make_edge_key(a, b), PackedInt32Array())
+	var value: Variant = GFVariantData.get_option_value(
+		triangles_by_edge,
+		make_edge_key(a, b),
+		PackedInt32Array()
+	)
 	if value is PackedInt32Array:
 		var triangles: PackedInt32Array = value
 		return triangles.duplicate()
@@ -262,15 +303,31 @@ static func _add_triangle_to_points(
 ## [br]
 ## @api private
 static func _add_triangle_neighbors(neighbors_by_point: Array[PackedInt32Array], triangle: PackedInt32Array) -> void:
-	_add_neighbor_pair(neighbors_by_point, triangle[0], triangle[1])
-	_add_neighbor_pair(neighbors_by_point, triangle[1], triangle[2])
-	_add_neighbor_pair(neighbors_by_point, triangle[2], triangle[0])
+	_add_neighbor_pair(
+		neighbors_by_point,
+		triangle[0],
+		triangle[1]
+	)
+	_add_neighbor_pair(
+		neighbors_by_point,
+		triangle[1],
+		triangle[2]
+	)
+	_add_neighbor_pair(
+		neighbors_by_point,
+		triangle[2],
+		triangle[0]
+	)
 
 
 ## 为两个点补入互为邻居的索引，并保持各自列表升序且不重复。
 ## [br]
 ## @api private
-static func _add_neighbor_pair(neighbors_by_point: Array[PackedInt32Array], a: int, b: int) -> void:
+static func _add_neighbor_pair(
+	neighbors_by_point: Array[PackedInt32Array],
+	a: int,
+	b: int
+) -> void:
 	var a_neighbors: PackedInt32Array = neighbors_by_point[a]
 	if not _packed_int_array_has(a_neighbors, b):
 		var _a_appended: bool = a_neighbors.append(b)
@@ -292,18 +349,42 @@ static func _add_triangle_edges(
 	triangle: PackedInt32Array,
 	triangle_index: int
 ) -> void:
-	_add_edge_triangle(triangles_by_edge, triangle[0], triangle[1], triangle_index)
-	_add_edge_triangle(triangles_by_edge, triangle[1], triangle[2], triangle_index)
-	_add_edge_triangle(triangles_by_edge, triangle[2], triangle[0], triangle_index)
+	_add_edge_triangle(
+		triangles_by_edge,
+		triangle[0],
+		triangle[1],
+		triangle_index
+	)
+	_add_edge_triangle(
+		triangles_by_edge,
+		triangle[1],
+		triangle[2],
+		triangle_index
+	)
+	_add_edge_triangle(
+		triangles_by_edge,
+		triangle[2],
+		triangle[0],
+		triangle_index
+	)
 
 
 ## 按稳定边键记录关联三角形索引，并维持索引升序及唯一性。
 ## [br]
 ## @api private
-static func _add_edge_triangle(triangles_by_edge: Dictionary, a: int, b: int, triangle_index: int) -> void:
+static func _add_edge_triangle(
+	triangles_by_edge: Dictionary,
+	a: int,
+	b: int,
+	triangle_index: int
+) -> void:
 	var key: String = make_edge_key(a, b)
 	var triangle_indices: PackedInt32Array = PackedInt32Array()
-	var value: Variant = GFVariantData.get_option_value(triangles_by_edge, key, PackedInt32Array())
+	var value: Variant = GFVariantData.get_option_value(
+		triangles_by_edge,
+		key,
+		PackedInt32Array()
+	)
 	if value is PackedInt32Array:
 		triangle_indices = value
 	if not _packed_int_array_has(triangle_indices, triangle_index):
@@ -327,17 +408,23 @@ static func _make_edge_records(triangles_by_edge: Dictionary) -> Array[Dictionar
 		if edge.size() != 2:
 			continue
 		var triangle_indices: PackedInt32Array = PackedInt32Array()
-		var value: Variant = GFVariantData.get_option_value(triangles_by_edge, key, PackedInt32Array())
+		var value: Variant = GFVariantData.get_option_value(
+			triangles_by_edge,
+			key,
+			PackedInt32Array()
+		)
 		if value is PackedInt32Array:
 			triangle_indices = value
-		result.append({
-			"key": key,
-			"a": edge[0],
-			"b": edge[1],
-			"edge": edge,
-			"triangles": triangle_indices.duplicate(),
-			"is_hull": triangle_indices.size() == 1,
-		})
+		result.append(
+			{
+				"key": key,
+				"a": edge[0],
+				"b": edge[1],
+				"edge": edge,
+				"triangles": triangle_indices.duplicate(),
+				"is_hull": triangle_indices.size() == 1,
+			}
+		)
 	return result
 
 
@@ -346,7 +433,11 @@ static func _make_edge_records(triangles_by_edge: Dictionary) -> Array[Dictionar
 ## @api private
 static func _edge_from_key(key: String) -> PackedInt32Array:
 	var parts: PackedStringArray = key.split(":", false)
-	if parts.size() != 2 or not parts[0].is_valid_int() or not parts[1].is_valid_int():
+	if (
+		parts.size() != 2
+		or not parts[0].is_valid_int()
+		or not parts[1].is_valid_int()
+	):
 		return PackedInt32Array()
 	return PackedInt32Array([parts[0].to_int(), parts[1].to_int()])
 
@@ -355,7 +446,11 @@ static func _edge_from_key(key: String) -> PackedInt32Array:
 ## [br]
 ## @api private
 static func _get_edge_from_record(edge_record: Dictionary) -> PackedInt32Array:
-	var value: Variant = GFVariantData.get_option_value(edge_record, "edge", PackedInt32Array())
+	var value: Variant = GFVariantData.get_option_value(
+		edge_record,
+		"edge",
+		PackedInt32Array()
+	)
 	if value is PackedInt32Array:
 		var edge: PackedInt32Array = value
 		return edge.duplicate()
@@ -365,13 +460,13 @@ static func _get_edge_from_record(edge_record: Dictionary) -> PackedInt32Array:
 ## 为每个有效三角形计算三个顶点的算术平均点，无效项保留为零向量。
 ## [br]
 ## @api private
-static func _make_triangle_centers(
-	points: PackedVector2Array,
-	triangles: Array[PackedInt32Array]
-) -> PackedVector2Array:
+static func _make_triangle_centers(points: PackedVector2Array, triangles: Array[PackedInt32Array]) -> PackedVector2Array:
 	var centers: PackedVector2Array = PackedVector2Array()
 	for triangle: PackedInt32Array in triangles:
-		if not _is_valid_triangle(triangle, points.size()):
+		if not _is_valid_triangle(
+			triangle,
+			points.size()
+		):
 			var _invalid_center_appended: bool = centers.append(Vector2.ZERO)
 			continue
 		var center: Vector2 = (points[triangle[0]] + points[triangle[1]] + points[triangle[2]]) / 3.0
@@ -406,7 +501,11 @@ static func _packed_int_array_has(values: PackedInt32Array, target: int) -> bool
 ## [br]
 ## @api private
 static func _get_packed_vector2_array(data: Dictionary, key: String) -> PackedVector2Array:
-	var value: Variant = GFVariantData.get_option_value(data, key, PackedVector2Array())
+	var value: Variant = GFVariantData.get_option_value(
+		data,
+		key,
+		PackedVector2Array()
+	)
 	if value is PackedVector2Array:
 		var points: PackedVector2Array = value
 		return points
@@ -418,7 +517,11 @@ static func _get_packed_vector2_array(data: Dictionary, key: String) -> PackedVe
 ## @api private
 static func _get_triangle_array(data: Dictionary) -> Array[PackedInt32Array]:
 	var result: Array[PackedInt32Array] = []
-	var value: Variant = GFVariantData.get_option_value(data, "triangles", [])
+	var value: Variant = GFVariantData.get_option_value(
+		data,
+		"triangles",
+		[]
+	)
 	if not (value is Array):
 		return result
 	var raw_array: Array = value
@@ -434,7 +537,11 @@ static func _get_triangle_array(data: Dictionary) -> Array[PackedInt32Array]:
 ## @api private
 static func _get_packed_int_array_list(data: Dictionary, key: String) -> Array[PackedInt32Array]:
 	var result: Array[PackedInt32Array] = []
-	var value: Variant = GFVariantData.get_option_value(data, key, [])
+	var value: Variant = GFVariantData.get_option_value(
+		data,
+		key,
+		[]
+	)
 	if not (value is Array):
 		return result
 	var raw_array: Array = value
@@ -449,7 +556,11 @@ static func _get_packed_int_array_list(data: Dictionary, key: String) -> Array[P
 ## [br]
 ## @api private
 static func _get_cells(data: Dictionary) -> Array:
-	var value: Variant = GFVariantData.get_option_value(data, "cells", [])
+	var value: Variant = GFVariantData.get_option_value(
+		data,
+		"cells",
+		[]
+	)
 	if value is Array:
 		var cells: Array = value
 		return cells.duplicate(true)

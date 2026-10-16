@@ -30,9 +30,7 @@ const _SCHEMA_DESCRIPTOR_VERSION: int = 1
 ## [br]
 ## @api private
 ## [br]
-const _NETWORK_CONTRACT_VERSION_VALIDATOR = preload(
-	"res://addons/gf/extensions/network/contracts/gf_network_contract_version_validator.gd"
-)
+const _NETWORK_CONTRACT_VERSION_VALIDATOR = preload("res://addons/gf/extensions/network/contracts/gf_network_contract_version_validator.gd")
 
 
 # --- 导出变量 ---
@@ -136,6 +134,8 @@ func has_message_contract(message_type: StringName) -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param message_type: 消息类型。
 ## [br]
 ## @param values: 字段值字典。
@@ -147,7 +147,11 @@ func has_message_contract(message_type: StringName) -> bool:
 ## @schema values: Dictionary[StringName|String, Variant]，字段名到字段值的映射。
 ## [br]
 ## @schema options: Dictionary，支持 include_defaults、sequence、tick、sender_id、channel_id。
-func make_message(message_type: StringName, values: Dictionary = {}, options: Dictionary = {}) -> GFNetworkMessage:
+func make_message(
+	message_type: StringName,
+	values: Dictionary = {},
+	options: Dictionary = {}
+) -> GFNetworkMessage:
 	var message_contract: GFNetworkContractMessage = get_message_contract(message_type)
 	if message_contract == null:
 		return null
@@ -165,11 +169,28 @@ func make_message(message_type: StringName, values: Dictionary = {}, options: Di
 ## @schema return: Dictionary，GFValidationReportDictionary 格式，包含 ok、issues、issue_count 和 next_actions。
 func validate_message(message: GFNetworkMessage) -> Dictionary:
 	if message == null:
-		return _finalize_report([_make_issue("error", "missing_message", "Network message is null.")])
+		return _finalize_report(
+			[
+				_make_issue(
+					"error",
+					"missing_message",
+					"Network message is null."
+				),
+			]
+		)
 
 	var message_contract: GFNetworkContractMessage = get_message_contract(message.message_type)
 	if message_contract == null:
-		return _finalize_report([_make_issue("error", "unknown_message_type", "Network message_type is not declared by this contract.", String(message.message_type))])
+		return _finalize_report(
+			[
+				_make_issue(
+					"error",
+					"unknown_message_type",
+					"Network message_type is not declared by this contract.",
+					String(message.message_type)
+				),
+			]
+		)
 	return message_contract.validate_message(message)
 
 
@@ -183,17 +204,42 @@ func validate_message(message: GFNetworkMessage) -> Dictionary:
 func validate_contract() -> Dictionary:
 	var issues: Array[Dictionary] = []
 	if contract_id == &"":
-		issues.append(_make_issue("warning", "empty_contract_id", "Network contract_id is empty."))
+		issues.append(
+			_make_issue(
+				"warning",
+				"empty_contract_id",
+				"Network contract_id is empty."
+			)
+		)
 	if contract_version_major < 0:
-		issues.append(_make_issue("error", "negative_contract_version_major", "Network contract major version must be greater than or equal to 0."))
+		issues.append(
+			_make_issue(
+				"error",
+				"negative_contract_version_major",
+				"Network contract major version must be greater than or equal to 0."
+			)
+		)
 	if contract_version_minor < 0:
-		issues.append(_make_issue("error", "negative_contract_version_minor", "Network contract minor version must be greater than or equal to 0."))
+		issues.append(
+			_make_issue(
+				"error",
+				"negative_contract_version_minor",
+				"Network contract minor version must be greater than or equal to 0."
+			)
+		)
 
 	var seen_messages: Dictionary = {}
 	for index: int in range(messages.size()):
 		var message_contract: GFNetworkContractMessage = messages[index]
 		if message_contract == null:
-			issues.append(_make_issue("warning", "null_message_contract", "Network contract contains a null message.", str(index)))
+			issues.append(
+				_make_issue(
+					"warning",
+					"null_message_contract",
+					"Network contract contains a null message.",
+					str(index)
+				)
+			)
 			continue
 
 		var message_report: Dictionary = message_contract.validate_definition()
@@ -201,12 +247,14 @@ func validate_contract() -> Dictionary:
 		if message_contract.message_type == &"":
 			continue
 		if seen_messages.has(message_contract.message_type):
-			issues.append(_make_issue(
-				"error",
-				"duplicate_message_type",
-				"Network contract message_type is duplicated.",
-				String(message_contract.message_type)
-			))
+			issues.append(
+				_make_issue(
+					"error",
+					"duplicate_message_type",
+					"Network contract message_type is duplicated.",
+					String(message_contract.message_type)
+				)
+			)
 		seen_messages[message_contract.message_type] = true
 	return _finalize_report(issues)
 
@@ -274,7 +322,10 @@ func get_schema_digest(options: Dictionary = {}) -> String:
 	var digest_options: Dictionary = options.duplicate(true)
 	if not digest_options.has("allow_floats"):
 		digest_options["allow_floats"] = true
-	return GFDeterministicVariantSerializer.sha256(get_schema_descriptor(), digest_options)
+	return GFDeterministicVariantSerializer.sha256(
+		get_schema_descriptor(),
+		digest_options
+	)
 
 
 ## 获取可通过网络、日志或预检报告传递的契约版本字典。
@@ -327,7 +378,12 @@ func validate_peer_contract_version(peer_version: Dictionary, options: Dictionar
 ## [br]
 ## @api private
 ## [br]
-func _make_issue(severity: String, kind: String, message: String, key: String = "") -> Dictionary:
+func _make_issue(
+	severity: String,
+	kind: String,
+	message: String,
+	key: String = ""
+) -> Dictionary:
 	var issue: Dictionary = {
 		"severity": severity,
 		"kind": kind,
@@ -384,10 +440,11 @@ func _finalize_report(issues: Array[Dictionary]) -> Dictionary:
 		"contract_id": contract_id,
 		"issues": issues,
 	}
-	return _GF_VALIDATION_REPORT_DICTIONARY.finalize_report(report, "Network contract", {
-		"include_issue_count": true,
-		"next_actions": _get_validation_next_actions(),
-	})
+	return _GF_VALIDATION_REPORT_DICTIONARY.finalize_report(
+		report,
+		"Network contract",
+		{ "include_issue_count": true, "next_actions": _get_validation_next_actions(), }
+	)
 
 
 ## 按契约和字段错误类型提供修复建议文本。

@@ -57,7 +57,11 @@ static func find_path_bfs(
 	while queue_index < queue.size():
 		var cell: Vector2i = queue[queue_index]
 		queue_index += 1
-		for next_cell: Vector2i in GFGridCoordinateMath2D.get_neighbors(cell, grid_size, allow_diagonal):
+		for next_cell: Vector2i in GFGridCoordinateMath2D.get_neighbors(
+			cell,
+			grid_size,
+			allow_diagonal
+		):
 			if visited.has(next_cell) or not _call_cell_predicate(is_walkable, next_cell):
 				continue
 
@@ -65,7 +69,11 @@ static func find_path_bfs(
 			came_from[next_cell] = cell
 
 			if next_cell == goal:
-				return _reconstruct_path(start, goal, came_from)
+				return _reconstruct_path(
+					start,
+					goal,
+					came_from
+				)
 
 			queue.append(next_cell)
 
@@ -117,36 +125,99 @@ static func find_path_a_star(
 	var closed: Dictionary = {}
 	var came_from: Dictionary = {}
 	var g_score: Dictionary = { start: 0.0 }
-	var f_score: Dictionary = { start: _heuristic_distance(start, goal, heuristic, allow_diagonal) }
-	_push_cell_priority(open_queue, start, GFVariantData.get_option_float(f_score, start, INF))
+	var f_score: Dictionary = {
+		start: _heuristic_distance(
+			start,
+			goal,
+			heuristic,
+			allow_diagonal
+		),
+	}
+	_push_cell_priority(
+		open_queue,
+		start,
+		GFVariantData.get_option_float(
+			f_score,
+			start,
+			INF
+		)
+	)
 
 	while not open_queue.is_empty():
 		var current_entry: Dictionary = _pop_cell_priority(open_queue)
-		var current: Vector2i = _get_dictionary_vector2i(current_entry, "cell", Vector2i(-1, -1))
+		var current: Vector2i = _get_dictionary_vector2i(
+			current_entry,
+			"cell",
+			Vector2i(-1, -1)
+		)
 		if closed.has(current):
 			continue
-		if GFVariantData.get_option_float(current_entry, "priority", INF) > GFVariantData.get_option_float(f_score, current, INF):
+		if (
+			GFVariantData.get_option_float(
+				current_entry,
+				"priority",
+				INF
+			)
+			> GFVariantData.get_option_float(
+				f_score,
+				current,
+				INF
+			)
+		):
 			continue
 		if current == goal:
-			return _reconstruct_path(start, goal, came_from)
+			return _reconstruct_path(
+				start,
+				goal,
+				came_from
+			)
 
 		closed[current] = true
-		for next_cell: Vector2i in GFGridCoordinateMath2D.get_neighbors(current, grid_size, allow_diagonal):
+		for next_cell: Vector2i in GFGridCoordinateMath2D.get_neighbors(
+			current,
+			grid_size,
+			allow_diagonal
+		):
 			if closed.has(next_cell) or not _call_cell_predicate(is_walkable, next_cell):
 				continue
 
-			var move_cost: float = _get_step_cost(current, next_cell, step_cost)
+			var move_cost: float = _get_step_cost(
+				current,
+				next_cell,
+				step_cost
+			)
 			if move_cost < 0.0:
 				continue
 
-			var tentative_score: float = GFVariantData.get_option_float(g_score, current, INF) + move_cost
-			if tentative_score >= GFVariantData.get_option_float(g_score, next_cell, INF):
+			var tentative_score: float = GFVariantData.get_option_float(
+				g_score,
+				current,
+				INF
+			) + move_cost
+			if tentative_score >= GFVariantData.get_option_float(
+				g_score,
+				next_cell,
+				INF
+			):
 				continue
 
 			came_from[next_cell] = current
 			g_score[next_cell] = tentative_score
-			f_score[next_cell] = tentative_score + _heuristic_distance(next_cell, goal, heuristic, allow_diagonal)
-			_push_cell_priority(open_queue, next_cell, GFVariantData.get_option_float(f_score, next_cell, INF))
+			f_score[next_cell] = tentative_score + _heuristic_distance(
+				next_cell,
+				goal,
+				heuristic,
+				allow_diagonal
+			)
+			_push_cell_priority(
+				open_queue,
+				next_cell,
+				GFVariantData.get_option_float(
+					f_score,
+					next_cell,
+					INF
+				)
+			)
 
 	return []
 
@@ -187,9 +258,17 @@ static func begin_path_a_star_search(
 	heuristic: StringName = &"manhattan"
 ) -> GFGraphPathSearchState:
 	if not is_walkable.is_valid():
-		return _make_invalid_path_search(start, goal, &"invalid_walkable")
-	if not GFGridCoordinateMath2D.is_in_bounds(start, grid_size) or not GFGridCoordinateMath2D.is_in_bounds(goal, grid_size):
-		return _make_invalid_path_search(start, goal, &"invalid_bounds")
+		return _make_invalid_path_search(
+			start,
+			goal,
+			&"invalid_walkable"
+		)
+	if (not GFGridCoordinateMath2D.is_in_bounds(start, grid_size) or not GFGridCoordinateMath2D.is_in_bounds(goal, grid_size)):
+		return _make_invalid_path_search(
+			start,
+			goal,
+			&"invalid_bounds"
+		)
 	if start == goal:
 		return GFGraphMath.begin_path_search(
 			start,
@@ -198,7 +277,11 @@ static func begin_path_a_star_search(
 				return []
 		)
 	if not _call_cell_predicate(is_walkable, goal):
-		return _make_invalid_path_search(start, goal, &"blocked_goal")
+		return _make_invalid_path_search(
+			start,
+			goal,
+			&"blocked_goal"
+		)
 
 	return GFGraphMath.begin_path_search(
 		start,
@@ -206,7 +289,11 @@ static func begin_path_a_star_search(
 		func(node: Variant) -> Array:
 			var cell: Vector2i = _variant_to_vector2i(node)
 			var result: Array = []
-			for next_cell: Vector2i in GFGridCoordinateMath2D.get_neighbors(cell, grid_size, allow_diagonal):
+			for next_cell: Vector2i in GFGridCoordinateMath2D.get_neighbors(
+				cell,
+				grid_size,
+				allow_diagonal
+			):
 				if _call_cell_predicate(is_walkable, next_cell):
 					result.append(next_cell)
 			return result,
@@ -261,7 +348,12 @@ static func simplify_path_line_of_sight(
 	while anchor_index < path.size() - 1:
 		var next_index: int = path.size() - 1
 		while next_index > anchor_index + 1:
-			if GFGridCoordinateMath2D.has_line_of_sight(path[anchor_index], path[next_index], is_blocking, include_endpoints):
+			if GFGridCoordinateMath2D.has_line_of_sight(
+				path[anchor_index],
+				path[next_index],
+				is_blocking,
+				include_endpoints
+			):
 				break
 			next_index -= 1
 
@@ -300,7 +392,11 @@ static func build_flow_field(
 	var costs: Dictionary = {}
 	var directions: Dictionary = {}
 	var valid_goals: Array[Vector2i] = []
-	if grid_size.x <= 0 or grid_size.y <= 0 or not is_walkable.is_valid():
+	if (
+		grid_size.x <= 0
+		or grid_size.y <= 0
+		or not is_walkable.is_valid()
+	):
 		return {
 			"costs": costs,
 			"directions": directions,
@@ -319,29 +415,68 @@ static func build_flow_field(
 		costs[goal] = 0.0
 		directions[goal] = Vector2i.ZERO
 		valid_goals.append(goal)
-		_push_cell_priority(frontier, goal, 0.0)
+		_push_cell_priority(
+			frontier,
+			goal,
+			0.0
+		)
 
 	while not frontier.is_empty():
 		var current_entry: Dictionary = _pop_cell_priority(frontier)
-		var current: Vector2i = _get_dictionary_vector2i(current_entry, "cell", Vector2i(-1, -1))
-		if GFVariantData.get_option_float(current_entry, "priority", INF) > GFVariantData.get_option_float(costs, current, INF):
+		var current: Vector2i = _get_dictionary_vector2i(
+			current_entry,
+			"cell",
+			Vector2i(-1, -1)
+		)
+		if (
+			GFVariantData.get_option_float(
+				current_entry,
+				"priority",
+				INF
+			)
+			> GFVariantData.get_option_float(
+				costs,
+				current,
+				INF
+			)
+		):
 			continue
 
-		for next_cell: Vector2i in GFGridCoordinateMath2D.get_neighbors(current, grid_size, allow_diagonal):
+		for next_cell: Vector2i in GFGridCoordinateMath2D.get_neighbors(
+			current,
+			grid_size,
+			allow_diagonal
+		):
 			if not _call_cell_predicate(is_walkable, next_cell):
 				continue
 
-			var move_cost: float = _get_step_cost(next_cell, current, step_cost)
+			var move_cost: float = _get_step_cost(
+				next_cell,
+				current,
+				step_cost
+			)
 			if move_cost < 0.0:
 				continue
 
-			var next_cost: float = GFVariantData.get_option_float(costs, current, INF) + move_cost
-			if next_cost >= GFVariantData.get_option_float(costs, next_cell, INF):
+			var next_cost: float = GFVariantData.get_option_float(
+				costs,
+				current,
+				INF
+			) + move_cost
+			if next_cost >= GFVariantData.get_option_float(
+				costs,
+				next_cell,
+				INF
+			):
 				continue
 
 			costs[next_cell] = next_cost
 			directions[next_cell] = current - next_cell
-			_push_cell_priority(frontier, next_cell, next_cost)
+			_push_cell_priority(
+				frontier,
+				next_cell,
+				next_cost
+			)
 
 	return {
 		"costs": costs,
@@ -355,7 +490,11 @@ static func build_flow_field(
 ## 沿前驱字典从目标回溯并反向构造路径；链路缺失时返回空数组。
 ## [br]
 ## @api private
-static func _reconstruct_path(start: Vector2i, goal: Vector2i, came_from: Dictionary) -> Array[Vector2i]:
+static func _reconstruct_path(
+	start: Vector2i,
+	goal: Vector2i,
+	came_from: Dictionary
+) -> Array[Vector2i]:
 	var path: Array[Vector2i] = [goal]
 	var current: Vector2i = goal
 
@@ -363,7 +502,11 @@ static func _reconstruct_path(start: Vector2i, goal: Vector2i, came_from: Dictio
 		if not came_from.has(current):
 			return []
 
-		current = _get_dictionary_vector2i(came_from, current, Vector2i(-1, -1))
+		current = _get_dictionary_vector2i(
+			came_from,
+			current,
+			Vector2i(-1, -1)
+		)
 		path.push_front(current)
 
 	return path
@@ -372,11 +515,15 @@ static func _reconstruct_path(start: Vector2i, goal: Vector2i, came_from: Dictio
 ## 将格子与优先级打包后推入路径搜索队列。
 ## [br]
 ## @api private
-static func _push_cell_priority(priority_queue: GFPriorityQueue, cell: Vector2i, priority: float) -> void:
-	var _cell_queued: bool = priority_queue.push({
-		"cell": cell,
-		"priority": priority,
-	}, priority)
+static func _push_cell_priority(
+	priority_queue: GFPriorityQueue,
+	cell: Vector2i,
+	priority: float
+) -> void:
+	var _cell_queued: bool = priority_queue.push(
+		{ "cell": cell, "priority": priority, },
+		priority
+	)
 
 
 ## 从路径搜索队列取出元素，并转换为 Dictionary。
@@ -413,9 +560,16 @@ static func _heuristic_distance(
 ## 使用有效代价回调并以 -1.0 作为转换失败值；无回调时正交步为 1、斜步为 √2。
 ## [br]
 ## @api private
-static func _get_step_cost(from_cell: Vector2i, to_cell: Vector2i, step_cost: Callable) -> float:
+static func _get_step_cost(
+	from_cell: Vector2i,
+	to_cell: Vector2i,
+	step_cost: Callable
+) -> float:
 	if step_cost.is_valid():
-		return GFVariantData.to_float(step_cost.call(from_cell, to_cell), -1.0)
+		return GFVariantData.to_float(
+			step_cost.call(from_cell, to_cell),
+			-1.0
+		)
 
 	var delta: Vector2i = to_cell - from_cell
 	return 1.41421356237 if absi(delta.x) == 1 and absi(delta.y) == 1 else 1.0
@@ -424,17 +578,32 @@ static func _get_step_cost(from_cell: Vector2i, to_cell: Vector2i, step_cost: Ca
 ## 调用有效格子谓词并转换为 bool；无效回调或转换失败时使用 fallback。
 ## [br]
 ## @api private
-static func _call_cell_predicate(predicate: Callable, cell: Vector2i, fallback: bool = false) -> bool:
+static func _call_cell_predicate(
+	predicate: Callable,
+	cell: Vector2i,
+	fallback: bool = false
+) -> bool:
 	if not predicate.is_valid():
 		return fallback
-	return GFVariantData.to_bool(predicate.call(cell), fallback)
+	return GFVariantData.to_bool(
+		predicate.call(cell),
+		fallback
+	)
 
 
 ## 从字典读取 Vector2i；缺失或类型不符时返回 fallback。
 ## [br]
 ## @api private
-static func _get_dictionary_vector2i(dictionary: Dictionary, key: Variant, fallback: Vector2i) -> Vector2i:
-	var value: Variant = GFVariantData.get_option_value(dictionary, key, fallback)
+static func _get_dictionary_vector2i(
+	dictionary: Dictionary,
+	key: Variant,
+	fallback: Vector2i
+) -> Vector2i:
+	var value: Variant = GFVariantData.get_option_value(
+		dictionary,
+		key,
+		fallback
+	)
 	if value is Vector2i:
 		var cell_value: Vector2i = value
 		return cell_value
@@ -459,4 +628,8 @@ static func _make_invalid_path_search(
 	goal: Variant,
 	reason: StringName
 ) -> GFGraphPathSearchState:
-	return GFGraphPathSearchState.make_invalid(start, goal, reason)
+	return GFGraphPathSearchState.make_invalid(
+		start,
+		goal,
+		reason
+	)

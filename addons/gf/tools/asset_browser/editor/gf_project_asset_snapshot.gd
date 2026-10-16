@@ -63,7 +63,12 @@ func append_entry(entry: GFAssetCatalogEntry) -> bool:
 ## [br]
 ## @schema return: Dictionary with ok, status, count and catalog.
 func finish() -> Dictionary:
-	var result: Dictionary = {"ok": _status == "complete", "status": _status, "count": _count, "catalog": _catalog}
+	var result: Dictionary = {
+		"ok": _status == "complete",
+		"status": _status,
+		"count": _count,
+		"catalog": _catalog,
+	}
 	_catalog = null
 	_ids.clear()
 	_status = "finished"

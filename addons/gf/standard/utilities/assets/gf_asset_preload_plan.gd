@@ -96,9 +96,17 @@ func configure(
 ) -> GFAssetPreloadPlan:
 	group_id = p_group_id
 	plan_id = GFVariantData.get_option_string_name(options, "plan_id")
-	pin_cache = GFVariantData.get_option_bool(options, "pin_cache", true)
+	pin_cache = GFVariantData.get_option_bool(
+		options,
+		"pin_cache",
+		true
+	)
 	lane_id = GFVariantData.get_option_string_name(options, "lane_id")
-	max_concurrent_loads = GFVariantData.get_option_int(options, "max_concurrent_loads", 0)
+	max_concurrent_loads = GFVariantData.get_option_int(
+		options,
+		"max_concurrent_loads",
+		0
+	)
 	metadata = GFVariantData.get_option_dictionary(options, "metadata").duplicate(true)
 	var _entry_count: int = set_entries(p_entries)
 	return self
@@ -131,12 +139,14 @@ func add_path(
 	if normalized_path.is_empty():
 		return -1
 
-	entries.append({
-		"path": normalized_path,
-		"type_hint": type_hint.strip_edges(),
-		"metadata": entry_metadata.duplicate(true),
-		"enabled": enabled,
-	})
+	entries.append(
+		{
+			"path": normalized_path,
+			"type_hint": type_hint.strip_edges(),
+			"metadata": entry_metadata.duplicate(true),
+			"enabled": enabled,
+		}
+	)
 	return entries.size() - 1
 
 
@@ -176,12 +186,14 @@ func set_entries(p_entries: Array) -> int:
 		else:
 			var path: String = GFVariantData.to_text(entry_value).strip_edges()
 			if not path.is_empty():
-				entries.append({
-					"path": path,
-					"type_hint": "",
-					"metadata": {},
-					"enabled": true,
-				})
+				entries.append(
+					{
+						"path": path,
+						"type_hint": "",
+						"metadata": {},
+						"enabled": true,
+					}
+				)
 	return entries.size()
 
 
@@ -235,7 +247,11 @@ static func normalize_entry(entry: Dictionary) -> Dictionary:
 	return {
 		"path": GFVariantData.get_option_string(entry, "path").strip_edges(),
 		"type_hint": GFVariantData.get_option_string(entry, "type_hint").strip_edges(),
-		"enabled": GFVariantData.get_option_bool(entry, "enabled", true),
+		"enabled": GFVariantData.get_option_bool(
+			entry,
+			"enabled",
+			true
+		),
 		"metadata": GFVariantData.get_option_dictionary(entry, "metadata").duplicate(true),
 	}
 
@@ -253,15 +269,21 @@ func get_entries() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for entry: Dictionary in entries:
 		var normalized: Dictionary = normalize_entry(entry)
-		if not GFVariantData.get_option_bool(normalized, "enabled", true):
+		if not GFVariantData.get_option_bool(
+			normalized,
+			"enabled",
+			true
+		):
 			continue
 		if GFVariantData.get_option_string(normalized, "path").is_empty():
 			continue
-		result.append({
-			"path": GFVariantData.get_option_string(normalized, "path"),
-			"type_hint": GFVariantData.get_option_string(normalized, "type_hint"),
-			"metadata": GFVariantData.get_option_dictionary(normalized, "metadata").duplicate(true),
-		})
+		result.append(
+			{
+				"path": GFVariantData.get_option_string(normalized, "path"),
+				"type_hint": GFVariantData.get_option_string(normalized, "type_hint"),
+				"metadata": GFVariantData.get_option_dictionary(normalized, "metadata").duplicate(true),
+			}
+		)
 	return result
 
 
@@ -282,7 +304,11 @@ func to_preload_options(extra_options: Dictionary = {}) -> Dictionary:
 	var result: Dictionary = extra_options.duplicate(true)
 	if not result.has("pin_cache"):
 		result["pin_cache"] = pin_cache
-	if lane_id != &"" and not result.has("lane_id") and not result.has("serial_lane_id"):
+	if (
+		lane_id != &""
+		and not result.has("lane_id")
+		and not result.has("serial_lane_id")
+	):
 		result["lane_id"] = lane_id
 	if max_concurrent_loads > 0 and not result.has("max_concurrent_loads"):
 		result["max_concurrent_loads"] = max_concurrent_loads
@@ -306,22 +332,44 @@ func validate() -> Dictionary:
 	var invalid_count: int = 0
 
 	if group_id == &"":
-		issues.append(_make_issue(0, &"missing_group_id", "group_id is required.", &"group_id"))
+		issues.append(
+			_make_issue(
+				0,
+				&"missing_group_id",
+				"group_id is required.",
+				&"group_id"
+			)
+		)
 
 	for index: int in range(entries.size()):
 		var entry: Dictionary = normalize_entry(entries[index])
-		if not GFVariantData.get_option_bool(entry, "enabled", true):
+		if not GFVariantData.get_option_bool(
+			entry,
+			"enabled",
+			true
+		):
 			disabled_count += 1
 			continue
 
 		var path: String = GFVariantData.get_option_string(entry, "path")
 		if path.is_empty():
 			invalid_count += 1
-			issues.append(_make_issue(index, &"missing_path", "path is required for enabled entries.", &"path"))
+			issues.append(
+				_make_issue(
+					index,
+					&"missing_path",
+					"path is required for enabled entries.",
+					&"path"
+				)
+			)
 			continue
 
 		enabled_count += 1
-		_add_path_index(path_indexes, path, index)
+		_add_path_index(
+			path_indexes,
+			path,
+			index
+		)
 
 	var duplicate_paths: Array[Dictionary] = _collect_duplicate_paths(path_indexes)
 	return {
@@ -415,9 +463,17 @@ static func from_dictionary(data: Dictionary) -> GFAssetPreloadPlan:
 		GFVariantData.get_option_array(data, "entries"),
 		{
 			"plan_id": GFVariantData.get_option_string_name(data, "plan_id"),
-			"pin_cache": GFVariantData.get_option_bool(data, "pin_cache", true),
+			"pin_cache": GFVariantData.get_option_bool(
+				data,
+				"pin_cache",
+				true
+			),
 			"lane_id": GFVariantData.get_option_string_name(data, "lane_id"),
-			"max_concurrent_loads": GFVariantData.get_option_int(data, "max_concurrent_loads", 0),
+			"max_concurrent_loads": GFVariantData.get_option_int(
+				data,
+				"max_concurrent_loads",
+				0
+			),
 			"metadata": GFVariantData.get_option_dictionary(data, "metadata"),
 		}
 	)
@@ -441,7 +497,12 @@ static func _copy_entries(source_entries: Array[Dictionary]) -> Array[Dictionary
 ## [br]
 ## @api private
 ## [br]
-static func _make_issue(index: int, issue_kind: StringName, message: String, field_name: StringName) -> Dictionary:
+static func _make_issue(
+	index: int,
+	issue_kind: StringName,
+	message: String,
+	field_name: StringName
+) -> Dictionary:
 	return {
 		"index": index,
 		"kind": issue_kind,
@@ -454,7 +515,11 @@ static func _make_issue(index: int, issue_kind: StringName, message: String, fie
 ## [br]
 ## @api private
 ## [br]
-static func _add_path_index(path_indexes: Dictionary, path: String, index: int) -> void:
+static func _add_path_index(
+	path_indexes: Dictionary,
+	path: String,
+	index: int
+) -> void:
 	if not path_indexes.has(path):
 		path_indexes[path] = []
 	var indexes: Array = GFVariantData.get_option_array(path_indexes, path)
@@ -473,9 +538,11 @@ static func _collect_duplicate_paths(path_indexes: Dictionary) -> Array[Dictiona
 		var indexes: Array = GFVariantData.get_option_array(path_indexes, path)
 		if indexes.size() < 2:
 			continue
-		result.append({
-			"path": path,
-			"count": indexes.size(),
-			"indexes": indexes.duplicate(true),
-		})
+		result.append(
+			{
+				"path": path,
+				"count": indexes.size(),
+				"indexes": indexes.duplicate(true),
+			}
+		)
 	return result

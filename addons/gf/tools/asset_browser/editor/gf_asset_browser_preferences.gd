@@ -31,7 +31,11 @@ static func load_state() -> Dictionary:
 	if Engine.is_editor_hint():
 		var settings: EditorSettings = EditorInterface.get_editor_settings()
 		if settings != null:
-			var value: Variant = settings.get_project_metadata(_SECTION, _KEY, {})
+			var value: Variant = settings.get_project_metadata(
+				_SECTION,
+				_KEY,
+				{}
+			)
 			if value is Dictionary:
 				state = value
 	return normalize_state(state)
@@ -49,7 +53,11 @@ static func save_state(state: Dictionary) -> void:
 		return
 	var settings: EditorSettings = EditorInterface.get_editor_settings()
 	if settings != null:
-		settings.set_project_metadata(_SECTION, _KEY, normalize_state(state))
+		settings.set_project_metadata(
+			_SECTION,
+			_KEY,
+			normalize_state(state)
+		)
 
 
 ## 校验偏好版本与值容量，只保留本工具拥有的纯数据字段。
@@ -64,12 +72,22 @@ static func save_state(state: Dictionary) -> void:
 ## [br]
 ## @schema return: Dictionary with favorites, recent, scope, type_filter and include_addons.
 static func normalize_state(state: Dictionary) -> Dictionary:
-	var scope: String = GFVariantData.get_option_string(state, "scope", "res://")
+	var scope: String = GFVariantData.get_option_string(
+		state,
+		"scope",
+		"res://"
+	)
 	if not scope.begins_with("res://") or scope.length() > 512:
 		scope = "res://"
 	return {
-		"favorites": _bounded_ids(state.get("favorites"), 1000),
-		"recent": _bounded_ids(state.get("recent"), 100),
+		"favorites": _bounded_ids(
+			state.get("favorites"),
+			1000
+		),
+		"recent": _bounded_ids(
+			state.get("recent"),
+			100
+		),
 		"scope": scope,
 		"type_filter": GFVariantData.get_option_string(state, "type_filter").left(128),
 		"include_addons": GFVariantData.get_option_bool(state, "include_addons"),
@@ -96,6 +114,10 @@ static func _bounded_ids(value: Variant, limit: int) -> PackedStringArray:
 			break
 		if item is String or item is StringName:
 			var identity: String = GFVariantData.to_text(item)
-			if not identity.is_empty() and identity.length() <= 512 and not result.has(identity):
+			if (
+				not identity.is_empty()
+				and identity.length() <= 512
+				and not result.has(identity)
+			):
 				var _appended: bool = result.append(identity)
 	return result

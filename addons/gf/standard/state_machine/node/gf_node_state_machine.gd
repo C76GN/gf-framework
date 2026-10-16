@@ -33,16 +33,24 @@ signal state_group_removed(group: GFNodeStateGroup)
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param group: 发生状态切换的状态组。
 ## [br]
 ## @param old_state: 切换前的状态；没有旧状态时为 null。
 ## [br]
 ## @param new_state: 切换后的状态；状态组停止时可为 null。
-signal state_changed(group: GFNodeStateGroup, old_state: GFNodeState, new_state: GFNodeState)
+signal state_changed(
+	group: GFNodeStateGroup,
+	old_state: GFNodeState,
+	new_state: GFNodeState
+)
 
 ## 任意状态组中的状态处理状态事件后发出。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param group: 处理事件的状态所属状态组。
 ## [br]
@@ -53,7 +61,12 @@ signal state_changed(group: GFNodeStateGroup, old_state: GFNodeState, new_state:
 ## @param payload: 状态事件载荷。
 ## [br]
 ## @schema payload: 状态事件载荷；具体结构由 event_id 和项目逻辑约定。
-signal state_event_handled(group: GFNodeStateGroup, event_id: StringName, handler_state: GFNodeState, payload: Variant)
+signal state_event_handled(
+	group: GFNodeStateGroup,
+	event_id: StringName,
+	handler_state: GFNodeState,
+	payload: Variant
+)
 
 
 # --- 枚举 ---
@@ -289,9 +302,19 @@ func transition_to(
 	var text: String = String(path)
 	var parts: PackedStringArray = text.split("/", false)
 	if parts.size() == 1:
-		transition_group_to(INTERNAL_GROUP_NAME, StringName(parts[0]), args, stack_exit_policy)
+		transition_group_to(
+			INTERNAL_GROUP_NAME,
+			StringName(parts[0]),
+			args,
+			stack_exit_policy
+		)
 	elif parts.size() == 2:
-		transition_group_to(StringName(parts[0]), StringName(parts[1]), args, stack_exit_policy)
+		transition_group_to(
+			StringName(parts[0]),
+			StringName(parts[1]),
+			args,
+			stack_exit_policy
+		)
 	else:
 		push_error("[GFNodeStateMachine][node_state_machine.transition_path_invalid] Cannot transition_to: path format is invalid.")
 
@@ -323,7 +346,11 @@ func transition_group_to(
 	if group == null:
 		push_warning("[GFNodeStateMachine][node_state_machine.transition_group_missing] Cannot transition: state group not found: %s." % group_name)
 		return
-	group.transition_to(state_name, args, stack_exit_policy)
+	group.transition_to(
+		state_name,
+		args,
+		stack_exit_policy
+	)
 
 
 ## 暂停当前内部状态并叠加进入一个子状态。path 可为 "State" 或 "Group/State"。
@@ -341,9 +368,17 @@ func push_state(path: StringName, args: Dictionary = {}) -> void:
 	var text: String = String(path)
 	var parts: PackedStringArray = text.split("/", false)
 	if parts.size() == 1:
-		push_group_state(INTERNAL_GROUP_NAME, StringName(parts[0]), args)
+		push_group_state(
+			INTERNAL_GROUP_NAME,
+			StringName(parts[0]),
+			args
+		)
 	elif parts.size() == 2:
-		push_group_state(StringName(parts[0]), StringName(parts[1]), args)
+		push_group_state(
+			StringName(parts[0]),
+			StringName(parts[1]),
+			args
+		)
 	else:
 		push_error("[GFNodeStateMachine][node_state_machine.push_path_invalid] Cannot push_state: path format is invalid.")
 
@@ -352,6 +387,8 @@ func push_state(path: StringName, args: Dictionary = {}) -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param group_name: 能力组或状态组名称。
 ## [br]
 ## @param state_name: 目标状态名称。
@@ -359,7 +396,11 @@ func push_state(path: StringName, args: Dictionary = {}) -> void:
 ## @param args: 状态切换时传递的可选参数。
 ## [br]
 ## @schema args: 状态切换参数 Dictionary；键和值由调用方约定。
-func push_group_state(group_name: StringName, state_name: StringName, args: Dictionary = {}) -> void:
+func push_group_state(
+	group_name: StringName,
+	state_name: StringName,
+	args: Dictionary = {}
+) -> void:
 	if _reject_mutation_during_restore(&"push_group_state"):
 		return
 	var group: GFNodeStateGroup = get_state_group(group_name)
@@ -452,7 +493,10 @@ func add_state_group(group: GFNodeStateGroup) -> void:
 	var changed_callable: Callable = _on_group_current_state_changed.bind(group)
 	_group_state_changed_callables[key] = changed_callable
 	_connect_state_group_signals(group, changed_callable)
-	group.initialize(self, _should_start_group_on_initialize())
+	group.initialize(
+		self,
+		_should_start_group_on_initialize()
+	)
 	state_group_added.emit(group)
 
 
@@ -475,7 +519,10 @@ func remove_state_group(group: GFNodeStateGroup) -> bool:
 	var changed_callable: Callable = _get_dictionary_callable(_group_state_changed_callables, key)
 	_disconnect_state_group_signals(group, changed_callable)
 	_erase_dictionary_key(_groups, key)
-	_erase_dictionary_key(_group_keys_by_instance_id, group.get_instance_id())
+	_erase_dictionary_key(
+		_group_keys_by_instance_id,
+		group.get_instance_id()
+	)
 	_erase_dictionary_key(_group_state_changed_callables, key)
 	_group_registry_revision += 1
 	group.detach_machine()
@@ -590,9 +637,15 @@ func is_in_state(path: StringName) -> bool:
 	var text: String = String(path)
 	var parts: PackedStringArray = text.split("/", false)
 	if parts.size() == 1:
-		return _is_group_in_state(INTERNAL_GROUP_NAME, StringName(parts[0]))
+		return _is_group_in_state(
+			INTERNAL_GROUP_NAME,
+			StringName(parts[0])
+		)
 	if parts.size() == 2:
-		return _is_group_in_state(StringName(parts[0]), StringName(parts[1]))
+		return _is_group_in_state(
+			StringName(parts[0]),
+			StringName(parts[1])
+		)
 	push_error("[GFNodeStateMachine][node_state_machine.state_query_path_invalid] Cannot is_in_state: path format is invalid.")
 	return false
 
@@ -620,6 +673,8 @@ func restart_group(group_name: StringName = INTERNAL_GROUP_NAME, args: Dictionar
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param event_id: 状态事件标识。
 ## [br]
 ## @param payload: 状态事件载荷。
@@ -629,7 +684,11 @@ func restart_group(group_name: StringName = INTERNAL_GROUP_NAME, args: Dictionar
 ## @schema payload: 状态事件载荷；具体结构由 event_id 和项目逻辑约定。
 ## [br]
 ## @return: 有状态处理该事件时返回 true。
-func dispatch_state_event(event_id: StringName, payload: Variant = null, group_name: StringName = &"") -> bool:
+func dispatch_state_event(
+	event_id: StringName,
+	payload: Variant = null,
+	group_name: StringName = &""
+) -> bool:
 	if _reject_mutation_during_restore(&"dispatch_state_event"):
 		return false
 	if group_name != &"":
@@ -688,13 +747,17 @@ func get_json_compatible_state_snapshot(options: Dictionary = {}) -> Dictionary:
 		if group == null:
 			continue
 		if not (group_key is String or group_key is StringName):
-			return GFReportValueCodec.to_report_dictionary(get_state_snapshot(), codec_options)
+			return GFReportValueCodec.to_report_dictionary(
+				get_state_snapshot(),
+				codec_options
+			)
 		var report_key: String = str(group_key)
 		if groups.has(report_key):
-			return GFReportValueCodec.to_report_dictionary(get_state_snapshot(), codec_options)
-		groups[report_key] = _normalize_state_group_snapshot_report_keys(
-			group.get_state_snapshot()
-		)
+			return GFReportValueCodec.to_report_dictionary(
+				get_state_snapshot(),
+				codec_options
+			)
+		groups[report_key] = _normalize_state_group_snapshot_report_keys(group.get_state_snapshot())
 	var snapshot: Dictionary = {
 		"schema_version": 1,
 		"groups": groups,
@@ -719,7 +782,11 @@ func get_json_compatible_state_snapshot(options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @schema return: Dictionary，包含 report_schema_version、status、ok、restored、partial、groups、missing_group_snapshots、unrestored_group_snapshots、blocked_operations、group_registry_revision_before、group_registry_revision_after、registry_stable 和 rolled_back 字段。
 func restore_state_snapshot(snapshot: Dictionary) -> Dictionary:
-	if GFVariantData.get_option_int(snapshot, "schema_version", -1) != 1:
+	if GFVariantData.get_option_int(
+		snapshot,
+		"schema_version",
+		-1
+	) != 1:
 		var invalid_report: Dictionary = _make_machine_restore_report()
 		invalid_report["error"] = "unsupported state machine snapshot schema_version."
 		return invalid_report
@@ -902,10 +969,20 @@ func send_simple_event(event_id: StringName, payload: Variant = null) -> void:
 ## @param listener: 事件监听器契约。
 ## [br]
 ## @param priority: 回调优先级，数值越大越先执行，默认为 0。
-func register_event_owned(listener_owner: Object, event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
+func register_event_owned(
+	listener_owner: Object,
+	event_type: Script,
+	listener: GFEventListener,
+	priority: int = 0
+) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:
-		architecture.register_event_owned(listener_owner, event_type, listener, priority)
+		architecture.register_event_owned(
+			listener_owner,
+			event_type,
+			listener,
+			priority
+		)
 		_remember_event_architecture(architecture)
 
 
@@ -920,10 +997,18 @@ func register_event_owned(listener_owner: Object, event_type: Script, listener: 
 ## @param listener: 要移除的事件监听器契约。
 ## [br]
 ## @param listener_owner: 注册监听时使用的拥有者；为空时只注销无 owner 监听。
-func unregister_event(event_type: Script, listener: GFEventListener, listener_owner: Object = null) -> void:
+func unregister_event(
+	event_type: Script,
+	listener: GFEventListener,
+	listener_owner: Object = null
+) -> void:
 	for architecture: GFArchitecture in _get_tracked_event_architectures():
 		if listener_owner != null:
-			architecture.unregister_event_owned(listener_owner, event_type, listener)
+			architecture.unregister_event_owned(
+				listener_owner,
+				event_type,
+				listener
+			)
 		else:
 			architecture.unregister_event(event_type, listener)
 
@@ -949,7 +1034,12 @@ func register_assignable_event_owned(
 ) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:
-		architecture.register_assignable_event_owned(listener_owner, base_event_type, listener, priority)
+		architecture.register_assignable_event_owned(
+			listener_owner,
+			base_event_type,
+			listener,
+			priority
+		)
 		_remember_event_architecture(architecture)
 
 
@@ -964,10 +1054,18 @@ func register_assignable_event_owned(
 ## @param listener: 要移除的事件监听器契约。
 ## [br]
 ## @param listener_owner: 注册监听时使用的拥有者；为空时只注销无 owner 监听。
-func unregister_assignable_event(base_event_type: Script, listener: GFEventListener, listener_owner: Object = null) -> void:
+func unregister_assignable_event(
+	base_event_type: Script,
+	listener: GFEventListener,
+	listener_owner: Object = null
+) -> void:
 	for architecture: GFArchitecture in _get_tracked_event_architectures():
 		if listener_owner != null:
-			architecture.unregister_assignable_event_owned(listener_owner, base_event_type, listener)
+			architecture.unregister_assignable_event_owned(
+				listener_owner,
+				base_event_type,
+				listener
+			)
 		else:
 			architecture.unregister_assignable_event(base_event_type, listener)
 
@@ -983,10 +1081,18 @@ func unregister_assignable_event(base_event_type: Script, listener: GFEventListe
 ## @param event_id: StringName 事件标识符。
 ## [br]
 ## @param listener: 简单事件监听器契约。
-func register_simple_event_owned(listener_owner: Object, event_id: StringName, listener: GFEventListener) -> void:
+func register_simple_event_owned(
+	listener_owner: Object,
+	event_id: StringName,
+	listener: GFEventListener
+) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:
-		architecture.register_simple_event_owned(listener_owner, event_id, listener)
+		architecture.register_simple_event_owned(
+			listener_owner,
+			event_id,
+			listener
+		)
 		_remember_event_architecture(architecture)
 
 
@@ -1001,10 +1107,18 @@ func register_simple_event_owned(listener_owner: Object, event_id: StringName, l
 ## @param listener: 要移除的简单事件监听器契约。
 ## [br]
 ## @param listener_owner: 注册监听时使用的拥有者；为空时只注销无 owner 监听。
-func unregister_simple_event(event_id: StringName, listener: GFEventListener, listener_owner: Object = null) -> void:
+func unregister_simple_event(
+	event_id: StringName,
+	listener: GFEventListener,
+	listener_owner: Object = null
+) -> void:
 	for architecture: GFArchitecture in _get_tracked_event_architectures():
 		if listener_owner != null:
-			architecture.unregister_simple_event_owned(listener_owner, event_id, listener)
+			architecture.unregister_simple_event_owned(
+				listener_owner,
+				event_id,
+				listener
+			)
 		else:
 			architecture.unregister_simple_event(event_id, listener)
 
@@ -1043,7 +1157,11 @@ func reload_from_children() -> void:
 	_internal_group.history_max_size = _get_effective_history_max_size()
 	_internal_group.max_stack_depth = _get_effective_max_stack_depth()
 	_internal_group.reload_states_on_ready = false
-	add_child(_internal_group, true, Node.INTERNAL_MODE_BACK)
+	add_child(
+		_internal_group,
+		true,
+		Node.INTERNAL_MODE_BACK
+	)
 
 	for child: Node in get_children():
 		if child == _internal_group or child.get_meta(META_INTERNAL_GROUP, false):
@@ -1096,7 +1214,11 @@ func clear_state_groups(free_groups: bool = false) -> void:
 			_queue_free_detached(group)
 	if not groups.is_empty() or old_internal_group != null:
 		_group_registry_revision += 1
-	if old_internal_group != null and is_instance_valid(old_internal_group) and not groups.has(old_internal_group):
+	if (
+		old_internal_group != null
+		and is_instance_valid(old_internal_group)
+		and not groups.has(old_internal_group)
+	):
 		_free_internal_group(old_internal_group)
 	_internal_group = null
 
@@ -1131,7 +1253,12 @@ func _record_group_restore_blocked_operation(group: GFNodeStateGroup, operation:
 	if not _is_restoring_state_snapshot:
 		return
 	var group_key: StringName = _get_registered_group_key(group)
-	_record_restore_blocked_operation(StringName("%s.%s" % [String(group_key), String(operation)]))
+	_record_restore_blocked_operation(
+		StringName(
+			"%s.%s"
+			% [String(group_key), String(operation)]
+		)
+	)
 
 
 ## 为所有有效状态组增加 Machine 快照恢复保护深度。
@@ -1176,7 +1303,11 @@ func _group_registry_matches(identity: Dictionary, expected_revision: int) -> bo
 		return false
 	for group_key: Variant in identity.keys():
 		var group: GFNodeStateGroup = _variant_to_state_group(GFVariantData.get_option_value(_groups, group_key))
-		if group == null or group.get_instance_id() != GFVariantData.get_option_int(identity, group_key, -1):
+		if group == null or group.get_instance_id() != GFVariantData.get_option_int(
+			identity,
+			group_key,
+			-1
+		):
 			return false
 	return true
 
@@ -1372,7 +1503,12 @@ func _start_after_host_ready() -> void:
 func _queue_reload_from_children() -> void:
 	if _reject_mutation_during_restore(&"queue_reload_from_children"):
 		return
-	if not _is_ready or not reload_on_ready or _reload_queued or _is_reloading:
+	if (
+		not _is_ready
+		or not reload_on_ready
+		or _reload_queued
+		or _is_reloading
+	):
 		return
 
 	_reload_queued = true
@@ -1524,7 +1660,13 @@ func _get_registered_group_key(group: GFNodeStateGroup) -> StringName:
 ## @api private
 ## [br]
 func _get_dictionary_callable(source: Dictionary, key: Variant) -> Callable:
-	return _variant_to_callable(GFVariantData.get_option_value(source, key, Callable()))
+	return _variant_to_callable(
+		GFVariantData.get_option_value(
+			source,
+			key,
+			Callable()
+		)
+	)
 
 
 ## 从字典中移除指定键。
@@ -1570,10 +1712,7 @@ func _variant_to_state_group(value: Variant) -> GFNodeStateGroup:
 ## @api private
 ## [br]
 func _normalize_state_group_snapshot_report_keys(snapshot: Dictionary) -> Dictionary:
-	var raw_blackboard: Dictionary = GFVariantData.get_option_dictionary(
-		snapshot,
-		"blackboard"
-	)
+	var raw_blackboard: Dictionary = GFVariantData.get_option_dictionary(snapshot, "blackboard")
 	var normalized_blackboard: Dictionary = {}
 	for raw_key: Variant in raw_blackboard.keys():
 		if not (raw_key is String or raw_key is StringName):
@@ -1695,15 +1834,11 @@ func _restore_state_snapshot(snapshot: Dictionary) -> Dictionary:
 	if restore_failed:
 		var rollback_succeeded: bool = true
 		for rollback_group_key: Variant in group_keys:
-			var rollback_group: GFNodeStateGroup = _variant_to_state_group(
-				GFVariantData.get_option_value(_groups, rollback_group_key)
-			)
+			var rollback_group: GFNodeStateGroup = _variant_to_state_group(GFVariantData.get_option_value(_groups, rollback_group_key))
 			if rollback_group == null:
 				rollback_succeeded = false
 				continue
-			var rollback_report: Dictionary = rollback_group.restore_state_snapshot(
-				GFVariantData.get_option_dictionary(rollback_snapshots, rollback_group_key)
-			)
+			var rollback_report: Dictionary = rollback_group.restore_state_snapshot(GFVariantData.get_option_dictionary(rollback_snapshots, rollback_group_key))
 			if not GFVariantData.get_option_bool(rollback_report, "ok"):
 				rollback_succeeded = false
 		if not registry_stable:
@@ -1714,10 +1849,7 @@ func _restore_state_snapshot(snapshot: Dictionary) -> Dictionary:
 			report["error"] = "state machine group restore failed."
 		else:
 			report["error"] = "state machine restore failed."
-		report["rolled_back"] = (
-			rollback_succeeded
-			and _group_registry_matches(registry_identity, registry_revision_before)
-		)
+		report["rolled_back"] = (rollback_succeeded and _group_registry_matches(registry_identity, registry_revision_before))
 	else:
 		var partial: bool = not missing_group_snapshots.is_empty() or not unrestored_group_snapshots.is_empty()
 		for group_report_variant: Variant in group_reports.values():
@@ -1750,7 +1882,11 @@ func _on_group_current_state_changed(
 	new_state: GFNodeState,
 	group: GFNodeStateGroup
 ) -> void:
-	state_changed.emit(group, old_state, new_state)
+	state_changed.emit(
+		group,
+		old_state,
+		new_state
+	)
 
 
 ## 转发来源组、处理状态和原 payload；本回调不复制或重新派发事件载荷。
@@ -1762,7 +1898,12 @@ func _on_group_state_event_handled(
 	payload: Variant,
 	group: GFNodeStateGroup
 ) -> void:
-	state_event_handled.emit(group, event_id, handler_state, payload)
+	state_event_handled.emit(
+		group,
+		event_id,
+		handler_state,
+		payload
+	)
 
 
 ## 仅对影响状态结构的子节点排程刷新；编辑器更新警告，运行态重载分组。

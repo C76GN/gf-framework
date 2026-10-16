@@ -21,8 +21,8 @@
 | 常量 | [`DEFAULT_MAX_COMPLETIONS`](#member-gfasyncflowtools-constants-default_max_completions) | `const DEFAULT_MAX_COMPLETIONS: int = 256` |
 | 常量 | [`ABSOLUTE_MAX_COMPLETIONS`](#member-gfasyncflowtools-constants-absolute_max_completions) | `const ABSOLUTE_MAX_COMPLETIONS: int = 4096` |
 | 方法 | [`retry_async`](#member-gfasyncflowtools-methods-retry_async) | `static func retry_async(operation: Callable, options: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`each_async`](#member-gfasyncflowtools-methods-each_async) | `static func each_async(items: Array, operation: Callable, options: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`fold_async`](#member-gfasyncflowtools-methods-fold_async) | `static func fold_async(items: Array, reducer: Callable, initial_value: Variant, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`each_async`](#member-gfasyncflowtools-methods-each_async) | `static func each_async( items: Array, operation: Callable, options: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`fold_async`](#member-gfasyncflowtools-methods-fold_async) | `static func fold_async( items: Array, reducer: Callable, initial_value: Variant, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`wait_all_completions_async`](#member-gfasyncflowtools-methods-wait_all_completions_async) | `static func wait_all_completions_async(completions: Dictionary, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`wait_any_completion_async`](#member-gfasyncflowtools-methods-wait_any_completion_async) | `static func wait_any_completion_async(completions: Dictionary, options: Dictionary = {}) -> Dictionary:` |
 
@@ -130,7 +130,7 @@ static func retry_async(operation: Callable, options: Dictionary = {}) -> Dictio
 - 首次版本：`6.0.0`
 
 ```gdscript
-static func each_async(items: Array, operation: Callable, options: Dictionary = {}) -> Dictionary:
+static func each_async( items: Array, operation: Callable, options: Dictionary = {} ) -> Dictionary:
 ```
 
 顺序处理数组项。
@@ -159,7 +159,7 @@ static func each_async(items: Array, operation: Callable, options: Dictionary = 
 - 首次版本：`6.0.0`
 
 ```gdscript
-static func fold_async(items: Array, reducer: Callable, initial_value: Variant, options: Dictionary = {}) -> Dictionary:
+static func fold_async( items: Array, reducer: Callable, initial_value: Variant, options: Dictionary = {} ) -> Dictionary:
 ```
 
 顺序折叠数组项。

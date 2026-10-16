@@ -5,7 +5,7 @@ extends RefCounted
 # --- 常量 ---
 
 const GF_VARIANT_ACCESS = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
-const INTEGRATION_SNIPPET_PATH: String = "res://addons/gf/tools/project_bootstrap/templates/empty_project/integration_snippet.gd.txt"
+const INTEGRATION_SNIPPET_PATH: String = ("res://addons/gf/tools/project_bootstrap/templates/empty_project/integration_snippet.gd.txt")
 
 
 # --- 私有变量 ---
@@ -19,7 +19,11 @@ static func collect_files(root_path: String, issues: Array[String] = []) -> Arra
 	var result: Array[String] = []
 	if not _validate_unlinked_root(root_path, issues):
 		return result
-	_collect_files_recursive(root_path, result, issues)
+	_collect_files_recursive(
+		root_path,
+		result,
+		issues
+	)
 	result.sort()
 	return result
 
@@ -33,7 +37,7 @@ static func render_source(source: String, path: String) -> String:
 	rendered = rendered.replace("__ROOT__", "res://comment_contract_fixture")
 	if path == INTEGRATION_SNIPPET_PATH:
 		# 此资源的消费合同是插入现有 Node 异步函数体；完整保留片段并提供该语法上下文。
-		var wrapped: String = "extends Node\n\n# --- 私有/辅助方法 ---\n\n## 承载原样集成片段的测试函数。\n## [br]\n## @api private\nfunc _integration_fixture() -> void:\n"
+		var wrapped: String = ("extends Node\n\n# --- 私有/辅助方法 ---\n\n## 承载原样集成片段的测试函数。\n## [br]\n## @api private\nfunc _integration_fixture() -> void:\n")
 		for line: String in rendered.split("\n"):
 			wrapped += "\t" + line + "\n"
 		return wrapped
@@ -58,6 +62,7 @@ static func is_native_virtual(base_type: String, method_name: String) -> bool:
 
 static func lex_line(line: String, multiline_delimiter: String = "") -> Dictionary:
 	var code: String = ""
+	var uncommented: String = ""
 	var quote: String = multiline_delimiter
 	var index: int = 0
 	while index < line.length():
@@ -65,27 +70,37 @@ static func lex_line(line: String, multiline_delimiter: String = "") -> Dictiona
 		if not quote.is_empty():
 			if character == "\\" and index + 1 < line.length():
 				code += "  "
+				uncommented += line.substr(index, 2)
 				index += 2
 				continue
-			if line.substr(index, quote.length()) == quote:
+			if line.substr(
+				index,
+				quote.length()
+			) == quote:
 				code += " ".repeat(quote.length())
+				uncommented += quote
 				index += quote.length()
 				quote = ""
 				continue
 			code += " "
+			uncommented += character
 		elif character == "#":
 			code += " ".repeat(line.length() - index)
+			uncommented += " ".repeat(line.length() - index)
 			break
 		elif character == "\"" or character == "'":
 			quote = character.repeat(3) if line.substr(index, 3) == character.repeat(3) else character
 			code += " ".repeat(quote.length())
+			uncommented += quote
 			index += quote.length()
 			continue
 		else:
 			code += character
+			uncommented += character
 		index += 1
 	return {
 		"code": code,
+		"uncommented": uncommented,
 		"starts_in_multiline": not multiline_delimiter.is_empty(),
 		"multiline_delimiter": quote if quote.length() == 3 else "",
 	}
@@ -102,7 +117,11 @@ static func _validate_unlinked_root(root_path: String, issues: Array[String]) ->
 			return false
 		absolute_path = current_directory.get_current_dir().path_join(absolute_path)
 	absolute_path = absolute_path.simplify_path()
-	while absolute_path.ends_with("/") and absolute_path != "/" and not absolute_path.ends_with(":/"):
+	while (
+		absolute_path.ends_with("/")
+		and absolute_path != "/"
+		and not absolute_path.ends_with(":/")
+	):
 		absolute_path = absolute_path.trim_suffix("/")
 	var components: Array[String] = []
 	while not absolute_path.get_file().is_empty():
@@ -132,16 +151,26 @@ static func _validate_unlinked_root(root_path: String, issues: Array[String]) ->
 	return true
 
 
-static func _collect_files_recursive(root_path: String, result: Array[String], issues: Array[String]) -> void:
+static func _collect_files_recursive(
+	root_path: String,
+	result: Array[String],
+	issues: Array[String]
+) -> void:
 	var directory: DirAccess = DirAccess.open(root_path)
 	if directory == null:
-		issues.append("%s: cannot enumerate comment-contract sources (error %d)" % [root_path, DirAccess.get_open_error()])
+		issues.append(
+			"%s: cannot enumerate comment-contract sources (error %d)"
+			% [root_path, DirAccess.get_open_error()]
+		)
 		return
 	directory.include_hidden = true
 	directory.include_navigational = false
 	var begin_result: Error = directory.list_dir_begin()
 	if begin_result != OK:
-		issues.append("%s: cannot begin comment-contract enumeration (error %d)" % [root_path, begin_result])
+		issues.append(
+			"%s: cannot begin comment-contract enumeration (error %d)"
+			% [root_path, begin_result]
+		)
 		return
 	var entry: String = directory.get_next()
 	while not entry.is_empty():
@@ -150,7 +179,11 @@ static func _collect_files_recursive(root_path: String, result: Array[String], i
 		if directory.is_link(entry):
 			issues.append("%s: linked comment-contract source is not allowed" % path)
 		elif directory.current_is_dir():
-			_collect_files_recursive(path, result, issues)
+			_collect_files_recursive(
+				path,
+				result,
+				issues
+			)
 		elif entry.ends_with(".gd") or entry.ends_with(".gd.txt"):
 			result.append(path)
 		entry = directory.get_next()

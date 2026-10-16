@@ -137,29 +137,12 @@ const GFExtensionSettingsBase = preload("res://addons/gf/kernel/extension/gf_ext
 ## @schema project_setting_records: Array[Dictionary] with setting registration fields and optional editor_labels, editor_descriptions, editor_enum_labels, and editor_enum_descriptions presentation maps.
 static func ensure_all(project_setting_records: Array[Dictionary] = []) -> void:
 	var _installers_ensured: bool = _ensure_default(INSTALLERS_SETTING, INSTALLERS_DEFAULT)
-	var _fail_policy_ensured: bool = _ensure_default(
-		FAIL_ON_INSTALLER_ERROR_SETTING,
-		FAIL_ON_INSTALLER_ERROR_DEFAULT
-	)
-	var _timeout_ensured: bool = _ensure_default(
-		INSTALLER_TIMEOUT_SETTING,
-		INSTALLER_TIMEOUT_DEFAULT
-	)
-	var _access_output_ensured: bool = _ensure_default(
-		ACCESS_OUTPUT_SETTING,
-		ACCESS_OUTPUT_DEFAULT
-	)
-	var _access_policies_ensured: bool = _ensure_default(
-		ACCESS_POLICIES_SETTING,
-		ACCESS_POLICIES_DEFAULT
-	)
-	var _project_access_output_ensured: bool = _ensure_default(
-		PROJECT_ACCESS_OUTPUT_SETTING,
-		PROJECT_ACCESS_OUTPUT_DEFAULT
-	)
-	var _contributed_settings_ensured: bool = _ensure_project_setting_records(
-		project_setting_records
-	)
+	var _fail_policy_ensured: bool = _ensure_default(FAIL_ON_INSTALLER_ERROR_SETTING, FAIL_ON_INSTALLER_ERROR_DEFAULT)
+	var _timeout_ensured: bool = _ensure_default(INSTALLER_TIMEOUT_SETTING, INSTALLER_TIMEOUT_DEFAULT)
+	var _access_output_ensured: bool = _ensure_default(ACCESS_OUTPUT_SETTING, ACCESS_OUTPUT_DEFAULT)
+	var _access_policies_ensured: bool = _ensure_default(ACCESS_POLICIES_SETTING, ACCESS_POLICIES_DEFAULT)
+	var _project_access_output_ensured: bool = _ensure_default(PROJECT_ACCESS_OUTPUT_SETTING, PROJECT_ACCESS_OUTPUT_DEFAULT)
+	var _contributed_settings_ensured: bool = _ensure_project_setting_records(project_setting_records)
 	var _extension_defaults_ensured: bool = GFExtensionSettingsBase.ensure_defaults()
 
 	_register_property_info()
@@ -194,9 +177,11 @@ static func get_project_access_output_path() -> String:
 ## [br]
 ## @api private
 static func _ensure_default(setting_name: String, default_value: Variant) -> bool:
-	return _GF_PROJECT_SETTINGS_TOOLS.ensure_setting(setting_name, default_value, {
-		"register_property_info": false,
-	})
+	return _GF_PROJECT_SETTINGS_TOOLS.ensure_setting(
+		setting_name,
+		default_value,
+		{ "register_property_info": false, }
+	)
 
 
 ## 跳过空 name 的贡献记录，按记录生成注册选项并确保默认值；返回是否有任一设置被更新。
@@ -211,7 +196,11 @@ static func _ensure_project_setting_records(project_setting_records: Array[Dicti
 
 		var default_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(record, "default_value")
 		var options: Dictionary = _make_project_setting_options(record, default_value)
-		if _GF_PROJECT_SETTINGS_TOOLS.ensure_setting(setting_name, default_value, options):
+		if _GF_PROJECT_SETTINGS_TOOLS.ensure_setting(
+			setting_name,
+			default_value,
+			options
+		):
 			should_save = true
 	return should_save
 
@@ -220,32 +209,52 @@ static func _ensure_project_setting_records(project_setting_records: Array[Dicti
 ## [br]
 ## @api private
 static func _register_property_info() -> void:
-	_GF_PROJECT_SETTINGS_TOOLS.register_property_info(INSTALLERS_SETTING, TYPE_ARRAY, {
-		"hint": _GF_RESOURCE_PATH_HINT_SCRIPT.RESOURCE_PATH_ARRAY,
-		"hint_string": "Script",
-		"basic": true,
-	})
-	_GF_PROJECT_SETTINGS_TOOLS.register_property_info(FAIL_ON_INSTALLER_ERROR_SETTING, TYPE_BOOL, {
-		"basic": true,
-	})
-	_GF_PROJECT_SETTINGS_TOOLS.register_property_info(INSTALLER_TIMEOUT_SETTING, TYPE_FLOAT, {
-		"hint": PROPERTY_HINT_RANGE,
-		"hint_string": "0,600,0.1,or_greater",
-		"basic": true,
-	})
-	_GF_PROJECT_SETTINGS_TOOLS.register_property_info(ACCESS_OUTPUT_SETTING, TYPE_STRING, {
-		"hint": PROPERTY_HINT_SAVE_FILE,
-		"hint_string": "*.gd",
-		"basic": true,
-	})
-	_GF_PROJECT_SETTINGS_TOOLS.register_property_info(ACCESS_POLICIES_SETTING, TYPE_DICTIONARY, {
-		"basic": true,
-	})
-	_GF_PROJECT_SETTINGS_TOOLS.register_property_info(PROJECT_ACCESS_OUTPUT_SETTING, TYPE_STRING, {
-		"hint": PROPERTY_HINT_SAVE_FILE,
-		"hint_string": "*.gd",
-		"basic": true,
-	})
+	_GF_PROJECT_SETTINGS_TOOLS.register_property_info(
+		INSTALLERS_SETTING,
+		TYPE_ARRAY,
+		{
+			"hint": _GF_RESOURCE_PATH_HINT_SCRIPT.RESOURCE_PATH_ARRAY,
+			"hint_string": "Script",
+			"basic": true,
+		}
+	)
+	_GF_PROJECT_SETTINGS_TOOLS.register_property_info(
+		FAIL_ON_INSTALLER_ERROR_SETTING,
+		TYPE_BOOL,
+		{ "basic": true, }
+	)
+	_GF_PROJECT_SETTINGS_TOOLS.register_property_info(
+		INSTALLER_TIMEOUT_SETTING,
+		TYPE_FLOAT,
+		{
+			"hint": PROPERTY_HINT_RANGE,
+			"hint_string": "0,600,0.1,or_greater",
+			"basic": true,
+		}
+	)
+	_GF_PROJECT_SETTINGS_TOOLS.register_property_info(
+		ACCESS_OUTPUT_SETTING,
+		TYPE_STRING,
+		{
+			"hint": PROPERTY_HINT_SAVE_FILE,
+			"hint_string": "*.gd",
+			"basic": true,
+		}
+	)
+	_GF_PROJECT_SETTINGS_TOOLS.register_property_info(
+		ACCESS_POLICIES_SETTING,
+		TYPE_DICTIONARY,
+		{ "basic": true, }
+	)
+	_GF_PROJECT_SETTINGS_TOOLS.register_property_info(
+		PROJECT_ACCESS_OUTPUT_SETTING,
+		TYPE_STRING,
+		{
+			"hint": PROPERTY_HINT_SAVE_FILE,
+			"hint_string": "*.gd",
+			"basic": true,
+		}
+	)
 
 
 ## 从贡献记录提取允许的类型、标记、hint、hint_string 和 usage 字段。
@@ -254,16 +263,41 @@ static func _register_property_info() -> void:
 ## @api private
 static func _make_project_setting_options(record: Dictionary, default_value: Variant) -> Dictionary:
 	var options: Dictionary = {
-		"type": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(record, "type", typeof(default_value)),
+		"type": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			record,
+			"type",
+			typeof(default_value)
+		),
 		"register_property_info": true,
 	}
-	for bool_key: String in ["basic", "restart_if_changed", "internal", "update_initial_value"]:
+	for bool_key: String in [
+		"basic",
+		"restart_if_changed",
+		"internal",
+		"update_initial_value",
+	]:
 		if record.has(bool_key):
-			options[bool_key] = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(record, bool_key, false)
+			options[bool_key] = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+				record,
+				bool_key,
+				false
+			)
 	if record.has("hint"):
-		options["hint"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(record, "hint", PROPERTY_HINT_NONE)
+		options["hint"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			record,
+			"hint",
+			PROPERTY_HINT_NONE
+		)
 	if record.has("hint_string"):
-		options["hint_string"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "hint_string", "")
+		options["hint_string"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			record,
+			"hint_string",
+			""
+		)
 	if record.has("usage"):
-		options["usage"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(record, "usage", -1)
+		options["usage"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			record,
+			"usage",
+			-1
+		)
 	return options

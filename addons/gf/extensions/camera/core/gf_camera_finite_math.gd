@@ -80,7 +80,11 @@ static func sanitize_vector2(value: Vector2, fallback: Vector2 = Vector2.ZERO) -
 ## [br]
 ## @return 所有分量有限时返回 true。
 static func is_finite_vector3(value: Vector3) -> bool:
-	return is_finite(value.x) and is_finite(value.y) and is_finite(value.z)
+	return (
+		is_finite(value.x)
+		and is_finite(value.y)
+		and is_finite(value.z)
+	)
 
 
 ## 收敛 Vector3。
@@ -154,10 +158,7 @@ static func is_valid_transform3d(value: Transform3D) -> bool:
 ## @param fallback: 非法分量回退。
 ## [br]
 ## @return 可安全应用的 Transform3D。
-static func sanitize_transform3d(
-	value: Transform3D,
-	fallback: Transform3D = Transform3D.IDENTITY
-) -> Transform3D:
+static func sanitize_transform3d(value: Transform3D, fallback: Transform3D = Transform3D.IDENTITY) -> Transform3D:
 	var safe_fallback_origin: Vector3 = sanitize_vector3(fallback.origin, Vector3.ZERO)
 	var safe_fallback_basis: Basis = sanitize_basis(fallback.basis, Basis.IDENTITY)
 	return Transform3D(

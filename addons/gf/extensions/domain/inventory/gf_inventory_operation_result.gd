@@ -121,15 +121,27 @@ static func partial(
 ) -> GFInventoryOperationResult:
 	var result: GFInventoryOperationResult = GFInventoryOperationResult.new()
 	var normalized_requested: int = maxi(requested, 0)
-	var normalized_accepted: int = clampi(accepted, 0, normalized_requested)
+	var normalized_accepted: int = clampi(
+		accepted,
+		0,
+		normalized_requested
+	)
 	result.ok = normalized_requested > 0 and normalized_accepted >= normalized_requested
 	result.item_id = result_item_id
 	result.requested_amount = normalized_requested
 	result.accepted_amount = normalized_accepted
-	result.remaining_amount = maxi(result.requested_amount - result.accepted_amount, 0)
+	result.remaining_amount = maxi(
+		result.requested_amount - result.accepted_amount,
+		0
+	)
 	result.source_slot = result_source_slot
 	result.target_slot = result_target_slot
-	result.reason = _normalize_reason(result.ok, result.accepted_amount, result.requested_amount, result_reason)
+	result.reason = _normalize_reason(
+		result.ok,
+		result.accepted_amount,
+		result.requested_amount,
+		result_reason
+	)
 	return result
 
 

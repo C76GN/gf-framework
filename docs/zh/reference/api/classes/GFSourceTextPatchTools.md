@@ -21,8 +21,8 @@
 | 常量 | [`ERROR_OVERLAPPING_EDITS`](#member-gfsourcetextpatchtools-constants-error_overlapping_edits) | `const ERROR_OVERLAPPING_EDITS: StringName = &"overlapping_edits"` |
 | 方法 | [`make_range`](#member-gfsourcetextpatchtools-methods-make_range) | `static func make_range( start_line: int, start_character: int, end_line: int, end_character: int ) -> Dictionary:` |
 | 方法 | [`make_replacement_edit`](#member-gfsourcetextpatchtools-methods-make_replacement_edit) | `static func make_replacement_edit( start_line: int, start_character: int, end_line: int, end_character: int, text: String, metadata: Dictionary = {} ) -> Dictionary:` |
-| 方法 | [`validate_text_edits`](#member-gfsourcetextpatchtools-methods-validate_text_edits) | `static func validate_text_edits(source_text: String, edits: Array, options: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`apply_text_edits`](#member-gfsourcetextpatchtools-methods-apply_text_edits) | `static func apply_text_edits(source_text: String, edits: Array, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`validate_text_edits`](#member-gfsourcetextpatchtools-methods-validate_text_edits) | `static func validate_text_edits( source_text: String, edits: Array, options: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`apply_text_edits`](#member-gfsourcetextpatchtools-methods-apply_text_edits) | `static func apply_text_edits( source_text: String, edits: Array, options: Dictionary = {} ) -> Dictionary:` |
 
 ## 常量
 
@@ -147,7 +147,7 @@ static func make_replacement_edit( start_line: int, start_character: int, end_li
 - 首次版本：`8.0.0`
 
 ```gdscript
-static func validate_text_edits(source_text: String, edits: Array, options: Dictionary = {}) -> Dictionary:
+static func validate_text_edits( source_text: String, edits: Array, options: Dictionary = {} ) -> Dictionary:
 ```
 
 校验文本 edit 集合。 支持 `range.start.line/character` + `range.end.line/character` 与扁平 `start_line/start_character/end_line/end_character` 两种范围写法。该范围是 LSP-shaped， 但 character 使用 Godot String 字符索引。替换文本可使用 `text`、`newText`、 `new_text` 或 `replacement` 字段。
@@ -176,7 +176,7 @@ static func validate_text_edits(source_text: String, edits: Array, options: Dict
 - 首次版本：`8.0.0`
 
 ```gdscript
-static func apply_text_edits(source_text: String, edits: Array, options: Dictionary = {}) -> Dictionary:
+static func apply_text_edits( source_text: String, edits: Array, options: Dictionary = {} ) -> Dictionary:
 ```
 
 应用文本 edit 集合。 edit 会先按原始文本范围校验，再按原始 offset 升序单次组装结果，因此调用方不需要预先排序。 范围字段可使用 LSP-shaped 字典，但 character 始终是 Godot String 字符索引。 如果存在越界、重叠或结构错误，返回 ok=false，text 保持为原始文本。

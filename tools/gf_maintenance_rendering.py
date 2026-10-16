@@ -232,6 +232,23 @@ def render_diagnostic_policy_text(data: dict[str, Any]) -> str:
 	return "\n".join(lines)
 
 
+def render_gdscript_readability_text(data: dict[str, Any]) -> str:
+	lines = [
+		f"gdscript_readability: {'PASS' if data['ok'] else 'FAIL'}",
+		(
+			f"scripts={data['scanned_file_count']} "
+			f"policy={data['policy_version']} complete={data['complete']}"
+		),
+	]
+	for issue in data["issues"]:
+		lines.append(
+			f"{issue['path']}:{issue['line']}:{issue['column']}: "
+			f"{issue['rule']}: {issue['message']}"
+		)
+		lines.append(f"  fix: {issue['suggestion']}")
+	return "\n".join(lines)
+
+
 def render_codeql_suppression_policy_text(data: dict[str, Any]) -> str:
 	lines = [
 		(

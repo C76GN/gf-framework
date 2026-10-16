@@ -48,6 +48,8 @@ func initialize(state: GFNodeState) -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param state: 行为所属状态。
 ## [br]
 ## @param previous_state: 来源状态名。
@@ -55,15 +57,25 @@ func initialize(state: GFNodeState) -> void:
 ## @param args: 状态切换参数。
 ## [br]
 ## @schema args: 状态切换参数 Dictionary；键和值由调用方约定。
-func enter(state: GFNodeState, previous_state: StringName = &"", args: Dictionary = {}) -> void:
+func enter(
+	state: GFNodeState,
+	previous_state: StringName = &"",
+	args: Dictionary = {}
+) -> void:
 	if enabled:
-		_enter(state, previous_state, args)
+		_enter(
+			state,
+			previous_state,
+			args
+		)
 
 
 ## 状态退出前调用。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param state: 行为所属状态。
 ## [br]
 ## @param next_state: 目标状态名。
@@ -71,15 +83,25 @@ func enter(state: GFNodeState, previous_state: StringName = &"", args: Dictionar
 ## @param args: 状态切换参数。
 ## [br]
 ## @schema args: 状态切换参数 Dictionary；键和值由调用方约定。
-func exit(state: GFNodeState, next_state: StringName = &"", args: Dictionary = {}) -> void:
+func exit(
+	state: GFNodeState,
+	next_state: StringName = &"",
+	args: Dictionary = {}
+) -> void:
 	if enabled:
-		_exit(state, next_state, args)
+		_exit(
+			state,
+			next_state,
+			args
+		)
 
 
 ## 状态被栈式子状态覆盖时调用。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param state: 行为所属状态。
 ## [br]
 ## @param next_state: 目标状态名。
@@ -87,14 +109,24 @@ func exit(state: GFNodeState, next_state: StringName = &"", args: Dictionary = {
 ## @param args: 状态切换参数。
 ## [br]
 ## @schema args: 状态切换参数 Dictionary；键和值由调用方约定。
-func pause(state: GFNodeState, next_state: StringName = &"", args: Dictionary = {}) -> void:
+func pause(
+	state: GFNodeState,
+	next_state: StringName = &"",
+	args: Dictionary = {}
+) -> void:
 	if enabled:
-		_pause(state, next_state, args)
+		_pause(
+			state,
+			next_state,
+			args
+		)
 
 
 ## 状态从栈式子状态恢复后调用。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param state: 行为所属状态。
 ## [br]
@@ -103,14 +135,24 @@ func pause(state: GFNodeState, next_state: StringName = &"", args: Dictionary = 
 ## @param args: 状态切换参数。
 ## [br]
 ## @schema args: 状态切换参数 Dictionary；键和值由调用方约定。
-func resume(state: GFNodeState, previous_state: StringName = &"", args: Dictionary = {}) -> void:
+func resume(
+	state: GFNodeState,
+	previous_state: StringName = &"",
+	args: Dictionary = {}
+) -> void:
 	if enabled:
-		_resume(state, previous_state, args)
+		_resume(
+			state,
+			previous_state,
+			args
+		)
 
 
 ## 处理状态事件。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param state: 行为所属状态。
 ## [br]
@@ -121,10 +163,18 @@ func resume(state: GFNodeState, previous_state: StringName = &"", args: Dictiona
 ## @schema payload: 状态事件载荷；具体类型由 event_id 和项目约定决定。
 ## [br]
 ## @return 已处理返回 true。
-func handle_state_event(state: GFNodeState, event_id: StringName, payload: Variant = null) -> bool:
+func handle_state_event(
+	state: GFNodeState,
+	event_id: StringName,
+	payload: Variant = null
+) -> bool:
 	if not enabled:
 		return false
-	return _handle_state_event(state, event_id, payload)
+	return _handle_state_event(
+		state,
+		event_id,
+		payload
+	)
 
 
 # --- 可重写钩子 / 虚方法 ---
@@ -142,6 +192,8 @@ func _initialize(_state: GFNodeState) -> void:
 ## [br]
 ## @api protected
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param _state: 行为所属状态。
 ## [br]
 ## @param _previous_state: 来源状态名。
@@ -149,7 +201,11 @@ func _initialize(_state: GFNodeState) -> void:
 ## @param _args: 状态切换参数。
 ## [br]
 ## @schema _args: 状态切换参数 Dictionary；键和值由调用方约定。
-func _enter(_state: GFNodeState, _previous_state: StringName = &"", _args: Dictionary = {}) -> void:
+func _enter(
+	_state: GFNodeState,
+	_previous_state: StringName = &"",
+	_args: Dictionary = {}
+) -> void:
 	pass
 
 
@@ -157,6 +213,8 @@ func _enter(_state: GFNodeState, _previous_state: StringName = &"", _args: Dicti
 ## [br]
 ## @api protected
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param _state: 行为所属状态。
 ## [br]
 ## @param _next_state: 目标状态名。
@@ -164,7 +222,11 @@ func _enter(_state: GFNodeState, _previous_state: StringName = &"", _args: Dicti
 ## @param _args: 状态切换参数。
 ## [br]
 ## @schema _args: 状态切换参数 Dictionary；键和值由调用方约定。
-func _exit(_state: GFNodeState, _next_state: StringName = &"", _args: Dictionary = {}) -> void:
+func _exit(
+	_state: GFNodeState,
+	_next_state: StringName = &"",
+	_args: Dictionary = {}
+) -> void:
 	pass
 
 
@@ -172,6 +234,8 @@ func _exit(_state: GFNodeState, _next_state: StringName = &"", _args: Dictionary
 ## [br]
 ## @api protected
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param _state: 行为所属状态。
 ## [br]
 ## @param _next_state: 目标状态名。
@@ -179,13 +243,19 @@ func _exit(_state: GFNodeState, _next_state: StringName = &"", _args: Dictionary
 ## @param _args: 状态切换参数。
 ## [br]
 ## @schema _args: 状态切换参数 Dictionary；键和值由调用方约定。
-func _pause(_state: GFNodeState, _next_state: StringName = &"", _args: Dictionary = {}) -> void:
+func _pause(
+	_state: GFNodeState,
+	_next_state: StringName = &"",
+	_args: Dictionary = {}
+) -> void:
 	pass
 
 
 ## 状态恢复行为扩展点。
 ## [br]
 ## @api protected
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param _state: 行为所属状态。
 ## [br]
@@ -194,13 +264,19 @@ func _pause(_state: GFNodeState, _next_state: StringName = &"", _args: Dictionar
 ## @param _args: 状态切换参数。
 ## [br]
 ## @schema _args: 状态切换参数 Dictionary；键和值由调用方约定。
-func _resume(_state: GFNodeState, _previous_state: StringName = &"", _args: Dictionary = {}) -> void:
+func _resume(
+	_state: GFNodeState,
+	_previous_state: StringName = &"",
+	_args: Dictionary = {}
+) -> void:
 	pass
 
 
 ## 状态事件行为扩展点。
 ## [br]
 ## @api protected
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param _state: 行为所属状态。
 ## [br]
@@ -211,5 +287,9 @@ func _resume(_state: GFNodeState, _previous_state: StringName = &"", _args: Dict
 ## @schema _payload: 状态事件载荷；具体类型由 _event_id 和项目约定决定。
 ## [br]
 ## @return: 已处理返回 true。
-func _handle_state_event(_state: GFNodeState, _event_id: StringName, _payload: Variant = null) -> bool:
+func _handle_state_event(
+	_state: GFNodeState,
+	_event_id: StringName,
+	_payload: Variant = null
+) -> bool:
 	return false

@@ -31,7 +31,7 @@
 | 方法 | [`_can_save_source`](#member-gfsavesource-methods-_can_save_source) | `func _can_save_source(_context: Dictionary = {}) -> bool:` |
 | 方法 | [`_can_load_source`](#member-gfsavesource-methods-_can_load_source) | `func _can_load_source(_context: Dictionary = {}) -> bool:` |
 | 方法 | [`_before_save`](#member-gfsavesource-methods-_before_save) | `func _before_save(_context: Dictionary = {}) -> void:` |
-| 方法 | [`_gather_save_data`](#member-gfsavesource-methods-_gather_save_data) | `func _gather_save_data( context: Dictionary = {}, serializer_registry: GFNodeSerializerRegistry = null ) -> Variant:` |
+| 方法 | [`_gather_save_data`](#member-gfsavesource-methods-_gather_save_data) | `func _gather_save_data(context: Dictionary = {}, serializer_registry: GFNodeSerializerRegistry = null) -> Variant:` |
 | 方法 | [`_apply_save_data`](#member-gfsavesource-methods-_apply_save_data) | `func _apply_save_data( data: Variant, context: Dictionary = {}, serializer_registry: GFNodeSerializerRegistry = null ) -> Dictionary:` |
 | 方法 | [`_after_load`](#member-gfsavesource-methods-_after_load) | `func _after_load(_data: Variant, _context: Dictionary = {}) -> void:` |
 
@@ -303,9 +303,10 @@ func _before_save(_context: Dictionary = {}) -> void:
 ### `_gather_save_data`
 
 - API：`protected`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func _gather_save_data( context: Dictionary = {}, serializer_registry: GFNodeSerializerRegistry = null ) -> Variant:
+func _gather_save_data(context: Dictionary = {}, serializer_registry: GFNodeSerializerRegistry = null) -> Variant:
 ```
 
 采集保存数据。

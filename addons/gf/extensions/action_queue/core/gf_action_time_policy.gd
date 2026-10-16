@@ -15,10 +15,7 @@ extends RefCounted
 ## @param fallback_seconds: 非法输入使用的回退秒数。
 ## [br]
 ## @return 有限且不小于零的秒数。
-static func sanitize_non_negative_seconds(
-	seconds: float,
-	fallback_seconds: float = 0.0
-) -> float:
+static func sanitize_non_negative_seconds(seconds: float, fallback_seconds: float = 0.0) -> float:
 	var safe_fallback: float = fallback_seconds
 	if not is_finite(safe_fallback) or safe_fallback < 0.0:
 		safe_fallback = 0.0

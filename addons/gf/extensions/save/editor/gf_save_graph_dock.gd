@@ -217,7 +217,13 @@ func _build_ui() -> void:
 	var toolbar: HBoxContainer = _GF_EDITOR_WORKSPACE_UI.make_toolbar()
 	root_box.add_child(toolbar)
 
-	toolbar.add_child(_GF_EDITOR_WORKSPACE_UI.make_button("刷新", "扫描当前场景中的 GFSaveScope。", refresh))
+	toolbar.add_child(
+		_GF_EDITOR_WORKSPACE_UI.make_button(
+			"刷新",
+			"扫描当前场景中的 GFSaveScope。",
+			refresh
+		)
+	)
 
 	_scope_option = OptionButton.new()
 	_scope_option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -236,11 +242,27 @@ func _build_ui() -> void:
 	_include_trace_check.tooltip_text = "采集预览载荷时包含 pipeline trace。"
 	toolbar.add_child(_include_trace_check)
 
-	_select_button = _GF_EDITOR_WORKSPACE_UI.make_button("定位作用域", "在编辑器场景树中选中当前 Scope。", _on_select_pressed)
+	_select_button = _GF_EDITOR_WORKSPACE_UI.make_button(
+		"定位作用域",
+		"在编辑器场景树中选中当前 Scope。",
+		_on_select_pressed
+	)
 	toolbar.add_child(_select_button)
 
-	toolbar.add_child(_GF_EDITOR_WORKSPACE_UI.make_button("预览载荷", "采集当前 Scope 的 SaveGraph 预览载荷。", _on_preview_payload_pressed))
-	toolbar.add_child(_GF_EDITOR_WORKSPACE_UI.make_button("复制报告", "复制当前 SaveGraph 报告 JSON。", _on_copy_report_pressed))
+	toolbar.add_child(
+		_GF_EDITOR_WORKSPACE_UI.make_button(
+			"预览载荷",
+			"采集当前 Scope 的 SaveGraph 预览载荷。",
+			_on_preview_payload_pressed
+		)
+	)
+	toolbar.add_child(
+		_GF_EDITOR_WORKSPACE_UI.make_button(
+			"复制报告",
+			"复制当前 SaveGraph 报告 JSON。",
+			_on_copy_report_pressed
+		)
+	)
 
 	_summary_label = _GF_EDITOR_WORKSPACE_UI.make_summary_label()
 	root_box.add_child(_summary_label)
@@ -332,7 +354,10 @@ func _populate_scope_options() -> void:
 	_scope_option.clear()
 	for index: int in range(_scopes.size()):
 		var scope: Node = _scopes[index]
-		_scope_option.add_item(_get_node_path_text(scope), index)
+		_scope_option.add_item(
+			_get_node_path_text(scope),
+			index
+		)
 		_scope_option.set_item_metadata(index, index)
 
 	if _scopes.is_empty():
@@ -342,7 +367,13 @@ func _populate_scope_options() -> void:
 	else:
 		_scope_option.disabled = false
 		_select_button.disabled = false
-		_scope_option.select(clampi(previous_index, 0, _scopes.size() - 1))
+		_scope_option.select(
+			clampi(
+				previous_index,
+				0,
+				_scopes.size() - 1
+			)
+		)
 
 
 ## 清空当前视图，检查所选 Scope 并显示报告或空状态。
@@ -360,10 +391,7 @@ func _render_selected_scope() -> void:
 	_last_payload_report = {}
 	if _scopes.is_empty():
 		_last_scope_report = {}
-		_render_empty(
-			"未找到 GFSaveScope。",
-			"当前场景没有 GFSaveScope。打开或添加保存作用域后点击刷新。"
-		)
+		_render_empty("未找到 GFSaveScope。", "当前场景没有 GFSaveScope。打开或添加保存作用域后点击刷新。")
 		return
 
 	var scope: GFSaveScope = _get_selected_scope()
@@ -385,24 +413,44 @@ func _render_report(scope: GFSaveScope) -> void:
 	_content_split.visible = true
 	_tree.visible = true
 	_payload_output.text = "点击“预览载荷”采集当前 GFSaveScope 的 SaveGraph payload。"
-	_summary_label.text = "%s\n下一步：%s" % [
-		_get_report_text("summary"),
-		_get_report_text("next_action"),
-	]
-	_GF_EDITOR_WORKSPACE_UI.set_status(_summary_label, _summary_label.text, _GF_EDITOR_WORKSPACE_UI.get_report_color(_last_scope_report))
+	_summary_label.text = (
+		"%s\n下一步：%s"
+		% [_get_report_text("summary"), _get_report_text("next_action"),]
+	)
+	_GF_EDITOR_WORKSPACE_UI.set_status(
+		_summary_label,
+		_summary_label.text,
+		_GF_EDITOR_WORKSPACE_UI.get_report_color(_last_scope_report)
+	)
 	_details.text = _safe_json(_last_scope_report)
 
 	var root_item: TreeItem = _tree.create_item()
 	var root_scope_entry: Dictionary = _get_root_scope_entry()
 	var scope_item: TreeItem = _tree.create_item(root_item)
 	scope_item.set_text(0, "Root")
-	scope_item.set_text(1, _get_entry_text(root_scope_entry, "key"))
-	scope_item.set_text(2, _get_save_load_state(
-		_get_entry_bool(root_scope_entry, "can_save"),
-		_get_entry_bool(root_scope_entry, "can_load")
-	))
-	scope_item.set_text(3, _get_entry_text(root_scope_entry, "path", _get_node_path_text(scope)))
-	scope_item.set_metadata(0, root_scope_entry.duplicate(true))
+	scope_item.set_text(
+		1,
+		_get_entry_text(root_scope_entry, "key")
+	)
+	scope_item.set_text(
+		2,
+		_get_save_load_state(
+			_get_entry_bool(root_scope_entry, "can_save"),
+			_get_entry_bool(root_scope_entry, "can_load")
+		)
+	)
+	scope_item.set_text(
+		3,
+		_get_entry_text(
+			root_scope_entry,
+			"path",
+			_get_node_path_text(scope)
+		)
+	)
+	scope_item.set_metadata(
+		0,
+		root_scope_entry.duplicate(true)
+	)
 
 	for scope_entry: Dictionary in _get_report_entries("scopes"):
 		_add_scope_item(root_item, scope_entry)
@@ -421,10 +469,25 @@ func _render_report(scope: GFSaveScope) -> void:
 func _add_scope_item(parent: TreeItem, scope_entry: Dictionary) -> void:
 	var item: TreeItem = _tree.create_item(parent)
 	item.set_text(0, "Scope")
-	item.set_text(1, _get_entry_text(scope_entry, "key"))
-	item.set_text(2, _get_save_load_state(_get_entry_bool(scope_entry, "can_save"), _get_entry_bool(scope_entry, "can_load")))
-	item.set_text(3, _get_entry_text(scope_entry, "path"))
-	item.set_metadata(0, scope_entry.duplicate(true))
+	item.set_text(
+		1,
+		_get_entry_text(scope_entry, "key")
+	)
+	item.set_text(
+		2,
+		_get_save_load_state(
+			_get_entry_bool(scope_entry, "can_save"),
+			_get_entry_bool(scope_entry, "can_load")
+		)
+	)
+	item.set_text(
+		3,
+		_get_entry_text(scope_entry, "path")
+	)
+	item.set_metadata(
+		0,
+		scope_entry.duplicate(true)
+	)
 
 
 ## 在树中新增一个 Source 报告项和序列化器 ID 描述。
@@ -436,14 +499,30 @@ func _add_source_item(parent: TreeItem, source_entry: Dictionary) -> void:
 	var serializer_text: String = ", ".join(serializer_ids) if not serializer_ids.is_empty() else "无 serializer"
 	var item: TreeItem = _tree.create_item(parent)
 	item.set_text(0, "Source")
-	item.set_text(1, _get_entry_text(source_entry, "key"))
-	item.set_text(2, _get_save_load_state(_get_entry_bool(source_entry, "can_save"), _get_entry_bool(source_entry, "can_load")))
-	item.set_text(3, "%s -> %s · %s" % [
-		_get_entry_text(source_entry, "path"),
-		_get_entry_text(source_entry, "target_path"),
-		serializer_text,
-	])
-	item.set_metadata(0, _sanitize_for_display(source_entry))
+	item.set_text(
+		1,
+		_get_entry_text(source_entry, "key")
+	)
+	item.set_text(
+		2,
+		_get_save_load_state(
+			_get_entry_bool(source_entry, "can_save"),
+			_get_entry_bool(source_entry, "can_load")
+		)
+	)
+	item.set_text(
+		3,
+		"%s -> %s · %s"
+		% [
+			_get_entry_text(source_entry, "path"),
+			_get_entry_text(source_entry, "target_path"),
+			serializer_text,
+		]
+	)
+	item.set_metadata(
+		0,
+		_sanitize_for_display(source_entry)
+	)
 
 
 ## 在树中新增一个校验问题项。
@@ -452,11 +531,26 @@ func _add_source_item(parent: TreeItem, source_entry: Dictionary) -> void:
 ## [br]
 func _add_issue_item(parent: TreeItem, issue: Dictionary) -> void:
 	var item: TreeItem = _tree.create_item(parent)
-	item.set_text(0, _get_entry_text(issue, "severity"))
-	item.set_text(1, _get_entry_text(issue, "kind"))
-	item.set_text(2, _get_entry_text(issue, "key"))
-	item.set_text(3, _get_entry_text(issue, "message"))
-	item.set_metadata(0, issue.duplicate(true))
+	item.set_text(
+		0,
+		_get_entry_text(issue, "severity")
+	)
+	item.set_text(
+		1,
+		_get_entry_text(issue, "kind")
+	)
+	item.set_text(
+		2,
+		_get_entry_text(issue, "key")
+	)
+	item.set_text(
+		3,
+		_get_entry_text(issue, "message")
+	)
+	item.set_metadata(
+		0,
+		issue.duplicate(true)
+	)
 
 
 ## 显示空状态消息，并隐藏报告树和载荷输出。
@@ -476,7 +570,11 @@ func _render_empty(message: String, hint: String = "") -> void:
 	if _empty_label != null:
 		_empty_label.text = hint if not hint.is_empty() else message
 		_empty_label.visible = true
-	_GF_EDITOR_WORKSPACE_UI.set_status(_summary_label, message, _GF_EDITOR_WORKSPACE_UI.INFO_TEXT_COLOR)
+	_GF_EDITOR_WORKSPACE_UI.set_status(
+		_summary_label,
+		message,
+		_GF_EDITOR_WORKSPACE_UI.INFO_TEXT_COLOR
+	)
 
 
 ## 从最近一次 Scope 报告中返回第一个 Scope 条目。
@@ -513,12 +611,17 @@ func _preview_payload() -> void:
 		_render_empty("选择无效。", "当前 GFSaveScope 选择无效，请刷新后重试。")
 		return
 
-	_last_payload = _utility.gather_scope(scope, {
-		"include_pipeline_trace": _include_trace_check != null and _include_trace_check.button_pressed,
-	})
+	_last_payload = _utility.gather_scope(
+		scope,
+		{ "include_pipeline_trace": _include_trace_check != null and _include_trace_check.button_pressed, }
+	)
 	if _last_payload.is_empty():
 		_payload_output.text = ""
-		_GF_EDITOR_WORKSPACE_UI.set_status(_summary_label, "预览载荷为空。", _GF_EDITOR_WORKSPACE_UI.WARNING_TEXT_COLOR)
+		_GF_EDITOR_WORKSPACE_UI.set_status(
+			_summary_label,
+			"预览载荷为空。",
+			_GF_EDITOR_WORKSPACE_UI.WARNING_TEXT_COLOR
+		)
 		return
 
 	_last_payload_report = _utility.validate_payload_for_scope(
@@ -526,18 +629,13 @@ func _preview_payload() -> void:
 		_last_payload,
 		_strict_payload_check != null and _strict_payload_check.button_pressed
 	)
-	_payload_output.text = _safe_json({
-		"payload": _last_payload,
-		"payload_report": _last_payload_report,
-	})
+	_payload_output.text = _safe_json({ "payload": _last_payload, "payload_report": _last_payload_report, })
 	_tabs.current_tab = 1
 	_details_toggle.button_pressed = true
 	_GF_EDITOR_WORKSPACE_UI.set_status(
 		_summary_label,
-		"%s\nPayload：%s" % [
-			_get_report_text("summary"),
-			GFVariantData.get_option_string(_last_payload_report, "summary"),
-		],
+		"%s\nPayload：%s"
+		% [_get_report_text("summary"), GFVariantData.get_option_string(_last_payload_report, "summary"),],
 		_GF_EDITOR_WORKSPACE_UI.get_report_color(_last_payload_report)
 	)
 
@@ -573,7 +671,10 @@ func _get_node_path_text(node: Node) -> String:
 ## @api private
 ## [br]
 func _safe_json(value: Variant) -> String:
-	return JSON.stringify(_sanitize_for_display(value), "\t")
+	return JSON.stringify(
+		_sanitize_for_display(value),
+		"\t"
+	)
 
 
 ## 将字典、数组和 PackedStringArray 转为可显示值，并把 Object 转成文本。
@@ -637,7 +738,11 @@ func _get_packed_string_array_value(value: Variant) -> PackedStringArray:
 ## @api private
 ## [br]
 func _get_report_text(key: String, fallback: String = "") -> String:
-	return GFVariantData.get_option_string(_last_scope_report, key, fallback)
+	return GFVariantData.get_option_string(
+		_last_scope_report,
+		key,
+		fallback
+	)
 
 
 ## 从最近一次 Scope 报告中读取指定字典条目列表。
@@ -645,23 +750,45 @@ func _get_report_text(key: String, fallback: String = "") -> String:
 ## @api private
 ## [br]
 func _get_report_entries(key: String) -> Array[Dictionary]:
-	return _dictionary_entries(GFVariantData.get_option_value(_last_scope_report, key, []))
+	return _dictionary_entries(
+		GFVariantData.get_option_value(
+			_last_scope_report,
+			key,
+			[]
+		)
+	)
 
 
 ## 从条目读取文本字段及回退值。
 ## [br]
 ## @api private
 ## [br]
-func _get_entry_text(entry: Dictionary, key: String, fallback: String = "") -> String:
-	return GFVariantData.get_option_string(entry, key, fallback)
+func _get_entry_text(
+	entry: Dictionary,
+	key: String,
+	fallback: String = ""
+) -> String:
+	return GFVariantData.get_option_string(
+		entry,
+		key,
+		fallback
+	)
 
 
 ## 从条目读取布尔字段及回退值。
 ## [br]
 ## @api private
 ## [br]
-func _get_entry_bool(entry: Dictionary, key: String, fallback: bool = false) -> bool:
-	return GFVariantData.get_option_bool(entry, key, fallback)
+func _get_entry_bool(
+	entry: Dictionary,
+	key: String,
+	fallback: bool = false
+) -> bool:
+	return GFVariantData.get_option_bool(
+		entry,
+		key,
+		fallback
+	)
 
 
 ## 从条目读取 PackedStringArray 字段。
@@ -669,7 +796,13 @@ func _get_entry_bool(entry: Dictionary, key: String, fallback: bool = false) -> 
 ## @api private
 ## [br]
 func _get_entry_packed_string_array(entry: Dictionary, key: String) -> PackedStringArray:
-	return _get_packed_string_array_value(GFVariantData.get_option_value(entry, key, PackedStringArray()))
+	return _get_packed_string_array_value(
+		GFVariantData.get_option_value(
+			entry,
+			key,
+			PackedStringArray()
+		)
+	)
 
 
 ## 返回当前 MainLoop 对应的 SceneTree；不是 SceneTree 时返回 null。
@@ -746,14 +879,15 @@ func _on_preview_payload_pressed() -> void:
 ## @api private
 ## [br]
 func _on_copy_report_pressed() -> void:
-	var report: Dictionary = {
-		"scope_report": _last_scope_report,
-		"payload_report": _last_payload_report,
-	}
+	var report: Dictionary = { "scope_report": _last_scope_report, "payload_report": _last_payload_report, }
 	if not _last_payload.is_empty():
 		report["payload"] = _last_payload
 	DisplayServer.clipboard_set(_safe_json(report))
-	_GF_EDITOR_WORKSPACE_UI.set_status(_summary_label, "已复制 SaveGraph 报告。", _GF_EDITOR_WORKSPACE_UI.OK_TEXT_COLOR)
+	_GF_EDITOR_WORKSPACE_UI.set_status(
+		_summary_label,
+		"已复制 SaveGraph 报告。",
+		_GF_EDITOR_WORKSPACE_UI.OK_TEXT_COLOR
+	)
 
 
 ## 树条目选择变化时显示条目详情。

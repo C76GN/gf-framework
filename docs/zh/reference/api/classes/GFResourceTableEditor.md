@@ -16,8 +16,8 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 信号 | [`resource_selected`](#member-gfresourcetableeditor-signals-resource_selected) | `signal resource_selected(resource: Resource)` |
-| 信号 | [`cell_value_committed`](#member-gfresourcetableeditor-signals-cell_value_committed) | `signal cell_value_committed(resource: Resource, property: StringName, old_value: Variant, new_value: Variant)` |
-| 信号 | [`resource_save_failed`](#member-gfresourcetableeditor-signals-resource_save_failed) | `signal resource_save_failed(resource: Resource, path: String, error: Error)` |
+| 信号 | [`cell_value_committed`](#member-gfresourcetableeditor-signals-cell_value_committed) | `signal cell_value_committed( resource: Resource, property: StringName, old_value: Variant, new_value: Variant )` |
+| 信号 | [`resource_save_failed`](#member-gfresourcetableeditor-signals-resource_save_failed) | `signal resource_save_failed( resource: Resource, path: String, error: Error )` |
 | 信号 | [`resources_reordered`](#member-gfresourcetableeditor-signals-resources_reordered) | `signal resources_reordered(resources: Array)` |
 | 信号 | [`resource_inserted`](#member-gfresourcetableeditor-signals-resource_inserted) | `signal resource_inserted(resource: Resource, index: int)` |
 | 信号 | [`resource_removed`](#member-gfresourcetableeditor-signals-resource_removed) | `signal resource_removed(resource: Resource, index: int)` |
@@ -46,9 +46,9 @@
 | 方法 | [`move_resource`](#member-gfresourcetableeditor-methods-move_resource) | `func move_resource(from_index: int, to_index: int) -> bool:` |
 | 方法 | [`insert_resource`](#member-gfresourcetableeditor-methods-insert_resource) | `func insert_resource(resource: Resource, index: int = -1) -> bool:` |
 | 方法 | [`remove_resource`](#member-gfresourcetableeditor-methods-remove_resource) | `func remove_resource(row_index: int) -> Resource:` |
-| 方法 | [`duplicate_resource`](#member-gfresourcetableeditor-methods-duplicate_resource) | `func duplicate_resource(row_index: int, deep: bool = false, insert_after: bool = true) -> Resource:` |
-| 方法 | [`commit_cell_value`](#member-gfresourcetableeditor-methods-commit_cell_value) | `func commit_cell_value(row_index: int, property: StringName, new_value: Variant) -> bool:` |
-| 方法 | [`commit_visible_cell_value`](#member-gfresourcetableeditor-methods-commit_visible_cell_value) | `func commit_visible_cell_value(visible_row_index: int, property: StringName, new_value: Variant) -> bool:` |
+| 方法 | [`duplicate_resource`](#member-gfresourcetableeditor-methods-duplicate_resource) | `func duplicate_resource( row_index: int, deep: bool = false, insert_after: bool = true ) -> Resource:` |
+| 方法 | [`commit_cell_value`](#member-gfresourcetableeditor-methods-commit_cell_value) | `func commit_cell_value( row_index: int, property: StringName, new_value: Variant ) -> bool:` |
+| 方法 | [`commit_visible_cell_value`](#member-gfresourcetableeditor-methods-commit_visible_cell_value) | `func commit_visible_cell_value( visible_row_index: int, property: StringName, new_value: Variant ) -> bool:` |
 | 方法 | [`commit_cell_values`](#member-gfresourcetableeditor-methods-commit_cell_values) | `func commit_cell_values(changes: Array[Dictionary]) -> Dictionary:` |
 | 方法 | [`commit_visible_cell_values`](#member-gfresourcetableeditor-methods-commit_visible_cell_values) | `func commit_visible_cell_values(changes: Array[Dictionary]) -> Dictionary:` |
 | 方法 | [`refresh`](#member-gfresourcetableeditor-methods-refresh) | `func refresh() -> void:` |
@@ -81,7 +81,7 @@ signal resource_selected(resource: Resource)
 - 首次版本：`3.17.0`
 
 ```gdscript
-signal cell_value_committed(resource: Resource, property: StringName, old_value: Variant, new_value: Variant)
+signal cell_value_committed( resource: Resource, property: StringName, old_value: Variant, new_value: Variant )
 ```
 
 单元格值实际变化且整批事务成功后发出；空批次和规范化后同值的提交不发出。
@@ -105,9 +105,10 @@ signal cell_value_committed(resource: Resource, property: StringName, old_value:
 ### `resource_save_failed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal resource_save_failed(resource: Resource, path: String, error: Error)
+signal resource_save_failed( resource: Resource, path: String, error: Error )
 ```
 
 自动保存资源失败时发出。
@@ -633,9 +634,10 @@ func remove_resource(row_index: int) -> Resource:
 ### `duplicate_resource`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func duplicate_resource(row_index: int, deep: bool = false, insert_after: bool = true) -> Resource:
+func duplicate_resource( row_index: int, deep: bool = false, insert_after: bool = true ) -> Resource:
 ```
 
 复制资源并插入到列表。
@@ -658,7 +660,7 @@ func duplicate_resource(row_index: int, deep: bool = false, insert_after: bool =
 - 首次版本：`3.17.0`
 
 ```gdscript
-func commit_cell_value(row_index: int, property: StringName, new_value: Variant) -> bool:
+func commit_cell_value( row_index: int, property: StringName, new_value: Variant ) -> bool:
 ```
 
 提交单元格值。 当规范化请求值与稳定当前值相同时返回成功，但不调用 setter、不发出 cell_value_committed、不自动保存，也不刷新表格。
@@ -685,7 +687,7 @@ func commit_cell_value(row_index: int, property: StringName, new_value: Variant)
 - 首次版本：`3.17.0`
 
 ```gdscript
-func commit_visible_cell_value(visible_row_index: int, property: StringName, new_value: Variant) -> bool:
+func commit_visible_cell_value( visible_row_index: int, property: StringName, new_value: Variant ) -> bool:
 ```
 
 提交当前可见行的单元格值。 当规范化请求值与稳定当前值相同时返回成功，但不调用 setter、不发出 cell_value_committed、不自动保存，也不刷新表格。

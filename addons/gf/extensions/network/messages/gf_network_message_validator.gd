@@ -131,7 +131,11 @@ var max_tick: int = -1
 ## [br]
 ## @schema return: Dictionary，包含 ok 和 errors。
 func validate_message(message: GFNetworkMessage) -> Dictionary:
-	return _validate_message_internal(message, -1, false)
+	return _validate_message_internal(
+		message,
+		-1,
+		false
+	)
 
 
 ## 按实际 peer 上下文校验消息对象。
@@ -148,7 +152,11 @@ func validate_message(message: GFNetworkMessage) -> Dictionary:
 ## [br]
 ## @schema return: Dictionary，包含 ok 和 errors。
 func validate_message_for_peer(message: GFNetworkMessage, peer_id: int) -> Dictionary:
-	return _validate_message_internal(message, peer_id, true)
+	return _validate_message_internal(
+		message,
+		peer_id,
+		true
+	)
 
 
 ## 添加允许的 message_type。
@@ -161,7 +169,10 @@ func validate_message_for_peer(message: GFNetworkMessage, peer_id: int) -> Dicti
 ## [br]
 ## @return 成功添加或已存在时返回 true。
 func allow_message_type(message_type: StringName) -> bool:
-	return _append_unique_string(allowed_message_types, String(message_type))
+	return _append_unique_string(
+		allowed_message_types,
+		String(message_type)
+	)
 
 
 ## 添加已知 channel_id。
@@ -174,7 +185,10 @@ func allow_message_type(message_type: StringName) -> bool:
 ## [br]
 ## @return 成功添加或已存在时返回 true。
 func register_known_channel(channel_id: StringName) -> bool:
-	return _append_unique_string(known_channel_ids, String(channel_id))
+	return _append_unique_string(
+		known_channel_ids,
+		String(channel_id)
+	)
 
 
 ## 从网络契约同步允许消息和已知通道。
@@ -191,7 +205,11 @@ func register_known_channel(channel_id: StringName) -> bool:
 func configure_from_contract(network_contract: GFNetworkContract, options: Dictionary = {}) -> void:
 	contract = network_contract
 	allowed_message_types.clear()
-	if GFVariantData.get_option_bool(options, "include_channels", true):
+	if GFVariantData.get_option_bool(
+		options,
+		"include_channels",
+		true
+	):
 		known_channel_ids.clear()
 	if contract == null:
 		return
@@ -199,7 +217,11 @@ func configure_from_contract(network_contract: GFNetworkContract, options: Dicti
 		if message_contract == null:
 			continue
 		var _allowed_added: bool = allow_message_type(message_contract.message_type)
-		if GFVariantData.get_option_bool(options, "include_channels", true):
+		if GFVariantData.get_option_bool(
+			options,
+			"include_channels",
+			true
+		):
 			var _channel_added: bool = register_known_channel(message_contract.channel_id)
 
 
@@ -263,7 +285,11 @@ func get_debug_snapshot() -> Dictionary:
 ## [br]
 ## @api private
 ## [br]
-func _validate_message_internal(message: GFNetworkMessage, peer_id: int, has_peer_context: bool) -> Dictionary:
+func _validate_message_internal(
+	message: GFNetworkMessage,
+	peer_id: int,
+	has_peer_context: bool
+) -> Dictionary:
 	var errors: PackedStringArray = PackedStringArray()
 	if message == null:
 		var _append_result_59: Variant = errors.append("message_is_null")
@@ -271,15 +297,36 @@ func _validate_message_internal(message: GFNetworkMessage, peer_id: int, has_pee
 
 	if message.message_type == &"" and not allow_empty_message_type:
 		var _append_result_63: Variant = errors.append("empty_message_type")
-	if _string_set_has(blocked_message_types, String(message.message_type)):
+	if _string_set_has(
+		blocked_message_types,
+		String(message.message_type)
+	):
 		var _blocked_result: Variant = errors.append("blocked_message_type")
-	if not allowed_message_types.is_empty() and not _string_set_has(allowed_message_types, String(message.message_type)):
+	if (
+		not allowed_message_types.is_empty()
+		and not _string_set_has(
+			allowed_message_types,
+			String(message.message_type)
+		)
+	):
 		var _allowed_result: Variant = errors.append("message_type_not_allowed")
-	if not known_channel_ids.is_empty() and message.channel_id != &"" and not _string_set_has(known_channel_ids, String(message.channel_id)):
+	if (
+		not known_channel_ids.is_empty()
+		and message.channel_id != &""
+		and not _string_set_has(
+			known_channel_ids,
+			String(message.channel_id)
+		)
+	):
 		var _channel_result: Variant = errors.append("unknown_channel_id")
 	if require_sender_id and message.sender_id < 0:
 		var _sender_required_result: Variant = errors.append("sender_id_missing")
-	if has_peer_context and enforce_sender_id_matches_peer and message.sender_id >= 0 and message.sender_id != peer_id:
+	if (
+		has_peer_context
+		and enforce_sender_id_matches_peer
+		and message.sender_id >= 0
+		and message.sender_id != peer_id
+	):
 		var _sender_mismatch_result: Variant = errors.append("sender_id_mismatch")
 	if min_sequence >= 0 and message.sequence < min_sequence:
 		var _sequence_min_result: Variant = errors.append("sequence_below_minimum")
@@ -299,7 +346,10 @@ func _validate_message_internal(message: GFNetworkMessage, peer_id: int, has_pee
 			if require_contract_message:
 				var _contract_unknown_result: Variant = errors.append("unknown_contract_message_type")
 		else:
-			_append_contract_errors(errors, message_contract.validate_message(message))
+			_append_contract_errors(
+				errors,
+				message_contract.validate_message(message)
+			)
 	return _make_report(errors)
 
 
@@ -308,10 +358,7 @@ func _validate_message_internal(message: GFNetworkMessage, peer_id: int, has_pee
 ## @api private
 ## [br]
 func _make_report(errors: PackedStringArray) -> Dictionary:
-	return {
-		"ok": errors.is_empty(),
-		"errors": errors,
-	}
+	return { "ok": errors.is_empty(), "errors": errors, }
 
 
 ## 检查 payload 是否含 String 或等值 StringName 键。

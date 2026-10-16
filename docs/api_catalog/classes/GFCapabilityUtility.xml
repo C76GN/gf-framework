@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCapabilityUtility" path="addons/gf/extensions/capability/core/gf_capability_utility.gd" module="extensions/capability" extends="GFUtility" classDigest="1689f9469e3e00ad78fc8063faa369337c16cb6d9e403a34217d4d62567a31da">
+<class name="GFCapabilityUtility" path="addons/gf/extensions/capability/core/gf_capability_utility.gd" module="extensions/capability" extends="GFUtility" classDigest="cf7363b05fc8b38acdf2524298db3cd06c5c7b43967026f0d4ae73228d743cb7">
 	<description>GFCapabilityUtility: 对象能力组件管理器。
 提供面向任意 Object / Node 的能力挂载、查询、移除、启停、索引查询与依赖补齐能力。
 能力组合是可选扩展，不改变核心分层容器。
@@ -12,17 +12,18 @@ Utility 不接管 receiver 生命周期，也不会在项目直接释放 receive
 	</tags>
 	<signals>
 		<member kind="signal" name="capability_added">
-			<signature>signal capability_added(receiver: Object, capability_type: Script, capability: Object)</signature>
+			<signature>signal capability_added( receiver: Object, capability_type: Script, capability: Object )</signature>
 			<description>当能力成功挂载到对象后发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">receiver: 能力接收对象。</tag>
 				<tag name="param">capability_type: 实际注册的能力脚本类型。</tag>
 				<tag name="param">capability: 已挂载的能力实例。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="capability_removed">
-			<signature>signal capability_removed(receiver: Object, capability_type: Script, capability: Object)</signature>
+			<signature>signal capability_removed( receiver: Object, capability_type: Script, capability: Object )</signature>
 			<description>当能力记录已从对象摘除、但 owned 实例尚未释放时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -33,7 +34,7 @@ Utility 不接管 receiver 生命周期，也不会在项目直接释放 receive
 			</tags>
 		</member>
 		<member kind="signal" name="capability_active_changed">
-			<signature>signal capability_active_changed(receiver: Object, capability_type: Script, capability: Object, active: bool)</signature>
+			<signature>signal capability_active_changed( receiver: Object, capability_type: Script, capability: Object, active: bool )</signature>
 			<description>当能力启停状态变化后发出。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -41,6 +42,7 @@ Utility 不接管 receiver 生命周期，也不会在项目直接释放 receive
 				<tag name="param">capability_type: 实际注册的能力脚本类型。</tag>
 				<tag name="param">capability: 状态变化的能力实例。</tag>
 				<tag name="param">active: 新的启用状态。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -321,7 +323,7 @@ Utility 对成功注册的实例拥有独占生命周期所有权。</descriptio
 			</tags>
 		</member>
 		<member kind="method" name="add_capability_instance">
-			<signature>func add_capability_instance(receiver: Object, capability: Object, as_type: Script = null) -&gt; Object:</signature>
+			<signature>func add_capability_instance( receiver: Object, capability: Object, as_type: Script = null ) -&gt; Object:</signature>
 			<description>给对象挂载一个已经存在的能力实例。
 该入口不会接管传入实例的所有权；架构销毁时只注销能力记录。
 调用方应在外部释放实例前显式注销；需要转移所有权时请使用 adopt_capability_instance()。</description>
@@ -348,7 +350,7 @@ Utility 对成功注册的实例拥有独占生命周期所有权。</descriptio
 			</tags>
 		</member>
 		<member kind="method" name="add_scene_capability">
-			<signature>func add_scene_capability(receiver: Node, scene: PackedScene, as_type: Script = null) -&gt; Object:</signature>
+			<signature>func add_scene_capability( receiver: Node, scene: PackedScene, as_type: Script = null ) -&gt; Object:</signature>
 			<description>实例化 PackedScene 并作为能力挂载。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -356,10 +358,11 @@ Utility 对成功注册的实例拥有独占生命周期所有权。</descriptio
 				<tag name="param">scene: 要实例化的能力场景资源。</tag>
 				<tag name="param">as_type: 能力实例注册时使用的类型；为 null 时使用场景根节点脚本类型。非空时场景根节点脚本必须继承或等于该类型。</tag>
 				<tag name="return">已挂载的能力节点；失败时返回 null。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_capability_active">
-			<signature>func set_capability_active(receiver: Object, capability_type: Script, active: bool) -&gt; void:</signature>
+			<signature>func set_capability_active( receiver: Object, capability_type: Script, active: bool ) -&gt; void:</signature>
 			<description>设置对象上指定能力的启停状态。
 Node 能力树会在写状态前完成有界预检；超出 max_capability_tree_nodes 时保持原状态，
 不调用 active Hook，也不发出 capability_active_changed。</description>
@@ -416,7 +419,7 @@ Node 能力树会在写状态前完成有界预检；超出 max_capability_tree_
 			</tags>
 		</member>
 		<member kind="method" name="apply_recipe">
-			<signature>func apply_recipe(receiver: Object, recipe: GFCapabilityRecipe, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>func apply_recipe( receiver: Object, recipe: GFCapabilityRecipe, options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>把能力组合 Recipe 应用到 receiver。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -426,10 +429,11 @@ Node 能力树会在写状态前完成有界预检；超出 max_capability_tree_
 				<tag name="return">应用报告。</tag>
 				<tag name="schema">options: Dictionary，可包含 skip_groups、validate_after_apply、transactional 布尔选项。</tag>
 				<tag name="schema">return: Dictionary，包含 ok、recipe_id、added、reused、failed、groups、dependency_validation 与 rolled_back。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="remove_recipe">
-			<signature>func remove_recipe(receiver: Object, recipe: GFCapabilityRecipe, remove_groups: bool = true) -&gt; Dictionary:</signature>
+			<signature>func remove_recipe( receiver: Object, recipe: GFCapabilityRecipe, remove_groups: bool = true ) -&gt; Dictionary:</signature>
 			<description>移除 Recipe 描述的能力和可选分组。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -438,6 +442,7 @@ Node 能力树会在写状态前完成有界预检；超出 max_capability_tree_
 				<tag name="param">remove_groups: 是否同步移除 Recipe groups。</tag>
 				<tag name="return">移除报告。</tag>
 				<tag name="schema">return: Dictionary，包含 ok、recipe_id、removed、skipped 和 groups_removed。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate_receiver_dependencies">

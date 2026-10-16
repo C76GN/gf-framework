@@ -16,8 +16,8 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 信号 | [`position_updated`](#member-gfaudiobeatclock-signals-position_updated) | `signal position_updated(snapshot: Dictionary)` |
-| 信号 | [`beat_reached`](#member-gfaudiobeatclock-signals-beat_reached) | `signal beat_reached(beat_index: int, beat_in_measure: int, position_seconds: float)` |
-| 信号 | [`measure_reached`](#member-gfaudiobeatclock-signals-measure_reached) | `signal measure_reached(measure_index: int, beat_index: int, position_seconds: float)` |
+| 信号 | [`beat_reached`](#member-gfaudiobeatclock-signals-beat_reached) | `signal beat_reached( beat_index: int, beat_in_measure: int, position_seconds: float )` |
+| 信号 | [`measure_reached`](#member-gfaudiobeatclock-signals-measure_reached) | `signal measure_reached( measure_index: int, beat_index: int, position_seconds: float )` |
 | 枚举 | [`QuantizeMode`](#member-gfaudiobeatclock-enums-quantizemode) | `enum QuantizeMode` |
 | 常量 | [`DEFAULT_BPM`](#member-gfaudiobeatclock-constants-default_bpm) | `const DEFAULT_BPM: float = 120.0` |
 | 常量 | [`DEFAULT_BEATS_PER_MEASURE`](#member-gfaudiobeatclock-constants-default_beats_per_measure) | `const DEFAULT_BEATS_PER_MEASURE: int = 4` |
@@ -78,9 +78,10 @@ update() 采样时间并刷新快照后发出。
 ### `beat_reached`
 
 - API：`public`
+- 首次版本：`4.2.0`
 
 ```gdscript
-signal beat_reached(beat_index: int, beat_in_measure: int, position_seconds: float)
+signal beat_reached( beat_index: int, beat_in_measure: int, position_seconds: float )
 ```
 
 update() 检测到新的 beat 边界后发出。
@@ -98,9 +99,10 @@ update() 检测到新的 beat 边界后发出。
 ### `measure_reached`
 
 - API：`public`
+- 首次版本：`4.2.0`
 
 ```gdscript
-signal measure_reached(measure_index: int, beat_index: int, position_seconds: float)
+signal measure_reached( measure_index: int, beat_index: int, position_seconds: float )
 ```
 
 update() 检测到新的 measure 边界后发出。

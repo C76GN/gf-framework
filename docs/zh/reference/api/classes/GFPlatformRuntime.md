@@ -17,7 +17,7 @@
 |---|---|---|
 | 信号 | [`adapter_registered`](#member-gfplatformruntime-signals-adapter_registered) | `signal adapter_registered(adapter_id: StringName)` |
 | 信号 | [`adapter_unregistered`](#member-gfplatformruntime-signals-adapter_unregistered) | `signal adapter_unregistered(adapter_id: StringName)` |
-| 信号 | [`adapter_state_changed`](#member-gfplatformruntime-signals-adapter_state_changed) | `signal adapter_state_changed(adapter_id: StringName, previous_state: int, current_state: int)` |
+| 信号 | [`adapter_state_changed`](#member-gfplatformruntime-signals-adapter_state_changed) | `signal adapter_state_changed( adapter_id: StringName, previous_state: int, current_state: int )` |
 | 信号 | [`context_changed`](#member-gfplatformruntime-signals-context_changed) | `signal context_changed(adapter_id: StringName, context: GFPlatformRuntimeContext)` |
 | 信号 | [`lifecycle_event`](#member-gfplatformruntime-signals-lifecycle_event) | `signal lifecycle_event(adapter_id: StringName, event: GFPlatformLifecycleEvent)` |
 | 信号 | [`activation_intent_received`](#member-gfplatformruntime-signals-activation_intent_received) | `signal activation_intent_received(adapter_id: StringName, intent: GFPlatformActivationIntent)` |
@@ -36,14 +36,14 @@
 | 方法 | [`set_contract_route`](#member-gfplatformruntime-methods-set_contract_route) | `func set_contract_route(contract_id: StringName, adapter_id: StringName) -> bool:` |
 | 方法 | [`clear_contract_route`](#member-gfplatformruntime-methods-clear_contract_route) | `func clear_contract_route(contract_id: StringName) -> bool:` |
 | 方法 | [`get_contract_route`](#member-gfplatformruntime-methods-get_contract_route) | `func get_contract_route(contract_id: StringName) -> StringName:` |
-| 方法 | [`invoke`](#member-gfplatformruntime-methods-invoke) | `func invoke( request: GFPlatformBridgeRequest, adapter_id: StringName = &"" ) -> GFPlatformRequestHandle:` |
+| 方法 | [`invoke`](#member-gfplatformruntime-methods-invoke) | `func invoke(request: GFPlatformBridgeRequest, adapter_id: StringName = &"") -> GFPlatformRequestHandle:` |
 | 方法 | [`invoke_contract`](#member-gfplatformruntime-methods-invoke_contract) | `func invoke_contract( contract_id: StringName, method_id: StringName, payload: Dictionary = {}, options: Dictionary = {} ) -> GFPlatformRequestHandle:` |
 | 方法 | [`cancel_request`](#member-gfplatformruntime-methods-cancel_request) | `func cancel_request(request_id: StringName, reason: StringName = &"cancelled") -> bool:` |
 | 方法 | [`get_adapter_ids`](#member-gfplatformruntime-methods-get_adapter_ids) | `func get_adapter_ids() -> PackedStringArray:` |
 | 方法 | [`get_context`](#member-gfplatformruntime-methods-get_context) | `func get_context(adapter_id: StringName) -> GFPlatformRuntimeContext:` |
 | 方法 | [`get_activation_intents`](#member-gfplatformruntime-methods-get_activation_intents) | `func get_activation_intents() -> Array[GFPlatformActivationIntent]:` |
-| 方法 | [`consume_activation_intent`](#member-gfplatformruntime-methods-consume_activation_intent) | `func consume_activation_intent( adapter_id: StringName, intent_id: StringName ) -> GFPlatformActivationIntent:` |
-| 方法 | [`acknowledge_activation_intent`](#member-gfplatformruntime-methods-acknowledge_activation_intent) | `func acknowledge_activation_intent( adapter_id: StringName, intent_id: StringName ) -> bool:` |
+| 方法 | [`consume_activation_intent`](#member-gfplatformruntime-methods-consume_activation_intent) | `func consume_activation_intent(adapter_id: StringName, intent_id: StringName) -> GFPlatformActivationIntent:` |
+| 方法 | [`acknowledge_activation_intent`](#member-gfplatformruntime-methods-acknowledge_activation_intent) | `func acknowledge_activation_intent(adapter_id: StringName, intent_id: StringName) -> bool:` |
 | 方法 | [`clear_activation_intents`](#member-gfplatformruntime-methods-clear_activation_intents) | `func clear_activation_intents(clear_dedupe_history: bool = false) -> void:` |
 | 方法 | [`has_capability`](#member-gfplatformruntime-methods-has_capability) | `func has_capability(capability_id: StringName, adapter_id: StringName = &"") -> bool:` |
 | 方法 | [`get_debug_snapshot`](#member-gfplatformruntime-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
@@ -96,7 +96,7 @@ Adapter 注销后发出。
 - 首次版本：`9.0.0`
 
 ```gdscript
-signal adapter_state_changed(adapter_id: StringName, previous_state: int, current_state: int)
+signal adapter_state_changed( adapter_id: StringName, previous_state: int, current_state: int )
 ```
 
 Adapter 状态变化后转发。
@@ -476,7 +476,7 @@ func get_contract_route(contract_id: StringName) -> StringName:
 - 首次版本：`9.0.0`
 
 ```gdscript
-func invoke( request: GFPlatformBridgeRequest, adapter_id: StringName = &"" ) -> GFPlatformRequestHandle:
+func invoke(request: GFPlatformBridgeRequest, adapter_id: StringName = &"") -> GFPlatformRequestHandle:
 ```
 
 提交完整平台桥接请求。 `adapter_id` 非空时优先使用指定 adapter；否则使用显式路由；只有恰好一个 候选时才允许自动解析。
@@ -604,7 +604,7 @@ func get_activation_intents() -> Array[GFPlatformActivationIntent]:
 - 首次版本：`10.0.0`
 
 ```gdscript
-func consume_activation_intent( adapter_id: StringName, intent_id: StringName ) -> GFPlatformActivationIntent:
+func consume_activation_intent(adapter_id: StringName, intent_id: StringName) -> GFPlatformActivationIntent:
 ```
 
 消费并移除指定激活意图。
@@ -626,7 +626,7 @@ func consume_activation_intent( adapter_id: StringName, intent_id: StringName ) 
 - 首次版本：`10.0.0`
 
 ```gdscript
-func acknowledge_activation_intent( adapter_id: StringName, intent_id: StringName ) -> bool:
+func acknowledge_activation_intent(adapter_id: StringName, intent_id: StringName) -> bool:
 ```
 
 确认并移除指定激活意图。

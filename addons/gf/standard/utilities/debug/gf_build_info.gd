@@ -219,19 +219,71 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @schema data: Dictionary，可包含 project_name、project_version、framework_version、build_id、commit_hash、branch、tag、commit_count、is_dirty、build_time_utc、engine_version、platform_name、is_debug_build 和 metadata 字段。
 func apply_dict(data: Dictionary) -> void:
-	project_name = GFVariantData.get_option_string(data, "project_name", project_name)
-	project_version = GFVariantData.get_option_string(data, "project_version", project_version)
-	framework_version = GFVariantData.get_option_string(data, "framework_version", framework_version)
-	build_id = GFVariantData.get_option_string(data, "build_id", build_id)
-	commit_hash = GFVariantData.get_option_string(data, "commit_hash", commit_hash)
-	branch = GFVariantData.get_option_string(data, "branch", branch)
-	tag = GFVariantData.get_option_string(data, "tag", tag)
-	commit_count = GFVariantData.get_option_int(data, "commit_count", commit_count)
-	is_dirty = GFVariantData.get_option_bool(data, "is_dirty", is_dirty)
-	build_time_utc = GFVariantData.get_option_string(data, "build_time_utc", build_time_utc)
-	engine_version = GFVariantData.get_option_string(data, "engine_version", engine_version)
-	platform_name = GFVariantData.get_option_string(data, "platform_name", platform_name)
-	is_debug_build = GFVariantData.get_option_bool(data, "is_debug_build", is_debug_build)
+	project_name = GFVariantData.get_option_string(
+		data,
+		"project_name",
+		project_name
+	)
+	project_version = GFVariantData.get_option_string(
+		data,
+		"project_version",
+		project_version
+	)
+	framework_version = GFVariantData.get_option_string(
+		data,
+		"framework_version",
+		framework_version
+	)
+	build_id = GFVariantData.get_option_string(
+		data,
+		"build_id",
+		build_id
+	)
+	commit_hash = GFVariantData.get_option_string(
+		data,
+		"commit_hash",
+		commit_hash
+	)
+	branch = GFVariantData.get_option_string(
+		data,
+		"branch",
+		branch
+	)
+	tag = GFVariantData.get_option_string(
+		data,
+		"tag",
+		tag
+	)
+	commit_count = GFVariantData.get_option_int(
+		data,
+		"commit_count",
+		commit_count
+	)
+	is_dirty = GFVariantData.get_option_bool(
+		data,
+		"is_dirty",
+		is_dirty
+	)
+	build_time_utc = GFVariantData.get_option_string(
+		data,
+		"build_time_utc",
+		build_time_utc
+	)
+	engine_version = GFVariantData.get_option_string(
+		data,
+		"engine_version",
+		engine_version
+	)
+	platform_name = GFVariantData.get_option_string(
+		data,
+		"platform_name",
+		platform_name
+	)
+	is_debug_build = GFVariantData.get_option_bool(
+		data,
+		"is_debug_build",
+		is_debug_build
+	)
 	if data.has("metadata") or data.has(&"metadata"):
 		metadata = GFVariantData.get_option_dictionary(data, "metadata")
 
@@ -301,12 +353,42 @@ static func write_metadata_to_project_settings(
 	save_settings: bool = false
 ) -> Dictionary:
 	var written_data: Dictionary = {}
-	_set_string_setting_from_data(written_data, build_data, "build_id", BUILD_ID_SETTING)
-	_set_string_setting_from_data(written_data, build_data, "commit_hash", COMMIT_HASH_SETTING)
-	_set_string_setting_from_data(written_data, build_data, "branch", BRANCH_SETTING)
-	_set_string_setting_from_data(written_data, build_data, "tag", TAG_SETTING)
-	_set_int_setting_from_data(written_data, build_data, "commit_count", COMMIT_COUNT_SETTING)
-	_set_bool_setting_from_data(written_data, build_data, "is_dirty", IS_DIRTY_SETTING)
+	_set_string_setting_from_data(
+		written_data,
+		build_data,
+		"build_id",
+		BUILD_ID_SETTING
+	)
+	_set_string_setting_from_data(
+		written_data,
+		build_data,
+		"commit_hash",
+		COMMIT_HASH_SETTING
+	)
+	_set_string_setting_from_data(
+		written_data,
+		build_data,
+		"branch",
+		BRANCH_SETTING
+	)
+	_set_string_setting_from_data(
+		written_data,
+		build_data,
+		"tag",
+		TAG_SETTING
+	)
+	_set_int_setting_from_data(
+		written_data,
+		build_data,
+		"commit_count",
+		COMMIT_COUNT_SETTING
+	)
+	_set_bool_setting_from_data(
+		written_data,
+		build_data,
+		"is_dirty",
+		IS_DIRTY_SETTING
+	)
 
 	var effective_build_time_utc: String = GFVariantData.get_option_string(build_data, "build_time_utc")
 	if effective_build_time_utc.is_empty():
@@ -315,7 +397,12 @@ static func write_metadata_to_project_settings(
 	written_data["build_time_utc"] = effective_build_time_utc
 
 	var metadata_value: Dictionary = GFVariantData.get_option_dictionary(build_data, "metadata").duplicate(true)
-	var _merge_metadata_result: Dictionary = GFVariantData.merge_dictionary(metadata_value, extra_metadata, true, true)
+	var _merge_metadata_result: Dictionary = GFVariantData.merge_dictionary(
+		metadata_value,
+		extra_metadata,
+		true,
+		true
+	)
 	ProjectSettings.set_setting(METADATA_SETTING, metadata_value)
 	written_data["metadata"] = metadata_value.duplicate(true)
 
@@ -355,7 +442,13 @@ static func _read_framework_version() -> String:
 	var error: int = config.load(_FRAMEWORK_PLUGIN_CONFIG_PATH)
 	if error != OK:
 		return ""
-	return GFVariantData.to_text(config.get_value("plugin", "version", ""))
+	return GFVariantData.to_text(
+		config.get_value(
+			"plugin",
+			"version",
+			""
+		)
+	)
 
 
 ## 优先使用引擎提供的版本字符串，缺失时由主次修订号和可选状态拼成文本。
@@ -371,7 +464,15 @@ static func _format_engine_version(version_info: Dictionary) -> String:
 	var minor: String = GFVariantData.get_option_string(version_info, "minor")
 	var patch: String = GFVariantData.get_option_string(version_info, "patch")
 	var status: String = GFVariantData.get_option_string(version_info, "status")
-	var result: String = ".".join(PackedStringArray([major, minor, patch]))
+	var result: String = ".".join(
+		PackedStringArray(
+			[
+				major,
+				minor,
+				patch,
+			]
+		)
+	)
 	if not status.is_empty():
 		result += ".%s" % status
 	return result

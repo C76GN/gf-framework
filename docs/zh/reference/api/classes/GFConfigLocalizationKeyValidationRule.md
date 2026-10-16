@@ -22,7 +22,7 @@
 | 属性 | [`use_translation_server`](#member-gfconfiglocalizationkeyvalidationrule-properties-use_translation_server) | `var use_translation_server: bool = true` |
 | 方法 | [`describe`](#member-gfconfiglocalizationkeyvalidationrule-methods-describe) | `func describe() -> Dictionary:` |
 | 方法 | [`_get_default_rule_id`](#member-gfconfiglocalizationkeyvalidationrule-methods-_get_default_rule_id) | `func _get_default_rule_id() -> StringName:` |
-| 方法 | [`_validate_value`](#member-gfconfiglocalizationkeyvalidationrule-methods-_validate_value) | `func _validate_value(value: Variant, context: Dictionary, report: Dictionary) -> void:` |
+| 方法 | [`_validate_value`](#member-gfconfiglocalizationkeyvalidationrule-methods-_validate_value) | `func _validate_value( value: Variant, context: Dictionary, report: Dictionary ) -> void:` |
 
 ## 属性
 
@@ -131,9 +131,10 @@ func _get_default_rule_id() -> StringName:
 ### `_validate_value`
 
 - API：`protected`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func _validate_value(value: Variant, context: Dictionary, report: Dictionary) -> void:
+func _validate_value( value: Variant, context: Dictionary, report: Dictionary ) -> void:
 ```
 
 校验单个字段值是否存在于配置的文本 key 来源中。

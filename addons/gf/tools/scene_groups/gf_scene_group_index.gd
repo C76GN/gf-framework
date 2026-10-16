@@ -254,7 +254,11 @@ func begin_scan(root_path: String = "res://", options: Dictionary = {}) -> Error
 	_limits = _HARD_LIMITS.duplicate()
 	if not _is_valid_root_path(root_path) or not _configure_options(options):
 		_status = "failed"
-		_append_issue("invalid_request", root_path, "扫描目录或选项不符合约定。")
+		_append_issue(
+			"invalid_request",
+			root_path,
+			"扫描目录或选项不符合约定。"
+		)
 		return ERR_INVALID_PARAMETER
 	if _root_path != "res://":
 		_root_path = _root_path.trim_suffix("/")
@@ -265,10 +269,18 @@ func begin_scan(root_path: String = "res://", options: Dictionary = {}) -> Error
 	_directory = DirAccess.open(_root_path)
 	if _directory == null:
 		_status = "failed"
-		_append_issue("directory_unreadable", _root_path, "无法打开扫描目录。")
+		_append_issue(
+			"directory_unreadable",
+			_root_path,
+			"无法打开扫描目录。"
+		)
 		return ERR_CANT_OPEN
 	if _directory.file_exists(".gdignore"):
-		_append_issue("ignored_root", _root_path, "扫描根目录包含 .gdignore，不读取该目录。")
+		_append_issue(
+			"ignored_root",
+			_root_path,
+			"扫描根目录包含 .gdignore，不读取该目录。"
+		)
 		_directory = null
 		_status = "partial"
 		return OK
@@ -279,7 +291,11 @@ func begin_scan(root_path: String = "res://", options: Dictionary = {}) -> Error
 	if _directory.list_dir_begin() != OK:
 		_clear_work()
 		_status = "failed"
-		_append_issue("directory_unreadable", _root_path, "无法枚举扫描目录。")
+		_append_issue(
+			"directory_unreadable",
+			_root_path,
+			"无法枚举扫描目录。"
+		)
 		return ERR_CANT_OPEN
 	_phase = _PHASE_DISCOVERY
 	_status = "scanning"
@@ -302,7 +318,11 @@ func advance(entry_budget: int = 64) -> bool:
 	if _advancing:
 		return true
 	if entry_budget < 1 or entry_budget > _MAX_ADVANCE_BUDGET:
-		_append_issue("invalid_advance_budget", _root_path, "推进预算必须为 1..4096。")
+		_append_issue(
+			"invalid_advance_budget",
+			_root_path,
+			"推进预算必须为 1..4096。"
+		)
 		_finish("failed")
 		return false
 	_advancing = true
@@ -369,10 +389,18 @@ func get_snapshot() -> Dictionary:
 ## @return 有界分页与匹配总数。
 ## [br]
 ## @schema return: Dictionary，包含 rows（Array[Dictionary]，每项 group:String、scene_path:String、node_path:String）、total:int、offset:int、limit:int。node_path 相对声明场景根，根节点为 .。
-func query(text: String = "", offset: int = 0, limit: int = 100) -> Dictionary:
+func query(
+	text: String = "",
+	offset: int = 0,
+	limit: int = 100
+) -> Dictionary:
 	_sort_rows()
 	var page_offset: int = maxi(offset, 0)
-	var page_limit: int = clampi(limit, 0, 200)
+	var page_limit: int = clampi(
+		limit,
+		0,
+		200
+	)
 	var needle: String = text.to_lower()
 	var matches: int = 0
 	var page_rows: Array[Dictionary] = []
@@ -407,7 +435,11 @@ func _is_valid_root_path(root_path: String) -> bool:
 		if relative_path.unicode_at(character_index) < 32:
 			return false
 	for component: String in relative_path.split("/", true):
-		if component.is_empty() or component == "." or component == "..":
+		if (
+			component.is_empty()
+			or component == "."
+			or component == ".."
+		):
 			return false
 	return true
 
@@ -446,13 +478,25 @@ func _validate_root_chain() -> Error:
 	for component: String in relative_path.split("/"):
 		var parent_directory: DirAccess = DirAccess.open(parent_path)
 		if parent_directory == null:
-			_append_issue("directory_unreadable", parent_path, "无法检查扫描目录的父路径。")
+			_append_issue(
+				"directory_unreadable",
+				parent_path,
+				"无法检查扫描目录的父路径。"
+			)
 			return ERR_CANT_OPEN
 		if parent_directory.is_link(component):
-			_append_issue("linked_root", parent_path.path_join(component), "扫描根目录不能穿过文件系统链接。")
+			_append_issue(
+				"linked_root",
+				parent_path.path_join(component),
+				"扫描根目录不能穿过文件系统链接。"
+			)
 			return ERR_INVALID_PARAMETER
 		if parent_directory.file_exists(".gdignore"):
-			_append_issue("ignored_ancestor", parent_path, "扫描根目录位于 .gdignore 子树内。")
+			_append_issue(
+				"ignored_ancestor",
+				parent_path,
+				"扫描根目录位于 .gdignore 子树内。"
+			)
 			return ERR_INVALID_PARAMETER
 		parent_path = parent_path.path_join(component)
 	return OK
@@ -471,7 +515,11 @@ func _advance_directory() -> void:
 		_directory = null
 		return
 	if _entry_count >= _limit("max_entries"):
-		_append_issue("entry_limit", _root_path, "已达到目录条目上限，后续路径未扫描。")
+		_append_issue(
+			"entry_limit",
+			_root_path,
+			"已达到目录条目上限，后续路径未扫描。"
+		)
 		_finish_discovery()
 		return
 	_entry_count += 1
@@ -479,13 +527,21 @@ func _advance_directory() -> void:
 	if entry.begins_with("."):
 		return
 	if _directory.is_link(entry):
-		_append_issue("linked_entry", child_path, "不扫描文件系统链接。")
+		_append_issue(
+			"linked_entry",
+			child_path,
+			"不扫描文件系统链接。"
+		)
 		return
 	if _directory.current_is_dir():
 		if FileAccess.file_exists(child_path.path_join(".gdignore")):
 			return
 		if _directory_depth >= _limit("max_depth"):
-			_append_issue("depth_limit", child_path, "目录超过扫描深度，未读取其内容。")
+			_append_issue(
+				"depth_limit",
+				child_path,
+				"目录超过扫描深度，未读取其内容。"
+			)
 			return
 		_pending_directories.append(child_path)
 		_pending_depths.append(_directory_depth + 1)
@@ -494,7 +550,11 @@ func _advance_directory() -> void:
 	if extension != "tscn" and extension != "scn":
 		return
 	if _scene_paths.size() >= _limit("max_scenes"):
-		_append_issue("scene_limit", child_path, "已达到场景数量上限，后续路径未扫描。")
+		_append_issue(
+			"scene_limit",
+			child_path,
+			"已达到场景数量上限，后续路径未扫描。"
+		)
 		_finish_discovery()
 		return
 	var _appended: bool = _scene_paths.append(child_path)
@@ -513,11 +573,19 @@ func _open_next_directory() -> void:
 	_pending_directories.remove_at(last_index)
 	_pending_depths.remove_at(last_index)
 	if not _is_unlinked_path(_directory_path):
-		_append_issue("linked_entry", _directory_path, "目录路径已消失或成为文件系统链接。")
+		_append_issue(
+			"linked_entry",
+			_directory_path,
+			"目录路径已消失或成为文件系统链接。"
+		)
 		return
 	_directory = DirAccess.open(_directory_path)
 	if _directory == null:
-		_append_issue("directory_unreadable", _directory_path, "无法打开已发现的目录。")
+		_append_issue(
+			"directory_unreadable",
+			_directory_path,
+			"无法打开已发现的目录。"
+		)
 		return
 	if _directory.file_exists(".gdignore"):
 		_directory = null
@@ -525,7 +593,11 @@ func _open_next_directory() -> void:
 	_directory.include_hidden = false
 	_directory.include_navigational = false
 	if _directory.list_dir_begin() != OK:
-		_append_issue("directory_unreadable", _directory_path, "无法枚举已发现的目录。")
+		_append_issue(
+			"directory_unreadable",
+			_directory_path,
+			"无法枚举已发现的目录。"
+		)
 		_directory = null
 
 
@@ -554,28 +626,52 @@ func _load_next_scene() -> void:
 	_scene_cursor += 1
 	_scene_count += 1
 	if not _is_unlinked_path(_scene_path):
-		_append_issue("linked_entry", _scene_path, "场景路径已消失或成为文件系统链接。")
+		_append_issue(
+			"linked_entry",
+			_scene_path,
+			"场景路径已消失或成为文件系统链接。"
+		)
 		return
 	var file: FileAccess = FileAccess.open(_scene_path, FileAccess.READ)
 	if file == null:
-		_append_issue("scene_unreadable", _scene_path, "无法打开已发现的场景文件。")
+		_append_issue(
+			"scene_unreadable",
+			_scene_path,
+			"无法打开已发现的场景文件。"
+		)
 		return
 	var file_length: int = file.get_length()
 	file.close()
 	if file_length > _limit("max_scene_bytes"):
-		_append_issue("scene_size_limit", _scene_path, "场景文件超过单文件大小上限。")
+		_append_issue(
+			"scene_size_limit",
+			_scene_path,
+			"场景文件超过单文件大小上限。"
+		)
 		return
 	var load_generation: int = _generation
-	var loaded: Resource = ResourceLoader.load(_scene_path, "PackedScene", ResourceLoader.CACHE_MODE_IGNORE_DEEP)
+	var loaded: Resource = ResourceLoader.load(
+		_scene_path,
+		"PackedScene",
+		ResourceLoader.CACHE_MODE_IGNORE_DEEP
+	)
 	if _generation != load_generation or _status != "scanning":
 		return
 	if not loaded is PackedScene:
-		_append_issue("scene_load_failed", _scene_path, "Godot 无法将文件读取为 PackedScene。")
+		_append_issue(
+			"scene_load_failed",
+			_scene_path,
+			"Godot 无法将文件读取为 PackedScene。"
+		)
 		return
 	var packed_scene: PackedScene = loaded
 	_scene_state = packed_scene.get_state()
 	if _scene_state == null or _scene_state.get_node_count() == 0:
-		_append_issue("scene_state_invalid", _scene_path, "场景没有可读取的节点声明。")
+		_append_issue(
+			"scene_state_invalid",
+			_scene_path,
+			"场景没有可读取的节点声明。"
+		)
 		_scene_state = null
 		return
 	_node_cursor = 0
@@ -590,15 +686,31 @@ func _advance_scene_declaration() -> void:
 	if _group_cursor < _node_groups.size():
 		var group: String = _node_groups[_group_cursor]
 		_group_cursor += 1
-		var key: String = JSON.stringify([_scene_path, _node_path, group])
+		var key: String = JSON.stringify(
+			[
+				_scene_path,
+				_node_path,
+				group,
+			]
+		)
 		if _row_keys.has(key):
 			return
 		if _rows.size() >= _limit("max_rows"):
-			_append_issue("row_limit", _scene_path, "已达到 Group 声明数量上限。")
+			_append_issue(
+				"row_limit",
+				_scene_path,
+				"已达到 Group 声明数量上限。"
+			)
 			_finish("partial")
 			return
 		_row_keys[key] = true
-		_rows.append({ "group": group, "scene_path": _scene_path, "node_path": _node_path })
+		_rows.append(
+			{
+				"group": group,
+				"scene_path": _scene_path,
+				"node_path": _node_path,
+			}
+		)
 		_rows_sorted = false
 		return
 	if _node_cursor >= _scene_state.get_node_count():
@@ -640,11 +752,21 @@ func _limit(option_name: String) -> int:
 ## 在诊断数量上限内保存截断路径的诊断；容量耗尽后只累加省略数量。
 ## [br]
 ## @api private
-func _append_issue(code: String, path: String, message: String) -> void:
+func _append_issue(
+	code: String,
+	path: String,
+	message: String
+) -> void:
 	if _issues.size() >= _MAX_ISSUES:
 		_omitted_issue_count += 1
 		return
-	_issues.append({ "code": code, "path": path.left(_MAX_PATH_LENGTH), "message": message })
+	_issues.append(
+		{
+			"code": code,
+			"path": path.left(_MAX_PATH_LENGTH),
+			"message": message,
+		}
+	)
 
 
 ## 清理扫描游标与句柄后发布终态，并对已收集的结果排序，保留部分结果与诊断。
@@ -690,7 +812,11 @@ func _sort_rows() -> void:
 ## @api private
 ## [br]
 func _row_precedes(left: Dictionary, right: Dictionary) -> bool:
-	for field: String in ["group", "scene_path", "node_path"]:
+	for field: String in [
+		"group",
+		"scene_path",
+		"node_path",
+	]:
 		var left_value: String = _row_string(left, field)
 		var right_value: String = _row_string(right, field)
 		if left_value != right_value:
@@ -705,7 +831,11 @@ func _row_precedes(left: Dictionary, right: Dictionary) -> bool:
 func _matches_query(row: Dictionary, needle: String) -> bool:
 	if needle.is_empty():
 		return true
-	for field: String in ["group", "scene_path", "node_path"]:
+	for field: String in [
+		"group",
+		"scene_path",
+		"node_path",
+	]:
 		if _row_string(row, field).to_lower().contains(needle):
 			return true
 	return false

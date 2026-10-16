@@ -40,7 +40,10 @@ const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_varian
 ## [br]
 ## @schema options: Dictionary，包含 after_existing_annotations。
 static func get_annotation_insert_index(source_code: String, options: Dictionary = {}) -> int:
-	return _get_annotation_insert_index(_split_source_lines(source_code), options)
+	return _get_annotation_insert_index(
+		_split_source_lines(source_code),
+		options
+	)
 
 
 ## 生成注解补丁结果。
@@ -67,9 +70,21 @@ static func make_annotation_patch(
 ) -> Dictionary:
 	var normalized_annotation: String = annotation_line.strip_edges()
 	if normalized_annotation.is_empty() or not normalized_annotation.begins_with("@"):
-		return _make_patch_result(false, false, source_code, -1, 0, &"failed", "annotation_line must be a non-empty annotation")
+		return _make_patch_result(
+			false,
+			false,
+			source_code,
+			-1,
+			0,
+			&"failed",
+			"annotation_line must be a non-empty annotation"
+		)
 
-	var allow_duplicate: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "allow_duplicate", false)
+	var allow_duplicate: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		options,
+		"allow_duplicate",
+		false
+	)
 	var replacement_prefix: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 		options,
 		"replacement_prefix",
@@ -82,14 +97,34 @@ static func make_annotation_patch(
 
 	for index: int in range(lines.size()):
 		var line: String = lines[index]
-		if index < header_scan_end and _should_remove_annotation_line(line, normalized_annotation, replacement_prefix, allow_duplicate):
+		if (
+			index < header_scan_end
+			and _should_remove_annotation_line(
+				line,
+				normalized_annotation,
+				replacement_prefix,
+				allow_duplicate
+			)
+		):
 			removed_count += 1
 			continue
 		var _append_result: bool = filtered_lines.append(line)
 
 	var insert_index: int = _get_annotation_insert_index(filtered_lines, options)
-	if not allow_duplicate and removed_count == 0 and _header_has_annotation(filtered_lines, normalized_annotation):
-		return _make_patch_result(true, false, source_code, insert_index, removed_count, &"unchanged", "")
+	if (
+		not allow_duplicate
+		and removed_count == 0
+		and _header_has_annotation(filtered_lines, normalized_annotation)
+	):
+		return _make_patch_result(
+			true,
+			false,
+			source_code,
+			insert_index,
+			removed_count,
+			&"unchanged",
+			""
+		)
 
 	var _insert_result: bool = filtered_lines.insert(insert_index, normalized_annotation)
 	var patched_source: String = "\n".join(filtered_lines)
@@ -97,7 +132,15 @@ static func make_annotation_patch(
 		patched_source += "\n"
 
 	var changed: bool = patched_source != source_code
-	return _make_patch_result(true, changed, patched_source, insert_index, removed_count, &"changed" if changed else &"unchanged", "")
+	return _make_patch_result(
+		true,
+		changed,
+		patched_source,
+		insert_index,
+		removed_count,
+		&"changed" if changed else &"unchanged",
+		""
+	)
 
 
 ## 读取脚本文件、生成注解补丁并写回。
@@ -125,13 +168,29 @@ static func patch_script_path_annotation(
 	var read_result: Dictionary = _read_text(script_path)
 	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(read_result, "ok"):
 		var read_error: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(read_result, "error")
-		return _make_file_patch_result(false, false, {}, _make_failed_artifact_report(script_path, read_error), read_error)
+		return _make_file_patch_result(
+			false,
+			false,
+			{},
+			_make_failed_artifact_report(script_path, read_error),
+			read_error
+		)
 
 	var source_code: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(read_result, "text")
-	var patch: Dictionary = make_annotation_patch(source_code, annotation_line, options)
+	var patch: Dictionary = make_annotation_patch(
+		source_code,
+		annotation_line,
+		options
+	)
 	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(patch, "ok"):
 		var patch_error: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(patch, "error")
-		return _make_file_patch_result(false, false, patch, _make_failed_artifact_report(script_path, patch_error), patch_error)
+		return _make_file_patch_result(
+			false,
+			false,
+			patch,
+			_make_failed_artifact_report(script_path, patch_error),
+			patch_error
+		)
 
 	var changed: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(patch, "changed")
 	if not changed:
@@ -141,17 +200,43 @@ static func patch_script_path_annotation(
 			OK,
 			"",
 			{
-				"dry_run": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "dry_run", false),
+				"dry_run": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+					options,
+					"dry_run",
+					false
+				),
 				"artifact_owner": GFGeneratedArtifactReport.OWNER_USER,
-				"generator_id": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "generator_id", "GFScriptPatchUtility"),
+				"generator_id": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+					options,
+					"generator_id",
+					"GFScriptPatchUtility"
+				),
 			}
 		)
-		return _make_file_patch_result(true, false, patch, unchanged_report, "")
+		return _make_file_patch_result(
+			true,
+			false,
+			patch,
+			unchanged_report,
+			""
+		)
 
 	var save_options: Dictionary = options.duplicate(true)
-	save_options["label"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "label", "GFScriptPatchUtility")
-	save_options["artifact_owner"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(options, "artifact_owner", GFGeneratedArtifactReport.OWNER_USER)
-	save_options["generator_id"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "generator_id", "GFScriptPatchUtility")
+	save_options["label"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+		options,
+		"label",
+		"GFScriptPatchUtility"
+	)
+	save_options["artifact_owner"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+		options,
+		"artifact_owner",
+		GFGeneratedArtifactReport.OWNER_USER
+	)
+	save_options["generator_id"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+		options,
+		"generator_id",
+		"GFScriptPatchUtility"
+	)
 	save_options["expected_previous_sha256"] = source_code.sha256_text()
 	var artifact_report: Dictionary = GFGeneratedArtifactReport.save_text(
 		script_path,
@@ -159,7 +244,13 @@ static func patch_script_path_annotation(
 		save_options
 	)
 	var ok: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(artifact_report, "success")
-	return _make_file_patch_result(ok, changed, patch, artifact_report, _GF_VARIANT_ACCESS_SCRIPT.get_option_string(artifact_report, "error"))
+	return _make_file_patch_result(
+		ok,
+		changed,
+		patch,
+		artifact_report,
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(artifact_report, "error")
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -171,7 +262,11 @@ static func _split_source_lines(source_code: String) -> PackedStringArray:
 	var lines: PackedStringArray = source_code.replace("\r\n", "\n").replace("\r", "\n").split("\n", true)
 	if source_code.is_empty():
 		return PackedStringArray()
-	if source_code.ends_with("\n") and lines.size() > 0 and lines[lines.size() - 1] == "":
+	if (
+		source_code.ends_with("\n")
+		and lines.size() > 0
+		and lines[lines.size() - 1] == ""
+	):
 		return lines
 	return lines
 
@@ -187,7 +282,11 @@ static func _get_annotation_insert_index(lines: PackedStringArray, options: Dict
 	if insert_index < lines.size() and lines[insert_index].strip_edges() == "@tool":
 		insert_index += 1
 
-	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "after_existing_annotations", true):
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		options,
+		"after_existing_annotations",
+		true
+	):
 		while insert_index < lines.size():
 			var text: String = lines[insert_index].strip_edges()
 			if text.is_empty():
@@ -340,8 +439,5 @@ static func _make_failed_artifact_report(path: String, error: String) -> Diction
 		GFGeneratedArtifactReport.STATUS_FAILED,
 		ERR_INVALID_PARAMETER,
 		error,
-		{
-			"artifact_owner": GFGeneratedArtifactReport.OWNER_USER,
-			"generator_id": "GFScriptPatchUtility",
-		}
+		{ "artifact_owner": GFGeneratedArtifactReport.OWNER_USER, "generator_id": "GFScriptPatchUtility", }
 	)

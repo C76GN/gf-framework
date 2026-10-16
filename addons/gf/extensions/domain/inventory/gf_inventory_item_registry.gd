@@ -115,7 +115,10 @@ func get_definition(item_id: StringName) -> GFInventoryItemDefinition:
 	if definition != null and definition.item_id == item_id:
 		return definition
 	definition = _get_item_definition_value(
-		GFVariantData.get_option_value(definitions, String(item_id))
+		GFVariantData.get_option_value(
+			definitions,
+			String(item_id)
+		)
 	)
 	if definition != null and definition.item_id == item_id:
 		return definition
@@ -250,9 +253,21 @@ func apply_dict(data: Dictionary) -> void:
 		if definition.item_id == &"":
 			definition.item_id = StringName(GFVariantData.to_text(key))
 		set_definition(definition)
-	default_max_stack_amount = GFVariantData.get_option_int(data, "default_max_stack_amount", default_max_stack_amount)
-	default_max_stack_count = GFVariantData.get_option_int(data, "default_max_stack_count", default_max_stack_count)
-	allow_unregistered_items = GFVariantData.get_option_bool(data, "allow_unregistered_items", allow_unregistered_items)
+	default_max_stack_amount = GFVariantData.get_option_int(
+		data,
+		"default_max_stack_amount",
+		default_max_stack_amount
+	)
+	default_max_stack_count = GFVariantData.get_option_int(
+		data,
+		"default_max_stack_count",
+		default_max_stack_count
+	)
+	allow_unregistered_items = GFVariantData.get_option_bool(
+		data,
+		"allow_unregistered_items",
+		allow_unregistered_items
+	)
 
 
 ## 从字典创建注册表。

@@ -129,15 +129,30 @@ static func capture(
 	ping_pong: bool = false
 ) -> GFTweenPlaybackPlan:
 	if config == null or not is_instance_valid(target):
-		return _reject(GFTweenPlaybackPlan.new(), "Config and target must be valid.")
+		return _reject(
+			GFTweenPlaybackPlan.new(),
+			"Config and target must be valid."
+		)
 	if config.steps.is_empty() or config.steps.size() > _MAX_STEPS:
-		return _reject(GFTweenPlaybackPlan.new(), "Playback requires 1 to 256 steps.")
+		return _reject(
+			GFTweenPlaybackPlan.new(),
+			"Playback requires 1 to 256 steps."
+		)
 	if config.loop_count < 1 or config.loop_count > _MAX_LOOPS:
-		return _reject(GFTweenPlaybackPlan.new(), "Playback requires 1 to 256 finite loops.")
+		return _reject(
+			GFTweenPlaybackPlan.new(),
+			"Playback requires 1 to 256 finite loops."
+		)
 	if config.steps.size() * config.loop_count > _MAX_EXPANDED_STEPS:
-		return _reject(GFTweenPlaybackPlan.new(), "Expanded playback exceeds 4096 steps.")
+		return _reject(
+			GFTweenPlaybackPlan.new(),
+			"Expanded playback exceeds 4096 steps."
+		)
 	if not is_finite(config.duration_scale) or config.duration_scale < 0.0:
-		return _reject(GFTweenPlaybackPlan.new(), "Duration scale must be finite and nonnegative.")
+		return _reject(
+			GFTweenPlaybackPlan.new(),
+			"Duration scale must be finite and nonnegative."
+		)
 	var data: Array[Dictionary] = []
 	var baseline: Dictionary = {}
 	var target_property_names: Dictionary = {}
@@ -145,25 +160,46 @@ static func capture(
 		target_property_names[GFVariantData.get_option_string(info, "name")] = true
 	for step: GFTweenActionStep in config.steps:
 		if step == null:
-			return _reject(GFTweenPlaybackPlan.new(), "Null steps are not supported.")
+			return _reject(
+				GFTweenPlaybackPlan.new(),
+				"Null steps are not supported."
+			)
 		var root_name: String = String(step.property_name).get_slice(":", 0)
 		if not target_property_names.has(root_name):
-			return _reject(GFTweenPlaybackPlan.new(), "Playback root property does not exist.")
+			return _reject(
+				GFTweenPlaybackPlan.new(),
+				"Playback root property does not exist."
+			)
 		if not baseline.has(root_name):
 			baseline[root_name] = target.get(root_name)
 		var curve_capture: Dictionary = _EASING_CURVE_SCRIPT.capture(step.easing_curve)
 		var curve_error: String = GFVariantData.get_option_string(curve_capture, "error")
 		if not curve_error.is_empty():
-			return _reject(GFTweenPlaybackPlan.new(), curve_error)
-		data.append({
-			"property_name": step.property_name, "target_value": step.target_value,
-			"duration": step.duration, "delay": step.delay,
-			"as_relative": step.as_relative, "parallel": step.parallel,
-			"transition_type": step.transition_type, "ease_type": step.ease_type,
-			"easing_curve_data": GFVariantData.get_option_dictionary(curve_capture, "data"),
-			"marker_id": step.marker_id,
-		})
-	return capture_data(data, baseline, config.loop_count, config.duration_scale, ping_pong)
+			return _reject(
+				GFTweenPlaybackPlan.new(),
+				curve_error
+			)
+		data.append(
+			{
+				"property_name": step.property_name,
+				"target_value": step.target_value,
+				"duration": step.duration,
+				"delay": step.delay,
+				"as_relative": step.as_relative,
+				"parallel": step.parallel,
+				"transition_type": step.transition_type,
+				"ease_type": step.ease_type,
+				"easing_curve_data": GFVariantData.get_option_dictionary(curve_capture, "data"),
+				"marker_id": step.marker_id,
+			}
+		)
+	return capture_data(
+		data,
+		baseline,
+		config.loop_count,
+		config.duration_scale,
+		ping_pong
+	)
 
 
 ## 编译已脱离来源对象的步骤与初值；运行时捕获、原生预览与数值 facade 共用此核心。
@@ -188,7 +224,13 @@ static func capture(
 ## @param ping_pong: 是否按相同基线往返。
 ## [br]
 ## @return: 冻结计划；error 非空时没有部分数据。
-static func capture_data(data: Array[Dictionary], baseline: Dictionary, loops: int = 1, scale: float = 1.0, ping_pong: bool = false) -> GFTweenPlaybackPlan:
+static func capture_data(
+	data: Array[Dictionary],
+	baseline: Dictionary,
+	loops: int = 1,
+	scale: float = 1.0,
+	ping_pong: bool = false
+) -> GFTweenPlaybackPlan:
 	var plan: GFTweenPlaybackPlan = GFTweenPlaybackPlan.new()
 	if data.is_empty() or data.size() > _MAX_STEPS:
 		return _reject(plan, "Playback requires 1 to 256 steps.")
@@ -213,7 +255,12 @@ static func capture_data(data: Array[Dictionary], baseline: Dictionary, loops: i
 			elapsed_seconds += group_seconds
 			group_seconds = 0.0
 			group_roots.clear()
-		var source: _SourceStep = _capture_step(step, baseline, scale, index)
+		var source: _SourceStep = _capture_step(
+			step,
+			baseline,
+			scale,
+			index
+		)
 		if not source._error.is_empty():
 			return _reject(plan, source._error)
 		if group_roots.has(source._root_name):
@@ -229,7 +276,10 @@ static func capture_data(data: Array[Dictionary], baseline: Dictionary, loops: i
 		if sample_budget > _MAX_CURVE_SAMPLES or point_budget > _MAX_CURVE_POINTS:
 			return _reject(plan, "Playback curve data exceeds its capture budget.")
 		source._group_start = elapsed_seconds
-		group_seconds = maxf(group_seconds, source._delay + source._duration)
+		group_seconds = maxf(
+			group_seconds,
+			source._delay + source._duration
+		)
 		sources.append(source)
 	plan._cycle_seconds = elapsed_seconds + group_seconds
 	plan._total_seconds = plan._cycle_seconds * float(loops) * (2.0 if ping_pong else 1.0)
@@ -240,10 +290,18 @@ static func capture_data(data: Array[Dictionary], baseline: Dictionary, loops: i
 	var compiled_loops: int = 1 if ping_pong else loops
 	for loop_index: int in range(compiled_loops):
 		for source: _SourceStep in sources:
-			var span: _Span = _compile_span(source, state, float(loop_index) * plan._cycle_seconds)
+			var span: _Span = _compile_span(
+				source,
+				state,
+				float(loop_index) * plan._cycle_seconds
+			)
 			if not _is_finite_value(span._final_value) or not _is_finite_value(span._delta_value):
 				return _reject(plan, "Relative endpoints or interpolation deltas overflow.")
-			var root_final: Variant = _with_component(state[source._root_name], source._component, span._final_value)
+			var root_final: Variant = _with_component(
+				state[source._root_name],
+				source._component,
+				span._final_value
+			)
 			if not _is_finite_value(root_final):
 				return _reject(plan, "Composed property endpoints overflow their root value.")
 			plan._spans.append(span)
@@ -252,11 +310,13 @@ static func capture_data(data: Array[Dictionary], baseline: Dictionary, loops: i
 		var loop_start: float = float(loop_index) * plan._cycle_seconds * (2.0 if ping_pong else 1.0)
 		for source: _SourceStep in sources:
 			if source._marker_id != &"":
-				plan.markers.append({
-					"time_seconds": loop_start + source._group_start + source._delay + source._duration,
-					"index": source._index,
-					"marker_id": source._marker_id,
-				})
+				plan.markers.append(
+					{
+						"time_seconds": loop_start + source._group_start + source._delay + source._duration,
+						"index": source._index,
+						"marker_id": source._marker_id,
+					}
+				)
 	plan.markers.sort_custom(_marker_precedes)
 	plan.initial_values = plan._baseline.duplicate()
 	plan.duration_seconds = plan._total_seconds
@@ -274,13 +334,24 @@ static func capture_data(data: Array[Dictionary], baseline: Dictionary, loops: i
 ## [br]
 ## @schema return: Dictionary，String 根属性名到有限 int/float、Vector2、Vector3 或 Color。
 func sample(time_seconds: float) -> Dictionary:
-	if not error.is_empty() or _spans.is_empty() or not is_finite(time_seconds):
+	if (
+		not error.is_empty()
+		or _spans.is_empty()
+		or not is_finite(time_seconds)
+	):
 		return {}
-	var sample_time: float = clampf(time_seconds, 0.0, _total_seconds)
+	var sample_time: float = clampf(
+		time_seconds,
+		0.0,
+		_total_seconds
+	)
 	if _ping_pong:
 		if sample_time == _total_seconds:
 			return _baseline.duplicate()
-		sample_time = fmod(sample_time, _cycle_seconds * 2.0)
+		sample_time = fmod(
+			sample_time,
+			_cycle_seconds * 2.0
+		)
 		if sample_time > _cycle_seconds:
 			sample_time = _cycle_seconds * 2.0 - sample_time
 	var values: Dictionary = _baseline.duplicate()
@@ -290,7 +361,11 @@ func sample(time_seconds: float) -> Dictionary:
 		var value: Variant = _sample_span(span, sample_time)
 		if not _is_finite_value(value):
 			return {}
-		var root_value: Variant = _with_component(values[span._root_name], span._component, value)
+		var root_value: Variant = _with_component(
+			values[span._root_name],
+			span._component,
+			value
+		)
 		if not _is_finite_value(root_value):
 			return {}
 		values[span._root_name] = root_value
@@ -311,7 +386,13 @@ func sample(time_seconds: float) -> Dictionary:
 ## [br]
 ## @schema return: PackedFloat64Array，空或恰好两个元素 [minimum, maximum]。
 func get_numeric_envelope(property_name: String) -> PackedFloat64Array:
-	if not _baseline.has(property_name) or not (_baseline[property_name] is int or _baseline[property_name] is float):
+	if (
+		not _baseline.has(property_name)
+		or not (
+			_baseline[property_name] is int
+			or _baseline[property_name] is float
+		)
+	):
 		return PackedFloat64Array()
 	var minimum: float = _number(_baseline[property_name])
 	var maximum: float = minimum
@@ -327,7 +408,11 @@ func get_numeric_envelope(property_name: String) -> PackedFloat64Array:
 				var progress: float = span._curve.sample_baked(float(index) / float(span._curve.bake_resolution - 1))
 				low_progress = minf(low_progress, progress)
 				high_progress = maxf(high_progress, progress)
-		elif span._duration > 0.0 and span._transition in [Tween.TRANS_BACK, Tween.TRANS_ELASTIC, Tween.TRANS_SPRING]:
+		elif span._duration > 0.0 and span._transition in [
+			Tween.TRANS_BACK,
+			Tween.TRANS_ELASTIC,
+			Tween.TRANS_SPRING,
+		]:
 			low_progress = -16.0
 			high_progress = 16.0
 		var initial: float = _number(span._initial_value)
@@ -336,8 +421,14 @@ func get_numeric_envelope(property_name: String) -> PackedFloat64Array:
 		var right: float = initial + delta * high_progress
 		if not is_finite(left) or not is_finite(right):
 			return PackedFloat64Array()
-		minimum = minf(minimum, minf(left, right))
-		maximum = maxf(maximum, maxf(left, right))
+		minimum = minf(
+			minimum,
+			minf(left, right)
+		)
+		maximum = maxf(
+			maximum,
+			maxf(left, right)
+		)
 	return PackedFloat64Array([minimum, maximum])
 
 
@@ -360,14 +451,24 @@ static func _reject(plan: GFTweenPlaybackPlan, message: String) -> GFTweenPlayba
 ## 校验并捕获单个来源步骤的属性、目标值、时间和曲线数据。
 ## [br]
 ## @api private
-static func _capture_step(step: Dictionary, baseline: Dictionary, scale: float, index: int) -> _SourceStep:
+static func _capture_step(
+	step: Dictionary,
+	baseline: Dictionary,
+	scale: float,
+	index: int
+) -> _SourceStep:
 	var source: _SourceStep = _SourceStep.new()
 	if not (step.get("property_name") is NodePath) or not (step.get("as_relative") is bool):
 		source._error = "Property paths and relative flags have invalid types."
 		return source
 	var path: NodePath = step["property_name"]
 	var parts: PackedStringArray = String(path).split(":")
-	if parts.size() < 1 or parts.size() > 2 or parts[0].is_empty() or parts[0].contains("/"):
+	if (
+		parts.size() < 1
+		or parts.size() > 2
+		or parts[0].is_empty()
+		or parts[0].contains("/")
+	):
 		source._error = "Playback requires a root property with at most one component."
 		return source
 	source._root_name = parts[0]
@@ -390,7 +491,12 @@ static func _capture_step(step: Dictionary, baseline: Dictionary, scale: float, 
 		return source
 	source._duration = _number(step.get("duration")) * scale
 	source._delay = _number(step.get("delay")) * scale
-	if not is_finite(source._duration) or not is_finite(source._delay) or source._duration < 0.0 or source._delay < 0.0:
+	if (
+		not is_finite(source._duration)
+		or not is_finite(source._delay)
+		or source._duration < 0.0
+		or source._delay < 0.0
+	):
 		source._error = "Playback duration and delay must be finite and nonnegative."
 		return source
 	if not (step.get("transition_type") is int) or not (step.get("ease_type") is int):
@@ -415,7 +521,11 @@ static func _capture_step(step: Dictionary, baseline: Dictionary, scale: float, 
 	source._curve_samples = _EASING_CURVE_SCRIPT.get_sample_count(data)
 	source._curve_points = _EASING_CURVE_SCRIPT.get_point_count(data)
 	# 原生 PropertyTweener 先把数值终点转换为属性初值的数值类型。
-	source._target_value = _with_component(current, &"", target_value)
+	source._target_value = _with_component(
+		current,
+		&"",
+		target_value
+	)
 	source._relative = step["as_relative"]
 	source._transition = transition as Tween.TransitionType
 	source._easing_mode = easing_mode as Tween.EaseType
@@ -429,12 +539,19 @@ static func _capture_step(step: Dictionary, baseline: Dictionary, scale: float, 
 ## 根据当前根属性状态将来源步骤编译为绝对时间区段。
 ## [br]
 ## @api private
-static func _compile_span(source: _SourceStep, state: Dictionary, loop_start: float) -> _Span:
+static func _compile_span(
+	source: _SourceStep,
+	state: Dictionary,
+	loop_start: float
+) -> _Span:
 	var span: _Span = _Span.new()
 	span._root_name = source._root_name
 	span._component = source._component
-	span._initial_value = _component_value(state[source._root_name], source._component)
-	span._final_value = _add_values(span._initial_value, source._target_value) if source._relative else source._target_value
+	span._initial_value = _component_value(
+		state[source._root_name],
+		source._component
+	)
+	span._final_value = (_add_values(span._initial_value, source._target_value) if source._relative else source._target_value)
 	span._delta_value = _subtract_values(span._final_value, span._initial_value)
 	span._group_start = loop_start + source._group_start
 	span._delay = source._delay
@@ -456,8 +573,22 @@ static func _sample_span(span: _Span, time_seconds: float) -> Variant:
 		return span._final_value
 	if span._curve != null:
 		var sampled_progress: float = span._curve.sample_baked(elapsed / span._duration)
-		return Tween.interpolate_value(span._initial_value, span._delta_value, sampled_progress, 1.0, Tween.TRANS_LINEAR, Tween.EASE_IN)
-	return Tween.interpolate_value(span._initial_value, span._delta_value, elapsed, span._duration, span._transition, span._easing_mode)
+		return Tween.interpolate_value(
+			span._initial_value,
+			span._delta_value,
+			sampled_progress,
+			1.0,
+			Tween.TRANS_LINEAR,
+			Tween.EASE_IN
+		)
+	return Tween.interpolate_value(
+		span._initial_value,
+		span._delta_value,
+		elapsed,
+		span._duration,
+		span._transition,
+		span._easing_mode
+	)
 
 
 ## 按时间排序标记，并以来源步骤索引稳定同一时刻的顺序。
@@ -479,7 +610,13 @@ static func _has_alias_conflict(values: Dictionary) -> bool:
 		return true
 	if values.has("scale") and values.has("global_scale"):
 		return true
-	var rotation_names: Array[String] = ["rotation", "rotation_degrees", "global_rotation", "global_rotation_degrees", "quaternion"]
+	var rotation_names: Array[String] = [
+		"rotation",
+		"rotation_degrees",
+		"global_rotation",
+		"global_rotation_degrees",
+		"quaternion",
+	]
 	var rotation_count: int = 0
 	for rotation_name: String in rotation_names:
 		if values.has(rotation_name):
@@ -491,7 +628,16 @@ static func _has_alias_conflict(values: Dictionary) -> bool:
 ## [br]
 ## @api private
 static func _compatible(left: Variant, right: Variant) -> bool:
-	if (left is int or left is float) and (right is int or right is float):
+	if (
+		(
+			left is int
+			or left is float
+		)
+		and (
+			right is int
+			or right is float
+		)
+	):
 		return true
 	return typeof(left) == typeof(right)
 
@@ -523,7 +669,12 @@ static func _is_finite_value(value: Variant) -> bool:
 		return vector.is_finite()
 	if value is Color:
 		var color: Color = value
-		return is_finite(color.r) and is_finite(color.g) and is_finite(color.b) and is_finite(color.a)
+		return (
+			is_finite(color.r)
+			and is_finite(color.g)
+			and is_finite(color.b)
+			and is_finite(color.a)
+		)
 	return false
 
 
@@ -536,25 +687,55 @@ static func _component_value(value: Variant, component: StringName) -> Variant:
 	if value is Vector2 and component in [&"x", &"y"]:
 		var vector: Vector2 = value
 		return vector[0 if component == &"x" else 1]
-	if value is Vector3 and component in [&"x", &"y", &"z"]:
+	if value is Vector3 and component in [
+		&"x",
+		&"y",
+		&"z",
+	]:
 		var vector: Vector3 = value
-		return vector[[&"x", &"y", &"z"].find(component)]
-	if value is Color and component in [&"r", &"g", &"b", &"a"]:
+		return vector[
+			[
+				&"x",
+				&"y",
+				&"z",
+			].find(component)
+		]
+	if value is Color and component in [
+		&"r",
+		&"g",
+		&"b",
+		&"a",
+	]:
 		var color: Color = value
-		return color[[&"r", &"g", &"b", &"a"].find(component)]
+		return color[
+			[
+				&"r",
+				&"g",
+				&"b",
+				&"a",
+			].find(component)
+		]
 	return null
 
 
 ## 返回根属性的新值，或将候选数值写入向量、颜色的指定分量。
 ## [br]
 ## @api private
-static func _with_component(value: Variant, component: StringName, next: Variant) -> Variant:
+static func _with_component(
+	value: Variant,
+	component: StringName,
+	next: Variant
+) -> Variant:
 	if component == &"":
 		if value is int:
 			if next is int:
 				return next
 			var number: float = _number(next)
-			if not is_finite(number) or number >= 9223372036854775808.0 or number < -9223372036854775808.0:
+			if (
+				not is_finite(number)
+				or number >= 9223372036854775808.0
+				or number < -9223372036854775808.0
+			):
 				return null
 			return int(number)
 		if value is float:
@@ -566,11 +747,24 @@ static func _with_component(value: Variant, component: StringName, next: Variant
 		return vector
 	if value is Vector3:
 		var vector: Vector3 = value
-		vector[[&"x", &"y", &"z"].find(component)] = _number(next)
+		vector[
+			[
+				&"x",
+				&"y",
+				&"z",
+			].find(component)
+		] = _number(next)
 		return vector
 	if value is Color:
 		var color: Color = value
-		color[[&"r", &"g", &"b", &"a"].find(component)] = _number(next)
+		color[
+			[
+				&"r",
+				&"g",
+				&"b",
+				&"a",
+			].find(component)
+		] = _number(next)
 		return color
 	return null
 
@@ -583,10 +777,30 @@ static func _add_values(left: Variant, right: Variant) -> Variant:
 		var left_integer: int = left
 		var right_integer: int = right
 		var sum: int = left_integer + right_integer
-		if (left_integer > 0 and right_integer > 0 and sum < 0) or (left_integer < 0 and right_integer < 0 and sum >= 0):
+		if (
+			(
+				left_integer > 0
+				and right_integer > 0
+				and sum < 0
+			)
+			or (
+				left_integer < 0
+				and right_integer < 0
+				and sum >= 0
+			)
+		):
 			return null
 		return sum
-	if (left is int or left is float) and (right is int or right is float):
+	if (
+		(
+			left is int
+			or left is float
+		)
+		and (
+			right is int
+			or right is float
+		)
+	):
 		return _number(left) + _number(right)
 	if left is Vector2 and right is Vector2:
 		var left_vector: Vector2 = left
@@ -611,10 +825,30 @@ static func _subtract_values(left: Variant, right: Variant) -> Variant:
 		var left_integer: int = left
 		var right_integer: int = right
 		var difference: int = left_integer - right_integer
-		if (left_integer >= 0 and right_integer < 0 and difference < 0) or (left_integer < 0 and right_integer > 0 and difference >= 0):
+		if (
+			(
+				left_integer >= 0
+				and right_integer < 0
+				and difference < 0
+			)
+			or (
+				left_integer < 0
+				and right_integer > 0
+				and difference >= 0
+			)
+		):
 			return null
 		return difference
-	if (left is int or left is float) and (right is int or right is float):
+	if (
+		(
+			left is int
+			or left is float
+		)
+		and (
+			right is int
+			or right is float
+		)
+	):
 		return _number(left) - _number(right)
 	if left is Vector2 and right is Vector2:
 		var left_vector: Vector2 = left
@@ -637,6 +871,8 @@ static func _subtract_values(left: Variant, right: Variant) -> Variant:
 ## [br]
 ## @api private
 class _SourceStep extends RefCounted:
+
+
 	# --- 私有变量 ---
 
 	## 编译输入校验失败的原因；空串表示尚未发现错误。
@@ -724,6 +960,8 @@ class _SourceStep extends RefCounted:
 ## [br]
 ## @api private
 class _Span extends RefCounted:
+
+
 	# --- 私有变量 ---
 
 	## 此区段写回的根属性名。

@@ -21,10 +21,10 @@
 | 信号 | [`action_started`](#member-gfinputmappingutility-signals-action_started) | `signal action_started(action_id: StringName, value: Variant)` |
 | 信号 | [`action_triggered`](#member-gfinputmappingutility-signals-action_triggered) | `signal action_triggered(action_id: StringName, value: Variant)` |
 | 信号 | [`action_completed`](#member-gfinputmappingutility-signals-action_completed) | `signal action_completed(action_id: StringName, value: Variant)` |
-| 信号 | [`player_action_value_changed`](#member-gfinputmappingutility-signals-player_action_value_changed) | `signal player_action_value_changed(player_index: int, action_id: StringName, value: Variant)` |
-| 信号 | [`player_action_started`](#member-gfinputmappingutility-signals-player_action_started) | `signal player_action_started(player_index: int, action_id: StringName, value: Variant)` |
-| 信号 | [`player_action_triggered`](#member-gfinputmappingutility-signals-player_action_triggered) | `signal player_action_triggered(player_index: int, action_id: StringName, value: Variant)` |
-| 信号 | [`player_action_completed`](#member-gfinputmappingutility-signals-player_action_completed) | `signal player_action_completed(player_index: int, action_id: StringName, value: Variant)` |
+| 信号 | [`player_action_value_changed`](#member-gfinputmappingutility-signals-player_action_value_changed) | `signal player_action_value_changed( player_index: int, action_id: StringName, value: Variant )` |
+| 信号 | [`player_action_started`](#member-gfinputmappingutility-signals-player_action_started) | `signal player_action_started( player_index: int, action_id: StringName, value: Variant )` |
+| 信号 | [`player_action_triggered`](#member-gfinputmappingutility-signals-player_action_triggered) | `signal player_action_triggered( player_index: int, action_id: StringName, value: Variant )` |
+| 信号 | [`player_action_completed`](#member-gfinputmappingutility-signals-player_action_completed) | `signal player_action_completed( player_index: int, action_id: StringName, value: Variant )` |
 | 属性 | [`automatic_input_routing`](#member-gfinputmappingutility-properties-automatic_input_routing) | `var automatic_input_routing: bool = true:` |
 | 方法 | [`init`](#member-gfinputmappingutility-methods-init) | `func init() -> void:` |
 | 方法 | [`ready`](#member-gfinputmappingutility-methods-ready) | `func ready() -> void:` |
@@ -44,7 +44,7 @@
 | 方法 | [`clear_virtual_action`](#member-gfinputmappingutility-methods-clear_virtual_action) | `func clear_virtual_action( action_id: StringName, source_id: StringName = &"virtual", player_index: int = -1 ) -> bool:` |
 | 方法 | [`clear_virtual_source`](#member-gfinputmappingutility-methods-clear_virtual_source) | `func clear_virtual_source(source_id: StringName = &"virtual") -> void:` |
 | 方法 | [`get_virtual_source_snapshot`](#member-gfinputmappingutility-methods-get_virtual_source_snapshot) | `func get_virtual_source_snapshot(source_id: StringName = &"virtual") -> Dictionary:` |
-| 方法 | [`get_virtual_source_snapshot_for_player`](#member-gfinputmappingutility-methods-get_virtual_source_snapshot_for_player) | `func get_virtual_source_snapshot_for_player( source_id: StringName = &"virtual", player_index: int = -1 ) -> Dictionary:` |
+| 方法 | [`get_virtual_source_snapshot_for_player`](#member-gfinputmappingutility-methods-get_virtual_source_snapshot_for_player) | `func get_virtual_source_snapshot_for_player(source_id: StringName = &"virtual", player_index: int = -1) -> Dictionary:` |
 | 方法 | [`get_action_value`](#member-gfinputmappingutility-methods-get_action_value) | `func get_action_value(action_id: StringName) -> Variant:` |
 | 方法 | [`get_action_vector`](#member-gfinputmappingutility-methods-get_action_vector) | `func get_action_vector(action_id: StringName) -> Vector2:` |
 | 方法 | [`get_action_vector3`](#member-gfinputmappingutility-methods-get_action_vector3) | `func get_action_vector3(action_id: StringName) -> Vector3:` |
@@ -62,9 +62,9 @@
 | 方法 | [`get_last_completed_duration_for_player`](#member-gfinputmappingutility-methods-get_last_completed_duration_for_player) | `func get_last_completed_duration_for_player(player_index: int, action_id: StringName) -> float:` |
 | 方法 | [`consume_action_for_player`](#member-gfinputmappingutility-methods-consume_action_for_player) | `func consume_action_for_player(player_index: int, action_id: StringName) -> bool:` |
 | 方法 | [`set_binding_override`](#member-gfinputmappingutility-methods-set_binding_override) | `func set_binding_override( context_id: StringName, action_id: StringName, binding_index: int, input_event: InputEvent ) -> void:` |
-| 方法 | [`unbind`](#member-gfinputmappingutility-methods-unbind) | `func unbind(context_id: StringName, action_id: StringName, binding_index: int) -> void:` |
-| 方法 | [`clear_binding_override`](#member-gfinputmappingutility-methods-clear_binding_override) | `func clear_binding_override(context_id: StringName, action_id: StringName, binding_index: int) -> void:` |
-| 方法 | [`get_remappable_items`](#member-gfinputmappingutility-methods-get_remappable_items) | `func get_remappable_items( context_filter: StringName = &"", display_category_filter: String = "" ) -> Array[Dictionary]:` |
+| 方法 | [`unbind`](#member-gfinputmappingutility-methods-unbind) | `func unbind( context_id: StringName, action_id: StringName, binding_index: int ) -> void:` |
+| 方法 | [`clear_binding_override`](#member-gfinputmappingutility-methods-clear_binding_override) | `func clear_binding_override( context_id: StringName, action_id: StringName, binding_index: int ) -> void:` |
+| 方法 | [`get_remappable_items`](#member-gfinputmappingutility-methods-get_remappable_items) | `func get_remappable_items(context_filter: StringName = &"", display_category_filter: String = "") -> Array[Dictionary]:` |
 | 方法 | [`clear_input_state`](#member-gfinputmappingutility-methods-clear_input_state) | `func clear_input_state() -> void:` |
 | 方法 | [`clear_player_input_state`](#member-gfinputmappingutility-methods-clear_player_input_state) | `func clear_player_input_state(player_index: int) -> void:` |
 
@@ -201,9 +201,10 @@ signal action_completed(action_id: StringName, value: Variant)
 ### `player_action_value_changed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal player_action_value_changed(player_index: int, action_id: StringName, value: Variant)
+signal player_action_value_changed( player_index: int, action_id: StringName, value: Variant )
 ```
 
 玩家动作值变化时发出。
@@ -225,9 +226,10 @@ signal player_action_value_changed(player_index: int, action_id: StringName, val
 ### `player_action_started`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal player_action_started(player_index: int, action_id: StringName, value: Variant)
+signal player_action_started( player_index: int, action_id: StringName, value: Variant )
 ```
 
 玩家动作从非活跃变为活跃时发出。
@@ -249,9 +251,10 @@ signal player_action_started(player_index: int, action_id: StringName, value: Va
 ### `player_action_triggered`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal player_action_triggered(player_index: int, action_id: StringName, value: Variant)
+signal player_action_triggered( player_index: int, action_id: StringName, value: Variant )
 ```
 
 玩家动作活跃且收到匹配输入事件时发出。
@@ -273,9 +276,10 @@ signal player_action_triggered(player_index: int, action_id: StringName, value: 
 ### `player_action_completed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal player_action_completed(player_index: int, action_id: StringName, value: Variant)
+signal player_action_completed( player_index: int, action_id: StringName, value: Variant )
 ```
 
 玩家动作从活跃变为非活跃时发出。
@@ -654,7 +658,7 @@ func get_virtual_source_snapshot(source_id: StringName = &"virtual") -> Dictiona
 - 首次版本：`11.0.0`
 
 ```gdscript
-func get_virtual_source_snapshot_for_player( source_id: StringName = &"virtual", player_index: int = -1 ) -> Dictionary:
+func get_virtual_source_snapshot_for_player(source_id: StringName = &"virtual", player_index: int = -1) -> Dictionary:
 ```
 
 获取指定虚拟输入源与玩家身份的状态快照。
@@ -1034,9 +1038,10 @@ func set_binding_override( context_id: StringName, action_id: StringName, bindin
 ### `unbind`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func unbind(context_id: StringName, action_id: StringName, binding_index: int) -> void:
+func unbind( context_id: StringName, action_id: StringName, binding_index: int ) -> void:
 ```
 
 显式解绑某个绑定。
@@ -1054,9 +1059,10 @@ func unbind(context_id: StringName, action_id: StringName, binding_index: int) -
 ### `clear_binding_override`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func clear_binding_override(context_id: StringName, action_id: StringName, binding_index: int) -> void:
+func clear_binding_override( context_id: StringName, action_id: StringName, binding_index: int ) -> void:
 ```
 
 清除某个绑定覆盖。
@@ -1074,9 +1080,10 @@ func clear_binding_override(context_id: StringName, action_id: StringName, bindi
 ### `get_remappable_items`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func get_remappable_items( context_filter: StringName = &"", display_category_filter: String = "" ) -> Array[Dictionary]:
+func get_remappable_items(context_filter: StringName = &"", display_category_filter: String = "") -> Array[Dictionary]:
 ```
 
 获取可重绑条目。

@@ -23,7 +23,7 @@ Godot 资源路径校验规则。 用于检查配置字段中的 `res://` 或 `u
 | 属性 | [`use_file_access_fallback`](#member-gfconfigresourcepathvalidationrule-properties-use_file_access_fallback) | `var use_file_access_fallback: bool = true` |
 | 方法 | [`describe`](#member-gfconfigresourcepathvalidationrule-methods-describe) | `func describe() -> Dictionary:` |
 | 方法 | [`_get_default_rule_id`](#member-gfconfigresourcepathvalidationrule-methods-_get_default_rule_id) | `func _get_default_rule_id() -> StringName:` |
-| 方法 | [`_validate_value`](#member-gfconfigresourcepathvalidationrule-methods-_validate_value) | `func _validate_value(value: Variant, context: Dictionary, report: Dictionary) -> void:` |
+| 方法 | [`_validate_value`](#member-gfconfigresourcepathvalidationrule-methods-_validate_value) | `func _validate_value( value: Variant, context: Dictionary, report: Dictionary ) -> void:` |
 
 ## 属性
 
@@ -140,9 +140,10 @@ func _get_default_rule_id() -> StringName:
 ### `_validate_value`
 
 - API：`protected`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func _validate_value(value: Variant, context: Dictionary, report: Dictionary) -> void:
+func _validate_value( value: Variant, context: Dictionary, report: Dictionary ) -> void:
 ```
 
 校验单个字段值是否是存在且扩展名允许的资源路径。

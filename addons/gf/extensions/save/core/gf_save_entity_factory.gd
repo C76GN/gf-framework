@@ -60,6 +60,8 @@ func _create_entity(_descriptor: Dictionary, _context: Dictionary = {}) -> Node:
 ## [br]
 ## @api protected
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param _entity: 创建出的实体。
 ## [br]
 ## @param _descriptor: 存档中的实体描述。
@@ -69,5 +71,9 @@ func _create_entity(_descriptor: Dictionary, _context: Dictionary = {}) -> Node:
 ## @schema _descriptor: Dictionary，通常包含 persistent_id、type_key、phase 与 Source 描述字段。
 ## [br]
 ## @schema _context: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。
-func _after_entity_created(_entity: Node, _descriptor: Dictionary, _context: Dictionary = {}) -> void:
+func _after_entity_created(
+	_entity: Node,
+	_descriptor: Dictionary,
+	_context: Dictionary = {}
+) -> void:
 	pass

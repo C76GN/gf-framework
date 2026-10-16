@@ -63,6 +63,7 @@ enum ModuleKind {
 	UTILITY,
 }
 
+
 ## 模块访问的架构作用域。
 ## [br]
 ## @api public
@@ -266,9 +267,7 @@ var module_async_init_timeout_seconds: float = 0.0:
 			or value < 0.0
 			or value > _MAX_LIFECYCLE_TIMEOUT_SECONDS
 		):
-			push_error(
-				"[GFArchitecture][architecture.async_init_timeout_invalid] module_async_init_timeout_seconds must be finite and between 0 and 86400."
-			)
+			push_error("[GFArchitecture][architecture.async_init_timeout_invalid] module_async_init_timeout_seconds must be finite and between 0 and 86400.")
 			return
 		module_async_init_timeout_seconds = value
 
@@ -292,9 +291,7 @@ var activation_timeout_seconds: float = 30.0:
 			or value < 0.0
 			or value > _MAX_LIFECYCLE_TIMEOUT_SECONDS
 		):
-			push_error(
-				"[GFArchitecture][architecture.activation_timeout_invalid] activation_timeout_seconds must be finite and between 0 and 86400."
-			)
+			push_error("[GFArchitecture][architecture.activation_timeout_invalid] activation_timeout_seconds must be finite and between 0 and 86400.")
 			return
 		activation_timeout_seconds = value
 
@@ -311,9 +308,7 @@ var shutdown_timeout_seconds: float = 10.0:
 			or value < 0.0
 			or value > _MAX_LIFECYCLE_TIMEOUT_SECONDS
 		):
-			push_error(
-				"[GFArchitecture][architecture.shutdown_timeout_invalid] shutdown_timeout_seconds must be finite and between 0 and 86400."
-			)
+			push_error("[GFArchitecture][architecture.shutdown_timeout_invalid] shutdown_timeout_seconds must be finite and between 0 and 86400.")
 			return
 		shutdown_timeout_seconds = value
 
@@ -521,15 +516,19 @@ var _next_child_external_dependency_lease_id: int = 1
 func _init(parent_architecture: GFArchitecture = null) -> void:
 	_runtime = _GF_KERNEL_RUNTIME_SCRIPT.new()
 	_event_system = GFTypeEventSystem.new()
-	_tick_scheduler = _GF_ARCHITECTURE_TICK_SCHEDULER_SCRIPT.new().configure(
-		_systems,
-		_utilities,
-		_module_lifecycle_stages
+	_tick_scheduler = (
+		_GF_ARCHITECTURE_TICK_SCHEDULER_SCRIPT.new().configure(
+			_systems,
+			_utilities,
+			_module_lifecycle_stages
+		)
 	)
-	_snapshot_coordinator = _GF_ARCHITECTURE_SNAPSHOT_COORDINATOR_SCRIPT.new().configure(
-		_models,
-		Callable(self, &"_get_command_history_store"),
-		DEFAULT_SNAPSHOT_MODELS_PER_FRAME
+	_snapshot_coordinator = (
+		_GF_ARCHITECTURE_SNAPSHOT_COORDINATOR_SCRIPT.new().configure(
+			_models,
+			Callable(self, &"_get_command_history_store"),
+			DEFAULT_SNAPSHOT_MODELS_PER_FRAME
+		)
 	)
 	_assign_parent_architecture(parent_architecture, "_init")
 
@@ -698,7 +697,10 @@ func fail_initialization(reason: String) -> void:
 	var failure_reason: String = reason
 	if failure_reason.is_empty():
 		failure_reason = "[GFArchitecture][architecture.initialization_failed] Initialization failed."
-	_fail_initialization(failure_reason, _runtime.get_lifecycle_generation())
+	_fail_initialization(
+		failure_reason,
+		_runtime.get_lifecycle_generation()
+	)
 
 
 ## 获取父级架构。Scoped 架构会在本地未找到依赖时回退到父级架构查询。
@@ -758,7 +760,11 @@ func begin_project_installers() -> bool:
 	):
 		return false
 
-	if _runtime.has_failed() and not _runtime.is_ready() and not _runtime.is_initializing():
+	if (
+		_runtime.has_failed()
+		and not _runtime.is_ready()
+		and not _runtime.is_initializing()
+	):
 		var _cleared_failure: bool = _runtime.clear_failure()
 		last_initialization_error = ""
 
@@ -828,7 +834,11 @@ func create_binder() -> GFBinder:
 ## [br]
 ## @return 初始化完成且架构处于 ready 状态时返回 true。
 func init(cancellation_token: GFCancellationToken = null) -> bool:
-	if _runtime.is_quiescing() or _runtime.is_disposing() or _runtime.is_disposed():
+	if (
+		_runtime.is_quiescing()
+		or _runtime.is_disposing()
+		or _runtime.is_disposed()
+	):
 		push_error("[GFArchitecture][architecture.init_disposed] init failed: the architecture is disposing or already disposed and cannot be initialized again.")
 		return false
 	if _initialization_failure_settlement_in_progress:
@@ -838,10 +848,7 @@ func init(cancellation_token: GFCancellationToken = null) -> bool:
 
 	if _runtime.is_initializing() or _runtime.is_activating():
 		var waiting_serial: int = _runtime.get_lifecycle_generation()
-		return await _await_existing_initialization(
-			waiting_serial,
-			cancellation_token
-		)
+		return await _await_existing_initialization(waiting_serial, cancellation_token)
 
 	if _runtime.has_failed() and _stale_async_write_block_count > 0:
 		return false
@@ -880,23 +887,17 @@ func init(cancellation_token: GFCancellationToken = null) -> bool:
 	):
 		return false
 	_lifecycle_plan_in_progress = lifecycle_plan
-	var lease_report: Dictionary = _acquire_external_dependency_leases(
-		lifecycle_plan,
-		current_serial
-	)
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-		lease_report,
-		"ok",
-		false
-	):
-		_fail_initialization(
-			"[GFArchitecture][architecture.parent_dependencies_freeze_failed] Initialization failed: parent external dependencies could not be frozen.",
-			current_serial
+	var lease_report: Dictionary = _acquire_external_dependency_leases(lifecycle_plan, current_serial)
+	if not (
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			lease_report,
+			"ok",
+			false
 		)
+	):
+		_fail_initialization("[GFArchitecture][architecture.parent_dependencies_freeze_failed] Initialization failed: parent external dependencies could not be frozen.", current_serial)
 		return false
-	_active_external_dependency_leases = (
-		_get_external_dependency_lease_array(lease_report)
-	)
+	_active_external_dependency_leases = _get_external_dependency_lease_array(lease_report)
 	if not await _advance_lifecycle_plan_to_stage(
 		lifecycle_plan,
 		1,
@@ -919,26 +920,18 @@ func init(cancellation_token: GFCancellationToken = null) -> bool:
 	):
 		return false
 	if not _all_registered_modules_reached_stage(3):
-		_fail_initialization(
-			"[GFArchitecture][architecture.initialization_modules_not_ready] Initialization commit failed: registered modules have not completed the ready phase.",
-			current_serial
-		)
+		_fail_initialization("[GFArchitecture][architecture.initialization_modules_not_ready] Initialization commit failed: registered modules have not completed the ready phase.", current_serial)
 		return false
 
 	_refresh_cached_utility_refs()
 	if cancellation_token != null and cancellation_token.is_cancel_requested():
 		_fail_initialization(
-			"[GFArchitecture][architecture.initialization_cancelled] Initialization was cancelled: %s." % String(
-				cancellation_token.get_cancel_reason()
-			),
+			"[GFArchitecture][architecture.initialization_cancelled] Initialization was cancelled: %s." % String(cancellation_token.get_cancel_reason()),
 			current_serial
 		)
 		return false
 	if not _runtime.begin_activation(current_serial):
-		_fail_initialization(
-			"[GFArchitecture][architecture.initialization_activation_transition_failed] Initialization commit failed: could not enter the activation state.",
-			current_serial
-		)
+		_fail_initialization("[GFArchitecture][architecture.initialization_activation_transition_failed] Initialization commit failed: could not enter the activation state.", current_serial)
 		return false
 	var activated: bool = await _activate_lifecycle_plan(
 		lifecycle_plan,
@@ -949,9 +942,7 @@ func init(cancellation_token: GFCancellationToken = null) -> bool:
 		return false
 	if cancellation_token != null and cancellation_token.is_cancel_requested():
 		_fail_initialization(
-			"[GFArchitecture][architecture.initialization_cancelled] Initialization was cancelled: %s." % String(
-				cancellation_token.get_cancel_reason()
-			),
+			"[GFArchitecture][architecture.initialization_cancelled] Initialization was cancelled: %s." % String(cancellation_token.get_cancel_reason()),
 			current_serial
 		)
 		return false
@@ -960,10 +951,7 @@ func init(cancellation_token: GFCancellationToken = null) -> bool:
 		_lifecycle_plan_in_progress = null
 		_refresh_tick_caches()
 		initialization_finished.emit()
-		return (
-			_runtime.is_ready()
-			and _runtime.is_generation_current(current_serial)
-		)
+		return (_runtime.is_ready() and _runtime.is_generation_current(current_serial))
 	return false
 
 
@@ -984,13 +972,13 @@ func init(cancellation_token: GFCancellationToken = null) -> bool:
 ## @param timeout_seconds: cooperative quiesce 与异步等待预算；仅 -1 使用 shutdown_timeout_seconds。最终同步释放不承诺墙钟硬上限。
 ## [br]
 ## @return 类型化关闭结果。
-func shutdown_async(
-	cancellation_token: GFCancellationToken = null,
-	timeout_seconds: float = -1.0
-) -> GFArchitectureShutdownResult:
+func shutdown_async(cancellation_token: GFCancellationToken = null, timeout_seconds: float = -1.0) -> GFArchitectureShutdownResult:
 	if (
 		not is_finite(timeout_seconds)
-		or (timeout_seconds < 0.0 and timeout_seconds != -1.0)
+		or (
+			timeout_seconds < 0.0
+			and timeout_seconds != -1.0
+		)
 		or timeout_seconds > _MAX_LIFECYCLE_TIMEOUT_SECONDS
 	):
 		var invalid_timeout_msec: int = Time.get_ticks_msec()
@@ -1011,17 +999,12 @@ func shutdown_async(
 		if shared_result_value is GFArchitectureShutdownResult:
 			var shared_result: GFArchitectureShutdownResult = shared_result_value
 			return shared_result.duplicate_result()
-		return _GF_ARCHITECTURE_SHUTDOWN_RESULT_SCRIPT.forced(
-			"Shared shutdown completed without a typed result."
-		)
+		return _GF_ARCHITECTURE_SHUTDOWN_RESULT_SCRIPT.forced("Shared shutdown completed without a typed result.")
 	if _runtime.is_ready() and _has_live_child_external_dependency_leases():
 		var blocked_at_msec: int = Time.get_ticks_msec()
 		return _GF_ARCHITECTURE_SHUTDOWN_RESULT_SCRIPT.failed(
 			ERR_BUSY,
-			(
-				"Architecture shutdown requires child architectures with "
-				+ "external dependency leases to close first."
-			),
+			"Architecture shutdown requires child architectures with " + "external dependency leases to close first.",
 			[],
 			[],
 			blocked_at_msec,
@@ -1031,89 +1014,62 @@ func shutdown_async(
 	_shutdown_duplicate_request_count = 0
 	_shutdown_completion = GFAsyncCompletion.new()
 	if _runtime.is_initializing() or _runtime.is_activating():
-		var interrupted_reason: String = (
-			"Shutdown interrupted architecture initialization or activation."
-		)
-		var interrupted_unfinished: Array[Dictionary] = (
-			_snapshot_forced_unfinished_modules(interrupted_reason)
-		)
+		var interrupted_reason: String = "Shutdown interrupted architecture initialization or activation."
+		var interrupted_unfinished: Array[Dictionary] = _snapshot_forced_unfinished_modules(interrupted_reason)
 		_cancel_active_async_scopes("[GFArchitecture][architecture.shutdown_interrupted_initialization] shutdown_async interrupted unfinished initialization.")
 		_force_dispose_internal()
-		var interrupted_result: GFArchitectureShutdownResult = (
-			_GF_ARCHITECTURE_SHUTDOWN_RESULT_SCRIPT.forced(
-				interrupted_reason,
-				[],
-				interrupted_unfinished,
-				started_at_msec,
-				Time.get_ticks_msec(),
-				_shutdown_duplicate_request_count
-			)
+		var interrupted_result: GFArchitectureShutdownResult = _GF_ARCHITECTURE_SHUTDOWN_RESULT_SCRIPT.forced(
+			interrupted_reason,
+			[],
+			interrupted_unfinished,
+			started_at_msec,
+			Time.get_ticks_msec(),
+			_shutdown_duplicate_request_count
 		)
 		_publish_shutdown_result(interrupted_result)
 		initialization_finished.emit()
 		return interrupted_result.duplicate_result()
 
 	if not _runtime.begin_quiesce():
-		var transition_reason: String = (
-			"Architecture could not enter quiesce."
-		)
-		var transition_unfinished: Array[Dictionary] = (
-			_snapshot_forced_unfinished_modules(transition_reason)
-		)
-		var transition_result: GFArchitectureShutdownResult = (
-			_GF_ARCHITECTURE_SHUTDOWN_RESULT_SCRIPT.forced(
-				transition_reason,
-				[],
-				transition_unfinished,
-				started_at_msec,
-				Time.get_ticks_msec(),
-				_shutdown_duplicate_request_count
-			)
+		var transition_reason: String = "Architecture could not enter quiesce."
+		var transition_unfinished: Array[Dictionary] = _snapshot_forced_unfinished_modules(transition_reason)
+		var transition_result: GFArchitectureShutdownResult = _GF_ARCHITECTURE_SHUTDOWN_RESULT_SCRIPT.forced(
+			transition_reason,
+			[],
+			transition_unfinished,
+			started_at_msec,
+			Time.get_ticks_msec(),
+			_shutdown_duplicate_request_count
 		)
 		_force_dispose_internal()
 		_publish_shutdown_result(transition_result)
 		return transition_result.duplicate_result()
 	_fail_active_factory_resolution_contexts()
 
-	var effective_timeout_seconds: float = (
-		shutdown_timeout_seconds
-		if timeout_seconds < 0.0
-		else timeout_seconds
-	)
-	var deadline_msec: int = _make_deadline_msec(
-		started_at_msec,
-		effective_timeout_seconds
-	)
-	var topology_wait_report: Dictionary = await _await_topology_stability(
-		cancellation_token,
-		deadline_msec
-	)
+	var effective_timeout_seconds: float = (shutdown_timeout_seconds if timeout_seconds < 0.0 else timeout_seconds)
+	var deadline_msec: int = _make_deadline_msec(started_at_msec, effective_timeout_seconds)
+	var topology_wait_report: Dictionary = await _await_topology_stability(cancellation_token, deadline_msec)
 	if _runtime.is_disposed() and _last_shutdown_result != null:
 		return _last_shutdown_result.duplicate_result()
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-		topology_wait_report,
-		"succeeded",
-		false
-	):
-		var topology_shutdown_report: Dictionary = (
-			_make_topology_wait_shutdown_report(topology_wait_report)
+	if not (
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			topology_wait_report,
+			"succeeded",
+			false
 		)
+	):
+		var topology_shutdown_report: Dictionary = _make_topology_wait_shutdown_report(topology_wait_report)
 		_force_dispose_internal()
-		var topology_result: GFArchitectureShutdownResult = (
-			_make_shutdown_result(
-				topology_shutdown_report,
-				started_at_msec,
-				Time.get_ticks_msec()
-			)
+		var topology_result: GFArchitectureShutdownResult = _make_shutdown_result(
+			topology_shutdown_report,
+			started_at_msec,
+			Time.get_ticks_msec()
 		)
 		_publish_shutdown_result(topology_result)
 		return topology_result.duplicate_result()
 
 	_shutdown_scope = _begin_module_async_scope()
-	var quiesce_report: Dictionary = await _quiesce_active_modules(
-		cancellation_token,
-		deadline_msec
-	)
+	var quiesce_report: Dictionary = await _quiesce_active_modules(cancellation_token, deadline_msec)
 	if _runtime.is_disposed() and _last_shutdown_result != null:
 		return _last_shutdown_result.duplicate_result()
 	if _shutdown_scope != null:
@@ -1150,20 +1106,16 @@ func dispose() -> void:
 		_shutdown_duplicate_request_count = 0
 		_shutdown_completion = GFAsyncCompletion.new()
 	var forced_reason: String = "Architecture was synchronously disposed."
-	var forced_unfinished: Array[Dictionary] = (
-		_snapshot_forced_unfinished_modules(forced_reason)
-	)
+	var forced_unfinished: Array[Dictionary] = _snapshot_forced_unfinished_modules(forced_reason)
 	_cancel_active_async_scopes("[GFArchitecture][architecture.forced_dispose] The architecture was forcibly disposed.")
 	_force_dispose_internal()
-	var forced_result: GFArchitectureShutdownResult = (
-		_GF_ARCHITECTURE_SHUTDOWN_RESULT_SCRIPT.forced(
-			forced_reason,
-			[],
-			forced_unfinished,
-			started_at_msec,
-			Time.get_ticks_msec(),
-			_shutdown_duplicate_request_count
-		)
+	var forced_result: GFArchitectureShutdownResult = _GF_ARCHITECTURE_SHUTDOWN_RESULT_SCRIPT.forced(
+		forced_reason,
+		[],
+		forced_unfinished,
+		started_at_msec,
+		Time.get_ticks_msec(),
+		_shutdown_duplicate_request_count
 	)
 	_publish_shutdown_result(forced_result)
 	if was_initializing:
@@ -1219,7 +1171,11 @@ func send_command(command: Object) -> Variant:
 	if not _can_execute_runtime("send_command"):
 		return null
 
-	if not _inject_dependencies_if_needed(command, _get_active_lifecycle_serial_or_unbound(), true):
+	if not _inject_dependencies_if_needed(
+		command,
+		_get_active_lifecycle_serial_or_unbound(),
+		true
+	):
 		return null
 	if command.has_method("execute"):
 		return command.call("execute")
@@ -1244,7 +1200,11 @@ func send_query(query: Object) -> Variant:
 	if not _can_execute_runtime("send_query"):
 		return null
 
-	if not _inject_dependencies_if_needed(query, _get_active_lifecycle_serial_or_unbound(), true):
+	if not _inject_dependencies_if_needed(
+		query,
+		_get_active_lifecycle_serial_or_unbound(),
+		true
+	):
 		return null
 	if query.has_method("execute"):
 		return query.call("execute")
@@ -1278,10 +1238,18 @@ func send_event(event_instance: Object) -> void:
 ## @param listener: 事件监听器契约。
 ## [br]
 ## @param priority: 回调优先级，数值越大越先执行，默认为 0。
-func register_event(event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
+func register_event(
+	event_type: Script,
+	listener: GFEventListener,
+	priority: int = 0
+) -> void:
 	if not _can_mutate_runtime("register_event"):
 		return
-	_event_system.register(event_type, listener, priority)
+	_event_system.register(
+		event_type,
+		listener,
+		priority
+	)
 
 
 ## 为脚本类型注册带拥有者的事件监听器。
@@ -1298,10 +1266,20 @@ func register_event(event_type: Script, listener: GFEventListener, priority: int
 ## @param listener: 事件监听器契约。
 ## [br]
 ## @param priority: 回调优先级，数值越大越先执行，默认为 0。
-func register_event_owned(owner: Object, event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
+func register_event_owned(
+	owner: Object,
+	event_type: Script,
+	listener: GFEventListener,
+	priority: int = 0
+) -> void:
 	if not _can_mutate_runtime("register_event_owned"):
 		return
-	_event_system.register_owned(owner, event_type, listener, priority)
+	_event_system.register_owned(
+		owner,
+		event_type,
+		listener,
+		priority
+	)
 
 
 ## 订阅脚本类型事件并返回可取消句柄。
@@ -1330,7 +1308,12 @@ func subscribe_event(
 ) -> GFSubscriptionToken:
 	if not _can_mutate_runtime("subscribe_event"):
 		return GFSubscriptionToken.new()
-	return _event_system.subscribe(event_type, listener, priority, once)
+	return _event_system.subscribe(
+		event_type,
+		listener,
+		priority,
+		once
+	)
 
 
 ## 为脚本类型注册可赋值事件监听器。
@@ -1345,10 +1328,18 @@ func subscribe_event(
 ## @param listener: 事件监听器契约。
 ## [br]
 ## @param priority: 回调优先级，数值越大越先执行，默认为 0。
-func register_assignable_event(base_event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
+func register_assignable_event(
+	base_event_type: Script,
+	listener: GFEventListener,
+	priority: int = 0
+) -> void:
 	if not _can_mutate_runtime("register_assignable_event"):
 		return
-	_event_system.register_assignable(base_event_type, listener, priority)
+	_event_system.register_assignable(
+		base_event_type,
+		listener,
+		priority
+	)
 
 
 ## 为脚本类型注册带拥有者的可赋值事件监听器。
@@ -1372,7 +1363,12 @@ func register_assignable_event_owned(
 ) -> void:
 	if not _can_mutate_runtime("register_assignable_event_owned"):
 		return
-	_event_system.register_assignable_owned(owner, base_event_type, listener, priority)
+	_event_system.register_assignable_owned(
+		owner,
+		base_event_type,
+		listener,
+		priority
+	)
 
 
 ## 订阅可赋值类型事件并返回可取消句柄。
@@ -1401,7 +1397,12 @@ func subscribe_assignable_event(
 ) -> GFSubscriptionToken:
 	if not _can_mutate_runtime("subscribe_assignable_event"):
 		return GFSubscriptionToken.new()
-	return _event_system.subscribe_assignable(base_event_type, listener, priority, once)
+	return _event_system.subscribe_assignable(
+		base_event_type,
+		listener,
+		priority,
+		once
+	)
 
 
 ## 为脚本类型注销事件监听器。
@@ -1431,10 +1432,18 @@ func unregister_event(event_type: Script, listener: GFEventListener) -> void:
 ## @param event_type: 要注销的脚本类型。
 ## [br]
 ## @param listener: 要移除的事件监听器契约。
-func unregister_event_owned(owner: Object, event_type: Script, listener: GFEventListener) -> void:
+func unregister_event_owned(
+	owner: Object,
+	event_type: Script,
+	listener: GFEventListener
+) -> void:
 	if not _can_mutate_runtime("unregister_event_owned"):
 		return
-	_event_system.unregister_owned(owner, event_type, listener)
+	_event_system.unregister_owned(
+		owner,
+		event_type,
+		listener
+	)
 
 
 ## 注销可赋值类型事件监听器。
@@ -1463,10 +1472,18 @@ func unregister_assignable_event(base_event_type: Script, listener: GFEventListe
 ## @param base_event_type: 注册时使用的基类脚本类型。
 ## [br]
 ## @param listener: 要移除的事件监听器契约。
-func unregister_assignable_event_owned(owner: Object, base_event_type: Script, listener: GFEventListener) -> void:
+func unregister_assignable_event_owned(
+	owner: Object,
+	base_event_type: Script,
+	listener: GFEventListener
+) -> void:
 	if not _can_mutate_runtime("unregister_assignable_event_owned"):
 		return
-	_event_system.unregister_assignable_owned(owner, base_event_type, listener)
+	_event_system.unregister_assignable_owned(
+		owner,
+		base_event_type,
+		listener
+	)
 
 
 ## 注册轻量级 StringName 事件监听器。
@@ -1495,10 +1512,18 @@ func register_simple_event(event_id: StringName, listener: GFEventListener) -> v
 ## @param event_id: StringName 事件标识符。
 ## [br]
 ## @param listener: 简单事件监听器契约。
-func register_simple_event_owned(owner: Object, event_id: StringName, listener: GFEventListener) -> void:
+func register_simple_event_owned(
+	owner: Object,
+	event_id: StringName,
+	listener: GFEventListener
+) -> void:
 	if not _can_mutate_runtime("register_simple_event_owned"):
 		return
-	_event_system.register_simple_owned(owner, event_id, listener)
+	_event_system.register_simple_owned(
+		owner,
+		event_id,
+		listener
+	)
 
 
 ## 订阅轻量级 StringName 事件并返回可取消句柄。
@@ -1524,7 +1549,11 @@ func subscribe_simple_event(
 ) -> GFSubscriptionToken:
 	if not _can_mutate_runtime("subscribe_simple_event"):
 		return GFSubscriptionToken.new()
-	return _event_system.subscribe_simple(event_id, listener, once)
+	return _event_system.subscribe_simple(
+		event_id,
+		listener,
+		once
+	)
 
 
 ## 注销轻量级 StringName 事件监听器。
@@ -1553,10 +1582,18 @@ func unregister_simple_event(event_id: StringName, listener: GFEventListener) ->
 ## @param event_id: StringName 事件标识符。
 ## [br]
 ## @param listener: 要移除的简单事件监听器契约。
-func unregister_simple_event_owned(owner: Object, event_id: StringName, listener: GFEventListener) -> void:
+func unregister_simple_event_owned(
+	owner: Object,
+	event_id: StringName,
+	listener: GFEventListener
+) -> void:
 	if not _can_mutate_runtime("unregister_simple_event_owned"):
 		return
-	_event_system.unregister_simple_owned(owner, event_id, listener)
+	_event_system.unregister_simple_owned(
+		owner,
+		event_id,
+		listener
+	)
 
 
 ## 注销某个拥有者注册过的所有事件监听器。
@@ -1688,7 +1725,11 @@ func register_system(script_cls: Script, instance: Object) -> bool:
 		if hot_registered:
 			_refresh_tick_caches()
 		return hot_registered
-	if not _register_module(_system_registry, script_cls, instance):
+	if not _register_module(
+		_system_registry,
+		script_cls,
+		instance
+	):
 		return false
 
 	_refresh_tick_caches()
@@ -1713,7 +1754,11 @@ func register_model(script_cls: Script, instance: Object) -> bool:
 			script_cls,
 			instance
 		)
-	if not _register_module(_model_registry, script_cls, instance):
+	if not _register_module(
+		_model_registry,
+		script_cls,
+		instance
+	):
 		return false
 
 	return true
@@ -1741,7 +1786,11 @@ func register_utility(script_cls: Script, instance: Object) -> bool:
 			_refresh_cached_utility_refs()
 			_refresh_tick_caches()
 		return hot_registered
-	if not _register_module(_utility_registry, script_cls, instance):
+	if not _register_module(
+		_utility_registry,
+		script_cls,
+		instance
+	):
 		return false
 
 	_refresh_cached_utility_refs()
@@ -1761,7 +1810,11 @@ func register_utility(script_cls: Script, instance: Object) -> bool:
 ## [br]
 ## @return 替换成功时返回 true。
 func replace_system(script_cls: Script, instance: Object) -> bool:
-	var replaced: bool = await _replace_module(_system_registry, script_cls, instance)
+	var replaced: bool = await _replace_module(
+		_system_registry,
+		script_cls,
+		instance
+	)
 	if replaced:
 		_refresh_tick_caches()
 	return replaced
@@ -1779,7 +1832,11 @@ func replace_system(script_cls: Script, instance: Object) -> bool:
 ## [br]
 ## @return 替换成功时返回 true。
 func replace_model(script_cls: Script, instance: Object) -> bool:
-	return await _replace_module(_model_registry, script_cls, instance)
+	return await _replace_module(
+		_model_registry,
+		script_cls,
+		instance
+	)
 
 
 ## 替换 Utility 实例。新实例成功完成当前生命周期阶段后才会提交替换。
@@ -1794,7 +1851,11 @@ func replace_model(script_cls: Script, instance: Object) -> bool:
 ## [br]
 ## @return 替换成功时返回 true。
 func replace_utility(script_cls: Script, instance: Object) -> bool:
-	var replaced: bool = await _replace_module(_utility_registry, script_cls, instance)
+	var replaced: bool = await _replace_module(
+		_utility_registry,
+		script_cls,
+		instance
+	)
 	if replaced:
 		_refresh_cached_utility_refs()
 		_refresh_tick_caches()
@@ -1834,7 +1895,13 @@ func register_factory(
 	if _factories.has(script_cls):
 		push_warning("[GFArchitecture][architecture.factory_already_registered] register_factory ignored a duplicate type registration; use replace_factory() to replace it.")
 		return false
-	_factories[script_cls] = GFBindingBase.new(script_cls, factory, self, lifetime, true)
+	_factories[script_cls] = GFBindingBase.new(
+		script_cls,
+		factory,
+		self,
+		lifetime,
+		true
+	)
 	return true
 
 
@@ -1863,7 +1930,14 @@ func register_factory_instance(script_cls: Script, instance: Object) -> bool:
 	if _factories.has(script_cls):
 		push_warning("[GFArchitecture][architecture.factory_instance_already_registered] register_factory_instance ignored a duplicate type registration; use replace_factory_instance() to replace it.")
 		return false
-	_factories[script_cls] = GFBindingBase.new(script_cls, instance, self, GFBindingLifetimesBase.Lifetime.SINGLETON, true, false)
+	_factories[script_cls] = GFBindingBase.new(
+		script_cls,
+		instance,
+		self,
+		GFBindingLifetimesBase.Lifetime.SINGLETON,
+		true,
+		false
+	)
 	return true
 
 
@@ -1898,7 +1972,13 @@ func replace_factory(
 	if not _validate_factory_lifetime(lifetime, "replace_factory"):
 		return false
 	_clear_factory_binding(script_cls)
-	_factories[script_cls] = GFBindingBase.new(script_cls, factory, self, lifetime, true)
+	_factories[script_cls] = GFBindingBase.new(
+		script_cls,
+		factory,
+		self,
+		lifetime,
+		true
+	)
 	return true
 
 
@@ -1925,7 +2005,14 @@ func replace_factory_instance(script_cls: Script, instance: Object) -> bool:
 		push_error("[GFArchitecture][architecture.replace_factory_instance_null] replace_factory_instance failed: the instance is null.")
 		return false
 	_clear_factory_binding(script_cls)
-	_factories[script_cls] = GFBindingBase.new(script_cls, instance, self, GFBindingLifetimesBase.Lifetime.SINGLETON, true, false)
+	_factories[script_cls] = GFBindingBase.new(
+		script_cls,
+		instance,
+		self,
+		GFBindingLifetimesBase.Lifetime.SINGLETON,
+		true,
+		false
+	)
 	return true
 
 
@@ -1964,7 +2051,11 @@ func has_factory(script_cls: Script) -> bool:
 	while current != null:
 		if current._factories.has(script_cls):
 			return true
-		current = _get_next_parent_for_lookup(current, visited, "has_factory")
+		current = _get_next_parent_for_lookup(
+			current,
+			visited,
+			"has_factory"
+		)
 	return false
 
 
@@ -2292,10 +2383,7 @@ func register_utility_instance_as(instance: Object, alias_cls: Script) -> bool:
 ## [br]
 ## @return 模块完成 quiesce 并从活动拓扑移除时返回 true。
 func unregister_system(script_cls: Script) -> bool:
-	var unregistered: bool = await _unregister_module(
-		_system_registry,
-		script_cls
-	)
+	var unregistered: bool = await _unregister_module(_system_registry, script_cls)
 	if unregistered:
 		_refresh_tick_caches()
 	return unregistered
@@ -2324,10 +2412,7 @@ func unregister_model(script_cls: Script) -> bool:
 ## [br]
 ## @return 模块完成 quiesce 并从活动拓扑移除时返回 true。
 func unregister_utility(script_cls: Script) -> bool:
-	var unregistered: bool = await _unregister_module(
-		_utility_registry,
-		script_cls
-	)
+	var unregistered: bool = await _unregister_module(_utility_registry, script_cls)
 	if unregistered:
 		_refresh_cached_utility_refs()
 		_refresh_tick_caches()
@@ -2698,10 +2783,7 @@ func restore_all_models_state(data: Dictionary) -> Dictionary:
 ## 是否全部通过基线核对，validate 零写入失败固定为 false。
 ## [br]
 ## @schema return: Dictionary with ok: bool, phase: StringName, rolled_back: bool, and error: String.
-func restore_all_models_state_async(
-	data: Dictionary,
-	options: Dictionary = {}
-) -> Dictionary:
+func restore_all_models_state_async(data: Dictionary, options: Dictionary = {}) -> Dictionary:
 	return await _snapshot_coordinator.restore_all_models_state_async(data, options)
 
 
@@ -2765,10 +2847,7 @@ func get_global_snapshot_async(options: Dictionary = {}) -> Dictionary:
 ## validate 零写入失败固定为 false。
 ## [br]
 ## @schema return: Dictionary with ok: bool, phase: StringName, rolled_back: bool, and error: String.
-func restore_global_snapshot(
-	data: Dictionary,
-	command_builder: Callable = Callable()
-) -> Dictionary:
+func restore_global_snapshot(data: Dictionary, command_builder: Callable = Callable()) -> Dictionary:
 	return _snapshot_coordinator.restore_global_snapshot(data, command_builder)
 
 
@@ -2801,7 +2880,11 @@ func restore_global_snapshot_async(
 	command_builder: Callable = Callable(),
 	options: Dictionary = {}
 ) -> Dictionary:
-	return await _snapshot_coordinator.restore_global_snapshot_async(data, command_builder, options)
+	return await _snapshot_coordinator.restore_global_snapshot_async(
+		data,
+		command_builder,
+		options
+	)
 
 
 ## 获取架构模块生命周期诊断快照。
@@ -2844,20 +2927,45 @@ func get_debug_lifecycle_state() -> Dictionary:
 ## [br]
 ## @schema return: Dictionary containing ok, registry counts, registry entries, factory bindings, parent_chain, parent_chain_cycle_detected, parent_chain_truncated, lifecycle flags, and issues.
 func get_binding_diagnostics(options: Dictionary = {}) -> Dictionary:
-	var include_entries: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "include_entries", true)
-	var include_parent_chain: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "include_parent_chain", true)
-	var max_parent_depth: int = maxi(_GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, "max_parent_depth", 16), 0)
+	var include_entries: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		options,
+		"include_entries",
+		true
+	)
+	var include_parent_chain: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		options,
+		"include_parent_chain",
+		true
+	)
+	var max_parent_depth: int = maxi(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			options,
+			"max_parent_depth",
+			16
+		),
+		0
+	)
 	var registries: Dictionary = {
-		"models": _collect_binding_registry_diagnostics("model", _model_registry, true),
-		"systems": _collect_binding_registry_diagnostics("system", _system_registry, true),
-		"utilities": _collect_binding_registry_diagnostics("utility", _utility_registry, true),
+		"models": _collect_binding_registry_diagnostics(
+			"model",
+			_model_registry,
+			true
+		),
+		"systems": _collect_binding_registry_diagnostics(
+			"system",
+			_system_registry,
+			true
+		),
+		"utilities": _collect_binding_registry_diagnostics(
+			"utility",
+			_utility_registry,
+			true
+		),
 	}
 	var factories: Dictionary = _collect_binding_factory_diagnostics(true)
 	var issues: Array[Dictionary] = []
 	var parent_chain_report: Dictionary = _collect_parent_chain_report(max_parent_depth)
-	var parent_chain_entries: Array = _GF_VARIANT_ACCESS_SCRIPT.as_array(
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(parent_chain_report, _PARENT_CHAIN_ENTRIES_KEY)
-	)
+	var parent_chain_entries: Array = _GF_VARIANT_ACCESS_SCRIPT.as_array(_GF_VARIANT_ACCESS_SCRIPT.get_option_value(parent_chain_report, _PARENT_CHAIN_ENTRIES_KEY))
 	_append_binding_registry_issues(issues, registries)
 	_append_binding_factory_issues(issues, factories)
 	_append_parent_chain_issues(issues, parent_chain_report)
@@ -2885,8 +2993,16 @@ func get_binding_diagnostics(options: Dictionary = {}) -> Dictionary:
 		"registries": registries,
 		"factories": factories,
 		"parent_depth": parent_chain_entries.size(),
-		"parent_chain_cycle_detected": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(parent_chain_report, _PARENT_CHAIN_CYCLE_DETECTED_KEY, false),
-		"parent_chain_truncated": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(parent_chain_report, _PARENT_CHAIN_TRUNCATED_KEY, false),
+		"parent_chain_cycle_detected": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			parent_chain_report,
+			_PARENT_CHAIN_CYCLE_DETECTED_KEY,
+			false
+		),
+		"parent_chain_truncated": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			parent_chain_report,
+			_PARENT_CHAIN_TRUNCATED_KEY,
+			false
+		),
 	}
 	if include_parent_chain:
 		result["parent_chain"] = parent_chain_entries
@@ -3001,7 +3117,11 @@ func run_required_binding_attempt_for_framework(attempt: Callable) -> Variant:
 ## [br]
 ## @return 别名写入成功时返回 true。
 func register_model_alias_for_framework(alias_cls: Script, target_cls: Script) -> bool:
-	return _register_required_plan_alias(_model_registry, alias_cls, target_cls)
+	return _register_required_plan_alias(
+		_model_registry,
+		alias_cls,
+		target_cls
+	)
 
 
 ## 为 required binding plan 注册 System 查询别名并返回精确结果。
@@ -3016,7 +3136,11 @@ func register_model_alias_for_framework(alias_cls: Script, target_cls: Script) -
 ## [br]
 ## @return 别名写入成功时返回 true。
 func register_system_alias_for_framework(alias_cls: Script, target_cls: Script) -> bool:
-	return _register_required_plan_alias(_system_registry, alias_cls, target_cls)
+	return _register_required_plan_alias(
+		_system_registry,
+		alias_cls,
+		target_cls
+	)
 
 
 ## 为 required binding plan 注册 Utility 查询别名并返回精确结果。
@@ -3031,7 +3155,11 @@ func register_system_alias_for_framework(alias_cls: Script, target_cls: Script) 
 ## [br]
 ## @return 别名写入成功时返回 true。
 func register_utility_alias_for_framework(alias_cls: Script, target_cls: Script) -> bool:
-	return _register_required_plan_alias(_utility_registry, alias_cls, target_cls)
+	return _register_required_plan_alias(
+		_utility_registry,
+		alias_cls,
+		target_cls
+	)
 
 
 ## 为 required binding plan 注册 Model candidate，并由 Architecture 精确结算拒绝所有权。
@@ -3133,7 +3261,10 @@ func _begin_stale_async_write_block() -> void:
 ## [br]
 ## @api framework_internal
 func _end_stale_async_write_block() -> void:
-	_stale_async_write_block_count = maxi(_stale_async_write_block_count - 1, 0)
+	_stale_async_write_block_count = maxi(
+		_stale_async_write_block_count - 1,
+		0
+	)
 
 
 ## 供 System/Utility 的 tick 配置变化请求调度器重建缓存。
@@ -3148,30 +3279,21 @@ func _refresh_tick_caches() -> void:
 ## 等待指定代次已有的初始化，并在取消或完成后断开临时连接；仅成功且架构就绪、代次仍当前时返回 true。
 ## [br]
 ## @api private
-func _await_existing_initialization(
-	waiting_serial: int,
-	cancellation_token: GFCancellationToken
-) -> bool:
+func _await_existing_initialization(waiting_serial: int, cancellation_token: GFCancellationToken) -> bool:
 	if not _runtime.is_generation_current(waiting_serial):
 		return false
 	if cancellation_token != null and cancellation_token.is_cancel_requested():
 		return false
 
 	var wait_completion: GFAsyncCompletion = GFAsyncCompletion.new()
-	var initialization_callback: Callable = Callable(
-		wait_completion,
-		&"succeed"
-	)
+	var initialization_callback: Callable = Callable(wait_completion, &"succeed")
 	var connect_error: Error = initialization_finished.connect(
 		initialization_callback,
 		CONNECT_ONE_SHOT as Object.ConnectFlags
 	) as Error
 	if connect_error != OK:
 		return false
-	if (
-		cancellation_token != null
-		and not wait_completion.bind_cancel_token(cancellation_token)
-	):
+	if (cancellation_token != null and not wait_completion.bind_cancel_token(cancellation_token)):
 		if initialization_finished.is_connected(initialization_callback):
 			initialization_finished.disconnect(initialization_callback)
 		return false
@@ -3189,21 +3311,14 @@ func _await_existing_initialization(
 ## 将 lifecycle plan 中的模块与依赖解析结果整理为诊断报告；没有 plan 时报告错误并返回空列表。
 ## [br]
 ## @api private
-func _build_dependency_diagnostics_from_plan(
-	plan: GFArchitectureLifecyclePlan
-) -> Dictionary:
-	var report: DependencyDiagnosticsReport = DependencyDiagnosticsReport.new(
-		"Architecture dependencies"
-	)
+func _build_dependency_diagnostics_from_plan(plan: GFArchitectureLifecyclePlan) -> Dictionary:
+	var report: DependencyDiagnosticsReport = DependencyDiagnosticsReport.new("Architecture dependencies")
 	var modules: Array[Dictionary] = []
 	var modules_by_key: Dictionary = {}
 	var resolved_dependencies: Array[Dictionary] = []
 	var missing_dependencies: Array[Dictionary] = []
 	if plan == null:
-		var _missing_plan_issue: Dictionary = report.add_error(
-			&"missing_lifecycle_plan",
-			"Architecture dependency diagnostics could not build a lifecycle plan."
-		)
+		var _missing_plan_issue: Dictionary = report.add_error(&"missing_lifecycle_plan", "Architecture dependency diagnostics could not build a lifecycle plan.")
 		return report.to_dict(
 			{
 				"module_count": 0,
@@ -3215,34 +3330,14 @@ func _build_dependency_diagnostics_from_plan(
 		)
 
 	for snapshot: Dictionary in plan.get_dependency_snapshot():
-		var module_key: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			snapshot,
-			"module_key"
-		)
-		var module_script: Script = _get_dictionary_script(
-			snapshot,
-			"module_script"
-		)
-		var module_instance: Object = _get_dictionary_object(
-			snapshot,
-			"module_instance"
-		)
-		var dependency_map: Dictionary = (
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-				snapshot,
-				"dependencies"
-			)
-		)
+		var module_key: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(snapshot, "module_key")
+		var module_script: Script = _get_dictionary_script(snapshot, "module_script")
+		var module_instance: Object = _get_dictionary_object(snapshot, "module_instance")
+		var dependency_map: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(snapshot, "dependencies")
 		var module_record: Dictionary = {
-			"kind": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-				snapshot,
-				"module_kind"
-			),
+			"kind": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(snapshot, "module_kind"),
 			"module_key": module_key,
-			"script": _get_script_debug_key(
-				module_script,
-				module_instance
-			),
+			"script": _get_script_debug_key(module_script, module_instance),
 			"instance": _get_instance_debug_key(module_instance),
 			"dependencies": _dependency_map_to_keys(dependency_map),
 			"resolved_dependencies": [],
@@ -3252,41 +3347,18 @@ func _build_dependency_diagnostics_from_plan(
 		modules_by_key[module_key] = module_record
 
 	for source_record: Dictionary in plan.get_dependency_records():
-		var dependency_record: Dictionary = (
-			_make_plan_dependency_diagnostic_record(source_record)
-		)
-		var module_key: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			source_record,
-			"module_key"
-		)
-		var module_record: Dictionary = (
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-				modules_by_key,
-				module_key
-			)
-		)
-		if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-			dependency_record,
-			"resolved"
-		):
+		var dependency_record: Dictionary = _make_plan_dependency_diagnostic_record(source_record)
+		var module_key: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(source_record, "module_key")
+		var module_record: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(modules_by_key, module_key)
+		if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(dependency_record, "resolved"):
 			resolved_dependencies.append(dependency_record)
 			if not module_record.is_empty():
-				var module_resolved: Array = (
-					_GF_VARIANT_ACCESS_SCRIPT.get_option_array(
-						module_record,
-						"resolved_dependencies"
-					)
-				)
+				var module_resolved: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(module_record, "resolved_dependencies")
 				module_resolved.append(dependency_record)
 		else:
 			missing_dependencies.append(dependency_record)
 			if not module_record.is_empty():
-				var module_missing: Array = (
-					_GF_VARIANT_ACCESS_SCRIPT.get_option_array(
-						module_record,
-						"missing_dependencies"
-					)
-				)
+				var module_missing: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(module_record, "missing_dependencies")
 				module_missing.append(dependency_record)
 
 	for diagnostic: Dictionary in plan.get_diagnostics():
@@ -3307,9 +3379,7 @@ func _build_dependency_diagnostics_from_plan(
 ## 从单条依赖诊断中提取模块、解析范围、实例标识和父链循环信息。
 ## [br]
 ## @api private
-func _make_plan_dependency_diagnostic_record(
-	source: Dictionary
-) -> Dictionary:
+func _make_plan_dependency_diagnostic_record(source: Dictionary) -> Dictionary:
 	var status: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 		source,
 		"status",
@@ -3322,36 +3392,15 @@ func _make_plan_dependency_diagnostic_record(
 	)
 	if status == "parent_cycle":
 		scope = "parent_cycle"
-	var dependency_script: Script = _get_dictionary_script(
-		source,
-		"dependency_script"
-	)
-	var resolved_instance: Object = _get_dictionary_object(
-		source,
-		"resolved_instance"
-	)
-	var registered_script: Script = _get_dictionary_script(
-		source,
-		"registered_script"
-	)
+	var dependency_script: Script = _get_dictionary_script(source, "dependency_script")
+	var resolved_instance: Object = _get_dictionary_object(source, "resolved_instance")
+	var registered_script: Script = _get_dictionary_script(source, "registered_script")
 	return {
-		"module_kind": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			source,
-			"module_kind"
-		),
-		"module": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			source,
-			"module_key"
-		),
-		"kind": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			source,
-			"dependency_kind"
-		),
+		"module_kind": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(source, "module_kind"),
+		"module": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(source, "module_key"),
+		"kind": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(source, "dependency_kind"),
 		"script": _get_script_debug_key(dependency_script),
-		"resolved": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-			source,
-			"resolved"
-		),
+		"resolved": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(source, "resolved"),
 		"status": status,
 		"scope": scope,
 		"resolved_instance": _get_instance_debug_key(resolved_instance),
@@ -3360,21 +3409,10 @@ func _make_plan_dependency_diagnostic_record(
 			"architecture_depth",
 			-1
 		),
-		"resolution_kind": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			source,
-			"resolution_kind"
-		),
+		"resolution_kind": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(source, "resolution_kind"),
 		"registered_script": _get_script_debug_key(registered_script),
-		"parent_chain_cycle_detected": (
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-				source,
-				"parent_chain_cycle_detected"
-			)
-		),
-		"cycle_architecture": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			source,
-			"cycle_architecture"
-		),
+		"parent_chain_cycle_detected": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(source, "parent_chain_cycle_detected"),
+		"cycle_architecture": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(source, "cycle_architecture"),
 		"cycle_depth": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
 			source,
 			"cycle_depth",
@@ -3385,38 +3423,23 @@ func _make_plan_dependency_diagnostic_record(
 			"cycle_start_depth",
 			-1
 		),
-		"reason": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			source,
-			"reason"
-		),
+		"reason": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(source, "reason"),
 	}
 
 
 ## 将 plan 诊断转换为 DependencyDiagnosticsReport 条目，并把内部字段放入 metadata。
 ## [br]
 ## @api private
-func _append_lifecycle_plan_dependency_issue(
-	report: DependencyDiagnosticsReport,
-	diagnostic: Dictionary
-) -> void:
+func _append_lifecycle_plan_dependency_issue(report: DependencyDiagnosticsReport, diagnostic: Dictionary) -> void:
 	var source_code: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 		diagnostic,
 		"code",
 		"invalid_dependency_resolution"
 	)
-	var dependency_kind: String = (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			diagnostic,
-			"dependency_kind"
-		)
-	)
+	var dependency_kind: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(diagnostic, "dependency_kind")
 	var public_code: StringName = StringName(source_code)
 	if source_code == "missing_dependency":
-		public_code = StringName(
-			"missing_%s_dependency" % _dependency_kind_to_singular(
-				dependency_kind
-			)
-		)
+		public_code = StringName("missing_%s_dependency" % _dependency_kind_to_singular(dependency_kind))
 	elif source_code == "parent_dependency_cycle":
 		public_code = &"dependency_parent_chain_cycle"
 	var metadata: Dictionary = diagnostic.duplicate(true)
@@ -3435,14 +3458,8 @@ func _append_lifecycle_plan_dependency_issue(
 			"message",
 			"Architecture lifecycle dependency plan is invalid."
 		),
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			diagnostic,
-			"module_key"
-		),
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			diagnostic,
-			"dependency_key"
-		),
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(diagnostic, "module_key"),
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(diagnostic, "dependency_key"),
 		metadata
 	)
 
@@ -3457,19 +3474,14 @@ func _get_dependency_diagnostics_report_options() -> Dictionary:
 		"include_info_count": false,
 		"include_issue_count": false,
 		"next_actions": _get_dependency_diagnostics_next_actions(),
-		"fallback_action": (
-			"Review the first reported architecture dependency issue."
-		),
+		"fallback_action": "Review the first reported architecture dependency issue.",
 	}
 
 
 ## 从依赖映射读取指定类别的 Array；字段不是 Array 时返回空数组。
 ## [br]
 ## @api private
-func _get_dependency_script_array(
-	dependencies: Dictionary,
-	dependency_kind: String
-) -> Array:
+func _get_dependency_script_array(dependencies: Dictionary, dependency_kind: String) -> Array:
 	var raw_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
 		dependencies,
 		dependency_kind,
@@ -3545,21 +3557,47 @@ func _get_dictionary_script(source: Dictionary, field_name: Variant) -> Script:
 ## 读取 Object 属性并转换为 int；对象/属性不可读或转换失败时使用默认值。
 ## [br]
 ## @api private
-func _get_object_int_property(instance: Object, property_name: StringName, default_value: int) -> int:
-	return _GF_VARIANT_ACCESS_SCRIPT.to_int(_get_object_property(instance, property_name, default_value), default_value)
+func _get_object_int_property(
+	instance: Object,
+	property_name: StringName,
+	default_value: int
+) -> int:
+	return _GF_VARIANT_ACCESS_SCRIPT.to_int(
+		_get_object_property(
+			instance,
+			property_name,
+			default_value
+		),
+		default_value
+	)
 
 
 ## 读取 Object 属性并转换为 bool；对象/属性不可读或转换失败时使用默认值。
 ## [br]
 ## @api private
-func _get_object_bool_property(instance: Object, property_name: StringName, default_value: bool = false) -> bool:
-	return _GF_VARIANT_ACCESS_SCRIPT.to_bool(_get_object_property(instance, property_name, default_value), default_value)
+func _get_object_bool_property(
+	instance: Object,
+	property_name: StringName,
+	default_value: bool = false
+) -> bool:
+	return _GF_VARIANT_ACCESS_SCRIPT.to_bool(
+		_get_object_property(
+			instance,
+			property_name,
+			default_value
+		),
+		default_value
+	)
 
 
 ## 通过 indexed property 读取对象属性；对象为空或属性不存在时返回默认值。
 ## [br]
 ## @api private
-func _get_object_property(instance: Object, property_name: StringName, default_value: Variant = null) -> Variant:
+func _get_object_property(
+	instance: Object,
+	property_name: StringName,
+	default_value: Variant = null
+) -> Variant:
 	if instance == null:
 		return default_value
 	if not String(property_name) in instance:
@@ -3609,7 +3647,10 @@ func _script_array_to_debug_keys(scripts: Array) -> PackedStringArray:
 		if not script_variant is Script:
 			continue
 		var script: Script = script_variant
-		_append_packed_string(result, _get_script_debug_key(script))
+		_append_packed_string(
+			result,
+			_get_script_debug_key(script)
+		)
 	result.sort()
 	return result
 
@@ -3624,7 +3665,11 @@ func _append_packed_string(target: PackedStringArray, value: String) -> void:
 ## 实例和方法均可用时按 arguments 调用该方法；否则直接返回。
 ## [br]
 ## @api private
-func _call_module_void(instance: Object, method_name: StringName, arguments: Array = []) -> void:
+func _call_module_void(
+	instance: Object,
+	method_name: StringName,
+	arguments: Array = []
+) -> void:
 	if instance == null or not instance.has_method(method_name):
 		return
 	var _result: Variant = instance.callv(method_name, arguments)
@@ -3687,10 +3732,7 @@ func _call_module_ready(instance: Object) -> void:
 ## 按模块类型调用 begin_activation，并返回模块提供的异步完成对象。
 ## [br]
 ## @api private
-func _call_module_begin_activation(
-	instance: Object,
-	scope: GFAsyncScope
-) -> GFAsyncCompletion:
+func _call_module_begin_activation(instance: Object, scope: GFAsyncScope) -> GFAsyncCompletion:
 	_lifecycle_hook_depth += 1
 	var completion: GFAsyncCompletion = null
 	if instance is GFModel:
@@ -3709,10 +3751,7 @@ func _call_module_begin_activation(
 ## 按模块类型调用 begin_quiesce，并返回模块提供的异步完成对象。
 ## [br]
 ## @api private
-func _call_module_begin_quiesce(
-	instance: Object,
-	scope: GFAsyncScope
-) -> GFAsyncCompletion:
+func _call_module_begin_quiesce(instance: Object, scope: GFAsyncScope) -> GFAsyncCompletion:
 	_lifecycle_hook_depth += 1
 	var completion: GFAsyncCompletion = null
 	if instance is GFModel:
@@ -3780,14 +3819,15 @@ func _get_registered_instance_with_parent_lookup(
 			return instance if not require_ready or current._is_module_ready_for_lookup(instance) else null
 		if current.strict_dependency_lookup:
 			if report_strict_miss:
-				current._report_strict_lookup_miss(
-					script_cls,
-					module_registry.label
-				)
+				current._report_strict_lookup_miss(script_cls, module_registry.label)
 			return null
 		if not current._should_fallback_after_local_module_miss(module_registry, script_cls):
 			return null
-		current = _get_next_parent_for_lookup(current, visited, "get_%s" % module_registry._label_key())
+		current = _get_next_parent_for_lookup(
+			current,
+			visited,
+			"get_%s" % module_registry._label_key()
+		)
 	return null
 
 
@@ -3855,9 +3895,17 @@ func _get_next_parent_for_lookup(
 	var parent: GFArchitecture = current._parent_architecture
 	if parent == null:
 		return null
-	var next_depth: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(visited, "depth", 0) + 1
+	var next_depth: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+		visited,
+		"depth",
+		0
+	) + 1
 	if _parent_lookup_visited_has_architecture(visited, parent):
-		_record_parent_lookup_cycle(visited, parent, next_depth)
+		_record_parent_lookup_cycle(
+			visited,
+			parent,
+			next_depth
+		)
 		if report_cycle_error:
 			_report_parent_lookup_cycle(context, parent)
 		return null
@@ -3883,7 +3931,11 @@ func _record_parent_lookup_cycle(
 ) -> void:
 	if cycle_architecture == null:
 		return
-	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(visited, _PARENT_CHAIN_CYCLE_DETECTED_KEY, false):
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		visited,
+		_PARENT_CHAIN_CYCLE_DETECTED_KEY,
+		false
+	):
 		return
 	var cycle_instance_id: int = cycle_architecture.get_instance_id()
 	visited[_PARENT_CHAIN_CYCLE_DETECTED_KEY] = true
@@ -3909,7 +3961,11 @@ func _get_parent_lookup_visited_depth(visited: Dictionary, architecture_instance
 ## [br]
 ## @api private
 func _has_parent_lookup_cycle(visited: Dictionary) -> bool:
-	return _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(visited, _PARENT_CHAIN_CYCLE_DETECTED_KEY, false)
+	return _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		visited,
+		_PARENT_CHAIN_CYCLE_DETECTED_KEY,
+		false
+	)
 
 
 ## 将访问记录投影为 parent_cycle 依赖状态，并保留循环架构键及深度信息。
@@ -3921,9 +3977,21 @@ func _make_parent_lookup_cycle_status(visited: Dictionary, architecture_depth: i
 		"scope": "parent_cycle",
 		"architecture_depth": architecture_depth,
 		_PARENT_CHAIN_CYCLE_DETECTED_KEY: true,
-		_PARENT_CHAIN_CYCLE_ARCHITECTURE_KEY: _GF_VARIANT_ACCESS_SCRIPT.get_option_string(visited, _PARENT_CHAIN_CYCLE_ARCHITECTURE_KEY, ""),
-		_PARENT_CHAIN_CYCLE_DEPTH_KEY: _GF_VARIANT_ACCESS_SCRIPT.get_option_int(visited, _PARENT_CHAIN_CYCLE_DEPTH_KEY, -1),
-		_PARENT_CHAIN_CYCLE_START_DEPTH_KEY: _GF_VARIANT_ACCESS_SCRIPT.get_option_int(visited, _PARENT_CHAIN_CYCLE_START_DEPTH_KEY, -1),
+		_PARENT_CHAIN_CYCLE_ARCHITECTURE_KEY: _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			visited,
+			_PARENT_CHAIN_CYCLE_ARCHITECTURE_KEY,
+			""
+		),
+		_PARENT_CHAIN_CYCLE_DEPTH_KEY: _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			visited,
+			_PARENT_CHAIN_CYCLE_DEPTH_KEY,
+			-1
+		),
+		_PARENT_CHAIN_CYCLE_START_DEPTH_KEY: _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			visited,
+			_PARENT_CHAIN_CYCLE_START_DEPTH_KEY,
+			-1
+		),
 	}
 
 
@@ -3931,10 +3999,10 @@ func _make_parent_lookup_cycle_status(visited: Dictionary, architecture_depth: i
 ## [br]
 ## @api private
 func _report_parent_lookup_cycle(context: String, cycle_architecture: GFArchitecture) -> void:
-	push_error("[GFArchitecture][architecture.parent_chain_cycle] %s failed: the parent architecture chain contains a cycle: %s." % [
-		context,
-		_get_architecture_debug_key(cycle_architecture),
-	])
+	push_error(
+		"[GFArchitecture][architecture.parent_chain_cycle] %s failed: the parent architecture chain contains a cycle: %s."
+		% [context, _get_architecture_debug_key(cycle_architecture),]
+	)
 
 
 ## 返回 GFArchitecture 实例 id 调试键；架构为空时返回空字符串。
@@ -3997,15 +4065,8 @@ func _reset_project_installers() -> void:
 ## [br]
 ## @api private
 func _assign_parent_architecture(parent_architecture: GFArchitecture, context: String) -> void:
-	if _runtime.get_state() not in [
-		GFKernelRuntime.LifecycleState.NEW,
-		GFKernelRuntime.LifecycleState.FAILED,
-	]:
-		push_error(
-			"[GFArchitecture][architecture.parent_topology_frozen] %s failed: the parent architecture cannot change after lifecycle planning starts." % (
-				context
-			)
-		)
+	if (_runtime.get_state() not in [GFKernelRuntime.LifecycleState.NEW, GFKernelRuntime.LifecycleState.FAILED,]):
+		push_error("[GFArchitecture][architecture.parent_topology_frozen] %s failed: the parent architecture cannot change after lifecycle planning starts." % (context))
 		return
 	if parent_architecture == null:
 		_parent_architecture = null
@@ -4043,21 +4104,40 @@ func _get_modules_by_lifecycle_priority(registry: Dictionary, reverse: bool = fa
 	var entries: Array[Dictionary] = []
 	var order: int = 0
 	for instance: Object in registry.values():
-		entries.append({
-			"instance": instance,
-			"priority": _get_module_priority(instance, &"lifecycle_priority"),
-			"order": order,
-		})
+		entries.append(
+			{
+				"instance": instance,
+				"priority": _get_module_priority(instance, &"lifecycle_priority"),
+				"order": order,
+			}
+		)
 		order += 1
 
-	entries.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
-		var left_priority: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(left, "priority", 0)
-		var right_priority: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(right, "priority", 0)
-		if left_priority == right_priority:
-			var left_order: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(left, "order", 0)
-			var right_order: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(right, "order", 0)
-			return left_order > right_order if reverse else left_order < right_order
-		return left_priority < right_priority if reverse else left_priority > right_priority
+	entries.sort_custom(
+		func(left: Dictionary, right: Dictionary) -> bool:
+			var left_priority: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+				left,
+				"priority",
+				0
+			)
+			var right_priority: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+				right,
+				"priority",
+				0
+			)
+			if left_priority == right_priority:
+				var left_order: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+					left,
+					"order",
+					0
+				)
+				var right_order: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+					right,
+					"order",
+					0
+				)
+				return left_order > right_order if reverse else left_order < right_order
+			return left_priority < right_priority if reverse else left_priority > right_priority
 	)
 
 	var result: Array[Object] = []
@@ -4104,7 +4184,11 @@ func _collect_module_debug_state(registry: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	for script_cls: Script in registry.keys():
 		var instance: Object = _get_dictionary_object(registry, script_cls)
-		var stage: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(_module_lifecycle_stages, instance, 0)
+		var stage: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			_module_lifecycle_stages,
+			instance,
+			0
+		)
 		var module_state: Dictionary = {
 			"stage": stage,
 			"stage_name": _get_lifecycle_stage_name(stage),
@@ -4112,7 +4196,10 @@ func _collect_module_debug_state(registry: Dictionary) -> Dictionary:
 			"active": stage >= 4,
 			"lifecycle_priority": _get_module_priority(instance, &"lifecycle_priority"),
 		}
-		module_state.merge(_tick_scheduler.get_module_debug_fields(instance), true)
+		module_state.merge(
+			_tick_scheduler.get_module_debug_fields(instance),
+			true
+		)
 		result[_get_script_debug_key(script_cls, instance)] = module_state
 	return result
 
@@ -4140,15 +4227,21 @@ func _collect_binding_registry_diagnostics(
 	var entries: Array[Dictionary] = []
 	for script_cls: Script in module_registry.instances.keys():
 		var instance: Object = _get_dictionary_object(module_registry.instances, script_cls)
-		var stage: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(_module_lifecycle_stages, instance, 0)
-		entries.append({
-			"script": _get_script_debug_key(script_cls, instance),
-			"instance": _get_instance_debug_key(instance),
-			"valid": instance != null,
-			"stage": stage,
-			"stage_name": _get_lifecycle_stage_name(stage),
-			"ready": stage >= 3,
-		})
+		var stage: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			_module_lifecycle_stages,
+			instance,
+			0
+		)
+		entries.append(
+			{
+				"script": _get_script_debug_key(script_cls, instance),
+				"instance": _get_instance_debug_key(instance),
+				"valid": instance != null,
+				"stage": stage,
+				"stage_name": _get_lifecycle_stage_name(stage),
+				"ready": stage >= 3,
+			}
+		)
 
 	var aliases: Array[Dictionary] = []
 	var invalid_alias_count: int = 0
@@ -4157,20 +4250,24 @@ func _collect_binding_registry_diagnostics(
 		var target_registered: bool = target_cls != null and module_registry.instances.has(target_cls)
 		if not target_registered:
 			invalid_alias_count += 1
-		aliases.append({
-			"alias": _get_script_debug_key(alias_cls),
-			"target": _get_script_debug_key(target_cls),
-			"target_registered": target_registered,
-		})
+		aliases.append(
+			{
+				"alias": _get_script_debug_key(alias_cls),
+				"target": _get_script_debug_key(target_cls),
+				"target_registered": target_registered,
+			}
+		)
 
 	var assignable_cache: Array[Dictionary] = []
 	for request_cls: Script in module_registry.assignable_cache.keys():
 		var resolved_cls: Script = _get_dictionary_script(module_registry.assignable_cache, request_cls)
-		assignable_cache.append({
-			"request": _get_script_debug_key(request_cls),
-			"resolved": _get_script_debug_key(resolved_cls),
-			"resolved_registered": resolved_cls != null and module_registry.instances.has(resolved_cls),
-		})
+		assignable_cache.append(
+			{
+				"request": _get_script_debug_key(request_cls),
+				"resolved": _get_script_debug_key(resolved_cls),
+				"resolved_registered": resolved_cls != null and module_registry.instances.has(resolved_cls),
+			}
+		)
 
 	result["invalid_alias_count"] = invalid_alias_count
 	result["entries"] = entries
@@ -4183,10 +4280,7 @@ func _collect_binding_registry_diagnostics(
 ## [br]
 ## @api private
 func _collect_binding_factory_diagnostics(include_entries: bool) -> Dictionary:
-	var result: Dictionary = {
-		"count": _factories.size(),
-		"invalid_count": 0,
-	}
+	var result: Dictionary = { "count": _factories.size(), "invalid_count": 0, }
 	if not include_entries:
 		return result
 
@@ -4196,15 +4290,21 @@ func _collect_binding_factory_diagnostics(include_entries: bool) -> Dictionary:
 		var binding: Object = _get_dictionary_object(_factories, script_cls)
 		var lifetime: int = -1
 		if binding != null and "lifetime" in binding:
-			lifetime = _get_object_int_property(binding, &"lifetime", -1)
+			lifetime = _get_object_int_property(
+				binding,
+				&"lifetime",
+				-1
+			)
 		if binding == null:
 			invalid_count += 1
-		entries.append({
-			"script": _get_script_debug_key(script_cls),
-			"valid": binding != null,
-			"lifetime": lifetime,
-			"lifetime_name": _get_binding_lifetime_name(lifetime),
-		})
+		entries.append(
+			{
+				"script": _get_script_debug_key(script_cls),
+				"valid": binding != null,
+				"lifetime": lifetime,
+				"lifetime_name": _get_binding_lifetime_name(lifetime),
+			}
+		)
 	result["invalid_count"] = invalid_count
 	result["entries"] = entries
 	return result
@@ -4218,16 +4318,22 @@ func _append_binding_registry_issues(issues: Array[Dictionary], registries: Dict
 		var registry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(registries[registry_key])
 		for alias_variant: Variant in _GF_VARIANT_ACCESS_SCRIPT.get_option_array(registry, "aliases"):
 			var alias: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(alias_variant)
-			if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(alias, "target_registered", false):
+			if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+				alias,
+				"target_registered",
+				false
+			):
 				continue
-			issues.append({
-				"kind": "invalid_alias",
-				"severity": "error",
-				"registry": str(registry_key),
-				"alias": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(alias, "alias"),
-				"target": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(alias, "target"),
-				"message": "Alias target is not registered.",
-			})
+			issues.append(
+				{
+					"kind": "invalid_alias",
+					"severity": "error",
+					"registry": str(registry_key),
+					"alias": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(alias, "alias"),
+					"target": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(alias, "target"),
+					"message": "Alias target is not registered.",
+				}
+			)
 
 
 ## 将无效的 factory binding 转换为 invalid_factory_binding error 条目追加到 issues。
@@ -4236,14 +4342,20 @@ func _append_binding_registry_issues(issues: Array[Dictionary], registries: Dict
 func _append_binding_factory_issues(issues: Array[Dictionary], factories: Dictionary) -> void:
 	for entry_variant: Variant in _GF_VARIANT_ACCESS_SCRIPT.get_option_array(factories, "entries"):
 		var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(entry_variant)
-		if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(entry, "valid", false):
+		if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			entry,
+			"valid",
+			false
+		):
 			continue
-		issues.append({
-			"kind": "invalid_factory_binding",
-			"severity": "error",
-			"script": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "script"),
-			"message": "Factory binding is missing or invalid.",
-		})
+		issues.append(
+			{
+				"kind": "invalid_factory_binding",
+				"severity": "error",
+				"script": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "script"),
+				"message": "Factory binding is missing or invalid.",
+			}
+		)
 
 
 ## 从注册表诊断和 factory 诊断字典中移除较大的 entries、aliases 与缓存明细字段。
@@ -4271,35 +4383,63 @@ func _collect_parent_chain_report(max_parent_depth: int) -> Dictionary:
 	var visited: Dictionary = _create_parent_lookup_visited()
 	var parent: GFArchitecture = _parent_architecture
 	var depth: int = 0
-	while parent != null and (max_parent_depth <= 0 or depth < max_parent_depth):
+	while (
+		parent != null
+		and (
+			max_parent_depth <= 0
+			or depth < max_parent_depth
+		)
+	):
 		var parent_instance_id: int = parent.get_instance_id()
 		if visited.has(parent_instance_id):
-			_record_parent_lookup_cycle(visited, parent, depth + 1)
+			_record_parent_lookup_cycle(
+				visited,
+				parent,
+				depth + 1
+			)
 			report[_PARENT_CHAIN_CYCLE_DETECTED_KEY] = true
-			report[_PARENT_CHAIN_CYCLE_ARCHITECTURE_KEY] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(visited, _PARENT_CHAIN_CYCLE_ARCHITECTURE_KEY, "")
-			report[_PARENT_CHAIN_CYCLE_DEPTH_KEY] = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(visited, _PARENT_CHAIN_CYCLE_DEPTH_KEY, -1)
-			report[_PARENT_CHAIN_CYCLE_START_DEPTH_KEY] = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(visited, _PARENT_CHAIN_CYCLE_START_DEPTH_KEY, -1)
+			report[_PARENT_CHAIN_CYCLE_ARCHITECTURE_KEY] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+				visited,
+				_PARENT_CHAIN_CYCLE_ARCHITECTURE_KEY,
+				""
+			)
+			report[_PARENT_CHAIN_CYCLE_DEPTH_KEY] = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+				visited,
+				_PARENT_CHAIN_CYCLE_DEPTH_KEY,
+				-1
+			)
+			report[_PARENT_CHAIN_CYCLE_START_DEPTH_KEY] = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+				visited,
+				_PARENT_CHAIN_CYCLE_START_DEPTH_KEY,
+				-1
+			)
 			break
 		depth += 1
 		visited[parent_instance_id] = depth
 		visited["depth"] = depth
-		entries.append({
-			"depth": depth,
-			"lifecycle_state": parent._runtime.get_state_name(),
-			"inited": parent._runtime.is_ready(),
-			"is_initializing": parent._runtime.is_initializing(),
-			"disposed": parent._runtime.is_disposed(),
-			"lifecycle_generation": parent._runtime.get_lifecycle_generation(),
-			"registry_counts": {
-				"models": parent._model_registry.instances.size(),
-				"systems": parent._system_registry.instances.size(),
-				"utilities": parent._utility_registry.instances.size(),
-				"factories": parent._factories.size(),
-				"aliases": parent._model_registry.aliases.size() + parent._system_registry.aliases.size() + parent._utility_registry.aliases.size(),
-			},
-		})
+		entries.append(
+			{
+				"depth": depth,
+				"lifecycle_state": parent._runtime.get_state_name(),
+				"inited": parent._runtime.is_ready(),
+				"is_initializing": parent._runtime.is_initializing(),
+				"disposed": parent._runtime.is_disposed(),
+				"lifecycle_generation": parent._runtime.get_lifecycle_generation(),
+				"registry_counts": {
+					"models": parent._model_registry.instances.size(),
+					"systems": parent._system_registry.instances.size(),
+					"utilities": parent._utility_registry.instances.size(),
+					"factories": parent._factories.size(),
+					"aliases": (parent._model_registry.aliases.size() + parent._system_registry.aliases.size() + parent._utility_registry.aliases.size()),
+				},
+			}
+		)
 		parent = parent._parent_architecture
-	if parent != null and max_parent_depth > 0 and depth >= max_parent_depth:
+	if (
+		parent != null
+		and max_parent_depth > 0
+		and depth >= max_parent_depth
+	):
 		report[_PARENT_CHAIN_TRUNCATED_KEY] = true
 	report[_PARENT_CHAIN_ENTRIES_KEY] = entries
 	return report
@@ -4309,18 +4449,36 @@ func _collect_parent_chain_report(max_parent_depth: int) -> Dictionary:
 ## [br]
 ## @api private
 func _append_parent_chain_issues(issues: Array[Dictionary], parent_chain_report: Dictionary) -> void:
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(parent_chain_report, _PARENT_CHAIN_CYCLE_DETECTED_KEY, false):
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		parent_chain_report,
+		_PARENT_CHAIN_CYCLE_DETECTED_KEY,
+		false
+	):
 		return
-	issues.append({
-		"severity": "error",
-		"kind": "parent_chain_cycle",
-		"message": "Architecture parent chain contains a cycle.",
-		"metadata": {
-			"cycle_architecture": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(parent_chain_report, _PARENT_CHAIN_CYCLE_ARCHITECTURE_KEY, ""),
-			"cycle_depth": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(parent_chain_report, _PARENT_CHAIN_CYCLE_DEPTH_KEY, -1),
-			"cycle_start_depth": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(parent_chain_report, _PARENT_CHAIN_CYCLE_START_DEPTH_KEY, -1),
-		},
-	})
+	issues.append(
+		{
+			"severity": "error",
+			"kind": "parent_chain_cycle",
+			"message": "Architecture parent chain contains a cycle.",
+			"metadata": {
+				"cycle_architecture": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+					parent_chain_report,
+					_PARENT_CHAIN_CYCLE_ARCHITECTURE_KEY,
+					""
+				),
+				"cycle_depth": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+					parent_chain_report,
+					_PARENT_CHAIN_CYCLE_DEPTH_KEY,
+					-1
+				),
+				"cycle_start_depth": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+					parent_chain_report,
+					_PARENT_CHAIN_CYCLE_START_DEPTH_KEY,
+					-1
+				),
+			},
+		}
+	)
 
 
 ## 移除指定脚本的 factory binding，并在找到 binding 时释放其缓存实例。
@@ -4341,28 +4499,15 @@ func _clear_factory_binding(script_cls: Script) -> void:
 ## @api private
 func _clear_failed_initialization_state() -> void:
 	var disposed_instances: Dictionary = _begin_module_disposal_session()
-	var cleanup_plan: GFArchitectureLifecyclePlan = (
-		_active_lifecycle_plan
-		if _active_lifecycle_plan != null
-		else _lifecycle_plan_in_progress
-	)
+	var cleanup_plan: GFArchitectureLifecyclePlan = (_active_lifecycle_plan if _active_lifecycle_plan != null else _lifecycle_plan_in_progress)
 	if cleanup_plan != null:
 		for instance: Object in cleanup_plan.get_shutdown_order():
 			_dispose_module_once(instance, disposed_instances)
-	for instance: Object in _get_modules_by_lifecycle_priority(
-		_system_registry.instances,
-		true
-	):
+	for instance: Object in _get_modules_by_lifecycle_priority(_system_registry.instances, true):
 		_dispose_module_once(instance, disposed_instances)
-	for instance: Object in _get_modules_by_lifecycle_priority(
-		_model_registry.instances,
-		true
-	):
+	for instance: Object in _get_modules_by_lifecycle_priority(_model_registry.instances, true):
 		_dispose_module_once(instance, disposed_instances)
-	for instance: Object in _get_modules_by_lifecycle_priority(
-		_utility_registry.instances,
-		true
-	):
+	for instance: Object in _get_modules_by_lifecycle_priority(_utility_registry.instances, true):
 		_dispose_module_once(instance, disposed_instances)
 	for binding_variant: Variant in _factories.values():
 		var binding: GFBinding = _variant_to_binding(binding_variant)
@@ -4381,9 +4526,7 @@ func _clear_failed_initialization_state() -> void:
 	_lifecycle_plan_in_progress = null
 	_activation_scope = null
 	_refresh_tick_caches()
-	_release_external_dependency_leases(
-		_active_external_dependency_leases
-	)
+	_release_external_dependency_leases(_active_external_dependency_leases)
 	_active_external_dependency_leases.clear()
 	_end_module_disposal_session()
 
@@ -4397,7 +4540,11 @@ func _collect_factory_debug_state() -> Dictionary:
 		var binding: Object = _get_dictionary_object(_factories, script_cls)
 		var lifetime: int = -1
 		if binding != null and "lifetime" in binding:
-			lifetime = _get_object_int_property(binding, &"lifetime", -1)
+			lifetime = _get_object_int_property(
+				binding,
+				&"lifetime",
+				-1
+			)
 		result[_get_script_debug_key(script_cls)] = {
 			"lifetime": lifetime,
 			"lifetime_name": _get_binding_lifetime_name(lifetime),
@@ -4442,13 +4589,13 @@ func _get_binding_lifetime_name(lifetime: int) -> String:
 ## [br]
 ## @api private
 func _validate_factory_lifetime(lifetime: int, context: String) -> bool:
-	if (
-		lifetime == GFBindingLifetimesBase.Lifetime.TRANSIENT
-		or lifetime == GFBindingLifetimesBase.Lifetime.SINGLETON
-	):
+	if (lifetime == GFBindingLifetimesBase.Lifetime.TRANSIENT or lifetime == GFBindingLifetimesBase.Lifetime.SINGLETON):
 		return true
 
-	push_error("[GFArchitecture][architecture.factory_lifetime_unknown] %s failed: unknown factory lifetime: %s." % [context, str(lifetime)])
+	push_error(
+		"[GFArchitecture][architecture.factory_lifetime_unknown] %s failed: unknown factory lifetime: %s."
+		% [context, str(lifetime)]
+	)
 	return false
 
 
@@ -4550,39 +4697,21 @@ func _stage_topology_service_registration(
 		or provider == null
 		or provider != transaction._candidate
 	):
-		push_error(
-			"[GFArchitecture][architecture.transaction_service_provider_invalid] register_service failed: only candidate modules may stage their own services during a topology transaction."
-		)
+		push_error("[GFArchitecture][architecture.transaction_service_provider_invalid] register_service failed: only candidate modules may stage their own services during a topology transaction.")
 		return false
 	if transaction._service_intents.has(service_key):
-		return (
-			_get_dictionary_object(
-				transaction._service_intents,
-				service_key
-			) == provider
-		)
-	if (
-		transaction._service_intents.size()
-		>= _MAX_TOPOLOGY_SERVICE_INTENTS
-	):
-		push_error(
-			"[GFArchitecture][architecture.transaction_service_limit] register_service failed: the topology transaction service intent limit was exceeded."
-		)
+		return (_get_dictionary_object(transaction._service_intents, service_key) == provider)
+	if transaction._service_intents.size() >= _MAX_TOPOLOGY_SERVICE_INTENTS:
+		push_error("[GFArchitecture][architecture.transaction_service_limit] register_service failed: the topology transaction service intent limit was exceeded.")
 		return false
 	var current_present: bool = _services.has(service_key)
-	var current_provider: Object = _get_dictionary_object(
-		_services,
-		service_key
-	)
+	var current_provider: Object = _get_dictionary_object(_services, service_key)
 	if (
 		current_present
 		and current_provider != provider
 		and current_provider != transaction._previous
 	):
-		push_error(
-			"[GFArchitecture][architecture.transaction_service_conflict] register_service failed: service_key is owned by a provider outside the topology transaction: %s."
-			% String(service_key)
-		)
+		push_error("[GFArchitecture][architecture.transaction_service_conflict] register_service failed: service_key is owned by a provider outside the topology transaction: %s." % String(service_key))
 		return false
 	transaction._expected_service_presence[service_key] = current_present
 	transaction._expected_service_providers[service_key] = current_provider
@@ -4601,74 +4730,38 @@ func _stage_topology_service_unregistration(
 	if not _is_topology_mutation_current(transaction):
 		return false
 	if provider == null:
-		push_error(
-			"[GFArchitecture][architecture.transaction_service_provider_required] unregister_service failed: an explicit provider is required during a topology transaction."
-		)
+		push_error("[GFArchitecture][architecture.transaction_service_provider_required] unregister_service failed: an explicit provider is required during a topology transaction.")
 		return false
 	if provider == transaction._candidate:
-		if (
-			not transaction._service_intents.has(service_key)
-			or _get_dictionary_object(
-				transaction._service_intents,
-				service_key
-			) != provider
-		):
+		if (not transaction._service_intents.has(service_key) or (_get_dictionary_object(transaction._service_intents, service_key) != provider)):
 			return false
-		var _removed_intent: bool = (
-			transaction._service_intents.erase(service_key)
-		)
-		var _removed_presence: bool = (
-			transaction._expected_service_presence.erase(service_key)
-		)
-		var _removed_provider: bool = (
-			transaction._expected_service_providers.erase(service_key)
-		)
+		var _removed_intent: bool = transaction._service_intents.erase(service_key)
+		var _removed_presence: bool = transaction._expected_service_presence.erase(service_key)
+		var _removed_provider: bool = transaction._expected_service_providers.erase(service_key)
 		return true
 	if provider == transaction._previous:
-		return (
-			_services.has(service_key)
-			and _get_dictionary_object(_services, service_key) == provider
-		)
-	push_error(
-		"[GFArchitecture][architecture.transaction_service_provider_unowned] unregister_service failed: provider does not belong to the current topology transaction."
-	)
+		return (_services.has(service_key) and _get_dictionary_object(_services, service_key) == provider)
+	push_error("[GFArchitecture][architecture.transaction_service_provider_unowned] unregister_service failed: provider does not belong to the current topology transaction.")
 	return false
 
 
 ## 提交前复核事务身份及每项服务的原始存在性和 provider，发现外部变化即拒绝提交。
 ## [br]
 ## @api private
-func _validate_topology_service_intents(
-	transaction: TopologyMutation
-) -> bool:
+func _validate_topology_service_intents(transaction: TopologyMutation) -> bool:
 	if not _is_topology_mutation_current(transaction):
 		return false
 	for service_key: Variant in transaction._service_intents.keys():
-		var expected_present: bool = (
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-				transaction._expected_service_presence,
-				service_key,
-				false
-			)
+		var expected_present: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			transaction._expected_service_presence,
+			service_key,
+			false
 		)
 		if _services.has(service_key) != expected_present:
-			push_error(
-				"[GFArchitecture][architecture.transaction_service_presence_changed] Topology transaction commit failed: service_key presence changed: %s."
-				% _GF_VARIANT_ACCESS_SCRIPT.to_text(service_key)
-			)
+			push_error("[GFArchitecture][architecture.transaction_service_presence_changed] Topology transaction commit failed: service_key presence changed: %s." % _GF_VARIANT_ACCESS_SCRIPT.to_text(service_key))
 			return false
-		if (
-			expected_present
-			and _get_dictionary_object(_services, service_key)
-			!= _get_dictionary_object(
-				transaction._expected_service_providers,
-				service_key
-			)
-		):
-			push_error(
-				"[GFArchitecture][architecture.transaction_service_provider_changed] Topology transaction commit failed: the service_key provider changed: %s."
-				% _GF_VARIANT_ACCESS_SCRIPT.to_text(service_key)
-			)
+		if (expected_present and (_get_dictionary_object(_services, service_key) != _get_dictionary_object(transaction._expected_service_providers, service_key))):
+			push_error("[GFArchitecture][architecture.transaction_service_provider_changed] Topology transaction commit failed: the service_key provider changed: %s." % _GF_VARIANT_ACCESS_SCRIPT.to_text(service_key))
 			return false
 	return true
 
@@ -4676,14 +4769,9 @@ func _validate_topology_service_intents(
 ## 把已验证的非空候选 provider 写入服务表；调用方负责先验证事务和服务意图。
 ## [br]
 ## @api private
-func _commit_topology_service_intents(
-	transaction: TopologyMutation
-) -> void:
+func _commit_topology_service_intents(transaction: TopologyMutation) -> void:
 	for service_key: Variant in transaction._service_intents.keys():
-		var provider: Object = _get_dictionary_object(
-			transaction._service_intents,
-			service_key
-		)
+		var provider: Object = _get_dictionary_object(transaction._service_intents, service_key)
 		if provider != null:
 			_services[service_key] = provider
 
@@ -4691,9 +4779,7 @@ func _commit_topology_service_intents(
 ## 要求事务仍被本架构持有、归续体所有且未中止或终结，防止 shutdown 接管后的迟到提交。
 ## [br]
 ## @api private
-func _is_topology_mutation_current(
-	transaction: TopologyMutation
-) -> bool:
+func _is_topology_mutation_current(transaction: TopologyMutation) -> bool:
 	return (
 		transaction != null
 		and transaction == _topology_mutation
@@ -4706,9 +4792,7 @@ func _is_topology_mutation_current(
 ## 仅终结当前续体事务；未决结果改为回滚，释放未提升的租约后清空在途槽并完成等待门。
 ## [br]
 ## @api private
-func _finish_topology_mutation(
-	transaction: TopologyMutation
-) -> void:
+func _finish_topology_mutation(transaction: TopologyMutation) -> void:
 	if not _is_topology_mutation_current(transaction):
 		return
 	if transaction._outcome == TopologyMutation._OUTCOME_PENDING:
@@ -4723,9 +4807,7 @@ func _finish_topology_mutation(
 ## 把在途事务所有权转交 shutdown 并标记中止，立即解除架构槽；取消等待门由后续结算负责。
 ## [br]
 ## @api private
-func _abort_topology_mutation(
-	_reason: StringName
-) -> TopologyMutation:
+func _abort_topology_mutation(_reason: StringName) -> TopologyMutation:
 	var transaction: TopologyMutation = _topology_mutation
 	if transaction == null:
 		return null
@@ -4739,10 +4821,7 @@ func _abort_topology_mutation(
 ## 仅取消中止事务尚未终结的等待门，不再次清理候选或修改事务所有权。
 ## [br]
 ## @api private
-func _finalize_aborted_topology_mutation(
-	transaction: TopologyMutation,
-	reason: StringName
-) -> void:
+func _finalize_aborted_topology_mutation(transaction: TopologyMutation, reason: StringName) -> void:
 	if transaction != null and transaction._gate.is_pending():
 		var _cancelled_topology: bool = transaction._gate.cancel(reason)
 
@@ -4750,10 +4829,7 @@ func _finalize_aborted_topology_mutation(
 ## 将当前事务标记为致命失败，清理候选并解除在途槽，最后以错误终结等待门。
 ## [br]
 ## @api private
-func _fail_topology_mutation(
-	transaction: TopologyMutation,
-	error: String
-) -> void:
+func _fail_topology_mutation(transaction: TopologyMutation, error: String) -> void:
 	if not _is_topology_mutation_current(transaction):
 		return
 	transaction._outcome = TopologyMutation._OUTCOME_FATAL
@@ -4767,28 +4843,19 @@ func _fail_topology_mutation(
 ## 先释放候选租约，再把待清理权标记为已认领；已登记候选经注销清理，未提交候选直接清理，避免重复领取。
 ## [br]
 ## @api private
-func _cleanup_topology_candidate(
-	transaction: TopologyMutation
-) -> void:
+func _cleanup_topology_candidate(transaction: TopologyMutation) -> void:
 	_release_topology_external_dependency_leases(transaction)
 	if (
 		transaction == null
 		or transaction._candidate == null
-		or transaction._candidate_cleanup_state
-		!= TopologyMutation._CLEANUP_PENDING
+		or transaction._candidate_cleanup_state != TopologyMutation._CLEANUP_PENDING
 	):
 		return
 	transaction._candidate_cleanup_state = TopologyMutation._CLEANUP_CLAIMED
 	var module_registry: ModuleRegistry = null
 	if transaction._module_registry is ModuleRegistry:
 		module_registry = transaction._module_registry
-	if (
-		module_registry != null
-		and _get_dictionary_object(
-			module_registry.instances,
-			transaction._script_cls
-		) == transaction._candidate
-	):
+	if (module_registry != null and (_get_dictionary_object(module_registry.instances, transaction._script_cls) == transaction._candidate)):
 		var _removed_candidate: Object = _remove_registered_module(
 			module_registry,
 			transaction._script_cls,
@@ -4804,19 +4871,10 @@ func _cleanup_topology_candidate(
 ## 清理候选并把未决结果改为回滚，结束运行时事务后再尝试终结仍由续体持有的拓扑事务。
 ## [br]
 ## @api private
-func _rollback_topology_candidate(
-	topology_transaction: TopologyMutation,
-	runtime_transaction: Dictionary
-) -> void:
+func _rollback_topology_candidate(topology_transaction: TopologyMutation, runtime_transaction: Dictionary) -> void:
 	_cleanup_topology_candidate(topology_transaction)
-	if (
-		topology_transaction != null
-		and topology_transaction._outcome
-		== TopologyMutation._OUTCOME_PENDING
-	):
-		topology_transaction._outcome = (
-			TopologyMutation._OUTCOME_ROLLED_BACK
-		)
+	if (topology_transaction != null and topology_transaction._outcome == TopologyMutation._OUTCOME_PENDING):
+		topology_transaction._outcome = (TopologyMutation._OUTCOME_ROLLED_BACK)
 	_runtime.finish_transaction(runtime_transaction)
 	_finish_topology_mutation(topology_transaction)
 
@@ -4829,9 +4887,7 @@ func _register_initialized_module(
 	script_cls: Script,
 	instance: Object
 ) -> bool:
-	var operation_name: String = (
-		"register_%s" % module_registry._label_key()
-	)
+	var operation_name: String = "register_%s" % module_registry._label_key()
 	if not _can_mutate_registration_state(operation_name):
 		return false
 	if not _validate_registration(
@@ -4843,22 +4899,14 @@ func _register_initialized_module(
 	if module_registry._has_direct(script_cls):
 		push_warning(
 			"[GFArchitecture][architecture.transaction_duplicate_registration] %s ignored a duplicate type registration; use replace_%s() to replace it."
-			% [
-				operation_name,
-				module_registry._label_key(),
-			]
+			% [operation_name, module_registry._label_key(),]
 		)
 		return false
-	var existing_key: Script = module_registry._get_key_for_instance(
-		instance
-	)
+	var existing_key: Script = module_registry._get_key_for_instance(instance)
 	if existing_key != null:
 		push_error(
 			"[GFArchitecture][architecture.transaction_instance_already_registered] %s failed: the same instance is already registered as %s."
-			% [
-				operation_name,
-				_get_script_debug_key(existing_key, instance),
-			]
+			% [operation_name, _get_script_debug_key(existing_key, instance),]
 		)
 		return false
 	var topology_transaction: TopologyMutation = _begin_topology_mutation(
@@ -4872,36 +4920,28 @@ func _register_initialized_module(
 	topology_transaction._previous_plan = _active_lifecycle_plan
 	var current_serial: int = _runtime.get_lifecycle_generation()
 	topology_transaction._lifecycle_serial = current_serial
-	var runtime_transaction: Dictionary = _runtime.begin_transaction(
-		operation_name
-	)
-	topology_transaction._candidate_cleanup_state = (
-		TopologyMutation._CLEANUP_PENDING
-	)
+	var runtime_transaction: Dictionary = _runtime.begin_transaction(operation_name)
+	topology_transaction._candidate_cleanup_state = (TopologyMutation._CLEANUP_PENDING)
 	var candidate_models: Dictionary = _models.duplicate()
 	var candidate_utilities: Dictionary = _utilities.duplicate()
 	var candidate_systems: Dictionary = _systems.duplicate()
-	var candidate_registry: Dictionary = (
-		_get_candidate_registry_dictionary(
-			module_registry,
-			candidate_models,
-			candidate_utilities,
-			candidate_systems
-		)
+	var candidate_registry: Dictionary = _get_candidate_registry_dictionary(
+		module_registry,
+		candidate_models,
+		candidate_utilities,
+		candidate_systems
 	)
 	candidate_registry[script_cls] = instance
-	var candidate_plan: GFArchitectureLifecyclePlan = (
-		_compile_candidate_lifecycle_plan(
-			candidate_models,
-			candidate_utilities,
-			candidate_systems,
-			"hot register",
-			true,
-			_create_lifecycle_plan_validity_guard(
-				current_serial,
-				topology_transaction,
-				runtime_transaction
-			)
+	var candidate_plan: GFArchitectureLifecyclePlan = _compile_candidate_lifecycle_plan(
+		candidate_models,
+		candidate_utilities,
+		candidate_systems,
+		"hot register",
+		true,
+		_create_lifecycle_plan_validity_guard(
+			current_serial,
+			topology_transaction,
+			runtime_transaction
 		)
 	)
 	if (
@@ -4912,10 +4952,7 @@ func _register_initialized_module(
 		or _runtime.has_failed()
 		or _runtime.is_transaction_invalidated(runtime_transaction)
 	):
-		_rollback_topology_candidate(
-			topology_transaction,
-			runtime_transaction
-		)
+		_rollback_topology_candidate(topology_transaction, runtime_transaction)
 		return false
 	if not _validate_candidate_plan_stability(
 		topology_transaction._previous_plan,
@@ -4923,10 +4960,7 @@ func _register_initialized_module(
 		{},
 		"hot register"
 	):
-		_rollback_topology_candidate(
-			topology_transaction,
-			runtime_transaction
-		)
+		_rollback_topology_candidate(topology_transaction, runtime_transaction)
 		return false
 	topology_transaction._candidate_plan = candidate_plan
 	if not _stage_topology_external_dependency_leases(
@@ -4934,26 +4968,17 @@ func _register_initialized_module(
 		candidate_plan,
 		current_serial
 	):
-		_rollback_topology_candidate(
-			topology_transaction,
-			runtime_transaction
-		)
+		_rollback_topology_candidate(topology_transaction, runtime_transaction)
 		return false
 	_module_lifecycle_stages[instance] = 0
-	var prepared: bool = await _prepare_replacement_module(
-		instance,
-		current_serial
-	)
+	var prepared: bool = await _prepare_replacement_module(instance, current_serial)
 	if (
 		not prepared
 		or not _is_lifecycle_current(current_serial)
 		or _runtime.is_transaction_invalidated(runtime_transaction)
 		or not _is_topology_mutation_current(topology_transaction)
 	):
-		_rollback_topology_candidate(
-			topology_transaction,
-			runtime_transaction
-		)
+		_rollback_topology_candidate(topology_transaction, runtime_transaction)
 		return false
 	_module_lifecycle_stages[instance] = 2
 	_call_module_ready(instance)
@@ -4963,10 +4988,7 @@ func _register_initialized_module(
 		or _runtime.is_transaction_invalidated(runtime_transaction)
 		or not _is_topology_mutation_current(topology_transaction)
 	):
-		_rollback_topology_candidate(
-			topology_transaction,
-			runtime_transaction
-		)
+		_rollback_topology_candidate(topology_transaction, runtime_transaction)
 		return false
 	_module_lifecycle_stages[instance] = 3
 	topology_transaction._phase = TopologyMutation._PHASE_ACTIVATING
@@ -4982,9 +5004,7 @@ func _register_initialized_module(
 		and _is_lifecycle_current(current_serial)
 		and _is_topology_mutation_current(topology_transaction)
 		and not _runtime.has_failed()
-		and not _runtime.is_transaction_invalidated(
-			runtime_transaction
-		)
+		and not (_runtime.is_transaction_invalidated(runtime_transaction))
 		and _has_module_reached_lifecycle_stage(instance, 4)
 		and _validate_topology_service_intents(topology_transaction)
 	)
@@ -4994,21 +5014,15 @@ func _register_initialized_module(
 		module_registry._track_instance_key(instance, script_cls)
 		module_registry._clear_assignable_cache()
 		_commit_topology_service_intents(topology_transaction)
-		_promote_topology_external_dependency_leases(
-			topology_transaction
-		)
+		_promote_topology_external_dependency_leases(topology_transaction)
 		_active_lifecycle_plan = candidate_plan
-		topology_transaction._candidate_cleanup_state = (
-			TopologyMutation._CLEANUP_TRANSFERRED
-		)
+		topology_transaction._candidate_cleanup_state = (TopologyMutation._CLEANUP_TRANSFERRED)
 		topology_transaction._outcome = TopologyMutation._OUTCOME_COMMITTED
 		topology_transaction._phase = TopologyMutation._PHASE_COMMITTED
 		_refresh_tick_caches()
 	else:
 		_cleanup_topology_candidate(topology_transaction)
-		topology_transaction._outcome = (
-			TopologyMutation._OUTCOME_ROLLED_BACK
-		)
+		topology_transaction._outcome = (TopologyMutation._OUTCOME_ROLLED_BACK)
 	_runtime.finish_transaction(runtime_transaction)
 	_finish_topology_mutation(topology_transaction)
 	return committed
@@ -5030,17 +5044,12 @@ func _activate_topology_candidate(
 	if _is_topology_mutation_current(topology_transaction):
 		topology_transaction._active_scope = scope
 	if ephemeral_tick_candidate:
-		var _candidate_added: bool = (
-			_tick_scheduler.add_lifecycle_candidate(instance)
-		)
+		var _candidate_added: bool = _tick_scheduler.add_lifecycle_candidate(instance)
 	var deadline_msec: int = _make_deadline_msec(
 		Time.get_ticks_msec(),
 		activation_timeout_seconds
 	)
-	var completion: GFAsyncCompletion = _call_module_begin_activation(
-		instance,
-		scope
-	)
+	var completion: GFAsyncCompletion = _call_module_begin_activation(instance, scope)
 	var activated: bool = false
 	if completion != null:
 		var wait_report: Dictionary = await _await_lifecycle_completion(
@@ -5058,7 +5067,8 @@ func _activate_topology_candidate(
 		)
 		if not activated:
 			push_error(
-				"[GFArchitecture][architecture.hot_activation_failed] Hot module activation failed: %s.\n%s" % [
+				"[GFArchitecture][architecture.hot_activation_failed] Hot module activation failed: %s.\n%s"
+				% [
 					_get_instance_debug_key(instance),
 					_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 						wait_report,
@@ -5068,29 +5078,20 @@ func _activate_topology_candidate(
 				]
 			)
 	else:
-		push_error(
-			"[GFArchitecture][architecture.hot_activation_completion_null] Hot module activation failed: %s returned a null completion." % (
-				_get_instance_debug_key(instance)
-			)
-		)
+		push_error("[GFArchitecture][architecture.hot_activation_completion_null] Hot module activation failed: %s returned a null completion." % (_get_instance_debug_key(instance)))
 	if ephemeral_tick_candidate:
 		_tick_scheduler.remove_lifecycle_candidate(instance)
 	if scope.is_active():
 		scope.complete()
 	_untrack_async_scope(scope)
-	if (
-		topology_transaction != null
-		and topology_transaction._active_scope == scope
-	):
+	if (topology_transaction != null and topology_transaction._active_scope == scope):
 		topology_transaction._active_scope = null
 	if (
 		activated
 		and (
 			not _is_lifecycle_current(lifecycle_serial)
 			or _runtime.has_failed()
-			or not _is_topology_mutation_current(
-				topology_transaction
-			)
+			or not _is_topology_mutation_current(topology_transaction)
 		)
 	):
 		activated = false
@@ -5153,11 +5154,19 @@ func _create_instance_from_local_factory(
 		_mark_factory_resolution_failed(resolution_context)
 		push_error(
 			"[GFArchitecture][architecture.factory_dependency_cycle] create_instance failed: a factory dependency cycle was detected: %s."
-			% _describe_factory_resolution_cycle(resolution_context, binding, script_cls)
+			% _describe_factory_resolution_cycle(
+				resolution_context,
+				binding,
+				script_cls
+			)
 		)
 		return null
 
-	_push_factory_resolution_entry(resolution_context, binding, script_cls)
+	_push_factory_resolution_entry(
+		resolution_context,
+		binding,
+		script_cls
+	)
 	var resolved_instance: Object = binding.get_instance(requesting_architecture, resolution_context)
 	_pop_factory_resolution_entry(resolution_context)
 	return resolved_instance
@@ -5172,10 +5181,7 @@ func _push_factory_resolution_entry(
 	script_cls: Script
 ) -> void:
 	var resolution_stack: Array = _get_factory_resolution_stack(resolution_context)
-	resolution_stack.append({
-		_FACTORY_RESOLUTION_BINDING_KEY: binding,
-		_FACTORY_RESOLUTION_SCRIPT_KEY: script_cls,
-	})
+	resolution_stack.append({ _FACTORY_RESOLUTION_BINDING_KEY: binding, _FACTORY_RESOLUTION_SCRIPT_KEY: script_cls, })
 	resolution_context[_FACTORY_RESOLUTION_STACK_KEY] = resolution_stack
 
 
@@ -5243,7 +5249,10 @@ func _describe_factory_resolution_cycle(
 		start_index = 0
 
 	var labels: Array[String] = []
-	for index: int in range(start_index, resolution_stack.size()):
+	for index: int in range(
+		start_index,
+		resolution_stack.size()
+	):
 		var entry: Dictionary = _variant_to_dictionary(resolution_stack[index])
 		var entry_script: Script = _get_dictionary_script(entry, _FACTORY_RESOLUTION_SCRIPT_KEY)
 		labels.append(_get_factory_resolution_script_label(entry_script))
@@ -5287,7 +5296,11 @@ func _factory_resolution_context_has_failed(resolution_context: Dictionary) -> b
 ## @api private
 func _rollback_factory_resolution_context(resolution_context: Dictionary) -> void:
 	var created_singletons: Array = _get_factory_resolution_created_singletons(resolution_context)
-	for index: int in range(created_singletons.size() - 1, -1, -1):
+	for index: int in range(
+		created_singletons.size() - 1,
+		-1,
+		-1
+	):
 		var entry: Dictionary = _variant_to_dictionary(created_singletons[index])
 		var binding: GFBinding = _get_dictionary_binding(entry, _FACTORY_RESOLUTION_BINDING_KEY)
 		var instance: Object = _get_dictionary_object(entry, _FACTORY_RESOLUTION_INSTANCE_KEY)
@@ -5316,9 +5329,7 @@ func _create_instance_for_requester(
 
 	if _factory_resolution_context_has_failed(active_context):
 		if pushed_context:
-			var _removed_failed_context: Dictionary = (
-				_factory_resolution_context_stack.pop_back()
-			)
+			var _removed_failed_context: Dictionary = _factory_resolution_context_stack.pop_back()
 		if is_root_context:
 			_rollback_factory_resolution_context(active_context)
 		return null
@@ -5326,12 +5337,7 @@ func _create_instance_for_requester(
 	if _factories.has(script_cls):
 		if not _is_runtime_execution_admitted():
 			_mark_factory_resolution_failed(active_context)
-			push_error(
-				(
-					"[GFArchitecture][architecture.factory_runtime_admission_closed] create_instance failed: "
-					+ "the factory architecture has not opened runtime admission."
-				)
-			)
+			push_error("[GFArchitecture][architecture.factory_runtime_admission_closed] create_instance failed: " + "the factory architecture has not opened runtime admission.")
 		else:
 			resolved_instance = _create_instance_from_local_factory(
 				script_cls,
@@ -5339,7 +5345,11 @@ func _create_instance_for_requester(
 				active_context
 			)
 	elif not strict_dependency_lookup:
-		var parent: GFArchitecture = _get_next_parent_for_lookup(self, active_parent_lookup_visited, "create_instance")
+		var parent: GFArchitecture = _get_next_parent_for_lookup(
+			self,
+			active_parent_lookup_visited,
+			"create_instance"
+		)
 		if parent != null:
 			resolved_instance = parent._create_instance_for_requester(
 				script_cls,
@@ -5366,9 +5376,7 @@ func _create_instance_for_requester(
 ## 编译当前注册集的初始化计划；只有同一代次仍在初始化时才把编译失败结算为架构初始化失败。
 ## [br]
 ## @api private
-func _compile_lifecycle_plan_or_fail(
-	lifecycle_serial: int
-) -> GFArchitectureLifecyclePlan:
+func _compile_lifecycle_plan_or_fail(lifecycle_serial: int) -> GFArchitectureLifecyclePlan:
 	var plan: GFArchitectureLifecyclePlan = _compile_candidate_lifecycle_plan(
 		_models,
 		_utilities,
@@ -5385,11 +5393,7 @@ func _compile_lifecycle_plan_or_fail(
 		or _runtime.has_failed()
 	):
 		return null
-	var reason: String = "[GFArchitecture][architecture.dependency_plan_compile_failed] Lifecycle dependency plan compilation failed.\n%s" % (
-		_last_lifecycle_plan_error
-		if not _last_lifecycle_plan_error.is_empty()
-		else "invalid dependency graph"
-	)
+	var reason: String = ("[GFArchitecture][architecture.dependency_plan_compile_failed] Lifecycle dependency plan compilation failed.\n%s" % (_last_lifecycle_plan_error if not _last_lifecycle_plan_error.is_empty() else "invalid dependency graph"))
 	_fail_initialization(reason, lifecycle_serial)
 	return null
 
@@ -5406,13 +5410,11 @@ func _compile_candidate_lifecycle_plan(
 	validity_guard: Callable = Callable()
 ) -> GFArchitectureLifecyclePlan:
 	_last_lifecycle_plan_error = ""
-	var plan: GFArchitectureLifecyclePlan = (
-		_build_candidate_lifecycle_plan_snapshot(
-			model_instances,
-			utility_instances,
-			system_instances,
-			validity_guard
-		)
+	var plan: GFArchitectureLifecyclePlan = _build_candidate_lifecycle_plan_snapshot(
+		model_instances,
+		utility_instances,
+		system_instances,
+		validity_guard
 	)
 	if not _is_lifecycle_plan_compilation_valid(validity_guard):
 		return null
@@ -5429,10 +5431,8 @@ func _compile_candidate_lifecycle_plan(
 	_last_lifecycle_plan_error = detail
 	if report_error:
 		push_error(
-			"[GFArchitecture][architecture.dependency_plan_invalid] %s failed: the lifecycle dependency plan is invalid.\n%s" % [
-				context,
-				detail,
-			]
+			"[GFArchitecture][architecture.dependency_plan_invalid] %s failed: the lifecycle dependency plan is invalid.\n%s"
+			% [context, detail,]
 		)
 	return null
 
@@ -5446,9 +5446,7 @@ func _build_candidate_lifecycle_plan_snapshot(
 	system_instances: Dictionary,
 	validity_guard: Callable = Callable()
 ) -> GFArchitectureLifecyclePlan:
-	var plan: GFArchitectureLifecyclePlan = (
-		_GF_ARCHITECTURE_LIFECYCLE_PLAN_SCRIPT.new()
-	)
+	var plan: GFArchitectureLifecyclePlan = _GF_ARCHITECTURE_LIFECYCLE_PLAN_SCRIPT.new()
 	var _compiled: bool = plan.compile(
 		model_instances,
 		utility_instances,
@@ -5480,16 +5478,10 @@ func _create_lifecycle_plan_validity_guard(
 			or _runtime.is_disposed()
 		):
 			return false
-		if (
-			not runtime_transaction.is_empty()
-			and _runtime.is_transaction_invalidated(runtime_transaction)
-		):
+		if (not runtime_transaction.is_empty() and _runtime.is_transaction_invalidated(runtime_transaction)):
 			return false
 		if topology_transaction != null:
-			return (
-				_runtime.is_ready()
-				and _is_topology_mutation_current(topology_transaction)
-			)
+			return (_runtime.is_ready() and _is_topology_mutation_current(topology_transaction))
 		return _runtime.is_initializing()
 
 
@@ -5505,83 +5497,59 @@ func _is_lifecycle_plan_compilation_valid(validity_guard: Callable) -> bool:
 ## 仅在主线程为外部依赖覆盖的父链去重申请租约；任一申请失败即释放本次已取得的租约。
 ## [br]
 ## @api private
-func _acquire_external_dependency_leases(
-	plan: GFArchitectureLifecyclePlan,
-	lifecycle_serial: int
-) -> Dictionary:
+func _acquire_external_dependency_leases(plan: GFArchitectureLifecyclePlan, lifecycle_serial: int) -> Dictionary:
 	var leases: Array[Dictionary] = []
 	if plan == null:
-		return {
-			"ok": false,
-			"leases": leases,
-		}
+		return { "ok": false, "leases": leases, }
 	if not Thread.is_main_thread():
-		push_error(
-			"[GFArchitecture][architecture.external_lease_acquire_thread] External dependency leases may only be acquired on the main thread."
-		)
-		return {
-			"ok": false,
-			"leases": leases,
-		}
+		push_error("[GFArchitecture][architecture.external_lease_acquire_thread] External dependency leases may only be acquired on the main thread.")
+		return { "ok": false, "leases": leases, }
 	var lease_owners: Array[GFArchitecture] = []
 	var owner_ids: Dictionary = {}
 	var owner_module_topology_blocks: Dictionary = {}
 	for record: Dictionary in plan.get_dependency_records():
-		var status: StringName = (
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
-				record,
-				"status",
-				&"missing"
-			)
+		var status: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+			record,
+			"status",
+			&"missing"
 		)
-		var dependency_kind: StringName = (
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
-				record,
-				"dependency_kind",
-				&""
-			)
+		var dependency_kind: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+			record,
+			"dependency_kind",
+			&""
 		)
 		if (
 			status != &"external"
-			or dependency_kind not in [
-				&"models",
-				&"systems",
-				&"utilities",
-				&"factories",
-			]
+			or (
+				dependency_kind
+				not in [
+					&"models",
+					&"systems",
+					&"utilities",
+					&"factories",
+				]
+			)
 		):
 			continue
-		var blocks_module_topology: bool = (
-			dependency_kind != &"factories"
-		)
-		var architecture_depth: int = (
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-				record,
-				"architecture_depth",
-				0
-			)
+		var blocks_module_topology: bool = dependency_kind != &"factories"
+		var architecture_depth: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			record,
+			"architecture_depth",
+			0
 		)
 		if architecture_depth <= 0:
 			_release_external_dependency_leases(leases)
-			return {
-				"ok": false,
-				"leases": [],
-			}
+			return { "ok": false, "leases": [], }
 		var owner: GFArchitecture = _parent_architecture
 		for _depth: int in range(architecture_depth):
 			if owner == null:
 				_release_external_dependency_leases(leases)
-				return {
-					"ok": false,
-					"leases": [],
-				}
+				return { "ok": false, "leases": [], }
 			var owner_id: int = owner.get_instance_id()
 			if not owner_ids.has(owner_id):
 				owner_ids[owner_id] = true
 				lease_owners.append(owner)
-				owner_module_topology_blocks[owner_id] = (
-					blocks_module_topology
-				)
+				owner_module_topology_blocks[owner_id] = (blocks_module_topology)
 			elif blocks_module_topology:
 				owner_module_topology_blocks[owner_id] = true
 			owner = owner._parent_architecture
@@ -5597,26 +5565,15 @@ func _acquire_external_dependency_leases(
 		)
 		if lease_id < 0:
 			_release_external_dependency_leases(leases)
-			return {
-				"ok": false,
-				"leases": [],
-			}
-		leases.append({
-			"owner_ref": weakref(owner),
-			"lease_id": lease_id,
-		})
-	return {
-		"ok": true,
-		"leases": leases,
-	}
+			return { "ok": false, "leases": [], }
+		leases.append({ "owner_ref": weakref(owner), "lease_id": lease_id, })
+	return { "ok": true, "leases": leases, }
 
 
 ## 从报告的 leases 字段筛出 Dictionary 项；字段缺失或不是 Array 时返回空数组。
 ## [br]
 ## @api private
-func _get_external_dependency_lease_array(
-	report: Dictionary
-) -> Array[Dictionary]:
+func _get_external_dependency_lease_array(report: Dictionary) -> Array[Dictionary]:
 	var leases: Array[Dictionary] = []
 	var raw_leases: Variant = report.get("leases", [])
 	if not raw_leases is Array:
@@ -5637,15 +5594,11 @@ func _acquire_child_external_dependency_lease(
 	blocks_module_topology: bool
 ) -> int:
 	if not Thread.is_main_thread():
-		push_error(
-			"[GFArchitecture][architecture.child_lease_acquire_thread] Child architecture external dependency leases may only be acquired on the main thread."
-		)
+		push_error("[GFArchitecture][architecture.child_lease_acquire_thread] Child architecture external dependency leases may only be acquired on the main thread.")
 		return -1
 	if (
 		consumer == null
-		or not consumer.is_lifecycle_generation_active(
-			consumer_lifecycle_serial
-		)
+		or not (consumer.is_lifecycle_generation_active(consumer_lifecycle_serial))
 		or not _runtime.is_ready()
 		or _topology_mutation != null
 	):
@@ -5663,37 +5616,26 @@ func _acquire_child_external_dependency_lease(
 ## 仅在主线程按租约 ID 释放，存活消费者身份不匹配时保留记录；失效弱引用不阻止清除。
 ## [br]
 ## @api private
-func _release_child_external_dependency_lease(
-	lease_id: int,
-	consumer: GFArchitecture
-) -> void:
+func _release_child_external_dependency_lease(lease_id: int, consumer: GFArchitecture) -> void:
 	if not Thread.is_main_thread():
-		push_error(
-			"[GFArchitecture][architecture.child_lease_release_thread] Child architecture external dependency leases may only be released on the main thread."
-		)
+		push_error("[GFArchitecture][architecture.child_lease_release_thread] Child architecture external dependency leases may only be released on the main thread.")
 		return
 	if not _child_external_dependency_leases.has(lease_id):
 		return
-	var record: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(
-		_child_external_dependency_leases.get(lease_id)
-	)
+	var record: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(_child_external_dependency_leases.get(lease_id))
 	var consumer_ref_value: Variant = record.get("consumer_ref")
 	if consumer_ref_value is WeakRef:
 		var consumer_ref: WeakRef = consumer_ref_value
 		var current_consumer: Variant = consumer_ref.get_ref()
 		if current_consumer != null and current_consumer != consumer:
 			return
-	var _removed_lease: bool = (
-		_child_external_dependency_leases.erase(lease_id)
-	)
+	var _removed_lease: bool = _child_external_dependency_leases.erase(lease_id)
 
 
 ## 先复制并清空调用方租约数组，再通知仍可解析的父架构逐项释放，避免重复遍历同一批。
 ## [br]
 ## @api private
-func _release_external_dependency_leases(
-	leases: Array[Dictionary]
-) -> void:
+func _release_external_dependency_leases(leases: Array[Dictionary]) -> void:
 	if leases.is_empty():
 		return
 	var releasing_leases: Array[Dictionary] = leases.duplicate()
@@ -5720,43 +5662,35 @@ func _release_external_dependency_leases(
 ## 清除无法解析消费者的租约并检查阻塞标志；不复核消费者代次，非主线程保守返回 true。
 ## [br]
 ## @api private
-func _has_live_child_external_dependency_leases(
-	require_module_topology_block: bool = false
-) -> bool:
+func _has_live_child_external_dependency_leases(require_module_topology_block: bool = false) -> bool:
 	if not Thread.is_main_thread():
 		return true
 	var stale_lease_ids: Array[int] = []
 	var has_matching_lease: bool = false
 	for lease_id: Variant in _child_external_dependency_leases.keys():
-		var record: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(
-			_child_external_dependency_leases.get(lease_id)
-		)
+		var record: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(_child_external_dependency_leases.get(lease_id))
 		var consumer_ref_value: Variant = record.get("consumer_ref")
 		if not consumer_ref_value is WeakRef:
-			stale_lease_ids.append(
-				_GF_VARIANT_ACCESS_SCRIPT.to_int(lease_id, -1)
-			)
+			stale_lease_ids.append(_GF_VARIANT_ACCESS_SCRIPT.to_int(lease_id, -1))
 			continue
 		var consumer_ref: WeakRef = consumer_ref_value
 		var consumer_value: Variant = consumer_ref.get_ref()
 		if not consumer_value is GFArchitecture:
-			stale_lease_ids.append(
-				_GF_VARIANT_ACCESS_SCRIPT.to_int(lease_id, -1)
-			)
+			stale_lease_ids.append(_GF_VARIANT_ACCESS_SCRIPT.to_int(lease_id, -1))
 			continue
 		if (
 			not require_module_topology_block
-			or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-				record,
-				"blocks_module_topology",
-				false
+			or (
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+					record,
+					"blocks_module_topology",
+					false
+				)
 			)
 		):
 			has_matching_lease = true
 	for stale_lease_id: int in stale_lease_ids:
-		var _removed_stale_lease: bool = (
-			_child_external_dependency_leases.erase(stale_lease_id)
-		)
+		var _removed_stale_lease: bool = _child_external_dependency_leases.erase(stale_lease_id)
 	return has_matching_lease
 
 
@@ -5771,37 +5705,28 @@ func _stage_topology_external_dependency_leases(
 	if not _is_topology_mutation_current(transaction):
 		return false
 	_release_topology_external_dependency_leases(transaction)
-	var report: Dictionary = _acquire_external_dependency_leases(
-		plan,
-		lifecycle_serial
-	)
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-		report,
-		"ok",
-		false
+	var report: Dictionary = _acquire_external_dependency_leases(plan, lifecycle_serial)
+	if not (
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			report,
+			"ok",
+			false
+		)
 	):
 		return false
-	transaction._candidate_external_dependency_leases = (
-		_get_external_dependency_lease_array(report)
-	)
+	transaction._candidate_external_dependency_leases = _get_external_dependency_lease_array(report)
 	return true
 
 
 ## 先从事务取走候选租约并替换活动集合，再释放原计划租约；事务不再拥有已提升的集合。
 ## [br]
 ## @api private
-func _promote_topology_external_dependency_leases(
-	transaction: TopologyMutation
-) -> void:
+func _promote_topology_external_dependency_leases(transaction: TopologyMutation) -> void:
 	if transaction == null:
 		return
-	var candidate_leases: Array[Dictionary] = (
-		transaction._candidate_external_dependency_leases
-	)
+	var candidate_leases: Array[Dictionary] = transaction._candidate_external_dependency_leases
 	transaction._candidate_external_dependency_leases = []
-	var previous_leases: Array[Dictionary] = (
-		_active_external_dependency_leases
-	)
+	var previous_leases: Array[Dictionary] = _active_external_dependency_leases
 	_active_external_dependency_leases = candidate_leases
 	_release_external_dependency_leases(previous_leases)
 
@@ -5809,14 +5734,10 @@ func _promote_topology_external_dependency_leases(
 ## 释放并清空事务尚未提升的外部依赖租约；空事务直接返回。
 ## [br]
 ## @api private
-func _release_topology_external_dependency_leases(
-	transaction: TopologyMutation
-) -> void:
+func _release_topology_external_dependency_leases(transaction: TopologyMutation) -> void:
 	if transaction == null:
 		return
-	_release_external_dependency_leases(
-		transaction._candidate_external_dependency_leases
-	)
+	_release_external_dependency_leases(transaction._candidate_external_dependency_leases)
 
 
 ## 除显式排除实例外，旧活动模块必须仍存在于候选计划且依赖签名不变，否则拒绝热变更。
@@ -5829,45 +5750,25 @@ func _validate_candidate_plan_stability(
 	context: String
 ) -> bool:
 	if previous_plan == null or candidate_plan == null:
-		push_error(
-			"[GFArchitecture][architecture.lifecycle_plan_missing] %s failed: no comparable lifecycle plan is available."
-			% context
-		)
+		push_error("[GFArchitecture][architecture.lifecycle_plan_missing] %s failed: no comparable lifecycle plan is available." % context)
 		return false
-	var previous_index: Dictionary = _index_plan_dependency_signatures(
-		previous_plan
-	)
-	var candidate_index: Dictionary = _index_plan_dependency_signatures(
-		candidate_plan
-	)
+	var previous_index: Dictionary = _index_plan_dependency_signatures(previous_plan)
+	var candidate_index: Dictionary = _index_plan_dependency_signatures(candidate_plan)
 	for instance: Object in previous_plan.get_activation_order():
 		if instance == null or excluded_instances.has(instance):
 			continue
-		if (
-			not previous_index.has(instance)
-			or not candidate_index.has(instance)
-		):
+		if (not previous_index.has(instance) or not candidate_index.has(instance)):
 			push_error(
 				"[GFArchitecture][architecture.active_module_missing_from_plan] %s failed: an existing active module is absent from the candidate dependency plan: %s."
-				% [
-					context,
-					_get_instance_debug_key(instance),
-				]
+				% [context, _get_instance_debug_key(instance),]
 			)
 			return false
-		var previous_signature: Dictionary = _variant_to_dictionary(
-			previous_index.get(instance, {})
-		)
-		var candidate_signature: Dictionary = _variant_to_dictionary(
-			candidate_index.get(instance, {})
-		)
+		var previous_signature: Dictionary = _variant_to_dictionary(previous_index.get(instance, {}))
+		var candidate_signature: Dictionary = _variant_to_dictionary(candidate_index.get(instance, {}))
 		if previous_signature != candidate_signature:
 			push_error(
 				"[GFArchitecture][architecture.active_module_dependency_changed] %s failed: an existing active module declaration or resolved target changed: %s; create a new Architecture to rebind it."
-				% [
-					context,
-					_get_instance_debug_key(instance),
-				]
+				% [context, _get_instance_debug_key(instance),]
 			)
 			return false
 	return true
@@ -5876,44 +5777,27 @@ func _validate_candidate_plan_stability(
 ## 按模块实例收集声明快照和解析记录，深复制后移除 module_key，使比较不受注册键更换影响。
 ## [br]
 ## @api private
-func _index_plan_dependency_signatures(
-	plan: GFArchitectureLifecyclePlan
-) -> Dictionary:
+func _index_plan_dependency_signatures(plan: GFArchitectureLifecyclePlan) -> Dictionary:
 	var result: Dictionary = {}
 	if plan == null:
 		return result
 	for snapshot: Dictionary in plan.get_dependency_snapshot():
-		var instance: Object = _get_dictionary_object(
-			snapshot,
-			"module_instance"
-		)
+		var instance: Object = _get_dictionary_object(snapshot, "module_instance")
 		if instance == null:
 			continue
 		var stable_snapshot: Dictionary = snapshot.duplicate(true)
-		var _removed_snapshot_key: bool = stable_snapshot.erase(
-			"module_key"
-		)
-		result[instance] = {
-			"snapshot": stable_snapshot,
-			"records": [],
-		}
+		var _removed_snapshot_key: bool = stable_snapshot.erase("module_key")
+		result[instance] = { "snapshot": stable_snapshot, "records": [], }
 	for record: Dictionary in plan.get_dependency_records():
-		var instance: Object = _get_dictionary_object(
-			record,
-			"module_instance"
-		)
+		var instance: Object = _get_dictionary_object(record, "module_instance")
 		if instance == null or not result.has(instance):
 			continue
-		var signature: Dictionary = _variant_to_dictionary(
-			result.get(instance, {})
-		)
+		var signature: Dictionary = _variant_to_dictionary(result.get(instance, {}))
 		var records_value: Variant = signature.get("records", [])
 		if records_value is Array:
 			var records: Array = records_value
 			var stable_record: Dictionary = record.duplicate(true)
-			var _removed_record_key: bool = stable_record.erase(
-				"module_key"
-			)
+			var _removed_record_key: bool = stable_record.erase("module_key")
 			records.append(stable_record)
 	return result
 
@@ -5959,34 +5843,23 @@ func _resolve_candidate_lifecycle_dependency_status(
 	candidate_instances: Dictionary
 ) -> Dictionary:
 	if script_cls == null:
-		return _make_lifecycle_dependency_status(
-			&"missing",
-			&"invalid_script"
-		)
+		return _make_lifecycle_dependency_status(&"missing", &"invalid_script")
 	var local_status: Dictionary = _resolve_local_lifecycle_dependency_status(
 		registry_kind,
 		script_cls,
 		candidate_instances,
 		0
 	)
-	var local_status_name: StringName = (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
-			local_status,
-			"status",
-			&"missing"
-		)
+	var local_status_name: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+		local_status,
+		"status",
+		&"missing"
 	)
 	if local_status_name != &"missing":
 		return local_status
 	if strict_dependency_lookup:
-		return _make_lifecycle_dependency_status(
-			&"missing",
-			&"strict_local_miss"
-		)
-	return _resolve_parent_lifecycle_dependency_status(
-		registry_kind,
-		script_cls
-	)
+		return _make_lifecycle_dependency_status(&"missing", &"strict_local_miss")
+	return _resolve_parent_lifecycle_dependency_status(registry_kind, script_cls)
 
 
 ## 按精确键、显式别名、可赋值类型依次解析；多个可赋值实例报告 ambiguous，坏别名报告 stale_alias。
@@ -5998,9 +5871,7 @@ func _resolve_local_lifecycle_dependency_status(
 	candidate_instances: Dictionary,
 	architecture_depth: int
 ) -> Dictionary:
-	var module_registry: ModuleRegistry = _get_module_registry_by_kind(
-		registry_kind
-	)
+	var module_registry: ModuleRegistry = _get_module_registry_by_kind(registry_kind)
 	if module_registry == null:
 		return _make_lifecycle_dependency_status(
 			&"missing",
@@ -6016,10 +5887,7 @@ func _resolve_local_lifecycle_dependency_status(
 			script_cls
 		)
 	if module_registry.aliases.has(script_cls):
-		var alias_target: Script = _get_dictionary_script(
-			module_registry.aliases,
-			script_cls
-		)
+		var alias_target: Script = _get_dictionary_script(module_registry.aliases, script_cls)
 		if alias_target != null and candidate_instances.has(alias_target):
 			return _make_lifecycle_dependency_status(
 				&"local",
@@ -6038,15 +5906,9 @@ func _resolve_local_lifecycle_dependency_status(
 	var assignable_instances: Array[Object] = []
 	var assignable_scripts: Array[Script] = []
 	for registered_script: Script in candidate_instances.keys():
-		if not GFScriptTypeInspector.script_extends_or_equals(
-			registered_script,
-			script_cls
-		):
+		if not (GFScriptTypeInspector.script_extends_or_equals(registered_script, script_cls)):
 			continue
-		var match_instance: Object = _get_dictionary_object(
-			candidate_instances,
-			registered_script
-		)
+		var match_instance: Object = _get_dictionary_object(candidate_instances, registered_script)
 		if match_instance != null:
 			assignable_instances.append(match_instance)
 			assignable_scripts.append(registered_script)
@@ -6074,16 +5936,11 @@ func _resolve_local_lifecycle_dependency_status(
 ## 先排除父链循环或过深，再要求逐级父架构稳定且目标模块 active；strict miss 或非 missing 状态终止回退。
 ## [br]
 ## @api private
-func _resolve_parent_lifecycle_dependency_status(
-	registry_kind: String,
-	script_cls: Script
-) -> Dictionary:
-	var parent_chain_issue: Dictionary = (
-		_get_lifecycle_parent_chain_issue()
-	)
+func _resolve_parent_lifecycle_dependency_status(registry_kind: String, script_cls: Script) -> Dictionary:
+	var parent_chain_issue: Dictionary = _get_lifecycle_parent_chain_issue()
 	if not parent_chain_issue.is_empty():
 		return parent_chain_issue
-	var visited: Dictionary = {get_instance_id(): 0}
+	var visited: Dictionary = { get_instance_id(): 0 }
 	var current: GFArchitecture = _parent_architecture
 	var architecture_depth: int = 1
 	while current != null:
@@ -6093,57 +5950,41 @@ func _resolve_parent_lifecycle_dependency_status(
 				"scope": &"missing",
 				"architecture_depth": architecture_depth,
 				"resolution_kind": &"parent_cycle",
-				"cycle_architecture": current._get_architecture_debug_key(
-					current
-				),
+				"cycle_architecture": current._get_architecture_debug_key(current),
 				"cycle_depth": architecture_depth,
-				"cycle_start_depth": (
-					_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-						visited,
-						current.get_instance_id(),
-						-1
-					)
+				"cycle_start_depth": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+					visited,
+					current.get_instance_id(),
+					-1
 				),
 			}
 		visited[current.get_instance_id()] = architecture_depth
-		if (
-			not current._runtime.is_ready()
-			or current._topology_mutation != null
-		):
+		if (not current._runtime.is_ready() or current._topology_mutation != null):
 			return _make_lifecycle_dependency_status(
 				&"missing",
 				&"inactive_parent",
 				architecture_depth
 			)
-		var module_registry: ModuleRegistry = (
-			current._get_module_registry_by_kind(registry_kind)
-		)
+		var module_registry: ModuleRegistry = current._get_module_registry_by_kind(registry_kind)
 		if module_registry == null:
 			return _make_lifecycle_dependency_status(
 				&"missing",
 				&"invalid_registry",
 				architecture_depth
 			)
-		var local_status: Dictionary = (
-			current._resolve_local_lifecycle_dependency_status(
-				registry_kind,
-				script_cls,
-				module_registry.instances,
-				architecture_depth
-			)
+		var local_status: Dictionary = current._resolve_local_lifecycle_dependency_status(
+			registry_kind,
+			script_cls,
+			module_registry.instances,
+			architecture_depth
 		)
-		var status_name: StringName = (
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
-				local_status,
-				"status",
-				&"missing"
-			)
+		var status_name: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+			local_status,
+			"status",
+			&"missing"
 		)
 		if status_name == &"local":
-			var instance: Object = _get_dictionary_object(
-				local_status,
-				"instance"
-			)
+			var instance: Object = _get_dictionary_object(local_status, "instance")
 			if instance == null or not current.is_module_active(instance):
 				return _make_lifecycle_dependency_status(
 					&"missing",
@@ -6173,30 +6014,17 @@ func _resolve_parent_lifecycle_dependency_status(
 ## 只检查工厂绑定是否存在，不实例化；父链必须稳定，strict miss、循环或深度问题均停止解析。
 ## [br]
 ## @api private
-func _resolve_candidate_factory_dependency_status(
-	script_cls: Script
-) -> Dictionary:
+func _resolve_candidate_factory_dependency_status(script_cls: Script) -> Dictionary:
 	if script_cls == null:
-		return _make_lifecycle_dependency_status(
-			&"missing",
-			&"invalid_script"
-		)
+		return _make_lifecycle_dependency_status(&"missing", &"invalid_script")
 	if _factories.has(script_cls):
-		return _make_lifecycle_dependency_status(
-			&"local",
-			&"exact_factory"
-		)
+		return _make_lifecycle_dependency_status(&"local", &"exact_factory")
 	if strict_dependency_lookup:
-		return _make_lifecycle_dependency_status(
-			&"missing",
-			&"strict_local_miss"
-		)
-	var parent_chain_issue: Dictionary = (
-		_get_lifecycle_parent_chain_issue()
-	)
+		return _make_lifecycle_dependency_status(&"missing", &"strict_local_miss")
+	var parent_chain_issue: Dictionary = _get_lifecycle_parent_chain_issue()
 	if not parent_chain_issue.is_empty():
 		return parent_chain_issue
-	var visited: Dictionary = {get_instance_id(): 0}
+	var visited: Dictionary = { get_instance_id(): 0 }
 	var current: GFArchitecture = _parent_architecture
 	var architecture_depth: int = 1
 	while current != null:
@@ -6206,35 +6034,26 @@ func _resolve_candidate_factory_dependency_status(
 				"scope": &"missing",
 				"architecture_depth": architecture_depth,
 				"resolution_kind": &"parent_cycle",
-				"cycle_architecture": current._get_architecture_debug_key(
-					current
-				),
+				"cycle_architecture": current._get_architecture_debug_key(current),
 				"cycle_depth": architecture_depth,
-				"cycle_start_depth": (
-					_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-						visited,
-						current.get_instance_id(),
-						-1
-					)
+				"cycle_start_depth": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+					visited,
+					current.get_instance_id(),
+					-1
 				),
 			}
 		visited[current.get_instance_id()] = architecture_depth
-		if (
-			not current._runtime.is_ready()
-			or current._topology_mutation != null
-		):
+		if (not current._runtime.is_ready() or current._topology_mutation != null):
 			return _make_lifecycle_dependency_status(
 				&"missing",
 				&"inactive_parent",
 				architecture_depth
 			)
 		if current._factories.has(script_cls):
-			var external_status: Dictionary = (
-				_make_lifecycle_dependency_status(
-					&"external",
-					&"exact_factory",
-					architecture_depth
-				)
+			var external_status: Dictionary = _make_lifecycle_dependency_status(
+				&"external",
+				&"exact_factory",
+				architecture_depth
 			)
 			external_status["scope"] = &"parent"
 			return external_status
@@ -6257,13 +6076,10 @@ func _resolve_candidate_factory_dependency_status(
 ## [br]
 ## @api private
 func _get_lifecycle_parent_chain_issue() -> Dictionary:
-	var visited: Dictionary = {get_instance_id(): 0}
+	var visited: Dictionary = { get_instance_id(): 0 }
 	var current: GFArchitecture = _parent_architecture
 	var architecture_depth: int = 1
-	while (
-		current != null
-		and architecture_depth <= _MAX_LIFECYCLE_PARENT_DEPTH
-	):
+	while (current != null and architecture_depth <= _MAX_LIFECYCLE_PARENT_DEPTH):
 		var instance_id: int = current.get_instance_id()
 		if visited.has(instance_id):
 			return {
@@ -6273,12 +6089,10 @@ func _get_lifecycle_parent_chain_issue() -> Dictionary:
 				"resolution_kind": &"parent_cycle",
 				"cycle_architecture": _get_architecture_debug_key(current),
 				"cycle_depth": architecture_depth,
-				"cycle_start_depth": (
-					_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-						visited,
-						instance_id,
-						-1
-					)
+				"cycle_start_depth": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+					visited,
+					instance_id,
+					-1
 				),
 			}
 		visited[instance_id] = architecture_depth
@@ -6308,7 +6122,11 @@ func _make_lifecycle_dependency_status(
 		"scope": (
 			&"local"
 			if status == &"local"
-			else (&"parent" if status == &"external" else &"missing")
+			else (
+				&"parent"
+				if status == &"external"
+				else &"missing"
+			)
 		),
 		"architecture_depth": maxi(architecture_depth, 0),
 		"resolution_kind": resolution_kind,
@@ -6336,18 +6154,13 @@ func _advance_lifecycle_plan_to_stage(
 			return false
 		if cancellation_token != null and cancellation_token.is_cancel_requested():
 			_fail_initialization(
-				"[GFArchitecture][architecture.initialization_cancelled] Initialization was cancelled: %s." % String(
-					cancellation_token.get_cancel_reason()
-				),
+				"[GFArchitecture][architecture.initialization_cancelled] Initialization was cancelled: %s." % String(cancellation_token.get_cancel_reason()),
 				lifecycle_serial
 			)
 			return false
 		var module_registry: ModuleRegistry = _get_module_registry_for_instance(instance)
 		if module_registry == null:
-			_fail_initialization(
-				"[GFArchitecture][architecture.lifecycle_module_unregistered] The lifecycle plan contains a module that has left the registry.",
-				lifecycle_serial
-			)
+			_fail_initialization("[GFArchitecture][architecture.lifecycle_module_unregistered] The lifecycle plan contains a module that has left the registry.", lifecycle_serial)
 			return false
 		var current_stage: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
 			_module_lifecycle_stages,
@@ -6370,10 +6183,8 @@ func _advance_lifecycle_plan_to_stage(
 				and not _runtime.has_failed()
 			):
 				_fail_initialization(
-					"[GFArchitecture][architecture.lifecycle_stage_incomplete] Lifecycle stage progression failed: %s did not complete stage=%d." % [
-						_get_instance_debug_key(instance),
-						target_stage,
-					],
+					"[GFArchitecture][architecture.lifecycle_stage_incomplete] Lifecycle stage progression failed: %s did not complete stage=%d."
+					% [_get_instance_debug_key(instance), target_stage,],
 					lifecycle_serial
 				)
 			return false
@@ -6402,10 +6213,7 @@ func _activate_lifecycle_plan(
 	cancellation_token: GFCancellationToken
 ) -> bool:
 	var started_at_msec: int = Time.get_ticks_msec()
-	var deadline_msec: int = _make_deadline_msec(
-		started_at_msec,
-		activation_timeout_seconds
-	)
+	var deadline_msec: int = _make_deadline_msec(started_at_msec, activation_timeout_seconds)
 	_activation_scope = _begin_module_async_scope()
 	for instance: Object in plan.get_activation_order():
 		if not _runtime.is_activating() or not _is_lifecycle_current(lifecycle_serial):
@@ -6418,15 +6226,10 @@ func _activate_lifecycle_plan(
 				lifecycle_serial
 			)
 			return false
-		var completion: GFAsyncCompletion = _call_module_begin_activation(
-			instance,
-			_activation_scope
-		)
+		var completion: GFAsyncCompletion = _call_module_begin_activation(instance, _activation_scope)
 		if completion == null:
 			_fail_initialization(
-				"[GFArchitecture][architecture.activation_completion_null] Activation failed: %s returned a null completion." % (
-					_get_instance_debug_key(instance)
-				),
+				"[GFArchitecture][architecture.activation_completion_null] Activation failed: %s returned a null completion." % (_get_instance_debug_key(instance)),
 				lifecycle_serial
 			)
 			return false
@@ -6439,31 +6242,26 @@ func _activate_lifecycle_plan(
 			lifecycle_serial
 		)
 		if cancellation_token != null and cancellation_token.is_cancel_requested():
-			var post_activation_cancel_reason: String = String(
-				cancellation_token.get_cancel_reason()
-			)
-			_cancel_module_async_scope(
-				_activation_scope,
-				post_activation_cancel_reason
-			)
+			var post_activation_cancel_reason: String = String(cancellation_token.get_cancel_reason())
+			_cancel_module_async_scope(_activation_scope, post_activation_cancel_reason)
 			_fail_initialization(
-				"[GFArchitecture][architecture.activation_cancelled] Activation was cancelled: %s." % (
-					post_activation_cancel_reason
-				),
+				"[GFArchitecture][architecture.activation_cancelled] Activation was cancelled: %s." % (post_activation_cancel_reason),
 				lifecycle_serial
 			)
 			return false
-		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(wait_report, "succeeded", false):
+		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			wait_report,
+			"succeeded",
+			false
+		):
 			var failure_reason: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 				wait_report,
 				"reason",
 				"activation did not succeed"
 			)
 			_fail_initialization(
-				"[GFArchitecture][architecture.activation_failed] Activation failed: %s.\n%s" % [
-					_get_instance_debug_key(instance),
-					failure_reason,
-				],
+				"[GFArchitecture][architecture.activation_failed] Activation failed: %s.\n%s"
+				% [_get_instance_debug_key(instance), failure_reason,],
 				lifecycle_serial
 			)
 			return false
@@ -6496,9 +6294,7 @@ func _await_lifecycle_completion(
 	var last_tick_msec: int = Time.get_ticks_msec()
 	while completion.is_pending():
 		if not _is_lifecycle_current(lifecycle_serial):
-			var _interrupted_completion: bool = completion.cancel(
-				&"lifecycle_interrupted"
-			)
+			var _interrupted_completion: bool = completion.cancel(&"lifecycle_interrupted")
 			return {
 				"succeeded": false,
 				"status": "interrupted",
@@ -6533,40 +6329,35 @@ func _await_lifecycle_completion(
 				"reason": "Lifecycle deadline exceeded.",
 			}
 		if scene_tree == null:
-			var _unavailable_completion: bool = completion.fail(
-				"Pending lifecycle completion requires an active SceneTree."
-			)
+			var _unavailable_completion: bool = completion.fail("Pending lifecycle completion requires an active SceneTree.")
 			return {
 				"succeeded": false,
 				"status": "failed",
 				"reason": "Pending lifecycle completion requires an active SceneTree.",
 			}
-		var delta: float = float(maxi(now_msec - last_tick_msec, 0)) / 1000.0
+		var delta: float = float(
+			maxi(
+				now_msec - last_tick_msec,
+				0
+			)
+		) / 1000.0
 		last_tick_msec = now_msec
 		_tick_scheduler.drive_lifecycle_tick(delta, allowed_instances)
 		if not completion.is_pending():
 			continue
 		await scene_tree.process_frame
 	if not _is_lifecycle_current(lifecycle_serial):
-		var _interrupted_terminal_completion: bool = completion.cancel(
-			&"lifecycle_interrupted"
-		)
+		var _interrupted_terminal_completion: bool = completion.cancel(&"lifecycle_interrupted")
 		return {
 			"succeeded": false,
 			"status": "interrupted",
 			"reason": "Architecture lifecycle generation changed.",
 		}
 	if cancellation_token != null and cancellation_token.is_cancel_requested():
-		var terminal_external_reason: StringName = (
-			cancellation_token.get_cancel_reason()
-		)
+		var terminal_external_reason: StringName = cancellation_token.get_cancel_reason()
 		if scope != null:
-			var _cancelled_terminal_scope: bool = scope.cancel(
-				String(terminal_external_reason)
-			)
-		var _cancelled_terminal_completion: bool = completion.cancel(
-			terminal_external_reason
-		)
+			var _cancelled_terminal_scope: bool = scope.cancel(String(terminal_external_reason))
+		var _cancelled_terminal_completion: bool = completion.cancel(terminal_external_reason)
 		return {
 			"succeeded": false,
 			"status": "cancelled",
@@ -6574,9 +6365,7 @@ func _await_lifecycle_completion(
 		}
 	if scope != null and scope.is_cancel_requested():
 		var terminal_scope_reason: StringName = scope.get_cancel_reason()
-		var _cancelled_terminal_scoped_completion: bool = (
-			completion.cancel(terminal_scope_reason)
-		)
+		var _cancelled_terminal_scoped_completion: bool = completion.cancel(terminal_scope_reason)
 		return {
 			"succeeded": false,
 			"status": "cancelled",
@@ -6584,12 +6373,8 @@ func _await_lifecycle_completion(
 		}
 	if deadline_msec >= 0 and Time.get_ticks_msec() >= deadline_msec:
 		if scope != null:
-			var _timed_out_terminal_scope: bool = scope.cancel(
-				"lifecycle_timeout"
-			)
-		var _timed_out_terminal_completion: bool = completion.cancel(
-			&"lifecycle_timeout"
-		)
+			var _timed_out_terminal_scope: bool = scope.cancel("lifecycle_timeout")
+		var _timed_out_terminal_completion: bool = completion.cancel(&"lifecycle_timeout")
 		return {
 			"succeeded": false,
 			"status": "timed_out",
@@ -6627,10 +6412,7 @@ func _make_deadline_msec(started_at_msec: int, timeout_seconds: float) -> int:
 ## 在 shutdown 截止时间内等待已接纳事务的门结束；不取消事务本身，只有门成功且事务不再当前才算稳定。
 ## [br]
 ## @api private
-func _await_topology_stability(
-	cancellation_token: GFCancellationToken,
-	deadline_msec: int
-) -> Dictionary:
+func _await_topology_stability(cancellation_token: GFCancellationToken, deadline_msec: int) -> Dictionary:
 	if cancellation_token != null and cancellation_token.is_cancel_requested():
 		return {
 			"succeeded": false,
@@ -6658,10 +6440,7 @@ func _await_topology_stability(
 			"reason": "Active topology transaction has no completion gate.",
 		}
 	var scene_tree: SceneTree = _get_scene_tree_or_null()
-	while (
-		_is_topology_mutation_current(transaction)
-		and completion.is_pending()
-	):
+	while (_is_topology_mutation_current(transaction) and completion.is_pending()):
 		if cancellation_token != null and cancellation_token.is_cancel_requested():
 			return {
 				"succeeded": false,
@@ -6693,10 +6472,7 @@ func _await_topology_stability(
 			"status": "timed_out",
 			"reason": "Shutdown deadline exceeded while waiting for an accepted topology transaction.",
 		}
-	if (
-		completion.is_successful()
-		and not _is_topology_mutation_current(transaction)
-	):
+	if (completion.is_successful() and not _is_topology_mutation_current(transaction)):
 		return {
 			"succeeded": true,
 			"status": "succeeded",
@@ -6718,9 +6494,7 @@ func _await_topology_stability(
 ## 将拓扑等待失败转换为退出报告，把活动计划和仍需清理的候选列为未完成模块。
 ## [br]
 ## @api private
-func _make_topology_wait_shutdown_report(
-	topology_wait_report: Dictionary
-) -> Dictionary:
+func _make_topology_wait_shutdown_report(topology_wait_report: Dictionary) -> Dictionary:
 	var status: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 		topology_wait_report,
 		"status",
@@ -6764,8 +6538,7 @@ func _append_topology_mutation_unfinished(
 		transaction == null
 		or transaction._candidate == null
 		or transaction._outcome == TopologyMutation._OUTCOME_COMMITTED
-		or transaction._candidate_cleanup_state
-		!= TopologyMutation._CLEANUP_PENDING
+		or transaction._candidate_cleanup_state != TopologyMutation._CLEANUP_PENDING
 	):
 		return
 	var candidate_stage: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
@@ -6775,15 +6548,13 @@ func _append_topology_mutation_unfinished(
 	)
 	var candidate_id: int = transaction._candidate.get_instance_id()
 	for existing: Dictionary in target:
-		if _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-			existing,
-			"instance_id"
-		) == candidate_id:
+		if ((_GF_VARIANT_ACCESS_SCRIPT.get_option_int(existing, "instance_id")) == candidate_id):
 			return
 	var entry: Dictionary = _make_shutdown_module_entry(
 		transaction._candidate,
 		"skipped",
-		"%s (topology_phase=%s, lifecycle_stage=%d)" % [
+		"%s (topology_phase=%s, lifecycle_stage=%d)"
+		% [
 			reason,
 			String(transaction._phase),
 			candidate_stage,
@@ -6796,10 +6567,7 @@ func _append_topology_mutation_unfinished(
 ## 按退出顺序共享总截止时间等待静默；普通模块失败仍继续，超时、全局取消或代次中断则记录剩余跳过项。
 ## [br]
 ## @api private
-func _quiesce_active_modules(
-	cancellation_token: GFCancellationToken,
-	deadline_msec: int
-) -> Dictionary:
+func _quiesce_active_modules(cancellation_token: GFCancellationToken, deadline_msec: int) -> Dictionary:
 	var module_results: Array[Dictionary] = []
 	var unfinished_modules: Array[Dictionary] = []
 	var top_status: String = "succeeded"
@@ -6809,9 +6577,7 @@ func _quiesce_active_modules(
 	if _active_lifecycle_plan != null:
 		shutdown_order = _active_lifecycle_plan.get_shutdown_order()
 	if cancellation_token != null and cancellation_token.is_cancel_requested():
-		var initial_cancel_reason: String = String(
-			cancellation_token.get_cancel_reason()
-		)
+		var initial_cancel_reason: String = String(cancellation_token.get_cancel_reason())
 		_append_unfinished_modules(
 			unfinished_modules,
 			shutdown_order,
@@ -6825,9 +6591,7 @@ func _quiesce_active_modules(
 			"unfinished_modules": unfinished_modules,
 		}
 	if deadline_msec >= 0 and Time.get_ticks_msec() >= deadline_msec:
-		var initial_timeout_reason: String = (
-			"Architecture shutdown deadline exceeded before module quiesce."
-		)
+		var initial_timeout_reason: String = "Architecture shutdown deadline exceeded before module quiesce."
 		_append_unfinished_modules(
 			unfinished_modules,
 			shutdown_order,
@@ -6844,7 +6608,12 @@ func _quiesce_active_modules(
 		if not _is_lifecycle_current(lifecycle_serial) or not _runtime.is_quiescing():
 			top_status = "interrupted"
 			top_reason = "Architecture lifecycle changed during shutdown."
-			_append_unfinished_modules(unfinished_modules, shutdown_order, index, top_reason)
+			_append_unfinished_modules(
+				unfinished_modules,
+				shutdown_order,
+				index,
+				top_reason
+			)
 			break
 		var instance: Object = shutdown_order[index]
 		if instance == null:
@@ -6870,11 +6639,8 @@ func _quiesce_active_modules(
 				top_reason
 			)
 			break
-		var completion: GFAsyncCompletion = _call_module_begin_quiesce(
-			instance,
-			_shutdown_scope
-		)
-		var allowed_instances: Dictionary = {instance: true}
+		var completion: GFAsyncCompletion = _call_module_begin_quiesce(instance, _shutdown_scope)
+		var allowed_instances: Dictionary = { instance: true }
 		if _active_lifecycle_plan != null:
 			allowed_instances = _active_lifecycle_plan.get_dependency_closure(instance)
 		var wait_report: Dictionary = await _await_lifecycle_completion(
@@ -6907,7 +6673,12 @@ func _quiesce_active_modules(
 		if module_status == "interrupted":
 			top_status = "interrupted"
 			top_reason = module_reason
-			_append_unfinished_modules(unfinished_modules, shutdown_order, index + 1, module_reason)
+			_append_unfinished_modules(
+				unfinished_modules,
+				shutdown_order,
+				index + 1,
+				module_reason
+			)
 			break
 		if module_status == "timed_out":
 			top_status = "timed_out"
@@ -6922,7 +6693,10 @@ func _quiesce_active_modules(
 		if (
 			module_status == "cancelled"
 			and (
-				(_shutdown_scope != null and _shutdown_scope.is_cancel_requested())
+				(
+					_shutdown_scope != null
+					and _shutdown_scope.is_cancel_requested()
+				)
 				or (
 					cancellation_token != null
 					and cancellation_token.is_cancel_requested()
@@ -6941,10 +6715,10 @@ func _quiesce_active_modules(
 		if module_status != "succeeded":
 			top_status = "failed"
 			if top_reason.is_empty():
-				top_reason = "%s failed to quiesce: %s" % [
-					_get_instance_debug_key(instance),
-					module_reason,
-				]
+				top_reason = (
+					"%s failed to quiesce: %s"
+					% [_get_instance_debug_key(instance), module_reason,]
+				)
 	if cancellation_token != null and cancellation_token.is_cancel_requested():
 		top_status = "cancelled"
 		top_reason = String(cancellation_token.get_cancel_reason())
@@ -6968,12 +6742,20 @@ func _append_unfinished_modules(
 	start_index: int,
 	reason: String
 ) -> void:
-	for index: int in range(start_index, shutdown_order.size()):
+	for index: int in range(
+		start_index,
+		shutdown_order.size()
+	):
 		var instance: Object = shutdown_order[index]
 		if instance == null:
 			continue
 		target.append(
-			_make_shutdown_module_entry(instance, "skipped", reason, 0)
+			_make_shutdown_module_entry(
+				instance,
+				"skipped",
+				reason,
+				0
+			)
 		)
 
 
@@ -7014,17 +6796,9 @@ func _make_shutdown_result(
 		"reason",
 		"Architecture shutdown failed."
 	)
-	var module_results: Array[Dictionary] = _get_shutdown_report_entries(
-		report,
-		"module_results"
-	)
-	var unfinished_modules: Array[Dictionary] = _get_shutdown_report_entries(
-		report,
-		"unfinished_modules"
-	)
-	var status: GFArchitectureShutdownResult.Status = (
-		GFArchitectureShutdownResult.Status.SUCCEEDED
-	)
+	var module_results: Array[Dictionary] = _get_shutdown_report_entries(report, "module_results")
+	var unfinished_modules: Array[Dictionary] = _get_shutdown_report_entries(report, "unfinished_modules")
+	var status: GFArchitectureShutdownResult.Status = GFArchitectureShutdownResult.Status.SUCCEEDED
 	var error_code: Error = OK
 	var cancel_reason: String = ""
 	match status_name:
@@ -7056,10 +6830,7 @@ func _make_shutdown_result(
 ## 只保留指定字段中为 Dictionary 的数组元素；返回新数组但不复制条目字典。
 ## [br]
 ## @api private
-func _get_shutdown_report_entries(
-	report: Dictionary,
-	key: String
-) -> Array[Dictionary]:
+func _get_shutdown_report_entries(report: Dictionary, key: String) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	var raw_entries: Variant = report.get(key, [])
 	if not raw_entries is Array:
@@ -7074,26 +6845,18 @@ func _get_shutdown_report_entries(
 ## 在强制释放前按可用计划收集已进入生命周期的模块并按对象去重，另加入仍待清理的拓扑候选。
 ## [br]
 ## @api private
-func _snapshot_forced_unfinished_modules(
-	reason: String
-) -> Array[Dictionary]:
+func _snapshot_forced_unfinished_modules(reason: String) -> Array[Dictionary]:
 	var unfinished_modules: Array[Dictionary] = []
 	var seen_instances: Dictionary = {}
-	var snapshot_plan: GFArchitectureLifecyclePlan = (
-		_active_lifecycle_plan
-		if _active_lifecycle_plan != null
-		else _lifecycle_plan_in_progress
-	)
+	var snapshot_plan: GFArchitectureLifecyclePlan = (_active_lifecycle_plan if _active_lifecycle_plan != null else _lifecycle_plan_in_progress)
 	if snapshot_plan != null:
 		for instance: Object in snapshot_plan.get_shutdown_order():
 			if instance == null or seen_instances.has(instance):
 				continue
-			var lifecycle_stage: int = (
-				_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-					_module_lifecycle_stages,
-					instance,
-					0
-				)
+			var lifecycle_stage: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+				_module_lifecycle_stages,
+				instance,
+				0
 			)
 			if lifecycle_stage <= 0:
 				continue
@@ -7102,10 +6865,8 @@ func _snapshot_forced_unfinished_modules(
 				_make_shutdown_module_entry(
 					instance,
 					"skipped",
-					"%s (lifecycle_stage=%d)" % [
-						reason,
-						lifecycle_stage,
-					],
+					"%s (lifecycle_stage=%d)"
+					% [reason, lifecycle_stage,],
 					0
 				)
 			)
@@ -7125,50 +6886,28 @@ func _force_dispose_internal() -> void:
 	if not _runtime.begin_dispose():
 		return
 	var disposed_instances: Dictionary = _begin_module_disposal_session()
-	var aborted_topology: TopologyMutation = _abort_topology_mutation(
-		&"architecture_disposed"
-	)
+	var aborted_topology: TopologyMutation = _abort_topology_mutation(&"architecture_disposed")
 	if (
 		aborted_topology != null
 		and aborted_topology._active_scope != null
 		and aborted_topology._active_scope.is_active()
 	):
-		var _cancelled_topology_scope: bool = (
-			aborted_topology._active_scope.cancel(
-				"[GFArchitecture][architecture.disposed] The architecture is disposed."
-			)
-		)
+		var _cancelled_topology_scope: bool = aborted_topology._active_scope.cancel("[GFArchitecture][architecture.disposed] The architecture is disposed.")
 	_cancel_active_async_scopes("[GFArchitecture][architecture.disposed] The architecture is disposed.")
 	_cleanup_topology_candidate(aborted_topology)
-	_finalize_aborted_topology_mutation(
-		aborted_topology,
-		&"architecture_disposed"
-	)
+	_finalize_aborted_topology_mutation(aborted_topology, &"architecture_disposed")
 	_lifecycle_hook_depth += 1
 	_on_dispose()
 	_lifecycle_hook_depth -= 1
-	var disposal_plan: GFArchitectureLifecyclePlan = (
-		_active_lifecycle_plan
-		if _active_lifecycle_plan != null
-		else _lifecycle_plan_in_progress
-	)
+	var disposal_plan: GFArchitectureLifecyclePlan = (_active_lifecycle_plan if _active_lifecycle_plan != null else _lifecycle_plan_in_progress)
 	if disposal_plan != null:
 		for instance: Object in disposal_plan.get_shutdown_order():
 			_dispose_module_once(instance, disposed_instances)
-	for instance: Object in _get_modules_by_lifecycle_priority(
-		_system_registry.instances,
-		true
-	):
+	for instance: Object in _get_modules_by_lifecycle_priority(_system_registry.instances, true):
 		_dispose_module_once(instance, disposed_instances)
-	for instance: Object in _get_modules_by_lifecycle_priority(
-		_model_registry.instances,
-		true
-	):
+	for instance: Object in _get_modules_by_lifecycle_priority(_model_registry.instances, true):
 		_dispose_module_once(instance, disposed_instances)
-	for instance: Object in _get_modules_by_lifecycle_priority(
-		_utility_registry.instances,
-		true
-	):
+	for instance: Object in _get_modules_by_lifecycle_priority(_utility_registry.instances, true):
 		_dispose_module_once(instance, disposed_instances)
 	for binding_variant: Variant in _factories.values():
 		var binding: GFBinding = _variant_to_binding(binding_variant)
@@ -7189,9 +6928,7 @@ func _force_dispose_internal() -> void:
 	_activation_scope = null
 	_shutdown_scope = null
 	_refresh_tick_caches()
-	_release_external_dependency_leases(
-		_active_external_dependency_leases
-	)
+	_release_external_dependency_leases(_active_external_dependency_leases)
 	_active_external_dependency_leases.clear()
 	_child_external_dependency_leases.clear()
 	_parent_architecture = null
@@ -7202,10 +6939,7 @@ func _force_dispose_internal() -> void:
 ## 先按对象登记已领取的释放权，再撤销 owner 事件与服务、执行 dispose 并解除依赖，避免回调重入重复释放。
 ## [br]
 ## @api private
-func _dispose_module_once(
-	instance: Object,
-	disposed_instances: Dictionary
-) -> void:
+func _dispose_module_once(instance: Object, disposed_instances: Dictionary) -> void:
 	if instance == null or disposed_instances.has(instance):
 		return
 	disposed_instances[instance] = true
@@ -7247,9 +6981,7 @@ func _publish_shutdown_result(result: GFArchitectureShutdownResult) -> void:
 		return
 	_last_shutdown_result = result.duplicate_result()
 	if _shutdown_completion.is_pending():
-		var _completed_shutdown: bool = _shutdown_completion.succeed(
-			result.duplicate_result()
-		)
+		var _completed_shutdown: bool = _shutdown_completion.succeed(result.duplicate_result())
 	shutdown_finished.emit(result.duplicate_result())
 
 
@@ -7269,7 +7001,11 @@ func _all_registered_modules_reached_stage(target_stage: int) -> bool:
 ## @api private
 func _module_registry_reached_stage(module_registry: ModuleRegistry, target_stage: int) -> bool:
 	for instance: Object in module_registry.instances.values():
-		var current_stage: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(_module_lifecycle_stages, instance, 0)
+		var current_stage: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			_module_lifecycle_stages,
+			instance,
+			0
+		)
 		if current_stage < target_stage:
 			return false
 	return true
@@ -7288,7 +7024,11 @@ func _advance_module_to_stage(
 	if instance == null:
 		return false
 
-	var current_stage: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(_module_lifecycle_stages, instance, 0)
+	var current_stage: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+		_module_lifecycle_stages,
+		instance,
+		0
+	)
 	while current_stage < target_stage:
 		if not _is_lifecycle_current(lifecycle_serial) or _runtime.has_failed():
 			return false
@@ -7332,9 +7072,7 @@ func _await_module_async_init(
 	var scene_tree: SceneTree = _get_scene_tree_or_null()
 	if scene_tree == null:
 		if cancellation_token != null and cancellation_token.is_cancel_requested():
-			var pre_cancel_reason: String = String(
-				cancellation_token.get_cancel_reason()
-			)
+			var pre_cancel_reason: String = String(cancellation_token.get_cancel_reason())
 			_cancel_module_async_scope(async_scope, pre_cancel_reason)
 			_fail_initialization(
 				"[GFArchitecture][architecture.initialization_cancelled] Initialization was cancelled: %s." % pre_cancel_reason,
@@ -7343,9 +7081,7 @@ func _await_module_async_init(
 			return false
 		await _call_module_async_init(instance, async_scope)
 		if cancellation_token != null and cancellation_token.is_cancel_requested():
-			var post_cancel_reason: String = String(
-				cancellation_token.get_cancel_reason()
-			)
+			var post_cancel_reason: String = String(cancellation_token.get_cancel_reason())
 			_cancel_module_async_scope(async_scope, post_cancel_reason)
 			_fail_initialization(
 				"[GFArchitecture][architecture.initialization_cancelled] Initialization was cancelled: %s." % post_cancel_reason,
@@ -7354,25 +7090,27 @@ func _await_module_async_init(
 			return false
 		return _complete_module_async_scope(async_scope, lifecycle_serial)
 
-	var completion_state: Dictionary = {
-		"done": false,
-		"write_blocked": false,
-	}
-	_GF_ASYNC_CALL_SCRIPT.run_detached(Callable(self, &"_complete_module_async_init"), [instance, completion_state, async_scope])
-	var start_msec: int = Time.get_ticks_msec()
-	var timeout_msec: int = (
-		int(module_async_init_timeout_seconds * 1000.0)
-		if module_async_init_timeout_seconds > 0.0
-		else -1
+	var completion_state: Dictionary = { "done": false, "write_blocked": false, }
+	_GF_ASYNC_CALL_SCRIPT.run_detached(
+		Callable(self, &"_complete_module_async_init"),
+		[
+			instance,
+			completion_state,
+			async_scope,
+		]
 	)
-	while not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(completion_state, "done", false):
+	var start_msec: int = Time.get_ticks_msec()
+	var timeout_msec: int = (int(module_async_init_timeout_seconds * 1000.0) if module_async_init_timeout_seconds > 0.0 else -1)
+	while not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		completion_state,
+		"done",
+		false
+	):
 		if not _is_lifecycle_current(lifecycle_serial) or _runtime.has_failed():
 			_cancel_module_async_scope(async_scope, last_initialization_error)
 			return false
 		if cancellation_token != null and cancellation_token.is_cancel_requested():
-			var cancel_reason: String = String(
-				cancellation_token.get_cancel_reason()
-			)
+			var cancel_reason: String = String(cancellation_token.get_cancel_reason())
 			_cancel_module_async_scope(async_scope, cancel_reason)
 			_fail_initialization(
 				"[GFArchitecture][architecture.initialization_cancelled] Initialization was cancelled: %s." % cancel_reason,
@@ -7385,10 +7123,10 @@ func _await_module_async_init(
 		if timeout_msec >= 0 and elapsed_msec >= timeout_msec:
 			completion_state["write_blocked"] = true
 			_begin_stale_async_write_block()
-			var timeout_reason: String = "[GFArchitecture][architecture.async_init_timeout] async_init timed out: %s exceeded %.2f seconds." % [
-				_get_instance_debug_key(instance),
-				module_async_init_timeout_seconds,
-			]
+			var timeout_reason: String = (
+				"[GFArchitecture][architecture.async_init_timeout] async_init timed out: %s exceeded %.2f seconds."
+				% [_get_instance_debug_key(instance), module_async_init_timeout_seconds,]
+			)
 			_cancel_module_async_scope(async_scope, timeout_reason)
 			_fail_initialization(timeout_reason, lifecycle_serial)
 			return false
@@ -7399,9 +7137,17 @@ func _await_module_async_init(
 ## 等待异步 init 真正返回后解除它持有的迟到写屏障、解除作用域追踪，再设置共享 done 标记。
 ## [br]
 ## @api private
-func _complete_module_async_init(instance: Object, completion_state: Dictionary, async_scope: GFAsyncScope) -> void:
+func _complete_module_async_init(
+	instance: Object,
+	completion_state: Dictionary,
+	async_scope: GFAsyncScope
+) -> void:
 	await _call_module_async_init(instance, async_scope)
-	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(completion_state, "write_blocked", false):
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		completion_state,
+		"write_blocked",
+		false
+	):
 		_end_stale_async_write_block()
 	_untrack_async_scope(async_scope)
 	completion_state["done"] = true
@@ -7450,11 +7196,16 @@ func _module_registry_contains_instance(module_registry: ModuleRegistry, instanc
 ## 将带所有权区分的注册结果收窄为 bool，仅 ACCEPTED 返回 true。
 ## [br]
 ## @api private
-func _register_module(module_registry: ModuleRegistry, script_cls: Script, instance: Object) -> bool:
-	return (
-		_register_module_checked(module_registry, script_cls, instance)
-		== _REQUIRED_REGISTRATION_ACCEPTED
-	)
+func _register_module(
+	module_registry: ModuleRegistry,
+	script_cls: Script,
+	instance: Object
+) -> bool:
+	return _register_module_checked(
+		module_registry,
+		script_cls,
+		instance
+	) == _REQUIRED_REGISTRATION_ACCEPTED
 
 
 ## 在共享释放会话中执行注册并返回所有权结算状态，使注入重入引起的清理能够去重。
@@ -7485,32 +7236,30 @@ func _register_module_checked_in_disposal_session(
 ) -> int:
 	if not _can_mutate_registration_state("register_%s" % module_registry._label_key()):
 		return _REQUIRED_REGISTRATION_REJECTED_CALLER_OWNS
-	if not _validate_registration(script_cls, instance, module_registry.label):
+	if not _validate_registration(
+		script_cls,
+		instance,
+		module_registry.label
+	):
 		return _REQUIRED_REGISTRATION_REJECTED_CALLER_OWNS
 	if module_registry._has_direct(script_cls):
 		var method_name: String = "register_%s" % module_registry._label_key()
 		var replacement_name: String = "replace_%s" % module_registry._label_key()
-		push_warning("[GFArchitecture][architecture.module_already_registered] %s ignored a duplicate type registration. Enabled extension Installers assemble their modules before project Installers; projects normally register only their own modules. Use %s() to replace it." % [
-			method_name,
-			replacement_name,
-		])
-		var registered_instance: Object = _get_dictionary_object(
-			module_registry.instances,
-			script_cls
+		push_warning(
+			"[GFArchitecture][architecture.module_already_registered] %s ignored a duplicate type registration. Enabled extension Installers assemble their modules before project Installers; projects normally register only their own modules. Use %s() to replace it."
+			% [method_name, replacement_name,]
 		)
-		if (
-			registered_instance == instance
-			or module_registry._get_key_for_instance(instance) != null
-		):
+		var registered_instance: Object = _get_dictionary_object(module_registry.instances, script_cls)
+		if (registered_instance == instance or module_registry._get_key_for_instance(instance) != null):
 			return _REQUIRED_REGISTRATION_REJECTED_ARCHITECTURE_OWNS
 		return _REQUIRED_REGISTRATION_REJECTED_CALLER_OWNS
 
 	var existing_key: Script = module_registry._get_key_for_instance(instance)
 	if existing_key != null:
-		push_error("[GFArchitecture][architecture.module_instance_already_registered] register_%s failed: the same instance is already registered as %s; a module cannot be registered under multiple script keys." % [
-			module_registry._label_key(),
-			_get_script_debug_key(existing_key, instance),
-		])
+		push_error(
+			"[GFArchitecture][architecture.module_instance_already_registered] register_%s failed: the same instance is already registered as %s; a module cannot be registered under multiple script keys."
+			% [module_registry._label_key(), _get_script_debug_key(existing_key, instance),]
+		)
 		return _REQUIRED_REGISTRATION_REJECTED_ARCHITECTURE_OWNS
 
 	var transaction: Dictionary = _runtime.begin_transaction("register_%s" % module_registry._label_key())
@@ -7622,10 +7371,7 @@ func _register_required_plan_module_in_disposal_session(
 	)
 	if outcome == _REQUIRED_REGISTRATION_ACCEPTED:
 		return OK
-	if (
-		outcome == _REQUIRED_REGISTRATION_REJECTED_CALLER_OWNS
-		and release_owned_candidate_on_rejection
-	):
+	if (outcome == _REQUIRED_REGISTRATION_REJECTED_CALLER_OWNS and release_owned_candidate_on_rejection):
 		_cleanup_required_source_owned_candidate(instance)
 	return ERR_CANT_CREATE
 
@@ -7643,10 +7389,7 @@ func _required_plan_candidate_matches_declaration(
 	var instance_script: Script = _get_instance_script(instance)
 	if instance_script == null:
 		return false
-	return GFScriptTypeInspector.script_extends_or_equals(
-		instance_script,
-		script_cls
-	)
+	return GFScriptTypeInspector.script_extends_or_equals(instance_script, script_cls)
 
 
 ## 仅清理既不在模块注册表、也不由工厂缓存持有的注册候选。
@@ -7666,11 +7409,7 @@ func _cleanup_required_source_owned_candidate(instance: Object) -> void:
 		return
 	if _required_plan_candidate_is_retained_by_architecture(instance):
 		return
-	var disposed_instances: Dictionary = (
-		_module_disposal_claims
-		if _module_disposal_session_depth > 0
-		else {}
-	)
+	var disposed_instances: Dictionary = (_module_disposal_claims if _module_disposal_session_depth > 0 else {})
 	if disposed_instances.has(instance):
 		return
 	disposed_instances[instance] = true
@@ -7688,10 +7427,7 @@ func _cleanup_required_source_owned_candidate(instance: Object) -> void:
 		return
 	if instance is Node:
 		var rejected_node: Node = instance
-		if (
-			rejected_node.get_parent() == null
-			and not rejected_node.is_queued_for_deletion()
-		):
+		if (rejected_node.get_parent() == null and not rejected_node.is_queued_for_deletion()):
 			rejected_node.free()
 		return
 	if not instance is RefCounted:
@@ -7726,17 +7462,22 @@ func _register_required_plan_alias(
 	if module_registry._has_direct(alias_cls):
 		return alias_cls == target_cls
 	if module_registry.aliases.has(alias_cls):
-		return (
-			_get_dictionary_script(module_registry.aliases, alias_cls)
-			== target_cls
-		)
-	return _register_module_alias(module_registry, alias_cls, target_cls)
+		return _get_dictionary_script(module_registry.aliases, alias_cls) == target_cls
+	return _register_module_alias(
+		module_registry,
+		alias_cls,
+		target_cls
+	)
 
 
 ## 拒绝跨键重复实例，同实例替换直接成功；按架构是否 ready 分派冷替换或异步热替换。
 ## [br]
 ## @api private
-func _replace_module(module_registry: ModuleRegistry, script_cls: Script, instance: Object) -> bool:
+func _replace_module(
+	module_registry: ModuleRegistry,
+	script_cls: Script,
+	instance: Object
+) -> bool:
 	if not _can_mutate_registration_state("replace_%s" % module_registry._label_key()):
 		return false
 	var current_instance: Object = _get_dictionary_object(module_registry.instances, script_cls)
@@ -7750,17 +7491,21 @@ func _replace_module(module_registry: ModuleRegistry, script_cls: Script, instan
 
 	var existing_key: Script = module_registry._get_key_for_instance(instance)
 	if existing_key != null and existing_key != script_cls:
-		push_error("[GFArchitecture][architecture.replacement_instance_already_registered] replace_%s failed: the same instance is already registered as %s and cannot replace another script key." % [
-			module_registry._label_key(),
-			_get_script_debug_key(existing_key, instance),
-		])
+		push_error(
+			"[GFArchitecture][architecture.replacement_instance_already_registered] replace_%s failed: the same instance is already registered as %s and cannot replace another script key."
+			% [module_registry._label_key(), _get_script_debug_key(existing_key, instance),]
+		)
 		return false
 
 	if current_instance == instance:
 		return true
 
 	if _runtime.is_ready():
-		return await _replace_initialized_module(module_registry, script_cls, instance)
+		return await _replace_initialized_module(
+			module_registry,
+			script_cls,
+			instance
+		)
 
 	return _replace_uninitialized_module(
 		module_registry,
@@ -7819,10 +7564,7 @@ func _replace_uninitialized_module(
 		_cleanup_uncommitted_module_if_unregistered(module_registry, instance)
 		_runtime.finish_transaction(transaction)
 		return false
-	if (
-		module_registry._has_direct(script_cls)
-		or module_registry._get_key_for_instance(instance) != null
-	):
+	if (module_registry._has_direct(script_cls) or module_registry._get_key_for_instance(instance) != null):
 		_cleanup_uncommitted_module_if_unregistered(module_registry, instance)
 		_runtime.finish_transaction(transaction)
 		return false
@@ -7838,7 +7580,11 @@ func _replace_uninitialized_module(
 ## 先准备并激活候选，再静默旧模块后提交；旧模块静默失败可能终止架构，不能承诺恢复旧运行状态。
 ## [br]
 ## @api private
-func _replace_initialized_module(module_registry: ModuleRegistry, script_cls: Script, instance: Object) -> bool:
+func _replace_initialized_module(
+	module_registry: ModuleRegistry,
+	script_cls: Script,
+	instance: Object
+) -> bool:
 	var previous_instance: Object = _get_dictionary_object(module_registry.instances, script_cls)
 	var topology_transaction: TopologyMutation = _begin_topology_mutation(
 		&"replace",
@@ -7851,14 +7597,10 @@ func _replace_initialized_module(module_registry: ModuleRegistry, script_cls: Sc
 		return false
 	var previous_plan: GFArchitectureLifecyclePlan = _active_lifecycle_plan
 	topology_transaction._previous_plan = previous_plan
-	var transaction: Dictionary = _runtime.begin_transaction(
-		"replace_%s" % module_registry._label_key()
-	)
+	var transaction: Dictionary = _runtime.begin_transaction("replace_%s" % module_registry._label_key())
 	var lifecycle_serial: int = _runtime.get_lifecycle_generation()
 	topology_transaction._lifecycle_serial = lifecycle_serial
-	topology_transaction._candidate_cleanup_state = (
-		TopologyMutation._CLEANUP_PENDING
-	)
+	topology_transaction._candidate_cleanup_state = (TopologyMutation._CLEANUP_PENDING)
 	var candidate_models: Dictionary = _models.duplicate()
 	var candidate_utilities: Dictionary = _utilities.duplicate()
 	var candidate_systems: Dictionary = _systems.duplicate()
@@ -7869,18 +7611,16 @@ func _replace_initialized_module(module_registry: ModuleRegistry, script_cls: Sc
 		candidate_systems
 	)
 	candidate_registry[script_cls] = instance
-	var candidate_plan: GFArchitectureLifecyclePlan = (
-		_compile_candidate_lifecycle_plan(
-			candidate_models,
-			candidate_utilities,
-			candidate_systems,
-			"hot replace",
-			true,
-			_create_lifecycle_plan_validity_guard(
-				lifecycle_serial,
-				topology_transaction,
-				transaction
-			)
+	var candidate_plan: GFArchitectureLifecyclePlan = _compile_candidate_lifecycle_plan(
+		candidate_models,
+		candidate_utilities,
+		candidate_systems,
+		"hot replace",
+		true,
+		_create_lifecycle_plan_validity_guard(
+			lifecycle_serial,
+			topology_transaction,
+			transaction
 		)
 	)
 	if (
@@ -7891,10 +7631,7 @@ func _replace_initialized_module(module_registry: ModuleRegistry, script_cls: Sc
 		or _runtime.has_failed()
 		or _runtime.is_transaction_invalidated(transaction)
 	):
-		_rollback_topology_candidate(
-			topology_transaction,
-			transaction
-		)
+		_rollback_topology_candidate(topology_transaction, transaction)
 		return false
 	var excluded_instances: Dictionary = {}
 	if previous_instance != null:
@@ -7905,10 +7642,7 @@ func _replace_initialized_module(module_registry: ModuleRegistry, script_cls: Sc
 		excluded_instances,
 		"hot replace"
 	):
-		_rollback_topology_candidate(
-			topology_transaction,
-			transaction
-		)
+		_rollback_topology_candidate(topology_transaction, transaction)
 		return false
 	topology_transaction._candidate_plan = candidate_plan
 	if not _stage_topology_external_dependency_leases(
@@ -7916,17 +7650,11 @@ func _replace_initialized_module(module_registry: ModuleRegistry, script_cls: Sc
 		candidate_plan,
 		lifecycle_serial
 	):
-		_rollback_topology_candidate(
-			topology_transaction,
-			transaction
-		)
+		_rollback_topology_candidate(topology_transaction, transaction)
 		return false
 	_module_lifecycle_stages[instance] = 0
 	var prepared: bool = await _prepare_replacement_module(instance, lifecycle_serial)
-	if (
-		not prepared
-		or not _is_topology_mutation_current(topology_transaction)
-	):
+	if (not prepared or not _is_topology_mutation_current(topology_transaction)):
 		_rollback_topology_candidate(topology_transaction, transaction)
 		return false
 	if (
@@ -7972,9 +7700,7 @@ func _replace_initialized_module(module_registry: ModuleRegistry, script_cls: Sc
 	if not _validate_topology_service_intents(topology_transaction):
 		_rollback_topology_candidate(topology_transaction, transaction)
 		return false
-	topology_transaction._phase = (
-		TopologyMutation._PHASE_QUIESCING_PREVIOUS
-	)
+	topology_transaction._phase = (TopologyMutation._PHASE_QUIESCING_PREVIOUS)
 	if (
 		previous_instance != null
 		and not await _quiesce_topology_module(
@@ -7989,10 +7715,7 @@ func _replace_initialized_module(module_registry: ModuleRegistry, script_cls: Sc
 		if _runtime.is_ready():
 			dispose()
 		else:
-			_fail_topology_mutation(
-				topology_transaction,
-				"Accepted topology replacement failed while quiescing the previous module."
-			)
+			_fail_topology_mutation(topology_transaction, "Accepted topology replacement failed while quiescing the previous module.")
 		return false
 	if not _is_topology_mutation_current(topology_transaction):
 		_rollback_topology_candidate(topology_transaction, transaction)
@@ -8005,24 +7728,16 @@ func _replace_initialized_module(module_registry: ModuleRegistry, script_cls: Sc
 	topology_transaction._phase = TopologyMutation._PHASE_COMMITTING
 	if previous_instance != null:
 		module_registry._untrack_instance(previous_instance)
-		var _detached_previous_instance: bool = (
-			module_registry.instances.erase(script_cls)
-		)
+		var _detached_previous_instance: bool = module_registry.instances.erase(script_cls)
 	module_registry.instances[script_cls] = instance
 	module_registry._track_instance_key(instance, script_cls)
 	module_registry._clear_assignable_cache()
 	_commit_topology_service_intents(topology_transaction)
-	_promote_topology_external_dependency_leases(
-		topology_transaction
-	)
+	_promote_topology_external_dependency_leases(topology_transaction)
 	_active_lifecycle_plan = candidate_plan
-	topology_transaction._candidate_cleanup_state = (
-		TopologyMutation._CLEANUP_TRANSFERRED
-	)
+	topology_transaction._candidate_cleanup_state = (TopologyMutation._CLEANUP_TRANSFERRED)
 	topology_transaction._outcome = TopologyMutation._OUTCOME_COMMITTED
-	topology_transaction._phase = (
-		TopologyMutation._PHASE_CLEANING_DETACHED
-	)
+	topology_transaction._phase = (TopologyMutation._PHASE_CLEANING_DETACHED)
 	if previous_instance != null:
 		_cleanup_uncommitted_module(previous_instance)
 	if (
@@ -8031,10 +7746,7 @@ func _replace_initialized_module(module_registry: ModuleRegistry, script_cls: Sc
 		or not _is_topology_mutation_current(topology_transaction)
 	):
 		_runtime.finish_transaction(transaction)
-		_fail_topology_mutation(
-			topology_transaction,
-			"Accepted topology replacement was invalidated during detached cleanup."
-		)
+		_fail_topology_mutation(topology_transaction, "Accepted topology replacement was invalidated during detached cleanup.")
 		return false
 	topology_transaction._phase = TopologyMutation._PHASE_COMMITTED
 	_refresh_cached_utility_refs()
@@ -8080,11 +7792,8 @@ func _quiesce_topology_module(
 		Time.get_ticks_msec(),
 		shutdown_timeout_seconds
 	)
-	var completion: GFAsyncCompletion = _call_module_begin_quiesce(
-		instance,
-		scope
-	)
-	var allowed_instances: Dictionary = {instance: true}
+	var completion: GFAsyncCompletion = _call_module_begin_quiesce(instance, scope)
+	var allowed_instances: Dictionary = { instance: true }
 	if plan != null:
 		allowed_instances = plan.get_dependency_closure(instance)
 	var wait_report: Dictionary = await _await_lifecycle_completion(
@@ -8102,7 +7811,8 @@ func _quiesce_topology_module(
 	)
 	if not succeeded:
 		push_error(
-			"[GFArchitecture][architecture.transaction_quiesce_failed] Module topology transaction quiesce failed: %s.\n%s" % [
+			"[GFArchitecture][architecture.transaction_quiesce_failed] Module topology transaction quiesce failed: %s.\n%s"
+			% [
 				_get_instance_debug_key(instance),
 				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 					wait_report,
@@ -8114,10 +7824,7 @@ func _quiesce_topology_module(
 	if scope.is_active():
 		scope.complete()
 	_untrack_async_scope(scope)
-	if (
-		topology_transaction != null
-		and topology_transaction._active_scope == scope
-	):
+	if (topology_transaction != null and topology_transaction._active_scope == scope):
 		topology_transaction._active_scope = null
 	return succeeded
 
@@ -8125,10 +7832,7 @@ func _quiesce_topology_module(
 ## 仅当目标注册表未保留实例时清理候选，避免把已被重入注册接管的实例直接释放。
 ## [br]
 ## @api private
-func _cleanup_uncommitted_module_if_unregistered(
-	module_registry: ModuleRegistry,
-	instance: Object
-) -> void:
+func _cleanup_uncommitted_module_if_unregistered(module_registry: ModuleRegistry, instance: Object) -> void:
 	if _module_registry_contains_instance(module_registry, instance):
 		return
 	_cleanup_uncommitted_module(instance)
@@ -8140,11 +7844,7 @@ func _cleanup_uncommitted_module_if_unregistered(
 func _cleanup_uncommitted_module(instance: Object) -> void:
 	if not _registration_candidate_is_live(instance):
 		return
-	var disposed_instances: Dictionary = (
-		_module_disposal_claims
-		if _module_disposal_session_depth > 0
-		else {}
-	)
+	var disposed_instances: Dictionary = (_module_disposal_claims if _module_disposal_session_depth > 0 else {})
 	_dispose_module_once(instance, disposed_instances)
 	var _removed_stage: bool = _module_lifecycle_stages.erase(instance)
 
@@ -8181,14 +7881,22 @@ func _await_replacement_module_async_init(instance: Object, lifecycle_serial: in
 		await _call_module_async_init(instance, async_scope)
 		return _complete_module_async_scope(async_scope, lifecycle_serial)
 
-	var completion_state: Dictionary = {
-		"done": false,
-		"write_blocked": false,
-	}
-	_GF_ASYNC_CALL_SCRIPT.run_detached(Callable(self, &"_complete_replacement_module_async_init"), [instance, completion_state, async_scope])
+	var completion_state: Dictionary = { "done": false, "write_blocked": false, }
+	_GF_ASYNC_CALL_SCRIPT.run_detached(
+		Callable(self, &"_complete_replacement_module_async_init"),
+		[
+			instance,
+			completion_state,
+			async_scope,
+		]
+	)
 	var start_msec: int = Time.get_ticks_msec()
 	var timeout_msec: int = int(module_async_init_timeout_seconds * 1000.0)
-	while not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(completion_state, "done", false):
+	while not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		completion_state,
+		"done",
+		false
+	):
 		if not _is_lifecycle_current(lifecycle_serial) or _runtime.has_failed():
 			_cancel_module_async_scope(async_scope, last_initialization_error)
 			return false
@@ -8196,12 +7904,18 @@ func _await_replacement_module_async_init(instance: Object, lifecycle_serial: in
 		if elapsed_msec >= timeout_msec:
 			completion_state["write_blocked"] = true
 			_begin_stale_async_write_block()
-			push_error("[GFArchitecture][architecture.replacement_async_init_timeout] replace_%s timed out: %s.async_init() exceeded %.2f seconds; the previous instance was retained." % [
-				_get_module_label_for_instance(instance),
-				_get_instance_debug_key(instance),
-				module_async_init_timeout_seconds,
-			])
-			_cancel_module_async_scope(async_scope, "[GFArchitecture][architecture.replacement_timeout] replace_%s timed out." % _get_module_label_for_instance(instance))
+			push_error(
+				"[GFArchitecture][architecture.replacement_async_init_timeout] replace_%s timed out: %s.async_init() exceeded %.2f seconds; the previous instance was retained."
+				% [
+					_get_module_label_for_instance(instance),
+					_get_instance_debug_key(instance),
+					module_async_init_timeout_seconds,
+				]
+			)
+			_cancel_module_async_scope(
+				async_scope,
+				"[GFArchitecture][architecture.replacement_timeout] replace_%s timed out." % _get_module_label_for_instance(instance)
+			)
 			return false
 		await scene_tree.process_frame
 	return _complete_module_async_scope(async_scope, lifecycle_serial)
@@ -8210,9 +7924,17 @@ func _await_replacement_module_async_init(instance: Object, lifecycle_serial: in
 ## 候选异步 init 真正返回后解除它的超时写屏障并取消追踪，最后置 done，供等待方读取。
 ## [br]
 ## @api private
-func _complete_replacement_module_async_init(instance: Object, completion_state: Dictionary, async_scope: GFAsyncScope) -> void:
+func _complete_replacement_module_async_init(
+	instance: Object,
+	completion_state: Dictionary,
+	async_scope: GFAsyncScope
+) -> void:
 	await _call_module_async_init(instance, async_scope)
-	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(completion_state, "write_blocked", false):
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		completion_state,
+		"write_blocked",
+		false
+	):
 		_end_stale_async_write_block()
 	_untrack_async_scope(async_scope)
 	completion_state["done"] = true
@@ -8241,23 +7963,12 @@ func _can_mutate_registration_state(context: String) -> bool:
 		push_error("[GFArchitecture][architecture.registry_write_activating] %s failed: the architecture is activating and its registry is frozen." % context)
 		return false
 	if not _factory_resolution_context_stack.is_empty():
-		var resolution_context: Dictionary = (
-			_factory_resolution_context_stack.back()
-		)
+		var resolution_context: Dictionary = _factory_resolution_context_stack.back()
 		_mark_factory_resolution_failed(resolution_context)
-		push_error(
-			"[GFArchitecture][architecture.topology_write_factory_reentry] %s failed: reentrant module topology changes are forbidden during factory resolution."
-			% context
-		)
+		push_error("[GFArchitecture][architecture.topology_write_factory_reentry] %s failed: reentrant module topology changes are forbidden during factory resolution." % context)
 		return false
-	if (
-		_runtime.is_ready()
-		and _has_live_child_external_dependency_leases(true)
-	):
-		push_error(
-			"[GFArchitecture][architecture.topology_write_child_leases] %s failed: active child architectures still hold parent external module dependency leases."
-			% context
-		)
+	if (_runtime.is_ready() and _has_live_child_external_dependency_leases(true)):
+		push_error("[GFArchitecture][architecture.topology_write_child_leases] %s failed: active child architectures still hold parent external module dependency leases." % context)
 		return false
 	if _topology_mutation != null:
 		push_error("[GFArchitecture][architecture.topology_transaction_in_progress] %s failed: another module topology transaction has not completed." % context)
@@ -8282,11 +7993,7 @@ func _fail_active_factory_resolution_contexts() -> void:
 func _can_mutate_factory_topology(context: String) -> bool:
 	if not _runtime.is_ready():
 		return true
-	push_error(
-		"[GFArchitecture][architecture.factory_topology_frozen] %s failed: factory topology is immutable after activation." % (
-			context
-		)
-	)
+	push_error("[GFArchitecture][architecture.factory_topology_frozen] %s failed: factory topology is immutable after activation." % (context))
 	return false
 
 
@@ -8369,7 +8076,7 @@ func _cancel_module_async_scope(async_scope: GFAsyncScope, reason: String) -> vo
 		return
 	var cancel_reason: String = reason
 	if cancel_reason.is_empty():
-		cancel_reason = "[GFArchitecture][architecture.async_lifecycle_cancelled] The asynchronous lifecycle was cancelled."
+		cancel_reason = ("[GFArchitecture][architecture.async_lifecycle_cancelled] The asynchronous lifecycle was cancelled.")
 	var _cancelled_scope: bool = async_scope.cancel(cancel_reason)
 
 
@@ -8420,17 +8127,19 @@ func _unregister_module(module_registry: ModuleRegistry, script_cls: Script) -> 
 		return false
 	if module_registry._has_direct(script_cls):
 		if _runtime.is_ready():
-			return await _unregister_active_module(
-				module_registry,
-				script_cls
-			)
-		var _removed_instance: Object = _remove_registered_module(module_registry, script_cls, true, true)
+			return await _unregister_active_module(module_registry, script_cls)
+		var _removed_instance: Object = _remove_registered_module(
+			module_registry,
+			script_cls,
+			true,
+			true
+		)
 		return true
 	if module_registry.aliases.has(script_cls):
-		push_error("[GFArchitecture][architecture.unregister_received_alias] unregister_%s failed: the supplied key is an alias; use unregister_%s_alias()." % [
-			module_registry._label_key(),
-			module_registry._label_key(),
-		])
+		push_error(
+			"[GFArchitecture][architecture.unregister_received_alias] unregister_%s failed: the supplied key is an alias; use unregister_%s_alias()."
+			% [module_registry._label_key(), module_registry._label_key(),]
+		)
 		return false
 	return false
 
@@ -8438,14 +8147,8 @@ func _unregister_module(module_registry: ModuleRegistry, script_cls: Script) -> 
 ## 先编译并验证删除候选计划再静默目标；静默失败可导致架构释放，成功后切换计划并清理原实例。
 ## [br]
 ## @api private
-func _unregister_active_module(
-	module_registry: ModuleRegistry,
-	script_cls: Script
-) -> bool:
-	var instance: Object = _get_dictionary_object(
-		module_registry.instances,
-		script_cls
-	)
+func _unregister_active_module(module_registry: ModuleRegistry, script_cls: Script) -> bool:
+	var instance: Object = _get_dictionary_object(module_registry.instances, script_cls)
 	var topology_transaction: TopologyMutation = _begin_topology_mutation(
 		&"unregister",
 		module_registry,
@@ -8456,9 +8159,7 @@ func _unregister_active_module(
 	if topology_transaction == null:
 		return false
 	topology_transaction._previous_plan = _active_lifecycle_plan
-	var transaction: Dictionary = _runtime.begin_transaction(
-		"unregister_%s" % module_registry._label_key()
-	)
+	var transaction: Dictionary = _runtime.begin_transaction("unregister_%s" % module_registry._label_key())
 	var lifecycle_serial: int = _runtime.get_lifecycle_generation()
 	topology_transaction._lifecycle_serial = lifecycle_serial
 	var candidate_models: Dictionary = _models.duplicate()
@@ -8471,18 +8172,16 @@ func _unregister_active_module(
 		candidate_systems
 	)
 	var _removed_candidate: bool = candidate_registry.erase(script_cls)
-	var candidate_plan: GFArchitectureLifecyclePlan = (
-		_compile_candidate_lifecycle_plan(
-			candidate_models,
-			candidate_utilities,
-			candidate_systems,
-			"hot unregister",
-			true,
-			_create_lifecycle_plan_validity_guard(
-				lifecycle_serial,
-				topology_transaction,
-				transaction
-			)
+	var candidate_plan: GFArchitectureLifecyclePlan = _compile_candidate_lifecycle_plan(
+		candidate_models,
+		candidate_utilities,
+		candidate_systems,
+		"hot unregister",
+		true,
+		_create_lifecycle_plan_validity_guard(
+			lifecycle_serial,
+			topology_transaction,
+			transaction
 		)
 	)
 	if (
@@ -8512,14 +8211,9 @@ func _unregister_active_module(
 		candidate_plan,
 		lifecycle_serial
 	):
-		_rollback_topology_candidate(
-			topology_transaction,
-			transaction
-		)
+		_rollback_topology_candidate(topology_transaction, transaction)
 		return false
-	topology_transaction._phase = (
-		TopologyMutation._PHASE_QUIESCING_PREVIOUS
-	)
+	topology_transaction._phase = (TopologyMutation._PHASE_QUIESCING_PREVIOUS)
 	var quiesced: bool = await _quiesce_topology_module(
 		instance,
 		_active_lifecycle_plan,
@@ -8536,24 +8230,17 @@ func _unregister_active_module(
 		if _runtime.is_ready():
 			dispose()
 		else:
-			_fail_topology_mutation(
-				topology_transaction,
-				"Accepted topology unregister failed during quiesce."
-			)
+			_fail_topology_mutation(topology_transaction, "Accepted topology unregister failed during quiesce.")
 		return false
 	if _get_dictionary_object(module_registry.instances, script_cls) != instance:
 		_runtime.finish_transaction(transaction)
 		_finish_topology_mutation(topology_transaction)
 		return false
 	topology_transaction._phase = TopologyMutation._PHASE_COMMITTING
-	_promote_topology_external_dependency_leases(
-		topology_transaction
-	)
+	_promote_topology_external_dependency_leases(topology_transaction)
 	_active_lifecycle_plan = candidate_plan
 	topology_transaction._outcome = TopologyMutation._OUTCOME_COMMITTED
-	topology_transaction._phase = (
-		TopologyMutation._PHASE_CLEANING_DETACHED
-	)
+	topology_transaction._phase = (TopologyMutation._PHASE_CLEANING_DETACHED)
 	var _removed_instance: Object = _remove_registered_module(
 		module_registry,
 		script_cls,
@@ -8566,10 +8253,7 @@ func _unregister_active_module(
 		or not _is_topology_mutation_current(topology_transaction)
 	):
 		_runtime.finish_transaction(transaction)
-		_fail_topology_mutation(
-			topology_transaction,
-			"Accepted topology unregister was invalidated during detached cleanup."
-		)
+		_fail_topology_mutation(topology_transaction, "Accepted topology unregister was invalidated during detached cleanup.")
 		return false
 	topology_transaction._phase = TopologyMutation._PHASE_COMMITTED
 	_runtime.finish_transaction(transaction)
@@ -8593,11 +8277,7 @@ func _remove_registered_module(
 		_remove_aliases_for(module_registry, registered_key)
 	module_registry._clear_assignable_cache()
 	if instance != null and dispose_instance:
-		var disposed_instances: Dictionary = (
-			_module_disposal_claims
-			if _module_disposal_session_depth > 0
-			else {}
-		)
+		var disposed_instances: Dictionary = (_module_disposal_claims if _module_disposal_session_depth > 0 else {})
 		_dispose_module_once(instance, disposed_instances)
 	elif instance != null:
 		_event_system.unregister_owner(instance)
@@ -8624,7 +8304,11 @@ func _inject_dependencies_if_needed(
 		return false
 	var execution_scope_bound: bool = false
 	if execution_context and instance.has_method("_gf_begin_execution_scope"):
-		var begin_result: Variant = instance.call("_gf_begin_execution_scope", self, lifecycle_serial)
+		var begin_result: Variant = instance.call(
+			"_gf_begin_execution_scope",
+			self,
+			lifecycle_serial
+		)
 		if not _registration_candidate_is_live(instance):
 			return false
 		if not _GF_VARIANT_ACCESS_SCRIPT.to_bool(begin_result):
@@ -8644,10 +8328,7 @@ func _inject_dependencies_if_needed(
 		var _inject_result: Variant = instance.call("inject", self)
 		if not _registration_candidate_is_live(instance):
 			return false
-	return (
-		_registration_candidate_is_live(instance)
-		and _is_dependency_injection_current(lifecycle_serial)
-	)
+	return (_registration_candidate_is_live(instance) and _is_dependency_injection_current(lifecycle_serial))
 
 
 ## 未绑定代次仅排除失败或释放；显式代次还要求当前且活动，防止过期注入继续执行。
@@ -8673,13 +8354,20 @@ func _is_dependency_injection_current(lifecycle_serial: int) -> bool:
 ## [br]
 ## @api private
 func _bind_dependency_scope_if_needed(instance: Object, lifecycle_serial: int = -1) -> void:
-	if (
-		not _registration_candidate_is_live(instance)
-		or not instance.has_method("_gf_set_dependency_scope")
-	):
+	if (not _registration_candidate_is_live(instance) or not instance.has_method("_gf_set_dependency_scope")):
 		return
-	if instance is GFModel or instance is GFSystem or instance is GFUtility or instance is GFCommand or instance is GFQuery:
-		instance.call("_gf_set_dependency_scope", self, lifecycle_serial)
+	if (
+		instance is GFModel
+		or instance is GFSystem
+		or instance is GFUtility
+		or instance is GFCommand
+		or instance is GFQuery
+	):
+		instance.call(
+			"_gf_set_dependency_scope",
+			self,
+			lifecycle_serial
+		)
 		return
 	instance.call("_gf_set_dependency_scope", self)
 
@@ -8747,7 +8435,10 @@ func _validate_registration(
 		push_error("[GFArchitecture][architecture.register_instance_invalid] register_%s failed: the instance is invalid or queued for deletion." % label.to_lower())
 		return false
 	if not _instance_matches_registration_label(instance, label):
-		push_error("[GFArchitecture][architecture.register_instance_type_invalid] register_%s failed: the instance must extend GF%s." % [label.to_lower(), label])
+		push_error(
+			"[GFArchitecture][architecture.register_instance_type_invalid] register_%s failed: the instance must extend GF%s."
+			% [label.to_lower(), label]
+		)
 		return false
 	var instance_script: Script = _get_instance_script(instance)
 	if instance_script == null:
@@ -8842,7 +8533,11 @@ func _get_time_provider() -> Object:
 		var time_provider: Object = current._get_local_time_provider()
 		if time_provider != null:
 			return time_provider
-		current = _get_next_parent_for_lookup(current, visited, "_get_time_provider")
+		current = _get_next_parent_for_lookup(
+			current,
+			visited,
+			"_get_time_provider"
+		)
 	return null
 
 
@@ -8876,7 +8571,11 @@ func _get_service_with_parent_lookup(service_key: StringName, include_parent: bo
 			return service_provider
 		if not include_parent:
 			return null
-		current = _get_next_parent_for_lookup(current, visited, "get_service")
+		current = _get_next_parent_for_lookup(
+			current,
+			visited,
+			"get_service"
+		)
 	return null
 
 
@@ -8947,14 +8646,8 @@ func _is_module_ready_for_lookup(instance: Object) -> bool:
 ## 模块已登记且到达目标生命周期阶段时返回 true。
 ## [br]
 ## @api private
-func _is_committed_module_at_lifecycle_stage(
-	instance: Object,
-	target_stage: int
-) -> bool:
-	return (
-		_get_module_registry_for_instance(instance) != null
-		and _has_module_reached_lifecycle_stage(instance, target_stage)
-	)
+func _is_committed_module_at_lifecycle_stage(instance: Object, target_stage: int) -> bool:
+	return (_get_module_registry_for_instance(instance) != null and _has_module_reached_lifecycle_stage(instance, target_stage))
 
 
 ## 仅在 runtime lifecycle active 时比较记录阶段；空实例或未活动时返回 false。
@@ -8964,11 +8657,16 @@ func _has_module_reached_lifecycle_stage(instance: Object, target_stage: int) ->
 	return (
 		instance != null
 		and _runtime.is_lifecycle_active()
-		and _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-			_module_lifecycle_stages,
-			instance,
-			0
-		) >= target_stage
+		and (
+			(
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+					_module_lifecycle_stages,
+					instance,
+					0
+				)
+			)
+			>= target_stage
+		)
 	)
 
 
@@ -8983,11 +8681,7 @@ func _register_module_alias(
 	if not _can_mutate_registration_state("register_%s_alias" % module_registry._label_key()):
 		return false
 	if _runtime.is_ready():
-		push_error(
-			"[GFArchitecture][architecture.register_alias_topology_frozen] register_%s_alias failed: alias topology is immutable after activation." % (
-				module_registry._label_key()
-			)
-		)
+		push_error("[GFArchitecture][architecture.register_alias_topology_frozen] register_%s_alias failed: alias topology is immutable after activation." % (module_registry._label_key()))
 		return false
 	if alias_cls == null or target_cls == null:
 		push_error("[GFArchitecture][architecture.alias_or_target_null] register_%s_alias failed: alias or target is null." % module_registry._label_key())
@@ -9009,11 +8703,7 @@ func _unregister_module_alias(module_registry: ModuleRegistry, alias_cls: Script
 	if not _can_mutate_registration_state("unregister_%s_alias" % module_registry._label_key()):
 		return false
 	if _runtime.is_ready():
-		push_error(
-			"[GFArchitecture][architecture.unregister_alias_topology_frozen] unregister_%s_alias failed: alias topology is immutable after activation." % (
-				module_registry._label_key()
-			)
-		)
+		push_error("[GFArchitecture][architecture.unregister_alias_topology_frozen] unregister_%s_alias failed: alias topology is immutable after activation." % (module_registry._label_key()))
 		return false
 	if alias_cls == null:
 		push_error("[GFArchitecture][architecture.unregister_alias_null] unregister_%s_alias failed: alias is null." % module_registry._label_key())
@@ -9037,7 +8727,11 @@ func _resolve_registered_key(module_registry: ModuleRegistry, script_cls: Script
 		var target_cls: Script = _get_dictionary_script(module_registry.aliases, script_cls)
 		if target_cls != null and module_registry._has_direct(target_cls):
 			return target_cls
-		_report_unresolved_alias(module_registry, script_cls, target_cls)
+		_report_unresolved_alias(
+			module_registry,
+			script_cls,
+			target_cls
+		)
 	return null
 
 
@@ -9064,10 +8758,10 @@ func _get_local_registered_instance(module_registry: ModuleRegistry, script_cls:
 ## [br]
 ## @api private
 func _report_strict_lookup_miss(script_cls: Script, label: String) -> void:
-	push_error("[GFArchitecture][architecture.strict_module_missing] strict_dependency_lookup: this architecture has no registered %s: %s." % [
-		label,
-		_get_script_debug_key(script_cls),
-	])
+	push_error(
+		"[GFArchitecture][architecture.strict_module_missing] strict_dependency_lookup: this architecture has no registered %s: %s."
+		% [label, _get_script_debug_key(script_cls),]
+	)
 
 
 ## 移除所有指向指定注册脚本键的别名。
@@ -9095,12 +8789,19 @@ func _has_unresolved_alias(module_registry: ModuleRegistry, script_cls: Script) 
 ## 记录模块类别、别名和缺失目标的未解析别名错误。
 ## [br]
 ## @api private
-func _report_unresolved_alias(module_registry: ModuleRegistry, alias_cls: Script, target_cls: Script) -> void:
-	push_error("[GFArchitecture][architecture.alias_target_missing] get_%s(%s) failed: the alias target is not registered: %s." % [
-		module_registry._label_key(),
-		_get_script_debug_key(alias_cls),
-		_get_script_debug_key(target_cls),
-	])
+func _report_unresolved_alias(
+	module_registry: ModuleRegistry,
+	alias_cls: Script,
+	target_cls: Script
+) -> void:
+	push_error(
+		"[GFArchitecture][architecture.alias_target_missing] get_%s(%s) failed: the alias target is not registered: %s."
+		% [
+			module_registry._label_key(),
+			_get_script_debug_key(alias_cls),
+			_get_script_debug_key(target_cls),
+		]
+	)
 
 
 ## 返回仍直接注册的可赋值缓存键；缓存目标失效时删除该缓存并返回 null。
@@ -9129,10 +8830,10 @@ func _find_assignable_registered_key(module_registry: ModuleRegistry, script_cls
 	if matches.size() == 1:
 		return matches[0]
 	if matches.size() > 1:
-		push_warning("[GFArchitecture][architecture.module_lookup_ambiguous] get_%s(%s) matched multiple local instances and will not fall back to the parent architecture; register an explicit alias to resolve the ambiguity." % [
-			module_registry._label_key(),
-			script_cls.resource_path,
-		])
+		push_warning(
+			"[GFArchitecture][architecture.module_lookup_ambiguous] get_%s(%s) matched multiple local instances and will not fall back to the parent architecture; register an explicit alias to resolve the ambiguity."
+			% [module_registry._label_key(), script_cls.resource_path,]
+		)
 	return null
 
 
@@ -9160,6 +8861,7 @@ func _has_assignable_instance(module_registry: ModuleRegistry, script_cls: Scrip
 ## @layer kernel/core
 class TopologyMutation:
 	extends RefCounted
+
 
 	# --- 常量 ---
 
@@ -9263,6 +8965,7 @@ class TopologyMutation:
 	## @api private
 	const _CLEANUP_TRANSFERRED: StringName = &"transferred"
 
+
 	# --- 私有变量 ---
 
 	## 由架构分配的事务诊断 ID；有效性判断仍使用事务对象身份。
@@ -9360,6 +9063,7 @@ class TopologyMutation:
 	## @api private
 	var _candidate_external_dependency_leases: Array[Dictionary] = []
 
+
 	# --- Godot 生命周期方法 ---
 
 	## 固定事务 ID、操作和候选/旧实例引用，其他阶段及所有权字段保留初始未决状态。
@@ -9389,12 +9093,14 @@ class TopologyMutation:
 class DependencyDiagnosticsReport:
 	extends RefCounted
 
+
 	# --- 常量 ---
 
 	## 读取诊断选项和条目中 Variant 字段的类型收窄辅助脚本。
 	## [br]
 	## @api private
 	const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+
 
 	# --- 公共变量 ---
 
@@ -9409,6 +9115,7 @@ class DependencyDiagnosticsReport:
 	## [br]
 	## @schema issues: Array of Dictionary dependency diagnostic entries.
 	var issues: Array[Dictionary] = []
+
 
 	# --- Godot 生命周期方法 ---
 
@@ -9449,7 +9156,14 @@ class DependencyDiagnosticsReport:
 		path: String = "",
 		metadata: Dictionary = {}
 	) -> Dictionary:
-		return _add_issue("warning", kind, message, key, path, metadata)
+		return _add_issue(
+			"warning",
+			kind,
+			message,
+			key,
+			path,
+			metadata
+		)
 
 
 	## 添加一个 error 级别的依赖诊断条目。
@@ -9480,7 +9194,14 @@ class DependencyDiagnosticsReport:
 		path: String = "",
 		metadata: Dictionary = {}
 	) -> Dictionary:
-		return _add_issue("error", kind, message, key, path, metadata)
+		return _add_issue(
+			"error",
+			kind,
+			message,
+			key,
+			path,
+			metadata
+		)
 
 
 	## 汇总诊断条目并转换为可序列化字典。
@@ -9505,7 +9226,11 @@ class DependencyDiagnosticsReport:
 		var info_count: int = 0
 		var issue_counts_by_kind: Dictionary = {}
 		for issue: Dictionary in issues:
-			var severity: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(issue, "severity", "error")
+			var severity: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+				issue,
+				"severity",
+				"error"
+			)
 			match severity:
 				"error":
 					error_count += 1
@@ -9514,11 +9239,30 @@ class DependencyDiagnosticsReport:
 				"info":
 					info_count += 1
 
-			var kind_key: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(issue, "kind", "unknown")
-			issue_counts_by_kind[kind_key] = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(issue_counts_by_kind, kind_key, 0) + 1
+			var kind_key: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+				issue,
+				"kind",
+				"unknown"
+			)
+			issue_counts_by_kind[kind_key] = (
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+					issue_counts_by_kind,
+					kind_key,
+					0
+				)
+				+ 1
+			)
 
-		var include_info_count: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "include_info_count", true)
-		var include_issue_count: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "include_issue_count", true)
+		var include_info_count: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			options,
+			"include_info_count",
+			true
+		)
+		var include_issue_count: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			options,
+			"include_issue_count",
+			true
+		)
 		result["ok"] = error_count == 0
 		result["healthy"] = error_count == 0 and warning_count == 0
 		result["error_count"] = error_count
@@ -9570,9 +9314,19 @@ class DependencyDiagnosticsReport:
 		if label.is_empty():
 			label = "Validation report"
 		if error_count > 0:
-			return "%s has %d error(s) and %d warning(s)." % [label, error_count, warning_count]
+			return (
+				"%s has %d error(s) and %d warning(s)."
+				% [
+					label,
+					error_count,
+					warning_count,
+				]
+			)
 		if warning_count > 0:
-			return "%s has %d warning(s)." % [label, warning_count]
+			return (
+				"%s has %d warning(s)."
+				% [label, warning_count]
+			)
 		return "%s is healthy." % label
 
 
@@ -9580,13 +9334,29 @@ class DependencyDiagnosticsReport:
 	## [br]
 	## @api private
 	func _get_next_action(options: Dictionary) -> String:
-		var next_actions: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(options, "next_actions", {})
-		var fallback_action: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "fallback_action", "Review the first reported issue.")
-		var no_action: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "no_action", "No action required.")
+		var next_actions: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
+			options,
+			"next_actions",
+			{}
+		)
+		var fallback_action: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			options,
+			"fallback_action",
+			"Review the first reported issue."
+		)
+		var no_action: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			options,
+			"no_action",
+			"No action required."
+		)
 		var issue: Dictionary = _get_first_issue_by_priority()
 		if issue.is_empty():
 			return no_action
-		var kind_key: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(issue, "kind", "unknown")
+		var kind_key: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			issue,
+			"kind",
+			"unknown"
+		)
 		if next_actions.has(kind_key):
 			return _GF_VARIANT_ACCESS_SCRIPT.to_text(next_actions[kind_key])
 		var kind_name: StringName = StringName(kind_key)
@@ -9600,10 +9370,18 @@ class DependencyDiagnosticsReport:
 	## @api private
 	func _get_first_issue_by_priority() -> Dictionary:
 		for issue: Dictionary in issues:
-			if _GF_VARIANT_ACCESS_SCRIPT.get_option_string(issue, "severity", "") == "error":
+			if _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+				issue,
+				"severity",
+				""
+			) == "error":
 				return issue
 		for issue: Dictionary in issues:
-			if _GF_VARIANT_ACCESS_SCRIPT.get_option_string(issue, "severity", "") == "warning":
+			if _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+				issue,
+				"severity",
+				""
+			) == "warning":
 				return issue
 		if not issues.is_empty():
 			return issues[0]
@@ -9616,6 +9394,8 @@ class DependencyDiagnosticsReport:
 ## [br]
 ## @layer kernel/core
 class ModuleRegistry:
+
+
 	# --- 公共变量 ---
 
 	## 注册表显示名称。
@@ -9650,6 +9430,7 @@ class ModuleRegistry:
 	## [br]
 	## @schema instance_keys: Dictionary keyed by Object instance id, storing registered Script.
 	var instance_keys: Dictionary = {}
+
 
 	# --- Godot 生命周期方法 ---
 

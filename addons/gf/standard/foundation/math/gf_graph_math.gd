@@ -70,7 +70,13 @@ static func find_path_dijkstra(
 	get_neighbors: Callable,
 	get_step_cost: Callable = Callable()
 ) -> Array[Variant]:
-	return _find_path(start, goal, get_neighbors, get_step_cost, Callable())
+	return _find_path(
+		start,
+		goal,
+		get_neighbors,
+		get_step_cost,
+		Callable()
+	)
 
 
 ## 使用 A* 查找一条低代价路径。
@@ -101,7 +107,13 @@ static func find_path_a_star(
 	get_step_cost: Callable = Callable(),
 	heuristic: Callable = Callable()
 ) -> Array[Variant]:
-	return _find_path(start, goal, get_neighbors, get_step_cost, heuristic)
+	return _find_path(
+		start,
+		goal,
+		get_neighbors,
+		get_step_cost,
+		heuristic
+	)
 
 
 ## 创建可分步推进的 A* / Dijkstra 搜索状态。
@@ -134,7 +146,13 @@ static func begin_path_search(
 	get_step_cost: Callable = Callable(),
 	heuristic: Callable = Callable()
 ) -> GFGraphPathSearchState:
-	return GFGraphPathSearchState.create(start, goal, get_neighbors, get_step_cost, heuristic)
+	return GFGraphPathSearchState.create(
+		start,
+		goal,
+		get_neighbors,
+		get_step_cost,
+		heuristic
+	)
 
 
 ## 按最大迭代次数推进分步路径搜索状态。
@@ -201,27 +219,47 @@ static func build_distance_map(
 		return distances
 
 	var frontier: GFPriorityQueue = GFPriorityQueue.new(false)
-	_push_node_priority(frontier, start, 0.0)
+	_push_node_priority(
+		frontier,
+		start,
+		0.0
+	)
 	while not frontier.is_empty():
 		var current_entry: Dictionary = _pop_node_priority(frontier)
 		var current: Variant = GFVariantData.get_option_value(current_entry, "node")
-		var current_cost: float = GFVariantData.get_option_float(distances, current, INF)
+		var current_cost: float = GFVariantData.get_option_float(
+			distances,
+			current,
+			INF
+		)
 		if _get_entry_priority(current_entry) > current_cost:
 			continue
 		if current_cost > max_cost:
 			continue
 
 		for next_node: Variant in _get_neighbors(current, get_neighbors):
-			var move_cost: float = _get_step_cost(current, next_node, get_step_cost)
+			var move_cost: float = _get_step_cost(
+				current,
+				next_node,
+				get_step_cost
+			)
 			if move_cost < 0.0:
 				continue
 
 			var next_cost: float = current_cost + move_cost
-			if next_cost > max_cost or next_cost >= GFVariantData.get_option_float(distances, next_node, INF):
+			if next_cost > max_cost or next_cost >= GFVariantData.get_option_float(
+				distances,
+				next_node,
+				INF
+			):
 				continue
 
 			distances[next_node] = next_cost
-			_push_node_priority(frontier, next_node, next_cost)
+			_push_node_priority(
+				frontier,
+				next_node,
+				next_cost
+			)
 
 	return distances
 
@@ -249,7 +287,12 @@ static func find_reachable(
 	get_neighbors: Callable,
 	get_step_cost: Callable = Callable()
 ) -> Dictionary:
-	return build_distance_map(start, get_neighbors, get_step_cost, max_cost)
+	return build_distance_map(
+		start,
+		get_neighbors,
+		get_step_cost,
+		max_cost
+	)
 
 
 ## 对节点执行稳定拓扑排序。
@@ -308,10 +351,7 @@ static func sort_topological(nodes: Array, get_dependencies: Callable) -> Dictio
 				continue
 			seen_dependencies[dependency] = true
 			if not node_set.has(dependency):
-				external_dependencies.append({
-					"node": GFVariantData.duplicate_variant(node),
-					"dependency": GFVariantData.duplicate_variant(dependency),
-				})
+				external_dependencies.append({ "node": GFVariantData.duplicate_variant(node), "dependency": GFVariantData.duplicate_variant(dependency), })
 				continue
 
 			var node_dependencies: Array = _get_topological_array(dependencies_by_node, node)
@@ -406,7 +446,12 @@ static func find_connected_components(nodes: Array, get_neighbors: Callable) -> 
 		var node_neighbors: Array = _get_topological_array(adjacency_by_node, node)
 		for neighbor: Variant in _get_neighbors(node, get_neighbors):
 			if not node_set.has(neighbor):
-				_record_external_neighbor(node, neighbor, external_neighbors, seen_external_neighbors)
+				_record_external_neighbor(
+					node,
+					neighbor,
+					external_neighbors,
+					seen_external_neighbors
+				)
 				continue
 
 			var _neighbor_appended: bool = _append_unique_variant(node_neighbors, neighbor)
@@ -510,25 +555,49 @@ static func find_minimum_spanning_tree(
 	for node: Variant in ordered_nodes:
 		for neighbor: Variant in _get_neighbors(node, get_neighbors):
 			if not node_set.has(neighbor):
-				_record_external_neighbor(node, neighbor, external_neighbors, seen_external_neighbors)
+				_record_external_neighbor(
+					node,
+					neighbor,
+					external_neighbors,
+					seen_external_neighbors
+				)
 				continue
 			if neighbor == node:
 				continue
 
-			var weight: float = _get_spanning_edge_weight(node, neighbor, get_edge_weight)
+			var weight: float = _get_spanning_edge_weight(
+				node,
+				neighbor,
+				get_edge_weight
+			)
 			if not _is_finite_graph_weight(weight):
-				_record_invalid_spanning_edge(node, neighbor, weight, invalid_edges)
+				_record_invalid_spanning_edge(
+					node,
+					neighbor,
+					weight,
+					invalid_edges
+				)
 				continue
 
 			_append_spanning_adjacency_edge(
 				adjacency_by_node,
 				node,
-				_make_spanning_edge(node, neighbor, weight, edge_sequence)
+				_make_spanning_edge(
+					node,
+					neighbor,
+					weight,
+					edge_sequence
+				)
 			)
 			_append_spanning_adjacency_edge(
 				adjacency_by_node,
 				neighbor,
-				_make_spanning_edge(neighbor, node, weight, edge_sequence)
+				_make_spanning_edge(
+					neighbor,
+					node,
+					weight,
+					edge_sequence
+				)
 			)
 			edge_sequence += 1
 
@@ -561,7 +630,12 @@ static func find_minimum_spanning_tree(
 		visited[node] = true
 		component_indices[node] = component_index
 		component.append(node)
-		_push_spanning_frontier(frontier, adjacency_by_node, node, visited)
+		_push_spanning_frontier(
+			frontier,
+			adjacency_by_node,
+			node,
+			visited
+		)
 
 		while not frontier.is_empty():
 			var edge: Dictionary = _pop_spanning_edge(frontier)
@@ -573,8 +647,17 @@ static func find_minimum_spanning_tree(
 			component_indices[to_node] = component_index
 			component.append(to_node)
 			selected_edges.append(_make_spanning_edge_report(edge))
-			total_weight += GFVariantData.get_option_float(edge, "weight", 0.0)
-			_push_spanning_frontier(frontier, adjacency_by_node, to_node, visited)
+			total_weight += GFVariantData.get_option_float(
+				edge,
+				"weight",
+				0.0
+			)
+			_push_spanning_frontier(
+				frontier,
+				adjacency_by_node,
+				to_node,
+				visited
+			)
 
 		components.append(component)
 
@@ -619,36 +702,80 @@ static func _find_path(
 	var closed: Dictionary = {}
 	var came_from: Dictionary = {}
 	var g_score: Dictionary = { start: 0.0 }
-	var f_score: Dictionary = { start: _get_heuristic(start, goal, heuristic) }
-	_push_node_priority(open_queue, start, GFVariantData.to_float(f_score[start], INF))
+	var f_score: Dictionary = {
+		start: _get_heuristic(
+			start,
+			goal,
+			heuristic
+		),
+	}
+	_push_node_priority(
+		open_queue,
+		start,
+		GFVariantData.to_float(
+			f_score[start],
+			INF
+		)
+	)
 
 	while not open_queue.is_empty():
 		var current_entry: Dictionary = _pop_node_priority(open_queue)
 		var current: Variant = GFVariantData.get_option_value(current_entry, "node")
 		if closed.has(current):
 			continue
-		if _get_entry_priority(current_entry) > GFVariantData.get_option_float(f_score, current, INF):
+		if _get_entry_priority(current_entry) > GFVariantData.get_option_float(
+			f_score,
+			current,
+			INF
+		):
 			continue
 		if current == goal:
-			return _reconstruct_path(start, goal, came_from)
+			return _reconstruct_path(
+				start,
+				goal,
+				came_from
+			)
 
 		closed[current] = true
 		for next_node: Variant in _get_neighbors(current, get_neighbors):
 			if closed.has(next_node):
 				continue
 
-			var move_cost: float = _get_step_cost(current, next_node, get_step_cost)
+			var move_cost: float = _get_step_cost(
+				current,
+				next_node,
+				get_step_cost
+			)
 			if move_cost < 0.0:
 				continue
 
-			var tentative_score: float = GFVariantData.get_option_float(g_score, current, INF) + move_cost
-			if tentative_score >= GFVariantData.get_option_float(g_score, next_node, INF):
+			var tentative_score: float = GFVariantData.get_option_float(
+				g_score,
+				current,
+				INF
+			) + move_cost
+			if tentative_score >= GFVariantData.get_option_float(
+				g_score,
+				next_node,
+				INF
+			):
 				continue
 
 			came_from[next_node] = current
 			g_score[next_node] = tentative_score
-			f_score[next_node] = tentative_score + _get_heuristic(next_node, goal, heuristic)
-			_push_node_priority(open_queue, next_node, GFVariantData.to_float(f_score[next_node], INF))
+			f_score[next_node] = tentative_score + _get_heuristic(
+				next_node,
+				goal,
+				heuristic
+			)
+			_push_node_priority(
+				open_queue,
+				next_node,
+				GFVariantData.to_float(
+					f_score[next_node],
+					INF
+				)
+			)
 
 	return []
 
@@ -656,7 +783,11 @@ static func _find_path(
 ## 沿 came_from 从目标回溯并反向构造包含起点和目标的路径。
 ## [br]
 ## @api private
-static func _reconstruct_path(start: Variant, goal: Variant, came_from: Dictionary) -> Array:
+static func _reconstruct_path(
+	start: Variant,
+	goal: Variant,
+	came_from: Dictionary
+) -> Array:
 	var path: Array = [goal]
 	var current: Variant = goal
 
@@ -673,11 +804,15 @@ static func _reconstruct_path(start: Variant, goal: Variant, came_from: Dictiona
 ## 将节点与优先级打包后推入路径搜索队列。
 ## [br]
 ## @api private
-static func _push_node_priority(priority_queue: GFPriorityQueue, node: Variant, priority: float) -> void:
-	var _node_queued: bool = priority_queue.push({
-		"node": node,
-		"priority": priority,
-	}, priority)
+static func _push_node_priority(
+	priority_queue: GFPriorityQueue,
+	node: Variant,
+	priority: float
+) -> void:
+	var _node_queued: bool = priority_queue.push(
+		{ "node": node, "priority": priority, },
+		priority
+	)
 
 
 ## 从路径搜索队列取出元素，并转换为 Dictionary。
@@ -701,9 +836,16 @@ static func _get_neighbors(node: Variant, get_neighbors: Callable) -> Array:
 ## 调用有效步长回调并转为 float；回调无效时每步使用 1.0。
 ## [br]
 ## @api private
-static func _get_step_cost(from_node: Variant, to_node: Variant, get_step_cost: Callable) -> float:
+static func _get_step_cost(
+	from_node: Variant,
+	to_node: Variant,
+	get_step_cost: Callable
+) -> float:
 	if get_step_cost.is_valid():
-		return GFVariantData.to_float(get_step_cost.call(from_node, to_node), -1.0)
+		return GFVariantData.to_float(
+			get_step_cost.call(from_node, to_node),
+			-1.0
+		)
 
 	return 1.0
 
@@ -711,9 +853,19 @@ static func _get_step_cost(from_node: Variant, to_node: Variant, get_step_cost: 
 ## 调用有效启发回调并将结果限制为非负值；回调无效时返回零。
 ## [br]
 ## @api private
-static func _get_heuristic(node: Variant, goal: Variant, heuristic: Callable) -> float:
+static func _get_heuristic(
+	node: Variant,
+	goal: Variant,
+	heuristic: Callable
+) -> float:
 	if heuristic.is_valid():
-		return maxf(0.0, GFVariantData.to_float(heuristic.call(node, goal), 0.0))
+		return maxf(
+			0.0,
+			GFVariantData.to_float(
+				heuristic.call(node, goal),
+				0.0
+			)
+		)
 
 	return 0.0
 
@@ -722,7 +874,11 @@ static func _get_heuristic(node: Variant, goal: Variant, heuristic: Callable) ->
 ## [br]
 ## @api private
 static func _get_entry_priority(entry: Dictionary, fallback: float = INF) -> float:
-	return GFVariantData.get_option_float(entry, "priority", fallback)
+	return GFVariantData.get_option_float(
+		entry,
+		"priority",
+		fallback
+	)
 
 
 ## 调用依赖回调，仅接受 Array 结果并将其他类型规范为空数组。
@@ -767,23 +923,30 @@ static func _record_external_neighbor(
 	external_neighbors: Array[Dictionary],
 	seen_external_neighbors: Dictionary
 ) -> void:
-	var key: String = "%s -> %s" % [var_to_str(node), var_to_str(neighbor)]
+	var key: String = (
+		"%s -> %s"
+		% [var_to_str(node), var_to_str(neighbor)]
+	)
 	if seen_external_neighbors.has(key):
 		return
 
 	seen_external_neighbors[key] = true
-	external_neighbors.append({
-		"node": GFVariantData.duplicate_variant(node),
-		"neighbor": GFVariantData.duplicate_variant(neighbor),
-	})
+	external_neighbors.append({ "node": GFVariantData.duplicate_variant(node), "neighbor": GFVariantData.duplicate_variant(neighbor), })
 
 
 ## 调用有效边权回调并转为 float；无回调时默认边权为 1.0。
 ## [br]
 ## @api private
-static func _get_spanning_edge_weight(from_node: Variant, to_node: Variant, get_edge_weight: Callable) -> float:
+static func _get_spanning_edge_weight(
+	from_node: Variant,
+	to_node: Variant,
+	get_edge_weight: Callable
+) -> float:
 	if get_edge_weight.is_valid():
-		return GFVariantData.to_float(get_edge_weight.call(from_node, to_node), NAN)
+		return GFVariantData.to_float(
+			get_edge_weight.call(from_node, to_node),
+			NAN
+		)
 	return 1.0
 
 
@@ -797,7 +960,12 @@ static func _is_finite_graph_weight(weight: float) -> bool:
 ## 创建包含方向端点、权重及输入序号的内部生成树边记录。
 ## [br]
 ## @api private
-static func _make_spanning_edge(from_node: Variant, to_node: Variant, weight: float, sequence: int) -> Dictionary:
+static func _make_spanning_edge(
+	from_node: Variant,
+	to_node: Variant,
+	weight: float,
+	sequence: int
+) -> Dictionary:
 	return {
 		"from": from_node,
 		"to": to_node,
@@ -813,7 +981,11 @@ static func _make_spanning_edge_report(edge: Dictionary) -> Dictionary:
 	return {
 		"from": GFVariantData.get_option_value(edge, "from"),
 		"to": GFVariantData.get_option_value(edge, "to"),
-		"weight": GFVariantData.get_option_float(edge, "weight", 0.0),
+		"weight": GFVariantData.get_option_float(
+			edge,
+			"weight",
+			0.0
+		),
 	}
 
 
@@ -850,8 +1022,16 @@ static func _push_spanning_frontier(
 		_push_spanning_edge(
 			frontier,
 			edge,
-			GFVariantData.get_option_float(edge, "weight", INF),
-			GFVariantData.get_option_int(edge, "sequence", 0)
+			GFVariantData.get_option_float(
+				edge,
+				"weight",
+				INF
+			),
+			GFVariantData.get_option_int(
+				edge,
+				"sequence",
+				0
+			)
 		)
 
 
@@ -864,7 +1044,11 @@ static func _push_spanning_edge(
 	priority: float,
 	sequence: int
 ) -> void:
-	var _edge_queued: bool = priority_queue.push_with_order(edge, priority, sequence)
+	var _edge_queued: bool = priority_queue.push_with_order(
+		edge,
+		priority,
+		sequence
+	)
 
 
 ## 从生成树队列取出元素，并转换为 Dictionary。
@@ -883,11 +1067,13 @@ static func _record_invalid_spanning_edge(
 	weight: float,
 	invalid_edges: Array[Dictionary]
 ) -> void:
-	invalid_edges.append({
-		"from": GFVariantData.duplicate_variant(from_node),
-		"to": GFVariantData.duplicate_variant(to_node),
-		"weight": weight,
-	})
+	invalid_edges.append(
+		{
+			"from": GFVariantData.duplicate_variant(from_node),
+			"to": GFVariantData.duplicate_variant(to_node),
+			"weight": weight,
+		}
+	)
 
 
 ## 组装生成树或生成森林报告，并从连通分量派生相关计数字段。
@@ -974,7 +1160,14 @@ static func _find_topological_cycles(nodes: Array, dependencies_by_node: Diction
 	for node: Variant in nodes:
 		if _get_topological_int(states, node) != 0:
 			continue
-		_collect_topological_cycles(node, dependencies_by_node, states, path, cycles, seen_cycles)
+		_collect_topological_cycles(
+			node,
+			dependencies_by_node,
+			states,
+			path,
+			cycles,
+			seen_cycles
+		)
 	return cycles
 
 
@@ -995,7 +1188,14 @@ static func _collect_topological_cycles(
 	for dependency: Variant in _get_topological_array(dependencies_by_node, node):
 		var dependency_state: int = _get_topological_int(states, dependency)
 		if dependency_state == 0:
-			_collect_topological_cycles(dependency, dependencies_by_node, states, path, cycles, seen_cycles)
+			_collect_topological_cycles(
+				dependency,
+				dependencies_by_node,
+				states,
+				path,
+				cycles,
+				seen_cycles
+			)
 		elif dependency_state == 1:
 			var start_index: int = path.find(dependency)
 			if start_index >= 0:

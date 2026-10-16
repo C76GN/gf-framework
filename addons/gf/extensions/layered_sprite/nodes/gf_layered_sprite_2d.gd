@@ -213,7 +213,11 @@ func _draw() -> void:
 	if _timeline_frames == null or _current_animation == &"":
 		return
 	for layer_state: Dictionary in _layer_states:
-		if not GFVariantData.get_option_bool(layer_state, "visible", true):
+		if not GFVariantData.get_option_bool(
+			layer_state,
+			"visible",
+			true
+		):
 			continue
 		var variants: Dictionary = GFVariantData.as_dictionary(layer_state.get("variants"))
 		var variant_id: StringName = GFVariantData.get_option_string_name(layer_state, "variant_id")
@@ -233,7 +237,11 @@ func _draw() -> void:
 		var tint_value: Variant = layer_state.get("modulate", Color.WHITE)
 		if tint_value is Color:
 			tint = tint_value
-		draw_texture(texture, offset - texture.get_size() * 0.5, tint)
+		draw_texture(
+			texture,
+			offset - texture.get_size() * 0.5,
+			tint
+		)
 
 
 # --- 公共方法 ---
@@ -379,20 +387,18 @@ func play(
 	var animation_changed_value: bool = previous_animation != animation
 	_current_animation = animation
 	_speed_scale = speed_scale
-	if animation_changed_value or from_end or not _resume_cursor_available:
-		_current_frame = (
-			_timeline_frames.get_frame_count(animation) - 1
-			if from_end or speed_scale < 0.0
-			else 0
-		)
+	if (
+		animation_changed_value
+		or from_end
+		or not _resume_cursor_available
+	):
+		_current_frame = (_timeline_frames.get_frame_count(animation) - 1 if from_end or speed_scale < 0.0 else 0)
 		_frame_progress = 1.0 if from_end or speed_scale < 0.0 else 0.0
 	_playing = true
 	_resume_cursor_available = true
 	_last_rejection_reason = &""
 	_bump_state_generation()
-	var frame_identity_changed: bool = (
-		previous_animation != _current_animation or previous_frame != _current_frame
-	)
+	var frame_identity_changed: bool = previous_animation != _current_animation or previous_frame != _current_frame
 	if frame_identity_changed:
 		_bump_frame_identity_generation()
 	var committed_identity_generation: int = _frame_identity_generation
@@ -441,7 +447,11 @@ func stop(reset_to_start: bool = true) -> void:
 	_resume_cursor_available = false
 	_last_rejection_reason = &""
 	set_process(false)
-	if reset_to_start and _timeline_frames != null and _current_animation != &"":
+	if (
+		reset_to_start
+		and _timeline_frames != null
+		and _current_animation != &""
+	):
 		_current_frame = 0
 		_frame_progress = 0.0
 		queue_redraw()
@@ -467,7 +477,11 @@ func seek(frame: int, frame_progress: float = 0.0) -> bool:
 		return _reject(&"not_configured")
 	if frame < 0 or frame >= _timeline_frames.get_frame_count(_current_animation):
 		return _reject(&"frame_out_of_range")
-	if not _is_finite_float(frame_progress) or frame_progress < 0.0 or frame_progress > 1.0:
+	if (
+		not _is_finite_float(frame_progress)
+		or frame_progress < 0.0
+		or frame_progress > 1.0
+	):
 		return _reject(&"invalid_frame_progress")
 	var changed: bool = _current_frame != frame
 	_current_frame = frame
@@ -512,23 +526,19 @@ func advance(delta_seconds: float) -> bool:
 	while remaining_units > 0.0 and _playing:
 		if advances >= MAX_FRAME_ADVANCES_PER_TICK:
 			return _reject(&"frame_advance_limit")
-		var frame_duration: float = _timeline_frames.get_frame_duration(
-			_current_animation,
-			_current_frame
-		)
+		var frame_duration: float = _timeline_frames.get_frame_duration(_current_animation, _current_frame)
 		if not _is_finite_float(frame_duration) or frame_duration <= 0.0:
 			return _reject(&"invalid_frame_duration")
-		var distance: float = (
-			frame_duration * (1.0 - _frame_progress)
-			if _speed_scale > 0.0
-			else frame_duration * _frame_progress
-		)
+		var distance: float = (frame_duration * (1.0 - _frame_progress) if _speed_scale > 0.0 else frame_duration * _frame_progress)
 		if remaining_units < distance:
 			var progress_delta: float = remaining_units / frame_duration
 			_frame_progress += progress_delta if _speed_scale > 0.0 else -progress_delta
 			remaining_units = 0.0
 			break
-		remaining_units = maxf(remaining_units - distance, 0.0)
+		remaining_units = maxf(
+			remaining_units - distance,
+			0.0
+		)
 		var crossed_boundary: bool = _advance_frame_boundary(_speed_scale > 0.0)
 		advances += 1
 		if _state_generation != playback_generation:
@@ -747,13 +757,21 @@ func _build_configuration_snapshot(definition: GFLayeredSpriteDefinition) -> Dic
 		return {}
 
 	var texture_ids: Dictionary = {}
-	if not _track_unique_textures(timeline_source, animation_names, texture_ids):
+	if not _track_unique_textures(
+		timeline_source,
+		animation_names,
+		texture_ids
+	):
 		return {}
 	var layer_ids: Dictionary = {}
 	var layer_plans: Array[Dictionary] = []
 	for source_index: int in range(definition.layers.size()):
 		var layer: GFLayeredSpriteLayerDefinition = definition.layers[source_index]
-		if layer == null or not _is_valid_id(layer.layer_id) or layer_ids.has(layer.layer_id):
+		if (
+			layer == null
+			or not _is_valid_id(layer.layer_id)
+			or layer_ids.has(layer.layer_id)
+		):
 			_set_rejection_reason(&"invalid_layer_id")
 			return {}
 		if layer.variants.is_empty() or layer.variants.size() > MAX_VARIANTS_PER_LAYER:
@@ -789,27 +807,30 @@ func _build_configuration_snapshot(definition: GFLayeredSpriteDefinition) -> Dic
 				if total_frame_references > MAX_TOTAL_FRAME_REFERENCES:
 					_set_rejection_reason(&"total_frame_reference_limit")
 					return {}
-			if not _track_unique_textures(variant.sprite_frames, animation_names, texture_ids):
+			if not _track_unique_textures(
+				variant.sprite_frames,
+				animation_names,
+				texture_ids
+			):
 				return {}
 			variant_ids[variant.variant_id] = true
-			variant_plans.append({
-				"variant_id": variant.variant_id,
-				"source_frames": variant.sprite_frames,
-			})
+			variant_plans.append({ "variant_id": variant.variant_id, "source_frames": variant.sprite_frames, })
 		if not variant_ids.has(layer.default_variant_id):
 			_set_rejection_reason(&"missing_default_variant")
 			return {}
 		layer_ids[layer.layer_id] = true
-		layer_plans.append({
-			"layer_id": layer.layer_id,
-			"variant_id": layer.default_variant_id,
-			"variant_plans": variant_plans,
-			"offset": layer.offset,
-			"modulate": layer.modulate,
-			"visible": layer.visible,
-			"draw_order": layer.draw_order,
-			"source_index": source_index,
-		})
+		layer_plans.append(
+			{
+				"layer_id": layer.layer_id,
+				"variant_id": layer.default_variant_id,
+				"variant_plans": variant_plans,
+				"offset": layer.offset,
+				"modulate": layer.modulate,
+				"visible": layer.visible,
+				"draw_order": layer.draw_order,
+				"source_index": source_index,
+			}
+		)
 	var default_animation: StringName = definition.default_animation
 	if default_animation == &"":
 		default_animation = animation_names[0]
@@ -842,19 +863,23 @@ func _build_configuration_snapshot(definition: GFLayeredSpriteDefinition) -> Dic
 			if frames_copy == null:
 				_set_rejection_reason(&"variant_snapshot_failed")
 				return {}
-			variant_frames[
-				GFVariantData.get_option_string_name(variant_plan, "variant_id")
-			] = frames_copy
-		layer_states.append({
-			"layer_id": GFVariantData.get_option_string_name(layer_plan, "layer_id"),
-			"variant_id": GFVariantData.get_option_string_name(layer_plan, "variant_id"),
-			"variants": variant_frames,
-			"offset": GFVariantData.to_vector2(layer_plan.get("offset", Vector2.ZERO)),
-			"modulate": layer_plan.get("modulate", Color.WHITE),
-			"visible": GFVariantData.get_option_bool(layer_plan, "visible", true),
-			"draw_order": GFVariantData.get_option_int(layer_plan, "draw_order"),
-			"source_index": GFVariantData.get_option_int(layer_plan, "source_index"),
-		})
+			variant_frames[GFVariantData.get_option_string_name(variant_plan, "variant_id")] = frames_copy
+		layer_states.append(
+			{
+				"layer_id": GFVariantData.get_option_string_name(layer_plan, "layer_id"),
+				"variant_id": GFVariantData.get_option_string_name(layer_plan, "variant_id"),
+				"variants": variant_frames,
+				"offset": GFVariantData.to_vector2(layer_plan.get("offset", Vector2.ZERO)),
+				"modulate": layer_plan.get("modulate", Color.WHITE),
+				"visible": GFVariantData.get_option_bool(
+					layer_plan,
+					"visible",
+					true
+				),
+				"draw_order": GFVariantData.get_option_int(layer_plan, "draw_order"),
+				"source_index": GFVariantData.get_option_int(layer_plan, "source_index"),
+			}
+		)
 	layer_states.sort_custom(_sort_layer_state)
 	return {
 		"timeline_frames": timeline_copy,
@@ -893,7 +918,11 @@ func _copy_frame_topology(
 	timeline_source: SpriteFrames,
 	animation_names: Array[StringName]
 ) -> SpriteFrames:
-	if not _matches_frame_topology(texture_source, timeline_source, animation_names):
+	if not _matches_frame_topology(
+		texture_source,
+		timeline_source,
+		animation_names
+	):
 		return null
 	if not _validate_frame_topology(timeline_source, animation_names):
 		return null
@@ -1006,10 +1035,7 @@ func _sort_layer_state(left: Dictionary, right: Dictionary) -> bool:
 	var left_order: int = GFVariantData.get_option_int(left, "draw_order")
 	var right_order: int = GFVariantData.get_option_int(right, "draw_order")
 	if left_order == right_order:
-		return GFVariantData.get_option_int(left, "source_index") < GFVariantData.get_option_int(
-			right,
-			"source_index"
-		)
+		return (GFVariantData.get_option_int(left, "source_index") < (GFVariantData.get_option_int(right, "source_index")))
 	return left_order < right_order
 
 
@@ -1018,7 +1044,11 @@ func _sort_layer_state(left: Dictionary, right: Dictionary) -> bool:
 ## @api private
 func _is_valid_id(value: StringName) -> bool:
 	var text: String = String(value)
-	return not text.is_empty() and text.length() <= _MAX_ID_LENGTH and text == text.strip_edges()
+	return (
+		not text.is_empty()
+		and text.length() <= _MAX_ID_LENGTH
+		and text == text.strip_edges()
+	)
 
 
 ## 检查 Vector2 两个分量是否有限。

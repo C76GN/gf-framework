@@ -17,12 +17,12 @@
 |---|---|---|
 | 枚举 | [`ScaleAxisMode`](#member-gftransform3dmath-enums-scaleaxismode) | `enum ScaleAxisMode` |
 | 方法 | [`make_reflection_transform`](#member-gftransform3dmath-methods-make_reflection_transform) | `static func make_reflection_transform(plane_normal: Vector3, plane_point: Vector3) -> Transform3D:` |
-| 方法 | [`reflect_point`](#member-gftransform3dmath-methods-reflect_point) | `static func reflect_point(point: Vector3, plane_normal: Vector3, plane_point: Vector3) -> Vector3:` |
+| 方法 | [`reflect_point`](#member-gftransform3dmath-methods-reflect_point) | `static func reflect_point( point: Vector3, plane_normal: Vector3, plane_point: Vector3 ) -> Vector3:` |
 | 方法 | [`reflect_direction`](#member-gftransform3dmath-methods-reflect_direction) | `static func reflect_direction(direction: Vector3, plane_normal: Vector3) -> Vector3:` |
 | 方法 | [`reflect_transform`](#member-gftransform3dmath-methods-reflect_transform) | `static func reflect_transform( transform: Transform3D, plane_normal: Vector3, plane_point: Vector3 ) -> Transform3D:` |
 | 方法 | [`intersect_ray_plane`](#member-gftransform3dmath-methods-intersect_ray_plane) | `static func intersect_ray_plane( ray_origin: Vector3, ray_direction: Vector3, plane_normal: Vector3, plane_point: Vector3, max_distance: float = -1.0, face_normal_to_ray: bool = true ) -> Dictionary:` |
-| 方法 | [`make_basis_from_up_and_z_hint`](#member-gftransform3dmath-methods-make_basis_from_up_and_z_hint) | `static func make_basis_from_up_and_z_hint( up_axis: Vector3, z_axis_hint: Vector3 = Vector3.BACK ) -> Basis:` |
-| 方法 | [`apply_scale_axis_mode`](#member-gftransform3dmath-methods-apply_scale_axis_mode) | `static func apply_scale_axis_mode( weight: Vector3, mode: ScaleAxisMode = ScaleAxisMode.UNIFORM ) -> Vector3:` |
+| 方法 | [`make_basis_from_up_and_z_hint`](#member-gftransform3dmath-methods-make_basis_from_up_and_z_hint) | `static func make_basis_from_up_and_z_hint(up_axis: Vector3, z_axis_hint: Vector3 = Vector3.BACK) -> Basis:` |
+| 方法 | [`apply_scale_axis_mode`](#member-gftransform3dmath-methods-apply_scale_axis_mode) | `static func apply_scale_axis_mode(weight: Vector3, mode: ScaleAxisMode = ScaleAxisMode.UNIFORM) -> Vector3:` |
 | 方法 | [`interpolate_scale`](#member-gftransform3dmath-methods-interpolate_scale) | `static func interpolate_scale( min_scale: Vector3, max_scale: Vector3, weight: Vector3, mode: ScaleAxisMode = ScaleAxisMode.UNIFORM ) -> Vector3:` |
 | 方法 | [`snap_point_to_plane_grid`](#member-gftransform3dmath-methods-snap_point_to_plane_grid) | `static func snap_point_to_plane_grid( point: Vector3, plane_normal: Vector3, grid_step: float, plane_origin: Vector3 = Vector3.ZERO ) -> Dictionary:` |
 | 方法 | [`move_local_point_to_world`](#member-gftransform3dmath-methods-move_local_point_to_world) | `static func move_local_point_to_world( transform: Transform3D, local_point: Vector3, world_point: Vector3 ) -> Transform3D:` |
@@ -85,7 +85,7 @@ static func make_reflection_transform(plane_normal: Vector3, plane_point: Vector
 - 首次版本：`8.0.0`
 
 ```gdscript
-static func reflect_point(point: Vector3, plane_normal: Vector3, plane_point: Vector3) -> Vector3:
+static func reflect_point( point: Vector3, plane_normal: Vector3, plane_point: Vector3 ) -> Vector3:
 ```
 
 将点按指定平面反射。
@@ -183,7 +183,7 @@ static func intersect_ray_plane( ray_origin: Vector3, ray_direction: Vector3, pl
 - 首次版本：`8.0.0`
 
 ```gdscript
-static func make_basis_from_up_and_z_hint( up_axis: Vector3, z_axis_hint: Vector3 = Vector3.BACK ) -> Basis:
+static func make_basis_from_up_and_z_hint(up_axis: Vector3, z_axis_hint: Vector3 = Vector3.BACK) -> Basis:
 ```
 
 用目标 Y 轴和候选 Z 轴构建稳定正交 basis。 适合把物体局部 Y 轴贴合表面法线，同时尽量保持原本局部 Z 轴朝向。 z_axis_hint 与 up_axis 近似平行时，会自动选择稳定的兜底轴。
@@ -205,7 +205,7 @@ static func make_basis_from_up_and_z_hint( up_axis: Vector3, z_axis_hint: Vector
 - 首次版本：`8.0.0`
 
 ```gdscript
-static func apply_scale_axis_mode( weight: Vector3, mode: ScaleAxisMode = ScaleAxisMode.UNIFORM ) -> Vector3:
+static func apply_scale_axis_mode(weight: Vector3, mode: ScaleAxisMode = ScaleAxisMode.UNIFORM) -> Vector3:
 ```
 
 按轴向锁定模式归一 3D 缩放插值权重。 该方法只处理权重复制关系，不钳制 0 到 1 范围；调用方可以用超出范围的权重做外插。 输入包含非有限数时返回 Vector3.ZERO。

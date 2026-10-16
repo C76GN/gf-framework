@@ -3,10 +3,8 @@
 # 独立真实 EditorPlugin probe，可连同两个纯资源 fixture 放入原始基线重现占位默认值。
 extends EditorPlugin
 
-
-const _DEFAULTS_PATH: String = "res://tests/gf_core/tools/action_queue.editor/fixtures/gf_tween_preview_omitted_defaults.tres"
+const _DEFAULTS_PATH: String = ("res://tests/gf_core/tools/action_queue.editor/fixtures/gf_tween_preview_omitted_defaults.tres")
 const _ZERO_PATH: String = "res://tests/gf_core/tools/action_queue.editor/fixtures/gf_tween_preview_explicit_zero.tres"
-
 var _stable_frames: int = 0
 var _finished: bool = false
 
@@ -31,8 +29,16 @@ func _on_process_frame() -> void:
 	if _stable_frames < 5:
 		return
 	_finished = true
-	var source: Resource = ResourceLoader.load(_DEFAULTS_PATH, "", ResourceLoader.CACHE_MODE_IGNORE_DEEP)
-	var zeros: Resource = ResourceLoader.load(_ZERO_PATH, "", ResourceLoader.CACHE_MODE_IGNORE_DEEP)
+	var source: Resource = ResourceLoader.load(
+		_DEFAULTS_PATH,
+		"",
+		ResourceLoader.CACHE_MODE_IGNORE_DEEP
+	)
+	var zeros: Resource = ResourceLoader.load(
+		_ZERO_PATH,
+		"",
+		ResourceLoader.CACHE_MODE_IGNORE_DEEP
+	)
 	var error: String = _get_probe_error(source, zeros)
 	if not error.is_empty():
 		print("GF_TWEEN_DEFAULTS_EDITOR_PROBE_FAILED: " + error)
@@ -43,7 +49,11 @@ func _on_process_frame() -> void:
 
 
 func _get_probe_error(source: Resource, zeros: Resource) -> String:
-	if not Engine.is_editor_hint() or source == null or zeros == null:
+	if (
+		not Engine.is_editor_hint()
+		or source == null
+		or zeros == null
+	):
 		return "Real editor resources are required."
 	var script_value: Variant = source.get_script()
 	if not (script_value is Script):
@@ -61,7 +71,10 @@ func _get_probe_error(source: Resource, zeros: Resource) -> String:
 		return "The fixture must contain one resource step."
 	var step: Resource = steps[0]
 	if step.get(&"duration") != 0.2 or step.get(&"delay") != 0.0:
-		return "Omitted duration/delay read %s/%s instead of 0.2/0.0." % [step.get(&"duration"), step.get(&"delay")]
+		return (
+			"Omitted duration/delay read %s/%s instead of 0.2/0.0."
+			% [step.get(&"duration"), step.get(&"delay")]
+		)
 	if zeros.get(&"duration_scale") != 0.0:
 		return "Explicit zero duration_scale changed."
 	var zero_steps_value: Variant = zeros.get(&"steps")

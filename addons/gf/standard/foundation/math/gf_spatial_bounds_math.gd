@@ -43,7 +43,11 @@ static func is_finite_vector2(value: Vector2) -> bool:
 ## [br]
 ## @return 所有分量有限时返回 true。
 static func is_finite_vector3(value: Vector3) -> bool:
-	return is_finite_float(value.x) and is_finite_float(value.y) and is_finite_float(value.z)
+	return (
+		is_finite_float(value.x)
+		and is_finite_float(value.y)
+		and is_finite_float(value.z)
+	)
 
 
 ## 判断 Rect2 的起点、尺寸和终点是否都有限。

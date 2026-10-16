@@ -38,7 +38,10 @@ const _EPSILON_SQUARED: float = _EPSILON * _EPSILON
 ## @return 折线长度；少于两个点时返回 0。
 static func get_polyline_length(points: PackedVector3Array) -> float:
 	var length: float = 0.0
-	for index: int in range(1, points.size()):
+	for index: int in range(
+		1,
+		points.size()
+	):
 		length += points[index - 1].distance_to(points[index])
 	return length
 
@@ -66,7 +69,11 @@ static func sample_polyline(
 	if points.size() == 1:
 		return points[0]
 
-	var clamped_ratio: float = clampf(ratio, 0.0, 1.0)
+	var clamped_ratio: float = clampf(
+		ratio,
+		0.0,
+		1.0
+	)
 	if clamped_ratio <= 0.0:
 		return points[0]
 	if clamped_ratio >= 1.0:
@@ -78,7 +85,10 @@ static func sample_polyline(
 
 	var target_distance: float = length * clamped_ratio
 	var travelled: float = 0.0
-	for index: int in range(1, points.size()):
+	for index: int in range(
+		1,
+		points.size()
+	):
 		var from_point: Vector3 = points[index - 1]
 		var to_point: Vector3 = points[index]
 		var segment_length: float = from_point.distance_to(to_point)
@@ -123,8 +133,16 @@ static func sample_polyline_pose(
 	up_hint: Vector3 = Vector3.UP
 ) -> Dictionary:
 	var path_points: PackedVector3Array = _get_polyline_points(points, closed)
-	var clamped_ratio: float = clampf(ratio, 0.0, 1.0)
-	var report: Dictionary = _make_polyline_pose_report(clamped_ratio, 0.0, closed)
+	var clamped_ratio: float = clampf(
+		ratio,
+		0.0,
+		1.0
+	)
+	var report: Dictionary = _make_polyline_pose_report(
+		clamped_ratio,
+		0.0,
+		closed
+	)
 	if path_points.is_empty():
 		return report
 
@@ -192,7 +210,10 @@ static func project_point_to_polyline(
 	var best_report: Dictionary = report
 	var best_distance_squared: float = INF
 	var travelled: float = 0.0
-	for index: int in range(1, path_points.size()):
+	for index: int in range(
+		1,
+		path_points.size()
+	):
 		var from_point: Vector3 = path_points[index - 1]
 		var to_point: Vector3 = path_points[index]
 		var segment_vector: Vector3 = to_point - from_point
@@ -241,7 +262,11 @@ static func project_point_to_polyline(
 ## @param cubic: 是否使用 Curve3D.sample_baked() 的三次插值。
 ## [br]
 ## @return 采样点；曲线为空或无点时返回 Vector3.ZERO。
-static func sample_curve(curve: Curve3D, ratio: float, cubic: bool = false) -> Vector3:
+static func sample_curve(
+	curve: Curve3D,
+	ratio: float,
+	cubic: bool = false
+) -> Vector3:
 	if curve == null:
 		return Vector3.ZERO
 
@@ -257,7 +282,14 @@ static func sample_curve(curve: Curve3D, ratio: float, cubic: bool = false) -> V
 	if length <= _EPSILON:
 		return curve.get_point_position(point_count - 1)
 
-	return curve.sample_baked(length * clampf(ratio, 0.0, 1.0), cubic)
+	return curve.sample_baked(
+		length * clampf(
+			ratio,
+			0.0,
+			1.0
+		),
+		cubic
+	)
 
 
 ## 按 0 到 1 的比例采样 Curve3D 的 baked 姿态。
@@ -286,7 +318,11 @@ static func sample_curve_pose(
 	tangent_sample_distance: float = -1.0,
 	up_hint: Vector3 = Vector3.UP
 ) -> Dictionary:
-	var clamped_ratio: float = clampf(ratio, 0.0, 1.0)
+	var clamped_ratio: float = clampf(
+		ratio,
+		0.0,
+		1.0
+	)
 	var report: Dictionary = _make_curve_pose_report(clamped_ratio, 0.0)
 	if curve == null:
 		return report
@@ -320,7 +356,14 @@ static func sample_curve_pose(
 	if tangent.length_squared() <= _EPSILON_SQUARED:
 		tangent = _fallback_curve_tangent_from_points(curve)
 
-	return _make_curve_pose_success_report(point, offset, length, clamped_ratio, tangent, up_hint)
+	return _make_curve_pose_success_report(
+		point,
+		offset,
+		length,
+		clamped_ratio,
+		tangent,
+		up_hint
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -330,7 +373,11 @@ static func sample_curve_pose(
 ## @api private
 static func _get_polyline_points(points: PackedVector3Array, closed: bool) -> PackedVector3Array:
 	var result: PackedVector3Array = points.duplicate()
-	if closed and result.size() > 2 and result[0] != result[result.size() - 1]:
+	if (
+		closed
+		and result.size() > 2
+		and result[0] != result[result.size() - 1]
+	):
 		var _first_point_appended: bool = result.append(result[0])
 	return result
 
@@ -350,7 +397,11 @@ static func _has_nonzero_curve_anchor_span(curve: Curve3D) -> bool:
 ## 创建失败态折线姿态报告，并初始化段索引、位置和姿态向量字段。
 ## [br]
 ## @api private
-static func _make_polyline_pose_report(ratio: float, total_length: float, closed: bool) -> Dictionary:
+static func _make_polyline_pose_report(
+	ratio: float,
+	total_length: float,
+	closed: bool
+) -> Dictionary:
 	return {
 		"ok": false,
 		"point": Vector3.ZERO,
@@ -380,7 +431,10 @@ static func _sample_polyline_pose_at_distance(
 	up_hint: Vector3
 ) -> Dictionary:
 	var travelled: float = 0.0
-	for index: int in range(1, path_points.size()):
+	for index: int in range(
+		1,
+		path_points.size()
+	):
 		var from_point: Vector3 = path_points[index - 1]
 		var to_point: Vector3 = path_points[index]
 		var segment_vector: Vector3 = to_point - from_point
@@ -389,7 +443,11 @@ static func _sample_polyline_pose_at_distance(
 			continue
 
 		if travelled + segment_length >= target_distance or index == path_points.size() - 1:
-			var local_distance: float = clampf(target_distance - travelled, 0.0, segment_length)
+			var local_distance: float = clampf(
+				target_distance - travelled,
+				0.0,
+				segment_length
+			)
 			var segment_ratio: float = local_distance / segment_length
 			var point: Vector3 = from_point + segment_vector.normalized() * local_distance
 			return _make_polyline_pose_success_report(
@@ -411,9 +469,17 @@ static func _sample_polyline_pose_at_distance(
 		total_length,
 		total_length,
 		ratio,
-		maxi(path_points.size() - 2, 0),
+		maxi(
+			path_points.size() - 2,
+			0
+		),
 		1.0,
-		path_points[maxi(path_points.size() - 2, 0)],
+		path_points[
+			maxi(
+				path_points.size() - 2,
+				0
+			)
+		],
 		path_points[path_points.size() - 1],
 		closed,
 		up_hint
@@ -459,7 +525,11 @@ static func _make_polyline_pose_success_report(
 ## [br]
 ## @api private
 static func _make_polyline_projection_report(target: Vector3, closed: bool) -> Dictionary:
-	var report: Dictionary = _make_polyline_pose_report(0.0, 0.0, closed)
+	var report: Dictionary = _make_polyline_pose_report(
+		0.0,
+		0.0,
+		closed
+	)
 	report["target"] = target
 	report["distance"] = INF
 	report["distance_squared"] = INF
@@ -554,14 +624,33 @@ static func _sample_curve_tangent(
 ) -> Vector3:
 	var sample_distance: float = tangent_sample_distance
 	if sample_distance <= _EPSILON:
-		sample_distance = maxf(curve.bake_interval, total_length * 0.001)
-	sample_distance = clampf(sample_distance, _EPSILON, total_length)
+		sample_distance = maxf(
+			curve.bake_interval,
+			total_length * 0.001
+		)
+	sample_distance = clampf(
+		sample_distance,
+		_EPSILON,
+		total_length
+	)
 
-	var before_offset: float = maxf(0.0, offset - sample_distance)
-	var after_offset: float = minf(total_length, offset + sample_distance)
+	var before_offset: float = maxf(
+		0.0,
+		offset - sample_distance
+	)
+	var after_offset: float = minf(
+		total_length,
+		offset + sample_distance
+	)
 	if is_equal_approx(before_offset, after_offset):
-		before_offset = maxf(0.0, offset - sample_distance)
-		after_offset = minf(total_length, before_offset + sample_distance)
+		before_offset = maxf(
+			0.0,
+			offset - sample_distance
+		)
+		after_offset = minf(
+			total_length,
+			before_offset + sample_distance
+		)
 
 	var before_point: Vector3 = curve.sample_baked(before_offset, cubic)
 	var after_point: Vector3 = curve.sample_baked(after_offset, cubic)

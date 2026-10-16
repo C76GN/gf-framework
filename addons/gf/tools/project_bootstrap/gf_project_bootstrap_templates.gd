@@ -59,7 +59,11 @@ static func get_manifest(options: Dictionary = {}) -> Dictionary:
 		elif mode != "new_project":
 			continue
 		var _appended: bool = names.append(file_name)
-	return {"id": _TEMPLATE_ID, "version": _TEMPLATE_VERSION, "file_names": names}
+	return {
+		"id": _TEMPLATE_ID,
+		"version": _TEMPLATE_VERSION,
+		"file_names": names,
+	}
 
 
 ## 读取固定文件并替换原文占位符；不会递归解释用户目录里的占位符文字。
@@ -80,7 +84,7 @@ static func render(directory: String, options: Dictionary = {}) -> Dictionary:
 	var names: PackedStringArray = manifest["file_names"]
 	var mode: String = options.get("mode", "new_project")
 	var create_installer: bool = options.get("create_installer", true)
-	var mode_guidance: String = "运行项目时先进入 boot.tscn；GF 初始化成功后才打开空 main.tscn。按 F5 运行项目，或打开 boot.tscn 后按 F6；直接按 F6 运行 main.tscn 会绕过启动页。"
+	var mode_guidance: String = ("运行项目时先进入 boot.tscn；GF 初始化成功后才打开空 main.tscn。按 F5 运行项目，或打开 boot.tscn 后按 F6；直接按 F6 运行 main.tscn 会绕过启动页。")
 	if mode == "existing_project":
 		mode_guidance = "既有主场景与用户脚本保持不变。请把工作区提供的初始化片段合并到项目自己的启动入口，并在初始化成功后继续业务流程。"
 	var installer_guidance: String = "未创建 Installer。需要装配项目模块时，可显式新建并登记项目 Installer。"
@@ -94,7 +98,7 @@ static func render(directory: String, options: Dictionary = {}) -> Dictionary:
 			return {}
 		var parts: PackedStringArray = content.split("__ROOT__")
 		for index: int in range(parts.size()):
-			parts[index] = parts[index].replace("__MODE_GUIDANCE__", mode_guidance).replace("__INSTALLER_GUIDANCE__", installer_guidance)
+			parts[index] = (parts[index].replace("__MODE_GUIDANCE__", mode_guidance).replace("__INSTALLER_GUIDANCE__", installer_guidance))
 		result[file_name] = directory.join(parts)
 	return result
 

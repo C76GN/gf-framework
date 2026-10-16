@@ -145,14 +145,16 @@ func get_debug_snapshot(context: GFDecisionContext) -> Dictionary:
 ## [br]
 ## @schema return: 包含 consideration_id、enabled、score、weight、input_source 和 input_key 字段的 Dictionary。
 func get_debug_snapshot_from_score(score_value: float) -> Dictionary:
-	return GFReportValueCodec.to_report_dictionary({
-		"consideration_id": consideration_id,
-		"enabled": enabled,
-		"score": _GF_DECISION_NUMERIC_POLICY.normalize_score(score_value, missing_score),
-		"weight": _GF_DECISION_NUMERIC_POLICY.normalize_weight(weight),
-		"input_source": input_source,
-		"input_key": input_key,
-	})
+	return GFReportValueCodec.to_report_dictionary(
+		{
+			"consideration_id": consideration_id,
+			"enabled": enabled,
+			"score": _GF_DECISION_NUMERIC_POLICY.normalize_score(score_value, missing_score),
+			"weight": _GF_DECISION_NUMERIC_POLICY.normalize_weight(weight),
+			"input_source": input_source,
+			"input_key": input_key,
+		}
+	)
 
 
 ## 获取考虑项 authoring 校验报告。
@@ -171,21 +173,52 @@ func get_validation_report() -> Dictionary:
 		"issues": [],
 	}
 	if consideration_id == &"":
-		_append_validation_issue(report, &"missing_consideration_id", "consideration_id is required", "consideration_id")
+		_append_validation_issue(
+			report,
+			&"missing_consideration_id",
+			"consideration_id is required",
+			"consideration_id"
+		)
 	if not _GF_DECISION_NUMERIC_POLICY.is_valid_weight(weight):
-		_append_validation_issue(report, &"invalid_consideration_weight", "weight must be finite and non-negative", "weight")
+		_append_validation_issue(
+			report,
+			&"invalid_consideration_weight",
+			"weight must be finite and non-negative",
+			"weight"
+		)
 	if input_source < InputSource.BLACKBOARD or input_source > InputSource.TARGET:
-		_append_validation_issue(report, &"invalid_input_source", "input_source is not supported", "input_source")
+		_append_validation_issue(
+			report,
+			&"invalid_input_source",
+			"input_source is not supported",
+			"input_source"
+		)
 	if not is_finite(default_input):
-		_append_validation_issue(report, &"invalid_default_input", "default_input must be finite", "default_input")
+		_append_validation_issue(
+			report,
+			&"invalid_default_input",
+			"default_input must be finite",
+			"default_input"
+		)
 	if not is_finite(input_min) or not is_finite(input_max):
-		_append_validation_issue(report, &"invalid_input_range", "input range must be finite", "input_range")
+		_append_validation_issue(
+			report,
+			&"invalid_input_range",
+			"input range must be finite",
+			"input_range"
+		)
 	if not _GF_DECISION_NUMERIC_POLICY.is_valid_score(missing_score):
-		_append_validation_issue(report, &"invalid_missing_score", "missing_score must be finite and within 0 to 1", "missing_score")
-	return GFValidationReportDictionary.finalize_report(report, "Decision consideration", {
-		"fallback_action": "Review the first decision consideration issue.",
-		"no_action": "Decision consideration is valid.",
-	})
+		_append_validation_issue(
+			report,
+			&"invalid_missing_score",
+			"missing_score must be finite and within 0 to 1",
+			"missing_score"
+		)
+	return GFValidationReportDictionary.finalize_report(
+		report,
+		"Decision consideration",
+		{ "fallback_action": "Review the first decision consideration issue.", "no_action": "Decision consideration is valid.", }
+	)
 
 
 # --- 可重写钩子 / 虚方法 ---
@@ -242,7 +275,15 @@ func _normalize_input(value: float) -> float:
 	var safe_value: float = _finite_or_default(value, safe_min)
 	if is_equal_approx(safe_min, safe_max):
 		return 1.0 if safe_value >= safe_max else 0.0
-	return clampf(inverse_lerp(safe_min, safe_max, safe_value), 0.0, 1.0)
+	return clampf(
+		inverse_lerp(
+			safe_min,
+			safe_max,
+			safe_value
+		),
+		0.0,
+		1.0
+	)
 
 
 ## 只接受 Variant 类型为 int 或 float 的评分输入。
@@ -274,8 +315,5 @@ func _append_validation_issue(
 		"error",
 		kind,
 		message,
-		{
-			"key": consideration_id,
-			"path": path,
-		}
+		{ "key": consideration_id, "path": path, }
 	)

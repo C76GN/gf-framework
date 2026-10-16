@@ -1,19 +1,11 @@
 # 测试 Storage 异步请求的 caller/physical 双终态与 late-settlement 诊断契约。
 extends GutTest
 
-
-const _GF_STORAGE_FAMILY_STORE_SCRIPT = preload(
-	"res://addons/gf/standard/utilities/storage/gf_storage_family_store.gd"
-)
-const _CALLER_RESULT_SCRIPT_PATH: String = (
-	"res://addons/gf/standard/utilities/storage/gf_storage_async_caller_result.gd"
-)
-const _REQUEST_OPTIONS_SCRIPT_PATH: String = (
-	"res://addons/gf/standard/utilities/storage/gf_storage_async_request_options.gd"
-)
-const _STORAGE_UTILITY_SCRIPT_PATH: String = (
-	"res://addons/gf/standard/utilities/storage/gf_storage_utility.gd"
-)
+const _OWNED_TEST_TREE_SUPPORT = preload("res://tests/gf_core/support/gf_owned_test_tree_support.gd")
+const _GF_STORAGE_FAMILY_STORE_SCRIPT = preload("res://addons/gf/standard/utilities/storage/gf_storage_family_store.gd")
+const _CALLER_RESULT_SCRIPT_PATH: String = ("res://addons/gf/standard/utilities/storage/gf_storage_async_caller_result.gd")
+const _REQUEST_OPTIONS_SCRIPT_PATH: String = ("res://addons/gf/standard/utilities/storage/gf_storage_async_request_options.gd")
+const _STORAGE_UTILITY_SCRIPT_PATH: String = "res://addons/gf/standard/utilities/storage/gf_storage_utility.gd"
 const _PUMP_FRAME_LIMIT: int = 300
 const _LATE_DIAGNOSTIC_LIMIT: int = 64
 const _LATE_DIAGNOSTIC_MAX_JSON_BYTES: int = 2048
@@ -68,17 +60,20 @@ class GatedWorkerStorageUtility extends GFStorageUtility:
 			return thread.start(Callable(self, &"_run_gated_worker").bind(callback))
 		return thread.start(callback)
 
+
 	func release_for_test() -> void:
 		if _release_posted:
 			return
 		_release_posted = true
 		worker_release.post()
 
+
 	func arm_next_worker_gate_for_test() -> void:
 		block_next_worker = true
 		worker_started = Semaphore.new()
 		worker_release = Semaphore.new()
 		_release_posted = false
+
 
 	func _run_gated_worker(callback: Callable) -> Variant:
 		worker_started.post()
@@ -105,10 +100,13 @@ class GatedMigrationOrderingStorageUtility extends GatedWorkerStorageUtility:
 	) -> Error:
 		var is_follower_start: bool = worker_start_count > 0
 		if is_follower_start:
-			follower_start_saw_primary_physical_completed = (
-				primary_operation != null and primary_operation.is_completed()
-			)
-		return super.start_async_worker_for_framework(task_type, thread, callback)
+			follower_start_saw_primary_physical_completed = (primary_operation != null and primary_operation.is_completed())
+		return super.start_async_worker_for_framework(
+			task_type,
+			thread,
+			callback
+		)
+
 
 	func migrate_data(
 		data: Dictionary,
@@ -116,17 +114,11 @@ class GatedMigrationOrderingStorageUtility extends GatedWorkerStorageUtility:
 		_to_version: int
 	) -> Dictionary:
 		migration_call_count += 1
-		migration_saw_primary_physical_pending = (
-			primary_operation != null and primary_operation.is_pending()
-		)
+		migration_saw_primary_physical_pending = (primary_operation != null and primary_operation.is_pending())
 		var file_key: String = _get_async_file_key(migration_file_name)
-		migration_saw_original_lock_retained = (
-			not file_key.is_empty() and _async_file_locks.has(file_key)
-		)
+		migration_saw_original_lock_retained = (not file_key.is_empty() and _async_file_locks.has(file_key))
 		arm_next_worker_gate_for_test()
-		var options: GFStorageAsyncRequestOptions = (
-			GFStorageAsyncRequestOptions.create(follower_owner)
-		)
+		var options: GFStorageAsyncRequestOptions = GFStorageAsyncRequestOptions.create(follower_owner)
 		follower_operation = save_data_request_async(
 			migration_file_name,
 			{ "generation": 2 },
@@ -183,6 +175,7 @@ class AutomaticCooperativeStorageUtility extends GatedWorkerStorageUtility:
 	func has_async_thread_capability_for_framework() -> bool:
 		return false
 
+
 	func start_async_worker_for_framework(
 		_task_type: StringName,
 		_thread: Thread,
@@ -191,9 +184,11 @@ class AutomaticCooperativeStorageUtility extends GatedWorkerStorageUtility:
 		thread_start_call_count += 1
 		return ERR_CANT_CREATE
 
+
 	func _recover_frozen_async_transaction(task: Dictionary) -> Dictionary:
 		recovery_call_count += 1
 		return super._recover_frozen_async_transaction(task)
+
 
 	func _save_data_thread(
 		file_name: String,
@@ -209,7 +204,13 @@ class AutomaticCooperativeStorageUtility extends GatedWorkerStorageUtility:
 		codec_options: Dictionary
 	) -> Dictionary:
 		_record_cooperative_callback(&"save")
-		saved_generations.append(GFVariantData.get_option_int(data, "generation", -1))
+		saved_generations.append(
+			GFVariantData.get_option_int(
+				data,
+				"generation",
+				-1
+			)
+		)
 		return super._save_data_thread(
 			file_name,
 			final_path,
@@ -224,17 +225,24 @@ class AutomaticCooperativeStorageUtility extends GatedWorkerStorageUtility:
 			codec_options
 		)
 
+
 	func _load_data_thread(
 		file_name: String,
 		path: String,
 		codec_options: Dictionary
 	) -> Dictionary:
 		_record_cooperative_callback(&"load")
-		return super._load_data_thread(file_name, path, codec_options)
+		return super._load_data_thread(
+			file_name,
+			path,
+			codec_options
+		)
+
 
 	func _delete_file_thread(storage_root_path: String, logical_name: String) -> Dictionary:
 		_record_cooperative_callback(&"delete")
 		return super._delete_file_thread(storage_root_path, logical_name)
+
 
 	func _record_cooperative_callback(task_type: StringName) -> void:
 		callback_task_types.append(task_type)
@@ -303,9 +311,7 @@ var _retained_lifecycle_owners: Array[RefCounted] = []
 
 func before_each() -> void:
 	_save_dir_name = "gf-storage-async-lifecycle-" + GFUuid.generate_v4()
-	_storage_root_path = _GF_STORAGE_FAMILY_STORE_SCRIPT.make_storage_root_path_for_framework(
-		_save_dir_name
-	)
+	_storage_root_path = _GF_STORAGE_FAMILY_STORE_SCRIPT.make_storage_root_path_for_framework(_save_dir_name)
 	assert_true(
 		_storage_root_path.begins_with("user://gf-storage-async-lifecycle-"),
 		"生命周期测试必须使用 UUID 独占 Storage root。"
@@ -322,7 +328,10 @@ func after_each() -> void:
 		_storage = null
 	_retained_lifecycle_owners.clear()
 	if _storage_root_path.begins_with("user://gf-storage-async-lifecycle-"):
-		assert_eq(_remove_owned_test_tree(_storage_root_path), OK)
+		assert_eq(
+			_OWNED_TEST_TREE_SUPPORT.remove_owned_tree(_storage_root_path),
+			OK
+		)
 	_save_dir_name = ""
 	_storage_root_path = ""
 
@@ -336,10 +345,7 @@ func test_dual_terminal_public_contract_and_enum_values_are_frozen() -> void:
 		ResourceLoader.exists(_REQUEST_OPTIONS_SCRIPT_PATH),
 		"必须提供 GFStorageAsyncRequestOptions 公开请求选项。"
 	)
-	if (
-		not ResourceLoader.exists(_CALLER_RESULT_SCRIPT_PATH)
-		or not ResourceLoader.exists(_REQUEST_OPTIONS_SCRIPT_PATH)
-	):
+	if (not ResourceLoader.exists(_CALLER_RESULT_SCRIPT_PATH) or not ResourceLoader.exists(_REQUEST_OPTIONS_SCRIPT_PATH)):
 		return
 
 	var caller_result_script: GDScript = _load_gdscript(_CALLER_RESULT_SCRIPT_PATH)
@@ -379,10 +385,7 @@ func test_dual_terminal_public_contract_and_enum_values_are_frozen() -> void:
 		var async_constants: Dictionary = async_result_script.get_script_constant_map()
 		assert_eq(
 			GFVariantData.get_option_dictionary(async_constants, "SettlementKind"),
-			{
-				"DOMAIN_RESULT": 0,
-				"CANCELLED": 1,
-			},
+			{ "DOMAIN_RESULT": 0, "CANCELLED": 1, },
 			"Physical settlement 必须区分领域结果和真实取消。"
 		)
 
@@ -393,8 +396,14 @@ func test_dual_terminal_public_contract_and_enum_values_are_frozen() -> void:
 		&"get_caller_result",
 		&"cancel_observation",
 	]:
-		assert_true(operation.has_method(method_name), "Operation 缺少 %s。" % method_name)
-	assert_true(operation.has_signal(&"caller_completed"), "Operation 缺少 caller_completed。")
+		assert_true(
+			operation.has_method(method_name),
+			"Operation 缺少 %s。" % method_name
+		)
+	assert_true(
+		operation.has_signal(&"caller_completed"),
+		"Operation 缺少 caller_completed。"
+	)
 	assert_true(
 		_storage.has_method(&"set_async_clock_for_framework"),
 		"Storage 必须允许框架测试注入 GFClock。"
@@ -418,9 +427,7 @@ func test_dual_terminal_public_contract_and_enum_values_are_frozen() -> void:
 		"Request options 必须通过 static create() 建立合法快照。"
 	)
 	var lifecycle_owner: RefCounted = RefCounted.new()
-	var options: GFStorageAsyncRequestOptions = GFStorageAsyncRequestOptions.create(
-		lifecycle_owner
-	)
+	var options: GFStorageAsyncRequestOptions = GFStorageAsyncRequestOptions.create(lifecycle_owner)
 	assert_not_null(options, "默认 request options 必须可构造。")
 	assert_true(options.is_valid())
 
@@ -459,10 +466,18 @@ func test_explicit_threaded_activation_fails_capability_check_before_cooperative
 	var threaded_activation: GFAsyncCompletion = storage.begin_activation(GFAsyncScope.new())
 	assert_true(threaded_activation.is_failed())
 	assert_eq(
-		GFVariantData.get_option_int(threaded_activation.get_metadata(), "error_code", OK),
+		GFVariantData.get_option_int(
+			threaded_activation.get_metadata(),
+			"error_code",
+			OK
+		),
 		ERR_CANT_CREATE
 	)
-	assert_eq(storage.thread_start_call_count, 0, "activation capability check 不得触达 worker seam。")
+	assert_eq(
+		storage.thread_start_call_count,
+		0,
+		"activation capability check 不得触达 worker seam。"
+	)
 
 	storage.async_execution_mode = GFStorageUtility.AsyncExecutionMode.COOPERATIVE
 	var cooperative_activation: GFAsyncCompletion = storage.begin_activation(GFAsyncScope.new())
@@ -484,13 +499,26 @@ func test_explicit_threaded_direct_use_fails_before_recovery_or_thread_start() -
 	assert_push_error("Thread start failed")
 	if operation == null:
 		return
-	_assert_physical_terminal(operation, "DOMAIN_RESULT", ERR_CANT_CREATE, false)
+	_assert_physical_terminal(
+		operation,
+		"DOMAIN_RESULT",
+		ERR_CANT_CREATE,
+		false
+	)
 	assert_eq(
 		operation.get_result().get_write_failure_kind(),
 		GFStorageAsyncResult.WriteFailureKind.THREAD_START_FAILED
 	)
-	assert_eq(storage.recovery_call_count, 0, "缺少线程能力时不得先执行 transaction recovery。")
-	assert_eq(storage.thread_start_call_count, 0, "缺少线程能力时不得触达 Thread.start seam。")
+	assert_eq(
+		storage.recovery_call_count,
+		0,
+		"缺少线程能力时不得先执行 transaction recovery。"
+	)
+	assert_eq(
+		storage.thread_start_call_count,
+		0,
+		"缺少线程能力时不得触达 Thread.start seam。"
+	)
 	assert_true(storage._async_queue.is_empty())
 	assert_true(storage._async_tasks.is_empty())
 	assert_true(storage._async_file_locks.is_empty())
@@ -512,10 +540,7 @@ func test_async_execution_mode_freezes_after_first_valid_async_queue() -> void:
 	assert_true(operation.is_pending())
 	storage.async_execution_mode = GFStorageUtility.AsyncExecutionMode.THREADED
 	assert_push_error("[GFStorageUtility][storage_utility.execution_mode_frozen] async_execution_mode is frozen after the first asynchronous request.")
-	assert_eq(
-		storage.async_execution_mode,
-		GFStorageUtility.AsyncExecutionMode.COOPERATIVE
-	)
+	assert_eq(storage.async_execution_mode, GFStorageUtility.AsyncExecutionMode.COOPERATIVE)
 	assert_eq(storage.thread_start_call_count, 0)
 
 
@@ -524,12 +549,7 @@ func test_automatic_threadless_mode_runs_save_load_delete_without_starting_threa
 		return
 	var storage: AutomaticCooperativeStorageUtility = _use_automatic_cooperative_storage()
 	var file_name: String = "cooperative/round-trip.json"
-	var descriptor: Dictionary = (
-		_GF_STORAGE_FAMILY_STORE_SCRIPT.make_family_descriptor_for_framework(
-			_storage_root_path,
-			file_name
-		)
-	)
+	var descriptor: Dictionary = _GF_STORAGE_FAMILY_STORE_SCRIPT.make_family_descriptor_for_framework(_storage_root_path, file_name)
 	var final_path: String = GFVariantData.get_option_string(descriptor, "payload_path")
 	assert_false(final_path.is_empty())
 
@@ -541,56 +561,142 @@ func test_automatic_threadless_mode_runs_save_load_delete_without_starting_threa
 	assert_not_null(save_operation)
 	if save_operation == null:
 		return
-	assert_true(save_operation.is_pending(), "请求 API 内只能入 cooperative queue。")
-	assert_eq(storage._async_queue.size(), 1)
+	assert_true(
+		save_operation.is_pending(),
+		"请求 API 内只能入 cooperative queue。"
+	)
+	assert_eq(
+		storage._async_queue.size(),
+		1
+	)
 	assert_true(storage._async_tasks.is_empty())
-	assert_eq(storage.thread_start_call_count, 0, "AUTOMATIC fallback 不得调用 Thread.start seam。")
-	assert_true(storage.callback_task_types.is_empty(), "请求 API 内不得同步执行 I/O。")
+	assert_eq(
+		storage.thread_start_call_count,
+		0,
+		"AUTOMATIC fallback 不得调用 Thread.start seam。"
+	)
+	assert_true(
+		storage.callback_task_types.is_empty(),
+		"请求 API 内不得同步执行 I/O。"
+	)
 	assert_false(FileAccess.file_exists(final_path))
 
 	storage.tick(0.0)
-	assert_true(save_operation.is_pending(), "tick N 只能接纳 cooperative task。")
+	assert_true(
+		save_operation.is_pending(),
+		"tick N 只能接纳 cooperative task。"
+	)
 	assert_true(storage._async_queue.is_empty())
-	assert_eq(storage._async_tasks.size(), 1)
-	assert_true(storage.callback_task_types.is_empty(), "tick N 不得执行刚接纳的 task。")
+	assert_eq(
+		storage._async_tasks.size(),
+		1
+	)
+	assert_true(
+		storage.callback_task_types.is_empty(),
+		"tick N 不得执行刚接纳的 task。"
+	)
 	storage.tick(0.0)
-	_assert_physical_terminal(save_operation, "DOMAIN_RESULT", OK, true)
-	_assert_caller_terminal(save_operation, "PHYSICAL_SETTLED", "PHYSICAL_SETTLEMENT")
-	assert_eq(storage.callback_task_types, [&"save"])
-	assert_eq(storage.callback_main_thread_results, [true])
+	_assert_physical_terminal(
+		save_operation,
+		"DOMAIN_RESULT",
+		OK,
+		true
+	)
+	_assert_caller_terminal(
+		save_operation,
+		"PHYSICAL_SETTLED",
+		"PHYSICAL_SETTLEMENT"
+	)
+	assert_eq(
+		storage.callback_task_types,
+		[&"save"]
+	)
+	assert_eq(
+		storage.callback_main_thread_results,
+		[true]
+	)
 	assert_true(FileAccess.file_exists(final_path))
 
-	var load_operation: GFStorageAsyncOperation = _request_load(file_name, _new_options())
+	var load_operation: GFStorageAsyncOperation = _request_load(
+		file_name,
+		_new_options()
+	)
 	assert_not_null(load_operation)
 	if load_operation == null:
 		return
 	assert_true(load_operation.is_pending())
-	assert_eq(storage.callback_task_types, [&"save"])
+	assert_eq(
+		storage.callback_task_types,
+		[&"save"]
+	)
 	storage.tick(0.0)
 	assert_true(load_operation.is_pending())
-	assert_eq(storage.callback_task_types, [&"save"])
+	assert_eq(
+		storage.callback_task_types,
+		[&"save"]
+	)
 	storage.tick(0.0)
-	_assert_physical_terminal(load_operation, "DOMAIN_RESULT", OK, true)
+	_assert_physical_terminal(
+		load_operation,
+		"DOMAIN_RESULT",
+		OK,
+		true
+	)
 	var read_result: GFStorageReadResult = load_operation.get_result().get_read_result()
 	assert_not_null(read_result)
 	if read_result != null:
 		assert_true(read_result.ok)
-		assert_eq(GFVariantData.get_option_int(read_result.payload, "value", -1), 17)
-	assert_eq(storage.callback_task_types, [&"save", &"load"])
+		assert_eq(
+			GFVariantData.get_option_int(
+				read_result.payload,
+				"value",
+				-1
+			),
+			17
+		)
+	assert_eq(
+		storage.callback_task_types,
+		[&"save", &"load"]
+	)
 
-	var delete_operation: GFStorageAsyncOperation = _request_delete(file_name, _new_options())
+	var delete_operation: GFStorageAsyncOperation = _request_delete(
+		file_name,
+		_new_options()
+	)
 	assert_not_null(delete_operation)
 	if delete_operation == null:
 		return
 	assert_true(delete_operation.is_pending())
 	storage.tick(0.0)
 	assert_true(delete_operation.is_pending())
-	assert_eq(storage.callback_task_types, [&"save", &"load"])
+	assert_eq(
+		storage.callback_task_types,
+		[&"save", &"load"]
+	)
 	storage.tick(0.0)
-	_assert_physical_terminal(delete_operation, "DOMAIN_RESULT", OK, true)
+	_assert_physical_terminal(
+		delete_operation,
+		"DOMAIN_RESULT",
+		OK,
+		true
+	)
 	assert_not_null(delete_operation.get_result().get_delete_result())
-	assert_eq(storage.callback_task_types, [&"save", &"load", &"delete"])
-	assert_eq(storage.callback_main_thread_results, [true, true, true])
+	assert_eq(
+		storage.callback_task_types,
+		[
+			&"save",
+			&"load",
+			&"delete",
+		]
+	)
+	assert_eq(
+		storage.callback_main_thread_results,
+		[
+			true,
+			true,
+			true,
+		]
+	)
 	assert_eq(storage.thread_start_call_count, 0)
 	assert_false(FileAccess.file_exists(final_path))
 
@@ -600,12 +706,7 @@ func test_automatic_threadless_queued_cancel_is_physical_cancel_without_io() -> 
 		return
 	var storage: AutomaticCooperativeStorageUtility = _use_automatic_cooperative_storage()
 	var file_name: String = "cooperative/queued-cancel.json"
-	var descriptor: Dictionary = (
-		_GF_STORAGE_FAMILY_STORE_SCRIPT.make_family_descriptor_for_framework(
-			_storage_root_path,
-			file_name
-		)
-	)
+	var descriptor: Dictionary = _GF_STORAGE_FAMILY_STORE_SCRIPT.make_family_descriptor_for_framework(_storage_root_path, file_name)
 	var final_path: String = GFVariantData.get_option_string(descriptor, "payload_path")
 	var operation: GFStorageAsyncOperation = _request_save(
 		file_name,
@@ -616,25 +717,50 @@ func test_automatic_threadless_queued_cancel_is_physical_cancel_without_io() -> 
 	if operation == null:
 		return
 	assert_true(operation.is_pending())
-	assert_eq(storage._async_queue.size(), 1)
+	assert_eq(
+		storage._async_queue.size(),
+		1
+	)
 	assert_true(storage._async_tasks.is_empty())
 	var physical_signal_count: Array[int] = [0]
 	var caller_signal_count: Array[int] = [0]
-	_connect_terminal_counters(operation, physical_signal_count, caller_signal_count)
+	_connect_terminal_counters(
+		operation,
+		physical_signal_count,
+		caller_signal_count
+	)
 
 	assert_true(GFVariantData.to_bool(operation.call("cancel_observation")))
-	_assert_physical_terminal(operation, "CANCELLED", ERR_SKIP, false)
-	_assert_caller_terminal(operation, "PHYSICAL_SETTLED", "EXPLICIT_CANCEL")
+	_assert_physical_terminal(
+		operation,
+		"CANCELLED",
+		ERR_SKIP,
+		false
+	)
+	_assert_caller_terminal(
+		operation,
+		"PHYSICAL_SETTLED",
+		"EXPLICIT_CANCEL"
+	)
 	assert_true(storage._async_queue.is_empty())
 	assert_true(storage._async_tasks.is_empty())
 	assert_true(storage._async_file_locks.is_empty())
 	assert_eq(storage.thread_start_call_count, 0)
 	assert_true(storage.callback_task_types.is_empty())
-	assert_eq(physical_signal_count[0], 1)
-	assert_eq(caller_signal_count[0], 1)
+	assert_eq(
+		physical_signal_count[0],
+		1
+	)
+	assert_eq(
+		caller_signal_count[0],
+		1
+	)
 	storage.tick(0.0)
 	storage.tick(0.0)
-	assert_true(storage.callback_task_types.is_empty(), "接纳前取消不得迟到执行 I/O。")
+	assert_true(
+		storage.callback_task_types.is_empty(),
+		"接纳前取消不得迟到执行 I/O。"
+	)
 	assert_false(FileAccess.file_exists(final_path))
 
 
@@ -653,14 +779,30 @@ func test_automatic_threadless_accepted_cancel_preserves_physical_and_same_file_
 	if primary == null:
 		return
 	storage.tick(0.0)
-	assert_true(primary.is_pending(), "tick N 接纳后仍必须等待 cooperative execution。")
-	assert_eq(storage._async_tasks.size(), 1)
-	assert_eq(storage._async_file_locks.size(), 1)
+	assert_true(
+		primary.is_pending(),
+		"tick N 接纳后仍必须等待 cooperative execution。"
+	)
+	assert_eq(
+		storage._async_tasks.size(),
+		1
+	)
+	assert_eq(
+		storage._async_file_locks.size(),
+		1
+	)
 	assert_true(storage.callback_task_types.is_empty())
 
 	assert_true(GFVariantData.to_bool(primary.call("cancel_observation")))
-	_assert_caller_terminal(primary, "OUTCOME_UNKNOWN", "EXPLICIT_CANCEL")
-	assert_true(primary.is_pending(), "accepted save cancel 只能结束 caller 观察。")
+	_assert_caller_terminal(
+		primary,
+		"OUTCOME_UNKNOWN",
+		"EXPLICIT_CANCEL"
+	)
+	assert_true(
+		primary.is_pending(),
+		"accepted save cancel 只能结束 caller 观察。"
+	)
 	var follower: GFStorageAsyncOperation = _request_save(
 		file_name,
 		{ "generation": 2 },
@@ -670,30 +812,80 @@ func test_automatic_threadless_accepted_cancel_preserves_physical_and_same_file_
 	if follower == null:
 		return
 	assert_true(follower.is_pending())
-	assert_eq(storage._async_queue.size(), 1, "同文件 follower 必须等待 primary 物理终态。")
-	assert_eq(storage._async_tasks.size(), 1)
+	assert_eq(
+		storage._async_queue.size(),
+		1,
+		"同文件 follower 必须等待 primary 物理终态。"
+	)
+	assert_eq(
+		storage._async_tasks.size(),
+		1
+	)
 
 	storage.tick(0.0)
-	_assert_physical_terminal(primary, "DOMAIN_RESULT", OK, true)
-	_assert_caller_terminal(primary, "OUTCOME_UNKNOWN", "EXPLICIT_CANCEL")
+	_assert_physical_terminal(
+		primary,
+		"DOMAIN_RESULT",
+		OK,
+		true
+	)
+	_assert_caller_terminal(
+		primary,
+		"OUTCOME_UNKNOWN",
+		"EXPLICIT_CANCEL"
+	)
 	assert_true(follower.is_pending())
-	assert_eq(storage.callback_task_types, [&"save"])
-	assert_eq(storage.saved_generations, [1])
-	assert_eq(storage._async_tasks.size(), 1, "primary 结算后可接纳但不得同 tick 执行 follower。")
-	assert_eq(storage._async_file_locks.size(), 1)
+	assert_eq(
+		storage.callback_task_types,
+		[&"save"]
+	)
+	assert_eq(
+		storage.saved_generations,
+		[1]
+	)
+	assert_eq(
+		storage._async_tasks.size(),
+		1,
+		"primary 结算后可接纳但不得同 tick 执行 follower。"
+	)
+	assert_eq(
+		storage._async_file_locks.size(),
+		1
+	)
 
 	storage.tick(0.0)
-	_assert_physical_terminal(follower, "DOMAIN_RESULT", OK, true)
-	assert_eq(storage.callback_task_types, [&"save", &"save"])
-	assert_eq(storage.saved_generations, [1, 2])
-	assert_eq(storage.callback_main_thread_results, [true, true])
+	_assert_physical_terminal(
+		follower,
+		"DOMAIN_RESULT",
+		OK,
+		true
+	)
+	assert_eq(
+		storage.callback_task_types,
+		[&"save", &"save"]
+	)
+	assert_eq(
+		storage.saved_generations,
+		[1, 2]
+	)
+	assert_eq(
+		storage.callback_main_thread_results,
+		[true, true]
+	)
 	assert_eq(storage.thread_start_call_count, 0)
 	assert_true(storage._async_tasks.is_empty())
 	assert_true(storage._async_queue.is_empty())
 	assert_true(storage._async_file_locks.is_empty())
 	var loaded: GFStorageReadResult = storage.load_data(file_name)
 	assert_true(loaded.ok)
-	assert_eq(GFVariantData.get_option_int(loaded.payload, "generation", -1), 2)
+	assert_eq(
+		GFVariantData.get_option_int(
+			loaded.payload,
+			"generation",
+			-1
+		),
+		2
+	)
 
 
 func test_automatic_threadless_late_budget_failure_keeps_caller_terminal_and_releases_lane() -> void:
@@ -701,12 +893,14 @@ func test_automatic_threadless_late_budget_failure_keeps_caller_terminal_and_rel
 	storage.max_async_thread_count = 1
 	for budget_kind: String in ["plaintext", "physical"]:
 		var file_name: String = "late-budget/" + budget_kind + ".json"
-		assert_eq(storage.save_data(file_name, { "generation": 0 }), OK)
-		var descriptor: Dictionary = (
-			_GF_STORAGE_FAMILY_STORE_SCRIPT.make_family_descriptor_for_framework(
-				_storage_root_path, file_name
-			)
+		assert_eq(
+			storage.save_data(
+				file_name,
+				{ "generation": 0 }
+			),
+			OK
 		)
+		var descriptor: Dictionary = _GF_STORAGE_FAMILY_STORE_SCRIPT.make_family_descriptor_for_framework(_storage_root_path, file_name)
 		var final_path: String = GFVariantData.get_option_string(descriptor, "payload_path")
 		assert_false(final_path.is_empty())
 		var original_bytes: PackedByteArray = FileAccess.get_file_as_bytes(final_path)
@@ -716,59 +910,130 @@ func test_automatic_threadless_late_budget_failure_keeps_caller_terminal_and_rel
 		else:
 			storage.max_read_bytes = 1
 		var primary: GFStorageAsyncOperation = _request_save(
-			file_name, { "generation": 1 }, _new_options()
+			file_name,
+			{ "generation": 1 },
+			_new_options()
 		)
 		assert_not_null(primary)
 		if primary == null:
 			continue
 		var caller_notifications: Array[int] = []
 		var physical_notifications: Array[int] = []
-		var caller_error: Error = primary.caller_completed.connect(
-			func(_result: GFStorageAsyncCallerResult) -> void:
-				caller_notifications.append(1),
-			CONNECT_ONE_SHOT as Object.ConnectFlags
-		) as Error
-		var physical_error: Error = primary.completed.connect(
-			func(_result: GFStorageAsyncResult) -> void:
-				physical_notifications.append(1),
-			CONNECT_ONE_SHOT as Object.ConnectFlags
-		) as Error
+		var caller_error: Error = (
+			primary.caller_completed.connect(
+				func(_result: GFStorageAsyncCallerResult) -> void:
+					caller_notifications.append(1),
+				CONNECT_ONE_SHOT as Object.ConnectFlags
+			) as Error
+		)
+		var physical_error: Error = (
+			primary.completed.connect(
+				func(_result: GFStorageAsyncResult) -> void:
+					physical_notifications.append(1),
+				CONNECT_ONE_SHOT as Object.ConnectFlags
+			) as Error
+		)
 		assert_eq(caller_error, OK)
 		assert_eq(physical_error, OK)
 		storage.tick(0.0)
-		assert_true(primary.is_pending(), "已接纳的 cooperative 请求尚未执行编码。")
+		assert_true(
+			primary.is_pending(),
+			"已接纳的 cooperative 请求尚未执行编码。"
+		)
 		assert_true(primary.cancel_observation(&"view_replaced"))
-		_assert_caller_terminal(primary, "OUTCOME_UNKNOWN", "EXPLICIT_CANCEL", &"view_replaced")
+		_assert_caller_terminal(
+			primary,
+			"OUTCOME_UNKNOWN",
+			"EXPLICIT_CANCEL",
+			&"view_replaced"
+		)
 		storage.codec.max_decode_bytes = 64 * 1024 * 1024
 		storage.max_read_bytes = 64 * 1024 * 1024
 		var follower: GFStorageAsyncOperation = _request_save(
-			file_name, { "generation": 2 }, _new_options()
+			file_name,
+			{ "generation": 2 },
+			_new_options()
 		)
 		assert_not_null(follower)
-		assert_eq(storage._async_queue.size(), 1)
+		assert_eq(
+			storage._async_queue.size(),
+			1
+		)
 
 		storage.tick(0.0)
-		_assert_physical_terminal(primary, "DOMAIN_RESULT", ERR_OUT_OF_MEMORY, false)
-		assert_eq(primary.get_result().get_write_failure_kind(), GFStorageAsyncResult.WriteFailureKind.LIMIT_EXCEEDED)
-		_assert_caller_terminal(primary, "OUTCOME_UNKNOWN", "EXPLICIT_CANCEL", &"view_replaced")
-		assert_eq(caller_notifications, [1], "晚到失败不得重新发送或改写 caller 终态。")
-		assert_eq(physical_notifications, [1])
-		assert_eq(FileAccess.get_file_as_bytes(final_path), original_bytes, "预算拒绝不能提交本次保存。")
+		_assert_physical_terminal(
+			primary,
+			"DOMAIN_RESULT",
+			ERR_OUT_OF_MEMORY,
+			false
+		)
+		assert_eq(
+			primary.get_result().get_write_failure_kind(),
+			GFStorageAsyncResult.WriteFailureKind.LIMIT_EXCEEDED
+		)
+		_assert_caller_terminal(
+			primary,
+			"OUTCOME_UNKNOWN",
+			"EXPLICIT_CANCEL",
+			&"view_replaced"
+		)
+		assert_eq(
+			caller_notifications,
+			[1],
+			"晚到失败不得重新发送或改写 caller 终态。"
+		)
+		assert_eq(
+			physical_notifications,
+			[1]
+		)
+		assert_eq(
+			FileAccess.get_file_as_bytes(final_path),
+			original_bytes,
+			"预算拒绝不能提交本次保存。"
+		)
 		var diagnostics: Array[Dictionary] = storage.get_late_settlement_diagnostics()
-		assert_eq(diagnostics.size(), 1 if budget_kind == "plaintext" else 2)
+		assert_eq(
+			diagnostics.size(),
+			1 if budget_kind == "plaintext" else 2
+		)
 		var diagnostic: Dictionary = diagnostics[-1]
-		assert_eq(GFVariantData.get_option_int(diagnostic, "request_id"), primary.get_request_id())
+		assert_eq(
+			GFVariantData.get_option_int(diagnostic, "request_id"),
+			primary.get_request_id()
+		)
 		assert_false(GFVariantData.get_option_bool(diagnostic, "physical_ok"))
-		assert_eq(GFVariantData.get_option_int(diagnostic, "physical_error_code"), ERR_OUT_OF_MEMORY)
-		assert_eq(GFVariantData.get_option_int(diagnostic, "write_failure_kind"), GFStorageAsyncResult.WriteFailureKind.LIMIT_EXCEEDED)
-		assert_eq(storage._async_file_locks.size(), 1, "失败结算后接纳 follower，但不提前执行它。")
+		assert_eq(
+			GFVariantData.get_option_int(diagnostic, "physical_error_code"),
+			ERR_OUT_OF_MEMORY
+		)
+		assert_eq(
+			GFVariantData.get_option_int(diagnostic, "write_failure_kind"),
+			GFStorageAsyncResult.WriteFailureKind.LIMIT_EXCEEDED
+		)
+		assert_eq(
+			storage._async_file_locks.size(),
+			1,
+			"失败结算后接纳 follower，但不提前执行它。"
+		)
 		storage.tick(0.0)
-		_assert_physical_terminal(follower, "DOMAIN_RESULT", OK, true)
+		_assert_physical_terminal(
+			follower,
+			"DOMAIN_RESULT",
+			OK,
+			true
+		)
 		assert_true(storage._async_file_locks.is_empty())
 		assert_true(storage._async_tasks.is_empty())
 		var loaded: GFStorageReadResult = storage.load_data(file_name)
 		assert_true(loaded.ok)
-		assert_eq(GFVariantData.get_option_int(loaded.payload, "generation", -1), 2)
+		assert_eq(
+			GFVariantData.get_option_int(
+				loaded.payload,
+				"generation",
+				-1
+			),
+			2
+		)
 	assert_eq(storage.thread_start_call_count, 0)
 
 
@@ -781,7 +1046,11 @@ func test_automatic_threadless_accepted_deadline_precedes_physical_settlement() 
 	var operation: GFStorageAsyncOperation = _request_save(
 		"cooperative/deadline.json",
 		{ "generation": 5 },
-		_new_options(null, null, 10)
+		_new_options(
+			null,
+			null,
+			10
+		)
 	)
 	assert_not_null(operation)
 	if operation == null:
@@ -789,19 +1058,43 @@ func test_automatic_threadless_accepted_deadline_precedes_physical_settlement() 
 	storage.tick(0.0)
 	assert_true(operation.is_pending())
 	assert_true(_is_caller_pending(operation))
-	assert_eq(storage._async_tasks.size(), 1)
-	assert_eq(storage._async_file_locks.size(), 1)
+	assert_eq(
+		storage._async_tasks.size(),
+		1
+	)
+	assert_eq(
+		storage._async_file_locks.size(),
+		1
+	)
 	assert_true(manual_clock.advance_msec(10))
 
 	storage.tick(0.0)
-	_assert_caller_terminal(operation, "OUTCOME_UNKNOWN", "DEADLINE_EXPIRED")
-	_assert_physical_terminal(operation, "DOMAIN_RESULT", OK, true)
-	assert_eq(storage.saved_generations, [5])
-	assert_eq(storage.callback_main_thread_results, [true])
+	_assert_caller_terminal(
+		operation,
+		"OUTCOME_UNKNOWN",
+		"DEADLINE_EXPIRED"
+	)
+	_assert_physical_terminal(
+		operation,
+		"DOMAIN_RESULT",
+		OK,
+		true
+	)
+	assert_eq(
+		storage.saved_generations,
+		[5]
+	)
+	assert_eq(
+		storage.callback_main_thread_results,
+		[true]
+	)
 	assert_true(storage._async_tasks.is_empty())
 	assert_true(storage._async_file_locks.is_empty())
 	var diagnostics: Array[Dictionary] = storage.get_late_settlement_diagnostics()
-	assert_eq(diagnostics.size(), 1)
+	assert_eq(
+		diagnostics.size(),
+		1
+	)
 	if diagnostics.size() == 1:
 		var diagnostic: Dictionary = diagnostics[0]
 		assert_eq(
@@ -842,29 +1135,56 @@ func test_automatic_threadless_same_file_fifo_executes_at_most_one_item_per_tick
 			CONNECT_ONE_SHOT as Object.ConnectFlags
 		) as Error
 		assert_eq(connect_error, OK)
-	assert_eq(storage._async_queue.size(), 3)
+	assert_eq(
+		storage._async_queue.size(),
+		3
+	)
 	assert_true(storage._async_tasks.is_empty())
 	assert_true(storage.callback_task_types.is_empty())
 
 	storage.tick(0.0)
-	assert_eq(storage.callback_task_types.size(), 0, "首 tick 只能接纳第一项。")
-	assert_eq(storage._async_tasks.size(), 1)
-	assert_eq(storage._async_queue.size(), 2)
+	assert_eq(
+		storage.callback_task_types.size(),
+		0,
+		"首 tick 只能接纳第一项。"
+	)
+	assert_eq(
+		storage._async_tasks.size(),
+		1
+	)
+	assert_eq(
+		storage._async_queue.size(),
+		2
+	)
 	storage.tick(0.0)
-	assert_eq(storage.callback_task_types.size(), 1)
+	assert_eq(
+		storage.callback_task_types.size(),
+		1
+	)
 	assert_true(operations[0].is_completed())
 	assert_true(operations[1].is_pending())
 	assert_true(operations[2].is_pending())
 	storage.tick(0.0)
-	assert_eq(storage.callback_task_types.size(), 2)
+	assert_eq(
+		storage.callback_task_types.size(),
+		2
+	)
 	assert_true(operations[1].is_completed())
 	assert_true(operations[2].is_pending())
 	storage.tick(0.0)
-	assert_eq(storage.callback_task_types.size(), 3)
+	assert_eq(
+		storage.callback_task_types.size(),
+		3
+	)
 	assert_true(operations[2].is_completed())
 
 	for operation: GFStorageAsyncOperation in operations:
-		_assert_physical_terminal(operation, "DOMAIN_RESULT", OK, true)
+		_assert_physical_terminal(
+			operation,
+			"DOMAIN_RESULT",
+			OK,
+			true
+		)
 	assert_eq(
 		completion_order,
 		[
@@ -873,15 +1193,36 @@ func test_automatic_threadless_same_file_fifo_executes_at_most_one_item_per_tick
 			operations[2].get_request_id(),
 		]
 	)
-	assert_eq(storage.saved_generations, [1, 2, 3])
-	assert_eq(storage.callback_main_thread_results, [true, true, true])
+	assert_eq(
+		storage.saved_generations,
+		[
+			1,
+			2,
+			3,
+		]
+	)
+	assert_eq(
+		storage.callback_main_thread_results,
+		[
+			true,
+			true,
+			true,
+		]
+	)
 	assert_eq(storage.thread_start_call_count, 0)
 	assert_true(storage._async_tasks.is_empty())
 	assert_true(storage._async_queue.is_empty())
 	assert_true(storage._async_file_locks.is_empty())
 	var loaded: GFStorageReadResult = storage.load_data(file_name)
 	assert_true(loaded.ok)
-	assert_eq(GFVariantData.get_option_int(loaded.payload, "generation", -1), 3)
+	assert_eq(
+		GFVariantData.get_option_int(
+			loaded.payload,
+			"generation",
+			-1
+		),
+		3
+	)
 
 
 func test_automatic_threadless_quiesce_drains_accepted_work_without_threads() -> void:
@@ -903,7 +1244,10 @@ func test_automatic_threadless_quiesce_drains_accepted_work_without_threads() ->
 	if first == null or second == null:
 		return
 	var quiesce: GFAsyncCompletion = storage.begin_quiesce(GFAsyncScope.new())
-	assert_false(quiesce.is_completed(), "尚有已接纳工作时 quiesce 必须等待。")
+	assert_false(
+		quiesce.is_completed(),
+		"尚有已接纳工作时 quiesce 必须等待。"
+	)
 	for _tick_index: int in range(6):
 		var callback_count_before: int = storage.callback_task_types.size()
 		storage.tick(0.0)
@@ -917,10 +1261,26 @@ func test_automatic_threadless_quiesce_drains_accepted_work_without_threads() ->
 
 	assert_true(quiesce.is_completed())
 	assert_true(quiesce.is_successful())
-	_assert_physical_terminal(first, "DOMAIN_RESULT", OK, true)
-	_assert_physical_terminal(second, "DOMAIN_RESULT", OK, true)
-	assert_eq(storage.saved_generations, [1, 2])
-	assert_eq(storage.callback_main_thread_results, [true, true])
+	_assert_physical_terminal(
+		first,
+		"DOMAIN_RESULT",
+		OK,
+		true
+	)
+	_assert_physical_terminal(
+		second,
+		"DOMAIN_RESULT",
+		OK,
+		true
+	)
+	assert_eq(
+		storage.saved_generations,
+		[1, 2]
+	)
+	assert_eq(
+		storage.callback_main_thread_results,
+		[true, true]
+	)
 	assert_eq(storage.thread_start_call_count, 0)
 	assert_true(storage._async_tasks.is_empty())
 	assert_true(storage._async_queue.is_empty())
@@ -941,20 +1301,41 @@ func test_automatic_threadless_wait_synchronously_drains_queued_work() -> void:
 	if operation == null:
 		return
 	assert_true(operation.is_pending())
-	assert_eq(storage._async_queue.size(), 1)
+	assert_eq(
+		storage._async_queue.size(),
+		1
+	)
 	assert_true(storage._async_tasks.is_empty())
 
 	storage.wait_for_async_tasks()
-	_assert_physical_terminal(operation, "DOMAIN_RESULT", OK, true)
-	assert_eq(storage.saved_generations, [7])
-	assert_eq(storage.callback_main_thread_results, [true])
+	_assert_physical_terminal(
+		operation,
+		"DOMAIN_RESULT",
+		OK,
+		true
+	)
+	assert_eq(
+		storage.saved_generations,
+		[7]
+	)
+	assert_eq(
+		storage.callback_main_thread_results,
+		[true]
+	)
 	assert_eq(storage.thread_start_call_count, 0)
 	assert_true(storage._async_tasks.is_empty())
 	assert_true(storage._async_queue.is_empty())
 	assert_true(storage._async_file_locks.is_empty())
 	var loaded: GFStorageReadResult = storage.load_data(file_name)
 	assert_true(loaded.ok)
-	assert_eq(GFVariantData.get_option_int(loaded.payload, "generation", -1), 7)
+	assert_eq(
+		GFVariantData.get_option_int(
+			loaded.payload,
+			"generation",
+			-1
+		),
+		7
+	)
 
 
 func test_automatic_threadless_completion_wait_drains_before_deferred_dispose() -> void:
@@ -1001,24 +1382,46 @@ func test_automatic_threadless_completion_wait_drains_before_deferred_dispose() 
 	storage.tick(0.0)
 	assert_true(first.is_pending())
 	assert_true(second.is_pending())
-	assert_eq(storage._async_tasks.size(), 1)
-	assert_eq(storage._async_queue.size(), 1)
+	assert_eq(
+		storage._async_tasks.size(),
+		1
+	)
+	assert_eq(
+		storage._async_queue.size(),
+		1
+	)
 	storage.tick(0.0)
 
 	if storage.save_completed.is_connected(callback):
 		storage.save_completed.disconnect(callback)
-	assert_true(GFVariantData.get_option_bool(
-		callback_state,
-		"second_completed_after_wait"
-	), "completion signal 内的 wait 返回前必须排空剩余队列。")
-	assert_true(GFVariantData.get_option_bool(
-		callback_state,
-		"second_success_after_wait"
-	), "wait 已排空的 follower 不得被随后的 deferred dispose 取消。")
-	assert_eq(GFVariantData.get_option_int(callback_state, "count"), 2)
-	_assert_physical_terminal(first, "DOMAIN_RESULT", OK, true)
-	_assert_physical_terminal(second, "DOMAIN_RESULT", OK, true)
-	assert_eq(storage.saved_generations, [1, 2])
+	assert_true(
+		GFVariantData.get_option_bool(callback_state, "second_completed_after_wait"),
+		"completion signal 内的 wait 返回前必须排空剩余队列。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(callback_state, "second_success_after_wait"),
+		"wait 已排空的 follower 不得被随后的 deferred dispose 取消。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(callback_state, "count"),
+		2
+	)
+	_assert_physical_terminal(
+		first,
+		"DOMAIN_RESULT",
+		OK,
+		true
+	)
+	_assert_physical_terminal(
+		second,
+		"DOMAIN_RESULT",
+		OK,
+		true
+	)
+	assert_eq(
+		storage.saved_generations,
+		[1, 2]
+	)
 	assert_true(storage._async_tasks.is_empty())
 	assert_true(storage._async_queue.is_empty())
 	assert_true(storage._async_file_locks.is_empty())
@@ -1068,25 +1471,51 @@ func test_automatic_threadless_operation_completion_wait_drains_before_dispose()
 	storage.tick(0.0)
 	assert_true(first.is_pending())
 	assert_true(second.is_pending())
-	assert_eq(storage._async_tasks.size(), 1)
-	assert_eq(storage._async_queue.size(), 1)
+	assert_eq(
+		storage._async_tasks.size(),
+		1
+	)
+	assert_eq(
+		storage._async_queue.size(),
+		1
+	)
 	storage.tick(0.0)
 
 	if first.completed.is_connected(callback):
 		first.completed.disconnect(callback)
-	assert_eq(GFVariantData.get_option_int(callback_state, "count"), 1)
-	assert_true(GFVariantData.get_option_bool(
-		callback_state,
-		"second_completed_after_wait"
-	), "operation completed listener 内的 wait 返回前必须排空同文件 follower。")
-	assert_true(GFVariantData.get_option_bool(
-		callback_state,
-		"second_success_after_wait"
-	), "physical completion listener 重入 wait 后，follower 不得被 deferred dispose 取消。")
-	_assert_physical_terminal(first, "DOMAIN_RESULT", OK, true)
-	_assert_physical_terminal(second, "DOMAIN_RESULT", OK, true)
-	_assert_caller_terminal(second, "PHYSICAL_SETTLED", "PHYSICAL_SETTLEMENT")
-	assert_eq(storage.saved_generations, [1, 2])
+	assert_eq(
+		GFVariantData.get_option_int(callback_state, "count"),
+		1
+	)
+	assert_true(
+		GFVariantData.get_option_bool(callback_state, "second_completed_after_wait"),
+		"operation completed listener 内的 wait 返回前必须排空同文件 follower。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(callback_state, "second_success_after_wait"),
+		"physical completion listener 重入 wait 后，follower 不得被 deferred dispose 取消。"
+	)
+	_assert_physical_terminal(
+		first,
+		"DOMAIN_RESULT",
+		OK,
+		true
+	)
+	_assert_physical_terminal(
+		second,
+		"DOMAIN_RESULT",
+		OK,
+		true
+	)
+	_assert_caller_terminal(
+		second,
+		"PHYSICAL_SETTLED",
+		"PHYSICAL_SETTLEMENT"
+	)
+	assert_eq(
+		storage.saved_generations,
+		[1, 2]
+	)
 	assert_true(storage._async_tasks.is_empty())
 	assert_true(storage._async_queue.is_empty())
 	assert_true(storage._async_file_locks.is_empty())
@@ -1141,15 +1570,35 @@ func test_automatic_threadless_deferred_dispose_prevents_completion_wait_accepta
 	if storage.save_completed.is_connected(callback):
 		storage.save_completed.disconnect(callback)
 	assert_true(GFVariantData.get_option_bool(callback_state, "deferred_dispose_seen"))
-	assert_true(GFVariantData.get_option_bool(
-		callback_state,
-		"second_stayed_queued_after_wait"
-	), "deferred dispose 取得清理权后，重入 wait 不得再接纳 follower。")
-	assert_eq(GFVariantData.get_option_int(callback_state, "count"), 1)
-	_assert_physical_terminal(first, "DOMAIN_RESULT", OK, true)
-	_assert_physical_terminal(second, "CANCELLED", ERR_SKIP, false)
-	_assert_caller_terminal(second, "PHYSICAL_SETTLED", "UTILITY_DISPOSED")
-	assert_eq(storage.saved_generations, [1])
+	assert_true(
+		GFVariantData.get_option_bool(callback_state, "second_stayed_queued_after_wait"),
+		"deferred dispose 取得清理权后，重入 wait 不得再接纳 follower。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(callback_state, "count"),
+		1
+	)
+	_assert_physical_terminal(
+		first,
+		"DOMAIN_RESULT",
+		OK,
+		true
+	)
+	_assert_physical_terminal(
+		second,
+		"CANCELLED",
+		ERR_SKIP,
+		false
+	)
+	_assert_caller_terminal(
+		second,
+		"PHYSICAL_SETTLED",
+		"UTILITY_DISPOSED"
+	)
+	assert_eq(
+		storage.saved_generations,
+		[1]
+	)
 	assert_true(storage._async_tasks.is_empty())
 	assert_true(storage._async_queue.is_empty())
 	assert_true(storage._async_file_locks.is_empty())
@@ -1160,9 +1609,7 @@ func test_automatic_threadless_deferred_dispose_prevents_completion_wait_accepta
 func test_automatic_threadless_wait_rechecks_dispose_after_lifecycle_poll() -> void:
 	if not _lifecycle_scenarios_ready():
 		return
-	var storage: DisposeDuringCooperativeWaitMaintenanceStorageUtility = (
-		DisposeDuringCooperativeWaitMaintenanceStorageUtility.new()
-	)
+	var storage: DisposeDuringCooperativeWaitMaintenanceStorageUtility = DisposeDuringCooperativeWaitMaintenanceStorageUtility.new()
 	_replace_storage_for_test(storage)
 	storage.async_execution_mode = GFStorageUtility.AsyncExecutionMode.AUTOMATIC
 	var file_name: String = "cooperative/dispose-during-wait-poll.json"
@@ -1180,10 +1627,7 @@ func test_automatic_threadless_wait_rechecks_dispose_after_lifecycle_poll() -> v
 	assert_not_null(second)
 	if first == null or second == null:
 		return
-	var callback_state: Dictionary = {
-		"count": 0,
-		"second_stayed_queued_after_wait": false,
-	}
+	var callback_state: Dictionary = { "count": 0, "second_stayed_queued_after_wait": false, }
 	var callback: Callable = func(completed_file_name: String, error: Error) -> void:
 		if completed_file_name != file_name or error != OK:
 			return
@@ -1207,15 +1651,35 @@ func test_automatic_threadless_wait_rechecks_dispose_after_lifecycle_poll() -> v
 	if storage.save_completed.is_connected(callback):
 		storage.save_completed.disconnect(callback)
 	assert_true(storage.dispose_invoked_during_poll)
-	assert_true(GFVariantData.get_option_bool(
-		callback_state,
-		"second_stayed_queued_after_wait"
-	), "lifecycle poll 回调取得 dispose 权后，wait 必须在 start 前二次失败关闭。")
-	assert_eq(GFVariantData.get_option_int(callback_state, "count"), 1)
-	_assert_physical_terminal(first, "DOMAIN_RESULT", OK, true)
-	_assert_physical_terminal(second, "CANCELLED", ERR_SKIP, false)
-	_assert_caller_terminal(second, "PHYSICAL_SETTLED", "UTILITY_DISPOSED")
-	assert_eq(storage.saved_generations, [1])
+	assert_true(
+		GFVariantData.get_option_bool(callback_state, "second_stayed_queued_after_wait"),
+		"lifecycle poll 回调取得 dispose 权后，wait 必须在 start 前二次失败关闭。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(callback_state, "count"),
+		1
+	)
+	_assert_physical_terminal(
+		first,
+		"DOMAIN_RESULT",
+		OK,
+		true
+	)
+	_assert_physical_terminal(
+		second,
+		"CANCELLED",
+		ERR_SKIP,
+		false
+	)
+	_assert_caller_terminal(
+		second,
+		"PHYSICAL_SETTLED",
+		"UTILITY_DISPOSED"
+	)
+	assert_eq(
+		storage.saved_generations,
+		[1]
+	)
 	assert_true(storage._async_tasks.is_empty())
 	assert_true(storage._async_queue.is_empty())
 	assert_true(storage._async_file_locks.is_empty())
@@ -1226,9 +1690,7 @@ func test_automatic_threadless_wait_rechecks_dispose_after_lifecycle_poll() -> v
 func test_automatic_threadless_wait_stops_after_queued_deadline_requests_dispose() -> void:
 	if not _lifecycle_scenarios_ready():
 		return
-	var storage: DeadlineDuringCooperativeWaitMaintenanceStorageUtility = (
-		DeadlineDuringCooperativeWaitMaintenanceStorageUtility.new()
-	)
+	var storage: DeadlineDuringCooperativeWaitMaintenanceStorageUtility = DeadlineDuringCooperativeWaitMaintenanceStorageUtility.new()
 	_replace_storage_for_test(storage)
 	storage.async_execution_mode = GFStorageUtility.AsyncExecutionMode.AUTOMATIC
 	var manual_clock: GFManualClock = GFManualClock.new(1_000_000, 1_700_000_000_000)
@@ -1243,7 +1705,11 @@ func test_automatic_threadless_wait_stops_after_queued_deadline_requests_dispose
 	var deadline: GFStorageAsyncOperation = _request_save(
 		file_name,
 		{ "generation": 2 },
-		_new_options(null, null, 10)
+		_new_options(
+			null,
+			null,
+			10
+		)
 	)
 	var follower: GFStorageAsyncOperation = _request_save(
 		file_name,
@@ -1253,7 +1719,11 @@ func test_automatic_threadless_wait_stops_after_queued_deadline_requests_dispose
 	assert_not_null(first)
 	assert_not_null(deadline)
 	assert_not_null(follower)
-	if first == null or deadline == null or follower == null:
+	if (
+		first == null
+		or deadline == null
+		or follower == null
+	):
 		return
 	var callback_state: Dictionary = {
 		"save_count": 0,
@@ -1271,9 +1741,7 @@ func test_automatic_threadless_wait_stops_after_queued_deadline_requests_dispose
 	var save_callback: Callable = func(completed_file_name: String, error: Error) -> void:
 		if completed_file_name != file_name or error != OK:
 			return
-		callback_state["save_count"] = (
-			GFVariantData.get_option_int(callback_state, "save_count") + 1
-		)
+		callback_state["save_count"] = (GFVariantData.get_option_int(callback_state, "save_count") + 1)
 		if GFVariantData.get_option_int(callback_state, "save_count") != 1:
 			return
 		storage.advance_on_next_lifecycle_poll = true
@@ -1295,17 +1763,46 @@ func test_automatic_threadless_wait_stops_after_queued_deadline_requests_dispose
 		deadline.completed.disconnect(deadline_callback)
 	assert_true(storage.deadline_advanced_during_poll)
 	assert_true(GFVariantData.get_option_bool(callback_state, "dispose_invoked"))
-	assert_true(GFVariantData.get_option_bool(
-		callback_state,
-		"follower_stayed_queued_after_wait"
-	), "queued deadline 回调取得 dispose 权后，不得在同一次 start loop 接纳 follower。")
-	assert_eq(GFVariantData.get_option_int(callback_state, "save_count"), 1)
-	_assert_physical_terminal(first, "DOMAIN_RESULT", OK, true)
-	_assert_physical_terminal(deadline, "CANCELLED", ERR_SKIP, false)
-	_assert_caller_terminal(deadline, "PHYSICAL_SETTLED", "DEADLINE_EXPIRED")
-	_assert_physical_terminal(follower, "CANCELLED", ERR_SKIP, false)
-	_assert_caller_terminal(follower, "PHYSICAL_SETTLED", "UTILITY_DISPOSED")
-	assert_eq(storage.saved_generations, [1])
+	assert_true(
+		GFVariantData.get_option_bool(callback_state, "follower_stayed_queued_after_wait"),
+		"queued deadline 回调取得 dispose 权后，不得在同一次 start loop 接纳 follower。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(callback_state, "save_count"),
+		1
+	)
+	_assert_physical_terminal(
+		first,
+		"DOMAIN_RESULT",
+		OK,
+		true
+	)
+	_assert_physical_terminal(
+		deadline,
+		"CANCELLED",
+		ERR_SKIP,
+		false
+	)
+	_assert_caller_terminal(
+		deadline,
+		"PHYSICAL_SETTLED",
+		"DEADLINE_EXPIRED"
+	)
+	_assert_physical_terminal(
+		follower,
+		"CANCELLED",
+		ERR_SKIP,
+		false
+	)
+	_assert_caller_terminal(
+		follower,
+		"PHYSICAL_SETTLED",
+		"UTILITY_DISPOSED"
+	)
+	assert_eq(
+		storage.saved_generations,
+		[1]
+	)
 	assert_true(storage._async_tasks.is_empty())
 	assert_true(storage._async_queue.is_empty())
 	assert_true(storage._async_file_locks.is_empty())
@@ -1316,9 +1813,7 @@ func test_automatic_threadless_wait_stops_after_queued_deadline_requests_dispose
 func test_automatic_threadless_reentrant_same_file_wait_fails_busy_without_spinning() -> void:
 	if not _lifecycle_scenarios_ready():
 		return
-	var storage: ReentrantCooperativeWaitStorageUtility = (
-		ReentrantCooperativeWaitStorageUtility.new()
-	)
+	var storage: ReentrantCooperativeWaitStorageUtility = ReentrantCooperativeWaitStorageUtility.new()
 	_replace_storage_for_test(storage)
 	storage.async_execution_mode = GFStorageUtility.AsyncExecutionMode.AUTOMATIC
 	storage.reentrant_file_name = "cooperative/reentrant-wait.json"
@@ -1334,13 +1829,22 @@ func test_automatic_threadless_reentrant_same_file_wait_fails_busy_without_spinn
 	assert_true(operation.is_pending())
 	storage.tick(0.0)
 	assert_push_error("[GFStorageUtility][storage_utility.async_wait_reentrant] wait_for_async_tasks cannot reenter the synchronous Storage executor stack.")
-	_assert_physical_terminal(operation, "DOMAIN_RESULT", OK, true)
+	_assert_physical_terminal(
+		operation,
+		"DOMAIN_RESULT",
+		OK,
+		true
+	)
 	assert_true(storage.reentrant_read_returned, "重入同步读取必须有界返回。")
 	assert_not_null(storage.reentrant_read_result)
 	if storage.reentrant_read_result != null:
 		assert_false(storage.reentrant_read_result.ok)
 		assert_eq(storage.reentrant_read_result.error_code, ERR_BUSY)
-	assert_eq(storage.callback_task_types, [&"save"], "重入读取不得执行第二个 I/O callback。")
+	assert_eq(
+		storage.callback_task_types,
+		[&"save"],
+		"重入读取不得执行第二个 I/O callback。"
+	)
 	assert_true(storage._async_queue.is_empty())
 	assert_true(storage._async_tasks.is_empty())
 	assert_true(storage._async_file_locks.is_empty())
@@ -1349,9 +1853,7 @@ func test_automatic_threadless_reentrant_same_file_wait_fails_busy_without_spinn
 func test_automatic_threadless_reentrant_dispose_waits_for_physical_settlement() -> void:
 	if not _lifecycle_scenarios_ready():
 		return
-	var storage: ReentrantCooperativeDisposeStorageUtility = (
-		ReentrantCooperativeDisposeStorageUtility.new()
-	)
+	var storage: ReentrantCooperativeDisposeStorageUtility = ReentrantCooperativeDisposeStorageUtility.new()
 	_replace_storage_for_test(storage)
 	storage.async_execution_mode = GFStorageUtility.AsyncExecutionMode.AUTOMATIC
 	var operation: GFStorageAsyncOperation = _request_save(
@@ -1364,18 +1866,39 @@ func test_automatic_threadless_reentrant_dispose_waits_for_physical_settlement()
 		return
 	storage.tick(0.0)
 	assert_true(operation.is_pending())
-	assert_eq(storage._async_tasks.size(), 1)
-	assert_eq(storage._async_file_locks.size(), 1)
+	assert_eq(
+		storage._async_tasks.size(),
+		1
+	)
+	assert_eq(
+		storage._async_file_locks.size(),
+		1
+	)
 
 	storage.tick(0.0)
-	_assert_physical_terminal(operation, "DOMAIN_RESULT", OK, true)
-	_assert_caller_terminal(operation, "PHYSICAL_SETTLED", "PHYSICAL_SETTLEMENT")
+	_assert_physical_terminal(
+		operation,
+		"DOMAIN_RESULT",
+		OK,
+		true
+	)
+	_assert_caller_terminal(
+		operation,
+		"PHYSICAL_SETTLED",
+		"PHYSICAL_SETTLEMENT"
+	)
 	assert_true(storage.dispose_invoked)
 	assert_true(storage.deferred_dispose_seen, "executor 回调内 dispose 必须延迟。")
 	assert_true(storage.task_retained_after_dispose, "回调返回前不得清除 active task。")
 	assert_true(storage.lock_retained_after_dispose, "回调返回前不得释放 exact family lock。")
-	assert_eq(storage.saved_generations, [11])
-	assert_eq(storage.callback_main_thread_results, [true])
+	assert_eq(
+		storage.saved_generations,
+		[11]
+	)
+	assert_eq(
+		storage.callback_main_thread_results,
+		[true]
+	)
 	assert_true(storage._async_tasks.is_empty())
 	assert_true(storage._async_queue.is_empty())
 	assert_true(storage._async_file_locks.is_empty())
@@ -1398,7 +1921,10 @@ func test_automatic_threadless_dispose_executes_accepted_and_cancels_remaining_q
 		return
 	storage.tick(0.0)
 	assert_true(active.is_pending())
-	assert_eq(storage._async_tasks.size(), 1)
+	assert_eq(
+		storage._async_tasks.size(),
+		1
+	)
 	assert_true(storage.callback_task_types.is_empty())
 	var queued: GFStorageAsyncOperation = _request_save(
 		"cooperative/dispose-queued.json",
@@ -1409,15 +1935,42 @@ func test_automatic_threadless_dispose_executes_accepted_and_cancels_remaining_q
 	if queued == null:
 		return
 	assert_true(queued.is_pending())
-	assert_eq(storage._async_queue.size(), 1)
+	assert_eq(
+		storage._async_queue.size(),
+		1
+	)
 
 	storage.dispose()
-	_assert_physical_terminal(active, "DOMAIN_RESULT", OK, true)
-	_assert_caller_terminal(active, "PHYSICAL_SETTLED", "PHYSICAL_SETTLEMENT")
-	_assert_physical_terminal(queued, "CANCELLED", ERR_SKIP, false)
-	_assert_caller_terminal(queued, "PHYSICAL_SETTLED", "UTILITY_DISPOSED")
-	assert_eq(storage.saved_generations, [1])
-	assert_eq(storage.callback_main_thread_results, [true])
+	_assert_physical_terminal(
+		active,
+		"DOMAIN_RESULT",
+		OK,
+		true
+	)
+	_assert_caller_terminal(
+		active,
+		"PHYSICAL_SETTLED",
+		"PHYSICAL_SETTLEMENT"
+	)
+	_assert_physical_terminal(
+		queued,
+		"CANCELLED",
+		ERR_SKIP,
+		false
+	)
+	_assert_caller_terminal(
+		queued,
+		"PHYSICAL_SETTLED",
+		"UTILITY_DISPOSED"
+	)
+	assert_eq(
+		storage.saved_generations,
+		[1]
+	)
+	assert_eq(
+		storage.callback_main_thread_results,
+		[true]
+	)
 	assert_eq(storage.thread_start_call_count, 0)
 	assert_true(storage._async_tasks.is_empty())
 	assert_true(storage._async_queue.is_empty())
@@ -1430,93 +1983,108 @@ func test_caller_result_enforces_operation_and_physical_settlement_union() -> vo
 	var domain_request_id: int = 701
 	var domain_file_name: String = "caller-contract/domain.json"
 	var domain_result: GFStorageAsyncResult = GFStorageAsyncResult.new()
-	assert_true(domain_result.configure_for_framework(
-		domain_request_id,
-		GFStorageAsyncOperation.OPERATION_SAVE,
-		domain_file_name,
-		true,
-		OK
-	))
+	assert_true(
+		domain_result.configure_for_framework(
+			domain_request_id,
+			GFStorageAsyncOperation.OPERATION_SAVE,
+			domain_file_name,
+			true,
+			OK
+		)
+	)
 	var cancelled_request_id: int = 702
 	var cancelled_file_name: String = "caller-contract/cancelled.json"
 	var cancelled_result: GFStorageAsyncResult = GFStorageAsyncResult.new()
-	assert_true(cancelled_result.configure_cancelled_for_framework(
-		cancelled_request_id,
-		GFStorageAsyncOperation.OPERATION_SAVE,
-		cancelled_file_name
-	))
+	assert_true(
+		cancelled_result.configure_cancelled_for_framework(
+			cancelled_request_id,
+			GFStorageAsyncOperation.OPERATION_SAVE,
+			cancelled_file_name
+		)
+	)
 
 	var load_unknown: GFStorageAsyncCallerResult = GFStorageAsyncCallerResult.new()
-	assert_false(load_unknown.configure_for_framework(
-		801,
-		801,
-		GFStorageAsyncOperation.OPERATION_LOAD,
-		"caller-contract/load.json",
-		GFStorageAsyncCallerResult.Status.OUTCOME_UNKNOWN,
-		GFStorageAsyncCallerResult.EndKind.EXPLICIT_CANCEL,
-		&"cancelled",
-		100,
-		ERR_BUSY
-	), "load caller 不得声称持久化副作用未知。")
+	assert_false(
+		load_unknown.configure_for_framework(
+			801,
+			801,
+			GFStorageAsyncOperation.OPERATION_LOAD,
+			"caller-contract/load.json",
+			GFStorageAsyncCallerResult.Status.OUTCOME_UNKNOWN,
+			GFStorageAsyncCallerResult.EndKind.EXPLICIT_CANCEL,
+			&"cancelled",
+			100,
+			ERR_BUSY
+		),
+		"load caller 不得声称持久化副作用未知。"
+	)
 
 	var save_cancelled: GFStorageAsyncCallerResult = GFStorageAsyncCallerResult.new()
-	assert_false(save_cancelled.configure_for_framework(
-		802,
-		802,
-		GFStorageAsyncOperation.OPERATION_SAVE,
-		"caller-contract/save.json",
-		GFStorageAsyncCallerResult.Status.CANCELLED,
-		GFStorageAsyncCallerResult.EndKind.EXPLICIT_CANCEL,
-		&"cancelled",
-		100,
-		ERR_SKIP
-	), "active save caller 不得伪装成确定取消。")
-
-	var domain_with_external_end: GFStorageAsyncCallerResult = (
-		GFStorageAsyncCallerResult.new()
+	assert_false(
+		save_cancelled.configure_for_framework(
+			802,
+			802,
+			GFStorageAsyncOperation.OPERATION_SAVE,
+			"caller-contract/save.json",
+			GFStorageAsyncCallerResult.Status.CANCELLED,
+			GFStorageAsyncCallerResult.EndKind.EXPLICIT_CANCEL,
+			&"cancelled",
+			100,
+			ERR_SKIP
+		),
+		"active save caller 不得伪装成确定取消。"
 	)
-	assert_false(domain_with_external_end.configure_for_framework(
-		803,
-		domain_request_id,
-		GFStorageAsyncOperation.OPERATION_SAVE,
-		domain_file_name,
-		GFStorageAsyncCallerResult.Status.PHYSICAL_SETTLED,
-		GFStorageAsyncCallerResult.EndKind.EXPLICIT_CANCEL,
-		&"cancelled",
-		100,
-		OK,
-		domain_result
-	), "DOMAIN_RESULT 必须由 PHYSICAL_SETTLEMENT 结束 caller。")
 
-	var cancelled_with_physical_end: GFStorageAsyncCallerResult = (
-		GFStorageAsyncCallerResult.new()
+	var domain_with_external_end: GFStorageAsyncCallerResult = GFStorageAsyncCallerResult.new()
+	assert_false(
+		domain_with_external_end.configure_for_framework(
+			803,
+			domain_request_id,
+			GFStorageAsyncOperation.OPERATION_SAVE,
+			domain_file_name,
+			GFStorageAsyncCallerResult.Status.PHYSICAL_SETTLED,
+			GFStorageAsyncCallerResult.EndKind.EXPLICIT_CANCEL,
+			&"cancelled",
+			100,
+			OK,
+			domain_result
+		),
+		"DOMAIN_RESULT 必须由 PHYSICAL_SETTLEMENT 结束 caller。"
 	)
-	assert_false(cancelled_with_physical_end.configure_for_framework(
-		804,
-		cancelled_request_id,
-		GFStorageAsyncOperation.OPERATION_SAVE,
-		cancelled_file_name,
-		GFStorageAsyncCallerResult.Status.PHYSICAL_SETTLED,
-		GFStorageAsyncCallerResult.EndKind.PHYSICAL_SETTLEMENT,
-		&"physical_settlement",
-		100,
-		ERR_SKIP,
-		cancelled_result
-	), "接纳前 CANCELLED 必须保留真实外部 caller cause。")
+
+	var cancelled_with_physical_end: GFStorageAsyncCallerResult = GFStorageAsyncCallerResult.new()
+	assert_false(
+		cancelled_with_physical_end.configure_for_framework(
+			804,
+			cancelled_request_id,
+			GFStorageAsyncOperation.OPERATION_SAVE,
+			cancelled_file_name,
+			GFStorageAsyncCallerResult.Status.PHYSICAL_SETTLED,
+			GFStorageAsyncCallerResult.EndKind.PHYSICAL_SETTLEMENT,
+			&"physical_settlement",
+			100,
+			ERR_SKIP,
+			cancelled_result
+		),
+		"接纳前 CANCELLED 必须保留真实外部 caller cause。"
+	)
 
 	var queued_cancelled: GFStorageAsyncCallerResult = GFStorageAsyncCallerResult.new()
-	assert_true(queued_cancelled.configure_for_framework(
-		805,
-		cancelled_request_id,
-		GFStorageAsyncOperation.OPERATION_SAVE,
-		cancelled_file_name,
-		GFStorageAsyncCallerResult.Status.PHYSICAL_SETTLED,
-		GFStorageAsyncCallerResult.EndKind.EXPLICIT_CANCEL,
-		&"cancelled",
-		100,
-		ERR_SKIP,
-		cancelled_result
-	), "queued physical CANCELLED + EXPLICIT_CANCEL 必须是合法联合分支。")
+	assert_true(
+		queued_cancelled.configure_for_framework(
+			805,
+			cancelled_request_id,
+			GFStorageAsyncOperation.OPERATION_SAVE,
+			cancelled_file_name,
+			GFStorageAsyncCallerResult.Status.PHYSICAL_SETTLED,
+			GFStorageAsyncCallerResult.EndKind.EXPLICIT_CANCEL,
+			&"cancelled",
+			100,
+			ERR_SKIP,
+			cancelled_result
+		),
+		"queued physical CANCELLED + EXPLICIT_CANCEL 必须是合法联合分支。"
+	)
 	assert_eq(
 		queued_cancelled.get_status(),
 		GFStorageAsyncCallerResult.Status.PHYSICAL_SETTLED
@@ -1533,11 +2101,13 @@ func test_caller_result_enforces_operation_and_physical_settlement_union() -> vo
 
 func test_physical_cancel_marker_is_pre_acceptance_only_and_repeat_idempotent() -> void:
 	var accepted_operation: GFStorageAsyncOperation = GFStorageAsyncOperation.new()
-	assert_true(accepted_operation.configure_for_framework(
-		901,
-		GFStorageAsyncOperation.OPERATION_SAVE,
-		"marker/accepted.json"
-	))
+	assert_true(
+		accepted_operation.configure_for_framework(
+			901,
+			GFStorageAsyncOperation.OPERATION_SAVE,
+			"marker/accepted.json"
+		)
+	)
 	assert_true(accepted_operation.mark_worker_accepted_for_framework())
 	assert_false(
 		accepted_operation.mark_physical_cancel_requested_for_framework(),
@@ -1545,11 +2115,13 @@ func test_physical_cancel_marker_is_pre_acceptance_only_and_repeat_idempotent() 
 	)
 
 	var queued_operation: GFStorageAsyncOperation = GFStorageAsyncOperation.new()
-	assert_true(queued_operation.configure_for_framework(
-		902,
-		GFStorageAsyncOperation.OPERATION_SAVE,
-		"marker/queued.json"
-	))
+	assert_true(
+		queued_operation.configure_for_framework(
+			902,
+			GFStorageAsyncOperation.OPERATION_SAVE,
+			"marker/queued.json"
+		)
+	)
 	assert_true(queued_operation.mark_physical_cancel_requested_for_framework())
 	assert_true(
 		queued_operation.mark_physical_cancel_requested_for_framework(),
@@ -1575,7 +2147,11 @@ func test_normal_physical_settlement_completes_both_terminals_exactly_once() -> 
 		return
 	var physical_signal_count: Array[int] = [0]
 	var caller_signal_count: Array[int] = [0]
-	_connect_terminal_counters(operation, physical_signal_count, caller_signal_count)
+	_connect_terminal_counters(
+		operation,
+		physical_signal_count,
+		caller_signal_count
+	)
 
 	assert_true(await _pump_until_physical_completed(operation))
 	_assert_physical_terminal(
@@ -1589,12 +2165,26 @@ func test_normal_physical_settlement_completes_both_terminals_exactly_once() -> 
 		"PHYSICAL_SETTLED",
 		"PHYSICAL_SETTLEMENT"
 	)
-	assert_eq(physical_signal_count[0], 1)
-	assert_eq(caller_signal_count[0], 1)
+	assert_eq(
+		physical_signal_count[0],
+		1
+	)
+	assert_eq(
+		caller_signal_count[0],
+		1
+	)
 	_storage.tick(0.0)
 	_storage.tick(0.0)
-	assert_eq(physical_signal_count[0], 1, "physical completed 必须 exactly-once。")
-	assert_eq(caller_signal_count[0], 1, "caller_completed 必须 exactly-once。")
+	assert_eq(
+		physical_signal_count[0],
+		1,
+		"physical completed 必须 exactly-once。"
+	)
+	assert_eq(
+		caller_signal_count[0],
+		1,
+		"caller_completed 必须 exactly-once。"
+	)
 
 
 func test_physical_listener_releasing_owner_suppresses_following_caller_signal() -> void:
@@ -1603,7 +2193,12 @@ func test_physical_listener_releasing_owner_suppresses_following_caller_signal()
 	var owner_box: Array[RefCounted] = [RefCounted.new()]
 	var lifecycle_owner: RefCounted = owner_box[0]
 	var owner_ref: WeakRef = weakref(lifecycle_owner)
-	var options: RefCounted = _new_options(lifecycle_owner, null, 0, false)
+	var options: RefCounted = _new_options(
+		lifecycle_owner,
+		null,
+		0,
+		false
+	)
 	var operation: GFStorageAsyncOperation = _request_save(
 		"owner/physical-listener.json",
 		{ "value": 1 },
@@ -1616,30 +2211,45 @@ func test_physical_listener_releasing_owner_suppresses_following_caller_signal()
 	lifecycle_owner = null
 	var physical_signal_count: Array[int] = [0]
 	var caller_signal_count: Array[int] = [0]
-	var physical_connect_error: Error = operation.completed.connect(
-		func(_result: GFStorageAsyncResult) -> void:
-			physical_signal_count[0] += 1
-			owner_box.clear(),
-		CONNECT_ONE_SHOT as Object.ConnectFlags
-	) as Error
-	var caller_connect_error: Error = operation.caller_completed.connect(
-		func(_result: GFStorageAsyncCallerResult) -> void:
-			caller_signal_count[0] += 1,
-		CONNECT_ONE_SHOT as Object.ConnectFlags
-	) as Error
+	var physical_connect_error: Error = (
+		operation.completed.connect(
+			func(_result: GFStorageAsyncResult) -> void:
+				physical_signal_count[0] += 1
+				owner_box.clear(),
+			CONNECT_ONE_SHOT as Object.ConnectFlags
+		) as Error
+	)
+	var caller_connect_error: Error = (
+		operation.caller_completed.connect(
+			func(_result: GFStorageAsyncCallerResult) -> void:
+				caller_signal_count[0] += 1,
+			CONNECT_ONE_SHOT as Object.ConnectFlags
+		) as Error
+	)
 	assert_eq(physical_connect_error, OK)
 	assert_eq(caller_connect_error, OK)
 
 	_storage.release_for_test()
 	assert_true(await _pump_until_storage_idle())
-	assert_true(owner_ref.get_ref() == null, "physical listener 必须已释放 scoped owner。")
-	assert_eq(physical_signal_count[0], 1)
+	assert_true(
+		owner_ref.get_ref() == null,
+		"physical listener 必须已释放 scoped owner。"
+	)
+	assert_eq(
+		physical_signal_count[0],
+		1
+	)
 	assert_eq(
 		caller_signal_count[0],
 		0,
 		"completed listener 释放 owner 后，后续 caller_completed 必须被抑制。"
 	)
-	_assert_physical_terminal(operation, "DOMAIN_RESULT", OK, true)
+	_assert_physical_terminal(
+		operation,
+		"DOMAIN_RESULT",
+		OK,
+		true
+	)
 	_assert_caller_terminal(
 		operation,
 		"PHYSICAL_SETTLED",
@@ -1651,7 +2261,13 @@ func test_queued_explicit_cancel_is_true_cancel_before_worker_acceptance() -> vo
 	if not _lifecycle_scenarios_ready():
 		return
 	_storage.max_async_thread_count = 1
-	assert_eq(_storage.save_data("queued/target.json", { "keep": true }), OK)
+	assert_eq(
+		_storage.save_data(
+			"queued/target.json",
+			{ "keep": true }
+		),
+		OK
+	)
 	var blocker: GFStorageAsyncOperation = _request_save(
 		"queued/blocker.json",
 		{ "blocker": true },
@@ -1666,19 +2282,39 @@ func test_queued_explicit_cancel_is_true_cancel_before_worker_acceptance() -> vo
 	)
 	if queued == null:
 		return
-	assert_eq(_storage._async_queue.size(), 1, "目标请求必须尚未被 worker 接纳。")
+	assert_eq(
+		_storage._async_queue.size(),
+		1,
+		"目标请求必须尚未被 worker 接纳。"
+	)
 	assert_eq(_storage.worker_start_count, 1)
 	var physical_signal_count: Array[int] = [0]
 	var caller_signal_count: Array[int] = [0]
-	_connect_terminal_counters(queued, physical_signal_count, caller_signal_count)
+	_connect_terminal_counters(
+		queued,
+		physical_signal_count,
+		caller_signal_count
+	)
 
 	var _first_cancel_result: Variant = queued.call("cancel_observation")
 	var _repeated_cancel_result: Variant = queued.call("cancel_observation")
 	assert_true(await _pump_until_physical_completed(queued))
 
-	assert_true(_storage._async_queue.is_empty(), "真取消必须原子移除 queued task。")
-	assert_eq(_storage.worker_start_count, 1, "被取消请求不得启动 worker。")
-	_assert_physical_terminal(queued, "CANCELLED", ERR_SKIP, false)
+	assert_true(
+		_storage._async_queue.is_empty(),
+		"真取消必须原子移除 queued task。"
+	)
+	assert_eq(
+		_storage.worker_start_count,
+		1,
+		"被取消请求不得启动 worker。"
+	)
+	_assert_physical_terminal(
+		queued,
+		"CANCELLED",
+		ERR_SKIP,
+		false
+	)
 	_assert_caller_terminal(
 		queued,
 		"PHYSICAL_SETTLED",
@@ -1688,8 +2324,14 @@ func test_queued_explicit_cancel_is_true_cancel_before_worker_acceptance() -> vo
 	assert_null(queued_result.get_read_result())
 	assert_null(queued_result.get_delete_result())
 	assert_true(queued_result.get_write_validation_report().is_empty())
-	assert_eq(physical_signal_count[0], 1)
-	assert_eq(caller_signal_count[0], 1)
+	assert_eq(
+		physical_signal_count[0],
+		1
+	)
+	assert_eq(
+		caller_signal_count[0],
+		1
+	)
 
 	_storage.release_for_test()
 	assert_true(await _pump_until_storage_idle())
@@ -1712,16 +2354,35 @@ func test_active_save_cancel_keeps_file_lock_and_thread_slot_until_physical_sett
 	assert_true(await _wait_for_worker_started(_storage))
 	var physical_signal_count: Array[int] = [0]
 	var caller_signal_count: Array[int] = [0]
-	_connect_terminal_counters(operation, physical_signal_count, caller_signal_count)
+	_connect_terminal_counters(
+		operation,
+		physical_signal_count,
+		caller_signal_count
+	)
 
 	var _first_cancel_result: Variant = operation.call("cancel_observation")
 	var _repeated_cancel_result: Variant = operation.call("cancel_observation")
 	assert_true(await _pump_until_caller_completed(operation))
-	_assert_caller_terminal(operation, "OUTCOME_UNKNOWN", "EXPLICIT_CANCEL")
-	assert_true(operation.is_pending(), "active save 的 physical 工作必须继续。")
+	_assert_caller_terminal(
+		operation,
+		"OUTCOME_UNKNOWN",
+		"EXPLICIT_CANCEL"
+	)
+	assert_true(
+		operation.is_pending(),
+		"active save 的 physical 工作必须继续。"
+	)
 	assert_false(operation.is_completed())
-	assert_eq(_storage._async_tasks.size(), 1, "active save 必须继续占用线程槽。")
-	assert_eq(_storage._async_file_locks.size(), 1, "active save 必须继续持有文件锁。")
+	assert_eq(
+		_storage._async_tasks.size(),
+		1,
+		"active save 必须继续占用线程槽。"
+	)
+	assert_eq(
+		_storage._async_file_locks.size(),
+		1,
+		"active save 必须继续持有文件锁。"
+	)
 
 	var same_file_follower: GFStorageAsyncOperation = _request_save(
 		"active/shared.json",
@@ -1735,15 +2396,34 @@ func test_active_save_cancel_keeps_file_lock_and_thread_slot_until_physical_sett
 	)
 	assert_not_null(same_file_follower)
 	assert_not_null(other_file_follower)
-	assert_eq(_storage._async_queue.size(), 2, "线程槽与同文件锁均不得因 caller cancel 提前释放。")
+	assert_eq(
+		_storage._async_queue.size(),
+		2,
+		"线程槽与同文件锁均不得因 caller cancel 提前释放。"
+	)
 	assert_eq(_storage.worker_start_count, 1)
 
 	_storage.release_for_test()
 	assert_true(await _pump_until_storage_idle())
-	_assert_physical_terminal(operation, "DOMAIN_RESULT", OK, true)
-	_assert_caller_terminal(operation, "OUTCOME_UNKNOWN", "EXPLICIT_CANCEL")
-	assert_eq(physical_signal_count[0], 1)
-	assert_eq(caller_signal_count[0], 1)
+	_assert_physical_terminal(
+		operation,
+		"DOMAIN_RESULT",
+		OK,
+		true
+	)
+	_assert_caller_terminal(
+		operation,
+		"OUTCOME_UNKNOWN",
+		"EXPLICIT_CANCEL"
+	)
+	assert_eq(
+		physical_signal_count[0],
+		1
+	)
+	assert_eq(
+		caller_signal_count[0],
+		1
+	)
 	assert_true(_storage._async_tasks.is_empty())
 	assert_true(_storage._async_file_locks.is_empty())
 	assert_true(_storage._async_queue.is_empty())
@@ -1752,15 +2432,16 @@ func test_active_save_cancel_keeps_file_lock_and_thread_slot_until_physical_sett
 func test_reentrant_migration_keeps_same_file_follower_queued_until_primary_physical() -> void:
 	if not _lifecycle_scenarios_ready():
 		return
-	var migration_storage: GatedMigrationOrderingStorageUtility = (
-		GatedMigrationOrderingStorageUtility.new()
-	)
+	var migration_storage: GatedMigrationOrderingStorageUtility = GatedMigrationOrderingStorageUtility.new()
 	_replace_storage_for_test(migration_storage)
 	migration_storage.max_async_thread_count = 2
 	var file_name: String = "reentrant/migration.json"
 	migration_storage.save_version = 1
 	assert_eq(
-		migration_storage.save_data(file_name, { "generation": 1 }),
+		migration_storage.save_data(
+			file_name,
+			{ "generation": 1 }
+		),
 		OK,
 		"迁移 fixture 必须先建立旧版本 committed family。"
 	)
@@ -1773,30 +2454,25 @@ func test_reentrant_migration_keeps_same_file_follower_queued_until_primary_phys
 	var migrated_signal_saw_lock_released: Array[bool] = [false]
 	var migrated_signal_versions: Array[int] = [-1, -1]
 	var migration_storage_ref: WeakRef = weakref(migration_storage)
-	var migrated_connect_error: Error = migration_storage.data_migrated.connect(
-		func(
-			_signaled_file_name: String,
-			from_version: int,
-			to_version: int
-		) -> void:
-			var observed_storage_value: Variant = migration_storage_ref.get_ref()
-			if not observed_storage_value is GatedMigrationOrderingStorageUtility:
-				return
-			var observed_storage: GatedMigrationOrderingStorageUtility = (
-				observed_storage_value
-			)
-			migrated_signal_count[0] += 1
-			migrated_signal_versions[0] = from_version
-			migrated_signal_versions[1] = to_version
-			migrated_signal_saw_physical[0] = (
-				observed_storage.primary_operation != null
-				and observed_storage.primary_operation.is_completed()
-			)
-			migrated_signal_saw_lock_released[0] = (
-				not observed_storage._async_file_locks.has(file_key)
-			),
-		CONNECT_ONE_SHOT as Object.ConnectFlags
-	) as Error
+	var migrated_connect_error: Error = (
+		migration_storage.data_migrated.connect(
+			func(
+				_signaled_file_name: String,
+				from_version: int,
+				to_version: int
+			) -> void:
+				var observed_storage_value: Variant = migration_storage_ref.get_ref()
+				if not observed_storage_value is GatedMigrationOrderingStorageUtility:
+					return
+				var observed_storage: GatedMigrationOrderingStorageUtility = observed_storage_value
+				migrated_signal_count[0] += 1
+				migrated_signal_versions[0] = from_version
+				migrated_signal_versions[1] = to_version
+				migrated_signal_saw_physical[0] = (observed_storage.primary_operation != null and observed_storage.primary_operation.is_completed())
+				migrated_signal_saw_lock_released[0] = (not observed_storage._async_file_locks.has(file_key)),
+			CONNECT_ONE_SHOT as Object.ConnectFlags
+		) as Error
+	)
 	assert_eq(migrated_connect_error, OK)
 
 	var primary: GFStorageAsyncOperation = _request_load(
@@ -1814,40 +2490,35 @@ func test_reentrant_migration_keeps_same_file_follower_queued_until_primary_phys
 		"primary settlement 后应启动同文件 follower。"
 	)
 	assert_eq(migration_storage.migration_call_count, 1)
-	assert_true(
-		migration_storage.migration_saw_primary_physical_pending,
-		"migrate_data override 内 primary physical 必须仍为 pending。"
+	assert_true(migration_storage.migration_saw_primary_physical_pending, "migrate_data override 内 primary physical 必须仍为 pending。")
+	assert_true(migration_storage.migration_saw_original_lock_retained, "migrate_data override 内 original same-file lock 必须继续保留。")
+	assert_true(migration_storage.migration_saw_follower_queued, "override 内新建的 same-file follower 必须停留在 queue。")
+	assert_true(migration_storage.migration_saw_only_primary_worker_started, "same-file follower 不得在 migration override 内提前启动。")
+	assert_true(migration_storage.follower_start_saw_primary_physical_completed, "same-file follower 的 worker start 必须晚于 primary physical terminal。")
+	_assert_physical_terminal(
+		primary,
+		"DOMAIN_RESULT",
+		OK,
+		true
 	)
-	assert_true(
-		migration_storage.migration_saw_original_lock_retained,
-		"migrate_data override 内 original same-file lock 必须继续保留。"
+	_assert_caller_terminal(
+		primary,
+		"PHYSICAL_SETTLED",
+		"PHYSICAL_SETTLEMENT"
 	)
-	assert_true(
-		migration_storage.migration_saw_follower_queued,
-		"override 内新建的 same-file follower 必须停留在 queue。"
-	)
-	assert_true(
-		migration_storage.migration_saw_only_primary_worker_started,
-		"same-file follower 不得在 migration override 内提前启动。"
-	)
-	assert_true(
-		migration_storage.follower_start_saw_primary_physical_completed,
-		"same-file follower 的 worker start 必须晚于 primary physical terminal。"
-	)
-	_assert_physical_terminal(primary, "DOMAIN_RESULT", OK, true)
-	_assert_caller_terminal(primary, "PHYSICAL_SETTLED", "PHYSICAL_SETTLEMENT")
 	var primary_read_result: GFStorageReadResult = primary.get_result().get_read_result()
 	assert_not_null(primary_read_result)
 	if primary_read_result != null:
 		assert_true(primary_read_result.migrated)
-		assert_true(
-			GFVariantData.get_option_bool(
-				primary_read_result.payload,
-				"migration_applied"
-			)
-		)
-	assert_eq(migrated_signal_count[0], 1)
-	assert_eq(migrated_signal_versions, [1, 2])
+		assert_true(GFVariantData.get_option_bool(primary_read_result.payload, "migration_applied"))
+	assert_eq(
+		migrated_signal_count[0],
+		1
+	)
+	assert_eq(
+		migrated_signal_versions,
+		[1, 2]
+	)
 	assert_true(
 		migrated_signal_saw_physical[0],
 		"data_migrated observer 必须看到已提交的 physical terminal。"
@@ -1869,8 +2540,17 @@ func test_reentrant_migration_keeps_same_file_follower_queued_until_primary_phys
 
 	migration_storage.release_for_test()
 	assert_true(await _pump_until_storage_idle())
-	_assert_physical_terminal(follower, "DOMAIN_RESULT", OK, true)
-	_assert_caller_terminal(follower, "PHYSICAL_SETTLED", "PHYSICAL_SETTLEMENT")
+	_assert_physical_terminal(
+		follower,
+		"DOMAIN_RESULT",
+		OK,
+		true
+	)
+	_assert_caller_terminal(
+		follower,
+		"PHYSICAL_SETTLED",
+		"PHYSICAL_SETTLEMENT"
+	)
 	assert_true(migration_storage._async_file_locks.is_empty())
 
 
@@ -1881,17 +2561,20 @@ func test_async_integrity_signal_observes_physical_terminal_and_released_file_lo
 	_storage.use_integrity_checksum = true
 	_storage.strict_integrity = true
 	var file_name: String = "signals/integrity.json"
-	assert_eq(_storage.save_data(file_name, { "coins": 10 }), OK)
+	assert_eq(
+		_storage.save_data(
+			file_name,
+			{ "coins": 10 }
+		),
+		OK
+	)
 	var path: String = _storage._get_full_path(file_name)
 	var document_value: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
 	assert_true(document_value is Dictionary)
 	if not document_value is Dictionary:
 		return
 	var document: Dictionary = document_value
-	var tampered_payload: Dictionary = GFVariantData.get_option_dictionary(
-		document,
-		GFStorageCodec.PAYLOAD_KEY
-	)
+	var tampered_payload: Dictionary = GFVariantData.get_option_dictionary(document, GFStorageCodec.PAYLOAD_KEY)
 	tampered_payload["coins"] = 99
 	document[GFStorageCodec.PAYLOAD_KEY] = tampered_payload
 	var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
@@ -1903,7 +2586,10 @@ func test_async_integrity_signal_observes_physical_terminal_and_released_file_lo
 	file.close()
 	assert_eq(write_error, OK)
 	var file_key: String = _storage._get_async_file_key(file_name)
-	var operation: GFStorageAsyncOperation = _request_load(file_name, _new_options())
+	var operation: GFStorageAsyncOperation = _request_load(
+		file_name,
+		_new_options()
+	)
 	if operation == null:
 		return
 	assert_true(await _wait_for_worker_started(_storage))
@@ -1913,40 +2599,49 @@ func test_async_integrity_signal_observes_physical_terminal_and_released_file_lo
 	var integrity_signal_error: Array[String] = [""]
 	var operation_ref: WeakRef = weakref(operation)
 	var storage_ref: WeakRef = weakref(_storage)
-	var integrity_connect_error: Error = _storage.data_integrity_failed.connect(
-		func(_signaled_file_name: String, error: String) -> void:
-			var observed_operation_value: Variant = operation_ref.get_ref()
-			var observed_storage_value: Variant = storage_ref.get_ref()
-			if (
-				not observed_operation_value is GFStorageAsyncOperation
-				or not observed_storage_value is GatedWorkerStorageUtility
-			):
-				return
-			var observed_operation: GFStorageAsyncOperation = observed_operation_value
-			var observed_storage: GatedWorkerStorageUtility = observed_storage_value
-			integrity_signal_count[0] += 1
-			integrity_signal_error[0] = error
-			integrity_signal_saw_physical[0] = observed_operation.is_completed()
-			integrity_signal_saw_lock_released[0] = (
-				not observed_storage._async_file_locks.has(file_key)
-			),
-		CONNECT_ONE_SHOT as Object.ConnectFlags
-	) as Error
+	var integrity_connect_error: Error = (
+		_storage.data_integrity_failed.connect(
+			func(_signaled_file_name: String, error: String) -> void:
+				var observed_operation_value: Variant = operation_ref.get_ref()
+				var observed_storage_value: Variant = storage_ref.get_ref()
+				if (not observed_operation_value is GFStorageAsyncOperation or not observed_storage_value is GatedWorkerStorageUtility):
+					return
+				var observed_operation: GFStorageAsyncOperation = observed_operation_value
+				var observed_storage: GatedWorkerStorageUtility = observed_storage_value
+				integrity_signal_count[0] += 1
+				integrity_signal_error[0] = error
+				integrity_signal_saw_physical[0] = observed_operation.is_completed()
+				integrity_signal_saw_lock_released[0] = (not observed_storage._async_file_locks.has(file_key)),
+			CONNECT_ONE_SHOT as Object.ConnectFlags
+		) as Error
+	)
 	assert_eq(integrity_connect_error, OK)
 
 	_storage.release_for_test()
 	assert_true(await _pump_until_storage_idle())
-	_assert_physical_terminal(operation, "DOMAIN_RESULT", ERR_FILE_CORRUPT, false)
-	_assert_caller_terminal(operation, "PHYSICAL_SETTLED", "PHYSICAL_SETTLEMENT")
+	_assert_physical_terminal(
+		operation,
+		"DOMAIN_RESULT",
+		ERR_FILE_CORRUPT,
+		false
+	)
+	_assert_caller_terminal(
+		operation,
+		"PHYSICAL_SETTLED",
+		"PHYSICAL_SETTLEMENT"
+	)
 	var read_result: GFStorageReadResult = operation.get_result().get_read_result()
 	assert_not_null(read_result)
 	if read_result != null:
-		assert_eq(
-			read_result.integrity_status,
-			GFStorageReadResult.IntegrityStatus.INVALID
-		)
-	assert_eq(integrity_signal_count[0], 1)
-	assert_eq(integrity_signal_error[0], "Integrity checksum mismatch")
+		assert_eq(read_result.integrity_status, GFStorageReadResult.IntegrityStatus.INVALID)
+	assert_eq(
+		integrity_signal_count[0],
+		1
+	)
+	assert_eq(
+		integrity_signal_error[0],
+		"Integrity checksum mismatch"
+	)
 	assert_true(
 		integrity_signal_saw_physical[0],
 		"data_integrity_failed observer 必须看到已提交的 physical terminal。"
@@ -1969,35 +2664,33 @@ func test_late_ring_commits_current_request_before_completed_listener_runs() -> 
 		return
 	assert_true(await _wait_for_worker_started(_storage))
 	assert_true(operation.cancel_observation(&"late_order_probe"))
-	_assert_caller_terminal(operation, "OUTCOME_UNKNOWN", "EXPLICIT_CANCEL")
+	_assert_caller_terminal(
+		operation,
+		"OUTCOME_UNKNOWN",
+		"EXPLICIT_CANCEL"
+	)
 	var listener_saw_current_request: Array[bool] = [false]
 	var listener_ring_size: Array[int] = [-1]
 	var operation_ref: WeakRef = weakref(operation)
 	var storage_ref: WeakRef = weakref(_storage)
-	var physical_connect_error: Error = operation.completed.connect(
-		func(_result: GFStorageAsyncResult) -> void:
-			var observed_operation_value: Variant = operation_ref.get_ref()
-			var observed_storage_value: Variant = storage_ref.get_ref()
-			if (
-				not observed_operation_value is GFStorageAsyncOperation
-				or not observed_storage_value is GatedWorkerStorageUtility
-			):
-				return
-			var observed_operation: GFStorageAsyncOperation = observed_operation_value
-			var observed_storage: GatedWorkerStorageUtility = observed_storage_value
-			var diagnostics: Array[Dictionary] = (
-				observed_storage.get_late_settlement_diagnostics()
-			)
-			listener_ring_size[0] = diagnostics.size()
-			for diagnostic: Dictionary in diagnostics:
-				if (
-					GFVariantData.get_option_int(diagnostic, "request_id")
-					== observed_operation.get_request_id()
-				):
-					listener_saw_current_request[0] = true
-					break,
-		CONNECT_ONE_SHOT as Object.ConnectFlags
-	) as Error
+	var physical_connect_error: Error = (
+		operation.completed.connect(
+			func(_result: GFStorageAsyncResult) -> void:
+				var observed_operation_value: Variant = operation_ref.get_ref()
+				var observed_storage_value: Variant = storage_ref.get_ref()
+				if (not observed_operation_value is GFStorageAsyncOperation or not observed_storage_value is GatedWorkerStorageUtility):
+					return
+				var observed_operation: GFStorageAsyncOperation = observed_operation_value
+				var observed_storage: GatedWorkerStorageUtility = observed_storage_value
+				var diagnostics: Array[Dictionary] = observed_storage.get_late_settlement_diagnostics()
+				listener_ring_size[0] = diagnostics.size()
+				for diagnostic: Dictionary in diagnostics:
+					if GFVariantData.get_option_int(diagnostic, "request_id") == observed_operation.get_request_id():
+						listener_saw_current_request[0] = true
+						break,
+			CONNECT_ONE_SHOT as Object.ConnectFlags
+		) as Error
+	)
 	assert_eq(physical_connect_error, OK)
 
 	_storage.release_for_test()
@@ -2006,8 +2699,16 @@ func test_late_ring_commits_current_request_before_completed_listener_runs() -> 
 		listener_saw_current_request[0],
 		"late diagnostic 必须 commit-before-notify，completed listener 应立即可读。"
 	)
-	assert_eq(listener_ring_size[0], 1)
-	_assert_physical_terminal(operation, "DOMAIN_RESULT", OK, true)
+	assert_eq(
+		listener_ring_size[0],
+		1
+	)
+	_assert_physical_terminal(
+		operation,
+		"DOMAIN_RESULT",
+		OK,
+		true
+	)
 
 
 func test_active_save_deadline_uses_injected_manual_clock_without_stopping_physical_work() -> void:
@@ -2019,27 +2720,56 @@ func test_active_save_deadline_uses_injected_manual_clock_without_stopping_physi
 	var operation: GFStorageAsyncOperation = _request_save(
 		"deadline/save.json",
 		{ "value": "physical" },
-		_new_options(null, null, 10)
+		_new_options(
+			null,
+			null,
+			10
+		)
 	)
 	if operation == null:
 		return
 	assert_true(await _wait_for_worker_started(_storage))
 	assert_true(manual_clock.advance_msec(9))
 	_storage.tick(0.0)
-	assert_true(_is_caller_pending(operation), "deadline 前 caller 必须保持 pending。")
+	assert_true(
+		_is_caller_pending(operation),
+		"deadline 前 caller 必须保持 pending。"
+	)
 	assert_true(manual_clock.advance_msec(1))
 	_storage.tick(0.0)
 	assert_true(await _pump_until_caller_completed(operation))
 
-	_assert_caller_terminal(operation, "OUTCOME_UNKNOWN", "DEADLINE_EXPIRED")
-	assert_true(operation.is_pending(), "deadline 只结束 caller，不得伪造 save 物理终态。")
-	assert_eq(_storage._async_tasks.size(), 1)
-	assert_eq(_storage._async_file_locks.size(), 1)
+	_assert_caller_terminal(
+		operation,
+		"OUTCOME_UNKNOWN",
+		"DEADLINE_EXPIRED"
+	)
+	assert_true(
+		operation.is_pending(),
+		"deadline 只结束 caller，不得伪造 save 物理终态。"
+	)
+	assert_eq(
+		_storage._async_tasks.size(),
+		1
+	)
+	assert_eq(
+		_storage._async_file_locks.size(),
+		1
+	)
 
 	_storage.release_for_test()
 	assert_true(await _pump_until_storage_idle())
-	_assert_physical_terminal(operation, "DOMAIN_RESULT", OK, true)
-	_assert_caller_terminal(operation, "OUTCOME_UNKNOWN", "DEADLINE_EXPIRED")
+	_assert_physical_terminal(
+		operation,
+		"DOMAIN_RESULT",
+		OK,
+		true
+	)
+	_assert_caller_terminal(
+		operation,
+		"OUTCOME_UNKNOWN",
+		"DEADLINE_EXPIRED"
+	)
 
 
 func test_owner_release_suppresses_caller_signal_but_keeps_queryable_terminal() -> void:
@@ -2047,7 +2777,12 @@ func test_owner_release_suppresses_caller_signal_but_keeps_queryable_terminal() 
 		return
 	var lifecycle_owner: RefCounted = RefCounted.new()
 	var owner_ref: WeakRef = weakref(lifecycle_owner)
-	var options: RefCounted = _new_options(lifecycle_owner, null, 0, false)
+	var options: RefCounted = _new_options(
+		lifecycle_owner,
+		null,
+		0,
+		false
+	)
 	var operation: GFStorageAsyncOperation = _request_save(
 		"owner/save.json",
 		{ "value": 1 },
@@ -2058,30 +2793,65 @@ func test_owner_release_suppresses_caller_signal_but_keeps_queryable_terminal() 
 	assert_true(await _wait_for_worker_started(_storage))
 	var physical_signal_count: Array[int] = [0]
 	var caller_signal_count: Array[int] = [0]
-	_connect_terminal_counters(operation, physical_signal_count, caller_signal_count)
+	_connect_terminal_counters(
+		operation,
+		physical_signal_count,
+		caller_signal_count
+	)
 
 	options = null
 	lifecycle_owner = null
-	assert_true(owner_ref.get_ref() == null, "Options 与 Operation 不得强持有 caller owner。")
+	assert_true(
+		owner_ref.get_ref() == null,
+		"Options 与 Operation 不得强持有 caller owner。"
+	)
 	_storage.tick(0.0)
 	assert_true(await _pump_until_caller_completed(operation))
 
-	_assert_caller_terminal(operation, "OUTCOME_UNKNOWN", "OWNER_RELEASED")
-	assert_eq(caller_signal_count[0], 0, "owner 已释放时必须抑制 caller callback。")
+	_assert_caller_terminal(
+		operation,
+		"OUTCOME_UNKNOWN",
+		"OWNER_RELEASED"
+	)
+	assert_eq(
+		caller_signal_count[0],
+		0,
+		"owner 已释放时必须抑制 caller callback。"
+	)
 	assert_true(operation.is_pending())
 	_storage.release_for_test()
 	assert_true(await _pump_until_storage_idle())
-	_assert_physical_terminal(operation, "DOMAIN_RESULT", OK, true)
-	assert_eq(physical_signal_count[0], 1)
-	assert_eq(caller_signal_count[0], 0)
+	_assert_physical_terminal(
+		operation,
+		"DOMAIN_RESULT",
+		OK,
+		true
+	)
+	assert_eq(
+		physical_signal_count[0],
+		1
+	)
+	assert_eq(
+		caller_signal_count[0],
+		0
+	)
 
 
 func test_active_load_token_cancel_ends_caller_but_preserves_physical_domain_settlement() -> void:
 	if not _lifecycle_scenarios_ready():
 		return
-	assert_eq(_storage.save_data("token/load.json", { "value": "secret" }), OK)
+	assert_eq(
+		_storage.save_data(
+			"token/load.json",
+			{ "value": "secret" }
+		),
+		OK
+	)
 	var source: GFCancellationSource = GFCancellationSource.new()
-	var options: RefCounted = _new_options(null, source.get_token())
+	var options: RefCounted = _new_options(
+		null,
+		source.get_token()
+	)
 	var operation: GFStorageAsyncOperation = _request_load("token/load.json", options)
 	if operation == null:
 		source.dispose()
@@ -2089,9 +2859,16 @@ func test_active_load_token_cancel_ends_caller_but_preserves_physical_domain_set
 	assert_true(await _wait_for_worker_started(_storage))
 	var physical_signal_count: Array[int] = [0]
 	var caller_signal_count: Array[int] = [0]
-	_connect_terminal_counters(operation, physical_signal_count, caller_signal_count)
+	_connect_terminal_counters(
+		operation,
+		physical_signal_count,
+		caller_signal_count
+	)
 	assert_true(
-		source.cancel(&"lifecycle_token_cancelled", { "private_metadata": "not-diagnostic" })
+		source.cancel(
+			&"lifecycle_token_cancelled",
+			{ "private_metadata": "not-diagnostic" }
+		)
 	)
 	_storage.tick(0.0)
 	assert_true(await _pump_until_caller_completed(operation))
@@ -2102,25 +2879,43 @@ func test_active_load_token_cancel_ends_caller_but_preserves_physical_domain_set
 		"TOKEN_CANCELLED",
 		&"lifecycle_token_cancelled"
 	)
-	assert_true(operation.is_pending(), "active load 必须等 worker 真实结算后才释放槽位。")
-	assert_eq(_storage._async_tasks.size(), 1)
-	assert_eq(_storage._async_file_locks.size(), 1)
+	assert_true(
+		operation.is_pending(),
+		"active load 必须等 worker 真实结算后才释放槽位。"
+	)
+	assert_eq(
+		_storage._async_tasks.size(),
+		1
+	)
+	assert_eq(
+		_storage._async_file_locks.size(),
+		1
+	)
 
 	_storage.release_for_test()
 	assert_true(await _pump_until_storage_idle())
-	_assert_physical_terminal(operation, "DOMAIN_RESULT", OK, true)
+	_assert_physical_terminal(
+		operation,
+		"DOMAIN_RESULT",
+		OK,
+		true
+	)
 	assert_not_null(operation.get_result().get_read_result())
-	assert_eq(physical_signal_count[0], 1)
-	assert_eq(caller_signal_count[0], 1)
+	assert_eq(
+		physical_signal_count[0],
+		1
+	)
+	assert_eq(
+		caller_signal_count[0],
+		1
+	)
 	source.dispose()
 
 
 func test_payload_attempt_survives_caller_terminal_until_physical_settlement() -> void:
 	if not _lifecycle_scenarios_ready():
 		return
-	var transfer: GFStoragePayloadTransfer = GFStoragePayloadTransfer.take_ownership({
-		"payload": "retained-until-physical",
-	})
+	var transfer: GFStoragePayloadTransfer = GFStoragePayloadTransfer.take_ownership({ "payload": "retained-until-physical", })
 	var operation: GFStorageAsyncOperation = _request_payload_save(
 		"payload/save.json",
 		transfer,
@@ -2129,15 +2924,31 @@ func test_payload_attempt_survives_caller_terminal_until_physical_settlement() -
 	if operation == null:
 		return
 	assert_true(await _wait_for_worker_started(_storage))
-	assert_eq(transfer.get_active_attempt_count(), 1)
+	assert_eq(
+		transfer.get_active_attempt_count(),
+		1
+	)
 	assert_true(transfer.release())
-	assert_eq(transfer.get_state(), GFStoragePayloadTransfer.State.RELEASE_PENDING)
+	assert_eq(
+		transfer.get_state(),
+		GFStoragePayloadTransfer.State.RELEASE_PENDING
+	)
 
 	var _cancel_result: Variant = operation.call("cancel_observation")
 	assert_true(await _pump_until_caller_completed(operation))
-	_assert_caller_terminal(operation, "OUTCOME_UNKNOWN", "EXPLICIT_CANCEL")
-	assert_eq(transfer.get_active_attempt_count(), 1)
-	assert_eq(transfer.get_state(), GFStoragePayloadTransfer.State.RELEASE_PENDING)
+	_assert_caller_terminal(
+		operation,
+		"OUTCOME_UNKNOWN",
+		"EXPLICIT_CANCEL"
+	)
+	assert_eq(
+		transfer.get_active_attempt_count(),
+		1
+	)
+	assert_eq(
+		transfer.get_state(),
+		GFStoragePayloadTransfer.State.RELEASE_PENDING
+	)
 	assert_eq(
 		operation.get_payload_transfer(),
 		transfer,
@@ -2146,9 +2957,20 @@ func test_payload_attempt_survives_caller_terminal_until_physical_settlement() -
 
 	_storage.release_for_test()
 	assert_true(await _pump_until_storage_idle())
-	_assert_physical_terminal(operation, "DOMAIN_RESULT", OK, true)
-	assert_eq(transfer.get_active_attempt_count(), 0)
-	assert_eq(transfer.get_state(), GFStoragePayloadTransfer.State.RELEASED)
+	_assert_physical_terminal(
+		operation,
+		"DOMAIN_RESULT",
+		OK,
+		true
+	)
+	assert_eq(
+		transfer.get_active_attempt_count(),
+		0
+	)
+	assert_eq(
+		transfer.get_state(),
+		GFStoragePayloadTransfer.State.RELEASED
+	)
 	assert_null(operation.get_payload_transfer())
 
 
@@ -2167,33 +2989,38 @@ func test_physical_first_reentrant_cancel_and_repeated_terminal_calls_are_idempo
 	var caller_signal_count: Array[int] = [0]
 	var reentrant_cancel_count: Array[int] = [0]
 	var operation_ref: WeakRef = weakref(operation)
-	var physical_connect_error: Error = operation.completed.connect(
-		func(_result: GFStorageAsyncResult) -> void:
-			var observed_operation_value: Variant = operation_ref.get_ref()
-			if not observed_operation_value is GFStorageAsyncOperation:
-				return
-			var observed_operation: GFStorageAsyncOperation = observed_operation_value
-			physical_signal_count[0] += 1
-			var _first_reentrant_result: Variant = (
-				observed_operation.call("cancel_observation")
-			)
-			var _second_reentrant_result: Variant = (
-				observed_operation.call("cancel_observation")
-			)
-			reentrant_cancel_count[0] += 2,
-		CONNECT_ONE_SHOT as Object.ConnectFlags
-	) as Error
-	var caller_connect_error: Error = operation.connect(
-		&"caller_completed",
-		func(_result: Variant) -> void:
-			caller_signal_count[0] += 1,
-		CONNECT_ONE_SHOT as Object.ConnectFlags
-	) as Error
+	var physical_connect_error: Error = (
+		operation.completed.connect(
+			func(_result: GFStorageAsyncResult) -> void:
+				var observed_operation_value: Variant = operation_ref.get_ref()
+				if not observed_operation_value is GFStorageAsyncOperation:
+					return
+				var observed_operation: GFStorageAsyncOperation = observed_operation_value
+				physical_signal_count[0] += 1
+				var _first_reentrant_result: Variant = observed_operation.call("cancel_observation")
+				var _second_reentrant_result: Variant = observed_operation.call("cancel_observation")
+				reentrant_cancel_count[0] += 2,
+			CONNECT_ONE_SHOT as Object.ConnectFlags
+		) as Error
+	)
+	var caller_connect_error: Error = (
+		operation.connect(
+			&"caller_completed",
+			func(_result: Variant) -> void:
+				caller_signal_count[0] += 1,
+			CONNECT_ONE_SHOT as Object.ConnectFlags
+		) as Error
+	)
 	assert_eq(physical_connect_error, OK)
 	assert_eq(caller_connect_error, OK)
 
 	assert_true(await _pump_until_physical_completed(operation))
-	_assert_physical_terminal(operation, "DOMAIN_RESULT", OK, true)
+	_assert_physical_terminal(
+		operation,
+		"DOMAIN_RESULT",
+		OK,
+		true
+	)
 	_assert_caller_terminal(
 		operation,
 		"PHYSICAL_SETTLED",
@@ -2201,17 +3028,24 @@ func test_physical_first_reentrant_cancel_and_repeated_terminal_calls_are_idempo
 	)
 	var _late_cancel_result: Variant = operation.call("cancel_observation")
 	_storage.tick(0.0)
-	assert_eq(reentrant_cancel_count[0], 2)
-	assert_eq(physical_signal_count[0], 1)
-	assert_eq(caller_signal_count[0], 1)
+	assert_eq(
+		reentrant_cancel_count[0],
+		2
+	)
+	assert_eq(
+		physical_signal_count[0],
+		1
+	)
+	assert_eq(
+		caller_signal_count[0],
+		1
+	)
 
 
 func test_dispose_inside_worker_start_override_preserves_tracking_until_settlement() -> void:
 	if not _lifecycle_scenarios_ready():
 		return
-	var dispose_storage: StartedWorkerDisposeStorageUtility = (
-		StartedWorkerDisposeStorageUtility.new()
-	)
+	var dispose_storage: StartedWorkerDisposeStorageUtility = StartedWorkerDisposeStorageUtility.new()
 	_replace_storage_for_test(dispose_storage)
 	var operation: GFStorageAsyncOperation = _request_save(
 		"reentrant/worker-start-dispose.json",
@@ -2222,33 +3056,24 @@ func test_dispose_inside_worker_start_override_preserves_tracking_until_settleme
 		return
 
 	assert_eq(dispose_storage.override_call_count, 1)
-	assert_true(
-		dispose_storage.worker_started_before_dispose,
-		"fixture 必须先真实启动 worker，再从 override 内调用 dispose。"
-	)
+	assert_true(dispose_storage.worker_started_before_dispose, "fixture 必须先真实启动 worker，再从 override 内调用 dispose。")
 	assert_true(dispose_storage.tracked_before_dispose)
-	assert_true(
-		dispose_storage.dispose_returned_inside_override,
-		"worker-start reentrancy guard 必须让 dispose 延后并先返回 override。"
+	assert_true(dispose_storage.dispose_returned_inside_override, "worker-start reentrancy guard 必须让 dispose 延后并先返回 override。")
+	assert_true(dispose_storage.activation_failed_after_dispose, "deferred dispose 已请求后 begin_activation 必须失败。")
+	assert_true(dispose_storage.admission_stayed_closed_after_activation, "失败的 reentrant activation 不得重新打开 I/O admission。")
+	assert_true(dispose_storage.tracked_after_dispose, "override 内 dispose 返回后，已启动 worker 仍必须处于 Utility tracking。")
+	assert_true(dispose_storage.lock_retained_after_dispose, "override 内 dispose 不得提前清除已启动 worker 的 file lock。")
+	_assert_physical_terminal(
+		operation,
+		"DOMAIN_RESULT",
+		OK,
+		true
 	)
-	assert_true(
-		dispose_storage.activation_failed_after_dispose,
-		"deferred dispose 已请求后 begin_activation 必须失败。"
+	_assert_caller_terminal(
+		operation,
+		"PHYSICAL_SETTLED",
+		"PHYSICAL_SETTLEMENT"
 	)
-	assert_true(
-		dispose_storage.admission_stayed_closed_after_activation,
-		"失败的 reentrant activation 不得重新打开 I/O admission。"
-	)
-	assert_true(
-		dispose_storage.tracked_after_dispose,
-		"override 内 dispose 返回后，已启动 worker 仍必须处于 Utility tracking。"
-	)
-	assert_true(
-		dispose_storage.lock_retained_after_dispose,
-		"override 内 dispose 不得提前清除已启动 worker 的 file lock。"
-	)
-	_assert_physical_terminal(operation, "DOMAIN_RESULT", OK, true)
-	_assert_caller_terminal(operation, "PHYSICAL_SETTLED", "PHYSICAL_SETTLEMENT")
 	assert_true(dispose_storage._async_tasks.is_empty())
 	assert_true(dispose_storage._async_queue.is_empty())
 	assert_true(dispose_storage._async_file_locks.is_empty())
@@ -2263,7 +3088,13 @@ func test_dispose_cancels_queued_and_ends_active_caller_before_joining_worker() 
 	if not _lifecycle_scenarios_ready():
 		return
 	_storage.max_async_thread_count = 1
-	assert_eq(_storage.save_data("dispose/queued.json", { "keep": true }), OK)
+	assert_eq(
+		_storage.save_data(
+			"dispose/queued.json",
+			{ "keep": true }
+		),
+		OK
+	)
 	var active: GFStorageAsyncOperation = _request_save(
 		"dispose/active.json",
 		{ "value": 1 },
@@ -2278,25 +3109,66 @@ func test_dispose_cancels_queued_and_ends_active_caller_before_joining_worker() 
 	)
 	if queued == null:
 		return
-	assert_eq(_storage._async_queue.size(), 1)
+	assert_eq(
+		_storage._async_queue.size(),
+		1
+	)
 	var active_physical_count: Array[int] = [0]
 	var active_caller_count: Array[int] = [0]
 	var queued_physical_count: Array[int] = [0]
 	var queued_caller_count: Array[int] = [0]
-	_connect_terminal_counters(active, active_physical_count, active_caller_count)
-	_connect_terminal_counters(queued, queued_physical_count, queued_caller_count)
+	_connect_terminal_counters(
+		active,
+		active_physical_count,
+		active_caller_count
+	)
+	_connect_terminal_counters(
+		queued,
+		queued_physical_count,
+		queued_caller_count
+	)
 
 	_storage.release_for_test()
 	_storage.dispose()
 
-	_assert_caller_terminal(active, "PHYSICAL_SETTLED", "PHYSICAL_SETTLEMENT")
-	_assert_physical_terminal(active, "DOMAIN_RESULT", OK, true)
-	_assert_caller_terminal(queued, "PHYSICAL_SETTLED", "UTILITY_DISPOSED")
-	_assert_physical_terminal(queued, "CANCELLED", ERR_SKIP, false)
-	assert_eq(active_physical_count[0], 1)
-	assert_eq(active_caller_count[0], 1)
-	assert_eq(queued_physical_count[0], 1)
-	assert_eq(queued_caller_count[0], 1)
+	_assert_caller_terminal(
+		active,
+		"PHYSICAL_SETTLED",
+		"PHYSICAL_SETTLEMENT"
+	)
+	_assert_physical_terminal(
+		active,
+		"DOMAIN_RESULT",
+		OK,
+		true
+	)
+	_assert_caller_terminal(
+		queued,
+		"PHYSICAL_SETTLED",
+		"UTILITY_DISPOSED"
+	)
+	_assert_physical_terminal(
+		queued,
+		"CANCELLED",
+		ERR_SKIP,
+		false
+	)
+	assert_eq(
+		active_physical_count[0],
+		1
+	)
+	assert_eq(
+		active_caller_count[0],
+		1
+	)
+	assert_eq(
+		queued_physical_count[0],
+		1
+	)
+	assert_eq(
+		queued_caller_count[0],
+		1
+	)
 	assert_true(_storage._async_tasks.is_empty())
 	assert_true(_storage._async_queue.is_empty())
 	assert_true(_storage._async_file_locks.is_empty())
@@ -2322,11 +3194,24 @@ func test_late_settlement_diagnostics_are_exact_payload_free_deep_copy_fifo_ring
 		var _cancel_result: Variant = operation.call("cancel_observation")
 		_storage.release_for_test()
 		assert_true(await _pump_until_storage_idle())
-		_assert_caller_terminal(operation, "OUTCOME_UNKNOWN", "EXPLICIT_CANCEL")
-		_assert_physical_terminal(operation, "DOMAIN_RESULT", OK, true)
+		_assert_caller_terminal(
+			operation,
+			"OUTCOME_UNKNOWN",
+			"EXPLICIT_CANCEL"
+		)
+		_assert_physical_terminal(
+			operation,
+			"DOMAIN_RESULT",
+			OK,
+			true
+		)
 
 	var diagnostics: Array[Dictionary] = _get_late_settlement_diagnostics()
-	assert_eq(diagnostics.size(), _LATE_DIAGNOSTIC_LIMIT, "Ring 必须只保留最近 64 条。")
+	assert_eq(
+		diagnostics.size(),
+		_LATE_DIAGNOSTIC_LIMIT,
+		"Ring 必须只保留最近 64 条。"
+	)
 	if diagnostics.size() != _LATE_DIAGNOSTIC_LIMIT:
 		return
 	var first_diagnostic: Dictionary = diagnostics.front()
@@ -2347,7 +3232,11 @@ func test_late_settlement_diagnostics_are_exact_payload_free_deep_copy_fifo_ring
 	diagnostics[0]["file_name"] = "tampered/by-caller.json"
 	diagnostics.clear()
 	var second_read: Array[Dictionary] = _get_late_settlement_diagnostics()
-	assert_eq(second_read.size(), _LATE_DIAGNOSTIC_LIMIT, "调用方不得清空内部 ring。")
+	assert_eq(
+		second_read.size(),
+		_LATE_DIAGNOSTIC_LIMIT,
+		"调用方不得清空内部 ring。"
+	)
 	var second_first_diagnostic: Dictionary = second_read.front()
 	assert_eq(
 		GFVariantData.get_option_string(second_first_diagnostic, "file_name"),
@@ -2357,10 +3246,7 @@ func test_late_settlement_diagnostics_are_exact_payload_free_deep_copy_fifo_ring
 
 
 func _lifecycle_scenarios_ready() -> bool:
-	if (
-		not ResourceLoader.exists(_CALLER_RESULT_SCRIPT_PATH)
-		or not ResourceLoader.exists(_REQUEST_OPTIONS_SCRIPT_PATH)
-	):
+	if (not ResourceLoader.exists(_CALLER_RESULT_SCRIPT_PATH) or not ResourceLoader.exists(_REQUEST_OPTIONS_SCRIPT_PATH)):
 		return false
 	var request_options_script: GDScript = _load_gdscript(_REQUEST_OPTIONS_SCRIPT_PATH)
 	if request_options_script == null or not request_options_script.has_method(&"create"):
@@ -2377,9 +3263,7 @@ func _lifecycle_scenarios_ready() -> bool:
 	if not operation.has_signal(&"caller_completed"):
 		return false
 	var lifecycle_owner: RefCounted = RefCounted.new()
-	var probe_options: GFStorageAsyncRequestOptions = GFStorageAsyncRequestOptions.create(
-		lifecycle_owner
-	)
+	var probe_options: GFStorageAsyncRequestOptions = GFStorageAsyncRequestOptions.create(lifecycle_owner)
 	if probe_options == null or not probe_options.is_valid():
 		return false
 	if (
@@ -2481,10 +3365,7 @@ func _request_payload_save(
 	return _variant_to_operation(operation_value)
 
 
-func _request_load(
-	file_name: String,
-	options: RefCounted
-) -> GFStorageAsyncOperation:
+func _request_load(file_name: String, options: RefCounted) -> GFStorageAsyncOperation:
 	assert_not_null(options)
 	if options == null:
 		return null
@@ -2496,10 +3377,7 @@ func _request_load(
 	return _variant_to_operation(operation_value)
 
 
-func _request_delete(
-	file_name: String,
-	options: RefCounted
-) -> GFStorageAsyncOperation:
+func _request_delete(file_name: String, options: RefCounted) -> GFStorageAsyncOperation:
 	assert_not_null(options)
 	if options == null:
 		return null
@@ -2512,7 +3390,10 @@ func _request_delete(
 
 
 func _variant_to_operation(value: Variant) -> GFStorageAsyncOperation:
-	assert_true(value is GFStorageAsyncOperation, "Request API 必须返回 GFStorageAsyncOperation。")
+	assert_true(
+		value is GFStorageAsyncOperation,
+		"Request API 必须返回 GFStorageAsyncOperation。"
+	)
 	if value is GFStorageAsyncOperation:
 		var operation: GFStorageAsyncOperation = value
 		return operation
@@ -2524,17 +3405,21 @@ func _connect_terminal_counters(
 	physical_signal_count: Array[int],
 	caller_signal_count: Array[int]
 ) -> void:
-	var physical_connect_error: Error = operation.completed.connect(
-		func(_result: GFStorageAsyncResult) -> void:
-			physical_signal_count[0] += 1,
-		CONNECT_ONE_SHOT as Object.ConnectFlags
-	) as Error
-	var caller_connect_error: Error = operation.connect(
-		&"caller_completed",
-		func(_result: Variant) -> void:
-			caller_signal_count[0] += 1,
-		CONNECT_ONE_SHOT as Object.ConnectFlags
-	) as Error
+	var physical_connect_error: Error = (
+		operation.completed.connect(
+			func(_result: GFStorageAsyncResult) -> void:
+				physical_signal_count[0] += 1,
+			CONNECT_ONE_SHOT as Object.ConnectFlags
+		) as Error
+	)
+	var caller_connect_error: Error = (
+		operation.connect(
+			&"caller_completed",
+			func(_result: Variant) -> void:
+				caller_signal_count[0] += 1,
+			CONNECT_ONE_SHOT as Object.ConnectFlags
+		) as Error
+	)
 	assert_eq(physical_connect_error, OK)
 	assert_eq(caller_connect_error, OK)
 
@@ -2554,11 +3439,26 @@ func _assert_physical_terminal(
 	assert_not_null(result)
 	if result == null:
 		return
-	assert_eq(result.get_request_id(), operation.get_request_id())
-	assert_eq(result.get_operation(), operation.get_operation())
-	assert_eq(result.get_file_name(), operation.get_file_name())
-	assert_eq(result.get_error_code(), expected_error)
-	assert_eq(result.is_successful(), expected_success)
+	assert_eq(
+		result.get_request_id(),
+		operation.get_request_id()
+	)
+	assert_eq(
+		result.get_operation(),
+		operation.get_operation()
+	)
+	assert_eq(
+		result.get_file_name(),
+		operation.get_file_name()
+	)
+	assert_eq(
+		result.get_error_code(),
+		expected_error
+	)
+	assert_eq(
+		result.is_successful(),
+		expected_success
+	)
 	assert_eq(
 		_call_int(result, &"get_settlement_kind"),
 		_async_settlement_value(settlement_name)
@@ -2580,10 +3480,19 @@ func _assert_caller_terminal(
 	assert_not_null(caller_result)
 	if caller_result == null:
 		return
-	assert_eq(_call_int(caller_result, &"get_status"), _caller_status_value(status_name))
-	assert_eq(_call_int(caller_result, &"get_end_kind"), _caller_end_kind_value(end_kind_name))
+	assert_eq(
+		_call_int(caller_result, &"get_status"),
+		_caller_status_value(status_name)
+	)
+	assert_eq(
+		_call_int(caller_result, &"get_end_kind"),
+		_caller_end_kind_value(end_kind_name)
+	)
 	var caller_reason: StringName = _call_string_name(caller_result, &"get_reason")
-	assert_false(caller_reason.is_empty(), "Caller terminal 必须携带稳定 StringName reason。")
+	assert_false(
+		caller_reason.is_empty(),
+		"Caller terminal 必须携带稳定 StringName reason。"
+	)
 	if not expected_reason.is_empty():
 		assert_eq(caller_reason, expected_reason)
 
@@ -2605,16 +3514,27 @@ func _is_caller_completed(operation: GFStorageAsyncOperation) -> bool:
 
 
 func _call_int(object_value: Object, method_name: StringName) -> int:
-	assert_true(object_value.has_method(method_name), "%s 缺少 %s。" % [object_value, method_name])
+	assert_true(
+		object_value.has_method(method_name),
+		"%s 缺少 %s。"
+		% [object_value, method_name]
+	)
 	if not object_value.has_method(method_name):
 		return -1
 	var value: Variant = object_value.call(method_name)
-	assert_true(value is int, "%s 必须返回 int enum。" % method_name)
+	assert_true(
+		value is int,
+		"%s 必须返回 int enum。" % method_name
+	)
 	return value if value is int else -1
 
 
 func _call_string_name(object_value: Object, method_name: StringName) -> StringName:
-	assert_true(object_value.has_method(method_name), "%s 缺少 %s。" % [object_value, method_name])
+	assert_true(
+		object_value.has_method(method_name),
+		"%s 缺少 %s。"
+		% [object_value, method_name]
+	)
 	if not object_value.has_method(method_name):
 		return &""
 	var value: Variant = object_value.call(method_name)
@@ -2624,16 +3544,27 @@ func _call_string_name(object_value: Object, method_name: StringName) -> StringN
 	if value is String:
 		var string_value: String = value
 		return StringName(string_value)
-	assert_true(false, "%s 必须返回 StringName。" % method_name)
+	assert_true(
+		false,
+		"%s 必须返回 StringName。" % method_name
+	)
 	return &""
 
 
 func _caller_status_value(member_name: String) -> int:
-	return _script_enum_value(_CALLER_RESULT_SCRIPT_PATH, "Status", member_name)
+	return _script_enum_value(
+		_CALLER_RESULT_SCRIPT_PATH,
+		"Status",
+		member_name
+	)
 
 
 func _caller_end_kind_value(member_name: String) -> int:
-	return _script_enum_value(_CALLER_RESULT_SCRIPT_PATH, "EndKind", member_name)
+	return _script_enum_value(
+		_CALLER_RESULT_SCRIPT_PATH,
+		"EndKind",
+		member_name
+	)
 
 
 func _async_settlement_value(member_name: String) -> int:
@@ -2642,22 +3573,31 @@ func _async_settlement_value(member_name: String) -> int:
 	if script_value is GDScript:
 		var async_result_script: GDScript = script_value
 		var constants: Dictionary = async_result_script.get_script_constant_map()
-		var values: Dictionary = GFVariantData.get_option_dictionary(
-			constants,
-			"SettlementKind"
+		var values: Dictionary = GFVariantData.get_option_dictionary(constants, "SettlementKind")
+		return GFVariantData.get_option_int(
+			values,
+			member_name,
+			-1
 		)
-		return GFVariantData.get_option_int(values, member_name, -1)
 	return -1
 
 
-func _script_enum_value(path: String, enum_name: String, member_name: String) -> int:
+func _script_enum_value(
+	path: String,
+	enum_name: String,
+	member_name: String
+) -> int:
 	var gdscript: GDScript = _load_gdscript(path)
 	assert_not_null(gdscript)
 	if gdscript == null:
 		return -1
 	var constants: Dictionary = gdscript.get_script_constant_map()
 	var values: Dictionary = GFVariantData.get_option_dictionary(constants, enum_name)
-	return GFVariantData.get_option_int(values, member_name, -1)
+	return GFVariantData.get_option_int(
+		values,
+		member_name,
+		-1
+	)
 
 
 func _get_late_settlement_diagnostics() -> Array[Dictionary]:
@@ -2675,36 +3615,52 @@ func _get_late_settlement_diagnostics() -> Array[Dictionary]:
 	return diagnostics
 
 
-func _assert_late_diagnostic_schema(
-	diagnostic: Dictionary,
-	payload_sentinel: String
-) -> void:
+func _assert_late_diagnostic_schema(diagnostic: Dictionary, payload_sentinel: String) -> void:
 	var actual_keys: Array[String] = _dictionary_string_keys(diagnostic)
 	var expected_keys: Array[String] = _LATE_DIAGNOSTIC_KEYS.duplicate()
 	actual_keys.sort()
 	expected_keys.sort()
-	assert_eq(actual_keys, expected_keys, "Late diagnostic 必须使用 exact 29-key schema。")
+	assert_eq(
+		actual_keys,
+		expected_keys,
+		"Late diagnostic 必须使用 exact 29-key schema。"
+	)
 	for value: Variant in diagnostic.values():
 		assert_true(
-			value is bool or value is int or value is String or value is StringName,
+			value is bool
+			or value is int
+			or value is String
+			or value is StringName,
 			"Late diagnostic 只能包含 fixed scalar。"
 		)
 	var serialized: String = JSON.stringify(diagnostic)
-	assert_false(serialized.contains(payload_sentinel), "Late diagnostic 不得泄露 payload。")
+	assert_false(
+		serialized.contains(payload_sentinel),
+		"Late diagnostic 不得泄露 payload。"
+	)
 	assert_lte(
 		serialized.to_utf8_buffer().size(),
 		_LATE_DIAGNOSTIC_MAX_JSON_BYTES,
 		"单条 fixed scalar diagnostic 应自然保持有界。"
 	)
-	assert_gt(GFVariantData.get_option_int(diagnostic, "consumer_id"), 0)
-	assert_gt(GFVariantData.get_option_int(diagnostic, "request_id"), 0)
+	assert_gt(
+		GFVariantData.get_option_int(diagnostic, "consumer_id"),
+		0
+	)
+	assert_gt(
+		GFVariantData.get_option_int(diagnostic, "request_id"),
+		0
+	)
 	assert_eq(
 		GFVariantData.get_option_string_name(diagnostic, "operation"),
 		GFStorageAsyncOperation.OPERATION_SAVE
 	)
 	var file_name: String = GFVariantData.get_option_string(diagnostic, "file_name")
 	assert_true(file_name.begins_with("diagnostics/"))
-	assert_lte(file_name.length(), 255)
+	assert_lte(
+		file_name.length(),
+		255
+	)
 	assert_eq(
 		GFVariantData.get_option_int(diagnostic, "caller_status"),
 		_caller_status_value("OUTCOME_UNKNOWN")
@@ -2713,9 +3669,7 @@ func _assert_late_diagnostic_schema(
 		GFVariantData.get_option_int(diagnostic, "caller_end_kind"),
 		_caller_end_kind_value("EXPLICIT_CANCEL")
 	)
-	assert_false(
-		GFVariantData.get_option_string_name(diagnostic, "caller_reason").is_empty()
-	)
+	assert_false(GFVariantData.get_option_string_name(diagnostic, "caller_reason").is_empty())
 	assert_true(GFVariantData.get_option_bool(diagnostic, "worker_accepted"))
 	assert_false(GFVariantData.get_option_bool(diagnostic, "physical_cancel_requested"))
 	assert_eq(
@@ -2723,11 +3677,26 @@ func _assert_late_diagnostic_schema(
 		_async_settlement_value("DOMAIN_RESULT")
 	)
 	assert_true(GFVariantData.get_option_bool(diagnostic, "physical_ok"))
-	assert_eq(GFVariantData.get_option_int(diagnostic, "physical_error_code"), OK)
-	assert_gte(GFVariantData.get_option_int(diagnostic, "caller_completed_msec"), 0)
-	assert_gte(GFVariantData.get_option_int(diagnostic, "physical_completed_msec"), 0)
-	assert_gte(GFVariantData.get_option_int(diagnostic, "late_duration_msec"), 0)
-	assert_eq(GFVariantData.get_option_int(diagnostic, "read_failure_kind"), -1)
+	assert_eq(
+		GFVariantData.get_option_int(diagnostic, "physical_error_code"),
+		OK
+	)
+	assert_gte(
+		GFVariantData.get_option_int(diagnostic, "caller_completed_msec"),
+		0
+	)
+	assert_gte(
+		GFVariantData.get_option_int(diagnostic, "physical_completed_msec"),
+		0
+	)
+	assert_gte(
+		GFVariantData.get_option_int(diagnostic, "late_duration_msec"),
+		0
+	)
+	assert_eq(
+		GFVariantData.get_option_int(diagnostic, "read_failure_kind"),
+		-1
+	)
 	assert_eq(
 		GFVariantData.get_option_int(diagnostic, "write_failure_kind"),
 		GFStorageAsyncResult.WriteFailureKind.NONE
@@ -2741,12 +3710,30 @@ func _assert_late_diagnostic_schema(
 		"reset_remaining_evidence_count",
 		"reset_failed_member",
 	]:
-		assert_eq(GFVariantData.get_option_int(diagnostic, reset_key), -1)
-	assert_eq(GFVariantData.get_option_int(diagnostic, "delete_failure_kind"), -1)
-	assert_eq(GFVariantData.get_option_int(diagnostic, "delete_existing_member_count"), -1)
-	assert_eq(GFVariantData.get_option_int(diagnostic, "delete_removed_member_count"), -1)
-	assert_eq(GFVariantData.get_option_int(diagnostic, "delete_remaining_member_count"), -1)
-	assert_eq(GFVariantData.get_option_int(diagnostic, "delete_failed_member"), -1)
+		assert_eq(
+			GFVariantData.get_option_int(diagnostic, reset_key),
+			-1
+		)
+	assert_eq(
+		GFVariantData.get_option_int(diagnostic, "delete_failure_kind"),
+		-1
+	)
+	assert_eq(
+		GFVariantData.get_option_int(diagnostic, "delete_existing_member_count"),
+		-1
+	)
+	assert_eq(
+		GFVariantData.get_option_int(diagnostic, "delete_removed_member_count"),
+		-1
+	)
+	assert_eq(
+		GFVariantData.get_option_int(diagnostic, "delete_remaining_member_count"),
+		-1
+	)
+	assert_eq(
+		GFVariantData.get_option_int(diagnostic, "delete_failed_member"),
+		-1
+	)
 
 
 func _dictionary_string_keys(dictionary: Dictionary) -> Array[String]:
@@ -2808,7 +3795,10 @@ func _pump_until_storage_idle() -> bool:
 
 
 func _assert_request_api_argument_count(method_name: StringName, expected_count: int) -> void:
-	assert_true(_storage.has_method(method_name), "Storage 缺少 %s。" % method_name)
+	assert_true(
+		_storage.has_method(method_name),
+		"Storage 缺少 %s。" % method_name
+	)
 	if not _storage.has_method(method_name):
 		return
 	assert_eq(
@@ -2839,29 +3829,3 @@ func _load_gdscript(path: String) -> GDScript:
 		var gdscript: GDScript = resource_value
 		return gdscript
 	return null
-
-
-func _remove_owned_test_tree(path: String) -> Error:
-	if FileAccess.file_exists(path):
-		return DirAccess.remove_absolute(path)
-	if not DirAccess.dir_exists_absolute(path):
-		return OK
-	var directory: DirAccess = DirAccess.open(path)
-	if directory == null:
-		return DirAccess.get_open_error()
-	directory.include_hidden = true
-	for file_name: String in directory.get_files():
-		var remove_file_error: Error = DirAccess.remove_absolute(path.path_join(file_name))
-		if remove_file_error != OK:
-			return remove_file_error
-	for directory_name: String in directory.get_directories():
-		var child_path: String = path.path_join(directory_name)
-		var remove_directory_error: Error = (
-			DirAccess.remove_absolute(child_path)
-			if directory.is_link(directory_name)
-			else _remove_owned_test_tree(child_path)
-		)
-		if remove_directory_error != OK:
-			return remove_directory_error
-	directory = null
-	return DirAccess.remove_absolute(path)

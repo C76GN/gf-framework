@@ -184,7 +184,11 @@ func get_target() -> Node3D:
 ## @return: 记录成功返回 true。
 func capture_base_transform() -> bool:
 	var target: Node3D = get_target()
-	if target == null or not _transform_is_finite(target.position, target.rotation_degrees, target.scale):
+	if target == null or not _transform_is_finite(
+		target.position,
+		target.rotation_degrees,
+		target.scale
+	):
 		return false
 	_base_position = target.position
 	_base_rotation_degrees = target.rotation_degrees
@@ -211,7 +215,11 @@ func apply_current_sample() -> bool:
 	var position_offset: Vector3 = GFVariantData.get_option_vector3(sample, "position")
 	var rotation_offset: Vector3 = GFVariantData.get_option_vector3(sample, "rotation_degrees")
 	var scale_offset: Vector3 = GFVariantData.get_option_vector3(sample, "scale")
-	if not _vector3_is_finite(position_offset) or not _vector3_is_finite(rotation_offset) or not _vector3_is_finite(scale_offset):
+	if (
+		not _vector3_is_finite(position_offset)
+		or not _vector3_is_finite(rotation_offset)
+		or not _vector3_is_finite(scale_offset)
+	):
 		return false
 
 	var next_position: Vector3 = target.position
@@ -235,7 +243,11 @@ func apply_current_sample() -> bool:
 		next_scale = target.scale - _last_scale_offset + next_scale_offset
 	elif _last_scale_offset != Vector3.ZERO:
 		next_scale = target.scale - _last_scale_offset
-	if not _transform_is_finite(next_position, next_rotation_degrees, next_scale):
+	if not _transform_is_finite(
+		next_position,
+		next_rotation_degrees,
+		next_scale
+	):
 		return false
 
 	target.position = next_position
@@ -260,11 +272,13 @@ func reset_to_base() -> bool:
 		_clear_last_offsets()
 		return false
 	var next_position: Vector3 = _base_position if _has_captured_base else target.position - _last_position_offset
-	var next_rotation_degrees: Vector3 = (
-		_base_rotation_degrees if _has_captured_base else target.rotation_degrees - _last_rotation_offset
-	)
+	var next_rotation_degrees: Vector3 = (_base_rotation_degrees if _has_captured_base else target.rotation_degrees - _last_rotation_offset)
 	var next_scale: Vector3 = _base_scale if _has_captured_base else target.scale - _last_scale_offset
-	if not _transform_is_finite(next_position, next_rotation_degrees, next_scale):
+	if not _transform_is_finite(
+		next_position,
+		next_rotation_degrees,
+		next_scale
+	):
 		return false
 	target.position = next_position
 	target.rotation_degrees = next_rotation_degrees
@@ -343,12 +357,24 @@ func _clear_last_offsets() -> void:
 ## 检查位置、角度和缩放中的所有浮点分量是否有限。
 ## [br]
 ## @api private
-func _transform_is_finite(position: Vector3, rotation_degrees: Vector3, scale: Vector3) -> bool:
-	return _vector3_is_finite(position) and _vector3_is_finite(rotation_degrees) and _vector3_is_finite(scale)
+func _transform_is_finite(
+	position: Vector3,
+	rotation_degrees: Vector3,
+	scale: Vector3
+) -> bool:
+	return (
+		_vector3_is_finite(position)
+		and _vector3_is_finite(rotation_degrees)
+		and _vector3_is_finite(scale)
+	)
 
 
 ## 检查 Vector3 的三个分量是否均为有限数值。
 ## [br]
 ## @api private
 func _vector3_is_finite(value: Vector3) -> bool:
-	return is_finite(value.x) and is_finite(value.y) and is_finite(value.z)
+	return (
+		is_finite(value.x)
+		and is_finite(value.y)
+		and is_finite(value.z)
+	)

@@ -56,7 +56,14 @@ func connect_signal(
 	default_args: Array = [],
 	connect_flags: int = 0
 ) -> GFSignalConnection:
-	return _connect_signal(source_signal, callback, owner, default_args, connect_flags, false)
+	return _connect_signal(
+		source_signal,
+		callback,
+		owner,
+		default_args,
+		connect_flags,
+		false
+	)
 
 
 ## 创建一次性 Signal 连接。
@@ -83,7 +90,14 @@ func connect_once(
 	default_args: Array = [],
 	connect_flags: int = 0
 ) -> GFSignalConnection:
-	return _connect_signal(source_signal, callback, owner, default_args, connect_flags, true)
+	return _connect_signal(
+		source_signal,
+		callback,
+		owner,
+		default_args,
+		connect_flags,
+		true
+	)
 
 
 ## 批量连接多个 Signal 到同一个回调。
@@ -133,18 +147,33 @@ func connect_any(
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param source_signal: 要连接或断开的 Godot 信号。
 ## [br]
 ## @param callback: 操作完成或事件触发时执行的回调。
 ## [br]
 ## @param owner: 监听或连接的拥有者。
-func disconnect_signal(source_signal: Signal, callback: Callable, owner: Object = null) -> void:
-	for i: int in range(_connections.size() - 1, -1, -1):
+func disconnect_signal(
+	source_signal: Signal,
+	callback: Callable,
+	owner: Object = null
+) -> void:
+	for i: int in range(
+		_connections.size() - 1,
+		-1,
+		-1
+	):
 		var connection: GFSignalConnection = _connections[i]
 		if connection == null:
 			_connections.remove_at(i)
 			continue
-		if _connection_matches(connection, source_signal, callback, owner):
+		if _connection_matches(
+			connection,
+			source_signal,
+			callback,
+			owner
+		):
 			_connections.erase(connection)
 			connection.disconnect_signal()
 
@@ -158,7 +187,11 @@ func disconnect_owner(owner: Object) -> void:
 	if owner == null:
 		return
 
-	for i: int in range(_connections.size() - 1, -1, -1):
+	for i: int in range(
+		_connections.size() - 1,
+		-1,
+		-1
+	):
 		var connection: GFSignalConnection = _connections[i]
 		if connection == null or connection.is_owned_by(owner):
 			if connection != null:
@@ -199,7 +232,11 @@ func disconnect_all() -> void:
 ## [br]
 ## @api public
 func prune_invalid_connections() -> void:
-	for i: int in range(_connections.size() - 1, -1, -1):
+	for i: int in range(
+		_connections.size() - 1,
+		-1,
+		-1
+	):
 		var connection: GFSignalConnection = _connections[i]
 		if connection == null:
 			_connections.remove_at(i)
@@ -216,8 +253,6 @@ func prune_invalid_connections() -> void:
 func get_connection_count() -> int:
 	prune_invalid_connections()
 	return _connections.size()
-
-
 
 
 # --- 框架内部方法 ---
@@ -245,7 +280,14 @@ func _connect_signal(
 	connect_flags: int,
 	once: bool
 ) -> GFSignalConnection:
-	var existing: GFSignalConnection = _find_connection(source_signal, callback, owner, default_args, connect_flags, once)
+	var existing: GFSignalConnection = _find_connection(
+		source_signal,
+		callback,
+		owner,
+		default_args,
+		connect_flags,
+		once
+	)
 	if existing != null:
 		return existing
 
@@ -280,7 +322,14 @@ func _find_connection(
 ) -> GFSignalConnection:
 	prune_invalid_connections()
 	for connection: GFSignalConnection in _connections:
-		if connection._matches_configuration(source_signal, callback, owner, default_args, connect_flags, once):
+		if connection._matches_configuration(
+			source_signal,
+			callback,
+			owner,
+			default_args,
+			connect_flags,
+			once
+		):
 			return connection
 	return null
 
@@ -297,7 +346,11 @@ func _connection_matches(
 ) -> bool:
 	if connection == null:
 		return false
-	return connection.matches(source_signal, callback, owner)
+	return connection.matches(
+		source_signal,
+		callback,
+		owner
+	)
 
 
 ## 将 Variant 收窄为 Signal；类型不符时返回空 Signal。

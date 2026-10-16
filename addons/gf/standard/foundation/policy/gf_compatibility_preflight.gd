@@ -233,7 +233,13 @@ func require_platforms(
 	mode: StringName = MATCH_ANY,
 	options: Dictionary = {}
 ) -> Dictionary:
-	return _require_string_set(&"platform", _get_profile_platforms(), required_platforms, mode, options)
+	return _require_string_set(
+		&"platform",
+		_get_profile_platforms(),
+		required_platforms,
+		mode,
+		options
+	)
 
 
 ## 要求功能能力满足候选集合。
@@ -258,7 +264,13 @@ func require_features(
 	mode: StringName = MATCH_ALL,
 	options: Dictionary = {}
 ) -> Dictionary:
-	return _require_string_set(&"feature", _get_profile_features(), required_features, mode, options)
+	return _require_string_set(
+		&"feature",
+		_get_profile_features(),
+		required_features,
+		mode,
+		options
+	)
 
 
 ## 要求包存在并可选满足版本范围。
@@ -289,7 +301,11 @@ func require_package(
 	var package_entry: Dictionary = _get_profile_package(package_id)
 	if package_entry.is_empty():
 		var check: Dictionary = _append_check(
-			GFVariantData.get_option_string_name(options, "check_id", StringName("package:%s" % String(package_id))),
+			GFVariantData.get_option_string_name(
+				options,
+				"check_id",
+				StringName("package:%s" % String(package_id))
+			),
 			&"package",
 			false,
 			String(package_id),
@@ -297,13 +313,14 @@ func require_package(
 			options
 		)
 		_append_issue(
-			GFVariantData.get_option_string_name(options, "severity", &"error"),
+			GFVariantData.get_option_string_name(
+				options,
+				"severity",
+				&"error"
+			),
 			&"package_missing",
 			"required package is missing",
-			{
-				"package_id": package_id,
-				"expected_value": String(package_id),
-			}
+			{ "package_id": package_id, "expected_value": String(package_id), }
 		)
 		return check
 
@@ -311,14 +328,20 @@ func require_package(
 	var maximum: String = maximum_version_exclusive.strip_edges()
 	if minimum.is_empty() and maximum.is_empty():
 		return _append_check(
-			GFVariantData.get_option_string_name(options, "check_id", StringName("package:%s" % String(package_id))),
+			GFVariantData.get_option_string_name(
+				options,
+				"check_id",
+				StringName("package:%s" % String(package_id))
+			),
 			&"package",
 			true,
 			String(package_id),
 			String(package_id),
-			GFVariantData.merge_dictionary(options, {
-				"package_id": package_id,
-			}, true)
+			GFVariantData.merge_dictionary(
+				options,
+				{ "package_id": package_id, },
+				true
+			)
 		)
 
 	var actual_version: String = GFVariantData.get_option_string(package_entry, "version")
@@ -327,10 +350,18 @@ func require_package(
 		actual_version,
 		minimum_version,
 		maximum_version_exclusive,
-		GFVariantData.merge_dictionary(options, {
-			"check_id": GFVariantData.get_option_string_name(options, "check_id", StringName("package:%s" % String(package_id))),
-			"package_id": package_id,
-		}, true)
+		GFVariantData.merge_dictionary(
+			options,
+			{
+				"check_id": GFVariantData.get_option_string_name(
+					options,
+					"check_id",
+					StringName("package:%s" % String(package_id))
+				),
+				"package_id": package_id,
+			},
+			true
+		)
 	)
 	return version_check
 
@@ -353,11 +384,23 @@ func require_package(
 func require_artifact(artifact_id: StringName, options: Dictionary = {}) -> Dictionary:
 	var artifact_entry: Dictionary = _get_profile_artifact(artifact_id)
 	var expected_path: String = _normalize_artifact_path(GFVariantData.get_option_string(options, "expected_path"))
-	var require_path: bool = GFVariantData.get_option_bool(options, "require_path", not expected_path.is_empty())
+	var require_path: bool = GFVariantData.get_option_bool(
+		options,
+		"require_path",
+		not expected_path.is_empty()
+	)
 	var expected_kind: StringName = GFVariantData.get_option_string_name(options, "expected_kind")
-	var require_file_exists: bool = GFVariantData.get_option_bool(options, "require_file_exists", false)
+	var require_file_exists: bool = GFVariantData.get_option_bool(
+		options,
+		"require_file_exists",
+		false
+	)
 	var expected_sha256: String = _normalize_sha256(GFVariantData.get_option_string(options, "expected_sha256"))
-	var expected_size_bytes: int = GFVariantData.get_option_int(options, "expected_size_bytes", -1)
+	var expected_size_bytes: int = GFVariantData.get_option_int(
+		options,
+		"expected_size_bytes",
+		-1
+	)
 	var check_id: StringName = GFVariantData.get_option_string_name(
 		options,
 		"check_id",
@@ -382,13 +425,14 @@ func require_artifact(artifact_id: StringName, options: Dictionary = {}) -> Dict
 			options
 		)
 		_append_issue(
-			GFVariantData.get_option_string_name(options, "severity", &"error"),
+			GFVariantData.get_option_string_name(
+				options,
+				"severity",
+				&"error"
+			),
 			&"artifact_missing",
 			"required artifact is missing",
-			{
-				"artifact_id": artifact_id,
-				"expected_value": expected_value,
-			}
+			{ "artifact_id": artifact_id, "expected_value": expected_value, }
 		)
 		return check
 
@@ -396,7 +440,9 @@ func require_artifact(artifact_id: StringName, options: Dictionary = {}) -> Dict
 	var actual_kind: StringName = GFVariantData.get_option_string_name(artifact_entry, "kind")
 	var file_metadata: Dictionary = _get_artifact_file_metadata(
 		actual_path,
-		require_file_exists or not expected_sha256.is_empty() or expected_size_bytes >= 0
+		require_file_exists
+		or not expected_sha256.is_empty()
+		or expected_size_bytes >= 0
 	)
 	var actual_value: Dictionary = artifact_entry.duplicate(true)
 	if not file_metadata.is_empty():
@@ -405,56 +451,110 @@ func require_artifact(artifact_id: StringName, options: Dictionary = {}) -> Dict
 	var pending_issues: Array[Dictionary] = []
 	if require_path and actual_path.is_empty():
 		ok = false
-		pending_issues.append(_make_pending_artifact_issue(&"artifact_path_missing", "required artifact path is missing", {
-			"artifact_id": artifact_id,
-			"expected_value": expected_value,
-			"actual_value": actual_value,
-			"actual_path": actual_path,
-		}))
+		pending_issues.append(
+			_make_pending_artifact_issue(
+				&"artifact_path_missing",
+				"required artifact path is missing",
+				{
+					"artifact_id": artifact_id,
+					"expected_value": expected_value,
+					"actual_value": actual_value,
+					"actual_path": actual_path,
+				}
+			)
+		)
 	elif not expected_path.is_empty() and actual_path != expected_path:
 		ok = false
-		pending_issues.append(_make_pending_artifact_issue(&"artifact_path_mismatch", "artifact path does not match expected path", {
-			"artifact_id": artifact_id,
-			"expected_value": expected_value,
-			"actual_value": actual_value,
-			"actual_path": actual_path,
-		}))
+		pending_issues.append(
+			_make_pending_artifact_issue(
+				&"artifact_path_mismatch",
+				"artifact path does not match expected path",
+				{
+					"artifact_id": artifact_id,
+					"expected_value": expected_value,
+					"actual_value": actual_value,
+					"actual_path": actual_path,
+				}
+			)
+		)
 	if expected_kind != &"" and actual_kind != expected_kind:
 		ok = false
-		pending_issues.append(_make_pending_artifact_issue(&"artifact_kind_mismatch", "artifact kind does not match expected kind", {
-			"artifact_id": artifact_id,
-			"expected_value": expected_kind,
-			"actual_value": actual_kind,
-		}))
-	if require_file_exists and not GFVariantData.get_option_bool(file_metadata, "exists", false):
+		pending_issues.append(
+			_make_pending_artifact_issue(
+				&"artifact_kind_mismatch",
+				"artifact kind does not match expected kind",
+				{
+					"artifact_id": artifact_id,
+					"expected_value": expected_kind,
+					"actual_value": actual_kind,
+				}
+			)
+		)
+	if require_file_exists and not GFVariantData.get_option_bool(
+		file_metadata,
+		"exists",
+		false
+	):
 		ok = false
-		pending_issues.append(_make_pending_artifact_issue(&"artifact_file_missing", "artifact file is missing", {
-			"artifact_id": artifact_id,
-			"expected_value": actual_path,
-			"actual_value": file_metadata,
-		}))
-	if expected_size_bytes >= 0 and GFVariantData.get_option_bool(file_metadata, "exists", false):
-		var actual_size_bytes: int = GFVariantData.get_option_int(file_metadata, "size_bytes", -1)
+		pending_issues.append(
+			_make_pending_artifact_issue(
+				&"artifact_file_missing",
+				"artifact file is missing",
+				{
+					"artifact_id": artifact_id,
+					"expected_value": actual_path,
+					"actual_value": file_metadata,
+				}
+			)
+		)
+	if expected_size_bytes >= 0 and GFVariantData.get_option_bool(
+		file_metadata,
+		"exists",
+		false
+	):
+		var actual_size_bytes: int = GFVariantData.get_option_int(
+			file_metadata,
+			"size_bytes",
+			-1
+		)
 		if actual_size_bytes != expected_size_bytes:
 			ok = false
-			pending_issues.append(_make_pending_artifact_issue(&"artifact_size_mismatch", "artifact file size does not match expected size", {
-				"artifact_id": artifact_id,
-				"expected_value": expected_size_bytes,
-				"actual_value": actual_size_bytes,
-			}))
-	if not expected_sha256.is_empty() and GFVariantData.get_option_bool(file_metadata, "exists", false):
+			pending_issues.append(
+				_make_pending_artifact_issue(
+					&"artifact_size_mismatch",
+					"artifact file size does not match expected size",
+					{
+						"artifact_id": artifact_id,
+						"expected_value": expected_size_bytes,
+						"actual_value": actual_size_bytes,
+					}
+				)
+			)
+	if not expected_sha256.is_empty() and GFVariantData.get_option_bool(
+		file_metadata,
+		"exists",
+		false
+	):
 		var actual_sha256: String = _normalize_sha256(GFVariantData.get_option_string(file_metadata, "sha256"))
 		if actual_sha256 != expected_sha256:
 			ok = false
-			pending_issues.append(_make_pending_artifact_issue(&"artifact_sha256_mismatch", "artifact sha256 does not match expected sha256", {
-				"artifact_id": artifact_id,
-				"expected_value": expected_sha256,
-				"actual_value": actual_sha256,
-			}))
+			pending_issues.append(
+				_make_pending_artifact_issue(
+					&"artifact_sha256_mismatch",
+					"artifact sha256 does not match expected sha256",
+					{
+						"artifact_id": artifact_id,
+						"expected_value": expected_sha256,
+						"actual_value": actual_sha256,
+					}
+				)
+			)
 
-	var check_options: Dictionary = GFVariantData.merge_dictionary(options, {
-		"artifact_id": artifact_id,
-	}, true)
+	var check_options: Dictionary = GFVariantData.merge_dictionary(
+		options,
+		{ "artifact_id": artifact_id, },
+		true
+	)
 	var artifact_check: Dictionary = _append_check(
 		check_id,
 		&"artifact",
@@ -465,7 +565,11 @@ func require_artifact(artifact_id: StringName, options: Dictionary = {}) -> Dict
 	)
 	for pending_issue: Dictionary in pending_issues:
 		_append_issue(
-			GFVariantData.get_option_string_name(options, "severity", &"error"),
+			GFVariantData.get_option_string_name(
+				options,
+				"severity",
+				&"error"
+			),
 			GFVariantData.get_option_string_name(pending_issue, "kind"),
 			GFVariantData.get_option_string(pending_issue, "message"),
 			GFVariantData.get_option_dictionary(pending_issue, "fields")
@@ -490,24 +594,60 @@ func require_artifact(artifact_id: StringName, options: Dictionary = {}) -> Dict
 ## @return 检查记录副本。
 ## [br]
 ## @schema return: Dictionary check record.
-func add_check(check_id: StringName, ok: bool, options: Dictionary = {}) -> Dictionary:
+func add_check(
+	check_id: StringName,
+	ok: bool,
+	options: Dictionary = {}
+) -> Dictionary:
 	var check: Dictionary = _append_check(
 		check_id,
-		GFVariantData.get_option_string_name(options, "kind", &"custom"),
+		GFVariantData.get_option_string_name(
+			options,
+			"kind",
+			&"custom"
+		),
 		ok,
-		GFVariantData.get_option_value(options, "expected_value", null),
-		GFVariantData.get_option_value(options, "actual_value", null),
+		GFVariantData.get_option_value(
+			options,
+			"expected_value",
+			null
+		),
+		GFVariantData.get_option_value(
+			options,
+			"actual_value",
+			null
+		),
 		options
 	)
 	if not ok:
 		_append_issue(
-			GFVariantData.get_option_string_name(options, "severity", &"error"),
-			GFVariantData.get_option_string_name(options, "issue_kind", &"custom_check_failed"),
-			GFVariantData.get_option_string(options, "message", "custom compatibility check failed"),
+			GFVariantData.get_option_string_name(
+				options,
+				"severity",
+				&"error"
+			),
+			GFVariantData.get_option_string_name(
+				options,
+				"issue_kind",
+				&"custom_check_failed"
+			),
+			GFVariantData.get_option_string(
+				options,
+				"message",
+				"custom compatibility check failed"
+			),
 			{
 				"check_id": check_id,
-				"expected_value": GFVariantData.get_option_value(options, "expected_value", null),
-				"actual_value": GFVariantData.get_option_value(options, "actual_value", null),
+				"expected_value": GFVariantData.get_option_value(
+					options,
+					"expected_value",
+					null
+				),
+				"actual_value": GFVariantData.get_option_value(
+					options,
+					"actual_value",
+					null
+				),
 			}
 		)
 	return check
@@ -542,18 +682,27 @@ func merge_report(report: Dictionary, options: Dictionary = {}) -> GFCompatibili
 		if options.has("issue_kind"):
 			issue["kind"] = String(GFVariantData.get_option_string_name(options, "issue_kind"))
 		issues.append(issue)
-	var ok: bool = GFVariantData.get_option_bool(report, "ok", true)
+	var ok: bool = GFVariantData.get_option_bool(
+		report,
+		"ok",
+		true
+	)
 	var _check: Dictionary = _append_check(
-		GFVariantData.get_option_string_name(options, "check_id", GFVariantData.get_option_string_name(report, "subject", &"external_report")),
+		GFVariantData.get_option_string_name(
+			options,
+			"check_id",
+			GFVariantData.get_option_string_name(
+				report,
+				"subject",
+				&"external_report"
+			)
+		),
 		&"external_report",
 		ok,
 		"ok",
 		ok,
 		{
-			"metadata": {
-				"summary": GFVariantData.get_option_string(report, "summary"),
-				"issue_count": GFVariantData.get_option_int(report, "issue_count"),
-			},
+			"metadata": { "summary": GFVariantData.get_option_string(report, "summary"), "issue_count": GFVariantData.get_option_int(report, "issue_count"), },
 		}
 	)
 	return self
@@ -573,7 +722,11 @@ func merge_report(report: Dictionary, options: Dictionary = {}) -> GFCompatibili
 ## [br]
 ## @schema return: Dictionary with ok, healthy, profile, checks, issues, summary, and next_action.
 func get_report(options: Dictionary = {}) -> Dictionary:
-	var report_subject: String = GFVariantData.get_option_string(options, "subject", subject)
+	var report_subject: String = GFVariantData.get_option_string(
+		options,
+		"subject",
+		subject
+	)
 	var report: Dictionary = {
 		"subject": report_subject,
 		"target_id": target_id,
@@ -584,11 +737,27 @@ func get_report(options: Dictionary = {}) -> Dictionary:
 		"issues": _copy_entries(issues),
 		"metadata": metadata.duplicate(true),
 	}
-	return GFValidationReportDictionary.finalize_report(report, report_subject, {
-		"fallback_action": GFVariantData.get_option_string(options, "fallback_action", "Review the first compatibility preflight issue."),
-		"no_action": GFVariantData.get_option_string(options, "no_action", "Compatibility preflight is healthy."),
-		"warnings_as_errors": GFVariantData.get_option_bool(options, "warnings_as_errors", false),
-	})
+	return GFValidationReportDictionary.finalize_report(
+		report,
+		report_subject,
+		{
+			"fallback_action": GFVariantData.get_option_string(
+				options,
+				"fallback_action",
+				"Review the first compatibility preflight issue."
+			),
+			"no_action": GFVariantData.get_option_string(
+				options,
+				"no_action",
+				"Compatibility preflight is healthy."
+			),
+			"warnings_as_errors": GFVariantData.get_option_bool(
+				options,
+				"warnings_as_errors",
+				false
+			),
+		}
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -620,7 +789,7 @@ func _require_version_range(
 		ok = false
 		issue_kind = StringName("%s_invalid" % String(kind))
 		message = "%s is not valid semantic version text" % String(kind)
-	elif not GFVariantData.get_option_bool(minimum_semver, "ok") or not GFVariantData.get_option_bool(maximum_semver, "ok"):
+	elif (not GFVariantData.get_option_bool(minimum_semver, "ok") or not GFVariantData.get_option_bool(maximum_semver, "ok")):
 		ok = false
 		issue_kind = StringName("%s_requirement_invalid" % String(kind))
 		message = "%s requirement contains invalid semantic version text" % String(kind)
@@ -633,12 +802,13 @@ func _require_version_range(
 		issue_kind = StringName("%s_at_or_above_maximum" % String(kind))
 		message = "%s is at or above the exclusive maximum" % String(kind)
 
-	var expected_value: Dictionary = {
-		"minimum": minimum,
-		"maximum_exclusive": maximum,
-	}
+	var expected_value: Dictionary = { "minimum": minimum, "maximum_exclusive": maximum, }
 	var check: Dictionary = _append_check(
-		GFVariantData.get_option_string_name(options, "check_id", kind),
+		GFVariantData.get_option_string_name(
+			options,
+			"check_id",
+			kind
+		),
 		kind,
 		ok,
 		expected_value,
@@ -646,14 +816,15 @@ func _require_version_range(
 		options
 	)
 	if not ok:
-		var fields: Dictionary = {
-			"expected_value": expected_value,
-			"actual_value": actual_version,
-		}
+		var fields: Dictionary = { "expected_value": expected_value, "actual_value": actual_version, }
 		if options.has("package_id"):
 			fields["package_id"] = GFVariantData.get_option_string_name(options, "package_id")
 		_append_issue(
-			GFVariantData.get_option_string_name(options, "severity", &"error"),
+			GFVariantData.get_option_string_name(
+				options,
+				"severity",
+				&"error"
+			),
 			issue_kind,
 			message,
 			fields
@@ -681,7 +852,11 @@ func _require_string_set(
 		ok = _has_all(actual, required)
 
 	var check: Dictionary = _append_check(
-		GFVariantData.get_option_string_name(options, "check_id", kind),
+		GFVariantData.get_option_string_name(
+			options,
+			"check_id",
+			kind
+		),
 		kind,
 		ok,
 		required,
@@ -690,7 +865,11 @@ func _require_string_set(
 	)
 	if not ok:
 		_append_issue(
-			GFVariantData.get_option_string_name(options, "severity", &"error"),
+			GFVariantData.get_option_string_name(
+				options,
+				"severity",
+				&"error"
+			),
 			StringName("%s_missing" % String(kind)),
 			"%s requirement is not satisfied" % String(kind),
 			{
@@ -728,7 +907,12 @@ func _append_check(
 ## 通过 GFValidationReportDictionary 构造单条问题并追加到 issues。
 ## [br]
 ## @api private
-func _append_issue(severity: StringName, kind: StringName, message: String, fields: Dictionary) -> void:
+func _append_issue(
+	severity: StringName,
+	kind: StringName,
+	message: String,
+	fields: Dictionary
+) -> void:
 	var report: Dictionary = { "issues": [] }
 	var issue: Dictionary = GFValidationReportDictionary.append_issue(
 		report,
@@ -838,10 +1022,7 @@ static func _get_artifact_file_metadata(path: String, inspect_file: bool) -> Dic
 	if not inspect_file:
 		return {}
 	var normalized_path: String = _normalize_artifact_path(path)
-	var file_metadata: Dictionary = {
-		"path": normalized_path,
-		"exists": false,
-	}
+	var file_metadata: Dictionary = { "path": normalized_path, "exists": false, }
 	if normalized_path.is_empty():
 		return file_metadata
 	if not FileAccess.file_exists(normalized_path):
@@ -866,7 +1047,11 @@ static func _normalize_sha256(value: String) -> String:
 ## 将 artifact 问题的类别、消息和字段封装为待追加记录。
 ## [br]
 ## @api private
-static func _make_pending_artifact_issue(kind: StringName, message: String, fields: Dictionary) -> Dictionary:
+static func _make_pending_artifact_issue(
+	kind: StringName,
+	message: String,
+	fields: Dictionary
+) -> Dictionary:
 	return {
 		"kind": kind,
 		"message": message,
@@ -926,8 +1111,24 @@ static func _has_all(actual: PackedStringArray, required: PackedStringArray) -> 
 static func _compare_versions(left: String, right: String) -> int:
 	var left_version: Dictionary = _parse_semver(left)
 	var right_version: Dictionary = _parse_semver(right)
-	var left_numbers: Array[int] = GFVariantData.get_option_value(left_version, "numbers", [0, 0, 0])
-	var right_numbers: Array[int] = GFVariantData.get_option_value(right_version, "numbers", [0, 0, 0])
+	var left_numbers: Array[int] = GFVariantData.get_option_value(
+		left_version,
+		"numbers",
+		[
+			0,
+			0,
+			0,
+		]
+	)
+	var right_numbers: Array[int] = GFVariantData.get_option_value(
+		right_version,
+		"numbers",
+		[
+			0,
+			0,
+			0,
+		]
+	)
 	for index: int in range(3):
 		if left_numbers[index] < right_numbers[index]:
 			return -1
@@ -946,14 +1147,41 @@ static func _compare_versions(left: String, right: String) -> int:
 static func _parse_semver(version: String) -> Dictionary:
 	var normalized: String = version.strip_edges()
 	if normalized.is_empty() or normalized.length() > 128:
-		return { "ok": false, "numbers": [0, 0, 0], "prerelease": PackedStringArray() }
+		return {
+			"ok": false,
+			"numbers": [
+				0,
+				0,
+				0,
+			],
+			"prerelease": PackedStringArray(),
+		}
 	var build_index: int = normalized.find("+")
 	if build_index >= 0:
-		if normalized.find("+", build_index + 1) >= 0:
-			return { "ok": false, "numbers": [0, 0, 0], "prerelease": PackedStringArray() }
+		if normalized.find(
+			"+",
+			build_index + 1
+		) >= 0:
+			return {
+				"ok": false,
+				"numbers": [
+					0,
+					0,
+					0,
+				],
+				"prerelease": PackedStringArray(),
+			}
 		var build_text: String = normalized.substr(build_index + 1)
 		if not _semver_identifiers_are_valid(build_text, false):
-			return { "ok": false, "numbers": [0, 0, 0], "prerelease": PackedStringArray() }
+			return {
+				"ok": false,
+				"numbers": [
+					0,
+					0,
+					0,
+				],
+				"prerelease": PackedStringArray(),
+			}
 		normalized = normalized.substr(0, build_index)
 
 	var prerelease: PackedStringArray = PackedStringArray()
@@ -963,15 +1191,46 @@ static func _parse_semver(version: String) -> Dictionary:
 		core = normalized.substr(0, prerelease_index)
 		var prerelease_text: String = normalized.substr(prerelease_index + 1)
 		if not _semver_identifiers_are_valid(prerelease_text, true):
-			return { "ok": false, "numbers": [0, 0, 0], "prerelease": PackedStringArray() }
+			return {
+				"ok": false,
+				"numbers": [
+					0,
+					0,
+					0,
+				],
+				"prerelease": PackedStringArray(),
+			}
 		prerelease = prerelease_text.split(".")
 	var core_parts: PackedStringArray = core.split(".", true)
 	if core_parts.size() != 3:
-		return { "ok": false, "numbers": [0, 0, 0], "prerelease": PackedStringArray() }
+		return {
+			"ok": false,
+			"numbers": [
+				0,
+				0,
+				0,
+			],
+			"prerelease": PackedStringArray(),
+		}
 	var numbers: Array[int] = []
 	for part: String in core_parts:
-		if not _is_numeric_identifier(part) or (part.length() > 1 and part.begins_with("0")) or part.length() > 18:
-			return { "ok": false, "numbers": [0, 0, 0], "prerelease": PackedStringArray() }
+		if (
+			not _is_numeric_identifier(part)
+			or (
+				part.length() > 1
+				and part.begins_with("0")
+			)
+			or part.length() > 18
+		):
+			return {
+				"ok": false,
+				"numbers": [
+					0,
+					0,
+					0,
+				],
+				"prerelease": PackedStringArray(),
+			}
 		numbers.append(int(part))
 	return {
 		"ok": true,
@@ -993,7 +1252,12 @@ static func _semver_identifiers_are_valid(value: String, reject_numeric_leading_
 			var character: String = identifier.substr(index, 1)
 			if not "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-".contains(character):
 				return false
-		if reject_numeric_leading_zeroes and _is_numeric_identifier(identifier) and identifier.length() > 1 and identifier.begins_with("0"):
+		if (
+			reject_numeric_leading_zeroes
+			and _is_numeric_identifier(identifier)
+			and identifier.length() > 1
+			and identifier.begins_with("0")
+		):
 			return false
 	return true
 
@@ -1010,7 +1274,10 @@ static func _compare_prerelease(left: PackedStringArray, right: PackedStringArra
 	if right.is_empty():
 		return -1
 
-	var max_count: int = maxi(left.size(), right.size())
+	var max_count: int = maxi(
+		left.size(),
+		right.size()
+	)
 	for index: int in range(max_count):
 		if index >= left.size():
 			return -1

@@ -36,7 +36,7 @@
 | 方法 | [`read_value`](#member-gftablecolumndefinition-methods-read_value) | `func read_value(row_data: Variant) -> Variant:` |
 | 方法 | [`write_value`](#member-gftablecolumndefinition-methods-write_value) | `func write_value(row_data: Variant, new_value: Variant) -> bool:` |
 | 方法 | [`format_value`](#member-gftablecolumndefinition-methods-format_value) | `func format_value(value: Variant, row_data: Variant = null) -> String:` |
-| 方法 | [`matches_query`](#member-gftablecolumndefinition-methods-matches_query) | `func matches_query(row_data: Variant, query: String, case_sensitive: bool = false) -> bool:` |
+| 方法 | [`matches_query`](#member-gftablecolumndefinition-methods-matches_query) | `func matches_query( row_data: Variant, query: String, case_sensitive: bool = false ) -> bool:` |
 | 方法 | [`compare_values`](#member-gftablecolumndefinition-methods-compare_values) | `func compare_values( left_value: Variant, right_value: Variant, left_row: Variant = null, right_row: Variant = null ) -> int:` |
 | 方法 | [`duplicate_column`](#member-gftablecolumndefinition-methods-duplicate_column) | `func duplicate_column() -> GFTableColumnDefinition:` |
 | 方法 | [`describe`](#member-gftablecolumndefinition-methods-describe) | `func describe() -> Dictionary:` |
@@ -398,7 +398,7 @@ func format_value(value: Variant, row_data: Variant = null) -> String:
 - 首次版本：`5.2.0`
 
 ```gdscript
-func matches_query(row_data: Variant, query: String, case_sensitive: bool = false) -> bool:
+func matches_query( row_data: Variant, query: String, case_sensitive: bool = false ) -> bool:
 ```
 
 判断该列是否匹配过滤文本。

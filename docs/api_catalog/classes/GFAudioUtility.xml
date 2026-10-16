@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAudioUtility" path="addons/gf/standard/utilities/audio/gf_audio_utility.gd" module="standard" extends="GFUtility" classDigest="e079920afa4d39c1e1aded8ad095070952aa394f2a4ca61405f8348c9a155eb8">
+<class name="GFAudioUtility" path="addons/gf/standard/utilities/audio/gf_audio_utility.gd" module="standard" extends="GFUtility" classDigest="7c9a5446f309e0cc714781498c18bcf36cff372d2191b08469d7e2feba311784">
 	<description>GFAudioUtility: 全局音频管理器。
 管理 BGM 和 SFX 的播放与音量。
 普通 SFX 播放器由本工具缓存复用，不依赖通用对象池。
@@ -185,13 +185,14 @@ loop 与 playback_region 是保留键，必须通过 GFAudioClip.playback_region
 			</tags>
 		</member>
 		<member kind="method" name="play_bgm_from_bank">
-			<signature>func play_bgm_from_bank(bank: GFAudioBank, clip_id: StringName, crossfade_seconds: float = -1.0) -&gt; void:</signature>
+			<signature>func play_bgm_from_bank( bank: GFAudioBank, clip_id: StringName, crossfade_seconds: float = -1.0 ) -&gt; void:</signature>
 			<description>从音频集合播放 BGM。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">bank: 音频集合。</tag>
 				<tag name="param">clip_id: 片段标识。</tag>
 				<tag name="param">crossfade_seconds: 淡入淡出秒数；小于 0 时使用默认值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="play_bgm_event">
@@ -416,7 +417,7 @@ backend-owned 会话会查询后端，并在稳定 identity 下提交自然结�
 			</tags>
 		</member>
 		<member kind="method" name="play_ambient">
-			<signature>func play_ambient(path: String, channel: StringName = &amp;"default", fade_seconds: float = 0.0) -&gt; void:</signature>
+			<signature>func play_ambient( path: String, channel: StringName = &amp;"default", fade_seconds: float = 0.0 ) -&gt; void:</signature>
 			<description>播放环境音。每次替换都会先递增通道 generation，使旧加载和淡变回调失效。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -671,7 +672,7 @@ backend-owned 会话会查询后端，并在稳定 identity 下提交自然结�
 			</tags>
 		</member>
 		<member kind="method" name="set_bus_volume_db">
-			<signature>func set_bus_volume_db(bus_name: String, volume_db: float, transition_seconds: float = 0.0) -&gt; bool:</signature>
+			<signature>func set_bus_volume_db( bus_name: String, volume_db: float, transition_seconds: float = 0.0 ) -&gt; bool:</signature>
 			<description>设置音频总线 dB 音量。增益与静音作为同一代事务提交，后发操作会使旧 tween 失效。</description>
 			<tags>
 				<tag name="api">public</tag>

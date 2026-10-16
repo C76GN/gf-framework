@@ -94,25 +94,36 @@ const _MAX_CHANNEL_EVENT_BYTES: int = 16_777_216
 ## @schema options: Dictionary with enabled, include_in_snapshot, max_events, max_event_bytes, and metadata.
 ## [br]
 ## @return 当前定义。
-func configure(
-	p_channel_id: StringName,
-	options: Dictionary = {}
-) -> GFSessionTraceChannelDefinition:
+func configure(p_channel_id: StringName, options: Dictionary = {}) -> GFSessionTraceChannelDefinition:
 	channel_id = p_channel_id
-	enabled = GFVariantData.get_option_bool(options, "enabled", enabled)
+	enabled = GFVariantData.get_option_bool(
+		options,
+		"enabled",
+		enabled
+	)
 	include_in_snapshot = GFVariantData.get_option_bool(
 		options,
 		"include_in_snapshot",
 		include_in_snapshot
 	)
-	max_events = GFVariantData.get_option_int(options, "max_events", max_events)
+	max_events = GFVariantData.get_option_int(
+		options,
+		"max_events",
+		max_events
+	)
 	max_event_bytes = GFVariantData.get_option_int(
 		options,
 		"max_event_bytes",
 		max_event_bytes
 	)
 	metadata = _duplicate_dictionary(
-		GFVariantData.as_dictionary(GFVariantData.get_option_value(options, "metadata", {}))
+		GFVariantData.as_dictionary(
+			GFVariantData.get_option_value(
+				options,
+				"metadata",
+				{}
+			)
+		)
 	)
 	return self
 
@@ -129,7 +140,11 @@ func configure(
 func validate_definition() -> Dictionary:
 	var report: Dictionary = { "issues": [] }
 	var channel_text: String = String(channel_id)
-	if channel_id == &"" or channel_text != channel_text.strip_edges() or channel_text.length() > 128:
+	if (
+		channel_id == &""
+		or channel_text != channel_text.strip_edges()
+		or channel_text.length() > 128
+	):
 		var _id_issue: Variant = GFValidationReportDictionary.append_issue(
 			report,
 			"error",
@@ -148,7 +163,10 @@ func validate_definition() -> Dictionary:
 	if (
 		max_event_bytes < 0
 		or max_event_bytes > _MAX_CHANNEL_EVENT_BYTES
-		or (max_event_bytes > 0 and max_event_bytes < _MIN_CHANNEL_EVENT_BYTES)
+		or (
+			max_event_bytes > 0
+			and max_event_bytes < _MIN_CHANNEL_EVENT_BYTES
+		)
 	):
 		var _event_bytes_issue: Variant = GFValidationReportDictionary.append_issue(
 			report,
@@ -157,16 +175,20 @@ func validate_definition() -> Dictionary:
 			"Trace channel max_event_bytes must be 0 or between 512 and 16777216.",
 			{ "path": "max_event_bytes", "value": max_event_bytes }
 		)
-	return GFValidationReportDictionary.finalize_report(report, "Session trace channel", {
-		"include_issue_count": true,
-		"next_actions": {
-			"invalid_channel_id": "Assign a stable channel id with at most 128 characters.",
-			"invalid_channel_event_limit": "Use a channel max_events value between 0 and 1000000.",
-			"invalid_channel_event_byte_budget": "Use 0 or a channel max_event_bytes value between 512 and 16777216.",
-		},
-		"fallback_action": "Review the first trace channel issue.",
-		"no_action": "Session trace channel is valid.",
-	})
+	return GFValidationReportDictionary.finalize_report(
+		report,
+		"Session trace channel",
+		{
+			"include_issue_count": true,
+			"next_actions": {
+				"invalid_channel_id": "Assign a stable channel id with at most 128 characters.",
+				"invalid_channel_event_limit": "Use a channel max_events value between 0 and 1000000.",
+				"invalid_channel_event_byte_budget": "Use 0 or a channel max_event_bytes value between 512 and 16777216.",
+			},
+			"fallback_action": "Review the first trace channel issue.",
+			"no_action": "Session trace channel is valid.",
+		}
+	)
 
 
 # --- 框架内部方法 ---
@@ -207,9 +229,7 @@ func to_report_dictionary_for_framework() -> Dictionary:
 		"channel_id": String(channel_id),
 		"options": GFReportValueCodec.to_report_dictionary(
 			to_channel_options_for_framework(),
-			GFReportValueCodec.make_redaction_options(
-				GFReportValueCodec.REDACTION_PROFILE_PRIVACY
-			)
+			GFReportValueCodec.make_redaction_options(GFReportValueCodec.REDACTION_PROFILE_PRIVACY)
 		),
 	}
 

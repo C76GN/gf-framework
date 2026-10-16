@@ -166,7 +166,13 @@ var _cancel_callback: Callable = Callable()
 func succeed(result: Variant = null, metadata: Dictionary = {}) -> bool:
 	if not _can_mutate_on_current_thread("succeed"):
 		return false
-	return _complete(Status.SUCCEEDED, result, "", &"", metadata)
+	return _complete(
+		Status.SUCCEEDED,
+		result,
+		"",
+		&"",
+		metadata
+	)
 
 
 ## 标记失败完成。
@@ -185,7 +191,13 @@ func succeed(result: Variant = null, metadata: Dictionary = {}) -> bool:
 func fail(error: String = "", metadata: Dictionary = {}) -> bool:
 	if not _can_mutate_on_current_thread("fail"):
 		return false
-	return _complete(Status.FAILED, null, error, &"", metadata)
+	return _complete(
+		Status.FAILED,
+		null,
+		error,
+		&"",
+		metadata
+	)
 
 
 ## 标记取消完成。
@@ -205,10 +217,20 @@ func fail(error: String = "", metadata: Dictionary = {}) -> bool:
 ## @schema metadata: Dictionary，调用方定义的终态元数据。
 ## [br]
 ## @schema result: Variant，调用方定义的取消结果。
-func cancel(reason: StringName = &"cancelled", metadata: Dictionary = {}, result: Variant = null) -> bool:
+func cancel(
+	reason: StringName = &"cancelled",
+	metadata: Dictionary = {},
+	result: Variant = null
+) -> bool:
 	if not _can_mutate_on_current_thread("cancel"):
 		return false
-	return _complete(Status.CANCELLED, result, "", reason, metadata)
+	return _complete(
+		Status.CANCELLED,
+		result,
+		"",
+		reason,
+		metadata
+	)
 
 
 ## 绑定取消 token；token 取消时完成源进入 cancelled 终态。
@@ -230,7 +252,10 @@ func bind_cancel_token(token: GFCancellationToken) -> bool:
 	_disconnect_cancel_token()
 	_cancel_token = token
 	if token.is_cancel_requested():
-		var _cancelled_now: bool = cancel(token.get_cancel_reason(), token.get_cancel_metadata())
+		var _cancelled_now: bool = cancel(
+			token.get_cancel_reason(),
+			token.get_cancel_metadata()
+		)
 		return true
 
 	var token_ref: WeakRef = weakref(token)
@@ -390,13 +415,13 @@ func get_metadata() -> Dictionary:
 ## @schema return: Dictionary，主线程包含 status、status_name、completed、successful、failed、cancelled、result、error、cancel_reason、metadata、created_msec、completed_msec 和 duration_msec；非主线程只包含 status 和 status_name。
 func get_debug_snapshot() -> Dictionary:
 	if not Thread.is_main_thread():
-		return {
-			"status": Status.INVALID,
-			"status_name": "INVALID",
-		}
+		return { "status": Status.INVALID, "status_name": "INVALID", }
 	var duration_msec: int = 0
 	if _completed_msec > 0:
-		duration_msec = maxi(_completed_msec - _created_msec, 0)
+		duration_msec = maxi(
+			_completed_msec - _created_msec,
+			0
+		)
 	return {
 		"status": _status,
 		"status_name": Status.keys()[_status],
@@ -441,11 +466,20 @@ func _complete(
 
 	match _status:
 		Status.SUCCEEDED:
-			succeeded.emit(_GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(_result), _metadata.duplicate(true))
+			succeeded.emit(
+				_GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(_result),
+				_metadata.duplicate(true)
+			)
 		Status.FAILED:
-			failed.emit(_error, _metadata.duplicate(true))
+			failed.emit(
+				_error,
+				_metadata.duplicate(true)
+			)
 		Status.CANCELLED:
-			cancelled.emit(_cancel_reason, _metadata.duplicate(true))
+			cancelled.emit(
+				_cancel_reason,
+				_metadata.duplicate(true)
+			)
 		_:
 			pass
 
@@ -456,10 +490,7 @@ func _complete(
 ## token 回调在主线程应用时，仅接受仍与当前绑定 token 相同的对象并提交取消。
 ## [br]
 ## @api private
-func _apply_cancel_token_request(
-	reason: StringName,
-	token_ref: WeakRef
-) -> void:
+func _apply_cancel_token_request(reason: StringName, token_ref: WeakRef) -> void:
 	if not Thread.is_main_thread():
 		return
 	var token: GFCancellationToken = _weak_ref_to_cancel_token(token_ref)
@@ -511,11 +542,12 @@ func _weak_ref_to_cancel_token(token_ref: WeakRef) -> GFCancellationToken:
 ## token 取消回调；非主线程时延后到主线程应用取消请求。
 ## [br]
 ## @api private
-func _on_cancel_token_requested(
-	reason: StringName,
-	token_ref: WeakRef
-) -> void:
+func _on_cancel_token_requested(reason: StringName, token_ref: WeakRef) -> void:
 	if not Thread.is_main_thread():
-		call_deferred("_apply_cancel_token_request", reason, token_ref)
+		call_deferred(
+			"_apply_cancel_token_request",
+			reason,
+			token_ref
+		)
 		return
 	_apply_cancel_token_request(reason, token_ref)

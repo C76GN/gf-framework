@@ -18,7 +18,7 @@
 | 属性 | [`raw_x`](#member-gffixedvector2-properties-raw_x) | `var raw_x: int = 0:` |
 | 属性 | [`raw_y`](#member-gffixedvector2-properties-raw_y) | `var raw_y: int = 0:` |
 | 属性 | [`decimal_places`](#member-gffixedvector2-properties-decimal_places) | `var decimal_places: int = 2:` |
-| 方法 | [`from_raw`](#member-gffixedvector2-methods-from_raw) | `static func from_raw(p_raw_x: int, p_raw_y: int, p_decimal_places: int = 2) -> GFFixedVector2:` |
+| 方法 | [`from_raw`](#member-gffixedvector2-methods-from_raw) | `static func from_raw( p_raw_x: int, p_raw_y: int, p_decimal_places: int = 2 ) -> GFFixedVector2:` |
 | 方法 | [`from_decimal_strings`](#member-gffixedvector2-methods-from_decimal_strings) | `static func from_decimal_strings( x_text: String, y_text: String, p_decimal_places: int = 2, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP ) -> GFFixedVector2:` |
 | 方法 | [`from_vector2`](#member-gffixedvector2-methods-from_vector2) | `static func from_vector2( value: Vector2, p_decimal_places: int = 2, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP ) -> GFFixedVector2:` |
 | 方法 | [`from_dict`](#member-gffixedvector2-methods-from_dict) | `static func from_dict(data: Dictionary) -> GFFixedVector2:` |
@@ -28,13 +28,13 @@
 | 方法 | [`get_x_decimal`](#member-gffixedvector2-methods-get_x_decimal) | `func get_x_decimal() -> GFFixedDecimal:` |
 | 方法 | [`get_y_decimal`](#member-gffixedvector2-methods-get_y_decimal) | `func get_y_decimal() -> GFFixedDecimal:` |
 | 方法 | [`to_vector2`](#member-gffixedvector2-methods-to_vector2) | `func to_vector2() -> Vector2:` |
-| 方法 | [`rescaled`](#member-gffixedvector2-methods-rescaled) | `func rescaled( target_decimal_places: int, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP ) -> GFFixedVector2:` |
+| 方法 | [`rescaled`](#member-gffixedvector2-methods-rescaled) | `func rescaled(target_decimal_places: int, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP) -> GFFixedVector2:` |
 | 方法 | [`negated`](#member-gffixedvector2-methods-negated) | `func negated() -> GFFixedVector2:` |
 | 方法 | [`add`](#member-gffixedvector2-methods-add) | `func add(other: GFFixedVector2) -> GFFixedVector2:` |
 | 方法 | [`subtract`](#member-gffixedvector2-methods-subtract) | `func subtract(other: GFFixedVector2) -> GFFixedVector2:` |
 | 方法 | [`multiply_scalar`](#member-gffixedvector2-methods-multiply_scalar) | `func multiply_scalar( scalar: GFFixedDecimal, target_decimal_places: int = -1, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP ) -> GFFixedVector2:` |
 | 方法 | [`dot`](#member-gffixedvector2-methods-dot) | `func dot( other: GFFixedVector2, target_decimal_places: int = -1, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP ) -> GFFixedDecimal:` |
-| 方法 | [`length_squared`](#member-gffixedvector2-methods-length_squared) | `func length_squared( target_decimal_places: int = -1, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP ) -> GFFixedDecimal:` |
+| 方法 | [`length_squared`](#member-gffixedvector2-methods-length_squared) | `func length_squared(target_decimal_places: int = -1, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP) -> GFFixedDecimal:` |
 | 方法 | [`equals_exact`](#member-gffixedvector2-methods-equals_exact) | `func equals_exact(other: GFFixedVector2) -> bool:` |
 | 方法 | [`to_dict`](#member-gffixedvector2-methods-to_dict) | `func to_dict() -> Dictionary:` |
 | 方法 | [`apply_dict`](#member-gffixedvector2-methods-apply_dict) | `func apply_dict(data: Dictionary) -> bool:` |
@@ -92,7 +92,7 @@ var decimal_places: int = 2:
 - 首次版本：`5.0.0`
 
 ```gdscript
-static func from_raw(p_raw_x: int, p_raw_y: int, p_decimal_places: int = 2) -> GFFixedVector2:
+static func from_raw( p_raw_x: int, p_raw_y: int, p_decimal_places: int = 2 ) -> GFFixedVector2:
 ```
 
 从 raw 分量创建定点二维向量。
@@ -283,7 +283,7 @@ func to_vector2() -> Vector2:
 - 首次版本：`5.0.0`
 
 ```gdscript
-func rescaled( target_decimal_places: int, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP ) -> GFFixedVector2:
+func rescaled(target_decimal_places: int, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP) -> GFFixedVector2:
 ```
 
 重设小数位数。
@@ -408,7 +408,7 @@ func dot( other: GFFixedVector2, target_decimal_places: int = -1, rounding_mode:
 - 首次版本：`5.0.0`
 
 ```gdscript
-func length_squared( target_decimal_places: int = -1, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP ) -> GFFixedDecimal:
+func length_squared(target_decimal_places: int = -1, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP) -> GFFixedDecimal:
 ```
 
 计算长度平方。

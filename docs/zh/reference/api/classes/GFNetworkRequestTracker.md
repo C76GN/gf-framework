@@ -21,7 +21,7 @@
 | 方法 | [`end_session`](#member-gfnetworkrequesttracker-methods-end_session) | `func end_session() -> void:` |
 | 方法 | [`disconnect_peer`](#member-gfnetworkrequesttracker-methods-disconnect_peer) | `func disconnect_peer(peer_id: int) -> void:` |
 | 方法 | [`request`](#member-gfnetworkrequesttracker-methods-request) | `func request( peer_id: int, send: Callable, timeout_msec: int = 10000 ) -> GFNetworkRequestHandle:` |
-| 方法 | [`receive_reply`](#member-gfnetworkrequesttracker-methods-receive_reply) | `func receive_reply(peer_id: int, request_id: String, response: Variant = null) -> bool:` |
+| 方法 | [`receive_reply`](#member-gfnetworkrequesttracker-methods-receive_reply) | `func receive_reply( peer_id: int, request_id: String, response: Variant = null ) -> bool:` |
 | 方法 | [`tick`](#member-gfnetworkrequesttracker-methods-tick) | `func tick() -> void:` |
 | 方法 | [`get_pending_count`](#member-gfnetworkrequesttracker-methods-get_pending_count) | `func get_pending_count() -> int:` |
 | 方法 | [`get_debug_snapshot`](#member-gfnetworkrequesttracker-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
@@ -139,7 +139,7 @@ func request( peer_id: int, send: Callable, timeout_msec: int = 10000 ) -> GFNet
 - 首次版本：`unreleased`
 
 ```gdscript
-func receive_reply(peer_id: int, request_id: String, response: Variant = null) -> bool:
+func receive_reply( peer_id: int, request_id: String, response: Variant = null ) -> bool:
 ```
 
 接收适配器已识别的回复，不处理普通广播、业务错误码或协议字段。 错 peer、未知或重复 ID 不改变请求。截止时刻已到则先超时。 无效回复终结为 invalid_response；不会保留部分值或截断后冒充成功。

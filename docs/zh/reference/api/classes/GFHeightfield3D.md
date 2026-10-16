@@ -36,12 +36,12 @@
 | 方法 | [`grid_to_world`](#member-gfheightfield3d-methods-grid_to_world) | `func grid_to_world(grid_position: Vector2, height: float = 0.0) -> Vector3:` |
 | 方法 | [`sample_cell`](#member-gfheightfield3d-methods-sample_cell) | `func sample_cell(cell: Vector2i, fallback: Variant = null) -> float:` |
 | 方法 | [`sample_grid_bilinear`](#member-gfheightfield3d-methods-sample_grid_bilinear) | `func sample_grid_bilinear(grid_position: Vector2, fallback: Variant = null) -> float:` |
-| 方法 | [`sample_world`](#member-gfheightfield3d-methods-sample_world) | `func sample_world(world_x: float, world_z: float, fallback: Variant = null) -> float:` |
+| 方法 | [`sample_world`](#member-gfheightfield3d-methods-sample_world) | `func sample_world( world_x: float, world_z: float, fallback: Variant = null ) -> float:` |
 | 方法 | [`sample_world_position`](#member-gfheightfield3d-methods-sample_world_position) | `func sample_world_position(position: Vector3, fallback: Variant = null) -> float:` |
 | 方法 | [`sample_normal_grid`](#member-gfheightfield3d-methods-sample_normal_grid) | `func sample_normal_grid(grid_position: Vector2, vertical_scale: float = 1.0) -> Vector3:` |
 | 方法 | [`sample_slope_grid`](#member-gfheightfield3d-methods-sample_slope_grid) | `func sample_slope_grid(grid_position: Vector2, vertical_scale: float = 1.0) -> float:` |
-| 方法 | [`sample_normal_world`](#member-gfheightfield3d-methods-sample_normal_world) | `func sample_normal_world(world_x: float, world_z: float, vertical_scale: float = 1.0) -> Vector3:` |
-| 方法 | [`sample_slope_world`](#member-gfheightfield3d-methods-sample_slope_world) | `func sample_slope_world(world_x: float, world_z: float, vertical_scale: float = 1.0) -> float:` |
+| 方法 | [`sample_normal_world`](#member-gfheightfield3d-methods-sample_normal_world) | `func sample_normal_world( world_x: float, world_z: float, vertical_scale: float = 1.0 ) -> Vector3:` |
+| 方法 | [`sample_slope_world`](#member-gfheightfield3d-methods-sample_slope_world) | `func sample_slope_world( world_x: float, world_z: float, vertical_scale: float = 1.0 ) -> float:` |
 | 方法 | [`get_min_height`](#member-gfheightfield3d-methods-get_min_height) | `func get_min_height(fallback: float = 0.0) -> float:` |
 | 方法 | [`get_max_height`](#member-gfheightfield3d-methods-get_max_height) | `func get_max_height(fallback: float = 0.0) -> float:` |
 | 方法 | [`get_debug_snapshot`](#member-gfheightfield3d-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
@@ -486,7 +486,7 @@ func sample_grid_bilinear(grid_position: Vector2, fallback: Variant = null) -> f
 - 首次版本：`7.0.0`
 
 ```gdscript
-func sample_world(world_x: float, world_z: float, fallback: Variant = null) -> float:
+func sample_world( world_x: float, world_z: float, fallback: Variant = null ) -> float:
 ```
 
 按 X/Z 世界坐标采样高度。
@@ -583,7 +583,7 @@ func sample_slope_grid(grid_position: Vector2, vertical_scale: float = 1.0) -> f
 - 首次版本：`7.0.0`
 
 ```gdscript
-func sample_normal_world(world_x: float, world_z: float, vertical_scale: float = 1.0) -> Vector3:
+func sample_normal_world( world_x: float, world_z: float, vertical_scale: float = 1.0 ) -> Vector3:
 ```
 
 按 X/Z 世界坐标估算表面法线。
@@ -606,7 +606,7 @@ func sample_normal_world(world_x: float, world_z: float, vertical_scale: float =
 - 首次版本：`8.0.0`
 
 ```gdscript
-func sample_slope_world(world_x: float, world_z: float, vertical_scale: float = 1.0) -> float:
+func sample_slope_world( world_x: float, world_z: float, vertical_scale: float = 1.0 ) -> float:
 ```
 
 按 X/Z 世界坐标估算归一化坡度。 返回值范围为 0.0 到 1.0；无效高度场或坐标返回 1.0，便于调用方按保守策略拒绝无效表面。

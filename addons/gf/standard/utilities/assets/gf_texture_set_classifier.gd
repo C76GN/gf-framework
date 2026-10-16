@@ -75,21 +75,70 @@ const ROLE_EMISSION: StringName = &"emission"
 ## @api private
 ## [br]
 const _DEFAULT_SUFFIX_RULES: Dictionary = {
-	&"albedo": ["albedo", "basecolor", "base_color", "diffuse", "color", "col"],
-	&"normal": ["normal", "normalgl", "normaldx", "nrm", "nor"],
-	&"roughness": ["roughness", "rough", "rgh"],
-	&"metallic": ["metallic", "metalness", "metal", "mtl"],
-	&"orm": ["orm", "rma", "mra", "arm", "mro"],
-	&"ao": ["ao", "ambientocclusion", "ambient_occlusion", "occlusion"],
-	&"height": ["height", "displacement", "disp"],
-	&"emission": ["emission", "emissive", "emit"],
+	&"albedo": [
+		"albedo",
+		"basecolor",
+		"base_color",
+		"diffuse",
+		"color",
+		"col",
+	],
+	&"normal": [
+		"normal",
+		"normalgl",
+		"normaldx",
+		"nrm",
+		"nor",
+	],
+	&"roughness": [
+		"roughness",
+		"rough",
+		"rgh",
+	],
+	&"metallic": [
+		"metallic",
+		"metalness",
+		"metal",
+		"mtl",
+	],
+	&"orm": [
+		"orm",
+		"rma",
+		"mra",
+		"arm",
+		"mro",
+	],
+	&"ao": [
+		"ao",
+		"ambientocclusion",
+		"ambient_occlusion",
+		"occlusion",
+	],
+	&"height": [
+		"height",
+		"displacement",
+		"disp",
+	],
+	&"emission": [
+		"emission",
+		"emissive",
+		"emit",
+	],
 }
 
 ## 分类器默认接受的纹理文件扩展名。
 ## [br]
 ## @api private
 ## [br]
-const _DEFAULT_EXTENSIONS: Array[String] = ["png", "jpg", "jpeg", "tga", "webp", "exr", "hdr"]
+const _DEFAULT_EXTENSIONS: Array[String] = [
+	"png",
+	"jpg",
+	"jpeg",
+	"tga",
+	"webp",
+	"exr",
+	"hdr",
+]
 
 
 # --- 公共方法 ---
@@ -232,7 +281,11 @@ static func build_material_import_plan(
 	plan.metadata["missing_role_count"] = GFVariantData.get_option_int(classification, "missing_role_count")
 	plan.metadata["texture_set_issues"] = GFVariantData.get_option_array(classification, "issues").duplicate(true)
 	plan.metadata["unmatched_count"] = GFVariantData.get_option_int(classification, "unmatched_count")
-	var extension: String = GFVariantData.get_option_string(options, "material_extension", "tres").strip_edges()
+	var extension: String = GFVariantData.get_option_string(
+		options,
+		"material_extension",
+		"tres"
+	).strip_edges()
 	if extension.begins_with("."):
 		extension = extension.substr(1)
 	if extension.is_empty():
@@ -246,7 +299,11 @@ static func build_material_import_plan(
 		if source_paths.is_empty():
 			continue
 		var base_id: String = GFVariantData.get_option_string(texture_set, "base_name")
-		var target_path: String = _join_path(target_root, "%s.%s" % [base_id, extension])
+		var target_path: String = _join_path(
+			target_root,
+			"%s.%s"
+			% [base_id, extension]
+		)
 		var _updated_plan: GFImportPlan = plan.add_entry(
 			GFVariantData.to_text(source_paths[0]),
 			target_path,
@@ -254,20 +311,16 @@ static func build_material_import_plan(
 			{
 				"source_format": "texture_set",
 				"target_format": extension,
-				"type_hint": GFVariantData.get_option_string(options, "type_hint", "material"),
-				"source_trace": {
-					"set_id": GFVariantData.get_option_string(texture_set, "set_id"),
-					"source_paths": source_paths.duplicate(true),
-				},
+				"type_hint": GFVariantData.get_option_string(
+					options,
+					"type_hint",
+					"material"
+				),
+				"source_trace": { "set_id": GFVariantData.get_option_string(texture_set, "set_id"), "source_paths": source_paths.duplicate(true), },
 				"repair_actions": [
-					{
-						"kind": "create_parent_directory",
-					},
+					{ "kind": "create_parent_directory", },
 				],
-				"metadata": {
-					"textures": GFVariantData.get_option_dictionary(texture_set, "textures"),
-					"base_name": base_id,
-				},
+				"metadata": { "textures": GFVariantData.get_option_dictionary(texture_set, "textures"), "base_name": base_id, },
 			}
 		)
 	return plan
@@ -344,7 +397,11 @@ static func _match_texture_role(path: String, suffix_rules: Dictionary) -> Dicti
 			continue
 		for suffix_value: Variant in GFVariantData.get_option_array(suffix_rules, role):
 			var suffix: String = _normalize_token(GFVariantData.to_text(suffix_value))
-			var base_name: String = _strip_suffix(stem, normalized_stem, suffix)
+			var base_name: String = _strip_suffix(
+				stem,
+				normalized_stem,
+				suffix
+			)
 			if base_name.is_empty():
 				continue
 			return {
@@ -352,19 +409,32 @@ static func _match_texture_role(path: String, suffix_rules: Dictionary) -> Dicti
 				"role": role,
 				"base_name": base_name,
 			}
-	return { "ok": false, "role": &"", "base_name": "" }
+	return {
+		"ok": false,
+		"role": &"",
+		"base_name": "",
+	}
 
 
 ## 移除由分隔符引出的角色后缀；文件名仅由后缀组成时保留原名。
 ## [br]
 ## @api private
 ## [br]
-static func _strip_suffix(original_stem: String, normalized_stem: String, suffix: String) -> String:
+static func _strip_suffix(
+	original_stem: String,
+	normalized_stem: String,
+	suffix: String
+) -> String:
 	if suffix.is_empty():
 		return ""
 	if normalized_stem == suffix:
 		return original_stem
-	for separator: String in ["_", "-", ".", " "]:
+	for separator: String in [
+		"_",
+		"-",
+		".",
+		" ",
+	]:
 		var token: String = separator + suffix
 		if normalized_stem.ends_with(token):
 			var base_length: int = original_stem.length() - token.length()
@@ -393,7 +463,10 @@ static func _normalize_token(value: String) -> String:
 static func _make_set_id(directory: String, base_id: String) -> String:
 	if directory.is_empty():
 		return base_id
-	return "%s/%s" % [directory.trim_suffix("/"), base_id]
+	return (
+		"%s/%s"
+		% [directory.trim_suffix("/"), base_id]
+	)
 
 
 ## 创建保留原路径和未匹配原因的条目。
@@ -401,10 +474,7 @@ static func _make_set_id(directory: String, base_id: String) -> String:
 ## @api private
 ## [br]
 static func _make_unmatched(path: String, reason: StringName) -> Dictionary:
-	return {
-		"path": path,
-		"reason": reason,
-	}
+	return { "path": path, "reason": reason, }
 
 
 ## 按集合 ID 整理纹理映射、重复角色、缺失角色、源路径和问题列表。
@@ -438,28 +508,29 @@ static func _finalize_sets(sets: Dictionary, required_roles: Array[StringName]) 
 				continue
 			if role_paths.size() <= 1:
 				continue
-			var duplicate_role: Dictionary = {
-				"role": role,
-				"paths": role_paths.duplicate(),
-			}
+			var duplicate_role: Dictionary = { "role": role, "paths": role_paths.duplicate(), }
 			duplicate_roles.append(duplicate_role)
-			issues.append({
-				"kind": &"duplicate_role",
-				"set_id": set_id,
-				"role": role,
-				"paths": role_paths.duplicate(),
-			})
+			issues.append(
+				{
+					"kind": &"duplicate_role",
+					"set_id": set_id,
+					"role": role,
+					"paths": role_paths.duplicate(),
+				}
+			)
 
 		for required_role: StringName in required_roles:
 			var required_paths: Array = GFVariantData.get_option_array(role_paths_by_role, required_role)
 			if not required_paths.is_empty():
 				continue
 			missing_roles.append(required_role)
-			issues.append({
-				"kind": &"missing_required_role",
-				"set_id": set_id,
-				"role": required_role,
-			})
+			issues.append(
+				{
+					"kind": &"missing_required_role",
+					"set_id": set_id,
+					"role": required_role,
+				}
+			)
 
 		var source_paths: Array = GFVariantData.get_option_array(texture_set, "source_paths")
 		source_paths.sort()
@@ -483,4 +554,7 @@ static func _join_path(base_path: String, file_name: String) -> String:
 	var root: String = base_path.strip_edges()
 	if root.is_empty():
 		return file_name
-	return "%s/%s" % [root.trim_suffix("/"), file_name]
+	return (
+		"%s/%s"
+		% [root.trim_suffix("/"), file_name]
+	)

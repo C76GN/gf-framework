@@ -127,7 +127,10 @@ func get_debug_snapshot() -> Dictionary:
 ## [br]
 ## @schema return: JSON-safe Dictionary based on to_dictionary().
 func to_report_dictionary(options: Dictionary = {}) -> Dictionary:
-	return GFReportValueCodec.to_report_dictionary(to_dictionary(), options)
+	return GFReportValueCodec.to_report_dictionary(
+		to_dictionary(),
+		options
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -138,18 +141,14 @@ func to_report_dictionary(options: Dictionary = {}) -> Dictionary:
 func _normalize_consideration_scores(details: Array[Dictionary]) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for detail: Dictionary in details:
-		result.append({
-			"consideration_id": GFVariantData.get_option_string_name(detail, "consideration_id"),
-			"score": _GF_DECISION_NUMERIC_POLICY.normalize_score(
-				GFVariantData.get_option_float(detail, "score")
-			),
-			"weight": _GF_DECISION_NUMERIC_POLICY.normalize_weight(
-				GFVariantData.get_option_float(detail, "weight")
-			),
-			"weighted_score": _GF_DECISION_NUMERIC_POLICY.normalize_score(
-				GFVariantData.get_option_float(detail, "weighted_score")
-			),
-		})
+		result.append(
+			{
+				"consideration_id": GFVariantData.get_option_string_name(detail, "consideration_id"),
+				"score": _GF_DECISION_NUMERIC_POLICY.normalize_score(GFVariantData.get_option_float(detail, "score")),
+				"weight": _GF_DECISION_NUMERIC_POLICY.normalize_weight(GFVariantData.get_option_float(detail, "weight")),
+				"weighted_score": _GF_DECISION_NUMERIC_POLICY.normalize_score(GFVariantData.get_option_float(detail, "weighted_score")),
+			}
+		)
 	return result
 
 

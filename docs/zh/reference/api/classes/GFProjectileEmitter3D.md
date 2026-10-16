@@ -27,7 +27,7 @@
 | 属性 | [`spawn_parent_path`](#member-gfprojectileemitter3d-properties-spawn_parent_path) | `var spawn_parent_path: NodePath = NodePath("")` |
 | 属性 | [`object_pool_utility`](#member-gfprojectileemitter3d-properties-object_pool_utility) | `var object_pool_utility: GFObjectPoolUtility = null` |
 | 方法 | [`emit_pattern`](#member-gfprojectileemitter3d-methods-emit_pattern) | `func emit_pattern( launch_input: GFProjectileLaunchInput3D = null, projectile_id: StringName = &"", emit_count: int = -1 ) -> GFProjectileEmissionResult:` |
-| 方法 | [`resolve_projectile_definition`](#member-gfprojectileemitter3d-methods-resolve_projectile_definition) | `func resolve_projectile_definition( projectile_id: StringName = &"" ) -> GFProjectileDefinition3D:` |
+| 方法 | [`resolve_projectile_definition`](#member-gfprojectileemitter3d-methods-resolve_projectile_definition) | `func resolve_projectile_definition(projectile_id: StringName = &"") -> GFProjectileDefinition3D:` |
 | 方法 | [`resolve_spawn_parent`](#member-gfprojectileemitter3d-methods-resolve_spawn_parent) | `func resolve_spawn_parent() -> Node:` |
 
 ## 信号
@@ -229,7 +229,7 @@ func emit_pattern( launch_input: GFProjectileLaunchInput3D = null, projectile_id
 - 首次版本：`11.0.0`
 
 ```gdscript
-func resolve_projectile_definition( projectile_id: StringName = &"" ) -> GFProjectileDefinition3D:
+func resolve_projectile_definition(projectile_id: StringName = &"") -> GFProjectileDefinition3D:
 ```
 
 解析本次发射使用的 typed 3D definition。

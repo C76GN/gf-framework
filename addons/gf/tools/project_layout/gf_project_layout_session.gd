@@ -90,25 +90,63 @@ var _validation: Dictionary = {}
 ## @return 闭合 v2 analysis report。
 ## [br]
 ## @schema return: Dictionary，精确包含 schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities 和 effects。
-func open_profile_text(text: String, source_path: String, options: Dictionary = {}) -> Dictionary:
+func open_profile_text(
+	text: String,
+	source_path: String,
+	options: Dictionary = {}
+) -> Dictionary:
 	close()
 	var analyzer: GFProjectLayoutAnalyzer = _make_analyzer()
 	var root_value: Variant = options.get("root_path", "res://")
 	var source_value: Variant = options.get("source_root", "res://")
 	var root_path: String = root_value if root_value is String else ""
-	if not source_value is String or source_path.length() > 16_384 or not _SCOPE_SCRIPT.root_is_canonical(source_path):
-		return _adopt(analyzer.reject_profile_input("invalid_profile_source", "Profile 来源必须是根内规范真实文件。", root_path))
+	if (
+		not source_value is String
+		or source_path.length() > 16_384
+		or not _SCOPE_SCRIPT.root_is_canonical(source_path)
+	):
+		return _adopt(
+			analyzer.reject_profile_input(
+				"invalid_profile_source",
+				"Profile 来源必须是根内规范真实文件。",
+				root_path
+			)
+		)
 	var source_root: String = source_value
 	if not _SCOPE_SCRIPT.root_is_canonical(source_root):
-		return _adopt(analyzer.reject_profile_input("invalid_profile_source", "Profile 来源根不规范。", root_path))
+		return _adopt(
+			analyzer.reject_profile_input(
+				"invalid_profile_source",
+				"Profile 来源根不规范。",
+				root_path
+			)
+		)
 	var physical_path: String = _SCOPE_SCRIPT.physical_root(source_path)
 	var physical_source: String = _SCOPE_SCRIPT.physical_root(source_root)
-	if not physical_path.begins_with(physical_source + "/") or (options.has("profile_source_path") and options["profile_source_path"] != source_path):
-		return _adopt(analyzer.reject_profile_input("invalid_profile_source", "Profile 来源不属于声明来源根或来源字段不一致。", root_path))
+	if (
+		not physical_path.begins_with(physical_source + "/")
+		or (
+			options.has("profile_source_path")
+			and options["profile_source_path"] != source_path
+		)
+	):
+		return _adopt(
+			analyzer.reject_profile_input(
+				"invalid_profile_source",
+				"Profile 来源不属于声明来源根或来源字段不一致。",
+				root_path
+			)
+		)
 	var reader: _READER_SCRIPT = _READER_SCRIPT.new()
 	var parsed: Dictionary = reader.read_path(source_path)
 	if not parsed["success"] or parsed["text"] != text:
-		return _adopt(analyzer.reject_profile_input("invalid_profile_json", "Profile 文件必须为稳定严格 JSON，原文必须匹配真实来源。", root_path))
+		return _adopt(
+			analyzer.reject_profile_input(
+				"invalid_profile_json",
+				"Profile 文件必须为稳定严格 JSON，原文必须匹配真实来源。",
+				root_path
+			)
+		)
 	var profile: Dictionary = parsed["profile"]
 	_compilation = analyzer.compile_profile(profile)
 	var capture_options: Dictionary = options.duplicate(true)
@@ -138,7 +176,13 @@ func open_profile(profile: Dictionary, options: Dictionary = {}) -> Dictionary:
 	close()
 	var analyzer: GFProjectLayoutAnalyzer = _make_analyzer()
 	if options.has("profile_source_path"):
-		return _adopt(analyzer.reject_profile_input("invalid_profile_source", "纯数据 Profile 不声明文件来源。", ""))
+		return _adopt(
+			analyzer.reject_profile_input(
+				"invalid_profile_source",
+				"纯数据 Profile 不声明文件来源。",
+				""
+			)
+		)
 	_compilation = analyzer.compile_profile(profile)
 	return _adopt(analyzer.analyze_compiled_profile(_compilation, options))
 
@@ -205,7 +249,11 @@ func plan(options: Dictionary = {}) -> Dictionary:
 ## @schema return: Dictionary，精确包含 schema_version、kind、complete、finding_id、headline、observation、implication、next_steps、certainty、evidence、issues、effects。
 func explain(finding_id: String) -> Dictionary:
 	var explainer: _EXPLAINER_SCRIPT = _EXPLAINER_SCRIPT.new()
-	return explainer.explain_validated_analysis(_analysis, _validation, finding_id)
+	return explainer.explain_validated_analysis(
+		_analysis,
+		_validation,
+		finding_id
+	)
 
 
 ## 对显式路径变更计算冻结库存影响；不执行变更。
@@ -223,7 +271,11 @@ func explain(finding_id: String) -> Dictionary:
 ## @schema return: Dictionary，精确包含 schema_version、kind、complete、status、source_analysis_digest、change、affected_node_ids、blockers、evidence_ids、issues、effects。
 func impact(change: Dictionary) -> Dictionary:
 	var impact_analyzer: _IMPACT_SCRIPT = _IMPACT_SCRIPT.new()
-	return impact_analyzer.analyze_validated_change(_analysis, _validation, change)
+	return impact_analyzer.analyze_validated_change(
+		_analysis,
+		_validation,
+		change
+	)
 
 
 ## 释放本次 compilation、冻结报告与查询索引。
@@ -313,10 +365,20 @@ func get_owned_validation_for_framework(checkpoint: Callable = Callable()) -> Di
 ## @return 闭合只读计划。
 ## [br]
 ## @schema return: Dictionary，schema_version、kind、complete、profile_id、source_analysis_digest、contract_digest、project_root、capabilities、steps、blockers、issues。
-func plan_for_framework(options: Dictionary = {}, runtime: Dictionary = {}, checkpoint: Callable = Callable()) -> Dictionary:
+func plan_for_framework(
+	options: Dictionary = {},
+	runtime: Dictionary = {},
+	checkpoint: Callable = Callable()
+) -> Dictionary:
 	var validation: Dictionary = get_owned_validation_for_framework(checkpoint)
 	var planner: _PLANNER_SCRIPT = _PLANNER_SCRIPT.new()
-	return planner.plan_owned_policy(_compilation, _analysis, validation, options, runtime)
+	return planner.plan_owned_policy(
+		_compilation,
+		_analysis,
+		validation,
+		options,
+		runtime
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -326,6 +388,7 @@ func plan_for_framework(options: Dictionary = {}, runtime: Dictionary = {}, chec
 ## @api private
 func _make_analyzer() -> GFProjectLayoutAnalyzer:
 	return _ANALYZER_SCRIPT.new()
+
 
 ## 接管独占报告并验证一次；外部只收到深复制。
 ## [br]

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFShaderParameterProfile" path="addons/gf/standard/utilities/display/gf_shader_parameter_profile.gd" module="standard" extends="Resource" classDigest="6831af842f9c7951b1a2b892af3ae7f18723f67fb2c8fda3ae693efb56f2cddf">
+<class name="GFShaderParameterProfile" path="addons/gf/standard/utilities/display/gf_shader_parameter_profile.gd" module="standard" extends="Resource" classDigest="a22060218a81078727e4912cba27af5b4cf3106fdcfcbe7872d0db39a5ddb053">
 	<description>GFShaderParameterProfile: 通用 ShaderMaterial 参数集合资源。
 用 Resource 保存一组 shader uniform 参数值，便于项目把视觉 profile、天气表现、
 选中态或后处理参数声明为可合并、可复制、可插值的数据。它不提供具体 shader、
@@ -90,7 +90,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="validate_against">
-			<signature>func validate_against( interface_snapshot: GFShaderInterfaceSnapshot, options: Dictionary = {} ) -&gt; GFValidationReport:</signature>
+			<signature>func validate_against(interface_snapshot: GFShaderInterfaceSnapshot, options: Dictionary = {}) -&gt; GFValidationReport:</signature>
 			<description>根据 Shader 接口快照校验当前参数。</description>
 			<tags>
 				<tag name="api">public</tag>

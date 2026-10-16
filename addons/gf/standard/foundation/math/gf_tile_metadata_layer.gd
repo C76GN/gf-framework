@@ -28,6 +28,8 @@ extends GFTileMapCache
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param cell: 格坐标。
 ## [br]
 ## @param key: 字段名。
@@ -35,7 +37,11 @@ extends GFTileMapCache
 ## @param value: 字段值。
 ## [br]
 ## @schema value: Variant metadata field value.
-func set_cell_value(cell: Vector2i, key: StringName, value: Variant) -> void:
+func set_cell_value(
+	cell: Vector2i,
+	key: StringName,
+	value: Variant
+) -> void:
 	if key == &"":
 		return
 	var data: Dictionary = get_cell_data(cell)
@@ -66,6 +72,8 @@ func get_cell_data(cell: Vector2i) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param cell: 格坐标。
 ## [br]
 ## @param key: 字段名。
@@ -77,14 +85,24 @@ func get_cell_data(cell: Vector2i) -> Dictionary:
 ## @return 字段值。
 ## [br]
 ## @schema return: Variant metadata field value or default_value.
-func get_cell_value(cell: Vector2i, key: StringName, default_value: Variant = null) -> Variant:
+func get_cell_value(
+	cell: Vector2i,
+	key: StringName,
+	default_value: Variant = null
+) -> Variant:
 	var data: Dictionary = get_cell_data(cell)
-	return GFVariantData.get_option_value(data, key, default_value)
+	return GFVariantData.get_option_value(
+		data,
+		key,
+		default_value
+	)
 
 
 ## 合并格子数据。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param cell: 格坐标。
 ## [br]
@@ -93,7 +111,11 @@ func get_cell_value(cell: Vector2i, key: StringName, default_value: Variant = nu
 ## @schema data: Dictionary metadata fields merged into the cell.
 ## [br]
 ## @param overwrite: 为 false 时不覆盖已有字段。
-func merge_cell_data(cell: Vector2i, data: Dictionary, overwrite: bool = true) -> void:
+func merge_cell_data(
+	cell: Vector2i,
+	data: Dictionary,
+	overwrite: bool = true
+) -> void:
 	var current: Dictionary = get_cell_data(cell)
 	for key: Variant in data.keys():
 		if overwrite or not current.has(key):
@@ -149,6 +171,8 @@ func has_cell_key(cell: Vector2i, key: StringName) -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param target_cells: 目标格子。
 ## [br]
 ## @param key: 字段名。
@@ -158,12 +182,20 @@ func has_cell_key(cell: Vector2i, key: StringName) -> bool:
 ## @schema value: Variant metadata field value painted into target cells.
 ## [br]
 ## @return 实际写入的格子数量。
-func paint_cells(target_cells: Array[Vector2i], key: StringName, value: Variant) -> int:
+func paint_cells(
+	target_cells: Array[Vector2i],
+	key: StringName,
+	value: Variant
+) -> int:
 	if key == &"":
 		return 0
 	var count: int = 0
 	for cell: Vector2i in target_cells:
-		set_cell_value(cell, key, value)
+		set_cell_value(
+			cell,
+			key,
+			value
+		)
 		count += 1
 	return count
 
@@ -200,7 +232,13 @@ func get_cells_with_value(key: StringName, value: Variant) -> Array[Vector2i]:
 	var result: Array[Vector2i] = []
 	for cell: Vector2i in cells:
 		var cell_value: Variant = cells[cell]
-		if cell_value is Dictionary and GFVariantData.get_option_value(GFVariantData.as_dictionary(cell_value), key) == value:
+		if (
+			cell_value is Dictionary
+			and GFVariantData.get_option_value(
+				GFVariantData.as_dictionary(cell_value),
+				key
+			) == value
+		):
 			result.append(cell)
 	return result
 
@@ -230,7 +268,13 @@ func set_schema_entry(key: StringName, metadata: Dictionary) -> void:
 ## [br]
 ## @schema return: Dictionary project-defined schema metadata for a field.
 func get_schema_entry(key: StringName) -> Dictionary:
-	var data: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(schema, key, {}))
+	var data: Dictionary = GFVariantData.as_dictionary(
+		GFVariantData.get_option_value(
+			schema,
+			key,
+			{}
+		)
+	)
 	return data.duplicate(true)
 
 
@@ -253,7 +297,10 @@ func to_tile_map_cache() -> GFTileMapCache:
 	for cell: Vector2i in cells:
 		var value: Variant = cells[cell]
 		if value is Dictionary:
-			cache.set_cell_data(cell, GFVariantData.as_dictionary(value))
+			cache.set_cell_data(
+				cell,
+				GFVariantData.as_dictionary(value)
+			)
 	return cache
 
 
@@ -272,4 +319,7 @@ func from_tile_map_cache(cache: GFTileMapCache, merge: bool = false) -> void:
 	for cell: Vector2i in cache.cells:
 		var value: Variant = cache.cells[cell]
 		if value is Dictionary:
-			set_cell_data(cell, GFVariantData.as_dictionary(value))
+			set_cell_data(
+				cell,
+				GFVariantData.as_dictionary(value)
+			)

@@ -128,8 +128,16 @@ var _backend_build_failed: bool = false
 ## @return 当前索引。
 func configure(p_strategy: StringName = STRATEGY_AUTO, options: Dictionary = {}) -> GFSpatialQueryIndex3D:
 	strategy = p_strategy
-	cell_size = GFVariantData.get_option_float(options, "cell_size", cell_size)
-	auto_spatial_hash_threshold = GFVariantData.get_option_int(options, "auto_spatial_hash_threshold", auto_spatial_hash_threshold)
+	cell_size = GFVariantData.get_option_float(
+		options,
+		"cell_size",
+		cell_size
+	)
+	auto_spatial_hash_threshold = GFVariantData.get_option_int(
+		options,
+		"auto_spatial_hash_threshold",
+		auto_spatial_hash_threshold
+	)
 	_mark_index_dirty()
 	return self
 
@@ -151,14 +159,22 @@ func configure(p_strategy: StringName = STRATEGY_AUTO, options: Dictionary = {})
 ## @schema p_metadata: Dictionary copied into entity record metadata.
 ## [br]
 ## @return 成功时返回 true。
-func upsert(entity: Variant, entity_bounds: AABB, p_metadata: Dictionary = {}) -> bool:
+func upsert(
+	entity: Variant,
+	entity_bounds: AABB,
+	p_metadata: Dictionary = {}
+) -> bool:
 	if not _SPATIAL_BOUNDS_MATH.is_finite_aabb(entity_bounds):
 		return false
 	var entity_key: String = _make_entity_key(entity)
 	if entity_key.is_empty():
 		return false
 
-	_records[entity_key] = _make_record(entity, _normalize_aabb(entity_bounds), p_metadata)
+	_records[entity_key] = _make_record(
+		entity,
+		_normalize_aabb(entity_bounds),
+		p_metadata
+	)
 	_mark_index_dirty()
 	return true
 
@@ -295,7 +311,11 @@ func query_aabb(area: AABB) -> Array[Variant]:
 ## @schema return: Array[Variant]，同一个 out_entities 数组；实体值来自调用方传入的 entity。
 ## [br]
 ## @schema out_entities: Array[Variant]，实体值来自调用方传入的 entity。
-func query_aabb_into(area: AABB, out_entities: Array, clear_output: bool = true) -> Array:
+func query_aabb_into(
+	area: AABB,
+	out_entities: Array,
+	clear_output: bool = true
+) -> Array:
 	if clear_output:
 		out_entities.clear()
 	var records: Array[Dictionary] = []
@@ -320,7 +340,11 @@ func query_aabb_into(area: AABB, out_entities: Array, clear_output: bool = true)
 ## @schema return: Array[Variant]，实体值来自调用方传入的 entity。
 func query_radius(center: Vector3, radius: float) -> Array[Variant]:
 	var result: Array[Variant] = []
-	return query_radius_into(center, radius, result)
+	return query_radius_into(
+		center,
+		radius,
+		result
+	)
 
 
 ## 查询与球体相交的实体，并写入调用方提供的数组。
@@ -342,11 +366,20 @@ func query_radius(center: Vector3, radius: float) -> Array[Variant]:
 ## @schema return: Array[Variant]，同一个 out_entities 数组；实体值来自调用方传入的 entity。
 ## [br]
 ## @schema out_entities: Array[Variant]，实体值来自调用方传入的 entity。
-func query_radius_into(center: Vector3, radius: float, out_entities: Array, clear_output: bool = true) -> Array:
+func query_radius_into(
+	center: Vector3,
+	radius: float,
+	out_entities: Array,
+	clear_output: bool = true
+) -> Array:
 	if clear_output:
 		out_entities.clear()
 	var records: Array[Dictionary] = []
-	var _query_records_radius_result: Array[Dictionary] = query_records_radius_into(center, radius, records)
+	var _query_records_radius_result: Array[Dictionary] = query_records_radius_into(
+		center,
+		radius,
+		records
+	)
 	for entity_record: Dictionary in records:
 		out_entities.append(GFVariantData.get_option_value(entity_record, "entity"))
 	return out_entities
@@ -404,7 +437,11 @@ func query_records_aabb_into(
 				candidate_keys.append(entity_key)
 	else:
 		candidate_keys = _query_aabb_linear(normalized_area)
-	_append_records_for_keys(candidate_keys, normalized_area, out_records)
+	_append_records_for_keys(
+		candidate_keys,
+		normalized_area,
+		out_records
+	)
 	return out_records
 
 
@@ -423,7 +460,11 @@ func query_records_aabb_into(
 ## @schema return: Array[Dictionary]，每个元素包含 entity、bounds 和 metadata。
 func query_records_radius(center: Vector3, radius: float) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
-	return query_records_radius_into(center, radius, result)
+	return query_records_radius_into(
+		center,
+		radius,
+		result
+	)
 
 
 ## 查询与球体相交的实体记录，并写入调用方提供的数组。
@@ -464,16 +505,31 @@ func query_records_radius_into(
 		_append_point_records(center, out_records)
 		return out_records
 
-	var area: AABB = AABB(center - Vector3.ONE * safe_radius, Vector3.ONE * safe_radius * 2.0)
+	var area: AABB = AABB(
+		center - Vector3.ONE * safe_radius,
+		Vector3.ONE * safe_radius * 2.0
+	)
 	var candidates: Array[Dictionary] = []
 	var _query_records_aabb_result: Array[Dictionary] = query_records_aabb_into(area, candidates)
 	var radius_sq: float = safe_radius * safe_radius
 	for entity_record: Dictionary in candidates:
 		var entity_bounds: AABB = _get_record_bounds(entity_record)
 		var closest: Vector3 = Vector3(
-			clampf(center.x, entity_bounds.position.x, entity_bounds.position.x + entity_bounds.size.x),
-			clampf(center.y, entity_bounds.position.y, entity_bounds.position.y + entity_bounds.size.y),
-			clampf(center.z, entity_bounds.position.z, entity_bounds.position.z + entity_bounds.size.z)
+			clampf(
+				center.x,
+				entity_bounds.position.x,
+				entity_bounds.position.x + entity_bounds.size.x
+			),
+			clampf(
+				center.y,
+				entity_bounds.position.y,
+				entity_bounds.position.y + entity_bounds.size.y
+			),
+			clampf(
+				center.z,
+				entity_bounds.position.z,
+				entity_bounds.position.z + entity_bounds.size.z
+			)
 		)
 		if center.distance_squared_to(closest) <= radius_sq:
 			out_records.append(entity_record)
@@ -516,7 +572,12 @@ func get_debug_snapshot() -> Dictionary:
 ## [br]
 ## @schema return: Dictionary safe for JSON.stringify().
 func get_json_compatible_debug_snapshot(options: Dictionary = {}) -> Dictionary:
-	return GFVariantData.as_dictionary(_GF_REPORT_VALUE_CODEC_SCRIPT.to_json_compatible(get_debug_snapshot(), options))
+	return GFVariantData.as_dictionary(
+		_GF_REPORT_VALUE_CODEC_SCRIPT.to_json_compatible(
+			get_debug_snapshot(),
+			options
+		)
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -572,7 +633,11 @@ func _append_point_records(point: Vector3, out_records: Array[Dictionary]) -> vo
 	else:
 		for entity_key: String in _records.keys():
 			candidate_keys.append(entity_key)
-	_append_point_records_for_keys(candidate_keys, point, out_records)
+	_append_point_records_for_keys(
+		candidate_keys,
+		point,
+		out_records
+	)
 
 
 ## 对候选键排序去重，并仅追加 AABB 包含指定点的记录快照。
@@ -592,7 +657,10 @@ func _append_point_records_for_keys(
 			continue
 		seen[entity_key] = true
 		var entity_record: Dictionary = GFVariantData.as_dictionary(_records[entity_key])
-		if _aabb_contains_point(_get_record_bounds(entity_record), point):
+		if _aabb_contains_point(
+			_get_record_bounds(entity_record),
+			point
+		):
 			out_records.append(_record_to_snapshot(entity_record))
 
 
@@ -633,7 +701,10 @@ func _ensure_spatial_hash() -> bool:
 		var entity: Variant = _record_to_entity(entity_record)
 		if entity == null:
 			continue
-		if not candidate_hash.insert(entity, _get_record_bounds(entity_record)):
+		if not candidate_hash.insert(
+			entity,
+			_get_record_bounds(entity_record)
+		):
 			_spatial_hash = null
 			_index_dirty = false
 			_backend_build_failed = true
@@ -673,7 +744,11 @@ func _get_preferred_strategy() -> StringName:
 ## [br]
 ## @api private
 ## [br]
-func _make_record(entity: Variant, entity_bounds: AABB, p_metadata: Dictionary) -> Dictionary:
+func _make_record(
+	entity: Variant,
+	entity_bounds: AABB,
+	p_metadata: Dictionary
+) -> Dictionary:
 	var identity: GFSpatialQueryIdentity = GFSpatialQueryIdentity.from_value(entity)
 	if identity.key.is_empty():
 		return {}
@@ -742,7 +817,11 @@ func _record_is_valid(entity_record: Dictionary) -> bool:
 ## @api private
 ## [br]
 func _get_record_bounds(entity_record: Dictionary) -> AABB:
-	var value: Variant = GFVariantData.get_option_value(entity_record, "bounds", AABB())
+	var value: Variant = GFVariantData.get_option_value(
+		entity_record,
+		"bounds",
+		AABB()
+	)
 	if value is AABB:
 		var entity_bounds: AABB = value
 		return entity_bounds

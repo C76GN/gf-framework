@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFResourceBroker" path="addons/gf/standard/utilities/assets/gf_resource_broker.gd" module="standard" extends="GFUtility" classDigest="63a2c106a029fea6126af63a9eb442e75fe728b6533ebb79422c84b4e1fa069d">
+<class name="GFResourceBroker" path="addons/gf/standard/utilities/assets/gf_resource_broker.gd" module="standard" extends="GFUtility" classDigest="9ba05b67163d360445285ac6dab7dad49c0536bd19eb0395e9f953a803cfbdb1">
 	<description>GFResourceBroker: framework-level threaded ResourceLoader admission broker。
 一个显式共享实例可以注入 Asset、Scene 与 BackgroundWork Utility，
 统一执行有界 FIFO admission、同资源身份复用、消费者级取消和底层请求 drain。
@@ -130,7 +130,7 @@ Architecture 使用生命周期 tick 推进，并通过共享 deadline 和 scope
 			</tags>
 		</member>
 		<member kind="method" name="request">
-			<signature>func request(path: String, type_hint: String = "", options: Dictionary = {}) -&gt; GFResourceLease:</signature>
+			<signature>func request( path: String, type_hint: String = "", options: Dictionary = {} ) -&gt; GFResourceLease:</signature>
 			<description>请求一个资源消费者 Lease。
 admission 使用严格 FIFO：队首独占请求会等待全部活动请求 drain，
 后续共享请求不能绕过它。同资源身份且类型提示兼容的请求复用底层加载。</description>

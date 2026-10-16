@@ -290,7 +290,12 @@ func _shortcut_input(event: InputEvent) -> void:
 	if not event is InputEventKey:
 		return
 	var key: InputEventKey = event
-	if not key.pressed or key.echo or not key.ctrl_pressed or key.keycode != KEY_K:
+	if (
+		not key.pressed
+		or key.echo
+		or not key.ctrl_pressed
+		or key.keycode != KEY_K
+	):
 		return
 	var home: Control = open_page("gf.kernel.home")
 	if home != null and home.has_method("focus_task_search"):
@@ -337,7 +342,10 @@ func set_editor_context(editor_context: GFEditorToolContext) -> void:
 			break
 		if not _is_managed_page_content(page_control) and not _is_constructing_page_content(page_control):
 			continue
-		_forward_page_context(page_control, null if _revoked_pages.has(page_control.get_parent()) else editor_context)
+		_forward_page_context(
+			page_control,
+			null if _revoked_pages.has(page_control.get_parent()) else editor_context
+		)
 	_reconcile_page_layout()
 	_page_operation_depth -= 1
 	_rebuild_pages()
@@ -478,10 +486,18 @@ func open_page(page_id: String) -> Control:
 		return null
 	if not is_instance_valid(page) or page != _tabs.get_tab_control(_tabs.current_tab):
 		return null
-	if page.is_queued_for_deletion() or _revoked_pages.has(page) or page.get_child_count() == 0:
+	if (
+		page.is_queued_for_deletion()
+		or _revoked_pages.has(page)
+		or page.get_child_count() == 0
+	):
 		return null
 	var child: Node = page.get_child(0)
-	if child is Control and _page_controls.has(child) and _is_live_page_content(page, child):
+	if (
+		child is Control
+		and _page_controls.has(child)
+		and _is_live_page_content(page, child)
+	):
 		var control: Control = child
 		return control
 	return null
@@ -541,7 +557,11 @@ func _build_ui() -> void:
 	header.add_child(_page_selector)
 
 	_status_label = Label.new()
-	_status_label.modulate = Color(0.72, 0.72, 0.72)
+	_status_label.modulate = Color(
+		0.72,
+		0.72,
+		0.72
+	)
 	_status_label.visible = false
 	header.add_child(_status_label)
 
@@ -551,7 +571,11 @@ func _build_ui() -> void:
 	_startup_mode.add_item("首次打开")
 	_startup_mode.add_item("每次打开")
 	_startup_mode.add_item("手动打开")
-	var startup_modes: Array[String] = ["first_use", "always", "manual"]
+	var startup_modes: Array[String] = [
+		"first_use",
+		"always",
+		"manual",
+	]
 	var saved_mode: String = str(_PREFERENCES_SCRIPT.get_value("startup_mode", "first_use"))
 	var selected_mode: int = startup_modes.find(saved_mode)
 	_startup_mode.select(selected_mode if selected_mode >= 0 else 2)
@@ -635,7 +659,11 @@ func _rebuild_pages() -> void:
 		var ordered_pages: Array[Control] = []
 		# 即使上下文回调重入，也先完成一致的布局；下轮仍能找到全部保留草稿。
 		for record: Dictionary in _dock_records:
-			var script_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "path", "").strip_edges()
+			var script_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+				record,
+				"path",
+				""
+			).strip_edges()
 			if script_path.is_empty():
 				continue
 			var page: Control = null
@@ -650,15 +678,32 @@ func _rebuild_pages() -> void:
 				_page_load_attempted.append(false)
 			else:
 				var old_record: Dictionary = retained[page]
-				var same_path: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(old_record, "path", "").strip_edges() == script_path
+				var same_path: bool = (
+					_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+						old_record,
+						"path",
+						""
+					).strip_edges()
+					== script_path
+				)
 				_page_records.append(record if same_path else old_record)
 				_page_load_attempted.append(true)
 				var content: Control = retained_contents[page]
 				_page_controls.append(content)
 				if same_path:
-					var label: String = _resolve_page_label(content, _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "label", ""))
+					var label: String = _resolve_page_label(
+						content,
+						_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+							record,
+							"label",
+							""
+						)
+					)
 					page.name = label
-					page.set_meta("short_label", _resolve_short_page_label(record, label))
+					page.set_meta(
+						"short_label",
+						_resolve_short_page_label(record, label)
+					)
 				else:
 					_revoked_pages.append(page)
 				var _removed: bool = retained.erase(page)
@@ -671,11 +716,18 @@ func _rebuild_pages() -> void:
 			_revoked_pages.append(page)
 		_page_wrappers = ordered_pages.duplicate()
 		for index: int in range(ordered_pages.size()):
-			_tabs.move_child(ordered_pages[index], index)
+			_tabs.move_child(
+				ordered_pages[index],
+				index
+			)
 		if ordered_pages.is_empty():
 			_tabs.add_child(_make_empty_page())
 		else:
-			_tabs.current_tab = clampi(_tabs.current_tab, 0, _tabs.get_child_count() - 1)
+			_tabs.current_tab = clampi(
+				_tabs.current_tab,
+				0,
+				_tabs.get_child_count() - 1
+			)
 			for index: int in range(_page_records.size()):
 				if _get_page_id(_page_records[index]) == selected_page_id:
 					_tabs.current_tab = index
@@ -694,7 +746,14 @@ func _rebuild_pages() -> void:
 				if _rebuild_pending:
 					break
 				var index: int = _page_wrappers.find(page)
-				if index >= 0 and _GF_VARIANT_ACCESS_SCRIPT.get_option_string(_page_records[index], "label", "").is_empty():
+				if (
+					index >= 0
+					and _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+						_page_records[index],
+						"label",
+						""
+					).is_empty()
+				):
 					_ensure_page(_get_page_tab_index(page))
 			_ensure_page(_tabs.current_tab)
 		if not _rebuild_pending:
@@ -707,12 +766,19 @@ func _rebuild_pages() -> void:
 ## [br]
 ## @api private
 func _make_page(record: Dictionary, script_path: String) -> Control:
-	var label: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "label", "")
+	var label: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+		record,
+		"label",
+		""
+	)
 	if label.is_empty():
 		label = script_path.get_file().get_basename()
 	var page: Control = Control.new()
 	page.name = label
-	page.set_meta("short_label", _resolve_short_page_label(record, label))
+	page.set_meta(
+		"short_label",
+		_resolve_short_page_label(record, label)
+	)
 	page.clip_contents = true
 	page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	page.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -723,7 +789,11 @@ func _make_page(record: Dictionary, script_path: String) -> Control:
 ## [br]
 ## @api private
 func _ensure_page(index: int) -> void:
-	if _rebuilding_pages or _rebuild_pending or _tabs == null:
+	if (
+		_rebuilding_pages
+		or _rebuild_pending
+		or _tabs == null
+	):
 		return
 	var record_index: int = _get_page_record_index(index)
 	if record_index < 0 or _page_load_attempted[record_index]:
@@ -746,7 +816,11 @@ func _create_page(index: int) -> void:
 	var record: Dictionary = _page_records[index]
 	var dock: Control = _instantiate_page(record)
 	var capacity_rejected: bool = false
-	if dock != null and dock.has_method("has_unsaved_workspace_changes") and _draft_page_count() >= _MAX_DRAFT_PAGE_COUNT:
+	if (
+		dock != null
+		and dock.has_method("has_unsaved_workspace_changes")
+		and _draft_page_count() >= _MAX_DRAFT_PAGE_COUNT
+	):
 		# 在授予上下文和入树前拒绝新实例，既有草稿永远不会为腾容量而被删除。
 		dock.free()
 		dock = null
@@ -763,15 +837,25 @@ func _create_page(index: int) -> void:
 		return
 	if dock == null:
 		var failure_label: Label = Label.new()
-		failure_label.text = "已达到 16 个草稿页面容量。请先保存或 Undo 恢复已有草稿，再刷新贡献后重试；已有草稿未被丢弃。" if capacity_rejected else "此页面加载失败，请检查 Godot 错误面板。修复后重新加载 GF 插件。"
+		failure_label.text = ("已达到 16 个草稿页面容量。请先保存或 Undo 恢复已有草稿，再刷新贡献后重试；已有草稿未被丢弃。" if capacity_rejected else "此页面加载失败，请检查 Godot 错误面板。修复后重新加载 GF 插件。")
 		failure_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		page.add_child(failure_label)
 		failure_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		return
 
-	var label: String = _resolve_page_label(dock, _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "label", ""))
+	var label: String = _resolve_page_label(
+		dock,
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			record,
+			"label",
+			""
+		)
+	)
 	page.name = label
-	page.set_meta("short_label", _resolve_short_page_label(record, label))
+	page.set_meta(
+		"short_label",
+		_resolve_short_page_label(record, label)
+	)
 	dock.name = "%s Content" % label
 	dock.clip_contents = true
 	dock.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -790,7 +874,11 @@ func _create_page(index: int) -> void:
 ## [br]
 ## @api private
 func _instantiate_page(record: Dictionary) -> Control:
-	var script_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "path", "").strip_edges()
+	var script_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+		record,
+		"path",
+		""
+	).strip_edges()
 	if script_path.is_empty():
 		return null
 
@@ -799,7 +887,10 @@ func _instantiate_page(record: Dictionary) -> Control:
 		push_error("[GFEditorWorkspaceDock][editor_workspace_dock.panel_load_failed] Could not load the workspace panel script: %s." % script_path)
 		return null
 
-	if not ClassDB.is_parent_class(dock_script.get_instance_base_type(), "Control"):
+	if not ClassDB.is_parent_class(
+		dock_script.get_instance_base_type(),
+		"Control"
+	):
 		push_error("[GFEditorWorkspaceDock][editor_workspace_dock.panel_instantiation_failed] Could not instantiate the workspace panel: %s." % script_path)
 		return null
 
@@ -816,7 +907,11 @@ func _instantiate_page(record: Dictionary) -> Control:
 ## [br]
 ## @api private
 func _forward_page_context(page_control: Control, editor_context: GFEditorToolContext) -> void:
-	if is_instance_valid(page_control) and not page_control.is_queued_for_deletion() and page_control.has_method("set_editor_context"):
+	if (
+		is_instance_valid(page_control)
+		and not page_control.is_queued_for_deletion()
+		and page_control.has_method("set_editor_context")
+	):
 		var _context_result: Variant = page_control.call("set_editor_context", editor_context)
 
 
@@ -824,9 +919,17 @@ func _forward_page_context(page_control: Control, editor_context: GFEditorToolCo
 ## [br]
 ## @api private
 func _get_owned_page_content(page: Control) -> Control:
-	if is_instance_valid(page) and not page.is_queued_for_deletion() and page.get_child_count() > 0:
+	if (
+		is_instance_valid(page)
+		and not page.is_queued_for_deletion()
+		and page.get_child_count() > 0
+	):
 		var child: Node = page.get_child(0)
-		if child is Control and _page_controls.has(child) and _is_live_page_content(page, child):
+		if (
+			child is Control
+			and _page_controls.has(child)
+			and _is_live_page_content(page, child)
+		):
 			var content: Control = child
 			return content
 	return null
@@ -843,7 +946,15 @@ func _is_live_page_content(page_value: Variant, content_value: Variant) -> bool:
 		return false
 	var page: Control = page_value
 	var content: Control = content_value
-	return not page.is_queued_for_deletion() and not content.is_queued_for_deletion() and page.get_parent() == _tabs and content.get_parent() == page and page.get_child_count() > 0 and page.get_child(0) == content and content.is_inside_tree() == page.is_inside_tree()
+	return (
+		not page.is_queued_for_deletion()
+		and not content.is_queued_for_deletion()
+		and page.get_parent() == _tabs
+		and content.get_parent() == page
+		and page.get_child_count() > 0
+		and page.get_child(0) == content
+		and content.is_inside_tree() == page.is_inside_tree()
+	)
 
 
 ## 在读取 parent 前排除已失效内容；迁入另一个宿主的节点不会被重新授予或撤销上下文。
@@ -853,7 +964,10 @@ func _is_managed_page_content(content_value: Variant) -> bool:
 	if not is_instance_valid(content_value) or not content_value is Control:
 		return false
 	var content: Control = content_value
-	return _is_live_page_content(content.get_parent(), content)
+	return _is_live_page_content(
+		content.get_parent(),
+		content
+	)
 
 
 ## 回调可能同步释放其他页面；反复收束失效保留项，最多删除现有草稿数量。
@@ -864,7 +978,10 @@ func _prune_retained_pages(records: Dictionary[Control, Dictionary], contents: D
 	while changed:
 		changed = false
 		for page: Control in records:
-			if _is_live_page_content(page, contents.get(page)):
+			if _is_live_page_content(
+				page,
+				contents.get(page)
+			):
 				continue
 			var _record_removed: bool = records.erase(page)
 			var _content_removed: bool = contents.erase(page)
@@ -883,7 +1000,11 @@ func _discard_page_wrapper(page_value: Variant) -> void:
 	if page.get_parent() != _tabs:
 		return
 	_tabs.remove_child(page)
-	if is_instance_valid(page) and page.get_parent() == null and not page.is_queued_for_deletion():
+	if (
+		is_instance_valid(page)
+		and page.get_parent() == null
+		and not page.is_queued_for_deletion()
+	):
 		page.queue_free()
 
 
@@ -903,7 +1024,11 @@ func _is_constructing_page_content(content_value: Variant) -> bool:
 	if not is_instance_valid(content_value) or not content_value is Control:
 		return false
 	var content: Control = content_value
-	if content.is_queued_for_deletion() or content.get_parent() != null or not _constructing_page_controls.has(content):
+	if (
+		content.is_queued_for_deletion()
+		or content.get_parent() != null
+		or not _constructing_page_controls.has(content)
+	):
 		return false
 	var page: Control = _constructing_page_controls[content]
 	return _page_wrappers.has(page) and _get_page_tab_index(page) >= 0
@@ -921,7 +1046,11 @@ func _release_constructing_page(content_value: Variant) -> void:
 	if content.is_queued_for_deletion() or content.get_parent() != null:
 		return
 	_forward_page_context(content, null)
-	if is_instance_valid(content) and content.get_parent() == null and not content.is_queued_for_deletion():
+	if (
+		is_instance_valid(content)
+		and content.get_parent() == null
+		and not content.is_queued_for_deletion()
+	):
 		content.queue_free()
 
 
@@ -929,7 +1058,11 @@ func _release_constructing_page(content_value: Variant) -> void:
 ## [br]
 ## @api private
 func _get_page_record_index(tab_index: int) -> int:
-	if _tabs == null or tab_index < 0 or tab_index >= _tabs.get_tab_count():
+	if (
+		_tabs == null
+		or tab_index < 0
+		or tab_index >= _tabs.get_tab_count()
+	):
 		return -1
 	var page: Control = _tabs.get_tab_control(tab_index)
 	return _page_wrappers.find(page) if _get_page_tab_index(page) >= 0 else -1
@@ -1019,7 +1152,11 @@ func _resolve_page_label(dock: Control, fallback_label: String) -> String:
 ## [br]
 ## @api private
 func _resolve_short_page_label(record: Dictionary, label: String) -> String:
-	var explicit_label: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "short_label", "").strip_edges()
+	var explicit_label: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+		record,
+		"short_label",
+		""
+	).strip_edges()
 	if not explicit_label.is_empty():
 		return explicit_label
 
@@ -1123,7 +1260,10 @@ func _rebuild_page_buttons() -> void:
 	for index: int in range(_tabs.get_child_count()):
 		var page: Node = _tabs.get_child(index)
 		var button: Button = Button.new()
-		button.text = _GF_VARIANT_ACCESS_SCRIPT.to_text(page.get_meta("short_label", page.name), String(page.name))
+		button.text = _GF_VARIANT_ACCESS_SCRIPT.to_text(
+			page.get_meta("short_label", page.name),
+			String(page.name)
+		)
 		button.toggle_mode = true
 		button.tooltip_text = "切换到 %s" % page.name
 		button.custom_minimum_size = Vector2(PAGE_BUTTON_MIN_WIDTH, 30.0)
@@ -1150,13 +1290,20 @@ func _sync_page_buttons() -> void:
 ## @api private
 func _update_status() -> void:
 	if _draft_notice != null:
-		_draft_notice.visible = _tabs != null and _tabs.current_tab >= 0 and _revoked_pages.has(_tabs.get_tab_control(_tabs.current_tab))
+		_draft_notice.visible = (
+			_tabs != null
+			and _tabs.current_tab >= 0
+			and _revoked_pages.has(_tabs.get_tab_control(_tabs.current_tab))
+		)
 	if _tabs == null or _tabs.get_child_count() <= 0:
 		_set_status(EMPTY_MESSAGE)
 		return
 
 	var current_title: String = String(_tabs.get_child(_tabs.current_tab).name)
-	_set_status("%d 个页面 · 当前：%s" % [_tabs.get_child_count(), current_title])
+	_set_status(
+		"%d 个页面 · 当前：%s"
+		% [_tabs.get_child_count(), current_title]
+	)
 
 
 ## 懒创建并复用固定尺寸的关于弹窗，隐藏默认确认按钮并填入自定义内容。
@@ -1181,23 +1328,25 @@ func _ensure_about_dialog() -> void:
 ## [br]
 ## @api private
 func _make_about_text() -> String:
-	return "\n".join([
-		"GF Framework",
-		"版本：%s" % _get_framework_version(),
-		"",
-		"面向 Godot 4 的轻量级游戏架构框架。",
-		"它把数据、逻辑、表现、运行时服务和纯算法基础件拆开管理，帮助项目保持可预测的生命周期、清晰的依赖边界和可测试的玩法代码。",
-		"",
-		"项目地址：%s" % PROJECT_URL,
-		"文档地址：%s" % DOCUMENTATION_URL,
-		"Issues：%s" % ISSUE_URL,
-		"Releases：%s" % RELEASES_URL,
-		"",
-		"联系方式：",
-		"E-mail：%s" % CONTACT_EMAIL,
-		"WeChat：%s" % CONTACT_WECHAT,
-		"QQ：%s" % CONTACT_QQ,
-	])
+	return "\n".join(
+		[
+			"GF Framework",
+			"版本：%s" % _get_framework_version(),
+			"",
+			"面向 Godot 4 的轻量级游戏架构框架。",
+			"它把数据、逻辑、表现、运行时服务和纯算法基础件拆开管理，帮助项目保持可预测的生命周期、清晰的依赖边界和可测试的玩法代码。",
+			"",
+			"项目地址：%s" % PROJECT_URL,
+			"文档地址：%s" % DOCUMENTATION_URL,
+			"Issues：%s" % ISSUE_URL,
+			"Releases：%s" % RELEASES_URL,
+			"",
+			"联系方式：",
+			"E-mail：%s" % CONTACT_EMAIL,
+			"WeChat：%s" % CONTACT_WECHAT,
+			"QQ：%s" % CONTACT_QQ,
+		]
+	)
 
 
 ## 构建关于弹窗的滚动介绍、项目链接、版本检测/更新按钮和自定义确认按钮。
@@ -1281,7 +1430,11 @@ func _make_about_content() -> Control:
 	_version_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART as TextServer.AutowrapMode
 	_version_status_label.custom_minimum_size = Vector2(0.0, VERSION_STATUS_MIN_HEIGHT)
 	_version_status_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_version_status_label.modulate = Color(0.72, 0.72, 0.72)
+	_version_status_label.modulate = Color(
+		0.72,
+		0.72,
+		0.72
+	)
 	_version_status_label.text = "当前版本：%s。可手动检测最新发布版本。" % _get_framework_version()
 	layout.add_child(_version_status_label)
 
@@ -1303,18 +1456,25 @@ func _make_about_content() -> Control:
 ## [br]
 ## @api private
 func _make_about_bbcode() -> String:
-	return "\n".join([
-		"[center][b]GF Framework[/b] · 版本：%s" % _get_framework_version(),
-		"面向 Godot 4 的轻量级游戏架构框架。",
-		"[url=%s]GitHub[/url] · [url=%s]文档[/url] · [url=%s]Issues[/url] · [url=%s]Releases[/url]" % [
-			PROJECT_URL,
-			DOCUMENTATION_URL,
-			ISSUE_URL,
-			RELEASES_URL,
-		],
-		"E-mail：[url=mailto:%s]%s[/url]" % [CONTACT_EMAIL, CONTACT_EMAIL],
-		"WeChat：%s · QQ：%s[/center]" % [CONTACT_WECHAT, CONTACT_QQ],
-	])
+	return "\n".join(
+		[
+			"[center][b]GF Framework[/b] · 版本：%s" % _get_framework_version(),
+			"面向 Godot 4 的轻量级游戏架构框架。",
+			(
+				"[url=%s]GitHub[/url] · [url=%s]文档[/url] · [url=%s]Issues[/url] · [url=%s]Releases[/url]"
+				% [
+					PROJECT_URL,
+					DOCUMENTATION_URL,
+					ISSUE_URL,
+					RELEASES_URL,
+				]
+			),
+			"E-mail：[url=mailto:%s]%s[/url]"
+			% [CONTACT_EMAIL, CONTACT_EMAIL],
+			"WeChat：%s · QQ：%s[/center]"
+			% [CONTACT_WECHAT, CONTACT_QQ],
+		]
+	)
 
 
 ## 从 res://addons/gf/plugin.cfg 读取 plugin.version；配置读取失败时返回 `unknown`。
@@ -1325,13 +1485,27 @@ func _get_framework_version() -> String:
 	var error: Error = config.load("res://addons/gf/plugin.cfg")
 	if error != OK:
 		return "unknown"
-	return _GF_VARIANT_ACCESS_SCRIPT.to_text(config.get_value("plugin", "version", "unknown"), "unknown").strip_edges()
+	return _GF_VARIANT_ACCESS_SCRIPT.to_text(
+		config.get_value(
+			"plugin",
+			"version",
+			"unknown"
+		),
+		"unknown"
+	).strip_edges()
 
 
 ## 标签节点仍有效时同步版本状态文字和颜色。
 ## [br]
 ## @api private
-func _set_version_status(message: String, color: Color = Color(0.72, 0.72, 0.72)) -> void:
+func _set_version_status(
+	message: String,
+	color: Color = Color(
+		0.72,
+		0.72,
+		0.72
+	)
+) -> void:
 	if not is_instance_valid(_version_status_label):
 		return
 	_version_status_label.text = message
@@ -1345,7 +1519,14 @@ func _set_version_status(message: String, color: Color = Color(0.72, 0.72, 0.72)
 func _request_latest_version() -> void:
 	_ensure_latest_version_request()
 	if not is_instance_valid(_latest_version_request):
-		_set_version_status("无法创建版本检测请求。", Color(0.9, 0.56, 0.56))
+		_set_version_status(
+			"无法创建版本检测请求。",
+			Color(
+				0.9,
+				0.56,
+				0.56
+			)
+		)
 		_set_update_release_button(false)
 		return
 
@@ -1359,10 +1540,7 @@ func _request_latest_version() -> void:
 	if is_instance_valid(_version_check_button):
 		_version_check_button.disabled = true
 
-	var headers: PackedStringArray = PackedStringArray([
-		"Accept: application/vnd.github+json",
-		"User-Agent: GF-Framework-Godot-Editor",
-	])
+	var headers: PackedStringArray = PackedStringArray(["Accept: application/vnd.github+json", "User-Agent: GF-Framework-Godot-Editor",])
 	var error: Error = _latest_version_request.request(
 		LATEST_RELEASE_API_URL,
 		headers,
@@ -1371,7 +1549,14 @@ func _request_latest_version() -> void:
 	if error != OK:
 		if is_instance_valid(_version_check_button):
 			_version_check_button.disabled = false
-		_set_version_status("无法发起版本检测：%s。" % error_string(error), Color(0.9, 0.56, 0.56))
+		_set_version_status(
+			"无法发起版本检测：%s。" % error_string(error),
+			Color(
+				0.9,
+				0.56,
+				0.56
+			)
+		)
 		_set_update_release_button(false)
 
 
@@ -1394,20 +1579,32 @@ func _ensure_latest_version_request() -> void:
 ## 版本比较仅使用前三个数字分量；空最新版本和未知当前版本有独立提示。
 ## [br]
 ## @api private
-func _make_latest_version_status(latest_version: String, current_version: String, release_url: String = RELEASES_URL) -> Dictionary:
+func _make_latest_version_status(
+	latest_version: String,
+	current_version: String,
+	release_url: String = RELEASES_URL
+) -> Dictionary:
 	var latest: String = _normalize_version_tag(latest_version)
 	var current: String = _normalize_version_tag(current_version)
 	if latest.is_empty():
 		return {
 			"message": "未能读取最新发布版本。",
-			"color": Color(0.9, 0.56, 0.56),
+			"color": Color(
+				0.9,
+				0.56,
+				0.56
+			),
 			"update_available": false,
 			"release_url": "",
 		}
 	if current.is_empty() or current == "unknown":
 		return {
 			"message": "最新发布版本：%s。当前版本未知。" % latest,
-			"color": Color(0.86, 0.74, 0.45),
+			"color": Color(
+				0.86,
+				0.74,
+				0.45
+			),
 			"update_available": false,
 			"release_url": _normalize_release_url(release_url),
 		}
@@ -1415,21 +1612,35 @@ func _make_latest_version_status(latest_version: String, current_version: String
 	var compare: int = _compare_version_strings(latest, current)
 	if compare > 0:
 		return {
-			"message": "发现新版本：%s。当前版本：%s。" % [latest, current],
-			"color": Color(0.86, 0.74, 0.45),
+			"message": "发现新版本：%s。当前版本：%s。"
+			% [latest, current],
+			"color": Color(
+				0.86,
+				0.74,
+				0.45
+			),
 			"update_available": true,
 			"release_url": _normalize_release_url(release_url),
 		}
 	if compare < 0:
 		return {
-			"message": "当前版本 %s 高于最新发布 %s。" % [current, latest],
-			"color": Color(0.86, 0.74, 0.45),
+			"message": "当前版本 %s 高于最新发布 %s。"
+			% [current, latest],
+			"color": Color(
+				0.86,
+				0.74,
+				0.45
+			),
 			"update_available": false,
 			"release_url": _normalize_release_url(release_url),
 		}
 	return {
 		"message": "当前已是最新版本：%s。" % current,
-		"color": Color(0.56, 0.82, 0.56),
+		"color": Color(
+			0.56,
+			0.82,
+			0.56
+		),
 		"update_available": false,
 		"release_url": _normalize_release_url(release_url),
 	}
@@ -1456,12 +1667,24 @@ func _normalize_version_tag(value: String) -> String:
 	var text: String = value.strip_edges()
 	if text.begins_with("refs/tags/"):
 		text = text.trim_prefix("refs/tags/")
-	if text.length() > 1 and text.substr(0, 1).to_lower() == "v" and text.substr(1, 1).is_valid_int():
+	if (
+		text.length() > 1
+		and text.substr(0, 1).to_lower() == "v"
+		and text.substr(1, 1).is_valid_int()
+	):
 		text = text.substr(1)
 	if text.find("+") >= 0:
-		text = text.split("+", false, 1)[0]
+		text = text.split(
+			"+",
+			false,
+			1
+		)[0]
 	if text.find("-") >= 0:
-		text = text.split("-", false, 1)[0]
+		text = text.split(
+			"-",
+			false,
+			1
+		)[0]
 	return text.strip_edges()
 
 
@@ -1481,9 +1704,20 @@ func _normalize_release_url(value: String) -> String:
 ## [br]
 ## @api private
 func _parse_version_numbers(value: String) -> PackedInt32Array:
-	var result: PackedInt32Array = PackedInt32Array([0, 0, 0])
+	var result: PackedInt32Array = PackedInt32Array(
+		[
+			0,
+			0,
+			0,
+		]
+	)
 	var parts: PackedStringArray = _normalize_version_tag(value).split(".")
-	for index: int in range(mini(parts.size(), 3)):
+	for index: int in range(
+		mini(
+			parts.size(),
+			3
+		)
+	):
 		var part: String = parts[index].strip_edges()
 		if part.is_valid_int():
 			result[index] = part.to_int()
@@ -1514,8 +1748,16 @@ func _variant_to_control(value: Variant) -> Control:
 ## 从字典读取指定值，仅在值为 Color 时返回，否则使用 fallback。
 ## [br]
 ## @api private
-func _get_dictionary_color(dictionary: Dictionary, key: Variant, fallback: Color) -> Color:
-	var value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(dictionary, key, fallback)
+func _get_dictionary_color(
+	dictionary: Dictionary,
+	key: Variant,
+	fallback: Color
+) -> Color:
+	var value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+		dictionary,
+		key,
+		fallback
+	)
 	if value is Color:
 		var color: Color = value
 		return color
@@ -1527,11 +1769,30 @@ func _get_dictionary_color(dictionary: Dictionary, key: Variant, fallback: Color
 ## [br]
 ## @api private
 func _apply_latest_version_status(status: Dictionary) -> void:
-	var status_color: Color = _get_dictionary_color(status, "color", Color(0.72, 0.72, 0.72))
-	_set_version_status(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(status, "message", ""), status_color)
+	var status_color: Color = _get_dictionary_color(
+		status,
+		"color",
+		Color(
+			0.72,
+			0.72,
+			0.72
+		)
+	)
+	_set_version_status(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			status,
+			"message",
+			""
+		),
+		status_color
+	)
 	_set_update_release_button(
 		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(status, "update_available"),
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(status, "release_url", RELEASES_URL)
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			status,
+			"release_url",
+			RELEASES_URL
+		)
 	)
 
 
@@ -1598,7 +1859,11 @@ func _on_always_on_top_toggled(enabled: bool) -> void:
 ## [br]
 ## @api private
 func _on_page_button_pressed(index: int) -> void:
-	if _tabs == null or index < 0 or index >= _tabs.get_child_count():
+	if (
+		_tabs == null
+		or index < 0
+		or index >= _tabs.get_child_count()
+	):
 		return
 
 	_page_operation_depth += 1
@@ -1627,9 +1892,16 @@ func _on_tabs_tab_changed(tab: int) -> void:
 ## [br]
 ## @api private
 func _on_startup_mode_selected(index: int) -> void:
-	var modes: Array[String] = ["first_use", "always", "manual"]
+	var modes: Array[String] = [
+		"first_use",
+		"always",
+		"manual",
+	]
 	if index >= 0 and index < modes.size():
-		_PREFERENCES_SCRIPT.set_value("startup_mode", modes[index])
+		_PREFERENCES_SCRIPT.set_value(
+			"startup_mode",
+			modes[index]
+		)
 
 
 ## 将 BBCode meta 转为文本，仅对非空链接请求系统打开。
@@ -1678,24 +1950,61 @@ func _on_latest_version_request_completed(
 		_version_check_button.disabled = false
 
 	if result != HTTPRequest.RESULT_SUCCESS:
-		_set_version_status("无法检测最新版本：网络请求失败。", Color(0.9, 0.56, 0.56))
+		_set_version_status(
+			"无法检测最新版本：网络请求失败。",
+			Color(
+				0.9,
+				0.56,
+				0.56
+			)
+		)
 		_set_update_release_button(false)
 		return
 	if response_code < 200 or response_code >= 300:
-		_set_version_status("无法检测最新版本：HTTP %d。" % response_code, Color(0.9, 0.56, 0.56))
+		_set_version_status(
+			"无法检测最新版本：HTTP %d。" % response_code,
+			Color(
+				0.9,
+				0.56,
+				0.56
+			)
+		)
 		_set_update_release_button(false)
 		return
 
 	var parsed: Variant = JSON.parse_string(body.get_string_from_utf8())
 	if not (parsed is Dictionary):
-		_set_version_status("无法检测最新版本：返回内容不是 JSON 对象。", Color(0.9, 0.56, 0.56))
+		_set_version_status(
+			"无法检测最新版本：返回内容不是 JSON 对象。",
+			Color(
+				0.9,
+				0.56,
+				0.56
+			)
+		)
 		_set_update_release_button(false)
 		return
 
 	var data: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(parsed)
-	var latest_version: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(data, "tag_name", _GF_VARIANT_ACCESS_SCRIPT.get_option_string(data, "name", ""))
-	var release_url: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(data, "html_url", RELEASES_URL)
-	var status: Dictionary = _make_latest_version_status(latest_version, _get_framework_version(), release_url)
+	var latest_version: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+		data,
+		"tag_name",
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			data,
+			"name",
+			""
+		)
+	)
+	var release_url: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+		data,
+		"html_url",
+		RELEASES_URL
+	)
+	var status: Dictionary = _make_latest_version_status(
+		latest_version,
+		_get_framework_version(),
+		release_url
+	)
 	_apply_latest_version_status(status)
 
 

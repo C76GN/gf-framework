@@ -52,6 +52,14 @@ Project Layout 的唯一 GDScript 权威、隔离原生验收与维护传输预�
 
 验收时以“读者仅凭当前文件、正式文档链接和公开接口，能否理解并正确使用这项能力”为判断标准。发现依赖讨论上下文的内容，应在宣布完成前修正。
 
+## GDScript 可读性校验
+
+`CODING_STYLE.md` 的“可读性硬规则”是自有 GDScript 排版的唯一政策。修改源码、测试、`.gd.txt` 或 `.gdtemplate` 后，运行 `python tools/gf_maintenance.py gdscript-readability --json`；检查器或排版规划器变更同时运行 `python -m unittest discover -s tests/gf_core/tools -p "test_gf_gdscript*.py"`。`gdscript_readability` 与四个独立 fixture 检查 `gdscript_readability_tests`、`gdscript_list_layout_tests`、`gdscript_expression_layout_tests`、`gdscript_layout_integrity_tests` 必须进入 quick、framework-static、framework、full 和 release，Draft、Ready/main 与发布流程消费同一组检查。每个测试模块必须有唯一的 named Catalog owner，并且每轮只执行一次；不得靠 `load_tests` 间接聚合掩盖未登记模块。
+
+校验覆盖 `addons/gf`、`tests/gf_core` 内全部自有源码和模板，新增文件自动进入扫描。检查器必须识别真实词法结构，保留注释、字符串与模板占位内容；未闭合结构、读取失败、预算耗尽和无法完成的扫描必须失败。不能以只检查 diff 行、文件白名单、永久违规 baseline、行内 suppression 或 advisory 结果代替全量通过。排版仅按语法结构决定，不设置列数上限，也不能以变量名、路径或字符串的长度触发换行；源码读取、token、层次和扫描总量的有限预算继续执行。
+
+排版迁移保持字段顺序、运算优先级、短路行为与 Callable 的捕获及延迟调用时机。每批核对 token、字符串和注释保留，再执行相应 Godot 解析、warning/LSP 与 focused GUT；收敛前执行 Full。函数职责和算法复杂度继续由结构审查处理，可读性门禁不通过提取 helper、提前求值或调整控制流来自动消除格式问题。
+
 ## 开发者诊断维护
 
 诊断内容遵循 `CODING_STYLE.md` 的“开发者诊断与显示语言”：框架自有模板使用固定英文和稳定 ID，运行时 Unicode 上下文及项目自由文本不受英文限制。修改时保留原生输出的严重级别、次数和调用栈；不要把框架诊断改接 `GFLogUtility`，不要用游戏本地化控制诊断语言。编辑器显示文字与诊断分别维护，现有工具 catalog 的 `en` / `zh_CN` 与英文回退不代表全部面板已双语化。

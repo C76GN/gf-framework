@@ -15,7 +15,7 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 方法 | [`find_targets`](#member-gfskilltargetingutility2d-methods-find_targets) | `func find_targets(p_center: Vector2, p_rule: GFSkillTargetingRule2D, p_available_entities: Array) -> Array[Object]:` |
+| 方法 | [`find_targets`](#member-gfskilltargetingutility2d-methods-find_targets) | `func find_targets( p_center: Vector2, p_rule: GFSkillTargetingRule2D, p_available_entities: Array ) -> Array[Object]:` |
 
 ## 方法
 
@@ -27,7 +27,7 @@
 - 首次版本：`8.0.0`
 
 ```gdscript
-func find_targets(p_center: Vector2, p_rule: GFSkillTargetingRule2D, p_available_entities: Array) -> Array[Object]:
+func find_targets( p_center: Vector2, p_rule: GFSkillTargetingRule2D, p_available_entities: Array ) -> Array[Object]:
 ```
 
 执行索敌 pipeline。

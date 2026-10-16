@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCivilDate" path="addons/gf/standard/utilities/time/gf_civil_date.gd" module="standard" extends="RefCounted" classDigest="74729181709f7b777e5a69318b629fc224255ce73ab721e266d35f144abf5b36">
+<class name="GFCivilDate" path="addons/gf/standard/utilities/time/gf_civil_date.gd" module="standard" extends="RefCounted" classDigest="beebc881214183cfec616118e1394bba299e7b55a3858efe42de78a43f10d6c3">
 	<description>GFCivilDate: 无时区、无时刻的不可变公民日期。
 使用前推格里高利历，支持 0001-01-01 到 9999-12-31。
 本类只处理日期数学，不读取系统时钟，不包含时区、语言区域、节假日或业务日规则。</description>
@@ -55,7 +55,7 @@
 	<properties />
 	<methods>
 		<member kind="method" name="create">
-			<signature>static func create(year: int, month: int, day: int) -&gt; GFCivilDateResult:</signature>
+			<signature>static func create( year: int, month: int, day: int ) -&gt; GFCivilDateResult:</signature>
 			<description>创建公民日期。</description>
 			<tags>
 				<tag name="api">public</tag>

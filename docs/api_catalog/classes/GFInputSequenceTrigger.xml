@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputSequenceTrigger" path="addons/gf/standard/input/sequences/gf_input_sequence_trigger.gd" module="standard" extends="GFInputTrigger" classDigest="47405e2db26b7230d579cd06586f1e8972d8a9e47f3d9e9846cb943aec3526cf">
+<class name="GFInputSequenceTrigger" path="addons/gf/standard/input/sequences/gf_input_sequence_trigger.gd" module="standard" extends="GFInputTrigger" classDigest="26e9b1980ab7f776e37bcb40b0cd44bfac1edee3ef82f398ea3162c5161a81be">
 	<description>GFInputSequenceTrigger: 动作序列触发器。
 按顺序观察一组前置动作的 just-started 状态，全部完成后当前输入活跃时触发。</description>
 	<tags>
@@ -67,7 +67,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="update">
-			<signature>func update(raw_active: bool, _value: Variant, delta: float, state: Dictionary) -&gt; TriggerState:</signature>
+			<signature>func update( raw_active: bool, _value: Variant, delta: float, state: Dictionary ) -&gt; TriggerState:</signature>
 			<description>更新运行时状态。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -78,6 +78,7 @@
 				<tag name="return">触发状态。</tag>
 				<tag name="schema">_value: Variant，由当前输入映射产生的动作值。</tag>
 				<tag name="schema">state: Dictionary，由输入运行时持有，包含分支进度字段。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

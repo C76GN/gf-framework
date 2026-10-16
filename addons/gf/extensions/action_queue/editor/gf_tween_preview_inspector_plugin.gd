@@ -53,7 +53,11 @@ func _can_handle(object: Object) -> bool:
 func _parse_begin(object: Object) -> void:
 	if not object is Resource or not _can_handle(object):
 		return
-	for index: int in range(_panels.size() - 1, -1, -1):
+	for index: int in range(
+		_panels.size() - 1,
+		-1,
+		-1
+	):
 		if _panels[index].get_ref() == null:
 			_panels.remove_at(index)
 	var config: Resource = object
@@ -80,12 +84,21 @@ func _notification(what: int) -> void:
 
 
 func _parse_property(
-	object: Object, _type: Variant.Type, property_name: String, _hint_type: PropertyHint,
-	_hint_string: String, _usage_flags: int, _wide: bool
+	object: Object,
+	_type: Variant.Type,
+	property_name: String,
+	_hint_type: PropertyHint,
+	_hint_string: String,
+	_usage_flags: int,
+	_wide: bool
 ) -> bool:
 	if property_name != "steps" or not _can_handle(object):
 		return false
-	if _parse_context == null or _parse_resource == null or _parse_resource.get_ref() != object:
+	if (
+		_parse_context == null
+		or _parse_resource == null
+		or _parse_resource.get_ref() != object
+	):
 		var config: Resource = object
 		_parse_context = GFTweenPreviewContext.new()
 		_parse_context.configure(config)

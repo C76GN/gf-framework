@@ -22,8 +22,8 @@
 | 方法 | [`generate_with_report`](#member-gfconfigaccessgenerator-methods-generate_with_report) | `func generate_with_report( schemas: Array, output_path: String = DEFAULT_OUTPUT_PATH, access_class_name: String = DEFAULT_CLASS_NAME, provider_accessor: String = DEFAULT_PROVIDER_ACCESSOR, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`build_source_with_report`](#member-gfconfigaccessgenerator-methods-build_source_with_report) | `func build_source_with_report( schemas: Array, access_class_name: String = DEFAULT_CLASS_NAME, provider_accessor: String = DEFAULT_PROVIDER_ACCESSOR, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`build_source`](#member-gfconfigaccessgenerator-methods-build_source) | `func build_source( schemas: Array, access_class_name: String = DEFAULT_CLASS_NAME, provider_accessor: String = DEFAULT_PROVIDER_ACCESSOR, options: Dictionary = {} ) -> String:` |
-| 方法 | [`save_source`](#member-gfconfigaccessgenerator-methods-save_source) | `func save_source(output_path: String, source: String, overwrite_existing: bool = true) -> Error:` |
-| 方法 | [`save_source_with_report`](#member-gfconfigaccessgenerator-methods-save_source_with_report) | `func save_source_with_report(output_path: String, source: String, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`save_source`](#member-gfconfigaccessgenerator-methods-save_source) | `func save_source( output_path: String, source: String, overwrite_existing: bool = true ) -> Error:` |
+| 方法 | [`save_source_with_report`](#member-gfconfigaccessgenerator-methods-save_source_with_report) | `func save_source_with_report( output_path: String, source: String, options: Dictionary = {} ) -> Dictionary:` |
 
 ## 常量
 
@@ -197,7 +197,7 @@ func build_source( schemas: Array, access_class_name: String = DEFAULT_CLASS_NAM
 - 首次版本：`3.17.0`
 
 ```gdscript
-func save_source(output_path: String, source: String, overwrite_existing: bool = true) -> Error:
+func save_source( output_path: String, source: String, overwrite_existing: bool = true ) -> Error:
 ```
 
 保存生成源码到指定路径。
@@ -220,7 +220,7 @@ func save_source(output_path: String, source: String, overwrite_existing: bool =
 - 首次版本：`6.0.0`
 
 ```gdscript
-func save_source_with_report(output_path: String, source: String, options: Dictionary = {}) -> Dictionary:
+func save_source_with_report( output_path: String, source: String, options: Dictionary = {} ) -> Dictionary:
 ```
 
 保存生成源码到指定路径并返回生成产物报告。

@@ -70,7 +70,15 @@ func _init(initial_capacity: int = DEFAULT_CAPACITY) -> void:
 ## [br]
 ## @schema return: RefCounted GFDeque instance.
 static func from_array(values: Array, initial_capacity: int = 0) -> RefCounted:
-	var deque: GFDeque = GFDeque.new(maxi(maxi(initial_capacity, values.size()), DEFAULT_CAPACITY))
+	var deque: GFDeque = GFDeque.new(
+		maxi(
+			maxi(
+				initial_capacity,
+				values.size()
+			),
+			DEFAULT_CAPACITY
+		)
+	)
 	for value: Variant in values:
 		deque.push_back(value)
 	return deque
@@ -88,7 +96,10 @@ static func from_array(values: Array, initial_capacity: int = 0) -> RefCounted:
 func push_front(value: Variant) -> void:
 	if not _ensure_capacity(_count + 1):
 		return
-	_front_index = posmod(_front_index - 1, _data.size())
+	_front_index = posmod(
+		_front_index - 1,
+		_data.size()
+	)
 	_data[_front_index] = value
 	_count += 1
 
@@ -251,7 +262,12 @@ func set_at(index: int, value: Variant) -> bool:
 ## [br]
 ## @param min_capacity: 最小底层容量。
 func reserve(min_capacity: int) -> void:
-	var _reserved: bool = _ensure_capacity(maxi(maxi(min_capacity, _count), 1))
+	var _reserved: bool = _ensure_capacity(
+		maxi(
+			maxi(min_capacity, _count),
+			1
+		)
+	)
 
 
 ## 从队头裁剪多余元素，使队列最多保留 max_size 个元素。
@@ -406,9 +422,18 @@ func _ensure_capacity(required_capacity: int) -> bool:
 	if required_capacity <= _data.size():
 		return true
 
-	var next_capacity: int = maxi(maxi(_data.size(), DEFAULT_CAPACITY), 1)
+	var next_capacity: int = maxi(
+		maxi(
+			_data.size(),
+			DEFAULT_CAPACITY
+		),
+		1
+	)
 	while next_capacity < required_capacity:
-		next_capacity = mini(next_capacity * 2, _MAX_CAPACITY)
+		next_capacity = mini(
+			next_capacity * 2,
+			_MAX_CAPACITY
+		)
 	return _resize_storage(next_capacity)
 
 
@@ -421,7 +446,12 @@ func _resize_storage(new_capacity: int) -> bool:
 		push_error("[GFDeque][deque.capacity_out_of_range] Requested capacity exceeds the representable range.")
 		return false
 	var next_data: Array = []
-	var resize_result: int = next_data.resize(maxi(maxi(new_capacity, _count), 1))
+	var resize_result: int = next_data.resize(
+		maxi(
+			maxi(new_capacity, _count),
+			1
+		)
+	)
 	if resize_result != OK:
 		push_error("[GFDeque][deque.capacity_allocation_failed] Cannot allocate the requested capacity: %s." % error_string(resize_result))
 		return false

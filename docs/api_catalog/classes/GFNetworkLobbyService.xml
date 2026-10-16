@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkLobbyService" path="addons/gf/extensions/network/session/gf_network_lobby_service.gd" module="extensions/network" extends="GFUtility" classDigest="1a61b8cb065fa5658671b62d6130c8cd2f0425399180092a73f1d6af58dd1e34">
+<class name="GFNetworkLobbyService" path="addons/gf/extensions/network/session/gf_network_lobby_service.gd" module="extensions/network" extends="GFUtility" classDigest="f9ece0ac8a5fd271126ac2080aef7d27db0d57b1d8a703a3714ef65555521ed2">
 	<description>GFNetworkLobbyService: 平台中立 Lobby 操作协调服务。
 Service 统一生成请求 ID、管理单调超时、取消 Backend 替换时的等待操作，并维护
 Lobby 快照。Steam、小游戏、LAN 或自建服务 API 只能存在于外部 Backend Adapter。</description>
@@ -101,7 +101,7 @@ Lobby 快照。Steam、小游戏、LAN 或自建服务 API 只能存在于外部
 			</tags>
 		</member>
 		<member kind="signal" name="member_left">
-			<signature>signal member_left(lobby_id: String, peer_id: int, reason: String)</signature>
+			<signature>signal member_left( lobby_id: String, peer_id: int, reason: String )</signature>
 			<description>成员离开后发出。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -121,7 +121,7 @@ Lobby 快照。Steam、小游戏、LAN 或自建服务 API 只能存在于外部
 			</tags>
 		</member>
 		<member kind="signal" name="backend_error">
-			<signature>signal backend_error(operation: StringName, error: StringName, details: Dictionary)</signature>
+			<signature>signal backend_error( operation: StringName, error: StringName, details: Dictionary )</signature>
 			<description>Backend 出现不属于具体请求的错误时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -229,7 +229,7 @@ Lobby 快照。Steam、小游戏、LAN 或自建服务 API 只能存在于外部
 			</tags>
 		</member>
 		<member kind="method" name="query_lobbies">
-			<signature>func query_lobbies( query: GFNetworkLobbyQuery = null, options: Dictionary = {} ) -&gt; GFNetworkLobbyOperationHandle:</signature>
+			<signature>func query_lobbies(query: GFNetworkLobbyQuery = null, options: Dictionary = {}) -&gt; GFNetworkLobbyOperationHandle:</signature>
 			<description>查询 Lobby。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -241,7 +241,7 @@ Lobby 快照。Steam、小游戏、LAN 或自建服务 API 只能存在于外部
 			</tags>
 		</member>
 		<member kind="method" name="join_lobby">
-			<signature>func join_lobby( lobby_id: String, options: Dictionary = {} ) -&gt; GFNetworkLobbyOperationHandle:</signature>
+			<signature>func join_lobby(lobby_id: String, options: Dictionary = {}) -&gt; GFNetworkLobbyOperationHandle:</signature>
 			<description>加入 Lobby。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -253,7 +253,7 @@ Lobby 快照。Steam、小游戏、LAN 或自建服务 API 只能存在于外部
 			</tags>
 		</member>
 		<member kind="method" name="leave_lobby">
-			<signature>func leave_lobby( lobby_id: String = "", options: Dictionary = {} ) -&gt; GFNetworkLobbyOperationHandle:</signature>
+			<signature>func leave_lobby(lobby_id: String = "", options: Dictionary = {}) -&gt; GFNetworkLobbyOperationHandle:</signature>
 			<description>离开当前或指定 Lobby。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -294,7 +294,7 @@ Lobby 快照。Steam、小游戏、LAN 或自建服务 API 只能存在于外部
 			</tags>
 		</member>
 		<member kind="method" name="invoke_operation">
-			<signature>func invoke_operation( request: GFNetworkLobbyOperationRequest ) -&gt; GFNetworkLobbyOperationHandle:</signature>
+			<signature>func invoke_operation(request: GFNetworkLobbyOperationRequest) -&gt; GFNetworkLobbyOperationHandle:</signature>
 			<description>提交完整 Lobby 操作请求。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -304,7 +304,7 @@ Lobby 快照。Steam、小游戏、LAN 或自建服务 API 只能存在于外部
 			</tags>
 		</member>
 		<member kind="method" name="cancel_operation">
-			<signature>func cancel_operation( request_id: StringName, reason: StringName = &amp;"cancelled" ) -&gt; bool:</signature>
+			<signature>func cancel_operation(request_id: StringName, reason: StringName = &amp;"cancelled") -&gt; bool:</signature>
 			<description>取消等待中的操作。</description>
 			<tags>
 				<tag name="api">public</tag>

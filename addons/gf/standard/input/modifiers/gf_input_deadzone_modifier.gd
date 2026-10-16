@@ -23,7 +23,11 @@ extends GFInputModifier
 	set(value):
 		if not is_finite(value):
 			return
-		lower_threshold = clampf(value, 0.0, upper_threshold)
+		lower_threshold = clampf(
+			value,
+			0.0,
+			upper_threshold
+		)
 
 ## 达到该阈值时视为满幅输入；可与 lower_threshold 相等以表达硬阈值。
 ## [br]
@@ -34,7 +38,11 @@ extends GFInputModifier
 	set(value):
 		if not is_finite(value):
 			return
-		upper_threshold = clampf(value, lower_threshold, 1.0)
+		upper_threshold = clampf(
+			value,
+			lower_threshold,
+			1.0
+		)
 
 ## 是否把死区外的剩余范围重新映射到 0..1。
 ## [br]
@@ -48,6 +56,8 @@ extends GFInputModifier
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param value: 要写入或修改的值。
 ## [br]
 ## @param _event: 原始输入事件，默认实现不直接使用。
@@ -55,7 +65,11 @@ extends GFInputModifier
 ## @param _action: 当前输入动作配置，默认实现不直接使用。
 ## [br]
 ## @return 应用死区后的二维输入值。
-func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = null) -> Vector2:
+func modify(
+	value: Vector2,
+	_event: InputEvent = null,
+	_action: GFInputAction = null
+) -> Vector2:
 	var length: float = value.length()
 	if not is_finite(length):
 		return Vector2.ZERO
@@ -67,13 +81,19 @@ func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = 
 	var threshold_span: float = upper_threshold - lower_threshold
 	if threshold_span <= 0.0:
 		return value.normalized()
-	var scaled_length: float = clampf((minf(length, upper_threshold) - lower_threshold) / threshold_span, 0.0, 1.0)
+	var scaled_length: float = clampf(
+		(minf(length, upper_threshold) - lower_threshold) / threshold_span,
+		0.0,
+		1.0
+	)
 	return value.normalized() * scaled_length
 
 
 ## 修改三维输入值。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param value: 要写入或修改的值。
 ## [br]
@@ -82,7 +102,11 @@ func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = 
 ## @param _action: 当前输入动作配置，默认实现不直接使用。
 ## [br]
 ## @return 应用死区后的三维输入值。
-func modify_3d(value: Vector3, _event: InputEvent = null, _action: GFInputAction = null) -> Vector3:
+func modify_3d(
+	value: Vector3,
+	_event: InputEvent = null,
+	_action: GFInputAction = null
+) -> Vector3:
 	var length: float = value.length()
 	if not is_finite(length):
 		return Vector3.ZERO
@@ -94,5 +118,9 @@ func modify_3d(value: Vector3, _event: InputEvent = null, _action: GFInputAction
 	var threshold_span: float = upper_threshold - lower_threshold
 	if threshold_span <= 0.0:
 		return value.normalized()
-	var scaled_length: float = clampf((minf(length, upper_threshold) - lower_threshold) / threshold_span, 0.0, 1.0)
+	var scaled_length: float = clampf(
+		(minf(length, upper_threshold) - lower_threshold) / threshold_span,
+		0.0,
+		1.0
+	)
 	return value.normalized() * scaled_length

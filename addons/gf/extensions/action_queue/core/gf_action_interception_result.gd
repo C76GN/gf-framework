@@ -108,7 +108,11 @@ func is_stop_queue() -> bool:
 ## [br]
 ## @schema p_metadata: Dictionary，由项目或拦截器定义的附加诊断数据。
 static func continue_action(p_metadata: Dictionary = {}) -> GFActionInterceptionResult:
-	return GFActionInterceptionResult.new(Decision.CONTINUE, null, p_metadata)
+	return GFActionInterceptionResult.new(
+		Decision.CONTINUE,
+		null,
+		p_metadata
+	)
 
 
 ## 创建跳过结果。
@@ -121,12 +125,18 @@ static func continue_action(p_metadata: Dictionary = {}) -> GFActionInterception
 ## [br]
 ## @schema p_metadata: Dictionary，由项目或拦截器定义的附加诊断数据。
 static func skip_action(p_metadata: Dictionary = {}) -> GFActionInterceptionResult:
-	return GFActionInterceptionResult.new(Decision.SKIP, null, p_metadata)
+	return GFActionInterceptionResult.new(
+		Decision.SKIP,
+		null,
+		p_metadata
+	)
 
 
 ## 创建替换结果。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param action: 替换动作。
 ## [br]
@@ -135,13 +145,14 @@ static func skip_action(p_metadata: Dictionary = {}) -> GFActionInterceptionResu
 ## @return 替换结果。
 ## [br]
 ## @schema p_metadata: Dictionary，由项目或拦截器定义的附加诊断数据。
-static func replace_with(
-	action: Object,
-	p_metadata: Dictionary = {}
-) -> GFActionInterceptionResult:
+static func replace_with(action: Object, p_metadata: Dictionary = {}) -> GFActionInterceptionResult:
 	if action == null:
 		return continue_action(p_metadata)
-	return GFActionInterceptionResult.new(Decision.REPLACE, action, p_metadata)
+	return GFActionInterceptionResult.new(
+		Decision.REPLACE,
+		action,
+		p_metadata
+	)
 
 
 ## 创建停止队列结果。
@@ -154,4 +165,8 @@ static func replace_with(
 ## [br]
 ## @schema p_metadata: Dictionary，由项目或拦截器定义的附加诊断数据。
 static func stop_queue(p_metadata: Dictionary = {}) -> GFActionInterceptionResult:
-	return GFActionInterceptionResult.new(Decision.STOP_QUEUE, null, p_metadata)
+	return GFActionInterceptionResult.new(
+		Decision.STOP_QUEUE,
+		null,
+		p_metadata
+	)

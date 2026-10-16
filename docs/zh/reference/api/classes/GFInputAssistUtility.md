@@ -19,11 +19,11 @@
 | 方法 | [`init`](#member-gfinputassistutility-methods-init) | `func init() -> void:` |
 | 方法 | [`dispose`](#member-gfinputassistutility-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`tick`](#member-gfinputassistutility-methods-tick) | `func tick(delta: float) -> void:` |
-| 方法 | [`buffer_action`](#member-gfinputassistutility-methods-buffer_action) | `func buffer_action(action_id: StringName, duration: float, player_index: int = -1) -> void:` |
+| 方法 | [`buffer_action`](#member-gfinputassistutility-methods-buffer_action) | `func buffer_action( action_id: StringName, duration: float, player_index: int = -1 ) -> void:` |
 | 方法 | [`consume_buffered_action`](#member-gfinputassistutility-methods-consume_buffered_action) | `func consume_buffered_action(action_id: StringName, player_index: int = -1) -> bool:` |
 | 方法 | [`has_buffered_action`](#member-gfinputassistutility-methods-has_buffered_action) | `func has_buffered_action(action_id: StringName, player_index: int = -1) -> bool:` |
 | 方法 | [`clear_buffered_action`](#member-gfinputassistutility-methods-clear_buffered_action) | `func clear_buffered_action(action_id: StringName, player_index: int = -1) -> void:` |
-| 方法 | [`start_grace_window`](#member-gfinputassistutility-methods-start_grace_window) | `func start_grace_window(window_id: StringName, duration: float, player_index: int = -1) -> void:` |
+| 方法 | [`start_grace_window`](#member-gfinputassistutility-methods-start_grace_window) | `func start_grace_window( window_id: StringName, duration: float, player_index: int = -1 ) -> void:` |
 | 方法 | [`is_grace_window_active`](#member-gfinputassistutility-methods-is_grace_window_active) | `func is_grace_window_active(window_id: StringName, player_index: int = -1) -> bool:` |
 | 方法 | [`cancel_grace_window`](#member-gfinputassistutility-methods-cancel_grace_window) | `func cancel_grace_window(window_id: StringName, player_index: int = -1) -> void:` |
 | 方法 | [`clear_player`](#member-gfinputassistutility-methods-clear_player) | `func clear_player(player_index: int) -> void:` |
@@ -101,9 +101,10 @@ func tick(delta: float) -> void:
 ### `buffer_action`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func buffer_action(action_id: StringName, duration: float, player_index: int = -1) -> void:
+func buffer_action( action_id: StringName, duration: float, player_index: int = -1 ) -> void:
 ```
 
 缓冲一个动作意图，在 duration 秒内可被消费。
@@ -182,9 +183,10 @@ func clear_buffered_action(action_id: StringName, player_index: int = -1) -> voi
 ### `start_grace_window`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func start_grace_window(window_id: StringName, duration: float, player_index: int = -1) -> void:
+func start_grace_window( window_id: StringName, duration: float, player_index: int = -1 ) -> void:
 ```
 
 开始一个通用宽容窗口。

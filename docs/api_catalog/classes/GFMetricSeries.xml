@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFMetricSeries" path="addons/gf/standard/utilities/debug/gf_metric_series.gd" module="standard" extends="RefCounted" classDigest="2d19e37359314757e00bbb892b4920c5e996b51d86214b1de3bfc6cba7d130d0">
+<class name="GFMetricSeries" path="addons/gf/standard/utilities/debug/gf_metric_series.gd" module="standard" extends="RefCounted" classDigest="18cde404d63c081b470e42761be818ef65241580dc5f6a02a12ad833c8ce1a2e">
 	<description>GFMetricSeries: 调试用短期数值序列。
 保存固定长度的数值采样，并提供统计值、归一化值和 ASCII sparkline。
 适合开发期 Overlay 观察短期趋势，不承担长期日志、遥测或业务分析职责。</description>
@@ -77,7 +77,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="add_sample">
-			<signature>func add_sample(value: float, timestamp_seconds: float = -1.0, sample_metadata: Dictionary = {}) -&gt; void:</signature>
+			<signature>func add_sample( value: float, timestamp_seconds: float = -1.0, sample_metadata: Dictionary = {} ) -&gt; void:</signature>
 			<description>追加一个数值采样。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -85,6 +85,7 @@
 				<tag name="param">timestamp_seconds: 采样时间；小于 0 时使用当前运行时间。</tag>
 				<tag name="param">sample_metadata: 单个采样的自定义元数据。</tag>
 				<tag name="schema">sample_metadata: Dictionary[String, Variant]，单个采样的项目自定义元数据。</tag>
+				<tag name="since">3.23.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clear">

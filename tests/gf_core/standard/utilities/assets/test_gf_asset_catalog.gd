@@ -3,7 +3,6 @@
 ## 测试 GFAssetCatalog 的资产条目、查询和来源 provider 汇聚契约。
 extends GutTest
 
-
 const GF_ASSET_CATALOG_ENTRY_SCRIPT = preload("res://addons/gf/standard/utilities/assets/gf_asset_catalog_entry.gd")
 const GF_ASSET_CATALOG_SCRIPT = preload("res://addons/gf/standard/utilities/assets/gf_asset_catalog.gd")
 const GF_ASSET_CATALOG_SOURCE_REGISTRY_SCRIPT = preload("res://addons/gf/standard/utilities/assets/gf_asset_catalog_source_registry.gd")
@@ -21,6 +20,7 @@ class CountingEntry extends GFAssetCatalogEntry:
 		entry.identity_reads = identity_reads
 		return entry
 
+
 	func get_primary_identity() -> GFResourceIdentity:
 		identity_reads[0] += 1
 		return super.get_primary_identity()
@@ -29,21 +29,53 @@ class CountingEntry extends GFAssetCatalogEntry:
 func test_catalog_resources_support_loaded_editor_instances() -> void:
 	var catalog_script: Script = GF_ASSET_CATALOG_SCRIPT
 	var entry_script: Script = GF_ASSET_CATALOG_ENTRY_SCRIPT
-	assert_true(catalog_script.is_tool(), "已保存的 Catalog 在编辑器重新打开后仍须支持索引与原生历史命令。")
-	assert_true(entry_script.is_tool(), "已保存的条目在编辑器重新打开后仍须支持复制与完整字段快照。")
+	assert_true(
+		catalog_script.is_tool(),
+		"已保存的 Catalog 在编辑器重新打开后仍须支持索引与原生历史命令。"
+	)
+	assert_true(
+		entry_script.is_tool(),
+		"已保存的条目在编辑器重新打开后仍须支持复制与完整字段快照。"
+	)
 
 
 func test_zero_match_pages_do_not_expand_empty_ids_to_all_summaries() -> void:
 	var catalog: GFAssetCatalog = GFAssetCatalog.new()
-	_set_asset_entry(catalog, _make_asset_entry(&"hero", "", { "title": "Hero" }))
+	_set_asset_entry(
+		catalog,
+		_make_asset_entry(
+			&"hero",
+			"",
+			{ "title": "Hero" }
+		)
+	)
 	for page: Dictionary in [
 		catalog.search_page("unmatchablequartz"),
-		catalog.search_page("", 1, 100, { "asset_ids": PackedStringArray(["missing"]) }),
+		catalog.search_page(
+			"",
+			1,
+			100,
+			{
+				"asset_ids": PackedStringArray(["missing"]),
+			}
+		),
 	]:
-		assert_eq(GFVariantData.get_option_int(page, "total_count"), 0)
-		assert_eq(GFVariantData.get_option_array(page, "results").size(), 0)
-		assert_eq(GFVariantData.get_option_packed_string_array(page, "asset_ids").size(), 0)
-		assert_eq(GFVariantData.get_option_array(page, "summaries").size(), 0)
+		assert_eq(
+			GFVariantData.get_option_int(page, "total_count"),
+			0
+		)
+		assert_eq(
+			GFVariantData.get_option_array(page, "results").size(),
+			0
+		)
+		assert_eq(
+			GFVariantData.get_option_packed_string_array(page, "asset_ids").size(),
+			0
+		)
+		assert_eq(
+			GFVariantData.get_option_array(page, "summaries").size(),
+			0
+		)
 
 
 func test_listing_resolves_identities_only_for_the_requested_page() -> void:
@@ -54,18 +86,60 @@ func test_listing_resolves_identities_only_for_the_requested_page() -> void:
 		entry.asset_id = StringName("asset_%02d" % index)
 		entry.identity_reads = identity_reads
 		catalog.entries.append(entry)
-	assert_eq(catalog.get_all_ids().size(), 12)
+	assert_eq(
+		catalog.get_all_ids().size(),
+		12
+	)
 	assert_true(catalog.has_entry(&"asset_00"))
 	assert_not_null(catalog.get_entry(&"asset_00"))
-	assert_eq(identity_reads[0], 0, "查找表不应构建需要身份解析的字段索引。")
-	var page: Dictionary = catalog.search_page("", 2, 3)
-	assert_eq(identity_reads[0], 6, "只为当前页构建候选和摘要，各解析一次身份。")
-	assert_eq(GFVariantData.get_option_int(page, "total_count"), 12)
+	assert_eq(
+		identity_reads[0],
+		0,
+		"查找表不应构建需要身份解析的字段索引。"
+	)
+	var page: Dictionary = catalog.search_page(
+		"",
+		2,
+		3
+	)
+	assert_eq(
+		identity_reads[0],
+		6,
+		"只为当前页构建候选和摘要，各解析一次身份。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(page, "total_count"),
+		12
+	)
 	var results: Array = GFVariantData.get_option_array(page, "results")
-	assert_eq(GFVariantData.get_option_int(GFVariantData.as_dictionary(results[0]), "index"), 3)
-	assert_eq(GFVariantData.get_option_packed_string_array(page, "asset_ids"), PackedStringArray(["asset_03", "asset_04", "asset_05"]))
-	var _second_page: Dictionary = catalog.search_page("", 2, 3, { "include_summaries": false })
-	assert_eq(identity_reads[0], 9, "下一次调用仍应读取当前身份；关闭摘要只省略摘要。")
+	assert_eq(
+		GFVariantData.get_option_int(
+			GFVariantData.as_dictionary(results[0]),
+			"index"
+		),
+		3
+	)
+	assert_eq(
+		GFVariantData.get_option_packed_string_array(page, "asset_ids"),
+		PackedStringArray(
+			[
+				"asset_03",
+				"asset_04",
+				"asset_05",
+			]
+		)
+	)
+	var _second_page: Dictionary = catalog.search_page(
+		"",
+		2,
+		3,
+		{ "include_summaries": false }
+	)
+	assert_eq(
+		identity_reads[0],
+		9,
+		"下一次调用仍应读取当前身份；关闭摘要只省略摘要。"
+	)
 
 
 func test_default_text_pages_only_resolve_page_identities_and_preserve_scores() -> void:
@@ -77,70 +151,222 @@ func test_default_text_pages_only_resolve_page_identities_and_preserve_scores() 
 		entry.title = "Hero %02d" % index
 		entry.identity_reads = identity_reads
 		catalog.entries.append(entry)
-	var page: Dictionary = catalog.search_page("hero", 2, 3)
-	assert_eq(identity_reads[0], 6, "默认评分字段无需身份；只解析当前页候选和摘要。")
+	var page: Dictionary = catalog.search_page(
+		"hero",
+		2,
+		3
+	)
+	assert_eq(
+		identity_reads[0],
+		6,
+		"默认评分字段无需身份；只解析当前页候选和摘要。"
+	)
 	var full_reports: Array[Dictionary] = catalog.search("hero")
-	assert_eq(GFVariantData.get_option_array(page, "results"), full_reports.slice(3, 6))
+	assert_eq(
+		GFVariantData.get_option_array(page, "results"),
+		full_reports.slice(3, 6)
+	)
 	var previous_reads: int = identity_reads[0]
-	var custom_options: Dictionary = { "fields": [{ "key": "cache_key", "weight": 1.0 }], "include_summaries": false }
-	var custom_page: Dictionary = catalog.search_page("asset", 1, 3, custom_options)
-	assert_eq(identity_reads[0] - previous_reads, 12, "显式字段继续全量解析，以保留身份字段评分。")
-	assert_eq(GFVariantData.get_option_array(custom_page, "results"), catalog.search("asset", custom_options).slice(0, 3))
+	var custom_options: Dictionary = {
+		"fields": [
+			{ "key": "cache_key", "weight": 1.0 },
+		],
+		"include_summaries": false,
+	}
+	var custom_page: Dictionary = catalog.search_page(
+		"asset",
+		1,
+		3,
+		custom_options
+	)
+	assert_eq(
+		identity_reads[0] - previous_reads,
+		12,
+		"显式字段继续全量解析，以保留身份字段评分。"
+	)
+	assert_eq(
+		GFVariantData.get_option_array(custom_page, "results"),
+		catalog.search("asset", custom_options).slice(0, 3)
+	)
 	for fields: Variant in [[], "invalid"]:
-		var options: Dictionary = { "fields": fields, "include_unmatched": true, "limit": 5 }
-		assert_eq(GFVariantData.get_option_array(catalog.search_page("hero", 1, 100, options), "results"), catalog.search("hero", options))
+		var options: Dictionary = {
+			"fields": fields,
+			"include_unmatched": true,
+			"limit": 5,
+		}
+		assert_eq(
+			GFVariantData.get_option_array(
+				catalog.search_page(
+					"hero",
+					1,
+					100,
+					options
+				),
+				"results"
+			),
+			catalog.search("hero", options)
+		)
 
 
 func test_lookup_and_field_index_share_one_snapshot_until_dirty_or_explicit_rebuild() -> void:
 	var catalog: GFAssetCatalog = GFAssetCatalog.new()
-	var entry: GFAssetCatalogEntry = _make_asset_entry(&"hero", "", { "category": "old", "metadata": { "nested": { "value": 1 } } })
+	var entry: GFAssetCatalogEntry = _make_asset_entry(
+		&"hero",
+		"",
+		{
+			"category": "old",
+			"metadata": {
+				"nested": { "value": 1 },
+			},
+		}
+	)
 	catalog.entries.append(entry)
-	assert_eq(catalog.get_all_ids(), PackedStringArray(["hero"]))
+	assert_eq(
+		catalog.get_all_ids(),
+		PackedStringArray(["hero"])
+	)
 	entry.category = &"changed"
-	assert_eq(catalog.query(GFAssetCatalog.GROUP_SOURCE_CATEGORY, "old"), PackedStringArray(["hero"]))
-	assert_eq(catalog.get_entry(&"hero").category, &"old")
+	assert_eq(
+		catalog.query(GFAssetCatalog.GROUP_SOURCE_CATEGORY, "old"),
+		PackedStringArray(["hero"])
+	)
+	assert_eq(
+		catalog.get_entry(&"hero").category,
+		&"old"
+	)
 	var copy: GFAssetCatalogEntry = catalog.get_entry(&"hero")
 	var nested: Dictionary = GFVariantData.as_dictionary(copy.metadata.get("nested"))
 	nested["value"] = 9
-	assert_eq(GFVariantData.get_option_int(GFVariantData.get_option_dictionary(catalog.get_entry(&"hero").metadata, "nested"), "value"), 1)
+	assert_eq(
+		GFVariantData.get_option_int(
+			GFVariantData.get_option_dictionary(
+				catalog.get_entry(&"hero").metadata,
+				"nested"
+			),
+			"value"
+		),
+		1
+	)
 	catalog.mark_index_dirty()
-	assert_eq(catalog.get_entry(&"hero").category, &"changed")
-	assert_eq(catalog.query(GFAssetCatalog.GROUP_SOURCE_CATEGORY, "changed"), PackedStringArray(["hero"]))
+	assert_eq(
+		catalog.get_entry(&"hero").category,
+		&"changed"
+	)
+	assert_eq(
+		catalog.query(GFAssetCatalog.GROUP_SOURCE_CATEGORY, "changed"),
+		PackedStringArray(["hero"])
+	)
 	entry.category = &"rebuilt"
 	catalog.rebuild_index()
-	assert_eq(catalog.get_entry(&"hero").category, &"rebuilt")
-	assert_eq(catalog.query(GFAssetCatalog.GROUP_SOURCE_CATEGORY, "rebuilt"), PackedStringArray(["hero"]))
+	assert_eq(
+		catalog.get_entry(&"hero").category,
+		&"rebuilt"
+	)
+	assert_eq(
+		catalog.query(GFAssetCatalog.GROUP_SOURCE_CATEGORY, "rebuilt"),
+		PackedStringArray(["hero"])
+	)
 
 
 func test_listing_preserves_filter_limit_duplicates_and_scorer_opt_out() -> void:
 	var catalog: GFAssetCatalog = GFAssetCatalog.new()
-	catalog.entries.assign([
-		_make_asset_entry(&"c", "", { "title": " C " }),
-		_make_asset_entry(&"a", "", { "title": "first" }),
-		_make_asset_entry(&"b", ""),
-		_make_asset_entry(&"a", "", { "title": "last" }),
-	])
-	var page: Dictionary = catalog.search_page(" ", 99, 1, {
-		"asset_ids": PackedStringArray(["c", "missing", "a", "c"]), "limit": 2,
-		"duplicate_candidate": false, "summary_options": { "include_metadata": false },
-	})
-	assert_eq(GFVariantData.get_option_int(page, "total_count"), 2)
-	assert_eq(GFVariantData.get_option_int(page, "page"), 2)
-	assert_eq(GFVariantData.get_option_packed_string_array(page, "asset_ids"), PackedStringArray(["c"]))
+	catalog.entries.assign(
+		[
+			_make_asset_entry(
+				&"c",
+				"",
+				{ "title": " C " }
+			),
+			_make_asset_entry(
+				&"a",
+				"",
+				{ "title": "first" }
+			),
+			_make_asset_entry(&"b", ""),
+			_make_asset_entry(
+				&"a",
+				"",
+				{ "title": "last" }
+			),
+		]
+	)
+	var page: Dictionary = catalog.search_page(
+		" ",
+		99,
+		1,
+		{
+			"asset_ids": PackedStringArray(
+				[
+					"c",
+					"missing",
+					"a",
+					"c",
+				]
+			),
+			"limit": 2,
+			"duplicate_candidate": false,
+			"summary_options": { "include_metadata": false },
+		}
+	)
+	assert_eq(
+		GFVariantData.get_option_int(page, "total_count"),
+		2
+	)
+	assert_eq(
+		GFVariantData.get_option_int(page, "page"),
+		2
+	)
+	assert_eq(
+		GFVariantData.get_option_packed_string_array(page, "asset_ids"),
+		PackedStringArray(["c"])
+	)
 	var result: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_array(page, "results")[0])
-	assert_eq(GFVariantData.get_option_int(result, "index"), 1)
+	assert_eq(
+		GFVariantData.get_option_int(result, "index"),
+		1
+	)
 	var candidate: Dictionary = GFVariantData.as_dictionary(result.get("candidate"))
-	assert_eq(GFVariantData.get_option_string(candidate, "title"), " C ")
+	assert_eq(
+		GFVariantData.get_option_string(candidate, "title"),
+		" C "
+	)
 	candidate["title"] = "mutated"
-	assert_eq(catalog.get_entry(&"c").title, " C ")
+	assert_eq(
+		catalog.get_entry(&"c").title,
+		" C "
+	)
 	var summary: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_array(page, "summaries")[0])
-	assert_eq(GFVariantData.get_option_string(summary, "title"), "C")
+	assert_eq(
+		GFVariantData.get_option_string(summary, "title"),
+		"C"
+	)
 	assert_false(summary.has("metadata"))
-	assert_eq(catalog.get_entry(&"a").title, "last")
+	assert_eq(
+		catalog.get_entry(&"a").title,
+		"last"
+	)
 	assert_true(catalog.remove_entry(&"a"))
-	assert_eq(catalog.get_entry(&"a").title, "first")
-	var options: Dictionary = { "empty_query_returns_all": false, "include_unmatched": true, "limit": 2 }
-	assert_eq(GFVariantData.get_option_array(catalog.search_page("", 1, 100, options), "results"), catalog.search("", options))
+	assert_eq(
+		catalog.get_entry(&"a").title,
+		"first"
+	)
+	var options: Dictionary = {
+		"empty_query_returns_all": false,
+		"include_unmatched": true,
+		"limit": 2,
+	}
+	assert_eq(
+		GFVariantData.get_option_array(
+			catalog.search_page(
+				"",
+				1,
+				100,
+				options
+			),
+			"results"
+		),
+		catalog.search("", options)
+	)
 
 
 func test_repeated_pages_resolve_current_uid_mapping_without_dirtying_catalog() -> void:
@@ -153,95 +379,178 @@ func test_repeated_pages_resolve_current_uid_mapping_without_dirtying_catalog() 
 	var entry: GFAssetCatalogEntry = _make_asset_entry(&"moving", "")
 	entry.primary_path = uid_path
 	_set_asset_entry(catalog, entry)
-	for expected_path: String in [first_path, second_path, uid_path]:
+	for expected_path: String in [
+		first_path,
+		second_path,
+		uid_path,
+	]:
 		if expected_path == second_path:
 			ResourceUID.set_id(uid, second_path)
 		elif expected_path == uid_path:
 			ResourceUID.remove_id(uid)
-		var page: Dictionary = catalog.search_page("", 1, 1)
+		var page: Dictionary = catalog.search_page(
+			"",
+			1,
+			1
+		)
 		var result: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_array(page, "results")[0])
 		var candidate: Dictionary = GFVariantData.get_option_dictionary(result, "candidate")
 		var summary: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_array(page, "summaries")[0])
 		for item: Dictionary in [candidate, summary]:
 			var identity: Dictionary = GFVariantData.get_option_dictionary(item, "primary_identity")
-			assert_eq(GFVariantData.get_option_string(identity, "canonical_path"), expected_path)
-			assert_eq(GFVariantData.get_option_string(item, "cache_key"), uid_path)
+			assert_eq(
+				GFVariantData.get_option_string(identity, "canonical_path"),
+				expected_path
+			)
+			assert_eq(
+				GFVariantData.get_option_string(item, "cache_key"),
+				uid_path
+			)
 	if ResourceUID.has_id(uid):
 		ResourceUID.remove_id(uid)
 
 
 func test_asset_catalog_entry_preserves_generic_fields_and_identity() -> void:
-	var metadata: Dictionary = {
-		"license": "CC0",
-	}
-	var entry: GF_ASSET_CATALOG_ENTRY_SCRIPT = GF_ASSET_CATALOG_ENTRY_SCRIPT.new().configure(&"ui.icon.save", "res://ui/save.png", {
-		"title": "Save Icon",
-		"description": "Toolbar icon",
-		"tags": PackedStringArray(["ui", "icon", "ui"]),
-		"category": "interface",
-		"type_hint": "Texture2D",
-		"preview_path": "res://ui/save_preview.png",
-		"resource_entry_ids": PackedStringArray(["ui.save"]),
-		"source_id": &"manual",
-		"metadata": metadata,
-	})
+	var metadata: Dictionary = { "license": "CC0", }
+	var entry: GF_ASSET_CATALOG_ENTRY_SCRIPT = (
+		GF_ASSET_CATALOG_ENTRY_SCRIPT.new().configure(
+			&"ui.icon.save",
+			"res://ui/save.png",
+			{
+				"title": "Save Icon",
+				"description": "Toolbar icon",
+				"tags": PackedStringArray(
+					[
+						"ui",
+						"icon",
+						"ui",
+					]
+				),
+				"category": "interface",
+				"type_hint": "Texture2D",
+				"preview_path": "res://ui/save_preview.png",
+				"resource_entry_ids": PackedStringArray(["ui.save"]),
+				"source_id": &"manual",
+				"metadata": metadata,
+			}
+		)
+	)
 	metadata["license"] = "mutated"
 
 	var data: Dictionary = entry.to_dict()
 	var restored: GF_ASSET_CATALOG_ENTRY_SCRIPT = GF_ASSET_CATALOG_ENTRY_SCRIPT.from_dict(data)
 
-	assert_true(entry.is_valid_entry(), "asset_id 有效时条目应可用于目录。")
+	assert_true(
+		entry.is_valid_entry(),
+		"asset_id 有效时条目应可用于目录。"
+	)
 	assert_eq(entry.asset_id, &"ui.icon.save")
 	assert_eq(entry.title, "Save Icon")
-	assert_eq(entry.tags, PackedStringArray(["icon", "ui"]), "标签应去重并稳定排序。")
+	assert_eq(
+		entry.tags,
+		PackedStringArray(["icon", "ui"]),
+		"标签应去重并稳定排序。"
+	)
 	assert_eq(entry.category, &"interface")
 	assert_eq(entry.type_hint, "Texture2D")
 	assert_eq(entry.preview_path, "res://ui/save_preview.png")
-	assert_eq(entry.resource_entry_ids, PackedStringArray(["ui.save"]))
-	assert_eq(GFVariantData.get_option_string(entry.metadata, "license"), "CC0", "配置时应复制 metadata。")
-	assert_eq(GFVariantData.get_option_string(data, "cache_key"), "res://ui/save.png")
+	assert_eq(
+		entry.resource_entry_ids,
+		PackedStringArray(["ui.save"])
+	)
+	assert_eq(
+		GFVariantData.get_option_string(entry.metadata, "license"),
+		"CC0",
+		"配置时应复制 metadata。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(data, "cache_key"),
+		"res://ui/save.png"
+	)
 	assert_eq(restored.asset_id, entry.asset_id)
 	assert_eq(restored.tags, entry.tags)
 
 
 func test_asset_catalog_indexes_searches_groups_and_pages_assets() -> void:
 	var catalog: GF_ASSET_CATALOG_SCRIPT = GF_ASSET_CATALOG_SCRIPT.new()
-	_set_asset_entry(catalog, _make_asset_entry(&"hero.idle", "res://characters/hero_idle.png", {
-		"title": "Hero Idle",
-		"tags": PackedStringArray(["character", "sprite"]),
-		"category": "characters",
-		"type_hint": "Texture2D",
-		"metadata": { "author": "team" },
-	}))
-	_set_asset_entry(catalog, _make_asset_entry(&"ui.save", "res://ui/save.png", {
-		"title": "Save Icon",
-		"tags": PackedStringArray(["ui", "icon"]),
-		"category": "interface",
-		"type_hint": "Texture2D",
-	}))
+	_set_asset_entry(
+		catalog,
+		_make_asset_entry(
+			&"hero.idle",
+			"res://characters/hero_idle.png",
+			{
+				"title": "Hero Idle",
+				"tags": PackedStringArray(["character", "sprite"]),
+				"category": "characters",
+				"type_hint": "Texture2D",
+				"metadata": { "author": "team" },
+			}
+		)
+	)
+	_set_asset_entry(
+		catalog,
+		_make_asset_entry(
+			&"ui.save",
+			"res://ui/save.png",
+			{
+				"title": "Save Icon",
+				"tags": PackedStringArray(["ui", "icon"]),
+				"category": "interface",
+				"type_hint": "Texture2D",
+			}
+		)
+	)
 
 	var sprite_ids: PackedStringArray = catalog.query(GF_ASSET_CATALOG_SCRIPT.GROUP_SOURCE_TAGS, "sprite")
 	var category_groups: Dictionary = catalog.group_asset_ids(GF_ASSET_CATALOG_SCRIPT.GROUP_SOURCE_CATEGORY)
 	var search_results: Array[Dictionary] = catalog.search("hero sprite")
-	var page: Dictionary = catalog.search_page("", 1, 1)
+	var page: Dictionary = catalog.search_page(
+		"",
+		1,
+		1
+	)
 	var page_asset_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(page, "asset_ids")
 	var summaries: Array = GFVariantData.get_option_array(page, "summaries")
 	var first_summary: Dictionary = GFVariantData.as_dictionary(summaries[0])
 
-	assert_eq(sprite_ids, PackedStringArray(["hero.idle"]))
+	assert_eq(
+		sprite_ids,
+		PackedStringArray(["hero.idle"])
+	)
 	assert_eq(
 		GFVariantData.get_option_packed_string_array(category_groups, "characters"),
 		PackedStringArray(["hero.idle"])
 	)
-	assert_eq(search_results.size(), 1)
 	assert_eq(
-		GFVariantData.get_option_string(GFVariantData.get_option_dictionary(search_results[0], "candidate"), "asset_id"),
+		search_results.size(),
+		1
+	)
+	assert_eq(
+		GFVariantData.get_option_string(
+			GFVariantData.get_option_dictionary(
+				search_results[0],
+				"candidate"
+			),
+			"asset_id"
+		),
 		"hero.idle"
 	)
-	assert_eq(GFVariantData.get_option_int(page, "total_count"), 2)
-	assert_eq(GFVariantData.get_option_int(page, "page_count"), 2)
-	assert_eq(page_asset_ids.size(), 1)
-	assert_eq(GFVariantData.get_option_string(first_summary, "asset_id"), page_asset_ids[0])
+	assert_eq(
+		GFVariantData.get_option_int(page, "total_count"),
+		2
+	)
+	assert_eq(
+		GFVariantData.get_option_int(page, "page_count"),
+		2
+	)
+	assert_eq(
+		page_asset_ids.size(),
+		1
+	)
+	assert_eq(
+		GFVariantData.get_option_string(first_summary, "asset_id"),
+		page_asset_ids[0]
+	)
 
 
 func test_asset_source_registry_keeps_high_priority_asset_on_duplicate_id() -> void:
@@ -249,22 +558,36 @@ func test_asset_source_registry_keeps_high_priority_asset_on_duplicate_id() -> v
 	var low_resource_registry: GFResourceRegistry = GFResourceRegistry.new()
 	var high_resource_registry: GFResourceRegistry = GFResourceRegistry.new()
 	var _low_stored: bool = low_resource_registry.set_entry(
-		_make_registry_entry(&"shared.icon", "res://low.png", {
-			&"display_name": "Low",
-		})
+		_make_registry_entry(
+			&"shared.icon",
+			"res://low.png",
+			{ &"display_name": "Low", }
+		)
 	)
 	var _high_stored: bool = high_resource_registry.set_entry(
-		_make_registry_entry(&"shared.icon", "res://high.png", {
-			&"display_name": "High",
-		})
+		_make_registry_entry(
+			&"shared.icon",
+			"res://high.png",
+			{ &"display_name": "High", }
+		)
 	)
 	var low_provider: GF_RESOURCE_REGISTRY_ASSET_SOURCE_PROVIDER_SCRIPT = GF_RESOURCE_REGISTRY_ASSET_SOURCE_PROVIDER_SCRIPT.new()
 	var _low_configured: GF_RESOURCE_REGISTRY_ASSET_SOURCE_PROVIDER_SCRIPT = low_provider.configure_registry(low_resource_registry, &"low")
 	var high_provider: GF_RESOURCE_REGISTRY_ASSET_SOURCE_PROVIDER_SCRIPT = GF_RESOURCE_REGISTRY_ASSET_SOURCE_PROVIDER_SCRIPT.new()
 	var _high_configured: GF_RESOURCE_REGISTRY_ASSET_SOURCE_PROVIDER_SCRIPT = high_provider.configure_registry(high_resource_registry, &"high")
 
-	assert_true(registry.register_source(low_provider, { "source_id": &"low", "priority": 1 }))
-	assert_true(registry.register_source(high_provider, { "source_id": &"high", "priority": 100 }))
+	assert_true(
+		registry.register_source(
+			low_provider,
+			{ "source_id": &"low", "priority": 1 }
+		)
+	)
+	assert_true(
+		registry.register_source(
+			high_provider,
+			{ "source_id": &"high", "priority": 100 }
+		)
+	)
 
 	var merged: GF_ASSET_CATALOG_SCRIPT = registry.build_catalog()
 	var entry: GF_ASSET_CATALOG_ENTRY_SCRIPT = merged.get_entry(&"shared.icon")
@@ -273,32 +596,41 @@ func test_asset_source_registry_keeps_high_priority_asset_on_duplicate_id() -> v
 	assert_not_null(entry, "重复 ID 合并后仍应保留一个条目。")
 	if entry == null:
 		return
-	assert_eq(entry.title, "High", "默认合并应让高优先级来源胜出。")
+	assert_eq(
+		entry.title,
+		"High",
+		"默认合并应让高优先级来源胜出。"
+	)
 	assert_eq(entry.primary_path, "res://high.png")
-	assert_eq(GFVariantData.get_option_int(report, "entry_count"), 1)
-	assert_true(GFVariantData.get_option_bool(report, "ok"), "低优先级重复只应成为 warning，不应让 snapshot 失败。")
+	assert_eq(
+		GFVariantData.get_option_int(report, "entry_count"),
+		1
+	)
+	assert_true(
+		GFVariantData.get_option_bool(report, "ok"),
+		"低优先级重复只应成为 warning，不应让 snapshot 失败。"
+	)
 
 
 func test_resource_registry_asset_source_provider_converts_registry_entries() -> void:
 	var resource_registry: GFResourceRegistry = GFResourceRegistry.new()
-	var registry_entry: GFResourceRegistryEntry = GFResourceRegistryEntry.new().configure(
-		&"audio.click",
-		"res://audio/click.ogg",
-		"AudioStream",
-		{
-			&"display_name": "Click",
-			&"description": "UI click sound",
-			&"tags": PackedStringArray(["audio", "ui"]),
-			&"category": "sfx",
-			&"preview_path": "res://audio/click_preview.png",
-		}
+	var registry_entry: GFResourceRegistryEntry = (
+		GFResourceRegistryEntry.new().configure(
+			&"audio.click",
+			"res://audio/click.ogg",
+			"AudioStream",
+			{
+				&"display_name": "Click",
+				&"description": "UI click sound",
+				&"tags": PackedStringArray(["audio", "ui"]),
+				&"category": "sfx",
+				&"preview_path": "res://audio/click_preview.png",
+			}
+		)
 	)
 	var _stored: bool = resource_registry.set_entry(registry_entry)
 	var provider: GF_RESOURCE_REGISTRY_ASSET_SOURCE_PROVIDER_SCRIPT = GF_RESOURCE_REGISTRY_ASSET_SOURCE_PROVIDER_SCRIPT.new()
-	var _configured: GF_RESOURCE_REGISTRY_ASSET_SOURCE_PROVIDER_SCRIPT = provider.configure_registry(
-		resource_registry,
-		&"registry"
-	)
+	var _configured: GF_RESOURCE_REGISTRY_ASSET_SOURCE_PROVIDER_SCRIPT = provider.configure_registry(resource_registry, &"registry")
 
 	var catalog: GF_ASSET_CATALOG_SCRIPT = provider.build_catalog()
 	var entry: GF_ASSET_CATALOG_ENTRY_SCRIPT = catalog.get_entry(&"audio.click")
@@ -310,41 +642,80 @@ func test_resource_registry_asset_source_provider_converts_registry_entries() ->
 	assert_eq(entry.asset_id, &"audio.click")
 	assert_eq(entry.title, "Click")
 	assert_eq(entry.description, "UI click sound")
-	assert_eq(entry.tags, PackedStringArray(["audio", "ui"]))
+	assert_eq(
+		entry.tags,
+		PackedStringArray(["audio", "ui"])
+	)
 	assert_eq(entry.category, &"sfx")
 	assert_eq(entry.primary_path, "res://audio/click.ogg")
 	assert_eq(entry.type_hint, "AudioStream")
 	assert_eq(entry.preview_path, "res://audio/click_preview.png")
-	assert_eq(entry.resource_entry_ids, PackedStringArray(["audio.click"]))
+	assert_eq(
+		entry.resource_entry_ids,
+		PackedStringArray(["audio.click"])
+	)
 	assert_eq(entry.source_id, &"registry")
-	assert_eq(GFVariantData.get_option_int(snapshot, "registry_entry_count"), 1)
+	assert_eq(
+		GFVariantData.get_option_int(snapshot, "registry_entry_count"),
+		1
+	)
 
 
 func test_asset_catalog_makes_deterministic_fail_closed_preload_plan() -> void:
 	var catalog: GF_ASSET_CATALOG_SCRIPT = GF_ASSET_CATALOG_SCRIPT.new()
-	_set_asset_entry(catalog, _make_asset_entry(&"ui.save", "res://ui/save.png", {
-		"type_hint": "Texture2D",
-		"source_id": &"manual",
-		"metadata": { "license": "CC0" },
-	}))
+	_set_asset_entry(
+		catalog,
+		_make_asset_entry(
+			&"ui.save",
+			"res://ui/save.png",
+			{
+				"type_hint": "Texture2D",
+				"source_id": &"manual",
+				"metadata": { "license": "CC0" },
+			}
+		)
+	)
 
 	var asset_plan: GFAssetPreloadPlan = catalog.make_preload_plan(
-		PackedStringArray(["missing.asset", "ui.save", "ui.save"]),
+		PackedStringArray(
+			[
+				"missing.asset",
+				"ui.save",
+				"ui.save",
+			]
+		),
 		&"catalog_preload",
 		{ "plan_id": &"catalog_plan", "pin_cache": false }
 	)
 	var validation: Dictionary = asset_plan.validate()
-	var described_entries: Array = GFVariantData.get_option_array(asset_plan.describe(), "entries")
+	var described_entries: Array = GFVariantData.get_option_array(
+		asset_plan.describe(),
+		"entries"
+	)
 	var missing_entry: Dictionary = GFVariantData.as_dictionary(described_entries[0])
 	var resolved_entry: Dictionary = GFVariantData.as_dictionary(described_entries[1])
 
 	assert_eq(asset_plan.plan_id, &"catalog_plan")
 	assert_eq(asset_plan.group_id, &"catalog_preload")
 	assert_false(asset_plan.pin_cache)
-	assert_eq(asset_plan.get_entry_count(true), 2, "输入 ID 应去重并稳定排序。")
-	assert_false(GFVariantData.get_option_bool(validation, "ok"), "缺失 ID 应使计划 fail-closed。")
-	assert_eq(GFVariantData.get_option_int(validation, "invalid_count"), 1)
-	assert_eq(GFVariantData.get_option_string(missing_entry, "path"), "", "排序后缺失 ID 应保留无效条目。")
+	assert_eq(
+		asset_plan.get_entry_count(true),
+		2,
+		"输入 ID 应去重并稳定排序。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(validation, "ok"),
+		"缺失 ID 应使计划 fail-closed。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(validation, "invalid_count"),
+		1
+	)
+	assert_eq(
+		GFVariantData.get_option_string(missing_entry, "path"),
+		"",
+		"排序后缺失 ID 应保留无效条目。"
+	)
 	assert_eq(
 		GFVariantData.get_option_string_name(
 			GFVariantData.get_option_dictionary(missing_entry, "metadata"),
@@ -352,7 +723,10 @@ func test_asset_catalog_makes_deterministic_fail_closed_preload_plan() -> void:
 		),
 		&"missing"
 	)
-	assert_eq(GFVariantData.get_option_string(resolved_entry, "path"), "res://ui/save.png")
+	assert_eq(
+		GFVariantData.get_option_string(resolved_entry, "path"),
+		"res://ui/save.png"
+	)
 	assert_eq(
 		GFVariantData.get_option_string(
 			GFVariantData.get_option_dictionary(resolved_entry, "metadata"),
@@ -364,49 +738,91 @@ func test_asset_catalog_makes_deterministic_fail_closed_preload_plan() -> void:
 
 func test_asset_collection_resolves_in_order_and_reports_missing_ids() -> void:
 	var catalog: GF_ASSET_CATALOG_SCRIPT = GF_ASSET_CATALOG_SCRIPT.new()
-	_set_asset_entry(catalog, _make_asset_entry(&"hero", "res://hero.tscn"))
-	_set_asset_entry(catalog, _make_asset_entry(&"boss", "res://boss.tscn"))
-	var collection: GFAssetCollection = GFAssetCollection.new().configure(
-		&"encounter.cast",
-		PackedStringArray(["boss", "missing", "hero"]),
-		{
-			"title": "Encounter Cast",
-			"metadata": { "chapter": 2 },
-		}
+	_set_asset_entry(
+		catalog,
+		_make_asset_entry(&"hero", "res://hero.tscn")
+	)
+	_set_asset_entry(
+		catalog,
+		_make_asset_entry(&"boss", "res://boss.tscn")
+	)
+	var collection: GFAssetCollection = (
+		GFAssetCollection.new().configure(
+			&"encounter.cast",
+			PackedStringArray(
+				[
+					"boss",
+					"missing",
+					"hero",
+				]
+			),
+			{
+				"title": "Encounter Cast",
+				"metadata": { "chapter": 2 },
+			}
+		)
 	)
 
 	var report: GFValidationReport = collection.validate_against(catalog)
 	var resolved_entries: Array[GFAssetCatalogEntry] = collection.resolve_entries(catalog)
-	var missing_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(
-		report.extra_fields,
-		"missing_asset_ids"
-	)
+	var missing_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(report.extra_fields, "missing_asset_ids")
 
-	assert_false(report.is_ok(), "缺失资产应使集合完整性校验失败。")
-	assert_eq(report.get_error_count(), 1)
-	assert_eq(missing_ids, PackedStringArray(["missing"]))
-	assert_eq(resolved_entries.size(), 2)
-	assert_eq(resolved_entries[0].asset_id, &"boss", "解析结果应保持集合顺序。")
-	assert_eq(resolved_entries[1].asset_id, &"hero", "缺失项不应改变其余条目的相对顺序。")
-	assert_eq(GFVariantData.get_option_int(collection.metadata, "chapter"), 2)
+	assert_false(
+		report.is_ok(),
+		"缺失资产应使集合完整性校验失败。"
+	)
+	assert_eq(
+		report.get_error_count(),
+		1
+	)
+	assert_eq(
+		missing_ids,
+		PackedStringArray(["missing"])
+	)
+	assert_eq(
+		resolved_entries.size(),
+		2
+	)
+	assert_eq(
+		resolved_entries[0].asset_id,
+		&"boss",
+		"解析结果应保持集合顺序。"
+	)
+	assert_eq(
+		resolved_entries[1].asset_id,
+		&"hero",
+		"缺失项不应改变其余条目的相对顺序。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(collection.metadata, "chapter"),
+		2
+	)
 
 
 func test_asset_collection_mutations_are_unique_ordered_and_serializable() -> void:
-	var collection: GFAssetCollection = GFAssetCollection.new().configure(
-		&"ui.icons",
-		PackedStringArray(["save", "load"]),
-		{ "description": "Toolbar icons" }
+	var collection: GFAssetCollection = (
+		GFAssetCollection.new().configure(
+			&"ui.icons",
+			PackedStringArray(["save", "load"]),
+			{ "description": "Toolbar icons" }
+		)
 	)
 
 	assert_true(collection.add_asset_id(&"settings", 1))
-	assert_false(collection.add_asset_id(&"save"), "集合不应接受重复资产 ID。")
+	assert_false(
+		collection.add_asset_id(&"save"),
+		"集合不应接受重复资产 ID。"
+	)
 	assert_true(collection.move_asset_id(&"load", 0))
 	assert_true(collection.remove_asset_id(&"save"))
 
 	var restored: GFAssetCollection = GFAssetCollection.from_dict(collection.to_dict())
 
 	assert_eq(restored.collection_id, &"ui.icons")
-	assert_eq(restored.asset_ids, PackedStringArray(["load", "settings"]))
+	assert_eq(
+		restored.asset_ids,
+		PackedStringArray(["load", "settings"])
+	)
 	assert_eq(restored.description, "Toolbar icons")
 	assert_true(restored.has_asset_id(&"settings"))
 
@@ -414,11 +830,22 @@ func test_asset_collection_mutations_are_unique_ordered_and_serializable() -> vo
 # --- 私有/辅助方法 ---
 
 func _set_asset_entry(catalog: GF_ASSET_CATALOG_SCRIPT, entry: GF_ASSET_CATALOG_ENTRY_SCRIPT) -> void:
-	assert_true(catalog.set_entry(entry), "测试资产条目应可写入。")
+	assert_true(
+		catalog.set_entry(entry),
+		"测试资产条目应可写入。"
+	)
 
 
-func _make_asset_entry(asset_id: StringName, primary_path: String, options: Dictionary = {}) -> GF_ASSET_CATALOG_ENTRY_SCRIPT:
-	return GF_ASSET_CATALOG_ENTRY_SCRIPT.new().configure(asset_id, primary_path, options)
+func _make_asset_entry(
+	asset_id: StringName,
+	primary_path: String,
+	options: Dictionary = {}
+) -> GF_ASSET_CATALOG_ENTRY_SCRIPT:
+	return GF_ASSET_CATALOG_ENTRY_SCRIPT.new().configure(
+		asset_id,
+		primary_path,
+		options
+	)
 
 
 func _make_registry_entry(
@@ -428,5 +855,10 @@ func _make_registry_entry(
 	type_hint: String = ""
 ) -> GFResourceRegistryEntry:
 	var entry: GFResourceRegistryEntry = GFResourceRegistryEntry.new()
-	var _configured: Resource = entry.configure(entry_id, resource_path, type_hint, fields)
+	var _configured: Resource = entry.configure(
+		entry_id,
+		resource_path,
+		type_hint,
+		fields
+	)
 	return entry

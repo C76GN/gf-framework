@@ -87,13 +87,43 @@ enum Resolution {
 ## [br]
 ## @schema data: Dictionary，包含 file_name、key、local_value、remote_value、resolved_value、resolution 和 metadata。
 func apply_dict(data: Dictionary) -> void:
-	file_name = GFVariantData.get_option_string(data, "file_name", file_name)
-	key = GFVariantData.get_option_string(data, "key", key)
-	local_value = GFVariantData.get_option_value(data, "local_value", local_value)
-	remote_value = GFVariantData.get_option_value(data, "remote_value", remote_value)
-	resolved_value = GFVariantData.get_option_value(data, "resolved_value", resolved_value)
-	resolution = _to_resolution(GFVariantData.get_option_int(data, "resolution", resolution))
-	metadata = GFVariantData.get_option_dictionary(data, "metadata", metadata)
+	file_name = GFVariantData.get_option_string(
+		data,
+		"file_name",
+		file_name
+	)
+	key = GFVariantData.get_option_string(
+		data,
+		"key",
+		key
+	)
+	local_value = GFVariantData.get_option_value(
+		data,
+		"local_value",
+		local_value
+	)
+	remote_value = GFVariantData.get_option_value(
+		data,
+		"remote_value",
+		remote_value
+	)
+	resolved_value = GFVariantData.get_option_value(
+		data,
+		"resolved_value",
+		resolved_value
+	)
+	resolution = _to_resolution(
+		GFVariantData.get_option_int(
+			data,
+			"resolution",
+			resolution
+		)
+	)
+	metadata = GFVariantData.get_option_dictionary(
+		data,
+		"metadata",
+		metadata
+	)
 
 
 ## 转换为字典。
@@ -129,7 +159,10 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @schema return: Dictionary，只包含 JSON-compatible values 和正式报告 marker。
 func to_json_safe_dict(options: Dictionary = {}) -> Dictionary:
-	return GFReportValueCodec.to_report_dictionary(to_dict(), options)
+	return GFReportValueCodec.to_report_dictionary(
+		to_dict(),
+		options
+	)
 
 
 ## 复制冲突报告。
@@ -174,7 +207,11 @@ static func from_dict(data: Dictionary) -> GFStorageConflictReport:
 ## @api private
 ## [br]
 static func _to_resolution(value: int) -> Resolution:
-	match clampi(value, Resolution.UNRESOLVED, Resolution.SKIPPED):
+	match clampi(
+		value,
+		Resolution.UNRESOLVED,
+		Resolution.SKIPPED
+	):
 		Resolution.USE_LOCAL:
 			return Resolution.USE_LOCAL
 		Resolution.USE_REMOTE:

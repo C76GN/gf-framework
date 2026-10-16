@@ -84,7 +84,10 @@ static func one() -> GFBigNumber:
 ## [br]
 ## @return 归一化后的大数实例。
 static func from_int(value: int) -> GFBigNumber:
-	return GFBigNumber.new(float(value), 0)
+	return GFBigNumber.new(
+		float(value),
+		0
+	)
 
 
 ## 从 float 构建大数。
@@ -115,26 +118,37 @@ static func from_float(value: float) -> GFBigNumber:
 ## @param max_input_length: 最大输入字符数；小于等于 0 时使用框架默认预算。
 ## [br]
 ## @return 解析后的大数实例。
-static func from_string(
-	value: String,
-	max_input_length: int = GFDecimalStringFormatter.DEFAULT_MAX_NUMERIC_TEXT_LENGTH
-) -> GFBigNumber:
+static func from_string(value: String, max_input_length: int = GFDecimalStringFormatter.DEFAULT_MAX_NUMERIC_TEXT_LENGTH) -> GFBigNumber:
 	var normalization: Dictionary = _DECIMAL_STRING_FORMATTER.normalize_numeric_text(value, max_input_length)
 	if not GFVariantData.get_option_bool(normalization, "ok"):
-		push_error("[GFBigNumber][big_number.number_parse_failed_with_reason] Cannot parse the number string (%s): %s." % [
-			GFVariantData.get_option_string(normalization, "error", "invalid_input"),
-			value.left(128),
-		])
+		push_error(
+			"[GFBigNumber][big_number.number_parse_failed_with_reason] Cannot parse the number string (%s): %s."
+			% [
+				GFVariantData.get_option_string(
+					normalization,
+					"error",
+					"invalid_input"
+				),
+				value.left(128),
+			]
+		)
 		return GFBigNumber.zero()
 	var trimmed: String = GFVariantData.get_option_string(normalization, "text")
 
 	var exponent_offset: int = 0
-	var scientific_index: int = maxi(trimmed.find("e"), trimmed.find("E"))
+	var scientific_index: int = maxi(
+		trimmed.find("e"),
+		trimmed.find("E")
+	)
 	if scientific_index != -1:
 		var exponent_text: String = trimmed.substr(scientific_index + 1)
 		trimmed = trimmed.substr(0, scientific_index)
 		var exponent_result: Dictionary = _try_parse_exponent_text(exponent_text)
-		if not GFVariantData.get_option_bool(exponent_result, &"ok", false):
+		if not GFVariantData.get_option_bool(
+			exponent_result,
+			&"ok",
+			false
+		):
 			if GFVariantData.get_option_string(exponent_result, &"reason") == "range":
 				push_error("[GFBigNumber][big_number.exponent_out_of_range] Exponent exceeds the supported range.")
 				return GFBigNumber.zero()
@@ -157,7 +171,11 @@ static func from_string(
 		integer_part = trimmed.substr(0, decimal_index)
 		fractional_part = trimmed.substr(decimal_index + 1)
 
-	if not _DECIMAL_STRING_FORMATTER.is_valid_decimal_parts(integer_part, fractional_part, decimal_index != -1):
+	if not _DECIMAL_STRING_FORMATTER.is_valid_decimal_parts(
+		integer_part,
+		fractional_part,
+		decimal_index != -1
+	):
 		push_error("[GFBigNumber][big_number.number_parse_failed] Cannot parse the number string: %s." % value)
 		return GFBigNumber.zero()
 
@@ -172,7 +190,13 @@ static func from_string(
 		return GFBigNumber.zero()
 
 	var significant_digits: String = digits.substr(first_non_zero)
-	var mantissa_digits: String = significant_digits.substr(0, mini(16, significant_digits.length()))
+	var mantissa_digits: String = significant_digits.substr(
+		0,
+		mini(
+			16,
+			significant_digits.length()
+		)
+	)
 	var mantissa_text: String = mantissa_digits.substr(0, 1)
 	if mantissa_digits.length() > 1:
 		mantissa_text += "." + mantissa_digits.substr(1)
@@ -252,7 +276,10 @@ func is_negative() -> bool:
 ## [br]
 ## @return 新的大数实例。
 func abs_value() -> GFBigNumber:
-	return GFBigNumber.new(absf(mantissa), exponent)
+	return GFBigNumber.new(
+		absf(mantissa),
+		exponent
+	)
 
 
 ## 获取相反数。
@@ -356,11 +383,18 @@ func multiply(other: GFBigNumber) -> GFBigNumber:
 		return GFBigNumber.zero()
 
 	var exponent_result: Dictionary = _try_add_exponents(exponent, other.exponent)
-	if not GFVariantData.get_option_bool(exponent_result, &"ok", false):
+	if not GFVariantData.get_option_bool(
+		exponent_result,
+		&"ok",
+		false
+	):
 		push_error("[GFBigNumber][big_number.exponent_out_of_range] Exponent exceeds the supported range.")
 		return GFBigNumber.zero()
 
-	return GFBigNumber.new(mantissa * other.mantissa, GFVariantData.get_option_int(exponent_result, &"value"))
+	return GFBigNumber.new(
+		mantissa * other.mantissa,
+		GFVariantData.get_option_int(exponent_result, &"value")
+	)
 
 
 ## 与另一个大数相除。
@@ -379,11 +413,18 @@ func divide(other: GFBigNumber) -> GFBigNumber:
 		return GFBigNumber.zero()
 
 	var exponent_result: Dictionary = _try_add_exponents(exponent, -other.exponent)
-	if not GFVariantData.get_option_bool(exponent_result, &"ok", false):
+	if not GFVariantData.get_option_bool(
+		exponent_result,
+		&"ok",
+		false
+	):
 		push_error("[GFBigNumber][big_number.exponent_out_of_range] Exponent exceeds the supported range.")
 		return GFBigNumber.zero()
 
-	return GFBigNumber.new(mantissa / other.mantissa, GFVariantData.get_option_int(exponent_result, &"value"))
+	return GFBigNumber.new(
+		mantissa / other.mantissa,
+		GFVariantData.get_option_int(exponent_result, &"value")
+	)
 
 
 ## 将当前大数提升到整数次幂。
@@ -405,7 +446,10 @@ func powi(power: int) -> GFBigNumber:
 	var sign_multiplier: float = 1.0
 	if is_negative() and power % 2 != 0:
 		sign_multiplier = -1.0
-	return _pow_with_logarithm(float(power), sign_multiplier)
+	return _pow_with_logarithm(
+		float(power),
+		sign_multiplier
+	)
 
 
 ## 将当前大数提升到浮点次幂。
@@ -442,6 +486,7 @@ func powf(power: float) -> GFBigNumber:
 
 	return _pow_with_logarithm(power, sign_multiplier)
 
+
 ## 将当前值转换为 float。
 ## [br]
 ## @api public
@@ -470,7 +515,12 @@ func to_plain_string(decimal_places: int = _DEFAULT_PLAIN_DECIMALS, trim_zeroes:
 	if exponent > 15 or exponent < -decimal_places - 1:
 		return to_scientific_string(decimal_places, trim_zeroes)
 
-	return _DECIMAL_STRING_FORMATTER.format_decimal_value(to_float(), decimal_places, trim_zeroes, false)
+	return _DECIMAL_STRING_FORMATTER.format_decimal_value(
+		to_float(),
+		decimal_places,
+		trim_zeroes,
+		false
+	)
 
 
 ## 输出科学计数法字符串。
@@ -494,7 +544,12 @@ func to_scientific_string(
 
 	var output_mantissa: float = mantissa
 	var output_exponent: int = exponent
-	var mantissa_text: String = _DECIMAL_STRING_FORMATTER.format_decimal_value(output_mantissa, decimal_places, trim_zeroes, use_truncation)
+	var mantissa_text: String = _DECIMAL_STRING_FORMATTER.format_decimal_value(
+		output_mantissa,
+		decimal_places,
+		trim_zeroes,
+		use_truncation
+	)
 	if absf(mantissa_text.to_float()) >= 10.0:
 		if not _exponent_is_supported(output_exponent + 1):
 			push_error("[GFBigNumber][big_number.exponent_out_of_range] Exponent exceeds the supported range.")
@@ -502,9 +557,17 @@ func to_scientific_string(
 
 		output_mantissa /= 10.0
 		output_exponent += 1
-		mantissa_text = _DECIMAL_STRING_FORMATTER.format_decimal_value(output_mantissa, decimal_places, trim_zeroes, use_truncation)
+		mantissa_text = _DECIMAL_STRING_FORMATTER.format_decimal_value(
+			output_mantissa,
+			decimal_places,
+			trim_zeroes,
+			use_truncation
+		)
 
-	return "%se%d" % [mantissa_text, output_exponent]
+	return (
+		"%se%d"
+		% [mantissa_text, output_exponent]
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -526,7 +589,10 @@ func _pow_with_logarithm(power: float, sign_multiplier: float) -> GFBigNumber:
 		return GFBigNumber.zero()
 
 	var power_exponent: int = int(power_log10_floor)
-	var power_mantissa: float = pow(10.0, power_log10 - power_exponent) * sign_multiplier
+	var power_mantissa: float = pow(
+		10.0,
+		power_log10 - power_exponent
+	) * sign_multiplier
 	return GFBigNumber.new(power_mantissa, power_exponent)
 
 
@@ -625,10 +691,7 @@ static func _try_parse_exponent_text(text: String) -> Dictionary:
 	var value: int = significant_digits.to_int()
 	if negative:
 		value = -value
-	return {
-		&"ok": true,
-		&"value": value,
-	}
+	return { &"ok": true, &"value": value, }
 
 
 ## 相加指数并验证结果是否仍在支持范围内。
@@ -639,10 +702,7 @@ static func _try_add_exponents(left: int, right: int) -> Dictionary:
 	var result: int = left + right
 	if not _exponent_is_supported(result):
 		return _make_parse_error()
-	return {
-		&"ok": true,
-		&"value": result,
-	}
+	return { &"ok": true, &"value": result, }
 
 
 ## 判断指数是否位于闭区间 [-_MAX_EXPONENT_MAGNITUDE, _MAX_EXPONENT_MAGNITUDE]。
@@ -656,7 +716,4 @@ static func _exponent_is_supported(value: int) -> bool:
 ## [br]
 ## @api private
 static func _make_parse_error(reason: String = "") -> Dictionary:
-	return {
-		&"ok": false,
-		&"reason": reason,
-	}
+	return { &"ok": false, &"reason": reason, }

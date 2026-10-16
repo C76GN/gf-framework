@@ -115,17 +115,26 @@ func matches(manifest: GFContentPackageManifest) -> bool:
 		return false
 	if not _matches_search_text(manifest):
 		return false
-	if not _contains_all(manifest.content_types, _normalize_string_set(required_content_types)):
+	if not _contains_all(
+		manifest.content_types,
+		_normalize_string_set(required_content_types)
+	):
 		return false
-	if not _contains_all(manifest.dependencies, _normalize_string_set(required_dependencies)):
+	if not _contains_all(
+		manifest.dependencies,
+		_normalize_string_set(required_dependencies)
+	):
 		return false
-	if not _contains_all(manifest.get_resource_keys(), _normalize_string_set(required_resource_keys)):
+	if not _contains_all(
+		manifest.get_resource_keys(),
+		_normalize_string_set(required_resource_keys)
+	):
 		return false
 	var normalized_safety_kinds: PackedStringArray = _normalize_string_set(allowed_safety_kinds)
 	if not normalized_safety_kinds.is_empty() and not normalized_safety_kinds.has(String(manifest.safety_kind)):
 		return false
 	for metadata_key: Variant in required_metadata.keys():
-		if not manifest.metadata.has(metadata_key) or manifest.metadata[metadata_key] != required_metadata[metadata_key]:
+		if (not manifest.metadata.has(metadata_key) or manifest.metadata[metadata_key] != required_metadata[metadata_key]):
 			return false
 	return true
 
@@ -143,25 +152,40 @@ func apply_dict(data: Dictionary) -> void:
 	query_id = GFVariantData.get_option_string_name(data, "query_id")
 	package_ids = _normalize_string_set(GFVariantData.get_option_packed_string_array(data, "package_ids"))
 	search_text = GFVariantData.get_option_string(data, "search_text").strip_edges()
-	required_content_types = _normalize_string_set(
-		GFVariantData.get_option_packed_string_array(data, "required_content_types")
-	)
-	required_dependencies = _normalize_string_set(
-		GFVariantData.get_option_packed_string_array(data, "required_dependencies")
-	)
-	required_resource_keys = _normalize_string_set(
-		GFVariantData.get_option_packed_string_array(data, "required_resource_keys")
-	)
-	allowed_safety_kinds = _normalize_string_set(
-		GFVariantData.get_option_packed_string_array(data, "allowed_safety_kinds")
-	)
+	required_content_types = _normalize_string_set(GFVariantData.get_option_packed_string_array(data, "required_content_types"))
+	required_dependencies = _normalize_string_set(GFVariantData.get_option_packed_string_array(data, "required_dependencies"))
+	required_resource_keys = _normalize_string_set(GFVariantData.get_option_packed_string_array(data, "required_resource_keys"))
+	allowed_safety_kinds = _normalize_string_set(GFVariantData.get_option_packed_string_array(data, "allowed_safety_kinds"))
 	required_metadata = _duplicate_dictionary(
-		GFVariantData.as_dictionary(GFVariantData.get_option_value(data, "required_metadata", {}))
+		GFVariantData.as_dictionary(
+			GFVariantData.get_option_value(
+				data,
+				"required_metadata",
+				{}
+			)
+		)
 	)
-	include_dependencies = GFVariantData.get_option_bool(data, "include_dependencies", false)
-	max_results = maxi(0, GFVariantData.get_option_int(data, "max_results", 0))
+	include_dependencies = GFVariantData.get_option_bool(
+		data,
+		"include_dependencies",
+		false
+	)
+	max_results = maxi(
+		0,
+		GFVariantData.get_option_int(
+			data,
+			"max_results",
+			0
+		)
+	)
 	metadata = _duplicate_dictionary(
-		GFVariantData.as_dictionary(GFVariantData.get_option_value(data, "metadata", {}))
+		GFVariantData.as_dictionary(
+			GFVariantData.get_option_value(
+				data,
+				"metadata",
+				{}
+			)
+		)
 	)
 
 
@@ -192,7 +216,10 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @schema return: JSON-safe Dictionary based on the normalized query state.
 func to_report_dictionary(options: Dictionary = {}) -> Dictionary:
-	return GFReportValueCodec.to_report_dictionary(_make_dictionary(false), options)
+	return GFReportValueCodec.to_report_dictionary(
+		_make_dictionary(false),
+		options
+	)
 
 
 ## 创建查询深拷贝。
@@ -237,9 +264,7 @@ func _make_dictionary(copy_nested_values: bool) -> Dictionary:
 		"required_dependencies": _normalize_string_set(required_dependencies),
 		"required_resource_keys": _normalize_string_set(required_resource_keys),
 		"allowed_safety_kinds": _normalize_string_set(allowed_safety_kinds),
-		"required_metadata": (
-			_duplicate_dictionary(required_metadata) if copy_nested_values else required_metadata
-		),
+		"required_metadata": _duplicate_dictionary(required_metadata) if copy_nested_values else required_metadata,
 		"include_dependencies": include_dependencies,
 		"max_results": maxi(0, max_results),
 		"metadata": _duplicate_dictionary(metadata) if copy_nested_values else metadata,
@@ -253,11 +278,13 @@ func _matches_search_text(manifest: GFContentPackageManifest) -> bool:
 	var normalized_search: String = search_text.strip_edges().to_lower()
 	if normalized_search.is_empty():
 		return true
-	var candidates: PackedStringArray = PackedStringArray([
-		String(manifest.package_id),
-		manifest.display_name,
-		manifest.version,
-	])
+	var candidates: PackedStringArray = PackedStringArray(
+		[
+			String(manifest.package_id),
+			manifest.display_name,
+			manifest.version,
+		]
+	)
 	for content_type: String in manifest.content_types:
 		var _content_type_appended: bool = candidates.append(content_type)
 	for candidate: String in candidates:
@@ -294,4 +321,10 @@ static func _normalize_string_set(items: PackedStringArray) -> PackedStringArray
 ## [br]
 ## @api private
 static func _duplicate_dictionary(value: Dictionary) -> Dictionary:
-	return GFVariantData.as_dictionary(GFVariantData.duplicate_variant(value, true, false))
+	return GFVariantData.as_dictionary(
+		GFVariantData.duplicate_variant(
+			value,
+			true,
+			false
+		)
+	)

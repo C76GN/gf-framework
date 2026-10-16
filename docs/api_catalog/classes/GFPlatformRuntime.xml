@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFPlatformRuntime" path="addons/gf/standard/platform/gf_platform_runtime.gd" module="standard" extends="GFUtility" classDigest="cc19b036f2da7306804c770b3f3982798f6ab57a77dcaad3ba74016cedfe00c5">
+<class name="GFPlatformRuntime" path="addons/gf/standard/platform/gf_platform_runtime.gd" module="standard" extends="GFUtility" classDigest="913b6e635f98c7b9be1465a380a9e000dbf3f7e4920c41943b8d8310ab4df53e">
 	<description>GFPlatformRuntime: 平台 adapter 注册、路由与请求生命周期服务。
 运行时允许多个外部 adapter 共存，但不会在同一契约存在多个候选时按注册顺序
 猜测实现。项目必须通过 `set_contract_route` 显式消除歧义。</description>
@@ -28,7 +28,7 @@
 			</tags>
 		</member>
 		<member kind="signal" name="adapter_state_changed">
-			<signature>signal adapter_state_changed(adapter_id: StringName, previous_state: int, current_state: int)</signature>
+			<signature>signal adapter_state_changed( adapter_id: StringName, previous_state: int, current_state: int )</signature>
 			<description>Adapter 状态变化后转发。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -229,7 +229,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="invoke">
-			<signature>func invoke( request: GFPlatformBridgeRequest, adapter_id: StringName = &amp;"" ) -&gt; GFPlatformRequestHandle:</signature>
+			<signature>func invoke(request: GFPlatformBridgeRequest, adapter_id: StringName = &amp;"") -&gt; GFPlatformRequestHandle:</signature>
 			<description>提交完整平台桥接请求。
 `adapter_id` 非空时优先使用指定 adapter；否则使用显式路由；只有恰好一个
 候选时才允许自动解析。</description>
@@ -297,7 +297,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="consume_activation_intent">
-			<signature>func consume_activation_intent( adapter_id: StringName, intent_id: StringName ) -&gt; GFPlatformActivationIntent:</signature>
+			<signature>func consume_activation_intent(adapter_id: StringName, intent_id: StringName) -&gt; GFPlatformActivationIntent:</signature>
 			<description>消费并移除指定激活意图。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -308,7 +308,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="acknowledge_activation_intent">
-			<signature>func acknowledge_activation_intent( adapter_id: StringName, intent_id: StringName ) -&gt; bool:</signature>
+			<signature>func acknowledge_activation_intent(adapter_id: StringName, intent_id: StringName) -&gt; bool:</signature>
 			<description>确认并移除指定激活意图。</description>
 			<tags>
 				<tag name="api">public</tag>

@@ -71,7 +71,7 @@ func duplicate_failure() -> GFSaveRollbackFailure:
 ## [br]
 ## @schema return: Dictionary with section_id and error_code fields.
 func to_dict() -> Dictionary:
-	return {"section_id": _section_id, "error_code": int(_error_code)}
+	return { "section_id": _section_id, "error_code": int(_error_code) }
 
 
 # --- 框架内部方法 ---
@@ -88,7 +88,11 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @return 输入合法且首次配置时返回 true。
 func configure_for_framework(section_id: StringName, error_code: Error) -> bool:
-	if _section_id != &"" or section_id == &"" or error_code == OK:
+	if (
+		_section_id != &""
+		or section_id == &""
+		or error_code == OK
+	):
 		return false
 	_section_id = section_id
 	_error_code = error_code

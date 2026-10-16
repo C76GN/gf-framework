@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFMutationBatch" path="addons/gf/standard/foundation/collections/gf_mutation_batch.gd" module="standard" extends="RefCounted" classDigest="006e4c70d567f66739fc9c79874969679c7d04abe88e569e5fcf14fc500e9c7b">
+<class name="GFMutationBatch" path="addons/gf/standard/foundation/collections/gf_mutation_batch.gd" module="standard" extends="RefCounted" classDigest="b4301c69c7f0873aaa4d698afa005136666c6f91b88c39e477b96406097eadd6">
 	<description>GFMutationBatch: 通用变更批次。
 把一组 Callable 作为可提交、可回滚的批次执行。它只管理执行顺序、
 结果归一化和回滚栈，不绑定资源、存档、网络或编辑器事务。</description>
@@ -73,7 +73,7 @@
 	</properties>
 	<methods>
 		<member kind="method" name="add_operation">
-			<signature>func add_operation(operation: Callable, rollback: Callable = Callable(), metadata: Dictionary = {}) -&gt; int:</signature>
+			<signature>func add_operation( operation: Callable, rollback: Callable = Callable(), metadata: Dictionary = {} ) -&gt; int:</signature>
 			<description>添加一个批次操作。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -82,6 +82,7 @@
 				<tag name="param">metadata: 操作元数据。</tag>
 				<tag name="return">操作标识；失败返回 -1。</tag>
 				<tag name="schema">metadata: Dictionary copied into the normalized operation result.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="commit">

@@ -135,6 +135,7 @@ var _dependency_scope: Dictionary = _DEPENDENCY_SCOPE_SUPPORT._make_scope()
 func can_register_in_architecture() -> bool:
 	return true
 
+
 ## 判断此实例是否允许活动生命周期内的替换或注销。
 ## 该策略必须无副作用且在实例生命周期内稳定；false 不妨碍整个架构关闭。
 ## 架构在接管候选、调用 ready 或静默旧实例前检查，默认允许。
@@ -146,6 +147,7 @@ func can_register_in_architecture() -> bool:
 ## @return 允许独立移除时为 true。
 func can_remove_from_active_lifecycle() -> bool:
 	return true
+
 
 ## 返回此工具声明依赖的 Model 类型。
 ## 返回值必须保持纯函数语义，并在同一模块拓扑事务内保持稳定。
@@ -366,10 +368,19 @@ func get_utility(utility_type: Script, require_ready: bool = false) -> Object:
 ## @param listener: 事件监听器契约。
 ## [br]
 ## @param priority: 回调优先级，数值越大越先执行，默认为 0。
-func register_event(event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
+func register_event(
+	event_type: Script,
+	listener: GFEventListener,
+	priority: int = 0
+) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:
-		architecture.register_event_owned(self, event_type, listener, priority)
+		architecture.register_event_owned(
+			self,
+			event_type,
+			listener,
+			priority
+		)
 
 
 ## 注销类型事件监听器。
@@ -384,7 +395,11 @@ func register_event(event_type: Script, listener: GFEventListener, priority: int
 func unregister_event(event_type: Script, listener: GFEventListener) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:
-		architecture.unregister_event_owned(self, event_type, listener)
+		architecture.unregister_event_owned(
+			self,
+			event_type,
+			listener
+		)
 
 
 ## 注册可赋值类型事件监听器。Utility 注销时框架会自动清理由该方法注册的监听。
@@ -398,10 +413,19 @@ func unregister_event(event_type: Script, listener: GFEventListener) -> void:
 ## @param listener: 事件监听器契约。
 ## [br]
 ## @param priority: 回调优先级，数值越大越先执行，默认为 0。
-func register_assignable_event(base_event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
+func register_assignable_event(
+	base_event_type: Script,
+	listener: GFEventListener,
+	priority: int = 0
+) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:
-		architecture.register_assignable_event_owned(self, base_event_type, listener, priority)
+		architecture.register_assignable_event_owned(
+			self,
+			base_event_type,
+			listener,
+			priority
+		)
 
 
 ## 注销可赋值类型事件监听器。
@@ -416,7 +440,11 @@ func register_assignable_event(base_event_type: Script, listener: GFEventListene
 func unregister_assignable_event(base_event_type: Script, listener: GFEventListener) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:
-		architecture.unregister_assignable_event_owned(self, base_event_type, listener)
+		architecture.unregister_assignable_event_owned(
+			self,
+			base_event_type,
+			listener
+		)
 
 
 ## 向架构发送类型事件。
@@ -442,7 +470,11 @@ func send_event(event_instance: Object) -> void:
 func register_simple_event(event_id: StringName, listener: GFEventListener) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:
-		architecture.register_simple_event_owned(self, event_id, listener)
+		architecture.register_simple_event_owned(
+			self,
+			event_id,
+			listener
+		)
 
 
 ## 注销轻量级 StringName 事件监听器。
@@ -457,7 +489,11 @@ func register_simple_event(event_id: StringName, listener: GFEventListener) -> v
 func unregister_simple_event(event_id: StringName, listener: GFEventListener) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:
-		architecture.unregister_simple_event_owned(self, event_id, listener)
+		architecture.unregister_simple_event_owned(
+			self,
+			event_id,
+			listener
+		)
 
 
 ## 发送轻量级 StringName 事件，避免高频 new() 带来的 GC 压力。
@@ -487,6 +523,7 @@ func send_simple_event(event_id: StringName, payload: Variant = null) -> void:
 func is_bound_to_architecture_for_framework() -> bool:
 	return _DEPENDENCY_SCOPE_SUPPORT._get_bound_architecture_or_null(_dependency_scope) != null
 
+
 ## 注入当前模块所属的架构实例。由 GFArchitecture 在注册模块时自动调用。
 ## [br]
 ## @api framework_internal
@@ -504,7 +541,11 @@ func inject_dependencies(architecture: GFArchitecture) -> void:
 ## [br]
 ## @param lifecycle_serial: 非负值限定架构代次；-1 沿用共享作用域的默认绑定规则。
 func _gf_set_dependency_scope(architecture: GFArchitecture, lifecycle_serial: int = -1) -> void:
-	_DEPENDENCY_SCOPE_SUPPORT._bind_scope(_dependency_scope, architecture, lifecycle_serial)
+	_DEPENDENCY_SCOPE_SUPPORT._bind_scope(
+		_dependency_scope,
+		architecture,
+		lifecycle_serial
+	)
 
 
 ## 清除架构引用并保留已释放标记，阻止曾绑定对象重新回退全局架构。

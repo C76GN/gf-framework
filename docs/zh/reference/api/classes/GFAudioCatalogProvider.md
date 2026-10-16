@@ -19,7 +19,7 @@
 | 属性 | [`parameters`](#member-gfaudiocatalogprovider-properties-parameters) | `var parameters: Dictionary = {}` |
 | 属性 | [`states`](#member-gfaudiocatalogprovider-properties-states) | `var states: Dictionary = {}` |
 | 属性 | [`switches`](#member-gfaudiocatalogprovider-properties-switches) | `var switches: Dictionary = {}` |
-| 方法 | [`set_entry`](#member-gfaudiocatalogprovider-methods-set_entry) | `func set_entry(catalog_id: StringName, entry_id: StringName, metadata: Dictionary = {}) -> void:` |
+| 方法 | [`set_entry`](#member-gfaudiocatalogprovider-methods-set_entry) | `func set_entry( catalog_id: StringName, entry_id: StringName, metadata: Dictionary = {} ) -> void:` |
 | 方法 | [`remove_entry`](#member-gfaudiocatalogprovider-methods-remove_entry) | `func remove_entry(catalog_id: StringName, entry_id: StringName) -> void:` |
 | 方法 | [`get_ids`](#member-gfaudiocatalogprovider-methods-get_ids) | `func get_ids(catalog_id: StringName) -> PackedStringArray:` |
 | 方法 | [`describe_entry`](#member-gfaudiocatalogprovider-methods-describe_entry) | `func describe_entry(catalog_id: StringName, entry_id: StringName) -> Dictionary:` |
@@ -98,9 +98,10 @@ var switches: Dictionary = {}
 ### `set_entry`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func set_entry(catalog_id: StringName, entry_id: StringName, metadata: Dictionary = {}) -> void:
+func set_entry( catalog_id: StringName, entry_id: StringName, metadata: Dictionary = {} ) -> void:
 ```
 
 设置目录条目。

@@ -19,7 +19,7 @@
 | 属性 | [`position`](#member-gfhitcollisionshapeconfig2d-properties-position) | `var position: Vector2 = Vector2.ZERO` |
 | 属性 | [`rotation_degrees`](#member-gfhitcollisionshapeconfig2d-properties-rotation_degrees) | `var rotation_degrees: float = 0.0` |
 | 属性 | [`scale`](#member-gfhitcollisionshapeconfig2d-properties-scale) | `var scale: Vector2 = Vector2.ONE` |
-| 属性 | [`debug_color`](#member-gfhitcollisionshapeconfig2d-properties-debug_color) | `var debug_color: Color = Color(0.0, 0.0, 0.0, 0.0)` |
+| 属性 | [`debug_color`](#member-gfhitcollisionshapeconfig2d-properties-debug_color) | `var debug_color: Color = Color( 	0.0, 	0.0, 	0.0, 	0.0 )` |
 | 属性 | [`disabled`](#member-gfhitcollisionshapeconfig2d-properties-disabled) | `var disabled: bool = false` |
 | 方法 | [`apply_to`](#member-gfhitcollisionshapeconfig2d-methods-apply_to) | `func apply_to(collision_shape: CollisionShape2D) -> bool:` |
 | 方法 | [`instantiate_collision_shape`](#member-gfhitcollisionshapeconfig2d-methods-instantiate_collision_shape) | `func instantiate_collision_shape() -> CollisionShape2D:` |
@@ -79,9 +79,15 @@ var scale: Vector2 = Vector2.ONE
 ### `debug_color`
 
 - API：`public`
+- 首次版本：`3.2.0`
 
 ```gdscript
-var debug_color: Color = Color(0.0, 0.0, 0.0, 0.0)
+var debug_color: Color = Color(
+	0.0,
+	0.0,
+	0.0,
+	0.0
+)
 ```
 
 调试绘制颜色。透明色会沿用 Godot 默认调试显示。

@@ -162,7 +162,11 @@ var _current_value: float = 100.0
 # --- Godot 生命周期方法 ---
 
 func _ready() -> void:
-	_current_value = clampf(_current_value, minf(_min_value, _max_value), maxf(_min_value, _max_value))
+	_current_value = clampf(
+		_current_value,
+		minf(_min_value, _max_value),
+		maxf(_min_value, _max_value)
+	)
 
 
 # --- 公共方法 ---
@@ -171,12 +175,18 @@ func _ready() -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param p_min_value: 数值下限。
 ## [br]
 ## @param p_max_value: 数值上限。
 ## [br]
 ## @param p_current_value: 当前数值。
-func configure(p_min_value: float, p_max_value: float, p_current_value: float) -> void:
+func configure(
+	p_min_value: float,
+	p_max_value: float,
+	p_current_value: float
+) -> void:
 	if (
 		not _GF_COMBAT_FINITE_MATH.is_finite_float(p_min_value)
 		or not _GF_COMBAT_FINITE_MATH.is_finite_float(p_max_value)
@@ -197,7 +207,11 @@ func set_value(value: float) -> void:
 	if not _GF_COMBAT_FINITE_MATH.is_finite_float(value):
 		return
 	var previous_value: float = current_value
-	current_value = clampf(value, minf(min_value, max_value), maxf(min_value, max_value))
+	current_value = clampf(
+		value,
+		minf(min_value, max_value),
+		maxf(min_value, max_value)
+	)
 	if is_equal_approx(previous_value, current_value):
 		return
 
@@ -213,10 +227,7 @@ func set_value(value: float) -> void:
 ## [br]
 ## @param p_max_value: 数值上限。
 func set_bounds(p_min_value: float, p_max_value: float) -> void:
-	if (
-		not _GF_COMBAT_FINITE_MATH.is_finite_float(p_min_value)
-		or not _GF_COMBAT_FINITE_MATH.is_finite_float(p_max_value)
-	):
+	if (not _GF_COMBAT_FINITE_MATH.is_finite_float(p_min_value) or not _GF_COMBAT_FINITE_MATH.is_finite_float(p_max_value)):
 		return
 	_min_value = p_min_value
 	_max_value = p_max_value
@@ -233,7 +244,11 @@ func get_ratio() -> float:
 	var high: float = maxf(min_value, max_value)
 	if is_equal_approx(high, low):
 		return 0.0
-	return clampf((current_value - low) / (high - low), 0.0, 1.0)
+	return clampf(
+		(current_value - low) / (high - low),
+		0.0,
+		1.0
+	)
 
 
 ## 检查动作类别是否可被当前数值槽接收。
@@ -287,7 +302,12 @@ func clear_modifiers() -> void:
 ## @return: 应用结果；前后值只描述本动作提交，不包含观察信号触发的后续嵌套修改。
 func apply_action(action: GFCombatAction) -> GFCombatActionResult:
 	if action == null:
-		var null_result: GFCombatActionResult = GFCombatActionResult.make_failure(&"null_action", null, current_value, metadata)
+		var null_result: GFCombatActionResult = GFCombatActionResult.make_failure(
+			&"null_action",
+			null,
+			current_value,
+			metadata
+		)
 		action_rejected.emit(null_result)
 		return null_result
 	if not action.is_numeric_state_valid():
@@ -301,7 +321,12 @@ func apply_action(action: GFCombatAction) -> GFCombatActionResult:
 		return numeric_result
 
 	if not can_receive_action_kind(action.action_kind):
-		var kind_result: GFCombatActionResult = GFCombatActionResult.make_failure(&"unaccepted_kind", action, current_value, metadata)
+		var kind_result: GFCombatActionResult = GFCombatActionResult.make_failure(
+			&"unaccepted_kind",
+			action,
+			current_value,
+			metadata
+		)
 		action_rejected.emit(kind_result)
 		return kind_result
 
@@ -318,10 +343,18 @@ func apply_action(action: GFCombatAction) -> GFCombatActionResult:
 		action_rejected.emit(modifier_result)
 		return modifier_result
 	var validation_report: Dictionary = _validate_action(final_action)
-	if not GFVariantData.get_option_bool(validation_report, "ok", true):
+	if not GFVariantData.get_option_bool(
+		validation_report,
+		"ok",
+		true
+	):
 		var rejected_metadata: Dictionary = _get_report_metadata(validation_report)
 		var rejected_result: GFCombatActionResult = GFCombatActionResult.make_failure(
-			GFVariantData.get_option_string_name(validation_report, "reason", &"rejected"),
+			GFVariantData.get_option_string_name(
+				validation_report,
+				"reason",
+				&"rejected"
+			),
 			action,
 			current_value,
 			rejected_metadata
@@ -384,9 +417,15 @@ func _validate_action(action: GFCombatAction) -> Dictionary:
 		"reason": &"accepted",
 		"metadata": metadata.duplicate(true),
 	}
-	action_validating.emit(action.duplicate_action(), report)
+	action_validating.emit(
+		action.duplicate_action(),
+		report
+	)
 	if validation_callback.is_valid():
-		var callback_result: Variant = validation_callback.call(action.duplicate_action(), report.duplicate(true))
+		var callback_result: Variant = validation_callback.call(
+			action.duplicate_action(),
+			report.duplicate(true)
+		)
 		_merge_validation_result(report, callback_result)
 	return report
 

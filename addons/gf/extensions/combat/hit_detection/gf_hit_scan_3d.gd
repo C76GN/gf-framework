@@ -27,7 +27,11 @@ extends RayCast3D
 ## @param report: 结果报告。
 ## [br]
 ## @schema report: Dictionary，统一扫描命中结果，包含 ok、hit_id、receiver(JSON-safe 摘要)、reason、message 和 metadata。
-signal scan_hit(context: GFCombatHitContext, receiver: Object, report: Dictionary)
+signal scan_hit(
+	context: GFCombatHitContext,
+	receiver: Object,
+	report: Dictionary
+)
 
 ## 扫描没有命中可发送对象时发出。
 ## [br]
@@ -53,7 +57,11 @@ signal scan_missed(report: Dictionary)
 ## @param report: 结果报告。
 ## [br]
 ## @schema report: Dictionary，统一扫描命中结果，包含 ok、hit_id、receiver(JSON-safe 摘要)、reason、message 和 metadata。
-signal hit_accepted(context: GFCombatHitContext, receiver: Object, report: Dictionary)
+signal hit_accepted(
+	context: GFCombatHitContext,
+	receiver: Object,
+	report: Dictionary
+)
 
 ## 命中被接收对象拒绝或发送失败。
 ## [br]
@@ -68,7 +76,11 @@ signal hit_accepted(context: GFCombatHitContext, receiver: Object, report: Dicti
 ## @param report: 结果报告。
 ## [br]
 ## @schema report: Dictionary，统一扫描命中结果，包含 ok、hit_id、receiver(JSON-safe 摘要)、reason、message 和 metadata。
-signal hit_rejected(context: GFCombatHitContext, receiver: Object, report: Dictionary)
+signal hit_rejected(
+	context: GFCombatHitContext,
+	receiver: Object,
+	report: Dictionary
+)
 
 
 # --- 常量 ---
@@ -164,9 +176,14 @@ func build_hit_context(
 	payload_override: Variant = null,
 	hit_id_override: StringName = &""
 ) -> GFCombatHitContext:
-	var context_payload: Variant = payload.duplicate(true) if payload_override == null else GFVariantData.duplicate_variant(payload_override)
+	var context_payload: Variant = (payload.duplicate(true) if payload_override == null else GFVariantData.duplicate_variant(payload_override))
 	var effective_hit_id: StringName = hit_id_override if hit_id_override != &"" else hit_id
-	var context: GFCombatHitContext = GFCombatHitContext.new(_resolve_sender(), target, context_payload, effective_hit_id)
+	var context: GFCombatHitContext = GFCombatHitContext.new(
+		_resolve_sender(),
+		target,
+		context_payload,
+		effective_hit_id
+	)
 	context.magnitude = magnitude
 	context.tags = tags.duplicate()
 	context.position_3d = get_collision_point() if is_colliding() else global_position
@@ -199,7 +216,11 @@ func scan(payload_override: Variant = null, hit_id_override: StringName = &"") -
 		return _emit_missed(&"no_collision")
 
 	var receiver: Object = _resolve_hit_receiver(get_collider())
-	var context: GFCombatHitContext = build_hit_context(receiver, payload_override, hit_id_override)
+	var context: GFCombatHitContext = build_hit_context(
+		receiver,
+		payload_override,
+		hit_id_override
+	)
 	var report_value: Variant = _MESSAGE_DISPATCH_SUPPORT._dispatch_to_receiver(
 		hit_enabled,
 		metadata,
@@ -214,7 +235,11 @@ func scan(payload_override: Variant = null, hit_id_override: StringName = &"") -
 		"Receiver returned an invalid hit report."
 	)
 	var report: Dictionary = GFVariantData.as_dictionary(report_value)
-	_emit_scan_result(context, receiver, report)
+	_emit_scan_result(
+		context,
+		receiver,
+		report
+	)
 	return report
 
 
@@ -236,13 +261,33 @@ func _emit_missed(reason: StringName) -> Dictionary:
 ## 先发出 scan_hit，再按 report.ok 发出 accepted 或 rejected；每个信号收到报告深副本。
 ## [br]
 ## @api private
-func _emit_scan_result(context: GFCombatHitContext, receiver: Object, report: Dictionary) -> void:
-	var accepted: bool = GFVariantData.get_option_bool(report, "ok", false)
-	scan_hit.emit(context, receiver, report.duplicate(true))
+func _emit_scan_result(
+	context: GFCombatHitContext,
+	receiver: Object,
+	report: Dictionary
+) -> void:
+	var accepted: bool = GFVariantData.get_option_bool(
+		report,
+		"ok",
+		false
+	)
+	scan_hit.emit(
+		context,
+		receiver,
+		report.duplicate(true)
+	)
 	if accepted:
-		hit_accepted.emit(context, receiver, report.duplicate(true))
+		hit_accepted.emit(
+			context,
+			receiver,
+			report.duplicate(true)
+		)
 	else:
-		hit_rejected.emit(context, receiver, report.duplicate(true))
+		hit_rejected.emit(
+			context,
+			receiver,
+			report.duplicate(true)
+		)
 
 
 ## sender_path 能解析到节点时返回该节点，否则回退到当前 HitScan。

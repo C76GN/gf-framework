@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputHoldTrigger" path="addons/gf/standard/input/triggers/gf_input_hold_trigger.gd" module="standard" extends="GFInputTrigger" classDigest="7802d9edfbe1dd91ba9719f353183fc924fd65260ad48a0903afbf5d48440041">
+<class name="GFInputHoldTrigger" path="addons/gf/standard/input/triggers/gf_input_hold_trigger.gd" module="standard" extends="GFInputTrigger" classDigest="a8d9f07796c7f48b26b9e6135ad85fb46203d0aadf57ea5bba3fadac7143964e">
 	<description>GFInputHoldTrigger: 长按触发器。
 输入持续活跃达到 hold_seconds 后，动作才进入活跃状态。释放输入会重置计时。</description>
 	<tags>
@@ -30,7 +30,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="update">
-			<signature>func update(raw_active: bool, _value: Variant, delta: float, state: Dictionary) -&gt; TriggerState:</signature>
+			<signature>func update( raw_active: bool, _value: Variant, delta: float, state: Dictionary ) -&gt; TriggerState:</signature>
 			<description>更新运行时状态。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -41,6 +41,7 @@
 				<tag name="return">触发状态。</tag>
 				<tag name="schema">_value: Variant，由当前输入映射产生的动作值。</tag>
 				<tag name="schema">state: Dictionary，由输入运行时持有，包含 elapsed: float。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

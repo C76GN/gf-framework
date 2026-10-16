@@ -18,7 +18,7 @@
 | 属性 | [`aging_interval_msec`](#member-gfpriorityworkqueue-properties-aging_interval_msec) | `var aging_interval_msec: int = 1000:` |
 | 属性 | [`aging_step`](#member-gfpriorityworkqueue-properties-aging_step) | `var aging_step: float = 1.0:` |
 | 属性 | [`max_size`](#member-gfpriorityworkqueue-properties-max_size) | `var max_size: int = 0:` |
-| 方法 | [`push`](#member-gfpriorityworkqueue-methods-push) | `func push(value: Variant, priority: float = 0.0, front: bool = false) -> bool:` |
+| 方法 | [`push`](#member-gfpriorityworkqueue-methods-push) | `func push( value: Variant, priority: float = 0.0, front: bool = false ) -> bool:` |
 | 方法 | [`push_at`](#member-gfpriorityworkqueue-methods-push_at) | `func push_at( value: Variant, priority: float, enqueued_msec: int, front: bool = false ) -> bool:` |
 | 方法 | [`pop`](#member-gfpriorityworkqueue-methods-pop) | `func pop(default_value: Variant = null) -> Variant:` |
 | 方法 | [`pop_at`](#member-gfpriorityworkqueue-methods-pop_at) | `func pop_at(now_msec: int, default_value: Variant = null) -> Variant:` |
@@ -84,7 +84,7 @@ var max_size: int = 0:
 - 首次版本：`9.0.0`
 
 ```gdscript
-func push(value: Variant, priority: float = 0.0, front: bool = false) -> bool:
+func push( value: Variant, priority: float = 0.0, front: bool = false ) -> bool:
 ```
 
 使用当前单调时钟推入一个值。

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageResourceReadResult" path="addons/gf/standard/utilities/storage/gf_storage_resource_read_result.gd" module="standard" extends="RefCounted" classDigest="73e4527ea170467b46bce32d70967aeceafcc8d1cb5e9934f81652001c48937a">
+<class name="GFStorageResourceReadResult" path="addons/gf/standard/utilities/storage/gf_storage_resource_read_result.gd" module="standard" extends="RefCounted" classDigest="0c69df73a8f77333ad057062c7d348a2171679387242b23906ea9bad4a4e1ad1">
 	<description>GFStorageResourceReadResult: Resource 及其实际读取来源 revision 的不可变配对结果。
 结果保存原 Resource 对象引用，不复制或冻结 Resource 的运行时属性。
 committed revision 描述读取时的存储来源，不随 Resource 后续修改而变化。
@@ -15,7 +15,7 @@ committed revision 描述读取时的存储来源，不随 Resource 后续修改
 	<properties />
 	<methods>
 		<member kind="method" name="success">
-			<signature>static func success( resource: Resource, revision: GFStorageRevisionResult ) -&gt; GFStorageResourceReadResult:</signature>
+			<signature>static func success(resource: Resource, revision: GFStorageRevisionResult) -&gt; GFStorageResourceReadResult:</signature>
 			<description>创建 Resource 与成功 committed revision 的配对结果。</description>
 			<tags>
 				<tag name="api">public</tag>

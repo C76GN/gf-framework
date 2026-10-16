@@ -74,9 +74,7 @@ static func normalize_metadata(value: Variant) -> Dictionary:
 		return {}
 	if value is Dictionary:
 		return GFVariantData.to_dictionary(value)
-	return {
-		"value": GFVariantData.duplicate_variant(value),
-	}
+	return { "value": GFVariantData.duplicate_variant(value), }
 
 
 ## 写入对象资产元数据。
@@ -106,12 +104,20 @@ func write_object_metadata(
 
 	var metadata_key: StringName = _get_metadata_key(options)
 	var normalized_metadata: Dictionary = normalize_metadata(metadata)
-	if normalized_metadata.is_empty() and not GFVariantData.get_option_bool(options, "mark_scanned_empty", false):
-		clear_object_metadata(target, {
-			"metadata_key": metadata_key,
-			"clear_source": true,
-		})
-		return _make_record_for_object(target, normalized_metadata, options)
+	if normalized_metadata.is_empty() and not GFVariantData.get_option_bool(
+		options,
+		"mark_scanned_empty",
+		false
+	):
+		clear_object_metadata(
+			target,
+			{ "metadata_key": metadata_key, "clear_source": true, }
+		)
+		return _make_record_for_object(
+			target,
+			normalized_metadata,
+			options
+		)
 
 	target.set_meta(metadata_key, normalized_metadata)
 
@@ -122,7 +128,11 @@ func write_object_metadata(
 	elif target.has_meta(source_key):
 		target.remove_meta(source_key)
 
-	return _make_record_for_object(target, normalized_metadata, options)
+	return _make_record_for_object(
+		target,
+		normalized_metadata,
+		options
+	)
 
 
 ## 读取对象资产元数据。
@@ -177,9 +187,21 @@ func read_object_metadata_with_schema(
 	if schema == null:
 		return metadata
 
-	var include_optional: bool = GFVariantData.get_option_bool(options, "include_optional_defaults", true)
-	var should_coerce: bool = GFVariantData.get_option_bool(options, "coerce_values", schema.coerce_values)
-	return schema.apply_defaults(metadata, include_optional, should_coerce)
+	var include_optional: bool = GFVariantData.get_option_bool(
+		options,
+		"include_optional_defaults",
+		true
+	)
+	var should_coerce: bool = GFVariantData.get_option_bool(
+		options,
+		"coerce_values",
+		schema.coerce_values
+	)
+	return schema.apply_defaults(
+		metadata,
+		include_optional,
+		should_coerce
+	)
 
 
 ## 用通用 Dictionary schema 校验对象资产元数据。
@@ -206,22 +228,19 @@ func validate_object_metadata(
 ) -> Dictionary:
 	if schema == null:
 		var missing_schema_report: GFValidationReport = GFValidationReport.new("Asset metadata")
-		var _missing_schema_issue: RefCounted = missing_schema_report.add_error(
-			&"missing_schema",
-			"Metadata schema is null."
-		)
+		var _missing_schema_issue: RefCounted = missing_schema_report.add_error(&"missing_schema", "Metadata schema is null.")
 		return _encode_report(missing_schema_report.to_dict())
 	if target == null:
 		var missing_target_report: GFValidationReport = GFValidationReport.new("Asset metadata")
-		var _missing_target_issue: RefCounted = missing_target_report.add_error(
-			&"missing_target",
-			"Metadata target is null."
-		)
+		var _missing_target_issue: RefCounted = missing_target_report.add_error(&"missing_target", "Metadata target is null.")
 		return _encode_report(missing_target_report.to_dict())
 
 	var metadata: Dictionary = read_object_metadata(target, options)
 	return _encode_report(
-		schema.validate_dictionary(metadata, _make_schema_validation_options(target, options)).to_dict()
+		schema.validate_dictionary(
+			metadata,
+			_make_schema_validation_options(target, options)
+		).to_dict()
 	)
 
 
@@ -288,7 +307,11 @@ func clear_object_metadata(target: Object, options: Dictionary = {}) -> void:
 		if target.has_meta(metadata_key):
 			target.remove_meta(metadata_key)
 		var source_key: StringName = _get_metadata_source_key(metadata_key)
-		if GFVariantData.get_option_bool(options, "clear_source", true) and target.has_meta(source_key):
+		if GFVariantData.get_option_bool(
+			options,
+			"clear_source",
+			true
+		) and target.has_meta(source_key):
 			target.remove_meta(source_key)
 
 
@@ -330,7 +353,11 @@ func collect_node_tree_dicts(root: Node, options: Dictionary = {}) -> Array[Dict
 	var collection: Dictionary = _collect_node_tree_data(root, options)
 	for record: GFAssetMetadataRecord in _get_record_array(collection):
 		var record_data: Dictionary = record.to_dict()
-		if GFVariantData.get_option_bool(options, "json_safe", false):
+		if GFVariantData.get_option_bool(
+			options,
+			"json_safe",
+			false
+		):
 			record_data = _to_json_safe_dictionary(record_data)
 		result.append(record_data)
 	return result
@@ -355,20 +382,37 @@ func build_node_tree_report(root: Node, options: Dictionary = {}) -> Dictionary:
 	var report: GFValidationReport = GFValidationReport.new("Asset metadata")
 	if root == null:
 		var _add_error_result_207: Variant = report.add_error(&"missing_root", "Root node is null.")
-		return _encode_report(report.to_dict({}, _get_report_options()))
+		return _encode_report(
+			report.to_dict(
+				{},
+				_get_report_options()
+			)
+		)
 
 	var collect_options: Dictionary = options.duplicate(true)
 	collect_options["json_safe"] = false
 	var collection: Dictionary = _collect_node_tree_data(root, collect_options)
-	var entries: Array[Dictionary] = _records_to_dicts(_get_record_array(collection), collect_options)
-	return _encode_report(report.to_dict({
-		"source_path": _get_source_path(root, options),
-		"entry_count": entries.size(),
-		"entries": entries,
-		"visited_node_count": GFVariantData.get_option_int(collection, "visited_node_count"),
-		"max_nodes": GFVariantData.get_option_int(collection, "max_nodes", -1),
-		"truncated": GFVariantData.get_option_bool(collection, "truncated"),
-	}, _get_report_options()))
+	var entries: Array[Dictionary] = _records_to_dicts(
+		_get_record_array(collection),
+		collect_options
+	)
+	return _encode_report(
+		report.to_dict(
+			{
+				"source_path": _get_source_path(root, options),
+				"entry_count": entries.size(),
+				"entries": entries,
+				"visited_node_count": GFVariantData.get_option_int(collection, "visited_node_count"),
+				"max_nodes": GFVariantData.get_option_int(
+					collection,
+					"max_nodes",
+					-1
+				),
+				"truncated": GFVariantData.get_option_bool(collection, "truncated"),
+			},
+			_get_report_options()
+		)
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -382,18 +426,29 @@ func _collect_node_tree_data(root: Node, options: Dictionary) -> Dictionary:
 		return {
 			"records": records,
 			"visited_node_count": 0,
-			"max_nodes": GFVariantData.get_option_int(options, "max_nodes", -1),
+			"max_nodes": GFVariantData.get_option_int(
+				options,
+				"max_nodes",
+				-1
+			),
 			"truncated": false,
 		}
 
-	var max_depth: int = GFVariantData.get_option_int(options, "max_depth", -1)
-	var max_nodes: int = GFVariantData.get_option_int(options, "max_nodes", -1)
+	var max_depth: int = GFVariantData.get_option_int(
+		options,
+		"max_depth",
+		-1
+	)
+	var max_nodes: int = GFVariantData.get_option_int(
+		options,
+		"max_nodes",
+		-1
+	)
 	var visited_node_count: int = 0
 	var truncated: bool = false
-	var stack: Array[Dictionary] = [{
-		"node": root,
-		"depth": 0,
-	}]
+	var stack: Array[Dictionary] = [
+		{ "node": root, "depth": 0, },
+	]
 
 	while not stack.is_empty():
 		if max_nodes >= 0 and visited_node_count >= max_nodes:
@@ -411,20 +466,28 @@ func _collect_node_tree_data(root: Node, options: Dictionary) -> Dictionary:
 		var metadata_state: StringName = get_object_metadata_state(node, options)
 		if metadata_state != METADATA_STATE_ABSENT:
 			var metadata: Dictionary = read_object_metadata(node, options)
-			records.append(_make_record_for_node(root, node, metadata, options))
+			records.append(
+				_make_record_for_node(
+					root,
+					node,
+					metadata,
+					options
+				)
+			)
 
 		if max_depth >= 0 and depth >= max_depth:
 			continue
 
 		var children: Array = node.get_children()
-		for child_index: int in range(children.size() - 1, -1, -1):
+		for child_index: int in range(
+			children.size() - 1,
+			-1,
+			-1
+		):
 			var child: Node = _get_node_value(children[child_index])
 			if child == null:
 				continue
-			stack.append({
-				"node": child,
-				"depth": depth + 1,
-			})
+			stack.append({ "node": child, "depth": depth + 1, })
 
 	return {
 		"records": records,
@@ -453,7 +516,11 @@ func _records_to_dicts(records: Array[GFAssetMetadataRecord], options: Dictionar
 	var result: Array[Dictionary] = []
 	for record: GFAssetMetadataRecord in records:
 		var record_data: Dictionary = record.to_dict()
-		if GFVariantData.get_option_bool(options, "json_safe", false):
+		if GFVariantData.get_option_bool(
+			options,
+			"json_safe",
+			false
+		):
 			record_data = _to_json_safe_dictionary(record_data)
 		result.append(record_data)
 	return result
@@ -476,7 +543,11 @@ func _make_record_for_node(
 	var _configure_result_249: Variant = record.configure(
 		_normalize_source_path(_get_source_path(root, options)),
 		subject_path,
-		GFVariantData.get_option_string_name(options, "subject_kind", &"node"),
+		GFVariantData.get_option_string_name(
+			options,
+			"subject_kind",
+			&"node"
+		),
 		metadata
 	)
 	return record
@@ -493,8 +564,18 @@ func _make_record_for_object(
 	var record: GFAssetMetadataRecord = GFAssetMetadataRecord.new()
 	var _configure_result_264: Variant = record.configure(
 		_normalize_source_path(GFVariantData.get_option_string(options, "source_path")),
-		NodePath(GFVariantData.get_option_string(options, "subject_path", ".")),
-		GFVariantData.get_option_string_name(options, "subject_kind", &"object"),
+		NodePath(
+			GFVariantData.get_option_string(
+				options,
+				"subject_path",
+				"."
+			)
+		),
+		GFVariantData.get_option_string_name(
+			options,
+			"subject_kind",
+			&"object"
+		),
 		metadata
 	)
 	return record
@@ -573,7 +654,8 @@ func _get_metadata_source_key(metadata_key: StringName) -> StringName:
 	if metadata_key == META_ASSET_METADATA:
 		return META_ASSET_METADATA_SOURCE
 	return StringName(
-		"%s%s%s" % [
+		"%s%s%s"
+		% [
 			String(META_ASSET_METADATA_SOURCE),
 			_CUSTOM_SOURCE_KEY_SEPARATOR,
 			_utf8_hex(String(metadata_key)),
@@ -588,8 +670,14 @@ func _utf8_hex(value: String) -> String:
 	var bytes: PackedByteArray = value.to_utf8_buffer()
 	var result: String = ""
 	for byte: int in bytes:
-		result += _HEX_DIGITS.substr((byte >> 4) & 0x0f, 1)
-		result += _HEX_DIGITS.substr(byte & 0x0f, 1)
+		result += _HEX_DIGITS.substr(
+			(byte >> 4) & 0x0f,
+			1
+		)
+		result += _HEX_DIGITS.substr(
+			byte & 0x0f,
+			1
+		)
 	return result
 
 
@@ -614,14 +702,20 @@ func _get_node_value(value: Variant) -> Node:
 ## [br]
 ## @api private
 func _to_json_safe_dictionary(data: Dictionary) -> Dictionary:
-	return GFReportValueCodec.to_report_dictionary(data, _get_report_encoding_options())
+	return GFReportValueCodec.to_report_dictionary(
+		data,
+		_get_report_encoding_options()
+	)
 
 
 ## 按报告编码选项将报告字典编码为标准输出字典。
 ## [br]
 ## @api private
 func _encode_report(report: Dictionary) -> Dictionary:
-	return GFReportValueCodec.to_report_dictionary(report, _get_report_encoding_options())
+	return GFReportValueCodec.to_report_dictionary(
+		report,
+		_get_report_encoding_options()
+	)
 
 
 ## 创建保留资源路径字段的公开报告编码与脱敏选项。
@@ -630,10 +724,7 @@ func _encode_report(report: Dictionary) -> Dictionary:
 func _get_report_encoding_options() -> Dictionary:
 	return GFReportValueCodec.make_redaction_options(
 		GFReportValueCodec.REDACTION_PROFILE_PUBLIC,
-		{
-			"path_redaction": "none",
-			"include_resource_path": true,
-		}
+		{ "path_redaction": "none", "include_resource_path": true, }
 	)
 
 
@@ -642,9 +733,7 @@ func _get_report_encoding_options() -> Dictionary:
 ## @api private
 func _get_report_options() -> Dictionary:
 	return {
-		"next_actions": {
-			"missing_root": "Pass a valid Node root before collecting asset metadata.",
-		},
+		"next_actions": { "missing_root": "Pass a valid Node root before collecting asset metadata.", },
 		"fallback_action": "Review the first reported asset metadata issue.",
 		"no_action": "No action required.",
 	}

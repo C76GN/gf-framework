@@ -25,7 +25,7 @@
 | 方法 | [`set_message_contract`](#member-gfnetworkcontract-methods-set_message_contract) | `func set_message_contract(message_contract: GFNetworkContractMessage) -> void:` |
 | 方法 | [`get_message_contract`](#member-gfnetworkcontract-methods-get_message_contract) | `func get_message_contract(message_type: StringName) -> GFNetworkContractMessage:` |
 | 方法 | [`has_message_contract`](#member-gfnetworkcontract-methods-has_message_contract) | `func has_message_contract(message_type: StringName) -> bool:` |
-| 方法 | [`make_message`](#member-gfnetworkcontract-methods-make_message) | `func make_message(message_type: StringName, values: Dictionary = {}, options: Dictionary = {}) -> GFNetworkMessage:` |
+| 方法 | [`make_message`](#member-gfnetworkcontract-methods-make_message) | `func make_message( message_type: StringName, values: Dictionary = {}, options: Dictionary = {} ) -> GFNetworkMessage:` |
 | 方法 | [`validate_message`](#member-gfnetworkcontract-methods-validate_message) | `func validate_message(message: GFNetworkMessage) -> Dictionary:` |
 | 方法 | [`validate_contract`](#member-gfnetworkcontract-methods-validate_contract) | `func validate_contract() -> Dictionary:` |
 | 方法 | [`describe`](#member-gfnetworkcontract-methods-describe) | `func describe() -> Dictionary:` |
@@ -197,9 +197,10 @@ func has_message_contract(message_type: StringName) -> bool:
 ### `make_message`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func make_message(message_type: StringName, values: Dictionary = {}, options: Dictionary = {}) -> GFNetworkMessage:
+func make_message( message_type: StringName, values: Dictionary = {}, options: Dictionary = {} ) -> GFNetworkMessage:
 ```
 
 按消息契约创建 GFNetworkMessage。

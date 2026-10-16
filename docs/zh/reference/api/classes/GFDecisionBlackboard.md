@@ -15,7 +15,7 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 信号 | [`value_changed`](#member-gfdecisionblackboard-signals-value_changed) | `signal value_changed(key: StringName, old_value: Variant, new_value: Variant)` |
+| 信号 | [`value_changed`](#member-gfdecisionblackboard-signals-value_changed) | `signal value_changed( key: StringName, old_value: Variant, new_value: Variant )` |
 | 信号 | [`value_removed`](#member-gfdecisionblackboard-signals-value_removed) | `signal value_removed(key: StringName, old_value: Variant)` |
 | 属性 | [`values`](#member-gfdecisionblackboard-properties-values) | `var values: Dictionary = {}` |
 | 方法 | [`set_value`](#member-gfdecisionblackboard-methods-set_value) | `func set_value(key: StringName, value: Variant) -> void:` |
@@ -35,9 +35,10 @@
 ### `value_changed`
 
 - API：`public`
+- 首次版本：`4.3.0`
 
 ```gdscript
-signal value_changed(key: StringName, old_value: Variant, new_value: Variant)
+signal value_changed( key: StringName, old_value: Variant, new_value: Variant )
 ```
 
 当黑板值发生变化时发出。

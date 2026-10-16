@@ -24,7 +24,7 @@
 | 常量 | [`STATUS_APPLY_FAILED`](#member-gfeditorpropertybatchcommand-constants-status_apply_failed) | `const STATUS_APPLY_FAILED: StringName = &"apply_failed"` |
 | 常量 | [`STATUS_REVERT_FAILED`](#member-gfeditorpropertybatchcommand-constants-status_revert_failed) | `const STATUS_REVERT_FAILED: StringName = &"revert_failed"` |
 | 常量 | [`STATUS_ROLLBACK_FAILED`](#member-gfeditorpropertybatchcommand-constants-status_rollback_failed) | `const STATUS_ROLLBACK_FAILED: StringName = &"rollback_failed"` |
-| 方法 | [`configure`](#member-gfeditorpropertybatchcommand-methods-configure) | `func configure( changes: Array[Dictionary], options: Dictionary = {} ) -> GFEditorPropertyBatchCommand:` |
+| 方法 | [`configure`](#member-gfeditorpropertybatchcommand-methods-configure) | `func configure(changes: Array[Dictionary], options: Dictionary = {}) -> GFEditorPropertyBatchCommand:` |
 | 方法 | [`validate`](#member-gfeditorpropertybatchcommand-methods-validate) | `func validate() -> Dictionary:` |
 | 方法 | [`get_transaction_report`](#member-gfeditorpropertybatchcommand-methods-get_transaction_report) | `func get_transaction_report() -> Dictionary:` |
 | 方法 | [`recover`](#member-gfeditorpropertybatchcommand-methods-recover) | `func recover() -> Error:` |
@@ -164,7 +164,7 @@ const STATUS_ROLLBACK_FAILED: StringName = &"rollback_failed"
 - 首次版本：`10.0.0`
 
 ```gdscript
-func configure( changes: Array[Dictionary], options: Dictionary = {} ) -> GFEditorPropertyBatchCommand:
+func configure(changes: Array[Dictionary], options: Dictionary = {}) -> GFEditorPropertyBatchCommand:
 ```
 
 配置属性事务。 changes 必须至少包含一项。每个 change 必须包含 target、new_value，以及且仅包含 property_name 或 property_path。property_name 表示精确直接属性名；property_path 使用 Godot indexed path 语义。可选 metadata 会复制到条目和错误报告。

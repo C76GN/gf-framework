@@ -41,7 +41,11 @@ var _request: Dictionary = {}
 ## @param request: 请求或空保留票据。
 ## [br]
 ## @schema request: Dictionary with optional path: String, type_hint: String, options: Dictionary.
-func bind(domain: GFResourceServiceDomain, generation: int, request: Dictionary) -> void:
+func bind(
+	domain: GFResourceServiceDomain,
+	generation: int,
+	request: Dictionary
+) -> void:
 	_domain = domain
 	_generation = generation
 	_request = request
@@ -71,7 +75,11 @@ func is_released() -> bool:
 ## [br]
 ## @return 已启动或已释放时返回失败租约。
 func start() -> GFResourceLease:
-	if _released or _request.is_empty() or _domain == null:
+	if (
+		_released
+		or _request.is_empty()
+		or _domain == null
+	):
 		return _rejected_lease()
 	var payload: Dictionary = _request
 	_request = {}

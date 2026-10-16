@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFHapticUtility" path="addons/gf/extensions/feedback/runtime/gf_haptic_utility.gd" module="extensions/feedback" extends="GFUtility" classDigest="577952c1fd60108dff2a34a20aa1e21c04d17639ae74f40ea3ecc0fed91fd69a">
+<class name="GFHapticUtility" path="addons/gf/extensions/feedback/runtime/gf_haptic_utility.gd" module="extensions/feedback" extends="GFUtility" classDigest="54bee00746ff00bf046a504d5bb061dfdcf98f7090d2bc9a6cef07ee1eaae14d">
 	<description>GFHapticUtility: 通用手柄震动播放工具。
 管理命名 channel 上的 `GFHapticPreset` 播放状态，并把合成后的弱/强马达强度
 路由到玩家席位或手柄设备。项目仍然决定何时播放、如何分组以及玩法语义。</description>
@@ -10,7 +10,7 @@
 	</tags>
 	<signals>
 		<member kind="signal" name="haptic_started">
-			<signature>signal haptic_started(haptic_id: int, channel: StringName, target_type: int, target_id: int)</signature>
+			<signature>signal haptic_started( haptic_id: int, channel: StringName, target_type: int, target_id: int )</signature>
 			<description>震动播放开始时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -22,7 +22,7 @@
 			</tags>
 		</member>
 		<member kind="signal" name="haptic_finished">
-			<signature>signal haptic_finished(haptic_id: int, channel: StringName, target_type: int, target_id: int)</signature>
+			<signature>signal haptic_finished( haptic_id: int, channel: StringName, target_type: int, target_id: int )</signature>
 			<description>震动播放结束时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -34,7 +34,7 @@
 			</tags>
 		</member>
 		<member kind="signal" name="haptic_stopped">
-			<signature>signal haptic_stopped(haptic_id: int, channel: StringName, target_type: int, target_id: int)</signature>
+			<signature>signal haptic_stopped( haptic_id: int, channel: StringName, target_type: int, target_id: int )</signature>
 			<description>震动播放被停止时发出。</description>
 			<tags>
 				<tag name="api">public</tag>

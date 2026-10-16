@@ -29,6 +29,8 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[3]
 TOOLS_ROOT = ROOT / "tools"
+if str(ROOT) not in sys.path:
+	sys.path.insert(0, str(ROOT))
 if str(TOOLS_ROOT) not in sys.path:
 	sys.path.insert(0, str(TOOLS_ROOT))
 
@@ -293,6 +295,43 @@ class FrozenProcessAuthorityTests(unittest.TestCase):
 
 
 class MaintenanceInvocationAuthorityTests(unittest.TestCase):
+	def test_string_array_constants_stop_at_their_own_inline_or_multiline_close(self) -> None:
+		for layout in (
+			'["gf.kernel", "gf.standard"]',
+			'[\n\t"gf.kernel",\n\t"gf.standard",\n]',
+		):
+			with self.subTest(layout=layout):
+				source = (
+					f'const EXTENSION_ALLOWED_DEPENDENCIES: Array[String] = {layout}\n'
+					'const EXTENSION_ALLOWED_MANIFEST_FIELDS: Array[String] = [\n'
+					'\t"id",\n\t"display_name",\n\t"dependencies",\n]\n'
+				)
+				self.assertEqual(
+					gf_maintenance.parse_gdscript_string_array_constant(source, "EXTENSION_ALLOWED_DEPENDENCIES"),
+					["gf.kernel", "gf.standard"],
+				)
+				self.assertEqual(
+					gf_maintenance.parse_gdscript_string_array_constant(source, "EXTENSION_ALLOWED_MANIFEST_FIELDS"),
+					["dependencies", "display_name", "id"],
+				)
+
+	def test_string_array_constant_balancing_preserves_literal_and_comment_boundaries(self) -> None:
+		source = (
+			'const EMPTY: Array[String] = []\n'
+			'const TARGET: Array[String] = [\n'
+			'\t"value]with[brackets", # ] "ignored"\n'
+			'\t"escaped\\\"quote",\n]\n'
+			'const NESTED: Array = [["not-a-direct-string"]]\n'
+			'const OTHER: Array[String] = [\n\t"unrelated",\n]\n'
+		)
+		self.assertEqual(gf_maintenance.parse_gdscript_string_array_constant(source, "EMPTY"), [])
+		self.assertEqual(
+			gf_maintenance.parse_gdscript_string_array_constant(source, "TARGET"),
+			['escaped"quote', "value]with[brackets"],
+		)
+		self.assertEqual(gf_maintenance.parse_gdscript_string_array_constant(source, "NESTED"), [])
+		self.assertEqual(gf_maintenance.parse_gdscript_string_array_constant(source, "MISSING"), [])
+
 	def test_optional_manifest_missing_proof_rejects_chain_and_leaf_races(self) -> None:
 		with tempfile.TemporaryDirectory() as temporary_directory:
 			fixture_root = Path(temporary_directory).resolve()
@@ -513,13 +552,71 @@ class MaintenanceInvocationAuthorityTests(unittest.TestCase):
 		run_checks.assert_not_called()
 		finalize.assert_not_called()
 
+	def test_cli_argument_errors_and_help_do_not_snapshot_logs(self) -> None:
+		cases = (
+			(["release-status", "--version", "12.0.0-dev.0", "--json"], 2, "--artifact-manifest"),
+			(["unknown-command"], 2, "invalid choice"),
+			(["check", "--jobs", "not-an-integer"], 2, "invalid int value"),
+			(["--help"], 0, "GF maintenance helper CLI"),
+		)
+		for arguments, expected_code, expected_message in cases:
+			with self.subTest(arguments=arguments):
+				output = io.StringIO()
+				with mock.patch.object(
+					sys, "argv", ["gf_maintenance.py", *arguments],
+				), mock.patch.object(
+					gf_maintenance, "configure_stdio",
+				), mock.patch.object(
+					gf_maintenance, "maintenance_log_snapshot",
+					side_effect=AssertionError("argument validation must precede log traversal"),
+				) as snapshot, mock.patch.object(
+					gf_maintenance, "finalize_maintenance_log_session",
+				) as finalize, mock.patch.object(
+					gf_process_authority, "freeze_process_authority",
+				) as authority, contextlib.redirect_stdout(output), contextlib.redirect_stderr(output):
+					with self.assertRaises(SystemExit) as raised:
+						gf_maintenance.run_main_with_log_hygiene()
+				self.assertEqual(raised.exception.code, expected_code)
+				self.assertIn(expected_message, output.getvalue())
+				snapshot.assert_not_called()
+				finalize.assert_not_called()
+				authority.assert_not_called()
+
+	def test_valid_cli_parses_once_and_preserves_before_and_after_log_snapshots(self) -> None:
+		before = {"existing.log": (1, 2, 3, 4)}
+		after = {**before, "new.log": (5, 6, 7, 8)}
+		parser = gf_maintenance.build_maintenance_cli_parser()
+		with mock.patch.object(
+			sys, "argv", ["gf_maintenance.py", "summary", "--keep-logs", "--json"],
+		), mock.patch.object(
+			gf_maintenance, "configure_stdio",
+		), mock.patch.object(
+			gf_maintenance, "build_maintenance_cli_parser", return_value=parser,
+		) as build_parser, mock.patch.object(
+			parser, "parse_args", wraps=parser.parse_args,
+		) as parse_args, mock.patch.object(
+			gf_maintenance, "maintenance_log_snapshot", side_effect=[(before, []), (after, [])],
+		) as snapshot, mock.patch.object(
+			gf_maintenance, "project_summary", return_value={"ok": True},
+		) as summary, mock.patch.object(
+			gf_maintenance.maintenance_rendering, "print_output",
+		), mock.patch.object(
+			gf_maintenance, "remove_maintenance_log_files",
+		) as remove_logs:
+			self.assertEqual(gf_maintenance.run_main_with_log_hygiene(), 0)
+		build_parser.assert_called_once_with()
+		parse_args.assert_called_once_with(["--keep-logs", "summary", "--json"])
+		self.assertEqual(snapshot.call_count, 2)
+		summary.assert_called_once_with(include_release=False, artifact_manifest="")
+		remove_logs.assert_not_called()
+
 	def test_cli_keep_logs_uses_the_entry_frozen_environment(self) -> None:
 		entry_values = {
 			"PATH": os.environ.get("PATH", ""),
 			gf_maintenance.MAINTENANCE_KEEP_LOGS_ENV_VAR: "on",
 		}
 
-		def run_main() -> int:
+		def run_main(*args: object, **kwargs: object) -> int:
 			active = gf_process_authority.active_process_environment()
 			self.assertIsNotNone(active)
 			self.assertEqual(
@@ -882,10 +979,10 @@ class ValidationCatalogContractTests(unittest.TestCase):
 					self.assertEqual(result.exit_code, expected)
 
 	_AUTHORITY_SNAPSHOT_SHA256 = (
-		"21c110466562cfc447c45f94629e7babe09d44e2eabbbbae807ea3dc94660d88"
+		"eee6c3c9c7d248f6c878b6b66ae5a6b741fb5a0b5ee7fc9c45c39ded7209fb7a"
 	)
 	_EXECUTOR_PROJECTION_SHA256 = (
-		"1f60cd9150c900007ddf2037016310afafb1906b4e0c288ffa7d445c8002df7a"
+		"b1de001b42d82df24f5c695ba672ff59f68bb41c274f0e00fe08f6ae1b6153c7"
 	)
 
 	def test_default_catalog_matches_authority_snapshot_exactly(self) -> None:
@@ -937,7 +1034,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 				len(snapshot["suites"]),
 				len(snapshot["lanes"]),
 			),
-			(49, 2, 6, 13, 11, 4),
+			(54, 2, 6, 13, 11, 4),
 		)
 		self.assertEqual(
 			[name for name in catalog.action_names if name not in commands],
@@ -1179,6 +1276,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			"changelog_policy",
 			"codeql_suppression_policy",
 			"diagnostic_policy",
+			"gdscript_readability",
 			"public_docs_boundary",
 			"public_api_boundary",
 			"resource_boundary",
@@ -1239,7 +1337,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 				is gf_validation_catalog.ValidationExecutorKind.SUBPROCESS
 				for action_name in catalog.action_names
 			),
-			26,
+			30,
 		)
 		self.assertEqual(
 			sum(
@@ -1247,12 +1345,135 @@ class ValidationCatalogContractTests(unittest.TestCase):
 				is gf_validation_catalog.ValidationExecutorKind.IN_PROCESS
 				for action_name in catalog.plan("full").actions
 			),
-			22,
+			23,
 		)
 		self.assertIs(
 			catalog.executor_kind("release_metadata"),
 			gf_validation_catalog.ValidationExecutorKind.SUBPROCESS,
 		)
+
+	def test_readability_gate_and_fixtures_are_required_in_every_delivery_suite(self) -> None:
+		catalog = gf_validation_catalog.build_validation_catalog(self._snapshot_context())
+		fixture_commands = {
+			"gdscript_readability_tests": "tests/gf_core/tools/test_gf_gdscript_readability.py",
+			"gdscript_list_layout_tests": "tests/gf_core/tools/test_gf_gdscript_list_layout.py",
+			"gdscript_expression_layout_tests": "tests/gf_core/tools/test_gf_gdscript_expression_layout.py",
+			"gdscript_layout_integrity_tests": "tests/gf_core/tools/test_gf_gdscript_layout_integrity.py",
+		}
+		required = {"gdscript_readability", *fixture_commands}
+		self.assertTrue(required.issubset(catalog.check_group("light_boundary")))
+		for suite in ("quick", "framework-static", "framework", "full", "release"):
+			with self.subTest(suite=suite):
+				self.assertTrue(required.issubset(catalog.plan(suite).actions))
+		self.assertIs(
+			catalog.executor_kind("gdscript_readability"),
+			gf_validation_catalog.ValidationExecutorKind.IN_PROCESS,
+		)
+		for check_name, script in fixture_commands.items():
+			with self.subTest(check=check_name):
+				self.assertEqual(catalog.command_definitions()[check_name][1:], [script])
+				self.assertIs(catalog.executor_kind(check_name), gf_validation_catalog.ValidationExecutorKind.SUBPROCESS)
+
+	def test_readability_fixture_discovery_runs_each_test_exactly_once(self) -> None:
+		suite = unittest.TestLoader().discover(
+			str(ROOT / "tests/gf_core/tools"), pattern="test_gf_gdscript*.py",
+		)
+		def test_ids(node):
+			if isinstance(node, unittest.TestSuite):
+				for child in node:
+					yield from test_ids(child)
+			else:
+				yield node.id()
+		identifiers = list(test_ids(suite))
+		self.assertTrue(identifiers)
+		self.assertEqual(len(identifiers), len(set(identifiers)))
+		self.assertEqual(
+			{identifier.split(".")[0] for identifier in identifiers},
+			{
+				"test_gf_gdscript_readability", "test_gf_gdscript_list_layout",
+				"test_gf_gdscript_expression_layout", "test_gf_gdscript_layout_integrity",
+			},
+		)
+
+	def test_readability_adapter_preserves_failed_report_and_snapshot_reader(self) -> None:
+		report = {"ok": False, "complete": True, "status": "violations"}
+		snapshot = gf_workspace_snapshot.WorkspaceSnapshot(ROOT)
+		with (
+			mock.patch.object(gf_maintenance, "_ACTIVE_WORKSPACE_SNAPSHOT", snapshot),
+			mock.patch.object(
+				gf_maintenance.gf_gdscript_readability,
+				"audit_repository",
+				return_value=report,
+			) as audit,
+		):
+			adapter = gf_maintenance.maintenance_in_process_adapter_registry()[
+				"gdscript_readability"
+			]
+			self.assertIs(adapter(), report)
+			audit.assert_called_once_with(ROOT, read_text=snapshot.read_utf8_text_strict)
+
+	def test_generated_bootstrap_scripts_use_the_same_readability_rules(self) -> None:
+		from tests.gf_core.tools.project_bootstrap import run_editor_smoke as bootstrap_smoke
+
+		with tempfile.TemporaryDirectory() as temporary:
+			project = Path(temporary)
+			for relative in bootstrap_smoke.GENERATED_SCRIPTS:
+				path = project / relative
+				path.parent.mkdir(parents=True, exist_ok=True)
+				path.write_text("extends Node\n", encoding="utf-8", newline="\n")
+			self.assertTrue(bootstrap_smoke.audit_generated_scripts(project)["ok"])
+			(project / bootstrap_smoke.GENERATED_SCRIPTS[0]).write_text(
+				'extends Node\nvar data = { "a": 1, "b": 2, "c": 3 }\n',
+				encoding="utf-8",
+				newline="\n",
+			)
+			report = bootstrap_smoke.audit_generated_scripts(project)
+			self.assertFalse(report["ok"])
+			self.assertIn("dictionary_layout", {issue["rule"] for issue in report["issues"]})
+
+	def test_missing_generated_bootstrap_script_cannot_pass(self) -> None:
+		from tests.gf_core.tools.project_bootstrap import run_editor_smoke as bootstrap_smoke
+
+		with tempfile.TemporaryDirectory() as temporary:
+			report = bootstrap_smoke.audit_generated_scripts(Path(temporary))
+		self.assertFalse(report["ok"])
+		self.assertEqual(len(report["issues"]), len(bootstrap_smoke.GENERATED_SCRIPTS))
+
+	def test_generated_layout_failure_blocks_bootstrap_import_and_runtime(self) -> None:
+		from tests.gf_core.tools.project_bootstrap import run_editor_smoke as bootstrap_smoke
+
+		phases: list[str] = []
+
+		def successful_phase(name: str, *_args: object) -> dict[str, object]:
+			phases.append(name)
+			return {"phase": name, "ok": True}
+
+		with tempfile.TemporaryDirectory() as temporary:
+			root = Path(temporary)
+			output = io.StringIO()
+			with (
+				mock.patch.object(bootstrap_smoke, "ROOT", root),
+				mock.patch.object(sys, "argv", ["run_editor_smoke.py"]),
+				mock.patch.object(bootstrap_smoke.capture, "inventory", return_value={}),
+				mock.patch.object(bootstrap_smoke.capture, "copy_inventory"),
+				mock.patch.object(bootstrap_smoke.path_security, "read_pinned_regular_file", return_value=b"pass"),
+				mock.patch.object(bootstrap_smoke, "write_runtime_fixtures"),
+				mock.patch.object(bootstrap_smoke, "write_project"),
+				mock.patch.object(bootstrap_smoke, "run_phase", side_effect=successful_phase),
+				mock.patch.object(bootstrap_smoke, "audit_generated_scripts", return_value={"ok": False}),
+				mock.patch.object(gf_maintenance, "capture_maintenance_process_environment", return_value={}),
+				mock.patch.object(gf_maintenance, "make_core_plugin_bootstrap_smoke_environment", return_value={}),
+				mock.patch.object(gf_maintenance, "resolve_godot_executable", return_value="godot-fixture"),
+				mock.patch.object(
+					gf_maintenance,
+					"strict_process_boundary_temporary_directory",
+					return_value=contextlib.nullcontext(root / "private"),
+				),
+				contextlib.redirect_stdout(output),
+			):
+				self.assertEqual(bootstrap_smoke.main(), 1)
+			self.assertEqual(phases, ["import", "editor"])
+			self.assertFalse(json.loads(output.getvalue())["ok"])
 
 	def test_runner_legacy_projections_come_from_catalog(self) -> None:
 		catalog = gf_maintenance._VALIDATION_CATALOG
@@ -1339,13 +1560,13 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			for action in lane.owned_actions
 		]
 
-		self.assertEqual(len(plan.actions), 46)
+		self.assertEqual(len(plan.actions), 51)
 		self.assertEqual(tuple(lane.name for lane in plan.lanes), catalog.parallel_full_shard_suites)
 		self.assertEqual(set(owned_actions), set(catalog.check_group("full")))
 		self.assertEqual(len(owned_actions), len(set(owned_actions)))
 		self.assertEqual(
 			sum(len(lane.execution_actions) for lane in plan.lanes),
-			48,
+			53,
 			"隔离 lane 必须分别执行各自的依赖 occurrence，不能按全局 action 去重。",
 		)
 		self.assertEqual(
@@ -7810,6 +8031,84 @@ class ProcessSupervisorLeaseTests(unittest.TestCase):
 						),
 					)
 				self.assertIs(raised.exception, control_error)
+
+
+class DependencyBoundaryLexicalTests(unittest.TestCase):
+	def test_dependency_audits_distinguish_code_from_comments_and_string_examples(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = Path(temporary_directory)
+			kernel = root / "addons/gf/kernel"
+			standard = root / "addons/gf/standard"
+			extensions = root / "addons/gf/extensions"
+			paths = [kernel / "fixture.gd", standard / "fixture.gd", extensions / "alpha/fixture.gd"]
+			for path in paths:
+				path.parent.mkdir(parents=True, exist_ok=True)
+				path.write_text(
+					'# Downstream Gf.call() gf.beta res://addons/gf/extensions/beta/runtime.gd\n'
+					'const EXAMPLE = "Downstream Gf.call()"\n'
+					'const REFLECTION_EXAMPLE = "object.call(\\\"Downstream\\\")"\n'
+					'const CALLABLE_EXAMPLE = "Callable(object, \\\"Downstream\\\")"\n'
+					'Callable(resolve_object("Downstream", {"items": [1, 2]}), "safe")\n'
+					'Callable(existing_callable)\nconsume("Downstream")\n'
+					"const BLOCK = '''Downstream\nGf.call()\n'''\n"
+					'const ESCAPED = "quote: \\" Downstream Gf.call()"\n',
+					encoding="utf-8",
+				)
+			class_roots = {"Downstream": "addons/gf/extensions/beta/runtime.gd"}
+			with mock.patch.multiple(
+				gf_maintenance, ROOT=root, GF_KERNEL_ROOT=kernel,
+				GF_STANDARD_ROOT=standard, GF_EXTENSIONS_ROOT=extensions,
+			):
+				def audit() -> list[list[dict[str, object]]]:
+					return [
+						gf_maintenance.audit_kernel_dependency_boundary({}, class_roots, ["gf.beta"]),
+						gf_maintenance.audit_standard_dependency_boundary(class_roots, ["gf.beta"]),
+						gf_maintenance.audit_bundled_extension_dependency_boundary(
+							class_roots, {"alpha": "gf.alpha", "beta": "gf.beta"}, ["gf.alpha", "gf.beta"],
+						),
+					]
+
+				self.assertEqual(audit(), [[], [], []])
+				for path in paths:
+					path.write_text("var value: Downstream\n", encoding="utf-8")
+				with paths[-1].open("a", encoding="utf-8") as extension_file:
+					extension_file.write("Gf .call()\n")
+				self.assertEqual(
+					[[issue["kind"] for issue in issues] for issues in audit()],
+					[
+						["kernel_references_downstream_class"],
+						["standard_references_extension_class"],
+						["extension_references_other_extension_class", "extension_uses_global_facade"],
+					],
+				)
+				for reflected_source in (
+					'ClassDB.instantiate("Downstream")\n',
+					'Callable(resolve_object({"items": [1, 2]}, "a,b"), &"Downstream")\n',
+				):
+					for path in paths:
+						path.write_text(reflected_source, encoding="utf-8")
+					self.assertEqual(
+						[[issue["kind"] for issue in issues] for issues in audit()],
+						[
+							["kernel_references_downstream_class"],
+							["standard_references_extension_class"],
+							["extension_references_other_extension_class"],
+						],
+					)
+				for path in paths:
+					path.write_text(
+						'const PATH = "res://addons/gf/extensions/beta/runtime.gd"\n'
+						'const ID = &"gf.beta"\n',
+						encoding="utf-8",
+					)
+				self.assertEqual(
+					[[issue["kind"] for issue in issues] for issues in audit()],
+					[
+						["kernel_references_extension_path", "kernel_references_extension_id"],
+						["standard_references_extension_path", "standard_references_extension_id"],
+						["extension_references_other_extension_path", "extension_references_other_extension_id"],
+					],
+				)
 
 
 class CorePluginBootstrapSmokeTests(unittest.TestCase):
@@ -19628,6 +19927,11 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 						"codeql_suppression_policy_tests",
 						"diagnostic_policy",
 						"diagnostic_policy_tests",
+						"gdscript_readability",
+						"gdscript_readability_tests",
+						"gdscript_list_layout_tests",
+						"gdscript_expression_layout_tests",
+						"gdscript_layout_integrity_tests",
 						"path_hygiene",
 						"maintenance_self_test",
 						"maintenance_execution_tests",
@@ -19779,10 +20083,73 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 				if os.path.lexists(extended_source):
 					os.unlink(extended_source)
 
-	def test_core_plugin_smoke_uses_a_guarded_temporary_root(self) -> None:
-		source = inspect.getsource(gf_maintenance.core_plugin_bootstrap_smoke)
-		self.assertIn("strict_process_boundary_temporary_directory", source)
-		self.assertNotIn("with strict_managed_temporary_directory", source)
+	def test_core_plugin_smoke_retains_process_cleanup_debt_and_cleans_quiet_runs(self) -> None:
+		for quiet in (False, True):
+			with self.subTest(quiet=quiet), tempfile.TemporaryDirectory() as temporary_directory:
+				parent = Path(temporary_directory)
+				owned_roots: list[Path] = []
+				original_mkdtemp = tempfile.mkdtemp
+				boundary_error = gf_maintenance.gf_parallel_validation.WorkspaceProcessBoundaryError(
+					"synthetic unproved bootstrap process boundary",
+				)
+
+				def prepare(project_root: Path, _scenario_name: str) -> None:
+					project_root.mkdir(parents=True)
+					(project_root / "evidence.txt").write_text("retained", encoding="utf-8")
+					owned_roots.append(project_root.parent.parent)
+
+				def command(
+					_project_root: Path, log_path: Path, scenario_name: str, **_kwargs: object,
+				) -> list[str]:
+					return [sys.executable, str(log_path), scenario_name]
+
+				def run(command: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+					if not quiet:
+						raise boundary_error
+					log_path = Path(command[1])
+					scenario_name = command[2]
+					log_text = ""
+					if scenario_name == "partial_standard_manifest_missing_targets":
+						log_text = "[GFPlugin][plugin.invalid_standard_contribution_manifest] state=degraded"
+					elif scenario_name == "partial_standard_manifest_invalid":
+						log_text = "[GFPlugin][plugin.invalid_standard_contribution_manifest] state=invalid"
+					elif scenario_name == "refresh_request_burst":
+						log_text = (
+							"GF_CORE_PLUGIN_REFRESH_RESULT "
+							+ json.dumps(CorePluginBootstrapSmokeTests._refresh_result_payload())
+							+ "\n[GF Framework] 已刷新 GF 编辑器贡献记录（generation=100）。"
+						)
+					elif scenario_name == "resource_preview_translation":
+						log_text = "GF_RESOURCE_PREVIEW_TRANSLATION_EDITOR_SMOKE_OK"
+					log_path.write_text(log_text, encoding="utf-8")
+					return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+				with mock.patch.object(
+					gf_maintenance.tempfile, "mkdtemp",
+					side_effect=lambda **kwargs: original_mkdtemp(**{**kwargs, "dir": parent}),
+				), mock.patch.object(
+					gf_maintenance, "prepare_core_plugin_bootstrap_smoke_project", side_effect=prepare,
+				), mock.patch.object(
+					gf_maintenance, "make_core_plugin_bootstrap_smoke_command", side_effect=command,
+				), mock.patch.object(
+					gf_maintenance, "_run_maintenance_subprocess_with_frozen_environment", side_effect=run,
+				) as process:
+					if quiet:
+						payload = gf_maintenance.core_plugin_bootstrap_smoke()
+						self.assertTrue(payload["ok"], payload["issues"])
+						self.assertEqual(process.call_count, payload["scenario_count"])
+						self.assertTrue(owned_roots)
+						self.assertTrue(all(not root.exists() for root in owned_roots))
+					else:
+						with self.assertRaises(type(boundary_error)) as raised:
+							gf_maintenance.core_plugin_bootstrap_smoke()
+						self.assertIs(raised.exception, boundary_error)
+						self.assertEqual(process.call_count, 1)
+						self.assertEqual(len(owned_roots), 1)
+						self.assertEqual(
+							(owned_roots[0] / "kernel_only/project/evidence.txt").read_text(encoding="utf-8"),
+							"retained",
+						)
 
 	def test_process_boundary_temp_retains_root_until_body_proves_quiescence(self) -> None:
 		with tempfile.TemporaryDirectory() as temporary_directory:
@@ -22526,6 +22893,55 @@ class ChangelogBaselinePolicyTests(unittest.TestCase):
 
 
 class InternalModuleDescriptorInventoryTests(unittest.TestCase):
+	def test_package_boundary_observes_descriptor_and_candidate_path_changes(self) -> None:
+		with tempfile.TemporaryDirectory(prefix="gf_package_live_") as temporary:
+			root = Path(temporary)
+			(root / "packages").mkdir()
+			(root / "addons/gf/kernel").mkdir(parents=True)
+			(root / "addons/gf/standard").mkdir()
+			kernel = {
+				"schema_version": 1, "id": "gf.kernel", "kind": "kernel",
+				"dependencies": [], "paths": ["addons/gf/kernel/**"],
+			}
+			standard = {
+				"schema_version": 1, "id": "gf.standard.fixture", "kind": "standard",
+				"dependencies": ["gf.kernel"], "paths": ["addons/gf/kernel/**"],
+			}
+			(root / "packages/kernel.json").write_text(json.dumps(kernel), encoding="utf-8")
+			standard_path = root / "packages/standard.json"
+			standard_path.write_text(json.dumps(standard), encoding="utf-8")
+			with mock.patch.object(gf_maintenance, "ROOT", root), mock.patch.object(
+				gf_maintenance, "collect_package_manifest_paths",
+				return_value={"paths": ["packages/kernel.json", "packages/standard.json"], "errors": []},
+			):
+				before = gf_maintenance.package_boundary()
+				self.assertTrue(before["ok"], before["issues"])
+				(root / "addons/gf/kernel/fixture.gd").write_text("extends RefCounted\n", encoding="utf-8")
+				overlap = gf_maintenance.package_boundary()
+				self.assertEqual([issue["kind"] for issue in overlap["issues"]], ["package_path_overlap"] * 2)
+				standard["paths"] = ["addons/gf/standard/**"]
+				standard_path.write_text(json.dumps(standard), encoding="utf-8")
+				after = gf_maintenance.package_boundary()
+				self.assertTrue(after["ok"], after["issues"])
+				self.assertEqual(before["issues"], [])
+				self.assertEqual(overlap["issue_count"], 2)
+
+	def test_scan_failures_do_not_share_mutable_gate_issue_lists(self) -> None:
+		scan_errors = [{"kind": "package_manifest_scan_failed", "severity": "error"}]
+		with mock.patch.object(
+			gf_maintenance, "collect_package_manifest_paths",
+			return_value={"paths": [], "errors": scan_errors},
+		), mock.patch.object(gf_maintenance, "load_package_manifest_record") as load:
+			boundary = gf_maintenance.package_boundary()
+			external = gf_maintenance.package_external_command_audit()
+			load.assert_not_called()
+		self.assertFalse(boundary["ok"])
+		self.assertFalse(external["ok"])
+		self.assertNotIn("kind_counts", boundary)
+		boundary["issues"].append({"kind": "caller_annotation"})
+		self.assertEqual(external["issues"], scan_errors)
+		self.assertEqual(len(scan_errors), 1)
+
 	def test_deleted_tracked_descriptors_are_excluded_from_the_worktree_inventory(
 		self,
 	) -> None:
@@ -22566,6 +22982,239 @@ class ProjectLayoutAuditRegressionTest(unittest.TestCase):
 		# exercised by the native tool suite, never by a shadow Python evaluator.
 		self.assertTrue((ROOT / "tests/gf_core/tools/project_layout/test_gf_project_layout_tool_package.gd").is_file())
 		self.assertFalse(hasattr(gf_project_layout_profile, "parse_project_profile_strict_json"))
+
+
+class ParallelNestedLogCollectionTests(unittest.TestCase):
+	def test_windows_directory_authority_requests_data_access_with_no_delete_share(self) -> None:
+		import ctypes
+
+		kernel = mock.Mock()
+		kernel.CreateFileW.return_value = ctypes.c_void_p(-1).value
+		windows_runtime = ModuleType("msvcrt")
+		with mock.patch.dict(sys.modules, {"msvcrt": windows_runtime}), mock.patch.object(
+			ctypes, "WinDLL", return_value=kernel, create=True,
+		), mock.patch.object(gf_path_security, "_NATIVE_OS_NAME", "nt"):
+			for directory, access, flags in (
+				(True, 0x81, 0x02200000),
+				(False, 0x80000080, 0x08200000),
+			):
+				with self.subTest(directory=directory), self.assertRaises(gf_path_security.PinnedReadError):
+					gf_path_security._windows_open_descriptor(ROOT, expect_directory=directory)
+				arguments = kernel.CreateFileW.call_args.args
+				self.assertEqual(arguments[1], access)
+				self.assertEqual(arguments[2], 3 if directory else 1)
+				self.assertEqual(arguments[4], 3)
+				self.assertEqual(arguments[5], flags)
+
+	def test_parallel_log_collector_fdopen_failure_releases_file_and_directory_handles(self) -> None:
+		with self._fixture() as (source, destination, arguments):
+			(source / "evidence.log").write_bytes(b"original evidence")
+			descriptors: list[int] = []
+			original_open_chain = gf_path_security._open_directory_chain
+
+			def track_chain(parent):
+				bindings = original_open_chain(parent)
+				descriptors.extend(binding[1] for binding in bindings)
+				return bindings
+
+			def reject_fdopen(descriptor, *_args, **_kwargs):
+				descriptors.append(descriptor)
+				raise OSError("fixture fdopen failure")
+
+			with mock.patch.object(gf_path_security, "_open_directory_chain", side_effect=track_chain), mock.patch.object(
+				gf_maintenance.os, "fdopen", side_effect=reject_fdopen,
+			):
+				with self.assertRaisesRegex(OSError, "fixture fdopen failure"):
+					gf_maintenance.copy_parallel_log_tree(source, destination, **arguments)
+			self.assertGreater(len(descriptors), 1)
+			for descriptor in descriptors:
+				with self.assertRaises(OSError):
+					os.fstat(descriptor)
+			self.assertEqual((source / "evidence.log").read_bytes(), b"original evidence")
+
+	def test_parallel_log_collector_default_copy_budget_preserves_more_than_retention_limit(self) -> None:
+		with self._fixture() as (source, destination, arguments):
+			for index in range(gf_maintenance.DEFAULT_MAINTENANCE_LOG_MAX_FILES + 1):
+				(source / f"{index:02d}.log").write_bytes(b"evidence")
+			gf_maintenance.copy_parallel_log_tree(source, destination, **arguments)
+			self.assertEqual(len(list(destination.iterdir())), gf_maintenance.DEFAULT_MAINTENANCE_LOG_MAX_FILES + 1)
+			self.assertTrue(all(path.read_bytes() == b"evidence" for path in destination.iterdir()))
+
+	@contextlib.contextmanager
+	def _fixture(self):
+		with tempfile.TemporaryDirectory() as temporary:
+			root = Path(temporary)
+			source = root / "workspace/ai_analysis/godot_logs"
+			destination = root / "retained/framework-integration"
+			source.mkdir(parents=True)
+			destination.mkdir(parents=True)
+			arguments = {
+				"containment_root": root / "workspace",
+				"destination_containment_root": destination.parent,
+				"expected_destination_identity": destination.lstat(),
+				"expected_destination_containment_identity": destination.parent.lstat(),
+			}
+			yield source, destination, arguments
+
+	def test_parallel_log_collector_preserves_nested_reports_and_empty_directories(self) -> None:
+		with self._fixture() as (source, destination, arguments):
+			(source / "editor/native").mkdir(parents=True)
+			(source / "editor/empty").mkdir()
+			payloads = {
+				"top.log": b"top-level failure",
+				"editor/result.json": b'{"ok": false}',
+				"editor/native/stderr.log": b"actual native diagnostic",
+			}
+			for relative, payload in payloads.items():
+				(source / relative).write_bytes(payload)
+			before = {relative: (source / relative).stat() for relative in payloads}
+
+			gf_maintenance.copy_parallel_log_tree(source, destination, **arguments)
+
+			self.assertTrue((destination / "editor/empty").is_dir())
+			for relative, payload in payloads.items():
+				self.assertEqual((destination / relative).read_bytes(), payload)
+				self.assertEqual((source / relative).read_bytes(), payload)
+				self.assertTrue(gf_maintenance.same_file_identity(before[relative], (source / relative).stat()))
+
+	def test_parallel_log_collector_file_and_byte_budgets_cover_all_directories(self) -> None:
+		for limits in ({"max_files": 1}, {"max_total_bytes": 5}):
+			with self.subTest(limits=limits), self._fixture() as (source, destination, arguments):
+				for relative in ("first/a.log", "second/b.log"):
+					path = source / relative
+					path.parent.mkdir()
+					path.write_bytes(b"123")
+				with self.assertRaises(ValueError):
+					gf_maintenance.copy_parallel_log_tree(source, destination, **arguments, **limits)
+				self.assertEqual(list(destination.iterdir()), [])
+
+	def test_parallel_log_collector_empty_directories_consume_entry_and_depth_budgets(self) -> None:
+		for limits in ({"max_entries": 2}, {"max_depth": 2}):
+			with self.subTest(limits=limits), self._fixture() as (source, destination, arguments):
+				(source / "one/two/three").mkdir(parents=True)
+				with self.assertRaises(ValueError):
+					gf_maintenance.copy_parallel_log_tree(source, destination, **arguments, **limits)
+				self.assertEqual(list(destination.iterdir()), [])
+
+	def test_parallel_log_collector_limits_require_positive_integers(self) -> None:
+		with self._fixture() as (source, destination, arguments):
+			for name in ("max_files", "max_entries", "max_depth", "max_total_bytes"):
+				for value in (True, False, 0, -1, 1.5, "4", None):
+					with self.subTest(name=name, value=value), self.assertRaises(ValueError):
+						gf_maintenance.copy_parallel_log_tree(source, destination, **arguments, **{name: value})
+			self.assertEqual(list(destination.iterdir()), [])
+
+	def test_parallel_log_collector_rejects_reparse_entries_before_copying(self) -> None:
+		with self._fixture() as (source, destination, arguments):
+			(source / "nested").mkdir()
+			(source / "nested/evidence.log").write_bytes(b"original")
+			original_stat = os.stat
+			reparse_path = str(gf_maintenance.extended_length_syscall_path(source / "nested"))
+
+			def reparse_stat(path, *args, **kwargs):
+				metadata = original_stat(path, *args, **kwargs)
+				if str(path) == reparse_path:
+					return mock.Mock(st_mode=metadata.st_mode, st_file_attributes=0x0400)
+				return metadata
+
+			with mock.patch.object(gf_maintenance.os, "stat", side_effect=reparse_stat):
+				with self.assertRaisesRegex(ValueError, "reparse"):
+					gf_maintenance.copy_parallel_log_tree(source, destination, **arguments)
+			self.assertEqual(list(destination.iterdir()), [])
+			self.assertEqual((source / "nested/evidence.log").read_bytes(), b"original")
+
+	def test_parallel_log_collector_rejects_entries_without_ordinary_identity(self) -> None:
+		for directory in (True, False):
+			with self.subTest(directory=directory), self._fixture() as (source, destination, arguments):
+				entry = source / "entry"
+				if directory:
+					entry.mkdir()
+				else:
+					entry.write_bytes(b"original")
+				original_stat = os.stat
+				unknown_path = str(gf_maintenance.extended_length_syscall_path(entry))
+
+				def unknown_stat(path, *args, **kwargs):
+					metadata = original_stat(path, *args, **kwargs)
+					if str(path) == unknown_path:
+						return mock.Mock(st_mode=metadata.st_mode, st_file_attributes=0, st_dev=0, st_ino=0)
+					return metadata
+
+				with mock.patch.object(gf_maintenance.os, "stat", side_effect=unknown_stat):
+					with self.assertRaisesRegex(ValueError, "ordinary identity"):
+						gf_maintenance.copy_parallel_log_tree(source, destination, **arguments)
+				self.assertEqual(list(destination.iterdir()), [])
+
+	def test_parallel_log_collector_rejects_link_entries_before_reading_targets(self) -> None:
+		with self._fixture() as (source, destination, arguments):
+			target = source.parent / "outside.log"
+			target.write_bytes(b"outside sentinel")
+			try:
+				os.symlink(target, source / "linked.log")
+			except (OSError, NotImplementedError) as error:
+				self.skipTest(f"Native symlink creation is unavailable: {error}")
+			with self.assertRaisesRegex(ValueError, "links"):
+				gf_maintenance.copy_parallel_log_tree(source, destination, **arguments)
+			self.assertEqual(list(destination.iterdir()), [])
+			self.assertEqual(target.read_bytes(), b"outside sentinel")
+
+	def test_parallel_log_collector_rejects_directory_replacement_after_inventory(self) -> None:
+		with self._fixture() as (source, destination, arguments):
+			(source / "nested").mkdir()
+			(source / "nested/evidence.log").write_bytes(b"original")
+			original_read = gf_maintenance.read_bounded_regular_file_under_root
+
+			def replace_directory(*args, **kwargs):
+				(source / "nested").rename(source / "retired")
+				(source / "nested").mkdir()
+				(source / "nested/evidence.log").write_bytes(b"replacement")
+				return original_read(*args, **kwargs)
+
+			with mock.patch.object(gf_maintenance, "read_bounded_regular_file_under_root", side_effect=replace_directory):
+				with self.assertRaisesRegex(ValueError, "source directory tree changed"):
+					gf_maintenance.copy_parallel_log_tree(source, destination, **arguments)
+			self.assertEqual((source / "retired/evidence.log").read_bytes(), b"original")
+
+	def test_parallel_log_collector_rejects_destination_directory_replacement_before_write(self) -> None:
+		with self._fixture() as (source, destination, arguments):
+			(source / "nested").mkdir()
+			(source / "nested/evidence.log").write_bytes(b"original")
+			original_read = gf_maintenance.read_bounded_regular_file_under_root
+
+			def replace_destination(*args, **kwargs):
+				payload = original_read(*args, **kwargs)
+				(destination / "nested").rename(destination / "retired")
+				(destination / "nested").mkdir()
+				return payload
+
+			with mock.patch.object(gf_maintenance, "read_bounded_regular_file_under_root", side_effect=replace_destination):
+				with self.assertRaisesRegex(ValueError, "destination directory chain changed"):
+					gf_maintenance.copy_parallel_log_tree(source, destination, **arguments)
+			self.assertFalse((destination / "nested/evidence.log").exists())
+			self.assertEqual((source / "nested/evidence.log").read_bytes(), b"original")
+
+	def test_parallel_log_collector_rechecks_source_file_after_copy(self) -> None:
+		with self._fixture() as (source, destination, arguments):
+			path = source / "evidence.log"
+			path.write_bytes(b"original")
+			original_read = gf_maintenance.read_bounded_regular_file_under_root
+
+			def mutate_after_read(*args, **kwargs):
+				payload = original_read(*args, **kwargs)
+				path.write_bytes(b"modified after read")
+				return payload
+
+			with mock.patch.object(gf_maintenance, "read_bounded_regular_file_under_root", side_effect=mutate_after_read):
+				with self.assertRaisesRegex(ValueError, "source file changed"):
+					gf_maintenance.copy_parallel_log_tree(source, destination, **arguments)
+
+	def test_parallel_log_collector_preserves_existing_destination_files(self) -> None:
+		with self._fixture() as (source, destination, arguments):
+			(source / "evidence.log").write_bytes(b"source")
+			(destination / "evidence.log").write_bytes(b"existing sentinel")
+			with self.assertRaises(FileExistsError):
+				gf_maintenance.copy_parallel_log_tree(source, destination, **arguments)
+			self.assertEqual((destination / "evidence.log").read_bytes(), b"existing sentinel")
 
 
 if __name__ == "__main__":

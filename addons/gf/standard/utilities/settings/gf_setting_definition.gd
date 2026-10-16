@@ -194,8 +194,16 @@ func _coerce_vector2(value: Variant) -> Vector2:
 	if value is Dictionary:
 		var data: Dictionary = value
 		return Vector2(
-			GFVariantData.get_option_float(data, "x", 0.0),
-			GFVariantData.get_option_float(data, "y", 0.0)
+			GFVariantData.get_option_float(
+				data,
+				"x",
+				0.0
+			),
+			GFVariantData.get_option_float(
+				data,
+				"y",
+				0.0
+			)
 		)
 	return Vector2.ZERO
 
@@ -210,12 +218,23 @@ func _coerce_vector2i(value: Variant) -> Vector2i:
 		return vector2i
 	if value is Vector2:
 		var vector2: Vector2 = value
-		return Vector2i(roundi(vector2.x), roundi(vector2.y))
+		return Vector2i(
+			roundi(vector2.x),
+			roundi(vector2.y)
+		)
 	if value is Dictionary:
 		var data: Dictionary = value
 		return Vector2i(
-			GFVariantData.get_option_int(data, "x", 0),
-			GFVariantData.get_option_int(data, "y", 0)
+			GFVariantData.get_option_int(
+				data,
+				"x",
+				0
+			),
+			GFVariantData.get_option_int(
+				data,
+				"y",
+				0
+			)
 		)
 	return Vector2i.ZERO
 
@@ -231,10 +250,26 @@ func _coerce_color(value: Variant) -> Color:
 	if value is Dictionary:
 		var data: Dictionary = value
 		return Color(
-			GFVariantData.get_option_float(data, "r", 1.0),
-			GFVariantData.get_option_float(data, "g", 1.0),
-			GFVariantData.get_option_float(data, "b", 1.0),
-			GFVariantData.get_option_float(data, "a", 1.0)
+			GFVariantData.get_option_float(
+				data,
+				"r",
+				1.0
+			),
+			GFVariantData.get_option_float(
+				data,
+				"g",
+				1.0
+			),
+			GFVariantData.get_option_float(
+				data,
+				"b",
+				1.0
+			),
+			GFVariantData.get_option_float(
+				data,
+				"a",
+				1.0
+			)
 		)
 	if typeof(value) == TYPE_STRING:
 		return Color(GFVariantData.to_text(value))

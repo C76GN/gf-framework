@@ -21,8 +21,8 @@
 | 属性 | [`maximum_size`](#member-gfconfigsizevalidationrule-properties-maximum_size) | `var maximum_size: int = 0` |
 | 方法 | [`describe`](#member-gfconfigsizevalidationrule-methods-describe) | `func describe() -> Dictionary:` |
 | 方法 | [`_get_default_rule_id`](#member-gfconfigsizevalidationrule-methods-_get_default_rule_id) | `func _get_default_rule_id() -> StringName:` |
-| 方法 | [`_validate_value`](#member-gfconfigsizevalidationrule-methods-_validate_value) | `func _validate_value(value: Variant, context: Dictionary, report: Dictionary) -> void:` |
-| 方法 | [`_validate_table`](#member-gfconfigsizevalidationrule-methods-_validate_table) | `func _validate_table(rows: Array[Dictionary], context: Dictionary, report: Dictionary) -> void:` |
+| 方法 | [`_validate_value`](#member-gfconfigsizevalidationrule-methods-_validate_value) | `func _validate_value( value: Variant, context: Dictionary, report: Dictionary ) -> void:` |
+| 方法 | [`_validate_table`](#member-gfconfigsizevalidationrule-methods-_validate_table) | `func _validate_table( rows: Array[Dictionary], context: Dictionary, report: Dictionary ) -> void:` |
 
 ## 属性
 
@@ -113,9 +113,10 @@ func _get_default_rule_id() -> StringName:
 ### `_validate_value`
 
 - API：`protected`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func _validate_value(value: Variant, context: Dictionary, report: Dictionary) -> void:
+func _validate_value( value: Variant, context: Dictionary, report: Dictionary ) -> void:
 ```
 
 校验单个字段值长度或数量。
@@ -139,9 +140,10 @@ func _validate_value(value: Variant, context: Dictionary, report: Dictionary) ->
 ### `_validate_table`
 
 - API：`protected`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func _validate_table(rows: Array[Dictionary], context: Dictionary, report: Dictionary) -> void:
+func _validate_table( rows: Array[Dictionary], context: Dictionary, report: Dictionary ) -> void:
 ```
 
 校验整张表的行数。

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFResourceServiceDomain" path="addons/gf/standard/utilities/assets/gf_resource_service_domain.gd" module="standard" extends="GFUtility" classDigest="1b580f64c8ecc89a0a9f3bbd71906e3f76881be2e8cec9a870b4b9266e348bf9">
+<class name="GFResourceServiceDomain" path="addons/gf/standard/utilities/assets/gf_resource_service_domain.gd" module="standard" extends="GFUtility" classDigest="117ce28ba50f9872f8ac34376efac44f1057d2347b920244d57b92465233b414">
 	<description>GFResourceServiceDomain：一个 Broker 及其消费者的稳定资源服务入口。
 模式在 configure 时固定；主线程上请求、切换与 pump 串行执行。
 受控切换暂停时明确拒绝新请求；在途热切换最多保留两代且不会重放已接纳工作。</description>
@@ -126,7 +126,7 @@ scope 取消只结束等待；未收尾实例仍需继续 pump，不能强杀加
 			</tags>
 		</member>
 		<member kind="method" name="request">
-			<signature>func request(path: String, type_hint: String = "", options: Dictionary = {}) -&gt; GFResourceLease:</signature>
+			<signature>func request( path: String, type_hint: String = "", options: Dictionary = {} ) -&gt; GFResourceLease:</signature>
 			<description>立即发起绑定当前代次的请求；旧结果仍通过返回租约读取。
 已完成租约也需 release；只取 Resource 后释放租约表示资源已脱离服务所有权。</description>
 			<tags>

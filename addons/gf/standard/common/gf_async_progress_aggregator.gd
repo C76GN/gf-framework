@@ -28,7 +28,11 @@ extends RefCounted
 ## @param metadata: 当前进度元数据。
 ## [br]
 ## @schema metadata: Dictionary，包含调用方元数据，并补充 total_progress、task_count、total_weight、task_index、task_key、task_progress、task_weight 和 task_metadata 等上下文。
-signal progressed(value: float, message: String, metadata: Dictionary)
+signal progressed(
+	value: float,
+	message: String,
+	metadata: Dictionary
+)
 
 
 # --- 常量 ---
@@ -134,7 +138,11 @@ func _init() -> void:
 ## @schema task_key: Variant，null 表示无名任务；非 null 时必须是 GFVariantKeyCodec 接受的稳定 key。
 ## [br]
 ## @schema task_metadata: Dictionary，调用方定义的任务上下文。
-func add_task(task_key: Variant = null, weight: float = 1.0, task_metadata: Dictionary = {}) -> int:
+func add_task(
+	task_key: Variant = null,
+	weight: float = 1.0,
+	task_metadata: Dictionary = {}
+) -> int:
 	var has_key: bool = _has_task_key(task_key)
 	var key_token: String = ""
 	if has_key:
@@ -142,7 +150,10 @@ func add_task(task_key: Variant = null, weight: float = 1.0, task_metadata: Dict
 		if key_token.is_empty():
 			return -1
 		if _task_indexes_by_key.has(key_token):
-			return GFVariantData.to_int(_task_indexes_by_key[key_token], -1)
+			return GFVariantData.to_int(
+				_task_indexes_by_key[key_token],
+				-1
+			)
 
 	var task_index: int = _tasks.size()
 	var task: Dictionary = {
@@ -158,13 +169,16 @@ func add_task(task_key: Variant = null, weight: float = 1.0, task_metadata: Dict
 	if has_key:
 		_task_indexes_by_key[key_token] = task_index
 
-	var _emitted: bool = _publish_progress("", {
-		"event": &"task_added",
-		"task_index": task_index,
-		"task_key": _GF_REPORT_VALUE_CODEC_SCRIPT.to_json_compatible(task_key),
-		"task_weight": maxf(weight, 0.0),
-		"task_metadata": task_metadata.duplicate(true),
-	})
+	var _emitted: bool = _publish_progress(
+		"",
+		{
+			"event": &"task_added",
+			"task_index": task_index,
+			"task_key": _GF_REPORT_VALUE_CODEC_SCRIPT.to_json_compatible(task_key),
+			"task_weight": maxf(weight, 0.0),
+			"task_metadata": task_metadata.duplicate(true),
+		}
+	)
 	return task_index
 
 
@@ -203,7 +217,10 @@ func get_task_index(task_key: Variant) -> int:
 	if not has_task(task_key):
 		return -1
 	var key_token: String = _make_task_key_token(task_key)
-	return GFVariantData.to_int(_task_indexes_by_key[key_token], -1)
+	return GFVariantData.to_int(
+		_task_indexes_by_key[key_token],
+		-1
+	)
 
 
 ## 设置指定任务的 0 到 1 进度。
@@ -223,13 +240,22 @@ func get_task_index(task_key: Variant) -> int:
 ## @return 本次更新是否发出了 progressed。
 ## [br]
 ## @schema task_metadata: Dictionary，调用方定义的任务上下文。
-func set_task_progress(task_index: int, value: float, message: String = "", task_metadata: Dictionary = {}) -> bool:
+func set_task_progress(
+	task_index: int,
+	value: float,
+	message: String = "",
+	task_metadata: Dictionary = {}
+) -> bool:
 	if not _is_valid_task_index(task_index):
 		return false
 
 	var task: Dictionary = _tasks[task_index]
 	var previous_value: float = _get_task_progress(task)
-	var next_value: float = clampf(value, 0.0, 1.0)
+	var next_value: float = clampf(
+		value,
+		0.0,
+		1.0
+	)
 	if (
 		not allow_decrease
 		and next_value < previous_value
@@ -238,13 +264,22 @@ func set_task_progress(task_index: int, value: float, message: String = "", task
 		return false
 
 	var value_changed: bool = not is_equal_approx(next_value, previous_value)
-	if not value_changed and message == "" and task_metadata.is_empty():
+	if (
+		not value_changed
+		and message == ""
+		and task_metadata.is_empty()
+	):
 		return false
 
 	task["progress"] = next_value
 	if not task_metadata.is_empty():
 		var metadata: Dictionary = GFVariantData.get_option_dictionary(task, "metadata")
-		var _merge_result: Dictionary = GFVariantData.merge_dictionary(metadata, task_metadata, true, true)
+		var _merge_result: Dictionary = GFVariantData.merge_dictionary(
+			metadata,
+			task_metadata,
+			true,
+			true
+		)
 		task["metadata"] = metadata
 	_tasks[task_index] = task
 
@@ -270,8 +305,18 @@ func set_task_progress(task_index: int, value: float, message: String = "", task
 ## @schema task_key: Variant，调用方定义的任务 key。
 ## [br]
 ## @schema task_metadata: Dictionary，调用方定义的任务上下文。
-func set_task_progress_by_key(task_key: Variant, value: float, message: String = "", task_metadata: Dictionary = {}) -> bool:
-	return set_task_progress(get_task_index(task_key), value, message, task_metadata)
+func set_task_progress_by_key(
+	task_key: Variant,
+	value: float,
+	message: String = "",
+	task_metadata: Dictionary = {}
+) -> bool:
+	return set_task_progress(
+		get_task_index(task_key),
+		value,
+		message,
+		task_metadata
+	)
 
 
 ## 以完成数 / 总数设置指定任务进度。
@@ -303,7 +348,12 @@ func set_task_fraction(
 	task_metadata: Dictionary = {}
 ) -> bool:
 	var value: float = completed / total if total > 0.0 else 1.0
-	return set_task_progress(task_index, value, message, task_metadata)
+	return set_task_progress(
+		task_index,
+		value,
+		message,
+		task_metadata
+	)
 
 
 ## 通过任务 key 以完成数 / 总数设置进度。
@@ -334,7 +384,13 @@ func set_task_fraction_by_key(
 	message: String = "",
 	task_metadata: Dictionary = {}
 ) -> bool:
-	return set_task_fraction(get_task_index(task_key), completed, total, message, task_metadata)
+	return set_task_fraction(
+		get_task_index(task_key),
+		completed,
+		total,
+		message,
+		task_metadata
+	)
 
 
 ## 将指定任务标记为完成。
@@ -352,8 +408,17 @@ func set_task_fraction_by_key(
 ## @return 本次更新是否发出了 progressed。
 ## [br]
 ## @schema task_metadata: Dictionary，调用方定义的任务上下文。
-func complete_task(task_index: int, message: String = "", task_metadata: Dictionary = {}) -> bool:
-	return set_task_progress(task_index, 1.0, message, task_metadata)
+func complete_task(
+	task_index: int,
+	message: String = "",
+	task_metadata: Dictionary = {}
+) -> bool:
+	return set_task_progress(
+		task_index,
+		1.0,
+		message,
+		task_metadata
+	)
 
 
 ## 通过任务 key 标记任务完成。
@@ -373,8 +438,16 @@ func complete_task(task_index: int, message: String = "", task_metadata: Diction
 ## @schema task_key: Variant，调用方定义的任务 key。
 ## [br]
 ## @schema task_metadata: Dictionary，调用方定义的任务上下文。
-func complete_task_by_key(task_key: Variant, message: String = "", task_metadata: Dictionary = {}) -> bool:
-	return complete_task(get_task_index(task_key), message, task_metadata)
+func complete_task_by_key(
+	task_key: Variant,
+	message: String = "",
+	task_metadata: Dictionary = {}
+) -> bool:
+	return complete_task(
+		get_task_index(task_key),
+		message,
+		task_metadata
+	)
 
 
 ## 将所有任务标记为完成，并强制发布总进度 1.0。
@@ -415,7 +488,11 @@ func reset(clear_tasks: bool = false) -> void:
 			var task: Dictionary = _tasks[task_index]
 			task["progress"] = 0.0
 			_tasks[task_index] = task
-	_progress.reset(get_total_progress(), "", _make_progress_metadata({}))
+	_progress.reset(
+		get_total_progress(),
+		"",
+		_make_progress_metadata({})
+	)
 
 
 ## 获取当前加权总进度。
@@ -438,7 +515,11 @@ func get_total_progress() -> float:
 		if task_weight <= 0.0:
 			continue
 		weighted_progress += _get_task_progress(task) * task_weight
-	return clampf(weighted_progress / total_weight, 0.0, 1.0)
+	return clampf(
+		weighted_progress / total_weight,
+		0.0,
+		1.0
+	)
 
 
 ## 获取子任务数量。
@@ -460,7 +541,10 @@ func get_task_count() -> int:
 ## [br]
 ## @return 总进度为 1.0 时返回 true。
 func is_complete() -> bool:
-	return is_equal_approx(get_total_progress(), 1.0)
+	return is_equal_approx(
+		get_total_progress(),
+		1.0
+	)
 
 
 ## 获取指定任务快照。
@@ -479,7 +563,11 @@ func get_task_snapshot(task_index: int) -> Dictionary:
 		return {}
 	var task: Dictionary = _tasks[task_index]
 	return {
-		"index": GFVariantData.get_option_int(task, "index", task_index),
+		"index": GFVariantData.get_option_int(
+			task,
+			"index",
+			task_index
+		),
 		"has_key": GFVariantData.get_option_bool(task, "has_key"),
 		"key": _GF_REPORT_VALUE_CODEC_SCRIPT.to_json_compatible(GFVariantData.get_option_value(task, "key")),
 		"weight": _get_task_weight(task),
@@ -519,14 +607,17 @@ func get_debug_snapshot() -> Dictionary:
 ## @api private
 func _publish_task_progress(task_index: int, message: String) -> bool:
 	var task: Dictionary = _tasks[task_index]
-	return _publish_progress(message, {
-		"event": &"task_progressed",
-		"task_index": task_index,
-		"task_key": _GF_REPORT_VALUE_CODEC_SCRIPT.to_json_compatible(GFVariantData.get_option_value(task, "key")),
-		"task_progress": _get_task_progress(task),
-		"task_weight": _get_task_weight(task),
-		"task_metadata": GFVariantData.get_option_dictionary(task, "metadata"),
-	})
+	return _publish_progress(
+		message,
+		{
+			"event": &"task_progressed",
+			"task_index": task_index,
+			"task_key": _GF_REPORT_VALUE_CODEC_SCRIPT.to_json_compatible(GFVariantData.get_option_value(task, "key")),
+			"task_progress": _get_task_progress(task),
+			"task_weight": _get_task_weight(task),
+			"task_metadata": GFVariantData.get_option_dictionary(task, "metadata"),
+		}
+	)
 
 
 ## 合并聚合状态元数据后，将加权总进度传给底层进度句柄。
@@ -534,7 +625,11 @@ func _publish_task_progress(task_index: int, message: String) -> bool:
 ## @api private
 func _publish_progress(message: String, metadata: Dictionary) -> bool:
 	var progress_metadata: Dictionary = _make_progress_metadata(metadata)
-	return _progress.update(get_total_progress(), message, progress_metadata)
+	return _progress.update(
+		get_total_progress(),
+		message,
+		progress_metadata
+	)
 
 
 ## 复制输入元数据并写入 total_progress、task_count 和 total_weight。
@@ -562,14 +657,21 @@ func _get_total_weight() -> float:
 ## [br]
 ## @api private
 func _get_task_weight(task: Dictionary) -> float:
-	return maxf(GFVariantData.get_option_float(task, "weight"), 0.0)
+	return maxf(
+		GFVariantData.get_option_float(task, "weight"),
+		0.0
+	)
 
 
 ## 返回任务字典中夹在 0 到 1 范围内的 progress 值。
 ## [br]
 ## @api private
 func _get_task_progress(task: Dictionary) -> float:
-	return clampf(GFVariantData.get_option_float(task, "progress"), 0.0, 1.0)
+	return clampf(
+		GFVariantData.get_option_float(task, "progress"),
+		0.0,
+		1.0
+	)
 
 
 ## 判断任务索引是否位于当前 _tasks 数组范围内。
@@ -598,5 +700,13 @@ func _make_task_key_token(task_key: Variant) -> String:
 ## 转发聚合器内部 progress 源的通知；复制 metadata 容器，避免监听器直接改写源报告。
 ## [br]
 ## @api private
-func _on_progressed(value: float, message: String, metadata: Dictionary) -> void:
-	progressed.emit(value, message, metadata.duplicate(true))
+func _on_progressed(
+	value: float,
+	message: String,
+	metadata: Dictionary
+) -> void:
+	progressed.emit(
+		value,
+		message,
+		metadata.duplicate(true)
+	)

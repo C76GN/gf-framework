@@ -32,10 +32,7 @@ extends RefCounted
 ## [br]
 ## @schema return: Dictionary { ok: bool, state?: Dictionary, error?: String }.
 func _capture_state(_tick: int, _context: Dictionary) -> Dictionary:
-	return {
-		"ok": false,
-		"error": "capture_state_not_implemented",
-	}
+	return { "ok": false, "error": "capture_state_not_implemented", }
 
 
 ## 校验来自权威端的完整同步状态。
@@ -60,11 +57,12 @@ func _capture_state(_tick: int, _context: Dictionary) -> Dictionary:
 ## @return 校验报告。
 ## [br]
 ## @schema return: Dictionary { ok: bool, error?: String }.
-func _validate_state(_state: Dictionary, _tick: int, _context: Dictionary) -> Dictionary:
-	return {
-		"ok": false,
-		"error": "validate_state_not_implemented",
-	}
+func _validate_state(
+	_state: Dictionary,
+	_tick: int,
+	_context: Dictionary
+) -> Dictionary:
+	return { "ok": false, "error": "validate_state_not_implemented", }
 
 
 ## 恢复指定 tick 的完整同步状态。
@@ -86,11 +84,12 @@ func _validate_state(_state: Dictionary, _tick: int, _context: Dictionary) -> Di
 ## @return 恢复报告。
 ## [br]
 ## @schema return: Dictionary { ok: bool, error?: String }.
-func _restore_state(_state: Dictionary, _tick: int, _context: Dictionary) -> Dictionary:
-	return {
-		"ok": false,
-		"error": "restore_state_not_implemented",
-	}
+func _restore_state(
+	_state: Dictionary,
+	_tick: int,
+	_context: Dictionary
+) -> Dictionary:
+	return { "ok": false, "error": "restore_state_not_implemented", }
 
 
 ## 校验并授权一帧输入。
@@ -120,10 +119,7 @@ func _validate_input(
 	_actual_peer_id: int,
 	_context: Dictionary
 ) -> Dictionary:
-	return {
-		"ok": false,
-		"error": "validate_input_not_implemented",
-	}
+	return { "ok": false, "error": "validate_input_not_implemented", }
 
 
 ## 执行一个完整模拟 tick。
@@ -153,10 +149,7 @@ func _simulate_tick(
 	_inputs: Array[GFNetworkInputFrame],
 	_context: Dictionary
 ) -> Dictionary:
-	return {
-		"ok": false,
-		"error": "simulate_tick_not_implemented",
-	}
+	return { "ok": false, "error": "simulate_tick_not_implemented", }
 
 
 ## 比较预测状态与权威状态是否等价。

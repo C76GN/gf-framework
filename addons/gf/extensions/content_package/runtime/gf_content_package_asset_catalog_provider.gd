@@ -82,7 +82,11 @@ func build_catalog(options: Dictionary = {}) -> GFAssetCatalog:
 	var result: GFAssetCatalog = GFAssetCatalog.new()
 	for manifest: GFContentPackageManifest in query_result.get_manifests():
 		for resource_record: Dictionary in manifest.get_normalized_resources():
-			var entry: GFAssetCatalogEntry = _make_asset_entry(manifest, resource_record, options)
+			var entry: GFAssetCatalogEntry = _make_asset_entry(
+				manifest,
+				resource_record,
+				options
+			)
 			if entry == null:
 				return null
 			if result.has_entry(entry.asset_id):
@@ -131,32 +135,85 @@ func _make_asset_entry(
 	asset_metadata["_gf_content_package_asset"] = true
 	var preview_path: String = _get_first_text(
 		resource_metadata,
-		_get_field_names(options, "preview_path_fields", ["preview_path", "thumbnail_path", "icon_path"])
+		_get_field_names(
+			options,
+			"preview_path_fields",
+			[
+				"preview_path",
+				"thumbnail_path",
+				"icon_path",
+			]
+		)
 	)
 	preview_path = _normalize_package_optional_path(preview_path, manifest.root_path)
 	var entry_options: Dictionary = {
-		"title": _get_first_text(resource_metadata, _get_field_names(options, "title_fields", ["title", "display_name", "name"])),
-		"description": _get_first_text(resource_metadata, _get_field_names(options, "description_fields", ["description", "summary", "notes"])),
-		"tags": _get_tags(resource_metadata, _get_field_names(options, "tag_fields", ["tags", "keywords"])),
-		"category": _get_first_text(resource_metadata, _get_field_names(options, "category_fields", ["category", "group"])),
+		"title": _get_first_text(
+			resource_metadata,
+			_get_field_names(
+				options,
+				"title_fields",
+				[
+					"title",
+					"display_name",
+					"name",
+				]
+			)
+		),
+		"description": _get_first_text(
+			resource_metadata,
+			_get_field_names(
+				options,
+				"description_fields",
+				[
+					"description",
+					"summary",
+					"notes",
+				]
+			)
+		),
+		"tags": _get_tags(
+			resource_metadata,
+			_get_field_names(
+				options,
+				"tag_fields",
+				["tags", "keywords"]
+			)
+		),
+		"category": _get_first_text(
+			resource_metadata,
+			_get_field_names(
+				options,
+				"category_fields",
+				["category", "group"]
+			)
+		),
 		"type_hint": GFVariantData.get_option_string(resource_record, "type_hint"),
 		"preview_path": preview_path,
 		"resource_entry_ids": PackedStringArray([String(resource_key)]),
 		"source_id": get_source_id(),
 		"metadata": asset_metadata,
 	}
-	var asset_id: StringName = StringName("%s/%s" % [String(manifest.package_id), String(resource_key)])
-	return GFAssetCatalogEntry.new().configure(
-		asset_id,
-		GFVariantData.get_option_string(resource_record, "path"),
-		entry_options
+	var asset_id: StringName = StringName(
+		"%s/%s"
+		% [String(manifest.package_id), String(resource_key)]
+	)
+	return (
+		GFAssetCatalogEntry.new().configure(
+			asset_id,
+			GFVariantData.get_option_string(resource_record, "path"),
+			entry_options
+		)
 	)
 
 
 ## 返回调用方配置的字段名列表；未配置时使用该字段的默认候选名。
 ## [br]
 ## @api private
-static func _get_field_names(options: Dictionary, key: String, defaults: Array[String]) -> PackedStringArray:
+static func _get_field_names(
+	options: Dictionary,
+	key: String,
+	defaults: Array[String]
+) -> PackedStringArray:
 	var result: PackedStringArray = GFVariantData.get_option_packed_string_array(options, key)
 	if not result.is_empty():
 		return result
@@ -196,7 +253,10 @@ static func _get_tags(metadata: Dictionary, field_names: PackedStringArray) -> P
 			var tag_values: Array = field_value
 			for tag_value: Variant in tag_values:
 				if tag_value is String or tag_value is StringName:
-					_append_tag(result, _text_from_variant(tag_value))
+					_append_tag(
+						result,
+						_text_from_variant(tag_value)
+					)
 	result.sort()
 	return result
 

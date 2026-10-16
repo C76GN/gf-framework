@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAudioLibraryTools" path="addons/gf/standard/utilities/audio/gf_audio_library_tools.gd" module="standard" extends="RefCounted" classDigest="53bd69ff11d1002abe79f23f58c4ed0255c5d1200d6ffaa106e0c7fa1eedb7ff">
+<class name="GFAudioLibraryTools" path="addons/gf/standard/utilities/audio/gf_audio_library_tools.gd" module="standard" extends="RefCounted" classDigest="e0d253511b67520a5b4a602044c13558a1a165e4345dd71e62053c7c3b620919">
 	<description>GFAudioLibraryTools: 音频素材库扫描、搜索和导入计划工具。
 面向编辑器 Workspace、Inspector 和构建脚本复用；它只处理音频候选
 文件、目标路径规划和文件复制，不接管运行时播放、事件命名或混音策略。</description>
@@ -12,7 +12,12 @@
 	<enums />
 	<constants>
 		<member kind="const" name="DEFAULT_SEARCH_FIELDS">
-			<signature>const DEFAULT_SEARCH_FIELDS: PackedStringArray = ["clip_id", "relative_path", "file_name", "source_path"]</signature>
+			<signature>const DEFAULT_SEARCH_FIELDS: PackedStringArray = [
+	"clip_id",
+	"relative_path",
+	"file_name",
+	"source_path",
+]</signature>
 			<description>默认搜索字段。</description>
 			<tags>
 				<tag name="api">public</tag>

@@ -154,11 +154,7 @@ static func predict_motion_2d(
 		acceleration_velocity_delta,
 		0.5 * time_seconds
 	)
-	var predicted_position: Vector2 = (
-		initial_position
-		+ velocity_displacement
-		+ acceleration_displacement
-	)
+	var predicted_position: Vector2 = initial_position + velocity_displacement + acceleration_displacement
 	var predicted_velocity: Vector2 = initial_velocity + acceleration_velocity_delta
 	if not _is_finite_vector2(predicted_position) or not _is_finite_vector2(predicted_velocity):
 		return _make_motion_report_2d(
@@ -218,11 +214,7 @@ static func predict_motion_3d(
 		acceleration_velocity_delta,
 		0.5 * time_seconds
 	)
-	var predicted_position: Vector3 = (
-		initial_position
-		+ velocity_displacement
-		+ acceleration_displacement
-	)
+	var predicted_position: Vector3 = initial_position + velocity_displacement + acceleration_displacement
 	var predicted_velocity: Vector3 = initial_velocity + acceleration_velocity_delta
 	if not _is_finite_vector3(predicted_position) or not _is_finite_vector3(predicted_velocity):
 		return _make_motion_report_3d(
@@ -731,7 +723,12 @@ static func _solve_intercept_time(
 	epsilon: float
 ) -> Dictionary:
 	if relative_distance_squared <= epsilon * epsilon:
-		return _make_time_report(true, REASON_NONE, "", 0.0)
+		return _make_time_report(
+			true,
+			REASON_NONE,
+			"",
+			0.0
+		)
 
 	var projectile_speed_squared: float = projectile_speed * projectile_speed
 	var coefficient_a: float = 0.0
@@ -755,13 +752,17 @@ static func _solve_intercept_time(
 	# 非零二次项即使很小，也可能表示有效的远期拦截，不能用调用方容差降阶。
 	if coefficient_a == 0.0:
 		if coefficient_b == 0.0:
-			return _make_time_report(false, REASON_NO_SOLUTION, "No non-negative intercept solution exists.")
-		_append_nonnegative_root(roots, -coefficient_c / coefficient_b)
-	else:
-		var discriminant: float = (
-			coefficient_b * coefficient_b
-			- 4.0 * coefficient_a * coefficient_c
+			return _make_time_report(
+				false,
+				REASON_NO_SOLUTION,
+				"No non-negative intercept solution exists."
+			)
+		_append_nonnegative_root(
+			roots,
+			-coefficient_c / coefficient_b
 		)
+	else:
+		var discriminant: float = coefficient_b * coefficient_b - 4.0 * coefficient_a * coefficient_c
 		if not _is_finite_float(discriminant):
 			return _make_time_report(
 				false,
@@ -773,13 +774,13 @@ static func _solve_intercept_time(
 			absf(4.0 * coefficient_a * coefficient_c)
 		)
 		# 只吸收 real_t 和后续运算的机器舍入；调用方 epsilon 不能改变实根拓扑。
-		var discriminant_roundoff_limit: float = (
-			_get_real_component_machine_epsilon()
-			* _DISCRIMINANT_ROUNDOFF_FACTOR
-			* discriminant_scale
-		)
+		var discriminant_roundoff_limit: float = (_get_real_component_machine_epsilon() * _DISCRIMINANT_ROUNDOFF_FACTOR * discriminant_scale)
 		if discriminant < -discriminant_roundoff_limit:
-			return _make_time_report(false, REASON_NO_SOLUTION, "No real intercept solution exists.")
+			return _make_time_report(
+				false,
+				REASON_NO_SOLUTION,
+				"No real intercept solution exists."
+			)
 
 		var sqrt_discriminant: float = sqrt(maxf(discriminant, 0.0))
 		var sqrt_discriminant_scale: float = sqrt(discriminant_scale)
@@ -791,7 +792,10 @@ static func _solve_intercept_time(
 		else:
 			var b_sign: float = 1.0 if coefficient_b >= 0.0 else -1.0
 			var stable_term: float = -0.5 * (coefficient_b + b_sign * sqrt_discriminant)
-			var stable_term_scale: float = maxf(absf(coefficient_b), sqrt_discriminant)
+			var stable_term_scale: float = maxf(
+				absf(coefficient_b),
+				sqrt_discriminant
+			)
 			if absf(stable_term) <= epsilon * stable_term_scale:
 				_append_nonnegative_root(
 					roots,
@@ -802,11 +806,21 @@ static func _solve_intercept_time(
 					(-coefficient_b + sqrt_discriminant) / (2.0 * coefficient_a)
 				)
 			else:
-				_append_nonnegative_root(roots, stable_term / coefficient_a)
-				_append_nonnegative_root(roots, coefficient_c / stable_term)
+				_append_nonnegative_root(
+					roots,
+					stable_term / coefficient_a
+				)
+				_append_nonnegative_root(
+					roots,
+					coefficient_c / stable_term
+				)
 
 	if roots.is_empty():
-		return _make_time_report(false, REASON_NO_SOLUTION, "No non-negative intercept solution exists.")
+		return _make_time_report(
+			false,
+			REASON_NO_SOLUTION,
+			"No non-negative intercept solution exists."
+		)
 	roots.sort()
 	var intercept_time: float = roots[0]
 	if max_time_seconds >= 0.0 and intercept_time > max_time_seconds + epsilon:
@@ -815,7 +829,12 @@ static func _solve_intercept_time(
 			REASON_BEYOND_HORIZON,
 			"The earliest intercept solution exceeds max_time_seconds."
 		)
-	return _make_time_report(true, REASON_NONE, "", intercept_time)
+	return _make_time_report(
+		true,
+		REASON_NONE,
+		"",
+		intercept_time
+	)
 
 
 ## 通过 Vector2 分量精度探测返回引擎 real_t 对应的 float32 或 float64 精度。
@@ -823,7 +842,10 @@ static func _solve_intercept_time(
 ## @api private
 ## [br]
 static func _get_real_component_machine_epsilon() -> float:
-	var precision_probe: float = Vector2(1.0 + _FLOAT32_HALF_ULP_AT_ONE, 0.0).x
+	var precision_probe: float = Vector2(
+		1.0 + _FLOAT32_HALF_ULP_AT_ONE,
+		0.0
+	).x
 	if precision_probe == 1.0:
 		return _FLOAT32_MACHINE_EPSILON
 	return _FLOAT64_MACHINE_EPSILON
@@ -833,10 +855,7 @@ static func _get_real_component_machine_epsilon() -> float:
 ## [br]
 ## @api private
 ## [br]
-static func _append_nonnegative_root(
-	roots: PackedFloat64Array,
-	root: float
-) -> void:
+static func _append_nonnegative_root(roots: PackedFloat64Array, root: float) -> void:
 	if not _is_finite_float(root) or root < 0.0:
 		return
 	var normalized_root: float = maxf(root, 0.0)
@@ -1144,7 +1163,10 @@ static func _finite_or_zero(value: float) -> float:
 ## @api private
 ## [br]
 static func _scale_vector2(value: Vector2, scalar: float) -> Vector2:
-	return Vector2(value.x * scalar, value.y * scalar)
+	return Vector2(
+		value.x * scalar,
+		value.y * scalar
+	)
 
 
 ## 将三维向量的三个分量乘以标量。
@@ -1152,7 +1174,11 @@ static func _scale_vector2(value: Vector2, scalar: float) -> Vector2:
 ## @api private
 ## [br]
 static func _scale_vector3(value: Vector3, scalar: float) -> Vector3:
-	return Vector3(value.x * scalar, value.y * scalar, value.z * scalar)
+	return Vector3(
+		value.x * scalar,
+		value.y * scalar,
+		value.z * scalar
+	)
 
 
 ## 判断数值有限且大于或等于零。

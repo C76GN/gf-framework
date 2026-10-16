@@ -14,6 +14,7 @@ extends RefCounted
 
 # --- 常量 ---
 
+
 # --- 公共方法 ---
 
 ## 解析 JSON 表文本。
@@ -73,28 +74,88 @@ static func parse_json_table(text: String, options: Dictionary = {}) -> Dictiona
 ## @schema return: Dictionary，包含 success、data、header、header_location、row_locations、error、error_line、error_column 和 source；header_location 记录真实表头行及字段原始列，空表时可为空。
 static func parse_rows_table(rows: Array[PackedStringArray], options: Dictionary = {}) -> Dictionary:
 	var source: String = GFVariantData.get_option_string(options, "source")
-	var trim_cells: bool = GFVariantData.get_option_bool(options, "trim_cells", true)
-	var skip_empty_lines: bool = GFVariantData.get_option_bool(options, "skip_empty_lines", true)
-	var reject_duplicate_headers: bool = GFVariantData.get_option_bool(options, "reject_duplicate_headers", true)
-	var reject_empty_header: bool = GFVariantData.get_option_bool(options, "reject_empty_header", false)
-	var require_header: bool = GFVariantData.get_option_bool(options, "require_header", false)
-	var error_prefix: String = GFVariantData.get_option_string(options, "error_prefix", "Table rows")
-	var row_numbers: PackedInt32Array = _get_tabular_row_numbers(rows.size(), options)
+	var trim_cells: bool = GFVariantData.get_option_bool(
+		options,
+		"trim_cells",
+		true
+	)
+	var skip_empty_lines: bool = GFVariantData.get_option_bool(
+		options,
+		"skip_empty_lines",
+		true
+	)
+	var reject_duplicate_headers: bool = GFVariantData.get_option_bool(
+		options,
+		"reject_duplicate_headers",
+		true
+	)
+	var reject_empty_header: bool = GFVariantData.get_option_bool(
+		options,
+		"reject_empty_header",
+		false
+	)
+	var require_header: bool = GFVariantData.get_option_bool(
+		options,
+		"require_header",
+		false
+	)
+	var error_prefix: String = GFVariantData.get_option_string(
+		options,
+		"error_prefix",
+		"Table rows"
+	)
+	var row_numbers: PackedInt32Array = _get_tabular_row_numbers(
+		rows.size(),
+		options
+	)
 	var default_header_row_number: int = _get_tabular_row_number(row_numbers, 0)
-	var header_row_number: int = maxi(GFVariantData.get_option_int(options, "header_row", default_header_row_number), 1)
+	var header_row_number: int = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"header_row",
+			default_header_row_number
+		),
+		1
+	)
 
 	if rows.is_empty():
 		if require_header:
-			return _make_tabular_parse_failure("%s header row is missing." % error_prefix, source, header_row_number, 1)
+			return _make_tabular_parse_failure(
+				"%s header row is missing." % error_prefix,
+				source,
+				header_row_number,
+				1
+			)
 		var empty_records: Array[Dictionary] = []
 		var empty_locations: Array[Dictionary] = []
-		return _make_tabular_parse_success(empty_records, PackedStringArray(), empty_locations, source)
+		return _make_tabular_parse_success(
+			empty_records,
+			PackedStringArray(),
+			empty_locations,
+			source
+		)
 
 	var base_comment_prefixes: PackedStringArray = _get_string_prefixes(options, "comment_prefixes")
-	var comment_row_prefixes: PackedStringArray = _get_string_prefixes(options, "comment_row_prefixes", base_comment_prefixes)
-	var comment_column_prefixes: PackedStringArray = _get_string_prefixes(options, "comment_column_prefixes", base_comment_prefixes)
-	var comment_prefix_case_sensitive: bool = GFVariantData.get_option_bool(options, "comment_prefix_case_sensitive", false)
-	var condition_prefix: String = GFVariantData.get_option_string(options, "condition_directive_prefix", "#")
+	var comment_row_prefixes: PackedStringArray = _get_string_prefixes(
+		options,
+		"comment_row_prefixes",
+		base_comment_prefixes
+	)
+	var comment_column_prefixes: PackedStringArray = _get_string_prefixes(
+		options,
+		"comment_column_prefixes",
+		base_comment_prefixes
+	)
+	var comment_prefix_case_sensitive: bool = GFVariantData.get_option_bool(
+		options,
+		"comment_prefix_case_sensitive",
+		false
+	)
+	var condition_prefix: String = GFVariantData.get_option_string(
+		options,
+		"condition_directive_prefix",
+		"#"
+	)
 	if condition_prefix.is_empty():
 		condition_prefix = "#"
 	var condition_symbols: PackedStringArray = _get_string_prefixes(options, "condition_symbols")
@@ -114,15 +175,32 @@ static func parse_rows_table(rows: Array[PackedStringArray], options: Dictionary
 
 	for row_array_index: int in range(rows.size()):
 		var row_number: int = _get_tabular_row_number(row_numbers, row_array_index)
-		var row: PackedStringArray = _prepare_tabular_row(rows[row_array_index], trim_cells)
+		var row: PackedStringArray = _prepare_tabular_row(
+			rows[row_array_index],
+			trim_cells
+		)
 		if row_number == header_row_number:
 			header_found = true
 			source_header_width = row.size()
-			selected_column_indices = _select_tabular_column_indices(row, comment_column_prefixes, comment_prefix_case_sensitive)
+			selected_column_indices = _select_tabular_column_indices(
+				row,
+				comment_column_prefixes,
+				comment_prefix_case_sensitive
+			)
 			header = _filter_tabular_row(row, selected_column_indices)
-			var header_error: String = _validate_tabular_header(header, reject_duplicate_headers, reject_empty_header, error_prefix)
+			var header_error: String = _validate_tabular_header(
+				header,
+				reject_duplicate_headers,
+				reject_empty_header,
+				error_prefix
+			)
 			if not header_error.is_empty():
-				return _make_tabular_parse_failure(header_error, source, row_number, 1)
+				return _make_tabular_parse_failure(
+					header_error,
+					source,
+					row_number,
+					1
+				)
 			continue
 		if row_number <= header_row_number:
 			continue
@@ -133,26 +211,38 @@ static func parse_rows_table(rows: Array[PackedStringArray], options: Dictionary
 			var directive_kind: StringName = GFVariantData.get_option_string_name(directive, "kind")
 			if directive_kind == &"invalid":
 				return _make_tabular_parse_failure(
-					"%s parse failed: %s" % [
+					"%s parse failed: %s"
+					% [
 						error_prefix,
-						GFVariantData.get_option_string(directive, "error", "invalid_condition_directive"),
+						GFVariantData.get_option_string(
+							directive,
+							"error",
+							"invalid_condition_directive"
+						),
 					],
 					source,
 					row_number,
 					1
 				)
 			if directive_kind == &"if":
-				condition_stack.append({
-					"active": _condition_symbols_match(
-						GFVariantData.get_option_packed_string_array(directive, "symbols"),
-						condition_symbols
-					),
-					"line": row_number,
-				})
+				condition_stack.append(
+					{
+						"active": _condition_symbols_match(
+							GFVariantData.get_option_packed_string_array(directive, "symbols"),
+							condition_symbols
+						),
+						"line": row_number,
+					}
+				)
 				continue
 			if directive_kind == &"endif":
 				if condition_stack.is_empty():
-					return _make_tabular_parse_failure("%s parse failed: unexpected_condition_end" % error_prefix, source, row_number, 1)
+					return _make_tabular_parse_failure(
+						"%s parse failed: unexpected_condition_end" % error_prefix,
+						source,
+						row_number,
+						1
+					)
 				condition_stack.pop_back()
 				continue
 
@@ -160,10 +250,19 @@ static func parse_rows_table(rows: Array[PackedStringArray], options: Dictionary
 			continue
 		if skip_empty_lines and _tabular_row_is_empty(row):
 			continue
-		if _text_has_prefix(first_cell, comment_row_prefixes, comment_prefix_case_sensitive):
+		if _text_has_prefix(
+			first_cell,
+			comment_row_prefixes,
+			comment_prefix_case_sensitive
+		):
 			continue
 		if row.size() > source_header_width:
-			return _make_tabular_parse_failure("%s parse failed: row_has_extra_cells" % error_prefix, source, row_number, source_header_width + 1)
+			return _make_tabular_parse_failure(
+				"%s parse failed: row_has_extra_cells" % error_prefix,
+				source,
+				row_number,
+				source_header_width + 1
+			)
 
 		var record: Dictionary = {}
 		for column_index: int in range(header.size()):
@@ -173,22 +272,48 @@ static func parse_rows_table(rows: Array[PackedStringArray], options: Dictionary
 			var source_column_index: int = selected_column_indices[column_index]
 			record[key] = row[source_column_index] if source_column_index < row.size() else ""
 		records.append(record)
-		row_locations.append(_make_tabular_row_location(source, row_number, records.size() - 1, header, selected_column_indices))
+		row_locations.append(
+			_make_tabular_row_location(
+				source,
+				row_number,
+				records.size() - 1,
+				header,
+				selected_column_indices
+			)
+		)
 
 	if not header_found and require_header:
-		return _make_tabular_parse_failure("%s header row is missing." % error_prefix, source, header_row_number, 1)
+		return _make_tabular_parse_failure(
+			"%s header row is missing." % error_prefix,
+			source,
+			header_row_number,
+			1
+		)
 	if not condition_stack.is_empty():
 		var condition_info: Dictionary = condition_stack[condition_stack.size() - 1]
 		return _make_tabular_parse_failure(
 			"%s parse failed: missing_condition_end" % error_prefix,
 			source,
-			GFVariantData.get_option_int(condition_info, "line", rows.size()),
+			GFVariantData.get_option_int(
+				condition_info,
+				"line",
+				rows.size()
+			),
 			1
 		)
 
 	return _make_tabular_parse_success(
-		records, header, row_locations, source,
-		_make_tabular_row_location(source, header_row_number, -1, header, selected_column_indices)
+		records,
+		header,
+		row_locations,
+		source,
+		_make_tabular_row_location(
+			source,
+			header_row_number,
+			-1,
+			header,
+			selected_column_indices
+		)
 	)
 
 
@@ -208,12 +333,24 @@ static func parse_rows_table(rows: Array[PackedStringArray], options: Dictionary
 ## [br]
 ## @schema return: Dictionary，包含 success、data、header、header_location、row_locations、error、error_line、error_column 和 source；header_location 记录真实表头行及字段原始列，空表时可为空。
 static func parse_csv_table(text: String, options: Dictionary = {}) -> Dictionary:
-	var delimiter: String = GFVariantData.get_option_string(options, "delimiter", ",")
+	var delimiter: String = GFVariantData.get_option_string(
+		options,
+		"delimiter",
+		","
+	)
 	if delimiter.is_empty():
 		delimiter = ","
-	var trim_cells: bool = GFVariantData.get_option_bool(options, "trim_cells", true)
+	var trim_cells: bool = GFVariantData.get_option_bool(
+		options,
+		"trim_cells",
+		true
+	)
 	var source: String = GFVariantData.get_option_string(options, "source")
-	var parse_result: Dictionary = _parse_csv_rows(_normalize_csv_text(text), delimiter.substr(0, 1), trim_cells)
+	var parse_result: Dictionary = _parse_csv_rows(
+		_normalize_csv_text(text),
+		delimiter.substr(0, 1),
+		trim_cells
+	)
 	if not GFVariantData.get_option_bool(parse_result, "success"):
 		return {
 			"success": false,
@@ -265,8 +402,16 @@ static func parse_config_file_table(text: String, options: Dictionary = {}) -> D
 			"source": source,
 		}
 
-	var section_field: StringName = GFVariantData.get_option_string_name(options, "section_field", &"entry_name")
-	var include_empty_sections: bool = GFVariantData.get_option_bool(options, "include_empty_sections", true)
+	var section_field: StringName = GFVariantData.get_option_string_name(
+		options,
+		"section_field",
+		&"entry_name"
+	)
+	var include_empty_sections: bool = GFVariantData.get_option_bool(
+		options,
+		"include_empty_sections",
+		true
+	)
 	var sections: PackedStringArray = config_file.get_sections()
 	sections.sort()
 	var records: Array[Dictionary] = []
@@ -308,6 +453,8 @@ static func parse_config_file_table(text: String, options: Dictionary = {}) -> D
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param text: JSON 文本。
 ## [br]
 ## @param schema: 表结构声明。
@@ -319,17 +466,30 @@ static func parse_config_file_table(text: String, options: Dictionary = {}) -> D
 ## @return 校验报告；解析失败时返回失败报告。
 ## [br]
 ## @schema return: GFConfigValidationReport 兼容 Dictionary。
-static func validate_json_table(text: String, schema: GFConfigTableSchema, options: Dictionary = {}) -> Dictionary:
+static func validate_json_table(
+	text: String,
+	schema: GFConfigTableSchema,
+	options: Dictionary = {}
+) -> Dictionary:
 	if schema == null:
-		return _make_error_report(&"", "missing_schema", "schema 为空。")
+		return _make_error_report(
+			&"",
+			"missing_schema",
+			"schema 为空。"
+		)
 
 	var parsed: Dictionary = parse_json_table(text, options)
 	if not GFVariantData.get_option_bool(parsed, "success"):
-		return _make_error_report(schema.get_table_key(), "parse_failed", _get_parse_error(parsed), {
-			"source": _get_parse_source(parsed),
-			"line": _get_parse_error_line(parsed),
-		})
-	return schema.validate_table(_get_parse_data(parsed), _make_validation_options(options, parsed))
+		return _make_error_report(
+			schema.get_table_key(),
+			"parse_failed",
+			_get_parse_error(parsed),
+			{ "source": _get_parse_source(parsed), "line": _get_parse_error_line(parsed), }
+		)
+	return schema.validate_table(
+		_get_parse_data(parsed),
+		_make_validation_options(options, parsed)
+	)
 
 
 ## 解析并校验 JSON 单记录文本。
@@ -360,30 +520,45 @@ static func validate_json_record(
 	options: Dictionary = {}
 ) -> Dictionary:
 	if schema == null:
-		return _make_error_report(&"", "missing_schema", "schema 为空。")
+		return _make_error_report(
+			&"",
+			"missing_schema",
+			"schema 为空。"
+		)
 
 	var parsed: Dictionary = parse_json_table(text, options)
 	if not GFVariantData.get_option_bool(parsed, "success"):
-		return _make_error_report(schema.get_table_key(), "parse_failed", _get_parse_error(parsed), {
-			"source": _get_parse_source(parsed),
-			"line": _get_parse_error_line(parsed),
-		})
+		return _make_error_report(
+			schema.get_table_key(),
+			"parse_failed",
+			_get_parse_error(parsed),
+			{ "source": _get_parse_source(parsed), "line": _get_parse_error_line(parsed), }
+		)
 
 	var data: Variant = _get_parse_data(parsed)
 	if not (data is Dictionary):
-		return _make_error_report(schema.get_table_key(), "invalid_json_record", "JSON 记录根节点必须是 Dictionary。", {
-			"source": _get_parse_source(parsed),
-			"value": GFVariantData.duplicate_variant(data),
-			"actual_value": type_string(typeof(data)),
-			"expected_value": "Dictionary",
-			"supported_formats": ["JSON object"],
-		})
+		return _make_error_report(
+			schema.get_table_key(),
+			"invalid_json_record",
+			"JSON 记录根节点必须是 Dictionary。",
+			{
+				"source": _get_parse_source(parsed),
+				"value": GFVariantData.duplicate_variant(data),
+				"actual_value": type_string(typeof(data)),
+				"expected_value": "Dictionary",
+				"supported_formats": ["JSON object"],
+			}
+		)
 
 	var record: Dictionary = GFVariantData.as_dictionary(data)
 	var resolved_row_key: Variant = row_key
 	if resolved_row_key == null and schema.id_field != &"":
 		resolved_row_key = GFVariantData.get_option_value(record, schema.id_field)
-	return schema.validate_record(record, resolved_row_key, _make_validation_options(options, parsed))
+	return schema.validate_record(
+		record,
+		resolved_row_key,
+		_make_validation_options(options, parsed)
+	)
 
 
 ## 解析并校验 CSV 表文本。
@@ -403,18 +578,34 @@ static func validate_json_record(
 ## @return 校验报告；解析失败时返回失败报告。
 ## [br]
 ## @schema return: GFConfigValidationReport 兼容 Dictionary。
-static func validate_csv_table(text: String, schema: GFConfigTableSchema, options: Dictionary = {}) -> Dictionary:
+static func validate_csv_table(
+	text: String,
+	schema: GFConfigTableSchema,
+	options: Dictionary = {}
+) -> Dictionary:
 	if schema == null:
-		return _make_error_report(&"", "missing_schema", "schema 为空。")
+		return _make_error_report(
+			&"",
+			"missing_schema",
+			"schema 为空。"
+		)
 
 	var parsed: Dictionary = parse_csv_table(text, options)
 	if not GFVariantData.get_option_bool(parsed, "success"):
-		return _make_error_report(schema.get_table_key(), "parse_failed", _get_parse_error(parsed), {
-			"source": _get_parse_source(parsed),
-			"line": _get_parse_error_line(parsed),
-			"column": _get_parse_error_column(parsed),
-		})
-	return schema.validate_table(_get_parse_data(parsed), _make_validation_options(options, parsed))
+		return _make_error_report(
+			schema.get_table_key(),
+			"parse_failed",
+			_get_parse_error(parsed),
+			{
+				"source": _get_parse_source(parsed),
+				"line": _get_parse_error_line(parsed),
+				"column": _get_parse_error_column(parsed),
+			}
+		)
+	return schema.validate_table(
+		_get_parse_data(parsed),
+		_make_validation_options(options, parsed)
+	)
 
 
 ## 解析并校验 Godot ConfigFile 表文本。
@@ -434,18 +625,34 @@ static func validate_csv_table(text: String, schema: GFConfigTableSchema, option
 ## @return 校验报告；解析失败时返回失败报告。
 ## [br]
 ## @schema return: GFConfigValidationReport 兼容 Dictionary。
-static func validate_config_file_table(text: String, schema: GFConfigTableSchema, options: Dictionary = {}) -> Dictionary:
+static func validate_config_file_table(
+	text: String,
+	schema: GFConfigTableSchema,
+	options: Dictionary = {}
+) -> Dictionary:
 	if schema == null:
-		return _make_error_report(&"", "missing_schema", "schema 为空。")
+		return _make_error_report(
+			&"",
+			"missing_schema",
+			"schema 为空。"
+		)
 
 	var parsed: Dictionary = parse_config_file_table(text, options)
 	if not GFVariantData.get_option_bool(parsed, "success"):
-		return _make_error_report(schema.get_table_key(), "parse_failed", _get_parse_error(parsed), {
-			"source": _get_parse_source(parsed),
-			"line": _get_parse_error_line(parsed),
-			"column": _get_parse_error_column(parsed),
-		})
-	return schema.validate_table(_get_parse_data(parsed), _make_validation_options(options, parsed))
+		return _make_error_report(
+			schema.get_table_key(),
+			"parse_failed",
+			_get_parse_error(parsed),
+			{
+				"source": _get_parse_source(parsed),
+				"line": _get_parse_error_line(parsed),
+				"column": _get_parse_error_column(parsed),
+			}
+		)
+	return schema.validate_table(
+		_get_parse_data(parsed),
+		_make_validation_options(options, parsed)
+	)
 
 
 ## 导出 CSV 表文本。
@@ -477,26 +684,54 @@ static func export_csv_table(
 			"text": "",
 			"error": "table_data must be Array[Dictionary] or Dictionary.",
 		}
-	var rows: Array[Dictionary] = _copy_dictionary_rows(GFVariantData.get_option_value(normalized_rows, "rows", []))
+	var rows: Array[Dictionary] = _copy_dictionary_rows(
+		GFVariantData.get_option_value(
+			normalized_rows,
+			"rows",
+			[]
+		)
+	)
 
-	var delimiter: String = GFVariantData.get_option_string(options, "delimiter", ",")
+	var delimiter: String = GFVariantData.get_option_string(
+		options,
+		"delimiter",
+		","
+	)
 	if delimiter.is_empty():
 		delimiter = ","
 	delimiter = delimiter.substr(0, 1)
-	var columns: PackedStringArray = _resolve_export_columns(rows, schema, options)
+	var columns: PackedStringArray = _resolve_export_columns(
+		rows,
+		schema,
+		options
+	)
 	var lines: PackedStringArray = PackedStringArray()
-	if GFVariantData.get_option_bool(options, "include_header", true):
+	if GFVariantData.get_option_bool(
+		options,
+		"include_header",
+		true
+	):
 		var _header_appended: bool = lines.append(_join_csv_row(columns, delimiter))
 
-	var coerce_values: bool = GFVariantData.get_option_bool(options, "coerce_values", schema != null and schema.coerce_values)
+	var coerce_values: bool = GFVariantData.get_option_bool(
+		options,
+		"coerce_values",
+		schema != null and schema.coerce_values
+	)
 	for row: Dictionary in rows:
 		var record: Dictionary = schema.coerce_record(row) if coerce_values and schema != null else row
 		var cells: PackedStringArray = PackedStringArray()
 		for column_name: String in columns:
-			var _cell_appended: bool = cells.append(_format_csv_cell(
-				GFVariantData.get_option_value(record, StringName(column_name), ""),
-				delimiter
-			))
+			var _cell_appended: bool = cells.append(
+				_format_csv_cell(
+					GFVariantData.get_option_value(
+						record,
+						StringName(column_name),
+						""
+					),
+					delimiter
+				)
+			)
 		var _line_appended: bool = lines.append(delimiter.join(cells))
 
 	return {
@@ -560,7 +795,11 @@ static func _get_parse_row_locations(parsed: Dictionary) -> Variant:
 ## [br]
 ## @api private
 ## [br]
-static func _parse_csv_rows(text: String, delimiter: String, trim_cells: bool) -> Dictionary:
+static func _parse_csv_rows(
+	text: String,
+	delimiter: String,
+	trim_cells: bool
+) -> Dictionary:
 	var rows: Array[PackedStringArray] = []
 	var row_numbers: PackedInt32Array = PackedInt32Array()
 	var row: PackedStringArray = PackedStringArray()
@@ -578,7 +817,10 @@ static func _parse_csv_rows(text: String, delimiter: String, trim_cells: bool) -
 		var ch: String = text.substr(index, 1)
 		if in_quotes:
 			if ch == "\"":
-				if index + 1 < text.length() and text.substr(index + 1, 1) == "\"":
+				if index + 1 < text.length() and text.substr(
+					index + 1,
+					1
+				) == "\"":
 					cell += "\""
 					index += 1
 				else:
@@ -605,7 +847,16 @@ static func _parse_csv_rows(text: String, delimiter: String, trim_cells: bool) -
 					line += 1
 					column = 0
 					row_start_line = line
-				elif ch == "\r" or (trim_cells and (ch == " " or ch == "\t")):
+				elif (
+					ch == "\r"
+					or (
+						trim_cells
+						and (
+							ch == " "
+							or ch == "\t"
+						)
+					)
+				):
 					pass
 				else:
 					return {
@@ -617,7 +868,13 @@ static func _parse_csv_rows(text: String, delimiter: String, trim_cells: bool) -
 						"error_column": column,
 					}
 			elif ch == "\"":
-				if not cell.is_empty() and (not trim_cells or not cell.strip_edges().is_empty()):
+				if (
+					not cell.is_empty()
+					and (
+						not trim_cells
+						or not cell.strip_edges().is_empty()
+					)
+				):
 					return {
 						"success": false,
 						"rows": rows,
@@ -695,7 +952,11 @@ static func _normalize_config_file_text(text: String) -> String:
 ## [br]
 static func _get_parse_rows(parse_result: Dictionary) -> Array[PackedStringArray]:
 	var result: Array[PackedStringArray] = []
-	var rows_value: Variant = GFVariantData.get_option_value(parse_result, "rows", [])
+	var rows_value: Variant = GFVariantData.get_option_value(
+		parse_result,
+		"rows",
+		[]
+	)
 	if not rows_value is Array:
 		return result
 	for row_value: Variant in rows_value:
@@ -710,10 +971,7 @@ static func _get_parse_rows(parse_result: Dictionary) -> Array[PackedStringArray
 ## @api private
 ## [br]
 static func _get_parse_row_numbers(parse_result: Dictionary) -> PackedInt32Array:
-	var row_numbers_value: Variant = GFVariantData.get_option_value(
-		parse_result,
-		"row_numbers"
-	)
+	var row_numbers_value: Variant = GFVariantData.get_option_value(parse_result, "row_numbers")
 	if row_numbers_value is PackedInt32Array:
 		var row_numbers: PackedInt32Array = row_numbers_value
 		return row_numbers
@@ -738,7 +996,12 @@ static func _get_tabular_row_numbers(row_count: int, options: Dictionary) -> Pac
 
 	var result: PackedInt32Array = PackedInt32Array()
 	for row_value: Variant in rows:
-		var _row_number_appended: bool = result.append(GFVariantData.to_int(row_value, result.size() + 1))
+		var _row_number_appended: bool = result.append(
+			GFVariantData.to_int(
+				row_value,
+				result.size() + 1
+			)
+		)
 	return result
 
 
@@ -761,7 +1024,11 @@ static func _get_string_prefixes(
 	key: String,
 	default_value: PackedStringArray = PackedStringArray()
 ) -> PackedStringArray:
-	return GFVariantData.get_option_packed_string_array(options, key, default_value)
+	return GFVariantData.get_option_packed_string_array(
+		options,
+		key,
+		default_value
+	)
 
 
 ## 按 trim_cells 选项规范化表格行中的单元格。
@@ -789,7 +1056,11 @@ static func _select_tabular_column_indices(
 ) -> PackedInt32Array:
 	var result: PackedInt32Array = PackedInt32Array()
 	for column_index: int in range(header.size()):
-		if _text_has_prefix(header[column_index], comment_column_prefixes, case_sensitive):
+		if _text_has_prefix(
+			header[column_index],
+			comment_column_prefixes,
+			case_sensitive
+		):
 			continue
 		var _column_appended: bool = result.append(column_index)
 	return result
@@ -823,7 +1094,10 @@ static func _validate_tabular_header(
 			continue
 		has_named_column = true
 		if reject_duplicate_headers and seen.has(column_name):
-			return "%s header has duplicate column: %s" % [error_prefix, column_name]
+			return (
+				"%s header has duplicate column: %s"
+				% [error_prefix, column_name]
+			)
 		seen[column_name] = true
 	if reject_empty_header and not has_named_column:
 		return "%s header row is empty." % error_prefix
@@ -889,10 +1163,7 @@ static func _parse_condition_directive(first_cell: String, directive_prefix: Str
 	if payload == "endif":
 		return { "kind": &"endif" }
 	if payload == "if":
-		return {
-			"kind": &"invalid",
-			"error": "empty_condition_symbols",
-		}
+		return { "kind": &"invalid", "error": "empty_condition_symbols", }
 	if not payload.begins_with("if ") and not payload.begins_with("if\t"):
 		return { "kind": &"none" }
 
@@ -904,14 +1175,8 @@ static func _parse_condition_directive(first_cell: String, directive_prefix: Str
 			continue
 		var _symbol_appended: bool = symbols.append(symbol)
 	if symbols.is_empty():
-		return {
-			"kind": &"invalid",
-			"error": "empty_condition_symbols",
-		}
-	return {
-		"kind": &"if",
-		"symbols": symbols,
-	}
+		return { "kind": &"invalid", "error": "empty_condition_symbols", }
+	return { "kind": &"if", "symbols": symbols, }
 
 
 ## 检查所需条件符号是否全部处于启用集合中。
@@ -951,7 +1216,11 @@ static func _tabular_row_is_empty(row: PackedStringArray) -> bool:
 ## [br]
 ## @api private
 ## [br]
-static func _text_has_prefix(text: String, prefixes: PackedStringArray, case_sensitive: bool) -> bool:
+static func _text_has_prefix(
+	text: String,
+	prefixes: PackedStringArray,
+	case_sensitive: bool
+) -> bool:
 	if prefixes.is_empty():
 		return false
 
@@ -1041,12 +1310,20 @@ static func _make_config_file_row_location(
 ) -> Dictionary:
 	var fields: Dictionary = {}
 	if section_field != &"":
-		var section_location: Dictionary = _make_config_file_field_location(source, row_index, section)
+		var section_location: Dictionary = _make_config_file_field_location(
+			source,
+			row_index,
+			section
+		)
 		fields[section_field] = section_location
 		fields[String(section_field)] = section_location
 	for key: String in keys:
 		var field_name: StringName = StringName(key)
-		var field_location: Dictionary = _make_config_file_field_location(source, row_index, section)
+		var field_location: Dictionary = _make_config_file_field_location(
+			source,
+			row_index,
+			section
+		)
 		fields[field_name] = field_location
 		fields[key] = field_location
 
@@ -1064,11 +1341,12 @@ static func _make_config_file_row_location(
 ## [br]
 ## @api private
 ## [br]
-static func _make_config_file_field_location(source: String, row_index: int, section: String) -> Dictionary:
-	var location: Dictionary = {
-		"row_index": row_index,
-		"section": section,
-	}
+static func _make_config_file_field_location(
+	source: String,
+	row_index: int,
+	section: String
+) -> Dictionary:
+	var location: Dictionary = { "row_index": row_index, "section": section, }
 	if not source.is_empty():
 		location["source"] = source
 	return location
@@ -1084,7 +1362,12 @@ static func _make_error_report(
 	message: String,
 	context: Dictionary = {}
 ) -> Dictionary:
-	return GFConfigValidationReport.new().make_error_report(table_name, kind, message, context)
+	return GFConfigValidationReport.new().make_error_report(
+		table_name,
+		kind,
+		message,
+		context
+	)
 
 
 ## 复制验证选项并补充解析结果中的来源信息。
@@ -1109,15 +1392,9 @@ static func _normalize_table_rows(table_data: Variant) -> Dictionary:
 	if table_data is Array:
 		for row_variant: Variant in table_data:
 			if not (row_variant is Dictionary):
-				return {
-					"success": false,
-					"rows": rows,
-				}
+				return { "success": false, "rows": rows, }
 			rows.append(GFVariantData.to_dictionary(row_variant))
-		return {
-			"success": true,
-			"rows": rows,
-		}
+		return { "success": true, "rows": rows, }
 	if table_data is Dictionary:
 		var table: Dictionary = GFVariantData.to_dictionary(table_data)
 		var keys: Array = table.keys()
@@ -1125,19 +1402,10 @@ static func _normalize_table_rows(table_data: Variant) -> Dictionary:
 		for key: Variant in keys:
 			var row_variant: Variant = table[key]
 			if not (row_variant is Dictionary):
-				return {
-					"success": false,
-					"rows": rows,
-				}
+				return { "success": false, "rows": rows, }
 			rows.append(GFVariantData.to_dictionary(row_variant))
-		return {
-			"success": true,
-			"rows": rows,
-		}
-	return {
-		"success": false,
-		"rows": rows,
-	}
+		return { "success": true, "rows": rows, }
+	return { "success": false, "rows": rows, }
 
 
 ## 根据行、schema 与选项解析导出列集合。
@@ -1187,6 +1455,11 @@ static func _join_csv_row(cells: PackedStringArray, delimiter: String) -> String
 ## [br]
 static func _format_csv_cell(value: Variant, delimiter: String) -> String:
 	var text: String = str(value)
-	var needs_quotes: bool = text.contains(delimiter) or text.contains("\n") or text.contains("\r") or text.contains("\"")
+	var needs_quotes: bool = (
+		text.contains(delimiter)
+		or text.contains("\n")
+		or text.contains("\r")
+		or text.contains("\"")
+	)
 	text = text.replace("\"", "\"\"")
 	return "\"%s\"" % text if needs_quotes else text

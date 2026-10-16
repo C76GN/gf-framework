@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSupportReportUtility" path="addons/gf/standard/utilities/debug/gf_support_report_utility.gd" module="standard" extends="GFUtility" classDigest="1bc600e1ea3d40f35f7b024a9d92c3a578d81dc91907f7b313f512712a8b6363">
+<class name="GFSupportReportUtility" path="addons/gf/standard/utilities/debug/gf_support_report_utility.gd" module="standard" extends="GFUtility" classDigest="bce6086c55a27704a8c134803e67abb475645c0181ed12d946bb41c4ae0484cc">
 	<description>GFSupportReportUtility: 通用支持报告构建工具。
 聚合用户描述、项目元数据、诊断快照、日志和可扩展分区，并提供 JSON / Markdown 导出与回调提交入口。
 它不绑定任何工单系统、上传服务或反馈 UI。</description>
@@ -156,7 +156,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="register_section">
-			<signature>func register_section(section_id: StringName, provider: Callable, options: Dictionary = {}) -&gt; bool:</signature>
+			<signature>func register_section( section_id: StringName, provider: Callable, options: Dictionary = {} ) -&gt; bool:</signature>
 			<description>注册自定义报告分区。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -296,7 +296,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="build_and_save_report">
-			<signature>func build_and_save_report(path: String, description: String = "", options: Dictionary = {}) -&gt; Error:</signature>
+			<signature>func build_and_save_report( path: String, description: String = "", options: Dictionary = {} ) -&gt; Error:</signature>
 			<description>构建并保存支持报告。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -305,10 +305,11 @@
 				<tag name="param">options: 构建选项。</tag>
 				<tag name="return">Godot 错误码。</tag>
 				<tag name="schema">options: Dictionary，build_report() 支持的构建选项。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="submit_report">
-			<signature>func submit_report(report: Dictionary, transport: Callable, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>func submit_report( report: Dictionary, transport: Callable, options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>通过外部回调提交报告。</description>
 			<tags>
 				<tag name="api">public</tag>

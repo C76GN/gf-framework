@@ -198,15 +198,9 @@ func get_look_at_target_node() -> Node3D:
 ## @return 期望全局 Transform。
 func get_camera_transform() -> Transform3D:
 	var target: Node3D = get_target_node()
-	var camera_transform: Transform3D = _GF_CAMERA_FINITE_MATH.sanitize_transform3d(
-		global_transform,
-		Transform3D.IDENTITY
-	)
+	var camera_transform: Transform3D = _GF_CAMERA_FINITE_MATH.sanitize_transform3d(global_transform, Transform3D.IDENTITY)
 	if target != null:
-		var target_transform: Transform3D = _GF_CAMERA_FINITE_MATH.sanitize_transform3d(
-			target.global_transform,
-			camera_transform
-		)
+		var target_transform: Transform3D = _GF_CAMERA_FINITE_MATH.sanitize_transform3d(target.global_transform, camera_transform)
 		camera_transform.origin = target_transform.origin
 		if use_target_rotation:
 			camera_transform.basis = target_transform.basis
@@ -219,11 +213,7 @@ func get_camera_transform() -> Transform3D:
 	)
 	if look_at_enabled:
 		var look_at_target: Node3D = get_look_at_target_node()
-		var look_at_position: Vector3 = (
-			_sanitize_vector3(look_at_target.global_position, camera_transform.origin)
-			if look_at_target != null
-			else camera_transform.origin
-		)
+		var look_at_position: Vector3 = (_sanitize_vector3(look_at_target.global_position, camera_transform.origin) if look_at_target != null else camera_transform.origin)
 		if look_at_target != null and not camera_transform.origin.is_equal_approx(look_at_position):
 			var look_direction: Vector3 = look_at_position - camera_transform.origin
 			camera_transform = camera_transform.looking_at(
@@ -258,8 +248,14 @@ func is_available() -> bool:
 	return (
 		active
 		and is_inside_tree()
-		and (target_path.is_empty() or get_target_node() != null)
-		and (not look_at_enabled or get_look_at_target_node() != null)
+		and (
+			target_path.is_empty()
+			or get_target_node() != null
+		)
+		and (
+			not look_at_enabled
+			or get_look_at_target_node() != null
+		)
 	)
 
 
@@ -340,9 +336,18 @@ func _get_node_3d_value(value: Variant) -> Node3D:
 func _apply_rotation_offset(camera_transform: Transform3D) -> Transform3D:
 	var safe_rotation_offset: Vector3 = _sanitize_vector3(rotation_degrees_offset, Vector3.ZERO)
 	if safe_rotation_offset != Vector3.ZERO:
-		camera_transform.basis = camera_transform.basis.rotated(camera_transform.basis.x.normalized(), deg_to_rad(safe_rotation_offset.x))
-		camera_transform.basis = camera_transform.basis.rotated(camera_transform.basis.y.normalized(), deg_to_rad(safe_rotation_offset.y))
-		camera_transform.basis = camera_transform.basis.rotated(camera_transform.basis.z.normalized(), deg_to_rad(safe_rotation_offset.z))
+		camera_transform.basis = camera_transform.basis.rotated(
+			camera_transform.basis.x.normalized(),
+			deg_to_rad(safe_rotation_offset.x)
+		)
+		camera_transform.basis = camera_transform.basis.rotated(
+			camera_transform.basis.y.normalized(),
+			deg_to_rad(safe_rotation_offset.y)
+		)
+		camera_transform.basis = camera_transform.basis.rotated(
+			camera_transform.basis.z.normalized(),
+			deg_to_rad(safe_rotation_offset.z)
+		)
 	camera_transform.basis = camera_transform.basis.orthonormalized()
 	return camera_transform
 

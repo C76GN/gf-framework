@@ -28,7 +28,7 @@
 | 属性 | [`auto_flush`](#member-gfquietwindowcoalescer-properties-auto_flush) | `var auto_flush: bool = true:` |
 | 属性 | [`merge_callback`](#member-gfquietwindowcoalescer-properties-merge_callback) | `var merge_callback: Callable = Callable()` |
 | 方法 | [`submit`](#member-gfquietwindowcoalescer-methods-submit) | `func submit(key: StringName, message: Variant) -> int:` |
-| 方法 | [`submit_at`](#member-gfquietwindowcoalescer-methods-submit_at) | `func submit_at(key: StringName, message: Variant, now_msec: int) -> int:` |
+| 方法 | [`submit_at`](#member-gfquietwindowcoalescer-methods-submit_at) | `func submit_at( key: StringName, message: Variant, now_msec: int ) -> int:` |
 | 方法 | [`flush_ready`](#member-gfquietwindowcoalescer-methods-flush_ready) | `func flush_ready(now_msec: int = -1) -> Array[Dictionary]:` |
 | 方法 | [`flush`](#member-gfquietwindowcoalescer-methods-flush) | `func flush(key: StringName, reason: StringName = REASON_MANUAL) -> Dictionary:` |
 | 方法 | [`flush_all`](#member-gfquietwindowcoalescer-methods-flush_all) | `func flush_all(reason: StringName = REASON_MANUAL) -> Array[Dictionary]:` |
@@ -245,7 +245,7 @@ func submit(key: StringName, message: Variant) -> int:
 - 首次版本：`9.0.0`
 
 ```gdscript
-func submit_at(key: StringName, message: Variant, now_msec: int) -> int:
+func submit_at( key: StringName, message: Variant, now_msec: int ) -> int:
 ```
 
 使用显式单调时间把消息提交到 key 对应批次。

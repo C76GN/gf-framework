@@ -197,23 +197,11 @@ const STATUS_RECONCILE_FAILED: StringName = &"reconcile_failed"
 ## @since 11.0.0
 const STATUS_DISPOSED: StringName = &"disposed"
 
-## 事务 evidence 校验的最大递归深度。
+## 复用本扩展的有界 evidence 校验，不共享调用期计数状态。
 ## [br]
 ## @api private
 ## [br]
-const _MAX_EVIDENCE_DEPTH: int = 16
-
-## 事务 evidence 支持性检查允许的最大值数量。
-## [br]
-## @api private
-## [br]
-const _MAX_EVIDENCE_ITEMS: int = 2048
-
-## evidence 中字符串值的最大字符数。
-## [br]
-## @api private
-## [br]
-const _MAX_EVIDENCE_STRING_LENGTH: int = 2048
+const _GF_SAVE_PROFILE_EVIDENCE_VALIDATION_SCRIPT = preload("res://addons/gf/extensions/save/profile/gf_save_profile_evidence_validation.gd")
 
 ## 事务结果错误消息的最大字符数。
 ## [br]
@@ -562,7 +550,10 @@ func get_completed_at_msec() -> int:
 ## [br]
 ## @return 非负单调毫秒耗时。
 func get_duration_msec() -> int:
-	return maxi(_completed_at_msec - _started_at_msec, 0)
+	return maxi(
+		_completed_at_msec - _started_at_msec,
+		0
+	)
 
 
 ## 创建隔离结果副本。
@@ -578,30 +569,29 @@ func duplicate_result() -> GFSaveProfileTransactionResult:
 	var copy: GFSaveProfileTransactionResult = GFSaveProfileTransactionResult.new()
 	if not _configured:
 		return copy
-	var _configured_copy: bool = copy.configure_for_framework({
-		"status": _status,
-		"operation": _operation,
-		"transaction_id": _transaction_id,
-		"source_profile_id": _source_profile_id,
-		"target_profile_id": _target_profile_id,
-		"active_profile_before": _active_profile_before,
-		"active_profile_after": _active_profile_after,
-		"phase": _phase,
-		"error_code": int(_error_code),
-		"error": _error,
-		"failed_section_id": _failed_section_id,
-		"rollback_errors": _rollback_errors,
-		"stage_evidence": _stage_evidence,
-		"recovery_lease": _recovery_lease,
-		"reconcile_lease": _reconcile_lease,
-		"metadata": _metadata,
-		"started_at_msec": _started_at_msec,
-		"completed_at_msec": _completed_at_msec,
-	})
-	assert(
-		_configured_copy,
-		"GFSaveProfileTransactionResult invariant failed while duplicating a terminal result."
+	var _configured_copy: bool = copy.configure_for_framework(
+		{
+			"status": _status,
+			"operation": _operation,
+			"transaction_id": _transaction_id,
+			"source_profile_id": _source_profile_id,
+			"target_profile_id": _target_profile_id,
+			"active_profile_before": _active_profile_before,
+			"active_profile_after": _active_profile_after,
+			"phase": _phase,
+			"error_code": int(_error_code),
+			"error": _error,
+			"failed_section_id": _failed_section_id,
+			"rollback_errors": _rollback_errors,
+			"stage_evidence": _stage_evidence,
+			"recovery_lease": _recovery_lease,
+			"reconcile_lease": _reconcile_lease,
+			"metadata": _metadata,
+			"started_at_msec": _started_at_msec,
+			"completed_at_msec": _completed_at_msec,
+		}
 	)
+	assert(_configured_copy, "GFSaveProfileTransactionResult invariant failed while duplicating a terminal result.")
 	return copy
 
 
@@ -661,10 +651,7 @@ func configure_for_framework(options: Dictionary) -> bool:
 	var status: StringName = GFVariantData.get_option_string_name(options, "status")
 	var operation: StringName = GFVariantData.get_option_string_name(options, "operation")
 	var transaction_id: int = GFVariantData.get_option_int(options, "transaction_id")
-	var stage_evidence: Dictionary = GFVariantData.get_option_dictionary(
-		options,
-		"stage_evidence"
-	)
+	var stage_evidence: Dictionary = GFVariantData.get_option_dictionary(options, "stage_evidence")
 	if (
 		status not in _get_valid_statuses()
 		or operation not in _get_valid_operations()
@@ -674,7 +661,11 @@ func configure_for_framework(options: Dictionary) -> bool:
 		return false
 
 	var rollback_errors: Array[GFSaveRollbackFailure] = []
-	var rollback_value: Variant = GFVariantData.get_option_value(options, "rollback_errors", [])
+	var rollback_value: Variant = GFVariantData.get_option_value(
+		options,
+		"rollback_errors",
+		[]
+	)
 	if not _read_rollback_errors(rollback_value, rollback_errors):
 		return false
 	var recovery_lease: GFSaveProfileRecoveryLease = _read_recovery_lease(options)
@@ -696,34 +687,31 @@ func configure_for_framework(options: Dictionary) -> bool:
 	_transaction_id = transaction_id
 	_source_profile_id = GFVariantData.get_option_string_name(options, "source_profile_id")
 	_target_profile_id = GFVariantData.get_option_string_name(options, "target_profile_id")
-	_active_profile_before = GFVariantData.get_option_string_name(
-		options,
-		"active_profile_before"
-	)
-	_active_profile_after = GFVariantData.get_option_string_name(
-		options,
-		"active_profile_after"
-	)
+	_active_profile_before = GFVariantData.get_option_string_name(options, "active_profile_before")
+	_active_profile_after = GFVariantData.get_option_string_name(options, "active_profile_after")
 	_phase = GFVariantData.get_option_string_name(options, "phase")
 	_error_code = (
-		OK
-		if is_successful()
-		else GFVariantData.get_option_int(options, "error_code", int(FAILED)) as Error
+		(
+			OK
+			if is_successful()
+			else GFVariantData.get_option_int(
+				options,
+				"error_code",
+				int(FAILED)
+			)
+		) as Error
 	)
-	_error = (
-		""
-		if is_successful()
-		else GFVariantData.get_option_string(options, "error").strip_edges().left(
-			_MAX_ERROR_LENGTH
-		)
-	)
+	_error = ("" if is_successful() else (GFVariantData.get_option_string(options, "error").strip_edges().left(_MAX_ERROR_LENGTH)))
 	_failed_section_id = GFVariantData.get_option_string_name(options, "failed_section_id")
 	_rollback_errors = _duplicate_rollback_errors(rollback_errors)
 	_stage_evidence = stage_evidence.duplicate(true)
 	_recovery_lease = recovery_lease
 	_reconcile_lease = reconcile_lease
 	_metadata = GFVariantData.get_option_dictionary(options, "metadata")
-	_started_at_msec = maxi(GFVariantData.get_option_int(options, "started_at_msec"), 0)
+	_started_at_msec = maxi(
+		GFVariantData.get_option_int(options, "started_at_msec"),
+		0
+	)
 	_completed_at_msec = maxi(
 		GFVariantData.get_option_int(options, "completed_at_msec"),
 		_started_at_msec
@@ -755,26 +743,29 @@ static func _get_success_statuses() -> Array[StringName]:
 ## @api private
 ## [br]
 static func _get_valid_statuses() -> Array[StringName]:
-	return _get_success_statuses() + [
-		STATUS_INVALID_PROFILE,
-		STATUS_INVALID_REQUEST,
-		STATUS_INVALID_LEASE,
-		STATUS_INACTIVE,
-		STATUS_ALREADY_ACTIVE,
-		STATUS_BUSY,
-		STATUS_UNSUPPORTED_OPERATION,
-		STATUS_RECOVERY_REQUIRED,
-		STATUS_SOURCE_FLUSH_FAILED,
-		STATUS_TARGET_LOAD_FAILED,
-		STATUS_SNAPSHOT_FAILED,
-		STATUS_APPLY_FAILED,
-		STATUS_ROLLBACK_FAILED,
-		STATUS_PERSIST_FAILED,
-		STATUS_OUTCOME_UNKNOWN,
-		STATUS_RECONCILE_PENDING,
-		STATUS_RECONCILE_FAILED,
-		STATUS_DISPOSED,
-	]
+	return (
+		_get_success_statuses()
+		+ [
+			STATUS_INVALID_PROFILE,
+			STATUS_INVALID_REQUEST,
+			STATUS_INVALID_LEASE,
+			STATUS_INACTIVE,
+			STATUS_ALREADY_ACTIVE,
+			STATUS_BUSY,
+			STATUS_UNSUPPORTED_OPERATION,
+			STATUS_RECOVERY_REQUIRED,
+			STATUS_SOURCE_FLUSH_FAILED,
+			STATUS_TARGET_LOAD_FAILED,
+			STATUS_SNAPSHOT_FAILED,
+			STATUS_APPLY_FAILED,
+			STATUS_ROLLBACK_FAILED,
+			STATUS_PERSIST_FAILED,
+			STATUS_OUTCOME_UNKNOWN,
+			STATUS_RECONCILE_PENDING,
+			STATUS_RECONCILE_FAILED,
+			STATUS_DISPOSED,
+		]
+	)
 
 
 ## 返回结果配置校验接受的事务操作标识。
@@ -798,10 +789,7 @@ static func _get_valid_operations() -> Array[StringName]:
 ## [br]
 ## @api private
 ## [br]
-static func _read_rollback_errors(
-	value: Variant,
-	output: Array[GFSaveRollbackFailure]
-) -> bool:
+static func _read_rollback_errors(value: Variant, output: Array[GFSaveRollbackFailure]) -> bool:
 	if not value is Array:
 		return false
 	var values: Array = value
@@ -850,22 +838,13 @@ static func _leases_match_status(
 	reconcile_lease: GFSaveProfileReconcileLease
 ) -> bool:
 	if status == STATUS_RECOVERY_REQUIRED:
-		if (
-			recovery_lease == null
-			or operation not in [
-				GFSaveProfileTransactionOperation.OPERATION_ACTIVATE,
-				GFSaveProfileTransactionOperation.OPERATION_SWITCH,
-			]
-		):
+		if (recovery_lease == null or (operation not in [GFSaveProfileTransactionOperation.OPERATION_ACTIVATE, GFSaveProfileTransactionOperation.OPERATION_SWITCH,])):
 			return false
 		if (
 			recovery_lease.get_transaction_id() != transaction_id
 			or recovery_lease.get_source_profile_id() != source_profile_id
 			or recovery_lease.get_profile_id() != target_profile_id
-			or recovery_lease.get_reason() not in [
-				GFSaveProfileRecoveryLease.REASON_MISSING,
-				GFSaveProfileRecoveryLease.REASON_CORRUPT,
-			]
+			or (recovery_lease.get_reason() not in [GFSaveProfileRecoveryLease.REASON_MISSING, GFSaveProfileRecoveryLease.REASON_CORRUPT,])
 		):
 			return false
 	elif recovery_lease != null:
@@ -874,20 +853,20 @@ static func _leases_match_status(
 	if status == STATUS_OUTCOME_UNKNOWN:
 		if reconcile_lease == null:
 			return false
-		if (
-			reconcile_lease.get_transaction_id() != transaction_id
-			or reconcile_lease.get_operation() != operation
-		):
+		if (reconcile_lease.get_transaction_id() != transaction_id or reconcile_lease.get_operation() != operation):
 			return false
 	elif (
 		reconcile_lease != null
-		and status not in [
-			STATUS_ROLLBACK_FAILED,
-			STATUS_RECONCILE_PENDING,
-			STATUS_RECONCILE_FAILED,
-			STATUS_RECONCILED,
-			STATUS_DISPOSED,
-		]
+		and (
+			status
+			not in [
+				STATUS_ROLLBACK_FAILED,
+				STATUS_RECONCILE_PENDING,
+				STATUS_RECONCILE_FAILED,
+				STATUS_RECONCILED,
+				STATUS_DISPOSED,
+			]
+		)
 	):
 		return false
 	return true
@@ -897,9 +876,7 @@ static func _leases_match_status(
 ## [br]
 ## @api private
 ## [br]
-static func _duplicate_rollback_errors(
-	errors: Array[GFSaveRollbackFailure]
-) -> Array[GFSaveRollbackFailure]:
+static func _duplicate_rollback_errors(errors: Array[GFSaveRollbackFailure]) -> Array[GFSaveRollbackFailure]:
 	var copies: Array[GFSaveRollbackFailure] = []
 	for failure: GFSaveRollbackFailure in errors:
 		if failure != null:
@@ -953,137 +930,9 @@ func _get_reconcile_lease_summary() -> Dictionary:
 	}
 
 
-## 使用新检查状态校验 evidence 的类型、深度和数量边界。
+## 使用共享校验器检查 evidence，保持本调用独立的预算与递归状态。
 ## [br]
 ## @api private
 ## [br]
 static func _is_evidence_supported(evidence: Dictionary) -> bool:
-	var state: Dictionary = {
-		"items": 0,
-		"visited": [],
-	}
-	return _is_evidence_value_supported(evidence, 0, state)
-
-
-## 限深限量递归检查 evidence 标量与容器，并拒绝超长字符串和循环引用。
-## [br]
-## @api private
-## [br]
-static func _is_evidence_value_supported(
-	value: Variant,
-	depth: int,
-	state: Dictionary
-) -> bool:
-	if depth > _MAX_EVIDENCE_DEPTH:
-		return false
-	var item_count: int = GFVariantData.get_option_int(state, "items") + 1
-	state["items"] = item_count
-	if item_count > _MAX_EVIDENCE_ITEMS:
-		return false
-
-	match typeof(value):
-		TYPE_NIL, TYPE_BOOL, TYPE_INT:
-			return true
-		TYPE_FLOAT:
-			var number: float = value
-			return not is_nan(number) and not is_inf(number)
-		TYPE_STRING:
-			var text: String = value
-			return text.length() <= _MAX_EVIDENCE_STRING_LENGTH
-		TYPE_STRING_NAME:
-			var identifier: StringName = value
-			return String(identifier).length() <= _MAX_EVIDENCE_STRING_LENGTH
-		TYPE_PACKED_BYTE_ARRAY:
-			var values: PackedByteArray = value
-			return _consume_packed_items(values.size(), state)
-		TYPE_PACKED_INT32_ARRAY:
-			var values: PackedInt32Array = value
-			return _consume_packed_items(values.size(), state)
-		TYPE_PACKED_INT64_ARRAY:
-			var values: PackedInt64Array = value
-			return _consume_packed_items(values.size(), state)
-		TYPE_PACKED_FLOAT32_ARRAY:
-			var values: PackedFloat32Array = value
-			if not _consume_packed_items(values.size(), state):
-				return false
-			for number: float in values:
-				if is_nan(number) or is_inf(number):
-					return false
-			return true
-		TYPE_PACKED_FLOAT64_ARRAY:
-			var values: PackedFloat64Array = value
-			if not _consume_packed_items(values.size(), state):
-				return false
-			for number: float in values:
-				if is_nan(number) or is_inf(number):
-					return false
-			return true
-		TYPE_PACKED_STRING_ARRAY:
-			var values: PackedStringArray = value
-			if not _consume_packed_items(values.size(), state):
-				return false
-			for text: String in values:
-				if text.length() > _MAX_EVIDENCE_STRING_LENGTH:
-					return false
-			return true
-		TYPE_ARRAY:
-			var array_value: Array = value
-			var visited: Array = _get_visited(state)
-			if _contains_collection_identity(visited, array_value):
-				return false
-			visited.append(array_value)
-			for entry: Variant in array_value:
-				if not _is_evidence_value_supported(entry, depth + 1, state):
-					var _removed_array_failure: Variant = visited.pop_back()
-					return false
-			var _removed_array: Variant = visited.pop_back()
-			return true
-		TYPE_DICTIONARY:
-			var dictionary_value: Dictionary = value
-			var visited: Array = _get_visited(state)
-			if _contains_collection_identity(visited, dictionary_value):
-				return false
-			visited.append(dictionary_value)
-			for key: Variant in dictionary_value.keys():
-				if (
-					typeof(key) not in [TYPE_STRING, TYPE_STRING_NAME]
-					or not _is_evidence_value_supported(key, depth + 1, state)
-				):
-					var _removed_invalid_key: Variant = visited.pop_back()
-					return false
-				if not _is_evidence_value_supported(dictionary_value[key], depth + 1, state):
-					var _removed_dictionary_failure: Variant = visited.pop_back()
-					return false
-			var _removed_dictionary: Variant = visited.pop_back()
-			return true
-		_:
-			return false
-
-
-## 将 packed 容器元素加入 evidence 预算并判断是否仍在上限内。
-## [br]
-## @api private
-## [br]
-static func _consume_packed_items(item_count: int, state: Dictionary) -> bool:
-	var next_count: int = GFVariantData.get_option_int(state, "items") + item_count
-	state["items"] = next_count
-	return next_count <= _MAX_EVIDENCE_ITEMS
-
-
-## 从 evidence 校验状态读取当前递归路径容器数组。
-## [br]
-## @api private
-## [br]
-static func _get_visited(state: Dictionary) -> Array:
-	return GFVariantData.as_array(GFVariantData.get_option_value(state, "visited"))
-
-
-## 按对象身份检查候选容器是否已在当前递归路径中。
-## [br]
-## @api private
-## [br]
-static func _contains_collection_identity(collections: Array, candidate: Variant) -> bool:
-	for collection: Variant in collections:
-		if is_same(collection, candidate):
-			return true
-	return false
+	return _GF_SAVE_PROFILE_EVIDENCE_VALIDATION_SCRIPT.is_supported_for_framework(evidence)

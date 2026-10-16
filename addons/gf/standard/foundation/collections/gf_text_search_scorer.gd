@@ -118,7 +118,11 @@ static func tokenize(query: String, options: Dictionary = {}) -> PackedStringArr
 	var tokens: PackedStringArray = PackedStringArray()
 	var normalized_query: String = _normalize_search_text(
 		query,
-		GFVariantData.get_option_bool(options, "case_sensitive", false)
+		GFVariantData.get_option_bool(
+			options,
+			"case_sensitive",
+			false
+		)
 	)
 	for token: String in normalized_query.split(" ", false):
 		if token.is_empty() or tokens.has(token):
@@ -144,17 +148,34 @@ static func tokenize(query: String, options: Dictionary = {}) -> PackedStringArr
 ## @return 匹配报告。
 ## [br]
 ## @schema return: Dictionary，包含 matched、score 和 matched_tokens。
-static func score_text(query: String, text: String, options: Dictionary = {}) -> Dictionary:
+static func score_text(
+	query: String,
+	text: String,
+	options: Dictionary = {}
+) -> Dictionary:
 	var context: Dictionary = _make_query_context(query, options)
-	var case_sensitive: bool = GFVariantData.get_option_bool(context, "case_sensitive", false)
+	var case_sensitive: bool = GFVariantData.get_option_bool(
+		context,
+		"case_sensitive",
+		false
+	)
 	var tokens: PackedStringArray = PackedStringArray()
 	var tokens_value: Variant = GFVariantData.get_option_value(context, "tokens")
 	if tokens_value is PackedStringArray:
 		tokens = tokens_value
 	var normalized_query: String = GFVariantData.get_option_string(context, "normalized_query")
 	var normalized_text: String = _normalize_search_text(text, case_sensitive)
-	var require_all_tokens: bool = GFVariantData.get_option_bool(context, "require_all_tokens", true)
-	return _score_normalized_text(normalized_query, tokens, normalized_text, require_all_tokens)
+	var require_all_tokens: bool = GFVariantData.get_option_bool(
+		context,
+		"require_all_tokens",
+		true
+	)
+	return _score_normalized_text(
+		normalized_query,
+		tokens,
+		normalized_text,
+		require_all_tokens
+	)
 
 
 ## 计算查询文本与一个候选字典的匹配报告。
@@ -176,8 +197,15 @@ static func score_text(query: String, text: String, options: Dictionary = {}) ->
 ## @return 匹配报告。
 ## [br]
 ## @schema return: Dictionary，包含 matched、score、matched_tokens、field_scores 和 candidate。
-static func score_candidate(query: String, candidate: Dictionary, options: Dictionary = {}) -> Dictionary:
-	return _score_candidate_with_context(candidate, _make_query_context(query, options))
+static func score_candidate(
+	query: String,
+	candidate: Dictionary,
+	options: Dictionary = {}
+) -> Dictionary:
+	return _score_candidate_with_context(
+		candidate,
+		_make_query_context(query, options)
+	)
 
 
 ## 按查询文本排序候选字典。
@@ -199,16 +227,35 @@ static func score_candidate(query: String, candidate: Dictionary, options: Dicti
 ## @return 排序后的匹配报告数组。
 ## [br]
 ## @schema return: Array[Dictionary]，每项包含 matched、score、matched_tokens、field_scores、candidate 和 index。
-static func rank_candidates(query: String, candidates: Array[Dictionary], options: Dictionary = {}) -> Array[Dictionary]:
+static func rank_candidates(
+	query: String,
+	candidates: Array[Dictionary],
+	options: Dictionary = {}
+) -> Array[Dictionary]:
 	var reports: Array[Dictionary] = []
-	var include_unmatched: bool = GFVariantData.get_option_bool(options, "include_unmatched", false)
-	var limit: int = GFVariantData.get_option_int(options, "limit", 0)
+	var include_unmatched: bool = GFVariantData.get_option_bool(
+		options,
+		"include_unmatched",
+		false
+	)
+	var limit: int = GFVariantData.get_option_int(
+		options,
+		"limit",
+		0
+	)
 	var context: Dictionary = _make_query_context(query, options)
 
 	for index: int in range(candidates.size()):
-		var report: Dictionary = _score_candidate_with_context(candidates[index], context)
+		var report: Dictionary = _score_candidate_with_context(
+			candidates[index],
+			context
+		)
 		report["index"] = index
-		if GFVariantData.get_option_bool(report, "matched", false) or include_unmatched:
+		if GFVariantData.get_option_bool(
+			report,
+			"matched",
+			false
+		) or include_unmatched:
 			reports.append(report)
 
 	reports.sort_custom(_sort_reports_descending)
@@ -257,7 +304,11 @@ static func create_ranking_context(query: String, options: Dictionary = {}) -> D
 ## @return 与同步评分相同的报告，另带全局索引。
 ## [br]
 ## @schema return: Dictionary with matched, score, matched_tokens, field_scores, candidate and index.
-static func score_ranking_candidate(candidate: Dictionary, context: Dictionary, index: int) -> Dictionary:
+static func score_ranking_candidate(
+	candidate: Dictionary,
+	context: Dictionary,
+	index: int
+) -> Dictionary:
 	var report: Dictionary = _score_candidate_with_context(candidate, context)
 	report["index"] = index
 	return report
@@ -298,11 +349,29 @@ static func sort_ranking_reports(reports: Array[Dictionary]) -> void:
 	var order: Array[int] = []
 	for position: int in range(reports.size()):
 		var report: Dictionary = reports[position]
-		var _score_appended: bool = scores.append(GFVariantData.get_option_float(report, "score", 0.0))
+		var _score_appended: bool = scores.append(
+			GFVariantData.get_option_float(
+				report,
+				"score",
+				0.0
+			)
+		)
 		var _title_appended: bool = titles.append(_get_report_sort_title(report))
-		var _index_appended: bool = indices.append(GFVariantData.get_option_int(report, "index", 0))
+		var _index_appended: bool = indices.append(
+			GFVariantData.get_option_int(
+				report,
+				"index",
+				0
+			)
+		)
 		order.append(position)
-	order.sort_custom(_sort_ranking_indices.bind(scores, titles, indices))
+	order.sort_custom(
+		_sort_ranking_indices.bind(
+			scores,
+			titles,
+			indices
+		)
+	)
 	var original: Array[Dictionary] = reports.duplicate()
 	for position: int in range(order.size()):
 		reports[position] = original[order[position]]
@@ -314,13 +383,25 @@ static func sort_ranking_reports(reports: Array[Dictionary]) -> void:
 ## [br]
 ## @api private
 static func _make_query_context(query: String, options: Dictionary) -> Dictionary:
-	var case_sensitive: bool = GFVariantData.get_option_bool(options, "case_sensitive", false)
+	var case_sensitive: bool = GFVariantData.get_option_bool(
+		options,
+		"case_sensitive",
+		false
+	)
 	return {
 		"case_sensitive": case_sensitive,
 		"tokens": tokenize(query, options),
 		"normalized_query": _normalize_search_text(query, case_sensitive),
-		"require_all_tokens": GFVariantData.get_option_bool(options, "require_all_tokens", true),
-		"duplicate_candidate": GFVariantData.get_option_bool(options, "duplicate_candidate", true),
+		"require_all_tokens": GFVariantData.get_option_bool(
+			options,
+			"require_all_tokens",
+			true
+		),
+		"duplicate_candidate": GFVariantData.get_option_bool(
+			options,
+			"duplicate_candidate",
+			true
+		),
 		"fields": _get_fields(options),
 	}
 
@@ -329,12 +410,24 @@ static func _make_query_context(query: String, options: Dictionary) -> Dictionar
 ## [br]
 ## @api private
 static func _score_candidate_with_context(candidate: Dictionary, context: Dictionary) -> Dictionary:
-	var case_sensitive: bool = GFVariantData.get_option_bool(context, "case_sensitive", false)
+	var case_sensitive: bool = GFVariantData.get_option_bool(
+		context,
+		"case_sensitive",
+		false
+	)
 	var tokens_value: Variant = GFVariantData.get_option_value(context, "tokens")
 	var tokens: PackedStringArray = tokens_value if tokens_value is PackedStringArray else PackedStringArray()
 	var normalized_query: String = GFVariantData.get_option_string(context, "normalized_query")
-	var require_all_tokens: bool = GFVariantData.get_option_bool(context, "require_all_tokens", true)
-	var duplicate_candidate: bool = GFVariantData.get_option_bool(context, "duplicate_candidate", true)
+	var require_all_tokens: bool = GFVariantData.get_option_bool(
+		context,
+		"require_all_tokens",
+		true
+	)
+	var duplicate_candidate: bool = GFVariantData.get_option_bool(
+		context,
+		"duplicate_candidate",
+		true
+	)
 	var fields: Array[Dictionary] = _get_context_fields(context)
 	var matched_lookup: Dictionary = {}
 	var field_scores: Dictionary = {}
@@ -342,8 +435,16 @@ static func _score_candidate_with_context(candidate: Dictionary, context: Dictio
 
 	for field_entry: Dictionary in fields:
 		var field_key: StringName = GFVariantData.to_string_name(GFVariantData.get_option_value(field_entry, "key"))
-		var field_weight: float = GFVariantData.get_option_float(field_entry, "weight", 1.0)
-		if field_key == &"" or not is_finite(field_weight) or field_weight <= 0.0:
+		var field_weight: float = GFVariantData.get_option_float(
+			field_entry,
+			"weight",
+			1.0
+		)
+		if (
+			field_key == &""
+			or not is_finite(field_weight)
+			or field_weight <= 0.0
+		):
 			continue
 
 		var field_text: String = _value_to_search_text(_get_candidate_value(candidate, field_key))
@@ -396,15 +497,27 @@ static func _score_normalized_text(
 ) -> Dictionary:
 	var matched_tokens: PackedStringArray = PackedStringArray()
 	var score: float = 0.0
-	if normalized_query.is_empty() or tokens.is_empty() or normalized_text.is_empty():
-		return _make_text_score_report(false, 0.0, matched_tokens)
+	if (
+		normalized_query.is_empty()
+		or tokens.is_empty()
+		or normalized_text.is_empty()
+	):
+		return _make_text_score_report(
+			false,
+			0.0,
+			matched_tokens
+		)
 
 	score += _score_query_phrase(normalized_query, normalized_text)
 	for token: String in tokens:
 		var token_score: float = _score_token(token, normalized_text)
 		if token_score <= 0.0:
 			if require_all_tokens:
-				return _make_text_score_report(false, 0.0, PackedStringArray())
+				return _make_text_score_report(
+					false,
+					0.0,
+					PackedStringArray()
+				)
 			continue
 
 		score += token_score
@@ -412,8 +525,16 @@ static func _score_normalized_text(
 
 	var matched: bool = not matched_tokens.is_empty()
 	if require_all_tokens and matched_tokens.size() != tokens.size():
-		return _make_text_score_report(false, 0.0, PackedStringArray())
-	return _make_text_score_report(matched, score if matched else 0.0, matched_tokens)
+		return _make_text_score_report(
+			false,
+			0.0,
+			PackedStringArray()
+		)
+	return _make_text_score_report(
+		matched,
+		score if matched else 0.0,
+		matched_tokens
+	)
 
 
 ## 按完全匹配、前缀或包含关系计算查询短语分数。
@@ -427,7 +548,10 @@ static func _score_query_phrase(normalized_query: String, normalized_text: Strin
 
 	var query_position: int = normalized_text.find(normalized_query)
 	if query_position >= 0:
-		return maxf(_CONTAINS_QUERY_SCORE - float(query_position), _CONTAINS_WORD_SCORE)
+		return maxf(
+			_CONTAINS_QUERY_SCORE - float(query_position),
+			_CONTAINS_WORD_SCORE
+		)
 	return 0.0
 
 
@@ -453,7 +577,11 @@ static func _score_token(token: String, normalized_text: String) -> float:
 ## [br]
 ## @api private
 static func _get_fields(options: Dictionary) -> Array[Dictionary]:
-	var fields_value: Variant = GFVariantData.get_option_value(options, "fields", DEFAULT_FIELDS)
+	var fields_value: Variant = GFVariantData.get_option_value(
+		options,
+		"fields",
+		DEFAULT_FIELDS
+	)
 	var fields: Array[Dictionary] = []
 	if fields_value is Array:
 		for field_variant: Variant in fields_value:
@@ -475,7 +603,11 @@ static func _get_fields(options: Dictionary) -> Array[Dictionary]:
 ## [br]
 ## @api private
 static func _get_context_fields(context: Dictionary) -> Array[Dictionary]:
-	var fields_value: Variant = GFVariantData.get_option_value(context, "fields", DEFAULT_FIELDS)
+	var fields_value: Variant = GFVariantData.get_option_value(
+		context,
+		"fields",
+		DEFAULT_FIELDS
+	)
 	# 创建上下文时已完成规范化；评分期间只读复用，保留字段顺序和重复项。
 	if fields_value is Array[Dictionary]:
 		var prepared_fields: Array[Dictionary] = fields_value
@@ -501,22 +633,17 @@ static func _normalize_field_entry(field_variant: Variant) -> Dictionary:
 		var field_key: StringName = GFVariantData.to_string_name(GFVariantData.get_option_value(field_dictionary, "key"))
 		if field_key == &"":
 			return {}
-		var field_weight: float = GFVariantData.get_option_float(field_dictionary, "weight", 1.0)
-		return {
-			"key": field_key,
-			"weight": field_weight if is_finite(field_weight) else 0.0,
-		}
+		var field_weight: float = GFVariantData.get_option_float(
+			field_dictionary,
+			"weight",
+			1.0
+		)
+		return { "key": field_key, "weight": field_weight if is_finite(field_weight) else 0.0, }
 	if field_variant is StringName:
-		return {
-			"key": field_variant,
-			"weight": 1.0,
-		}
+		return { "key": field_variant, "weight": 1.0, }
 	if field_variant is String:
 		var field_text: String = field_variant
-		return {
-			"key": StringName(field_text),
-			"weight": 1.0,
-		}
+		return { "key": StringName(field_text), "weight": 1.0, }
 	return {}
 
 
@@ -539,10 +666,9 @@ static func _get_candidate_value(candidate: Dictionary, field_key: StringName) -
 static func _value_to_search_text(value: Variant) -> String:
 	var parts: PackedStringArray = PackedStringArray()
 	var active_arrays: Array = []
-	var pending: Array[Dictionary] = [{
-		"kind": _TRAVERSAL_VALUE,
-		"value": value,
-	}]
+	var pending: Array[Dictionary] = [
+		{ "kind": _TRAVERSAL_VALUE, "value": value, },
+	]
 	while not pending.is_empty():
 		var frame: Dictionary = pending.pop_back()
 		var frame_value: Variant = GFVariantData.get_option_value(frame, "value")
@@ -563,15 +689,13 @@ static func _value_to_search_text(value: Variant) -> String:
 			if _contains_active_array(active_arrays, array_value):
 				continue
 			active_arrays.append(array_value)
-			pending.append({
-				"kind": _TRAVERSAL_EXIT_ARRAY,
-				"value": array_value,
-			})
-			for index: int in range(array_value.size() - 1, -1, -1):
-				pending.append({
-					"kind": _TRAVERSAL_VALUE,
-					"value": array_value[index],
-				})
+			pending.append({ "kind": _TRAVERSAL_EXIT_ARRAY, "value": array_value, })
+			for index: int in range(
+				array_value.size() - 1,
+				-1,
+				-1
+			):
+				pending.append({ "kind": _TRAVERSAL_VALUE, "value": array_value[index], })
 			continue
 		var text: String = GFVariantData.to_text(frame_value)
 		if not text.is_empty():
@@ -596,14 +720,12 @@ static func _contains_active_array(active_arrays: Array, value: Array) -> bool:
 static func _duplicate_candidate(candidate: Dictionary) -> Dictionary:
 	var candidate_copy: Dictionary = candidate.duplicate(false)
 	candidate_copy.clear()
-	var visited: Array[Dictionary] = [{
-		"source": candidate,
-		"copy": candidate_copy,
-	}]
-	var pending: Array[Dictionary] = [{
-		"source": candidate,
-		"copy": candidate_copy,
-	}]
+	var visited: Array[Dictionary] = [
+		{ "source": candidate, "copy": candidate_copy, },
+	]
+	var pending: Array[Dictionary] = [
+		{ "source": candidate, "copy": candidate_copy, },
+	]
 	while not pending.is_empty():
 		var frame: Dictionary = pending.pop_back()
 		var source: Variant = GFVariantData.get_option_value(frame, "source")
@@ -612,7 +734,11 @@ static func _duplicate_candidate(candidate: Dictionary) -> Dictionary:
 			var source_dictionary: Dictionary = source
 			var target_dictionary: Dictionary = target
 			for key: Variant in source_dictionary.keys():
-				var copied_key: Variant = _get_or_create_candidate_copy(key, visited, pending)
+				var copied_key: Variant = _get_or_create_candidate_copy(
+					key,
+					visited,
+					pending
+				)
 				var copied_value: Variant = _get_or_create_candidate_copy(
 					source_dictionary[key],
 					visited,
@@ -623,7 +749,13 @@ static func _duplicate_candidate(candidate: Dictionary) -> Dictionary:
 			var source_array: Array = source
 			var target_array: Array = target
 			for item: Variant in source_array:
-				target_array.append(_get_or_create_candidate_copy(item, visited, pending))
+				target_array.append(
+					_get_or_create_candidate_copy(
+						item,
+						visited,
+						pending
+					)
+				)
 	return candidate_copy
 
 
@@ -636,34 +768,29 @@ static func _get_or_create_candidate_copy(
 	pending: Array[Dictionary]
 ) -> Variant:
 	if not (value is Dictionary or value is Array):
-		return GFVariantData.duplicate_variant(value, true, false)
+		return GFVariantData.duplicate_variant(
+			value,
+			true,
+			false
+		)
 	for record: Dictionary in visited:
-		if is_same(GFVariantData.get_option_value(record, "source"), value):
+		if is_same(
+			GFVariantData.get_option_value(record, "source"),
+			value
+		):
 			return GFVariantData.get_option_value(record, "copy")
 	if value is Dictionary:
 		var source_dictionary: Dictionary = value
 		var dictionary_copy: Dictionary = source_dictionary.duplicate(false)
 		dictionary_copy.clear()
-		visited.append({
-			"source": source_dictionary,
-			"copy": dictionary_copy,
-		})
-		pending.append({
-			"source": source_dictionary,
-			"copy": dictionary_copy,
-		})
+		visited.append({ "source": source_dictionary, "copy": dictionary_copy, })
+		pending.append({ "source": source_dictionary, "copy": dictionary_copy, })
 		return dictionary_copy
 	var source_array: Array = value
 	var array_copy: Array = source_array.duplicate(false)
 	array_copy.clear()
-	visited.append({
-		"source": source_array,
-		"copy": array_copy,
-	})
-	pending.append({
-		"source": source_array,
-		"copy": array_copy,
-	})
+	visited.append({ "source": source_array, "copy": array_copy, })
+	pending.append({ "source": source_array, "copy": array_copy, })
 	return array_copy
 
 
@@ -710,7 +837,11 @@ static func _is_subsequence(needle: String, haystack: String) -> bool:
 ## 创建包含 matched、score 与 matched_tokens 的文本评分报告。
 ## [br]
 ## @api private
-static func _make_text_score_report(matched: bool, score: float, matched_tokens: PackedStringArray) -> Dictionary:
+static func _make_text_score_report(
+	matched: bool,
+	score: float,
+	matched_tokens: PackedStringArray
+) -> Dictionary:
 	return {
 		"matched": matched,
 		"score": score,
@@ -722,7 +853,11 @@ static func _make_text_score_report(matched: bool, score: float, matched_tokens:
 ## [br]
 ## @api private
 static func _get_report_tokens(report: Dictionary) -> PackedStringArray:
-	var tokens_value: Variant = GFVariantData.get_option_value(report, "matched_tokens", PackedStringArray())
+	var tokens_value: Variant = GFVariantData.get_option_value(
+		report,
+		"matched_tokens",
+		PackedStringArray()
+	)
 	if tokens_value is PackedStringArray:
 		var packed_tokens: PackedStringArray = tokens_value
 		return packed_tokens
@@ -751,27 +886,70 @@ static func _collect_tokens_in_query_order(tokens: PackedStringArray, matched_lo
 ## [br]
 ## @api private
 static func _sort_reports_descending(left: Dictionary, right: Dictionary) -> bool:
-	var left_score: float = GFVariantData.get_option_float(left, "score", 0.0)
-	var right_score: float = GFVariantData.get_option_float(right, "score", 0.0)
+	var left_score: float = GFVariantData.get_option_float(
+		left,
+		"score",
+		0.0
+	)
+	var right_score: float = GFVariantData.get_option_float(
+		right,
+		"score",
+		0.0
+	)
 	if not is_equal_approx(left_score, right_score):
 		return left_score > right_score
 
 	var left_title: String = _get_report_sort_title(left)
 	var right_title: String = _get_report_sort_title(right)
-	return _compare_rank_values(left_score, right_score, left_title, right_title, GFVariantData.get_option_int(left, "index", 0), GFVariantData.get_option_int(right, "index", 0))
+	return _compare_rank_values(
+		left_score,
+		right_score,
+		left_title,
+		right_title,
+		GFVariantData.get_option_int(
+			left,
+			"index",
+			0
+		),
+		GFVariantData.get_option_int(
+			right,
+			"index",
+			0
+		)
+	)
 
 
 ## 私有独立排序键只读引用；索引数组与报告数组使用相同的原生排序算法和初始顺序。
 ## [br]
 ## @api private
-static func _sort_ranking_indices(left: int, right: int, scores: PackedFloat64Array, titles: PackedStringArray, indices: PackedInt64Array) -> bool:
-	return _compare_rank_values(scores[left], scores[right], titles[left], titles[right], indices[left], indices[right])
+static func _sort_ranking_indices(
+	left: int,
+	right: int,
+	scores: PackedFloat64Array,
+	titles: PackedStringArray,
+	indices: PackedInt64Array
+) -> bool:
+	return _compare_rank_values(
+		scores[left],
+		scores[right],
+		titles[left],
+		titles[right],
+		indices[left],
+		indices[right]
+	)
 
 
 ## 共享近似分数、标题和全局索引比较规则；不修改近似相等关系。
 ## [br]
 ## @api private
-static func _compare_rank_values(left_score: float, right_score: float, left_title: String, right_title: String, left_index: int, right_index: int) -> bool:
+static func _compare_rank_values(
+	left_score: float,
+	right_score: float,
+	left_title: String,
+	right_title: String,
+	left_index: int,
+	right_index: int
+) -> bool:
 	if not is_equal_approx(left_score, right_score):
 		return left_score > right_score
 	if left_title != right_title:

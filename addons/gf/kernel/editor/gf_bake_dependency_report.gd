@@ -162,7 +162,11 @@ func configure(
 ## [br]
 ## @schema return: Dictionary，包含 path、dependency_id、exists、required、status、content_sha256、modified_time 和 metadata。
 func add_input(path: String, options: Dictionary = {}) -> Dictionary:
-	var entry: Dictionary = _make_path_entry(path, options, true)
+	var entry: Dictionary = _make_path_entry(
+		path,
+		options,
+		true
+	)
 	_inputs.append(entry)
 	return entry.duplicate(true)
 
@@ -183,7 +187,11 @@ func add_input(path: String, options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @schema return: Dictionary，包含 path、dependency_id、exists、required、status、content_sha256、modified_time 和 metadata。
 func add_output(path: String, options: Dictionary = {}) -> Dictionary:
-	var entry: Dictionary = _make_path_entry(path, options, true)
+	var entry: Dictionary = _make_path_entry(
+		path,
+		options,
+		true
+	)
 	_outputs.append(entry)
 	return entry.duplicate(true)
 
@@ -209,7 +217,13 @@ func add_dependency(dependency_id: StringName, options: Dictionary = {}) -> Dict
 
 	var dependency: Dictionary = {
 		"dependency_id": dependency_id,
-		"status": _normalize_status(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(options, "status", STATUS_CURRENT)),
+		"status": _normalize_status(
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+				options,
+				"status",
+				STATUS_CURRENT
+			)
+		),
 		"version": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "version"),
 		"content_sha256": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "content_sha256"),
 		"error": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "error"),
@@ -239,7 +253,11 @@ func mark_stale(reason: String, options: Dictionary = {}) -> Dictionary:
 		"reason": reason,
 		"path": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "path"),
 		"dependency_id": _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(options, "dependency_id"),
-		"severity": _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(options, "severity", STATUS_STALE),
+		"severity": _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+			options,
+			"severity",
+			STATUS_STALE
+		),
 		"timestamp_msec": Time.get_ticks_msec(),
 		"metadata": _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(options, "metadata").duplicate(true),
 	}
@@ -359,12 +377,29 @@ func summarize(options: Dictionary = {}) -> Dictionary:
 	var artifact_summary: Dictionary = _GF_GENERATED_ARTIFACT_REPORT_SCRIPT.summarize_reports(
 		_artifact_reports,
 		label,
-		{ "include_reports": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "include_artifacts", false) }
+		{
+			"include_reports": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+				options,
+				"include_artifacts",
+				false
+			),
+		}
 	)
-	var status: StringName = _derive_status(missing_inputs, missing_outputs, stale_dependencies, failed_dependencies, artifact_summary)
+	var status: StringName = _derive_status(
+		missing_inputs,
+		missing_outputs,
+		stale_dependencies,
+		failed_dependencies,
+		artifact_summary
+	)
 	var extra_metadata: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(options, "metadata")
 	var summary_metadata: Dictionary = metadata.duplicate(true)
-	var _merged_metadata: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.merge_dictionary(summary_metadata, extra_metadata, true, true)
+	var _merged_metadata: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.merge_dictionary(
+		summary_metadata,
+		extra_metadata,
+		true,
+		true
+	)
 	var result: Dictionary = {
 		"success": status != STATUS_FAILED and missing_inputs.is_empty(),
 		"current": status == STATUS_CURRENT,
@@ -383,13 +418,29 @@ func summarize(options: Dictionary = {}) -> Dictionary:
 		"artifact_summary": artifact_summary,
 		"metadata": summary_metadata,
 	}
-	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "include_inputs", false):
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		options,
+		"include_inputs",
+		false
+	):
 		result["inputs"] = get_inputs()
-	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "include_outputs", false):
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		options,
+		"include_outputs",
+		false
+	):
 		result["outputs"] = get_outputs()
-	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "include_dependencies", false):
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		options,
+		"include_dependencies",
+		false
+	):
 		result["dependencies"] = get_dependencies()
-	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "include_invalidations", false):
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		options,
+		"include_invalidations",
+		false
+	):
 		result["invalidations"] = get_invalidations()
 	return result
 
@@ -399,7 +450,11 @@ func summarize(options: Dictionary = {}) -> Dictionary:
 ## 按 options 生成路径记录，包含存在性、必需状态、归一化状态、摘要字段及递归复制的元数据。
 ## [br]
 ## @api private
-func _make_path_entry(path: String, options: Dictionary, default_required: bool) -> Dictionary:
+func _make_path_entry(
+	path: String,
+	options: Dictionary,
+	default_required: bool
+) -> Dictionary:
 	var exists: bool = _read_exists(path, options)
 	var status: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
 		options,
@@ -410,7 +465,11 @@ func _make_path_entry(path: String, options: Dictionary, default_required: bool)
 		"path": path,
 		"dependency_id": _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(options, "dependency_id"),
 		"exists": exists,
-		"required": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "required", default_required),
+		"required": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			options,
+			"required",
+			default_required
+		),
 		"status": _normalize_status(status),
 		"content_sha256": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "content_sha256"),
 		"modified_time": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, "modified_time"),
@@ -423,8 +482,16 @@ func _make_path_entry(path: String, options: Dictionary, default_required: bool)
 ## @api private
 func _read_exists(path: String, options: Dictionary) -> bool:
 	if options.has("exists"):
-		return _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "exists", false)
-	if path.is_empty() or not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "check_filesystem", false):
+		return _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			options,
+			"exists",
+			false
+		)
+	if path.is_empty() or not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		options,
+		"check_filesystem",
+		false
+	):
 		return false
 	return FileAccess.file_exists(path)
 
@@ -439,13 +506,29 @@ func _derive_status(
 	failed_dependencies: Array[StringName],
 	artifact_summary: Dictionary
 ) -> StringName:
-	if not failed_dependencies.is_empty() or not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(artifact_summary, "success", true):
+	if (
+		not failed_dependencies.is_empty()
+		or not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			artifact_summary,
+			"success",
+			true
+		)
+	):
 		return STATUS_FAILED
 	if not missing_inputs.is_empty():
 		return STATUS_MISSING
-	if not missing_outputs.is_empty() or not stale_dependencies.is_empty() or not _invalidations.is_empty():
+	if (
+		not missing_outputs.is_empty()
+		or not stale_dependencies.is_empty()
+		or not _invalidations.is_empty()
+	):
 		return STATUS_STALE
-	if _inputs.is_empty() and _outputs.is_empty() and _dependencies.is_empty() and _artifact_reports.is_empty():
+	if (
+		_inputs.is_empty()
+		and _outputs.is_empty()
+		and _dependencies.is_empty()
+		and _artifact_reports.is_empty()
+	):
 		return STATUS_UNKNOWN
 	return STATUS_CURRENT
 
@@ -456,10 +539,22 @@ func _derive_status(
 func _collect_missing_paths(entries: Array[Dictionary]) -> Array[String]:
 	var result: Array[String] = []
 	for entry: Dictionary in entries:
-		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(entry, "required", true):
+		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			entry,
+			"required",
+			true
+		):
 			continue
-		var status: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(entry, "status", STATUS_CURRENT)
-		var exists: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(entry, "exists", false)
+		var status: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+			entry,
+			"status",
+			STATUS_CURRENT
+		)
+		var exists: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			entry,
+			"exists",
+			false
+		)
 		if status == STATUS_MISSING or not exists:
 			result.append(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "path"))
 	return result
@@ -471,7 +566,11 @@ func _collect_missing_paths(entries: Array[Dictionary]) -> Array[String]:
 func _collect_dependencies_by_status(status: StringName) -> Array[StringName]:
 	var result: Array[StringName] = []
 	for dependency: Dictionary in _dependencies:
-		if _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(dependency, "status", STATUS_CURRENT) == status:
+		if _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+			dependency,
+			"status",
+			STATUS_CURRENT
+		) == status:
 			result.append(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(dependency, "dependency_id"))
 	return result
 

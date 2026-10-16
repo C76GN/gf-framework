@@ -91,6 +91,8 @@ func _get_default_rule_id() -> StringName:
 ## [br]
 ## @api protected
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param value: 待校验值。
 ## [br]
 ## @param context: 校验上下文。
@@ -102,9 +104,22 @@ func _get_default_rule_id() -> StringName:
 ## @schema context: Dictionary，可包含 table_name、row_key、field、source、line 和 column 字段。
 ## [br]
 ## @schema report: GFConfigValidationReport 兼容 Dictionary，会被当前规则修改。
-func _validate_value(value: Variant, context: Dictionary, report: Dictionary) -> void:
+func _validate_value(
+	value: Variant,
+	context: Dictionary,
+	report: Dictionary
+) -> void:
 	if typeof(value) != TYPE_STRING and typeof(value) != TYPE_STRING_NAME:
-		_add_issue(report, _make_issue_context(context, value, "String or StringName"), "localization_key_invalid_type", "文本 key 校验只支持 String 或 StringName。")
+		_add_issue(
+			report,
+			_make_issue_context(
+				context,
+				value,
+				"String or StringName"
+			),
+			"localization_key_invalid_type",
+			"文本 key 校验只支持 String 或 StringName。"
+		)
 		return
 
 	var key: String = GFVariantData.to_text(value).strip_edges()
@@ -114,18 +129,54 @@ func _validate_value(value: Variant, context: Dictionary, report: Dictionary) ->
 		return
 	if require_explicit_key_source:
 		if not _has_explicit_key_source():
-			_add_issue(report, _make_issue_context(context, value, "known key source"), "localization_key_source_missing", "文本 key 严格校验需要显式 key 来源。")
+			_add_issue(
+				report,
+				_make_issue_context(
+					context,
+					value,
+					"known key source"
+				),
+				"localization_key_source_missing",
+				"文本 key 严格校验需要显式 key 来源。"
+			)
 			return
-		_add_issue(report, _make_issue_context(context, value, "known localization key"), "localization_key_missing", "文本 key 不存在：%s。" % key)
+		_add_issue(
+			report,
+			_make_issue_context(
+				context,
+				value,
+				"known localization key"
+			),
+			"localization_key_missing",
+			"文本 key 不存在：%s。" % key
+		)
 		return
 	if use_translation_server:
 		var translated_text: String = TranslationServer.translate(StringName(key))
 		if translated_text != key:
 			return
 	if not _has_explicit_key_source() and not use_translation_server:
-		_add_issue(report, _make_issue_context(context, value, "known key source"), "localization_key_source_missing", "文本 key 校验缺少 key 来源。")
+		_add_issue(
+			report,
+			_make_issue_context(
+				context,
+				value,
+				"known key source"
+			),
+			"localization_key_source_missing",
+			"文本 key 校验缺少 key 来源。"
+		)
 		return
-	_add_issue(report, _make_issue_context(context, value, "known localization key"), "localization_key_missing", "文本 key 不存在：%s。" % key)
+	_add_issue(
+		report,
+		_make_issue_context(
+			context,
+			value,
+			"known localization key"
+		),
+		"localization_key_missing",
+		"文本 key 不存在：%s。" % key
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -154,7 +205,11 @@ func _explicit_key_exists(key: String) -> bool:
 ## [br]
 ## @api private
 ## [br]
-func _make_issue_context(context: Dictionary, value: Variant, expected_value: Variant) -> Dictionary:
+func _make_issue_context(
+	context: Dictionary,
+	value: Variant,
+	expected_value: Variant
+) -> Dictionary:
 	var issue_context: Dictionary = context.duplicate(true)
 	issue_context["value"] = GFVariantData.duplicate_variant(value)
 	issue_context["actual_value"] = GFVariantData.duplicate_variant(value)
@@ -163,16 +218,13 @@ func _make_issue_context(context: Dictionary, value: Variant, expected_value: Va
 	if supported_keys.size() <= _SUPPORTED_VALUES_INLINE_LIMIT:
 		issue_context["supported_values"] = supported_keys
 	else:
-		var summary: Dictionary = GFReportValueCodec.make_collection_summary(supported_keys, {
-			"sample_count": _SUPPORTED_VALUES_INLINE_LIMIT,
-			"encode_dictionary_keys": true,
-		})
+		var summary: Dictionary = GFReportValueCodec.make_collection_summary(
+			supported_keys,
+			{ "sample_count": _SUPPORTED_VALUES_INLINE_LIMIT, "encode_dictionary_keys": true, }
+		)
 		issue_context["supported_values_count"] = GFVariantData.get_option_int(summary, "count")
 		issue_context["supported_values_sample"] = GFVariantData.get_option_array(summary, "sample")
-		issue_context["supported_values_preview_hash"] = GFVariantData.get_option_string(
-			summary,
-			"encoded_preview_hash"
-		)
+		issue_context["supported_values_preview_hash"] = GFVariantData.get_option_string(summary, "encoded_preview_hash")
 		issue_context["supported_values_truncated"] = true
 	issue_context["supported_content_types"] = ["localization_key"]
 	return issue_context

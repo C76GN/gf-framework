@@ -238,10 +238,7 @@ func dispose() -> void:
 ## @param outbox: 离线请求队列；为空时保持现有值。
 ## [br]
 ## @return 当前工作流。
-func setup(
-	report_utility: GFSupportReportUtility = null,
-	outbox: GFRequestOutboxUtility = null
-) -> GFSupportReportWorkflow:
+func setup(report_utility: GFSupportReportUtility = null, outbox: GFRequestOutboxUtility = null) -> GFSupportReportWorkflow:
 	if report_utility != null:
 		support_report_utility = report_utility
 	if outbox != null:
@@ -280,7 +277,10 @@ func set_transport(callback: Callable) -> GFSupportReportWorkflow:
 ## @schema metadata: Dictionary，项目自定义诊断上下文。
 func set_session_metadata(metadata: Dictionary, merge_existing: bool = false) -> GFSupportReportWorkflow:
 	if merge_existing:
-		session_metadata.merge(metadata.duplicate(true), true)
+		session_metadata.merge(
+			metadata.duplicate(true),
+			true
+		)
 	else:
 		session_metadata = metadata.duplicate(true)
 	return self
@@ -304,7 +304,10 @@ func set_session_metadata(metadata: Dictionary, merge_existing: bool = false) ->
 func build_report(description: String = "", options: Dictionary = {}) -> Dictionary:
 	var build_options: Dictionary = options.duplicate(true)
 	var metadata: Dictionary = session_metadata.duplicate(true)
-	metadata.merge(GFVariantData.get_option_dictionary(options, "metadata"), true)
+	metadata.merge(
+		GFVariantData.get_option_dictionary(options, "metadata"),
+		true
+	)
 	build_options["metadata"] = metadata
 
 	var report: Dictionary = _get_support_report_utility().build_report(description, build_options)
@@ -352,24 +355,54 @@ func submit_report(description: String = "", options: Dictionary = {}) -> Dictio
 ## @schema return: Dictionary，包含 ok、status、report、submit_result、queue_result、error。
 func submit_built_report(report: Dictionary, options: Dictionary = {}) -> Dictionary:
 	if report.is_empty():
-		return _make_workflow_result(false, &"failed", report, {}, {}, "report is empty")
+		return _make_workflow_result(
+			false,
+			&"failed",
+			report,
+			{},
+			{},
+			"report is empty"
+		)
 
 	var transport: Callable = _get_transport_from_options(options)
 	if transport.is_valid():
-		var submit_result: Dictionary = _get_support_report_utility().submit_report(
-			report,
-			transport,
-			GFVariantData.get_option_dictionary(options, "transport_options")
+		var submit_result: Dictionary = (
+			_get_support_report_utility().submit_report(
+				report,
+				transport,
+				GFVariantData.get_option_dictionary(options, "transport_options")
+			)
 		)
 		if GFVariantData.get_option_bool(submit_result, "ok"):
 			_reports_submitted_count += 1
-			workflow_report_submitted.emit(report.duplicate(true), submit_result.duplicate(true))
-			return _make_workflow_result(true, &"submitted", report, submit_result, {}, "")
+			workflow_report_submitted.emit(
+				report.duplicate(true),
+				submit_result.duplicate(true)
+			)
+			return _make_workflow_result(
+				true,
+				&"submitted",
+				report,
+				submit_result,
+				{},
+				""
+			)
 
-		if GFVariantData.get_option_bool(options, "queue_on_failure", queue_on_submit_failure):
+		if GFVariantData.get_option_bool(
+			options,
+			"queue_on_failure",
+			queue_on_submit_failure
+		):
 			var failed_queue_result: Dictionary = queue_report(report, options)
 			if GFVariantData.get_option_bool(failed_queue_result, "ok"):
-				return _make_workflow_result(true, &"queued", report, submit_result, failed_queue_result, "")
+				return _make_workflow_result(
+					true,
+					&"queued",
+					report,
+					submit_result,
+					failed_queue_result,
+					""
+				)
 			return _make_workflow_result(
 				false,
 				&"failed",
@@ -379,15 +412,41 @@ func submit_built_report(report: Dictionary, options: Dictionary = {}) -> Dictio
 				GFVariantData.get_option_string(
 					failed_queue_result,
 					"error",
-					GFVariantData.get_option_string(submit_result, "error", "submit failed")
+					GFVariantData.get_option_string(
+						submit_result,
+						"error",
+						"submit failed"
+					)
 				)
 			)
-		return _make_workflow_result(false, &"failed", report, submit_result, {}, GFVariantData.get_option_string(submit_result, "error", "submit failed"))
+		return _make_workflow_result(
+			false,
+			&"failed",
+			report,
+			submit_result,
+			{},
+			GFVariantData.get_option_string(
+				submit_result,
+				"error",
+				"submit failed"
+			)
+		)
 
-	if GFVariantData.get_option_bool(options, "queue_when_missing_transport", queue_when_transport_missing):
+	if GFVariantData.get_option_bool(
+		options,
+		"queue_when_missing_transport",
+		queue_when_transport_missing
+	):
 		var missing_transport_queue_result: Dictionary = queue_report(report, options)
 		if GFVariantData.get_option_bool(missing_transport_queue_result, "ok"):
-			return _make_workflow_result(true, &"queued", report, {}, missing_transport_queue_result, "")
+			return _make_workflow_result(
+				true,
+				&"queued",
+				report,
+				{},
+				missing_transport_queue_result,
+				""
+			)
 		return _make_workflow_result(
 			false,
 			&"failed",
@@ -400,7 +459,14 @@ func submit_built_report(report: Dictionary, options: Dictionary = {}) -> Dictio
 				"transport callback is invalid"
 			)
 		)
-	return _make_workflow_result(false, &"failed", report, {}, {}, "transport callback is invalid")
+	return _make_workflow_result(
+		false,
+		&"failed",
+		report,
+		{},
+		{},
+		"transport callback is invalid"
+	)
 
 
 ## 将支持报告可靠写入离线请求队列。
@@ -449,12 +515,14 @@ func queue_report(report: Dictionary, options: Dictionary = {}) -> Dictionary:
 	metadata["report_id"] = GFVariantData.get_option_string(report, "report_id")
 	metadata["transport_options"] = GFVariantData.get_option_dictionary(options, "transport_options")
 
-	var body: Dictionary = {
-		"report": report.duplicate(true),
-	}
+	var body: Dictionary = { "report": report.duplicate(true), }
 	var envelope: GFRequestEnvelope = GFRequestEnvelope.new(
 		HTTPClient.METHOD_POST,
-		GFVariantData.get_option_string(options, "request_url", request_url),
+		GFVariantData.get_option_string(
+			options,
+			"request_url",
+			request_url
+		),
 		body,
 		GFVariantData.get_option_packed_string_array(options, "headers"),
 		metadata
@@ -519,9 +587,7 @@ func queue_report(report: Dictionary, options: Dictionary = {}) -> Dictionary:
 			missing_persistence_error
 		)
 
-	envelope = _variant_to_request_envelope(
-		GFVariantData.get_option_value(enqueue_report, "envelope")
-	)
+	envelope = _variant_to_request_envelope(GFVariantData.get_option_value(enqueue_report, "envelope"))
 	if envelope == null:
 		return _make_queue_result(
 			false,
@@ -531,7 +597,10 @@ func queue_report(report: Dictionary, options: Dictionary = {}) -> Dictionary:
 			&"invalid_receipt"
 		)
 	_reports_queued_count += 1
-	workflow_report_queued.emit(report.duplicate(true), envelope.duplicate_request())
+	workflow_report_queued.emit(
+		report.duplicate(true),
+		envelope.duplicate_request()
+	)
 	return _make_queue_result(
 		true,
 		&"queued",
@@ -571,10 +640,7 @@ func replay_queued(max_count: int = 0) -> Dictionary:
 	var replay_generation: int = _lifecycle_generation
 	_wire_outbox_transport()
 	var result: Dictionary = await replay_outbox.replay(max_count)
-	if (
-		replay_generation != _lifecycle_generation
-		or request_outbox != replay_outbox
-	):
+	if (replay_generation != _lifecycle_generation or request_outbox != replay_outbox):
 		return _make_stale_replay_result(result)
 	_replay_completed_count += 1
 	workflow_replay_completed.emit(result.duplicate(true))
@@ -613,18 +679,9 @@ func handles_request(envelope: GFRequestEnvelope) -> bool:
 	if report.is_empty():
 		return false
 	var report_id_value: Variant = GFVariantData.get_option_value(report, "report_id")
-	var metadata_report_id_value: Variant = GFVariantData.get_option_value(
-		envelope.metadata,
-		"report_id"
-	)
-	var request_kind_value: Variant = GFVariantData.get_option_value(
-		envelope.metadata,
-		"request_kind"
-	)
-	var transport_options_value: Variant = GFVariantData.get_option_value(
-		envelope.metadata,
-		"transport_options"
-	)
+	var metadata_report_id_value: Variant = GFVariantData.get_option_value(envelope.metadata, "report_id")
+	var request_kind_value: Variant = GFVariantData.get_option_value(envelope.metadata, "request_kind")
+	var transport_options_value: Variant = GFVariantData.get_option_value(envelope.metadata, "transport_options")
 	if (
 		not _is_text_value(report_id_value)
 		or not _is_text_value(metadata_report_id_value)
@@ -684,7 +741,11 @@ func _get_support_report_utility() -> GFSupportReportUtility:
 ## @api private
 ## [br]
 func _get_transport_from_options(options: Dictionary) -> Callable:
-	var transport_value: Variant = GFVariantData.get_option_value(options, "transport", transport_callback)
+	var transport_value: Variant = GFVariantData.get_option_value(
+		options,
+		"transport",
+		transport_callback
+	)
 	if transport_value is Callable:
 		var callback: Callable = transport_value
 		return callback
@@ -696,13 +757,14 @@ func _get_transport_from_options(options: Dictionary) -> Callable:
 ## @api private
 ## [br]
 func _wire_outbox_transport() -> void:
-	if request_outbox == null or not auto_wire_outbox_transport or not transport_callback.is_valid():
+	if (
+		request_outbox == null
+		or not auto_wire_outbox_transport
+		or not transport_callback.is_valid()
+	):
 		return
 	var workflow_transport: Callable = Callable(self, "_send_outbox_envelope")
-	if (
-		request_outbox.transport_callback.is_valid()
-		and request_outbox.transport_callback != workflow_transport
-	):
+	if (request_outbox.transport_callback.is_valid() and request_outbox.transport_callback != workflow_transport):
 		return
 	request_outbox.transport_callback = workflow_transport
 	_wired_outbox = request_outbox
@@ -727,15 +789,9 @@ func _unwire_outbox_transport() -> void:
 ## [br]
 func _send_outbox_envelope(envelope: GFRequestEnvelope) -> Variant:
 	if not handles_request(envelope):
-		return {
-			"ok": false,
-			"error": "unsupported support report envelope",
-		}
+		return { "ok": false, "error": "unsupported support report envelope", }
 	if not transport_callback.is_valid():
-		return {
-			"ok": false,
-			"error": "transport callback is invalid",
-		}
+		return { "ok": false, "error": "transport callback is invalid", }
 
 	var report: Dictionary = GFVariantData.get_option_dictionary(envelope.body, "report")
 	var transport_options: Dictionary = GFVariantData.get_option_dictionary(envelope.metadata, "transport_options")
@@ -756,10 +812,7 @@ func _is_text_value(value: Variant) -> bool:
 ## [br]
 func _has_valid_report_id(report: Dictionary) -> bool:
 	var report_id_value: Variant = GFVariantData.get_option_value(report, "report_id")
-	return (
-		_is_text_value(report_id_value)
-		and _is_valid_report_id(GFVariantData.to_text(report_id_value))
-	)
+	return (_is_text_value(report_id_value) and _is_valid_report_id(GFVariantData.to_text(report_id_value)))
 
 
 ## 要求 ID 非空、不超过长度上限且不含 C0 或 DEL 控制字符。

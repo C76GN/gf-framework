@@ -240,7 +240,11 @@ func inject_dependencies_from_flow(architecture: GFArchitecture) -> void:
 ## [br]
 ## @return: 首次成功声明时返回 true。
 func claim_for_queue() -> bool:
-	if _is_claimed or _is_sealed or _is_cancelled:
+	if (
+		_is_claimed
+		or _is_sealed
+		or _is_cancelled
+	):
 		return false
 	_targets = _sanitize_targets(_targets)
 	_payload = GFVariantData.duplicate_variant(_payload)

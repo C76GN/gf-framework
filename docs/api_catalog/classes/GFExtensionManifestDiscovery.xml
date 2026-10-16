@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFExtensionManifestDiscovery" path="addons/gf/kernel/extension/gf_extension_manifest_discovery.gd" module="kernel" extends="RefCounted" classDigest="03968653a566686a36abbe79583fc65e3440cf8573b3d8174a9bd8985c7258e7">
+<class name="GFExtensionManifestDiscovery" path="addons/gf/kernel/extension/gf_extension_manifest_discovery.gd" module="kernel" extends="RefCounted" classDigest="1c3ae207348177d7b828b367c13ee05e9b3c77b0f39a218c9d64c30120cb8c1f">
 	<description>GFExtensionManifestDiscovery: GF 扩展 manifest 发现快照缓存。
 在 `GFExtensionCatalog` 的无状态 manifest 读取能力之上维护快照缓存，
 并通过扩展根目录、manifest 路径和 manifest 内容摘要自动判断缓存是否仍然有效。</description>
@@ -15,7 +15,7 @@
 	<properties />
 	<methods>
 		<member kind="method" name="get_snapshot">
-			<signature>static func get_snapshot( extra_root_paths: Array[String] = [], options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<signature>static func get_snapshot(extra_root_paths: Array[String] = [], options: Dictionary = {}) -&gt; Dictionary:</signature>
 			<description>获取当前扩展 manifest 发现快照。
 默认会复用仍然有效的快照；当扩展根目录、manifest 路径集合或 manifest 内容摘要变化时，
 自动重新扫描并替换缓存。</description>

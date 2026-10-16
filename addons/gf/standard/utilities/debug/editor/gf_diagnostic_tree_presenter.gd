@@ -21,7 +21,12 @@ static func populate_dictionary(tree: Tree, source: Dictionary) -> void:
 	if tree == null:
 		return
 	var root_item: TreeItem = tree.create_item()
-	_append_dictionary_items(tree, root_item, source, true)
+	_append_dictionary_items(
+		tree,
+		root_item,
+		source,
+		true
+	)
 
 
 ## 返回诊断值的展示类型。
@@ -86,9 +91,7 @@ static func safe_json(value: Variant) -> String:
 		value,
 		"\t",
 		false,
-		GFReportValueCodec.make_redaction_options(
-			GFReportValueCodec.REDACTION_PROFILE_DEBUG
-		)
+		GFReportValueCodec.make_redaction_options(GFReportValueCodec.REDACTION_PROFILE_DEBUG)
 	)
 
 
@@ -108,9 +111,7 @@ static func safe_json(value: Variant) -> String:
 static func sanitize_for_display(value: Variant) -> Variant:
 	return GFReportValueCodec.to_json_compatible(
 		value,
-		GFReportValueCodec.make_redaction_options(
-			GFReportValueCodec.REDACTION_PROFILE_DEBUG
-		)
+		GFReportValueCodec.make_redaction_options(GFReportValueCodec.REDACTION_PROFILE_DEBUG)
 	)
 
 
@@ -130,9 +131,18 @@ static func _append_dictionary_items(
 		var value: Variant = source[key_text]
 		var item: TreeItem = tree.create_item(parent)
 		item.set_text(0, key_text)
-		item.set_text(1, get_value_kind(value))
-		item.set_text(2, make_value_summary(value))
-		item.set_metadata(0, sanitize_for_display(value))
+		item.set_text(
+			1,
+			get_value_kind(value)
+		)
+		item.set_text(
+			2,
+			make_value_summary(value)
+		)
+		item.set_metadata(
+			0,
+			sanitize_for_display(value)
+		)
 		if include_children and value is Dictionary:
 			_append_dictionary_items(
 				tree,

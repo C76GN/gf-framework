@@ -181,7 +181,11 @@ func configure(
 	recipe_id = p_recipe_id
 	channels = p_channels.duplicate()
 	checkpoints = p_checkpoints.duplicate()
-	max_events = GFVariantData.get_option_int(options, "max_events", max_events)
+	max_events = GFVariantData.get_option_int(
+		options,
+		"max_events",
+		max_events
+	)
 	max_event_buffer_bytes = GFVariantData.get_option_int(
 		options,
 		"max_event_buffer_bytes",
@@ -197,8 +201,16 @@ func configure(
 		"redaction_profile",
 		redaction_profile
 	)
-	snapshot_limit = GFVariantData.get_option_int(options, "snapshot_limit", snapshot_limit)
-	include_context = GFVariantData.get_option_bool(options, "include_context", include_context)
+	snapshot_limit = GFVariantData.get_option_int(
+		options,
+		"snapshot_limit",
+		snapshot_limit
+	)
+	include_context = GFVariantData.get_option_bool(
+		options,
+		"include_context",
+		include_context
+	)
 	include_channel_catalog = GFVariantData.get_option_bool(
 		options,
 		"include_channel_catalog",
@@ -210,7 +222,13 @@ func configure(
 		include_provider_catalog
 	)
 	metadata = _duplicate_dictionary(
-		GFVariantData.as_dictionary(GFVariantData.get_option_value(options, "metadata", {}))
+		GFVariantData.as_dictionary(
+			GFVariantData.get_option_value(
+				options,
+				"metadata",
+				{}
+			)
+		)
 	)
 	return self
 
@@ -227,16 +245,45 @@ func configure(
 func validate_recipe() -> Dictionary:
 	var report: Dictionary = { "issues": [] }
 	var recipe_text: String = String(recipe_id)
-	if recipe_id == &"" or recipe_text != recipe_text.strip_edges() or recipe_text.length() > 128:
-		_append_issue(report, &"invalid_recipe_id", "Trace recipe id must be non-empty, trimmed, and at most 128 characters.", { "path": "recipe_id" })
+	if (
+		recipe_id == &""
+		or recipe_text != recipe_text.strip_edges()
+		or recipe_text.length() > 128
+	):
+		_append_issue(
+			report,
+			&"invalid_recipe_id",
+			"Trace recipe id must be non-empty, trimmed, and at most 128 characters.",
+			{ "path": "recipe_id" }
+		)
 	if channels.is_empty():
-		_append_issue(report, &"empty_recipe_channels", "Trace recipe must declare at least one channel.", { "path": "channels" })
+		_append_issue(
+			report,
+			&"empty_recipe_channels",
+			"Trace recipe must declare at least one channel.",
+			{ "path": "channels" }
+		)
 	if channels.size() > _MAX_CHANNEL_DEFINITIONS:
-		_append_issue(report, &"recipe_channel_limit_exceeded", "Trace recipe may declare at most 256 channels.", { "path": "channels", "count": channels.size() })
+		_append_issue(
+			report,
+			&"recipe_channel_limit_exceeded",
+			"Trace recipe may declare at most 256 channels.",
+			{ "path": "channels", "count": channels.size() }
+		)
 	if checkpoints.size() > _MAX_CHECKPOINT_DEFINITIONS:
-		_append_issue(report, &"recipe_checkpoint_limit_exceeded", "Trace recipe may declare at most 256 checkpoints.", { "path": "checkpoints", "count": checkpoints.size() })
+		_append_issue(
+			report,
+			&"recipe_checkpoint_limit_exceeded",
+			"Trace recipe may declare at most 256 checkpoints.",
+			{ "path": "checkpoints", "count": checkpoints.size() }
+		)
 	if max_events < 0 or max_events > _MAX_EVENTS:
-		_append_issue(report, &"invalid_event_limit", "Trace recipe max_events must be between 0 and 1000000.", { "path": "max_events", "value": max_events })
+		_append_issue(
+			report,
+			&"invalid_event_limit",
+			"Trace recipe max_events must be between 0 and 1000000.",
+			{ "path": "max_events", "value": max_events }
+		)
 	if (
 		max_event_buffer_bytes < 0
 		or max_event_buffer_bytes > _MAX_EVENT_BUFFER_BYTES
@@ -245,56 +292,118 @@ func validate_recipe() -> Dictionary:
 			and max_event_buffer_bytes < _MIN_EVENT_BUFFER_BYTES
 		)
 	):
-		_append_issue(report, &"invalid_event_buffer_budget", "Trace recipe max_event_buffer_bytes must be 0 or between 512 and 1073741824.", { "path": "max_event_buffer_bytes", "value": max_event_buffer_bytes })
+		_append_issue(
+			report,
+			&"invalid_event_buffer_budget",
+			"Trace recipe max_event_buffer_bytes must be 0 or between 512 and 1073741824.",
+			{ "path": "max_event_buffer_bytes", "value": max_event_buffer_bytes }
+		)
 	if max_event_bytes < _MIN_EVENT_BYTES or max_event_bytes > _MAX_EVENT_BYTES:
-		_append_issue(report, &"invalid_event_byte_budget", "Trace recipe max_event_bytes must be between 512 and 16777216.", { "path": "max_event_bytes", "value": max_event_bytes })
+		_append_issue(
+			report,
+			&"invalid_event_byte_budget",
+			"Trace recipe max_event_bytes must be between 512 and 16777216.",
+			{ "path": "max_event_bytes", "value": max_event_bytes }
+		)
 	if snapshot_limit < 0 or snapshot_limit > _MAX_SNAPSHOT_LIMIT:
-		_append_issue(report, &"invalid_snapshot_limit", "Trace recipe snapshot_limit must be between 0 and 1000000.", { "path": "snapshot_limit", "value": snapshot_limit })
+		_append_issue(
+			report,
+			&"invalid_snapshot_limit",
+			"Trace recipe snapshot_limit must be between 0 and 1000000.",
+			{ "path": "snapshot_limit", "value": snapshot_limit }
+		)
 	if not _is_valid_redaction_profile(redaction_profile):
-		_append_issue(report, &"invalid_redaction_profile", "Trace recipe redaction_profile is not supported.", { "path": "redaction_profile" })
+		_append_issue(
+			report,
+			&"invalid_redaction_profile",
+			"Trace recipe redaction_profile is not supported.",
+			{ "path": "redaction_profile" }
+		)
 
 	var channel_ids: Dictionary = {}
-	for index: int in range(mini(channels.size(), _MAX_CHANNEL_DEFINITIONS)):
+	for index: int in range(
+		mini(
+			channels.size(),
+			_MAX_CHANNEL_DEFINITIONS
+		)
+	):
 		var channel: GFSessionTraceChannelDefinition = channels[index]
-		if channel == null or not GFVariantData.get_option_bool(channel.validate_definition(), "ok", false):
-			_append_issue(report, &"invalid_channel_definition", "Trace recipe contains an invalid channel definition.", { "path": "channels", "index": index })
+		if channel == null or not GFVariantData.get_option_bool(
+			channel.validate_definition(),
+			"ok",
+			false
+		):
+			_append_issue(
+				report,
+				&"invalid_channel_definition",
+				"Trace recipe contains an invalid channel definition.",
+				{ "path": "channels", "index": index }
+			)
 			continue
 		if channel_ids.has(channel.channel_id):
-			_append_issue(report, &"duplicate_recipe_channel", "Trace recipe channel ids must be unique.", { "path": "channels", "channel_id": String(channel.channel_id) })
+			_append_issue(
+				report,
+				&"duplicate_recipe_channel",
+				"Trace recipe channel ids must be unique.",
+				{ "path": "channels", "channel_id": String(channel.channel_id) }
+			)
 		else:
 			channel_ids[channel.channel_id] = true
 
 	var checkpoint_ids: Dictionary = {}
-	for index: int in range(mini(checkpoints.size(), _MAX_CHECKPOINT_DEFINITIONS)):
+	for index: int in range(
+		mini(
+			checkpoints.size(),
+			_MAX_CHECKPOINT_DEFINITIONS
+		)
+	):
 		var checkpoint: GFSessionTraceCheckpoint = checkpoints[index]
-		if checkpoint == null or not GFVariantData.get_option_bool(checkpoint.validate_checkpoint(), "ok", false):
-			_append_issue(report, &"invalid_checkpoint_definition", "Trace recipe contains an invalid checkpoint definition.", { "path": "checkpoints", "index": index })
+		if checkpoint == null or not GFVariantData.get_option_bool(
+			checkpoint.validate_checkpoint(),
+			"ok",
+			false
+		):
+			_append_issue(
+				report,
+				&"invalid_checkpoint_definition",
+				"Trace recipe contains an invalid checkpoint definition.",
+				{ "path": "checkpoints", "index": index }
+			)
 			continue
 		if checkpoint_ids.has(checkpoint.checkpoint_id):
-			_append_issue(report, &"duplicate_recipe_checkpoint", "Trace recipe checkpoint ids must be unique.", { "path": "checkpoints", "checkpoint_id": String(checkpoint.checkpoint_id) })
+			_append_issue(
+				report,
+				&"duplicate_recipe_checkpoint",
+				"Trace recipe checkpoint ids must be unique.",
+				{ "path": "checkpoints", "checkpoint_id": String(checkpoint.checkpoint_id) }
+			)
 		else:
 			checkpoint_ids[checkpoint.checkpoint_id] = true
 
-	return GFValidationReportDictionary.finalize_report(report, "Session trace recipe", {
-		"include_issue_count": true,
-		"next_actions": {
-			"invalid_recipe_id": "Assign a stable recipe id with at most 128 characters.",
-			"empty_recipe_channels": "Declare at least one bounded trace channel.",
-			"recipe_channel_limit_exceeded": "Keep recipe channels at or below 256 entries.",
-			"recipe_checkpoint_limit_exceeded": "Keep recipe checkpoints at or below 256 entries.",
-			"invalid_event_limit": "Use max_events between 0 and 1000000.",
-			"invalid_event_buffer_budget": "Use 0 or max_event_buffer_bytes between 512 and 1073741824.",
-			"invalid_event_byte_budget": "Use max_event_bytes between 512 and 16777216.",
-			"invalid_snapshot_limit": "Use snapshot_limit between 0 and 1000000.",
-			"invalid_redaction_profile": "Use privacy, public, support, or debug.",
-			"invalid_channel_definition": "Fix or remove the invalid channel definition.",
-			"duplicate_recipe_channel": "Keep channel ids unique inside the recipe.",
-			"invalid_checkpoint_definition": "Fix or remove the invalid checkpoint definition.",
-			"duplicate_recipe_checkpoint": "Keep checkpoint ids unique inside the recipe.",
-		},
-		"fallback_action": "Review the first session trace recipe issue.",
-		"no_action": "Session trace recipe is valid.",
-	})
+	return GFValidationReportDictionary.finalize_report(
+		report,
+		"Session trace recipe",
+		{
+			"include_issue_count": true,
+			"next_actions": {
+				"invalid_recipe_id": "Assign a stable recipe id with at most 128 characters.",
+				"empty_recipe_channels": "Declare at least one bounded trace channel.",
+				"recipe_channel_limit_exceeded": "Keep recipe channels at or below 256 entries.",
+				"recipe_checkpoint_limit_exceeded": "Keep recipe checkpoints at or below 256 entries.",
+				"invalid_event_limit": "Use max_events between 0 and 1000000.",
+				"invalid_event_buffer_budget": "Use 0 or max_event_buffer_bytes between 512 and 1073741824.",
+				"invalid_event_byte_budget": "Use max_event_bytes between 512 and 16777216.",
+				"invalid_snapshot_limit": "Use snapshot_limit between 0 and 1000000.",
+				"invalid_redaction_profile": "Use privacy, public, support, or debug.",
+				"invalid_channel_definition": "Fix or remove the invalid channel definition.",
+				"duplicate_recipe_channel": "Keep channel ids unique inside the recipe.",
+				"invalid_checkpoint_definition": "Fix or remove the invalid checkpoint definition.",
+				"duplicate_recipe_checkpoint": "Keep checkpoint ids unique inside the recipe.",
+			},
+			"fallback_action": "Review the first session trace recipe issue.",
+			"no_action": "Session trace recipe is valid.",
+		}
+	)
 
 
 ## 获取指定检查点。
@@ -307,7 +416,12 @@ func validate_recipe() -> Dictionary:
 ## [br]
 ## @return 检查点；不存在时返回 null。
 func get_checkpoint(checkpoint_id: StringName) -> GFSessionTraceCheckpoint:
-	for index: int in range(mini(checkpoints.size(), _MAX_CHECKPOINT_DEFINITIONS)):
+	for index: int in range(
+		mini(
+			checkpoints.size(),
+			_MAX_CHECKPOINT_DEFINITIONS
+		)
+	):
 		var checkpoint: GFSessionTraceCheckpoint = checkpoints[index]
 		if checkpoint != null and checkpoint.checkpoint_id == checkpoint_id:
 			return checkpoint
@@ -325,29 +439,43 @@ func get_checkpoint(checkpoint_id: StringName) -> GFSessionTraceCheckpoint:
 ## @schema return: Dictionary with recipe identity, budgets, bounded channels and checkpoints, source counts, definitions_truncated, snapshot_options, and metadata.
 func to_report_dictionary() -> Dictionary:
 	var channel_records: Array[Dictionary] = []
-	for index: int in range(mini(channels.size(), _MAX_CHANNEL_DEFINITIONS)):
+	for index: int in range(
+		mini(
+			channels.size(),
+			_MAX_CHANNEL_DEFINITIONS
+		)
+	):
 		var channel: GFSessionTraceChannelDefinition = channels[index]
 		if channel != null:
-			channel_records.append({
-				"channel_id": String(channel.channel_id),
-				"options": {
-					"enabled": channel.enabled,
-					"include_in_snapshot": channel.include_in_snapshot,
-					"max_events": channel.max_events,
-					"max_event_bytes": channel.max_event_bytes,
-					"metadata": channel.metadata,
-				},
-			})
+			channel_records.append(
+				{
+					"channel_id": String(channel.channel_id),
+					"options": {
+						"enabled": channel.enabled,
+						"include_in_snapshot": channel.include_in_snapshot,
+						"max_events": channel.max_events,
+						"max_event_bytes": channel.max_event_bytes,
+						"metadata": channel.metadata,
+					},
+				}
+			)
 	var checkpoint_records: Array[Dictionary] = []
-	for index: int in range(mini(checkpoints.size(), _MAX_CHECKPOINT_DEFINITIONS)):
+	for index: int in range(
+		mini(
+			checkpoints.size(),
+			_MAX_CHECKPOINT_DEFINITIONS
+		)
+	):
 		var checkpoint: GFSessionTraceCheckpoint = checkpoints[index]
 		if checkpoint != null:
-			checkpoint_records.append({
-				"checkpoint_id": String(checkpoint.checkpoint_id),
-				"provider_ids": checkpoint.provider_ids,
-				"optional_provider_ids": checkpoint.optional_provider_ids,
-				"metadata": checkpoint.metadata,
-			})
+			checkpoint_records.append(
+				{
+					"checkpoint_id": String(checkpoint.checkpoint_id),
+					"provider_ids": checkpoint.provider_ids,
+					"optional_provider_ids": checkpoint.optional_provider_ids,
+					"metadata": checkpoint.metadata,
+				}
+			)
 	return GFReportValueCodec.to_report_dictionary(
 		{
 			"recipe_id": String(recipe_id),
@@ -359,16 +487,11 @@ func to_report_dictionary() -> Dictionary:
 			"checkpoints": checkpoint_records,
 			"channel_definition_count": channels.size(),
 			"checkpoint_definition_count": checkpoints.size(),
-			"definitions_truncated": (
-				channels.size() > _MAX_CHANNEL_DEFINITIONS
-				or checkpoints.size() > _MAX_CHECKPOINT_DEFINITIONS
-			),
+			"definitions_truncated": (channels.size() > _MAX_CHANNEL_DEFINITIONS or checkpoints.size() > _MAX_CHECKPOINT_DEFINITIONS),
 			"snapshot_options": get_snapshot_options_for_framework(),
 			"metadata": metadata,
 		},
-		GFReportValueCodec.make_redaction_options(
-			GFReportValueCodec.REDACTION_PROFILE_PRIVACY
-		)
+		GFReportValueCodec.make_redaction_options(GFReportValueCodec.REDACTION_PROFILE_PRIVACY)
 	)
 
 
@@ -402,7 +525,12 @@ func get_snapshot_options_for_framework() -> Dictionary:
 func get_fingerprint_for_framework() -> String:
 	var fingerprint_record: Dictionary = to_report_dictionary()
 	var checkpoint_records: Array[Dictionary] = []
-	for index: int in range(mini(checkpoints.size(), _MAX_CHECKPOINT_DEFINITIONS)):
+	for index: int in range(
+		mini(
+			checkpoints.size(),
+			_MAX_CHECKPOINT_DEFINITIONS
+		)
+	):
 		var checkpoint: GFSessionTraceCheckpoint = checkpoints[index]
 		if checkpoint == null:
 			continue
@@ -418,7 +546,11 @@ func get_fingerprint_for_framework() -> String:
 			)
 		)
 	fingerprint_record["checkpoints"] = checkpoint_records
-	return JSON.stringify(fingerprint_record, "", true).sha256_text()
+	return JSON.stringify(
+		fingerprint_record,
+		"",
+		true
+	).sha256_text()
 
 
 # --- 私有/辅助方法 ---

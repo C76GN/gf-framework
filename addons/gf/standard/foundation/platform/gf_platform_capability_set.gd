@@ -203,7 +203,11 @@ func has_any(candidate_capabilities: PackedStringArray) -> bool:
 ## @schema value: Caller-defined limit value.
 ## [br]
 ## @return 写入成功返回 true。
-func set_limit(capability_id: StringName, key: StringName, value: Variant) -> bool:
+func set_limit(
+	capability_id: StringName,
+	key: StringName,
+	value: Variant
+) -> bool:
 	var normalized: String = _normalize_capability_id(capability_id)
 	var normalized_key: String = String(key).strip_edges()
 	if normalized.is_empty() or normalized_key.is_empty():
@@ -232,7 +236,11 @@ func set_limit(capability_id: StringName, key: StringName, value: Variant) -> bo
 ## @return 限制字段值。
 ## [br]
 ## @schema return: Caller-defined limit value.
-func get_limit(capability_id: StringName, key: StringName, default_value: Variant = null) -> Variant:
+func get_limit(
+	capability_id: StringName,
+	key: StringName,
+	default_value: Variant = null
+) -> Variant:
 	var capability_limits: Dictionary = get_capability_limits(capability_id)
 	var normalized_key: String = String(key).strip_edges()
 	if normalized_key.is_empty() or not capability_limits.has(normalized_key):

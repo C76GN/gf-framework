@@ -93,6 +93,8 @@ var _last_ticks_msec: int = 0
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param value: 要写入或修改的值。
 ## [br]
 ## @param _event: 原始输入事件，默认实现不直接使用。
@@ -100,7 +102,11 @@ var _last_ticks_msec: int = 0
 ## @param _action: 当前输入动作配置，默认实现不直接使用。
 ## [br]
 ## @return 更新后的虚拟光标位置。
-func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = null) -> Vector2:
+func modify(
+	value: Vector2,
+	_event: InputEvent = null,
+	_action: GFInputAction = null
+) -> Vector2:
 	_ensure_initialized()
 	var input_value: Vector2 = value if _is_finite_vector2(value) else Vector2.ZERO
 	var safe_idle_threshold: float = _normalize_non_negative_scalar(idle_threshold)
@@ -120,6 +126,8 @@ func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = 
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param value: 要写入或修改的值。
 ## [br]
 ## @param event: 原始输入事件，默认实现不直接使用。
@@ -127,9 +135,21 @@ func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = 
 ## @param action: 当前输入动作配置，默认实现不直接使用。
 ## [br]
 ## @return 包含虚拟光标 X/Y 和原 Z 分量的三维值。
-func modify_3d(value: Vector3, event: InputEvent = null, action: GFInputAction = null) -> Vector3:
-	var cursor_position: Vector2 = modify(Vector2(value.x, value.y), event, action)
-	return Vector3(cursor_position.x, cursor_position.y, value.z)
+func modify_3d(
+	value: Vector3,
+	event: InputEvent = null,
+	action: GFInputAction = null
+) -> Vector3:
+	var cursor_position: Vector2 = modify(
+		Vector2(value.x, value.y),
+		event,
+		action
+	)
+	return Vector3(
+		cursor_position.x,
+		cursor_position.y,
+		value.z
+	)
 
 
 ## 重置虚拟光标位置。
@@ -170,10 +190,7 @@ func set_manual_delta_seconds(delta_seconds: float) -> GFInputVirtualCursorModif
 ## [br]
 ## @schema return: Dictionary，包含 position 与 initialized。
 func get_runtime_state() -> Dictionary:
-	return {
-		"position": position,
-		"initialized": _initialized,
-	}
+	return { "position": position, "initialized": _initialized, }
 
 
 ## 从运行时状态快照恢复虚拟光标。
@@ -188,8 +205,18 @@ func get_runtime_state() -> Dictionary:
 ## [br]
 ## @schema state: Dictionary，可包含 position: Vector2 与 initialized: bool。
 func restore_runtime_state(state: Dictionary) -> GFInputVirtualCursorModifier:
-	position = _normalize_position(GFVariantData.get_option_vector2(state, "position", initial_position))
-	_initialized = GFVariantData.get_option_bool(state, "initialized", false)
+	position = _normalize_position(
+		GFVariantData.get_option_vector2(
+			state,
+			"position",
+			initial_position
+		)
+	)
+	_initialized = GFVariantData.get_option_bool(
+		state,
+		"initialized",
+		false
+	)
 	_last_ticks_msec = 0
 	return self
 
@@ -337,8 +364,16 @@ func _update_ticks() -> void:
 func _clamp_position(value: Vector2) -> Vector2:
 	var rect: Rect2 = clamp_rect.abs()
 	return Vector2(
-		clampf(value.x, rect.position.x, rect.end.x),
-		clampf(value.y, rect.position.y, rect.end.y)
+		clampf(
+			value.x,
+			rect.position.x,
+			rect.end.x
+		),
+		clampf(
+			value.y,
+			rect.position.y,
+			rect.end.y
+		)
 	)
 
 
@@ -371,7 +406,12 @@ func _is_finite_rect(rect: Rect2) -> bool:
 ## @api private
 ## [br]
 func _is_finite_vector2(value: Vector2) -> bool:
-	return not is_nan(value.x) and not is_inf(value.x) and not is_nan(value.y) and not is_inf(value.y)
+	return (
+		not is_nan(value.x)
+		and not is_inf(value.x)
+		and not is_nan(value.y)
+		and not is_inf(value.y)
+	)
 
 
 ## 将非有限标量归零，并把有限值钳制为不小于零。

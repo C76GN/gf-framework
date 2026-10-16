@@ -283,7 +283,11 @@ func post(callback: Callable, options: Dictionary = {}) -> int:
 ## @schema options: Dictionary，可包含 label: String、front: bool。
 ## [br]
 ## @return 派发句柄；owner 或 method_name 无效时返回 0。
-func post_method(owner: Object, method_name: StringName, options: Dictionary = {}) -> int:
+func post_method(
+	owner: Object,
+	method_name: StringName,
+	options: Dictionary = {}
+) -> int:
 	if owner == null or not is_instance_valid(owner):
 		push_error("[GFMainThreadDispatchQueue][main_thread_dispatch_queue.post_method_owner_invalid] Cannot post_method: owner is null or freed.")
 		return 0
@@ -292,7 +296,11 @@ func post_method(owner: Object, method_name: StringName, options: Dictionary = {
 		return 0
 
 	var invocation: GFWeakMethodInvocation = GFWeakMethodInvocation.new(owner, method_name)
-	return _enqueue_method(invocation, owner.get_instance_id(), options)
+	return _enqueue_method(
+		invocation,
+		owner.get_instance_id(),
+		options
+	)
 
 
 ## 派发队列中的回调。
@@ -349,7 +357,11 @@ func dispatch(max_count: int = 0, max_seconds: float = 0.0) -> Dictionary:
 	_begin_dispatch_snapshot()
 
 	while dispatched_now + failed_now + skipped_owner_now < limit:
-		if _is_dispatch_budget_exhausted(started_usec, seconds_budget, dispatched_now + failed_now + skipped_owner_now):
+		if _is_dispatch_budget_exhausted(
+			started_usec,
+			seconds_budget,
+			dispatched_now + failed_now + skipped_owner_now
+		):
 			budget_exhausted = _has_dispatch_snapshot_records()
 			break
 
@@ -371,9 +383,7 @@ func dispatch(max_count: int = 0, max_seconds: float = 0.0) -> Dictionary:
 			elif invocation_status != GFWeakMethodInvocation.STATUS_INVOKED:
 				failed_now += 1
 				_failed_count += 1
-			elif _callback_result_is_failure(
-				GFVariantData.get_option_value(invocation_report, "value")
-			):
+			elif _callback_result_is_failure(GFVariantData.get_option_value(invocation_report, "value")):
 				failed_now += 1
 				_failed_count += 1
 			else:
@@ -395,15 +405,8 @@ func dispatch(max_count: int = 0, max_seconds: float = 0.0) -> Dictionary:
 			dispatched_now += 1
 			_dispatched_count += 1
 
-	var processed_count: int = (
-		dispatched_now
-		+ failed_now
-		+ skipped_owner_now
-	)
-	if (
-		processed_count >= limit
-		and _has_dispatch_snapshot_records()
-	):
+	var processed_count: int = dispatched_now + failed_now + skipped_owner_now
+	if (processed_count >= limit and _has_dispatch_snapshot_records()):
 		budget_exhausted = true
 
 	_finish_dispatch_snapshot()
@@ -606,11 +609,19 @@ func _enqueue(callback: Callable, options: Dictionary) -> int:
 		"posted_msec": Time.get_ticks_msec(),
 	}
 	if _dispatch_snapshot_active:
-		if GFVariantData.get_option_bool(options, "front", false):
+		if GFVariantData.get_option_bool(
+			options,
+			"front",
+			false
+		):
 			_dispatch_front_records.append(record)
 		else:
 			_dispatch_back_records.append(record)
-	elif GFVariantData.get_option_bool(options, "front", false):
+	elif GFVariantData.get_option_bool(
+		options,
+		"front",
+		false
+	):
 		_queue.push_front(record)
 	else:
 		_queue.append(record)
@@ -644,11 +655,19 @@ func _enqueue_method(
 		"posted_msec": Time.get_ticks_msec(),
 	}
 	if _dispatch_snapshot_active:
-		if GFVariantData.get_option_bool(options, "front", false):
+		if GFVariantData.get_option_bool(
+			options,
+			"front",
+			false
+		):
 			_dispatch_front_records.append(record)
 		else:
 			_dispatch_back_records.append(record)
-	elif GFVariantData.get_option_bool(options, "front", false):
+	elif GFVariantData.get_option_bool(
+		options,
+		"front",
+		false
+	):
 		_queue.push_front(record)
 	else:
 		_queue.append(record)
@@ -680,9 +699,7 @@ func _begin_dispatch_snapshot() -> void:
 func _pop_next_dispatch_record() -> Dictionary:
 	_mutex.lock()
 	while _dispatch_snapshot_cursor < _dispatch_snapshot.size():
-		var record: Dictionary = _dispatch_snapshot[
-			_dispatch_snapshot_cursor
-		]
+		var record: Dictionary = _dispatch_snapshot[_dispatch_snapshot_cursor]
 		_dispatch_snapshot[_dispatch_snapshot_cursor] = {}
 		_dispatch_snapshot_cursor += 1
 		if record.is_empty():
@@ -711,10 +728,7 @@ func _has_dispatch_snapshot_records() -> bool:
 func _finish_dispatch_snapshot() -> void:
 	_mutex.lock()
 	var merged_records: Array[Dictionary] = []
-	_append_non_empty_records_reversed(
-		merged_records,
-		_dispatch_front_records
-	)
+	_append_non_empty_records_reversed(merged_records, _dispatch_front_records)
 	_append_non_empty_records(
 		merged_records,
 		_dispatch_snapshot,
@@ -760,10 +774,7 @@ func _cancel_handle_locked(handle: int) -> bool:
 		_dispatch_snapshot.size()
 	):
 		var snapshot_record: Dictionary = _dispatch_snapshot[index]
-		if (
-			snapshot_record.is_empty()
-			or _get_record_handle(snapshot_record) != handle
-		):
+		if (snapshot_record.is_empty() or _get_record_handle(snapshot_record) != handle):
 			continue
 		_dispatch_snapshot[index] = {}
 		_dispatch_snapshot_pending_count -= 1
@@ -784,7 +795,11 @@ func _cancel_handle_locked(handle: int) -> bool:
 func _cancel_owner_locked(owner_id: int) -> int:
 	var removed_count: int = 0
 	if not _dispatch_snapshot_active:
-		for index: int in range(_queue.size() - 1, -1, -1):
+		for index: int in range(
+			_queue.size() - 1,
+			-1,
+			-1
+		):
 			if _get_record_owner_id(_queue[index]) != owner_id:
 				continue
 			_queue.remove_at(index)
@@ -807,10 +822,7 @@ func _cancel_owner_locked(owner_id: int) -> int:
 		_dispatch_snapshot.size()
 	):
 		var snapshot_record: Dictionary = _dispatch_snapshot[index]
-		if (
-			snapshot_record.is_empty()
-			or _get_record_owner_id(snapshot_record) != owner_id
-		):
+		if (snapshot_record.is_empty() or _get_record_owner_id(snapshot_record) != owner_id):
 			continue
 		_dispatch_snapshot[index] = {}
 		_dispatch_snapshot_pending_count -= 1
@@ -835,12 +847,13 @@ func _cancel_owner_locked(owner_id: int) -> int:
 func _collect_pending_records_locked() -> Array[Dictionary]:
 	var pending_records: Array[Dictionary] = []
 	if not _dispatch_snapshot_active:
-		_append_non_empty_records(pending_records, _queue, 0)
+		_append_non_empty_records(
+			pending_records,
+			_queue,
+			0
+		)
 		return pending_records
-	_append_non_empty_records_reversed(
-		pending_records,
-		_dispatch_front_records
-	)
+	_append_non_empty_records_reversed(pending_records, _dispatch_front_records)
 	_append_non_empty_records(
 		pending_records,
 		_dispatch_snapshot,
@@ -862,7 +875,10 @@ func _append_non_empty_records(
 	source_records: Array[Dictionary],
 	start_index: int
 ) -> void:
-	for index: int in range(start_index, source_records.size()):
+	for index: int in range(
+		start_index,
+		source_records.size()
+	):
 		var record: Dictionary = source_records[index]
 		if record.is_empty():
 			continue
@@ -872,11 +888,12 @@ func _append_non_empty_records(
 ## 按倒序将 source_records 中的非空记录追加到目标数组。
 ## [br]
 ## @api private
-func _append_non_empty_records_reversed(
-	target_records: Array[Dictionary],
-	source_records: Array[Dictionary]
-) -> void:
-	for index: int in range(source_records.size() - 1, -1, -1):
+func _append_non_empty_records_reversed(target_records: Array[Dictionary], source_records: Array[Dictionary]) -> void:
+	for index: int in range(
+		source_records.size() - 1,
+		-1,
+		-1
+	):
 		var record: Dictionary = source_records[index]
 		if record.is_empty():
 			continue
@@ -886,7 +903,11 @@ func _append_non_empty_records_reversed(
 ## 时间预算启用且至少处理一条记录后，检查已耗秒数是否达到上限。
 ## [br]
 ## @api private
-func _is_dispatch_budget_exhausted(started_usec: int, max_seconds: float, processed_count: int) -> bool:
+func _is_dispatch_budget_exhausted(
+	started_usec: int,
+	max_seconds: float,
+	processed_count: int
+) -> bool:
 	if max_seconds <= 0.0 or processed_count <= 0:
 		return false
 	var elapsed_seconds: float = float(Time.get_ticks_usec() - started_usec) / 1000000.0
@@ -902,7 +923,11 @@ func _callback_result_is_failure(result: Variant) -> bool:
 		return not bool_result
 	if result is Dictionary:
 		var dictionary_result: Dictionary = result
-		return not GFVariantData.get_option_bool(dictionary_result, "ok", true)
+		return not GFVariantData.get_option_bool(
+			dictionary_result,
+			"ok",
+			true
+		)
 	return false
 
 
@@ -924,7 +949,11 @@ func _get_record_owner_id(record: Dictionary) -> int:
 ## [br]
 ## @api private
 func _get_record_callback(record: Dictionary) -> Callable:
-	var value: Variant = GFVariantData.get_option_value(record, "callback", Callable())
+	var value: Variant = GFVariantData.get_option_value(
+		record,
+		"callback",
+		Callable()
+	)
 	if value is Callable:
 		var callback: Callable = value
 		return callback

@@ -103,24 +103,58 @@ static func take_resource(path: String) -> Resource:
 static func poll(path: String, previous_progress: float = 0.0) -> Dictionary:
 	var progress_values: Array = []
 	var thread_status: ResourceLoader.ThreadLoadStatus = get_status_with_progress(path, progress_values)
-	var progress: float = _get_progress(progress_values, previous_progress, thread_status)
+	var progress: float = _get_progress(
+		progress_values,
+		previous_progress,
+		thread_status
+	)
 	var resource: Resource = null
 
 	match thread_status:
 		ResourceLoader.THREAD_LOAD_IN_PROGRESS:
-			return _make_poll_result(STATUS_IN_PROGRESS, thread_status, progress, null, "")
+			return _make_poll_result(
+				STATUS_IN_PROGRESS,
+				thread_status,
+				progress,
+				null,
+				""
+			)
 
 		ResourceLoader.THREAD_LOAD_LOADED:
 			resource = take_resource(path)
-			return _make_poll_result(STATUS_LOADED, thread_status, 1.0, resource, "")
+			return _make_poll_result(
+				STATUS_LOADED,
+				thread_status,
+				1.0,
+				resource,
+				""
+			)
 
 		ResourceLoader.THREAD_LOAD_FAILED:
-			return _make_poll_result(STATUS_FAILED, thread_status, progress, null, "thread_load_failed")
+			return _make_poll_result(
+				STATUS_FAILED,
+				thread_status,
+				progress,
+				null,
+				"thread_load_failed"
+			)
 
 		ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
-			return _make_poll_result(STATUS_INVALID, thread_status, progress, null, "invalid_resource")
+			return _make_poll_result(
+				STATUS_INVALID,
+				thread_status,
+				progress,
+				null,
+				"invalid_resource"
+			)
 
-	return _make_poll_result(STATUS_INVALID, thread_status, progress, null, "unknown_thread_status")
+	return _make_poll_result(
+		STATUS_INVALID,
+		thread_status,
+		progress,
+		null,
+		"unknown_thread_status"
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -139,7 +173,11 @@ static func _make_poll_result(
 	return {
 		"status": status,
 		"thread_status": thread_status,
-		"progress": clampf(progress, 0.0, 1.0),
+		"progress": clampf(
+			progress,
+			0.0,
+			1.0
+		),
 		"resource": resource,
 		"has_resource": resource != null,
 		"error": error,
@@ -158,7 +196,10 @@ static func _get_progress(
 	if thread_status == ResourceLoader.THREAD_LOAD_LOADED:
 		return 1.0
 	if not progress_values.is_empty():
-		return GFVariantData.to_float(progress_values[0], previous_progress)
+		return GFVariantData.to_float(
+			progress_values[0],
+			previous_progress
+		)
 	return previous_progress
 
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAudioCatalogProvider" path="addons/gf/standard/utilities/audio/gf_audio_catalog_provider.gd" module="standard" extends="RefCounted" classDigest="4a275a3068dbe7d5df3c9f480eba003fb147648a5a353244e2686bccfc8166a9">
+<class name="GFAudioCatalogProvider" path="addons/gf/standard/utilities/audio/gf_audio_catalog_provider.gd" module="standard" extends="RefCounted" classDigest="e9ee5bb0886c1878ce21819dd58e478fc404e1de2d3613fd6606dd35449d96f8">
 	<description>GFAudioCatalogProvider: 通用音频目录提供器。
 为编辑器选择器或构建工具提供事件、参数、状态和开关 ID 查询入口。</description>
 	<tags>
@@ -46,7 +46,7 @@
 	</properties>
 	<methods>
 		<member kind="method" name="set_entry">
-			<signature>func set_entry(catalog_id: StringName, entry_id: StringName, metadata: Dictionary = {}) -&gt; void:</signature>
+			<signature>func set_entry( catalog_id: StringName, entry_id: StringName, metadata: Dictionary = {} ) -&gt; void:</signature>
 			<description>设置目录条目。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -54,6 +54,7 @@
 				<tag name="param">entry_id: 条目标识。</tag>
 				<tag name="param">metadata: 条目元数据。</tag>
 				<tag name="schema">metadata: 条目元数据 Dictionary；键和值由目录提供器或项目工具约定。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="remove_entry">

@@ -193,7 +193,10 @@ func get_camera_pose(_camera: Camera2D = null) -> Dictionary:
 	var safe_offset: Vector2 = _sanitize_vector2(offset, Vector2.ZERO)
 	var effective_offset: Vector2 = safe_offset.rotated(base_rotation) if offset_follows_rotation else safe_offset
 	return {
-		"position": _sanitize_vector2(base_position + effective_offset, base_position),
+		"position": _sanitize_vector2(
+			base_position + effective_offset,
+			base_position
+		),
 		"rotation": _sanitize_float(
 			base_rotation + deg_to_rad(_sanitize_float(rotation_degrees_offset, 0.0)),
 			base_rotation
@@ -243,7 +246,14 @@ func get_camera_scope_node() -> Node:
 ## [br]
 ## @return 可用时返回 true。
 func is_available() -> bool:
-	return active and is_inside_tree() and (target_path.is_empty() or get_target_node() != null)
+	return (
+		active
+		and is_inside_tree()
+		and (
+			target_path.is_empty()
+			or get_target_node() != null
+		)
+	)
 
 
 # --- 私有/辅助方法 ---

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFUIRouterUtility" path="addons/gf/standard/utilities/ui/gf_ui_router_utility.gd" module="standard" extends="GFUtility" classDigest="a4705ce10380f895c4be8f04841548543df84097f205cab89b3e310bec711590">
+<class name="GFUIRouterUtility" path="addons/gf/standard/utilities/ui/gf_ui_router_utility.gd" module="standard" extends="GFUtility" classDigest="53ec1c587f6c9b6f9674a743c67497bf8a0ee3f42d5e9a4a76b49c07f4cc1fd1">
 	<description>GFUIRouterUtility: 基于路由 ID 的 UI 导航工具。
 作为 GFUIUtility 之上的轻量路由层，负责把稳定 route_id 映射到面板场景、
 打开参数、层级和历史记录，不接管具体页面业务或动画表现。</description>
@@ -10,7 +10,7 @@
 	</tags>
 	<signals>
 		<member kind="signal" name="route_open_requested">
-			<signature>signal route_open_requested(route_id: StringName, operation: Operation, params: Dictionary)</signature>
+			<signature>signal route_open_requested( route_id: StringName, operation: Operation, params: Dictionary )</signature>
 			<description>路由打开请求发出时触发。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -18,16 +18,18 @@
 				<tag name="param">operation: 打开操作。</tag>
 				<tag name="param">params: 路由参数。</tag>
 				<tag name="schema">params: Dictionary，本次打开路由携带的项目自定义参数。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="route_opened">
-			<signature>signal route_opened(route_id: StringName, panel: Node, operation: Operation)</signature>
+			<signature>signal route_opened( route_id: StringName, panel: Node, operation: Operation )</signature>
 			<description>路由面板成功打开后触发。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">route_id: 路由标识。</tag>
 				<tag name="param">panel: 面板实例。</tag>
 				<tag name="param">operation: 打开操作。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="route_open_failed">

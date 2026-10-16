@@ -9,7 +9,12 @@ extends RefCounted
 ## 最新请求或完成结果，所有对外读取返回深复制。
 ## [br]
 ## @api private
-var _report: Dictionary = {"status": "pending", "generation": 0, "settings": {}, "issues": []}
+var _report: Dictionary = {
+	"status": "pending",
+	"generation": 0,
+	"settings": {},
+	"issues": [],
+}
 
 ## 最近完整或部分安装的实际设置快照。
 ## [br]
@@ -31,7 +36,12 @@ var _installed_settings: Dictionary = {}
 ## [br]
 ## @schema settings: Dictionary of extension ProjectSettings names to saved values.
 func request(generation: int, settings: Dictionary) -> void:
-	_report = {"status": "pending", "generation": generation, "settings": settings.duplicate(true), "issues": []}
+	_report = {
+		"status": "pending",
+		"generation": generation,
+		"settings": settings.duplicate(true),
+		"issues": [],
+	}
 
 
 ## 核对应用前的设置身份，避免将扫描期间发生的新设置当成原请求。
@@ -48,7 +58,11 @@ func request(generation: int, settings: Dictionary) -> void:
 ## [br]
 ## @return: 请求代次和设置完全匹配时返回 true。
 func accepts(generation: int, settings: Dictionary) -> bool:
-	return _report["status"] == "pending" and _report["generation"] == generation and _report["settings"] == settings
+	return (
+		_report["status"] == "pending"
+		and _report["generation"] == generation
+		and _report["settings"] == settings
+	)
 
 
 ## 记录实际安装结果；有跳过或失败贡献时只能报告部分应用。
@@ -64,7 +78,11 @@ func accepts(generation: int, settings: Dictionary) -> bool:
 ## @param issues: 发现或安装阶段未能应用的原因。
 ## [br]
 ## @schema settings: Dictionary of extension ProjectSettings names to values.
-func complete(generation: int, settings: Dictionary, issues: Array[String]) -> void:
+func complete(
+	generation: int,
+	settings: Dictionary,
+	issues: Array[String]
+) -> void:
 	_installed_settings = settings.duplicate(true)
 	if not accepts(generation, settings):
 		return

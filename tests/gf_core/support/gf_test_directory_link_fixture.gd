@@ -13,10 +13,20 @@ static func create(target_path: String, link_path: String) -> Error:
 	if _contains_command_shell_metacharacter(target_path) or _contains_command_shell_metacharacter(link_path):
 		return ERR_INVALID_PARAMETER
 	var command_output: Array = []
-	var command_line: String = "mklink /J \"%s\" \"%s\"" % [link_path, target_path]
+	var command_line: String = (
+		"mklink /J \"%s\" \"%s\""
+		% [link_path, target_path]
+	)
 	var exit_code: int = OS.execute(
 		"cmd.exe",
-		PackedStringArray(["/d", "/s", "/c", command_line]),
+		PackedStringArray(
+			[
+				"/d",
+				"/s",
+				"/c",
+				command_line,
+			]
+		),
 		command_output,
 		true,
 		false
@@ -27,7 +37,15 @@ static func create(target_path: String, link_path: String) -> Error:
 
 
 static func _contains_command_shell_metacharacter(path: String) -> bool:
-	for character: String in PackedStringArray(["\"", "\r", "\n", "%", "!"]):
+	for character: String in PackedStringArray(
+		[
+			"\"",
+			"\r",
+			"\n",
+			"%",
+			"!",
+		]
+	):
 		if path.contains(character):
 			return true
 	return false

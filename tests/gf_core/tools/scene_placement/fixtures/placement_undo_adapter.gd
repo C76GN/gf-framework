@@ -19,7 +19,11 @@ func _notification(what: int) -> void:
 
 # --- 公共方法 ---
 
-func create_action(action_name: String, _merge_mode: int = 0, _custom_context: Object = null) -> void:
+func create_action(
+	action_name: String,
+	_merge_mode: int = 0,
+	_custom_context: Object = null
+) -> void:
 	_history.create_action(action_name, UndoRedo.MERGE_DISABLE)
 
 

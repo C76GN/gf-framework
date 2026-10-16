@@ -16,9 +16,7 @@ extends Resource
 ## 为节点运行时状态报告提供 schema 投影工具。
 ## [br]
 ## @api private
-const _REPORT_SCHEMA_PROJECTION = preload(
-	"res://addons/gf/kernel/core/gf_report_schema_projection.gd"
-)
+const _REPORT_SCHEMA_PROJECTION = preload("res://addons/gf/kernel/core/gf_report_schema_projection.gd")
 
 
 # --- 导出变量 ---
@@ -250,10 +248,7 @@ func get_output_port(port_id: StringName) -> GFFlowPort:
 ## [br]
 ## @schema return: 包含 inputs 和 outputs 字段的 Dictionary；每个字段为端口描述数组。
 func describe_ports() -> Dictionary:
-	return {
-		"inputs": _describe_ports(input_ports),
-		"outputs": _describe_ports(output_ports),
-	}
+	return { "inputs": _describe_ports(input_ports), "outputs": _describe_ports(output_ports), }
 
 
 ## 描述节点编辑器元数据。
@@ -333,7 +328,11 @@ func set_runtime_value(key: StringName, value: Variant) -> void:
 ## @schema return: 找到的运行态值，或传入的 default_value。
 func get_runtime_value(key: StringName, default_value: Variant = null) -> Variant:
 	return GFVariantData.duplicate_variant(
-		GFVariantData.get_option_value(_runtime_state, key, default_value)
+		GFVariantData.get_option_value(
+			_runtime_state,
+			key,
+			default_value
+		)
 	)
 
 
@@ -361,9 +360,10 @@ func clear_runtime_state() -> void:
 ## @schema return: runtime_state 的深拷贝 Dictionary。
 func serialize_runtime_state(json_compatible: bool = false) -> Dictionary:
 	if json_compatible:
-		return _REPORT_SCHEMA_PROJECTION.to_report_dictionary(_runtime_state, {
-			"path_redaction": "basename",
-		})
+		return _REPORT_SCHEMA_PROJECTION.to_report_dictionary(
+			_runtime_state,
+			{ "path_redaction": "basename", }
+		)
 	return _runtime_state.duplicate(true)
 
 
@@ -468,18 +468,15 @@ func is_runtime_state_leased() -> bool:
 
 # --- 私有/辅助方法 ---
 
-
 ## 运行时状态处于租约保护时拒绝外部写入并记录错误。
 ## [br]
 ## @api private
 func _reject_runtime_state_write(operation: String) -> bool:
 	if not is_runtime_state_leased() or _runtime_state_lease_write_depth > 0:
 		return false
-	push_error(
-		"[GFFlowNode][flow_node.runtime_lease_protected] %s failed: node runtime state is protected by an isolated execution lease; write runtime state through the current GFFlowContext."
-		% operation
-	)
+	push_error("[GFFlowNode][flow_node.runtime_lease_protected] %s failed: node runtime state is protected by an isolated execution lease; write runtime state through the current GFFlowContext." % operation)
 	return true
+
 
 ## 按端口 ID 在指定端口数组中查找端口。
 ## [br]

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputSwizzleModifier" path="addons/gf/standard/input/modifiers/gf_input_swizzle_modifier.gd" module="standard" extends="GFInputModifier" classDigest="e24f61daaeec1d7b6ad284764cbc877bd13dfaa5db4ddb515e4fc0a7ac92588d">
+<class name="GFInputSwizzleModifier" path="addons/gf/standard/input/modifiers/gf_input_swizzle_modifier.gd" module="standard" extends="GFInputModifier" classDigest="4a748a01799b2ec6885e8a8316b2d2feddb107853c3880f09bb139fac121c0a2">
 	<description>GFInputSwizzleModifier: 输入分量重排修饰器。
 用于把二维或三维输入轴按通用顺序重排，适合在不改绑定资源的情况下
 调整轴方向约定。</description>
@@ -43,7 +43,7 @@
 	</properties>
 	<methods>
 		<member kind="method" name="modify">
-			<signature>func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = null) -&gt; Vector2:</signature>
+			<signature>func modify( value: Vector2, _event: InputEvent = null, _action: GFInputAction = null ) -&gt; Vector2:</signature>
 			<description>修改二维输入值。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -51,10 +51,11 @@
 				<tag name="param">_event: 原始输入事件，默认实现不直接使用。</tag>
 				<tag name="param">_action: 当前输入动作配置，默认实现不直接使用。</tag>
 				<tag name="return">分量重排后的二维输入值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="modify_3d">
-			<signature>func modify_3d(value: Vector3, _event: InputEvent = null, _action: GFInputAction = null) -&gt; Vector3:</signature>
+			<signature>func modify_3d( value: Vector3, _event: InputEvent = null, _action: GFInputAction = null ) -&gt; Vector3:</signature>
 			<description>修改三维输入值。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -62,6 +63,7 @@
 				<tag name="param">_event: 原始输入事件，默认实现不直接使用。</tag>
 				<tag name="param">_action: 当前输入动作配置，默认实现不直接使用。</tag>
 				<tag name="return">分量重排后的三维输入值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

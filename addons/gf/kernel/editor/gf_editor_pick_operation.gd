@@ -102,7 +102,11 @@ var _result: Dictionary = {}
 ## [br]
 ## @return 成功开始返回 true。
 func begin(context: GFEditorToolContextBase) -> bool:
-	if context == null or _state == State.PICKING or _state == State.READY:
+	if (
+		context == null
+		or _state == State.PICKING
+		or _state == State.READY
+	):
 		return false
 	_context = context
 	_state = State.PICKING
@@ -127,11 +131,21 @@ func pick(input_data: Dictionary) -> State:
 
 	var response: Dictionary = _on_pick(input_data)
 	if response.has("preview") and response["preview"] is Dictionary:
-		_preview = _GF_VARIANT_ACCESS_SCRIPT.to_dictionary(response["preview"], {})
+		_preview = _GF_VARIANT_ACCESS_SCRIPT.to_dictionary(
+			response["preview"],
+			{}
+		)
 	if response.has("result") and response["result"] is Dictionary:
-		_result = _GF_VARIANT_ACCESS_SCRIPT.to_dictionary(response["result"], {})
+		_result = _GF_VARIANT_ACCESS_SCRIPT.to_dictionary(
+			response["result"],
+			{}
+		)
 
-	var ready: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(response, "ready", _on_can_apply())
+	var ready: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		response,
+		"ready",
+		_on_can_apply()
+	)
 	_state = State.READY if ready else State.PICKING
 	return _state
 
@@ -154,12 +168,16 @@ func can_apply() -> bool:
 ## @schema return: Dictionary result produced by _on_apply().
 func apply() -> Dictionary:
 	if not can_apply():
-		return {
-			"ok": false,
-			"reason": &"not_ready",
-		}
-	var result: Dictionary = _on_apply(_context, _result.duplicate(true))
-	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(result, "ok", false):
+		return { "ok": false, "reason": &"not_ready", }
+	var result: Dictionary = _on_apply(
+		_context,
+		_result.duplicate(true)
+	)
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		result,
+		"ok",
+		false
+	):
 		_state = State.APPLIED
 	return result
 
@@ -272,10 +290,7 @@ func _on_can_apply() -> bool:
 ## [br]
 ## @schema return: Dictionary apply result.
 func _on_apply(_tool_context: GFEditorToolContextBase, result: Dictionary) -> Dictionary:
-	return {
-		"ok": true,
-		"result": result,
-	}
+	return { "ok": true, "result": result, }
 
 
 ## 取消拾取流程时调用，供子类重写。

@@ -48,6 +48,8 @@ var switches: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param catalog_id: 目录标识，如 events、parameters、states、switches。
 ## [br]
 ## @param entry_id: 条目标识。
@@ -55,7 +57,11 @@ var switches: Dictionary = {}
 ## @param metadata: 条目元数据。
 ## [br]
 ## @schema metadata: 条目元数据 Dictionary；键和值由目录提供器或项目工具约定。
-func set_entry(catalog_id: StringName, entry_id: StringName, metadata: Dictionary = {}) -> void:
+func set_entry(
+	catalog_id: StringName,
+	entry_id: StringName,
+	metadata: Dictionary = {}
+) -> void:
 	if entry_id == &"":
 		return
 	if not _is_known_catalog_id(catalog_id):
@@ -105,7 +111,13 @@ func get_ids(catalog_id: StringName) -> PackedStringArray:
 ## [br]
 ## @schema return: 条目元数据 Dictionary；键和值由目录提供器或项目工具约定。
 func describe_entry(catalog_id: StringName, entry_id: StringName) -> Dictionary:
-	return GFVariantData.to_dictionary(GFVariantData.get_option_value(_get_catalog(catalog_id), entry_id, {}))
+	return GFVariantData.to_dictionary(
+		GFVariantData.get_option_value(
+			_get_catalog(catalog_id),
+			entry_id,
+			{}
+		)
+	)
 
 
 ## 获取完整目录快照。
@@ -149,4 +161,9 @@ func _get_catalog(catalog_id: StringName) -> Dictionary:
 ## @api private
 ## [br]
 func _is_known_catalog_id(catalog_id: StringName) -> bool:
-	return catalog_id == &"events" or catalog_id == &"parameters" or catalog_id == &"states" or catalog_id == &"switches"
+	return (
+		catalog_id == &"events"
+		or catalog_id == &"parameters"
+		or catalog_id == &"states"
+		or catalog_id == &"switches"
+	)

@@ -21,7 +21,6 @@ extends RefCounted
 ## @since 6.0.0
 const DEFAULT_VARIANT_KEY: StringName = &"default"
 
-
 ## 变体查询没有可用记录时使用的失败原因值。
 ## [br]
 ## @api private
@@ -221,9 +220,17 @@ func get_variant_keys(resource_key: StringName) -> PackedStringArray:
 func resolve_resource(request: Dictionary) -> Dictionary:
 	var resource_key: StringName = GFVariantData.get_option_string_name(request, "key")
 	if resource_key == &"":
-		return _make_failure(_REASON_INVALID_KEY, resource_key, &"")
+		return _make_failure(
+			_REASON_INVALID_KEY,
+			resource_key,
+			&""
+		)
 	if not _records_by_key.has(resource_key):
-		return _make_failure(_REASON_NOT_FOUND, resource_key, &"")
+		return _make_failure(
+			_REASON_NOT_FOUND,
+			resource_key,
+			&""
+		)
 
 	var variants: Dictionary = GFVariantData.as_dictionary(_records_by_key[resource_key])
 	for variant_key: StringName in _make_request_variant_order(request):
@@ -232,7 +239,11 @@ func resolve_resource(request: Dictionary) -> Dictionary:
 			continue
 		var record: Dictionary = record_value
 		return _make_success(record)
-	return _make_failure(_REASON_NOT_FOUND, resource_key, &"")
+	return _make_failure(
+		_REASON_NOT_FOUND,
+		resource_key,
+		&""
+	)
 
 
 ## 获取诊断快照。
@@ -304,7 +315,11 @@ func _extract_variant_order(options: Dictionary) -> PackedStringArray:
 	var value: Variant = GFVariantData.get_option_value(
 		options,
 		"variant_keys",
-		GFVariantData.get_option_value(options, "variants", PackedStringArray())
+		GFVariantData.get_option_value(
+			options,
+			"variants",
+			PackedStringArray()
+		)
 	)
 	return _variant_value_to_packed_string_array(value)
 
@@ -391,15 +406,16 @@ func _make_success(record: Dictionary) -> Dictionary:
 ## [br]
 ## @api private
 ## [br]
-func _make_failure(reason: String, resource_key: StringName, variant_key: StringName) -> Dictionary:
+func _make_failure(
+	reason: String,
+	resource_key: StringName,
+	variant_key: StringName
+) -> Dictionary:
 	return {
 		"ok": false,
 		"path": "",
 		"type_hint": "",
 		"provider_id": &"variant",
 		"reason": reason,
-		"metadata": {
-			"resource_key": resource_key,
-			"variant_key": variant_key,
-		},
+		"metadata": { "resource_key": resource_key, "variant_key": variant_key, },
 	}

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNodeAnimationPlayerSerializer" path="addons/gf/extensions/save/serializers/gf_node_animation_player_serializer.gd" module="extensions/save" extends="GFNodeSerializer" classDigest="8da1287db1c8e729499993d829dc0a9a96b927a2c4a42e41ac8bf7725027c8a2">
+<class name="GFNodeAnimationPlayerSerializer" path="addons/gf/extensions/save/serializers/gf_node_animation_player_serializer.gd" module="extensions/save" extends="GFNodeSerializer" classDigest="32ed9443fcbe136e2c12729e2b9f89919045b15f624e2eb7cb585faf941eac06">
 	<description>GFNodeAnimationPlayerSerializer: AnimationPlayer 通用播放状态序列化器。
 保存当前动画、播放位置与速度缩放等通用播放状态，不保存动画资源内容。</description>
 	<tags>
@@ -34,7 +34,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="apply">
-			<signature>func apply(node: Node, payload: Dictionary, _context: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>func apply( node: Node, payload: Dictionary, _context: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>将序列化数据应用到节点。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -45,6 +45,7 @@
 				<tag name="schema">payload: Dictionary，可包含 current_animation、assigned_animation、current_animation_position、speed_scale、playing 与 active。</tag>
 				<tag name="schema">_context: Dictionary，调用方附加上下文；当前实现不读取。</tag>
 				<tag name="schema">return: Dictionary，包含 ok: bool 与 error: String。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

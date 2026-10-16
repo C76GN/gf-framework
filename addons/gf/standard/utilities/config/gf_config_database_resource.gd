@@ -150,7 +150,10 @@ func get_table_ids() -> PackedStringArray:
 	for table_resource: GFConfigTableResource in tables:
 		if table_resource == null:
 			continue
-		_append_table_id(result, table_resource.get_table_key())
+		_append_table_id(
+			result,
+			table_resource.get_table_key()
+		)
 	result.sort()
 	return result
 
@@ -248,7 +251,10 @@ func get_table_resource(table_name: StringName, duplicate_table: bool = true) ->
 ## @schema return: GFConfigValidationReport 兼容 Dictionary。
 func validate_database(options: Dictionary = {}) -> Dictionary:
 	var report_builder: GFConfigValidationReport = GFConfigValidationReport.new()
-	var report: Dictionary = report_builder.make_report(database_id, _count_records())
+	var report: Dictionary = report_builder.make_report(
+		database_id,
+		_count_records()
+	)
 	_validate_table_resource_entries(report, options)
 
 	var reference_options: Dictionary = options.duplicate(true)
@@ -362,7 +368,11 @@ func _count_records() -> int:
 func _validate_table_resource_entries(report: Dictionary, options: Dictionary) -> void:
 	var seen_tables: Dictionary = {}
 	var report_builder: GFConfigValidationReport = GFConfigValidationReport.new()
-	var validate_schema: bool = GFVariantData.get_option_bool(options, "validate_schema", true)
+	var validate_schema: bool = GFVariantData.get_option_bool(
+		options,
+		"validate_schema",
+		true
+	)
 	for index: int in range(tables.size()):
 		var table_resource: GFConfigTableResource = tables[index]
 		if table_resource == null:
@@ -426,14 +436,20 @@ func _validate_table_resource_entries(report: Dictionary, options: Dictionary) -
 				table_key,
 				null,
 				&"table_name",
-				"配置表资源 table_name 与 schema.table_name 不一致：%s != %s。" % [String(table_key), String(schema_key)],
-				{
-					"expected_value": table_key,
-					"actual_value": schema_key,
-				}
+				"配置表资源 table_name 与 schema.table_name 不一致：%s != %s。"
+				% [String(table_key), String(schema_key)],
+				{ "expected_value": table_key, "actual_value": schema_key, }
 			)
 			continue
 
 		if validate_schema:
-			report_builder.merge_report(report, table_resource.schema.validate_definition(options), false)
-			report_builder.merge_report(report, table_resource.validate_records(options), false)
+			report_builder.merge_report(
+				report,
+				table_resource.schema.validate_definition(options),
+				false
+			)
+			report_builder.merge_report(
+				report,
+				table_resource.validate_records(options),
+				false
+			)

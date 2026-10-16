@@ -8,7 +8,6 @@
 class_name GFProjectileDefinition2D
 extends GFProjectileDefinition
 
-
 ## 驱动 2D root 的 body adapter。
 ## [br]
 ## @api public

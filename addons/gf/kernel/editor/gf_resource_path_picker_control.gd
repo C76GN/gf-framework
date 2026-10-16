@@ -95,12 +95,8 @@ func _init() -> void:
 	_path_edit = LineEdit.new()
 	_path_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_path_edit.placeholder_text = "res:// 或 uid://"
-	var _text_submitted_connected: Error = _path_edit.text_submitted.connect(
-		_on_text_submitted
-	) as Error
-	var _focus_exited_connected: Error = _path_edit.focus_exited.connect(
-		_on_path_edit_focus_exited
-	) as Error
+	var _text_submitted_connected: Error = _path_edit.text_submitted.connect(_on_text_submitted) as Error
+	var _focus_exited_connected: Error = _path_edit.focus_exited.connect(_on_path_edit_focus_exited) as Error
 	add_child(_path_edit)
 
 	_browse_button = Button.new()
@@ -108,9 +104,7 @@ func _init() -> void:
 	_browse_button.text = "..."
 	_browse_button.tooltip_text = "浏览项目资源"
 	_browse_button.custom_minimum_size.x = _BUTTON_MIN_WIDTH
-	var _browse_pressed_connected: Error = _browse_button.pressed.connect(
-		_on_browse_pressed
-	) as Error
+	var _browse_pressed_connected: Error = _browse_button.pressed.connect(_on_browse_pressed) as Error
 	add_child(_browse_button)
 
 	_clear_button = Button.new()
@@ -118,9 +112,7 @@ func _init() -> void:
 	_clear_button.text = "x"
 	_clear_button.tooltip_text = "清除资源路径"
 	_clear_button.custom_minimum_size.x = _BUTTON_MIN_WIDTH
-	var _clear_pressed_connected: Error = _clear_button.pressed.connect(
-		_on_clear_pressed
-	) as Error
+	var _clear_pressed_connected: Error = _clear_button.pressed.connect(_on_clear_pressed) as Error
 	add_child(_clear_button)
 
 	_file_dialog = EditorFileDialog.new()
@@ -131,9 +123,7 @@ func _init() -> void:
 	_file_dialog.title = "选择项目资源"
 	_file_dialog.transient = true
 	_file_dialog.exclusive = true
-	var _file_selected_connected: Error = _file_dialog.file_selected.connect(
-		_on_file_selected
-	) as Error
+	var _file_selected_connected: Error = _file_dialog.file_selected.connect(_on_file_selected) as Error
 	add_child(_file_dialog)
 
 	_update_clear_button()

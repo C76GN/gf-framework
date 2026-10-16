@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCombatGauge" path="addons/gf/extensions/combat/attributes/gf_combat_gauge.gd" module="extensions/combat" extends="Node" classDigest="940e887257ace46464398287fcc85fefa5c3dcd9a8a41f643175d24c6f2a24eb">
+<class name="GFCombatGauge" path="addons/gf/extensions/combat/attributes/gf_combat_gauge.gd" module="extensions/combat" extends="Node" classDigest="94640fc0463f4af12370aced5ec6c9ad6f8e7b5ea6321c2876ab92866cfacef4">
 	<description>GFCombatGauge: 通用可变数值槽。
 用 GFCombatAction 驱动一个带上下限的数值。它可表示生命、护盾、能量、
 耐久或任意项目自定义资源，但框架不绑定这些业务语义。</description>
@@ -128,13 +128,14 @@
 	</properties>
 	<methods>
 		<member kind="method" name="configure">
-			<signature>func configure(p_min_value: float, p_max_value: float, p_current_value: float) -&gt; void:</signature>
+			<signature>func configure( p_min_value: float, p_max_value: float, p_current_value: float ) -&gt; void:</signature>
 			<description>配置数值槽。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">p_min_value: 数值下限。</tag>
 				<tag name="param">p_max_value: 数值上限。</tag>
 				<tag name="param">p_current_value: 当前数值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_value">

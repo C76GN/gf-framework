@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNodeAudioStreamPlayerSerializer" path="addons/gf/extensions/save/serializers/gf_node_audio_stream_player_serializer.gd" module="extensions/save" extends="GFNodeSerializer" classDigest="a95f19b23411e6ccdcb3e9c4c5fb792dcb3d677a847df6b392937257e5965412">
+<class name="GFNodeAudioStreamPlayerSerializer" path="addons/gf/extensions/save/serializers/gf_node_audio_stream_player_serializer.gd" module="extensions/save" extends="GFNodeSerializer" classDigest="63a1ca6f22c4fc5e70fc1082bd5fcaa293e425e8db2e198f0fdbbaa2a7cd1192">
 	<description>GFNodeAudioStreamPlayerSerializer: AudioStreamPlayer 通用播放状态序列化器。
 支持 AudioStreamPlayer、AudioStreamPlayer2D 与 AudioStreamPlayer3D 的通用播放参数。</description>
 	<tags>
@@ -34,7 +34,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="apply">
-			<signature>func apply(node: Node, payload: Dictionary, _context: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>func apply( node: Node, payload: Dictionary, _context: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>将序列化数据应用到节点。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -45,6 +45,7 @@
 				<tag name="schema">payload: Dictionary，可包含 playing、playback_position、stream_paused、volume_db、pitch_scale、bus、max_distance 与 attenuation。</tag>
 				<tag name="schema">_context: Dictionary，调用方附加上下文；当前实现不读取。</tag>
 				<tag name="schema">return: Dictionary，包含 ok: bool 与 error: String。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

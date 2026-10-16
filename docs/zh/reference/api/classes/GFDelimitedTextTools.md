@@ -20,8 +20,8 @@
 | 常量 | [`ERROR_INVALID_DELIMITER`](#member-gfdelimitedtexttools-constants-error_invalid_delimiter) | `const ERROR_INVALID_DELIMITER: StringName = &"invalid_delimiter"` |
 | 常量 | [`ERROR_UNMATCHED_CLOSING`](#member-gfdelimitedtexttools-constants-error_unmatched_closing) | `const ERROR_UNMATCHED_CLOSING: StringName = &"unmatched_closing"` |
 | 常量 | [`ERROR_UNMATCHED_OPENING`](#member-gfdelimitedtexttools-constants-error_unmatched_opening) | `const ERROR_UNMATCHED_OPENING: StringName = &"unmatched_opening"` |
-| 方法 | [`find_top_level_delimiters`](#member-gfdelimitedtexttools-methods-find_top_level_delimiters) | `static func find_top_level_delimiters(text: String, delimiter: String = _DEFAULT_DELIMITER, options: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`split_top_level`](#member-gfdelimitedtexttools-methods-split_top_level) | `static func split_top_level(text: String, delimiter: String = _DEFAULT_DELIMITER, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`find_top_level_delimiters`](#member-gfdelimitedtexttools-methods-find_top_level_delimiters) | `static func find_top_level_delimiters( text: String, delimiter: String = _DEFAULT_DELIMITER, options: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`split_top_level`](#member-gfdelimitedtexttools-methods-split_top_level) | `static func split_top_level( text: String, delimiter: String = _DEFAULT_DELIMITER, options: Dictionary = {} ) -> Dictionary:` |
 
 ## 常量
 
@@ -100,7 +100,7 @@ const ERROR_UNMATCHED_OPENING: StringName = &"unmatched_opening"
 - 首次版本：`8.0.0`
 
 ```gdscript
-static func find_top_level_delimiters(text: String, delimiter: String = _DEFAULT_DELIMITER, options: Dictionary = {}) -> Dictionary:
+static func find_top_level_delimiters( text: String, delimiter: String = _DEFAULT_DELIMITER, options: Dictionary = {} ) -> Dictionary:
 ```
 
 查找顶层分隔符位置。 分隔符只有在不处于 quote_chars 或 pairs 管理的嵌套区间内时才会被记录。
@@ -128,7 +128,7 @@ static func find_top_level_delimiters(text: String, delimiter: String = _DEFAULT
 - 首次版本：`8.0.0`
 
 ```gdscript
-static func split_top_level(text: String, delimiter: String = _DEFAULT_DELIMITER, options: Dictionary = {}) -> Dictionary:
+static func split_top_level( text: String, delimiter: String = _DEFAULT_DELIMITER, options: Dictionary = {} ) -> Dictionary:
 ```
 
 按顶层分隔符拆分文本。 分隔符出现在引号、圆括号、方括号或花括号内时不会触发拆分。调用方可通过 pairs 或 quote_chars 改写扫描规则。

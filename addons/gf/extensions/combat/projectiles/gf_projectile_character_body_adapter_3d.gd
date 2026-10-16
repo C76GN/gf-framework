@@ -60,10 +60,7 @@ func _capture_body(root: Node) -> GFProjectileBodyResult3D:
 ## @param intent: 本帧 intent；空值或 REJECTED 会在移动前失败，并尽量保留 intent 的失败原因。
 ## [br]
 ## @return: 移动后的 body 快照及实际位移；root、intent 或运动数值不合法时返回失败结果。
-func _apply_intent(
-	root: Node,
-	intent: GFProjectileMotionIntent3D
-) -> GFProjectileBodyResult3D:
+func _apply_intent(root: Node, intent: GFProjectileMotionIntent3D) -> GFProjectileBodyResult3D:
 	if _validate_root(root) != OK:
 		return GFProjectileBodyResult3D.failed(&"unsupported_body")
 	var body: CharacterBody3D = root
@@ -74,20 +71,10 @@ func _apply_intent(
 			reason = intent.get_failure_reason()
 		return GFProjectileBodyResult3D.failed(reason, before_transform)
 	var before_velocity: Vector3 = body.velocity
-	var requested_velocity: Vector3 = (
-		intent.get_velocity()
-		if intent.get_kind() == GFProjectileMotionIntent3D.Kind.MOVE
-		else Vector3.ZERO
-	)
+	var requested_velocity: Vector3 = (intent.get_velocity() if intent.get_kind() == GFProjectileMotionIntent3D.Kind.MOVE else Vector3.ZERO)
 	var intended_displacement: Vector3 = requested_velocity * intent.get_delta_seconds()
-	if (
-		not intended_displacement.is_finite()
-		or not (before_transform.origin + intended_displacement).is_finite()
-	):
-		return GFProjectileBodyResult3D.failed(
-			&"non_finite_motion_intent",
-			before_transform
-		)
+	if (not intended_displacement.is_finite() or not (before_transform.origin + intended_displacement).is_finite()):
+		return GFProjectileBodyResult3D.failed(&"non_finite_motion_intent", before_transform)
 	body.velocity = requested_velocity
 	var _collided: bool = body.move_and_slide()
 	var after_transform: Transform3D = body.global_transform
@@ -95,14 +82,8 @@ func _apply_intent(
 	if not after_transform.origin.is_finite() or not actual_displacement.is_finite():
 		body.global_transform = before_transform
 		body.velocity = before_velocity
-		return GFProjectileBodyResult3D.failed(
-			&"non_finite_motion_intent",
-			before_transform
-		)
-	return GFProjectileBodyResult3D.successful(
-		after_transform,
-		actual_displacement
-	)
+		return GFProjectileBodyResult3D.failed(&"non_finite_motion_intent", before_transform)
+	return GFProjectileBodyResult3D.successful(after_transform, actual_displacement)
 
 
 ## 校验 root 后先将 CharacterBody3D 的速度清零，再构造当前变换的结果，不调用 move_and_slide 或额外修改位置。

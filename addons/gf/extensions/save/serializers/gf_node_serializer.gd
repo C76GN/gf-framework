@@ -109,7 +109,11 @@ func gather(_node: Node, _context: Dictionary = {}) -> Dictionary:
 ## @schema _context: Dictionary，调用方附加上下文；基础实现保留给子类扩展。
 ## [br]
 ## @schema return: Dictionary，包含 ok: bool 与 error: String。
-func apply(_node: Node, _payload: Dictionary, _context: Dictionary = {}) -> Dictionary:
+func apply(
+	_node: Node,
+	_payload: Dictionary,
+	_context: Dictionary = {}
+) -> Dictionary:
 	return make_result(true)
 
 
@@ -127,10 +131,7 @@ func apply(_node: Node, _payload: Dictionary, _context: Dictionary = {}) -> Dict
 ## [br]
 ## @schema return: Dictionary，包含 ok: bool 与 error: String。
 func make_result(ok: bool, error: String = "") -> Dictionary:
-	return {
-		"ok": ok,
-		"error": error,
-	}
+	return { "ok": ok, "error": error, }
 
 
 # --- 可重写钩子 / 虚方法 ---
@@ -148,7 +149,11 @@ func make_result(ok: bool, error: String = "") -> Dictionary:
 ## @param property_name: 属性名。
 ## [br]
 ## @schema payload: Dictionary，键为属性名，值为属性当前值。
-func _copy_property_to_payload(node: Object, payload: Dictionary, property_name: String) -> void:
+func _copy_property_to_payload(
+	node: Object,
+	payload: Dictionary,
+	property_name: String
+) -> void:
 	if _has_property(node, property_name):
 		payload[property_name] = _read_property(node, property_name)
 
@@ -166,9 +171,17 @@ func _copy_property_to_payload(node: Object, payload: Dictionary, property_name:
 ## @param property_names: 属性名列表。
 ## [br]
 ## @schema payload: Dictionary，键为属性名，值为属性当前值。
-func _copy_properties_to_payload(node: Object, payload: Dictionary, property_names: PackedStringArray) -> void:
+func _copy_properties_to_payload(
+	node: Object,
+	payload: Dictionary,
+	property_names: PackedStringArray
+) -> void:
 	for property_name: String in property_names:
-		_copy_property_to_payload(node, payload, property_name)
+		_copy_property_to_payload(
+			node,
+			payload,
+			property_name
+		)
 
 
 ## 从载荷恢复一个节点属性。
@@ -184,9 +197,16 @@ func _copy_properties_to_payload(node: Object, payload: Dictionary, property_nam
 ## @param property_name: 属性名。
 ## [br]
 ## @schema payload: Dictionary，键为属性名，值为要写回的属性值。
-func _apply_property_from_payload(node: Object, payload: Dictionary, property_name: String) -> void:
+func _apply_property_from_payload(
+	node: Object,
+	payload: Dictionary,
+	property_name: String
+) -> void:
 	if payload.has(property_name) and _has_property(node, property_name):
-		node.set(property_name, payload[property_name])
+		node.set(
+			property_name,
+			payload[property_name]
+		)
 
 
 ## 从载荷批量恢复节点属性。
@@ -202,9 +222,17 @@ func _apply_property_from_payload(node: Object, payload: Dictionary, property_na
 ## @param property_names: 属性名列表。
 ## [br]
 ## @schema payload: Dictionary，键为属性名，值为要写回的属性值。
-func _apply_properties_from_payload(node: Object, payload: Dictionary, property_names: PackedStringArray) -> void:
+func _apply_properties_from_payload(
+	node: Object,
+	payload: Dictionary,
+	property_names: PackedStringArray
+) -> void:
 	for property_name: String in property_names:
-		_apply_property_from_payload(node, payload, property_name)
+		_apply_property_from_payload(
+			node,
+			payload,
+			property_name
+		)
 
 
 ## 按属性规格采集节点状态。
@@ -225,9 +253,21 @@ func _apply_properties_from_payload(node: Object, payload: Dictionary, property_
 func _gather_property_specs(node: Object, specs: Array[Dictionary]) -> Dictionary:
 	var result: Dictionary = {}
 	for spec: Dictionary in specs:
-		var key: String = GFVariantData.get_option_string(spec, "key", GFVariantData.get_option_string(spec, "property"))
-		var property_name: String = GFVariantData.get_option_string(spec, "property", key)
-		if key.is_empty() or property_name.is_empty() or not _has_property(node, property_name):
+		var key: String = GFVariantData.get_option_string(
+			spec,
+			"key",
+			GFVariantData.get_option_string(spec, "property")
+		)
+		var property_name: String = GFVariantData.get_option_string(
+			spec,
+			"property",
+			key
+		)
+		if (
+			key.is_empty()
+			or property_name.is_empty()
+			or not _has_property(node, property_name)
+		):
 			continue
 		result[key] = _encode_property_value(
 			_read_property(node, property_name),
@@ -253,20 +293,40 @@ func _gather_property_specs(node: Object, specs: Array[Dictionary]) -> Dictionar
 ## @schema payload: Dictionary，键为规格 key，值为要写回的属性值。
 ## [br]
 ## @schema specs: Array[Dictionary]，每项可包含 key: String、property: String 与 kind: StringName。
-func _apply_property_specs(node: Object, payload: Dictionary, specs: Array[Dictionary]) -> Array[String]:
+func _apply_property_specs(
+	node: Object,
+	payload: Dictionary,
+	specs: Array[Dictionary]
+) -> Array[String]:
 	var errors: Array[String] = _validate_property_specs_payload(payload, specs)
 	if not errors.is_empty():
 		return errors
 	for spec: Dictionary in specs:
-		var key: String = GFVariantData.get_option_string(spec, "key", GFVariantData.get_option_string(spec, "property"))
-		var property_name: String = GFVariantData.get_option_string(spec, "property", key)
-		if key.is_empty() or property_name.is_empty() or not payload.has(key) or not _has_property(node, property_name):
+		var key: String = GFVariantData.get_option_string(
+			spec,
+			"key",
+			GFVariantData.get_option_string(spec, "property")
+		)
+		var property_name: String = GFVariantData.get_option_string(
+			spec,
+			"property",
+			key
+		)
+		if (
+			key.is_empty()
+			or property_name.is_empty()
+			or not payload.has(key)
+			or not _has_property(node, property_name)
+		):
 			continue
-		node.set(property_name, _decode_property_value(
-			payload[key],
-			_read_property(node, property_name),
-			GFVariantData.get_option_string_name(spec, "kind")
-		))
+		node.set(
+			property_name,
+			_decode_property_value(
+				payload[key],
+				_read_property(node, property_name),
+				GFVariantData.get_option_string_name(spec, "kind")
+			)
+		)
 	return []
 
 
@@ -288,12 +348,22 @@ func _apply_property_specs(node: Object, payload: Dictionary, specs: Array[Dicti
 func _validate_property_specs_payload(payload: Dictionary, specs: Array[Dictionary]) -> Array[String]:
 	var errors: Array[String] = []
 	for spec: Dictionary in specs:
-		var key: String = GFVariantData.get_option_string(spec, "key", GFVariantData.get_option_string(spec, "property"))
+		var key: String = GFVariantData.get_option_string(
+			spec,
+			"key",
+			GFVariantData.get_option_string(spec, "property")
+		)
 		if key.is_empty() or not payload.has(key):
 			continue
 		var kind: StringName = GFVariantData.get_option_string_name(spec, "kind")
-		if not _is_payload_value_valid_for_kind(payload[key], kind):
-			errors.append("Invalid %s payload value: %s" % [String(kind), key])
+		if not _is_payload_value_valid_for_kind(
+			payload[key],
+			kind
+		):
+			errors.append(
+				"Invalid %s payload value: %s"
+				% [String(kind), key]
+			)
 	return errors
 
 
@@ -309,7 +379,10 @@ func _validate_property_specs_payload(payload: Dictionary, specs: Array[Dictiona
 ## [br]
 ## @return 对象属性列表中是否存在该属性。
 func _has_property(object: Object, property_name: String) -> bool:
-	return GFObjectPropertyTools.has_property(object, StringName(property_name))
+	return GFObjectPropertyTools.has_property(
+		object,
+		StringName(property_name)
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -400,14 +473,27 @@ func _encode_property_value(value: Variant, kind: StringName) -> Variant:
 ## [br]
 ## @api private
 ## [br]
-func _decode_property_value(value: Variant, fallback: Variant, kind: StringName) -> Variant:
+func _decode_property_value(
+	value: Variant,
+	fallback: Variant,
+	kind: StringName
+) -> Variant:
 	match kind:
 		&"vector2":
-			return _array_to_vector2(value, GFVariantData.to_vector2(fallback))
+			return _array_to_vector2(
+				value,
+				GFVariantData.to_vector2(fallback)
+			)
 		&"vector3":
-			return _array_to_vector3(value, GFVariantData.to_vector3(fallback))
+			return _array_to_vector3(
+				value,
+				GFVariantData.to_vector3(fallback)
+			)
 		&"color":
-			return _array_to_color(value, _get_color_value(fallback))
+			return _array_to_color(
+				value,
+				_get_color_value(fallback)
+			)
 		&"float":
 			return GFVariantData.to_float(value)
 		&"int":
@@ -476,7 +562,10 @@ func _is_finite_number(value: Variant) -> bool:
 ## @api private
 ## [br]
 func _read_property(object: Object, property_name: String) -> Variant:
-	return GFObjectPropertyTools.read_property(object, NodePath(property_name))
+	return GFObjectPropertyTools.read_property(
+		object,
+		NodePath(property_name)
+	)
 
 
 ## 将 Variant 转为 Script，类型不符时返回 null。

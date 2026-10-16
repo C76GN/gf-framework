@@ -26,7 +26,10 @@ extends RefCounted
 ## [br]
 ## @return JUnit XML 文本。
 static func export_report(report: GFValidationReport, options: Dictionary = {}) -> String:
-	return export_reports([report], options)
+	return export_reports(
+		[report],
+		options
+	)
 
 
 ## 导出多个报告。
@@ -43,9 +46,21 @@ static func export_report(report: GFValidationReport, options: Dictionary = {}) 
 ## [br]
 ## @return JUnit XML 文本。
 static func export_reports(reports: Array, options: Dictionary = {}) -> String:
-	var suite_name: String = GFVariantData.get_option_string(options, "suite_name", "GF Validation")
-	var warnings_as_failures: bool = GFVariantData.get_option_bool(options, "warnings_as_failures", true)
-	var include_passing_case: bool = GFVariantData.get_option_bool(options, "include_passing_case", true)
+	var suite_name: String = GFVariantData.get_option_string(
+		options,
+		"suite_name",
+		"GF Validation"
+	)
+	var warnings_as_failures: bool = GFVariantData.get_option_bool(
+		options,
+		"warnings_as_failures",
+		true
+	)
+	var include_passing_case: bool = GFVariantData.get_option_bool(
+		options,
+		"include_passing_case",
+		true
+	)
 	var case_lines: PackedStringArray = PackedStringArray()
 	var test_count: int = 0
 	var failure_count: int = 0
@@ -57,25 +72,45 @@ static func export_reports(reports: Array, options: Dictionary = {}) -> String:
 		var issues: Array[RefCounted] = report.issues
 		if issues.is_empty() and include_passing_case:
 			test_count += 1
-			_append_packed_string(case_lines, _make_passing_case(report))
+			_append_packed_string(
+				case_lines,
+				_make_passing_case(report)
+			)
 			continue
 		for issue: RefCounted in issues:
 			var validation_issue: GFValidationIssue = _as_validation_issue(issue)
 			if validation_issue == null:
 				continue
 			test_count += 1
-			var is_failure: bool = validation_issue.is_error() or (warnings_as_failures and validation_issue.is_warning())
+			var is_failure: bool = (
+				validation_issue.is_error()
+				or (
+					warnings_as_failures
+					and validation_issue.is_warning()
+				)
+			)
 			if is_failure:
 				failure_count += 1
-			_append_packed_string(case_lines, _make_issue_case(report, validation_issue, is_failure))
+			_append_packed_string(
+				case_lines,
+				_make_issue_case(
+					report,
+					validation_issue,
+					is_failure
+				)
+			)
 
 	var lines: PackedStringArray = PackedStringArray()
 	_append_packed_string(lines, '<?xml version="1.0" encoding="UTF-8"?>')
-	_append_packed_string(lines, '<testsuite name="%s" tests="%d" failures="%d" errors="0" skipped="0">' % [
-		_escape_attribute(suite_name),
-		test_count,
-		failure_count,
-	])
+	_append_packed_string(
+		lines,
+		'<testsuite name="%s" tests="%d" failures="%d" errors="0" skipped="0">'
+		% [
+			_escape_attribute(suite_name),
+			test_count,
+			failure_count,
+		]
+	)
 	for line: String in case_lines:
 		_append_packed_string(lines, line)
 	_append_packed_string(lines, "</testsuite>")
@@ -96,7 +131,11 @@ static func _make_passing_case(report: GFValidationReport) -> String:
 ## [br]
 ## @api private
 ## [br]
-static func _make_issue_case(report: GFValidationReport, issue: GFValidationIssue, is_failure: bool) -> String:
+static func _make_issue_case(
+	report: GFValidationReport,
+	issue: GFValidationIssue,
+	is_failure: bool
+) -> String:
 	var class_label: String = _escape_attribute(_get_report_subject(report))
 	var kind: String = _escape_attribute(issue.get_kind_key())
 	var message: String = _escape_attribute(issue.message)
@@ -104,16 +143,25 @@ static func _make_issue_case(report: GFValidationReport, issue: GFValidationIssu
 	var location: String = _escape_text(issue.get_location_text())
 	var text: String = _escape_text(issue.message)
 	if not location.is_empty():
-		text = "%s\n%s" % [location, text]
+		text = (
+			"%s\n%s"
+			% [location, text]
+		)
 	if not is_failure:
-		return '\t<testcase classname="%s" name="%s" />' % [class_label, kind]
-	return '\t<testcase classname="%s" name="%s"><failure message="%s" type="%s">%s</failure></testcase>' % [
-		class_label,
-		kind,
-		message,
-		severity,
-		text,
-	]
+		return (
+			'\t<testcase classname="%s" name="%s" />'
+			% [class_label, kind]
+		)
+	return (
+		'\t<testcase classname="%s" name="%s"><failure message="%s" type="%s">%s</failure></testcase>'
+		% [
+			class_label,
+			kind,
+			message,
+			severity,
+			text,
+		]
+	)
 
 
 ## 读取报告主题；报告为空或主题为空时返回 GFValidationReport。

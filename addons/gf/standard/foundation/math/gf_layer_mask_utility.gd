@@ -32,6 +32,8 @@ const INVALID_LAYER_INDEX: int = -1
 ## [br]
 ## @api public
 ## [br]
+## @since 3.21.0
+## [br]
 ## @param names: 要启用的层名列表。
 ## [br]
 ## @schema names: Array of String or StringName layer names.
@@ -43,13 +45,21 @@ const INVALID_LAYER_INDEX: int = -1
 ## @param case_sensitive: 是否区分大小写。
 ## [br]
 ## @return 对应 bitmask；未知名称会被忽略。
-static func names_to_mask(names: Array, layer_names: Array, case_sensitive: bool = true) -> int:
+static func names_to_mask(
+	names: Array,
+	layer_names: Array,
+	case_sensitive: bool = true
+) -> int:
 	var mask: int = 0
 	for name_variant: Variant in names:
 		var layer_name: String = GFVariantData.to_text(name_variant)
 		if layer_name.is_empty():
 			continue
-		var layer_index: int = find_layer_index(layer_name, layer_names, case_sensitive)
+		var layer_index: int = find_layer_index(
+			layer_name,
+			layer_names,
+			case_sensitive
+		)
 		if layer_index != INVALID_LAYER_INDEX:
 			mask |= layer_index_to_mask(layer_index)
 	return mask
@@ -58,6 +68,8 @@ static func names_to_mask(names: Array, layer_names: Array, case_sensitive: bool
 ## 将 bitmask 转换为层名列表。
 ## [br]
 ## @api public
+## [br]
+## @since 3.21.0
 ## [br]
 ## @param mask: 要解析的 bitmask。
 ## [br]
@@ -68,9 +80,16 @@ static func names_to_mask(names: Array, layer_names: Array, case_sensitive: bool
 ## @param include_unnamed: 是否为未命名但启用的层返回默认名称。
 ## [br]
 ## @return 按层索引排序的层名列表。
-static func mask_to_names(mask: int, layer_names: Array, include_unnamed: bool = false) -> PackedStringArray:
+static func mask_to_names(
+	mask: int,
+	layer_names: Array,
+	include_unnamed: bool = false
+) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
-	var layer_count: int = DEFAULT_LAYER_COUNT if include_unnamed else mini(layer_names.size(), DEFAULT_LAYER_COUNT)
+	var layer_count: int = DEFAULT_LAYER_COUNT if include_unnamed else mini(
+		layer_names.size(),
+		DEFAULT_LAYER_COUNT
+	)
 	for layer_index: int in range(layer_count):
 		if mask & layer_index_to_mask(layer_index) == 0:
 			continue
@@ -86,6 +105,8 @@ static func mask_to_names(mask: int, layer_names: Array, include_unnamed: bool =
 ## [br]
 ## @api public
 ## [br]
+## @since 3.21.0
+## [br]
 ## @param layer_name: 要查找的层名。
 ## [br]
 ## @param layer_names: 按层索引排列的层名表；索引 0 对应第 1 层。
@@ -95,12 +116,19 @@ static func mask_to_names(mask: int, layer_names: Array, include_unnamed: bool =
 ## @param case_sensitive: 是否区分大小写。
 ## [br]
 ## @return 找到时返回零基索引；否则返回 INVALID_LAYER_INDEX。
-static func find_layer_index(layer_name: String, layer_names: Array, case_sensitive: bool = true) -> int:
+static func find_layer_index(
+	layer_name: String,
+	layer_names: Array,
+	case_sensitive: bool = true
+) -> int:
 	if layer_name.is_empty():
 		return INVALID_LAYER_INDEX
 
 	var expected: String = layer_name if case_sensitive else layer_name.to_lower()
-	var layer_count: int = mini(layer_names.size(), DEFAULT_LAYER_COUNT)
+	var layer_count: int = mini(
+		layer_names.size(),
+		DEFAULT_LAYER_COUNT
+	)
 	for layer_index: int in range(layer_count):
 		var candidate: String = _get_layer_name(layer_names, layer_index)
 		if candidate.is_empty():
@@ -135,13 +163,19 @@ static func layer_index_to_mask(layer_index: int) -> int:
 ## [br]
 ## @return 有效时返回 true。
 static func is_layer_index_valid(layer_index: int, layer_count: int = DEFAULT_LAYER_COUNT) -> bool:
-	var limit: int = clampi(layer_count, 0, DEFAULT_LAYER_COUNT)
+	var limit: int = clampi(
+		layer_count,
+		0,
+		DEFAULT_LAYER_COUNT
+	)
 	return layer_index >= 0 and layer_index < limit
 
 
 ## 获取输入层名中无法解析的名称。
 ## [br]
 ## @api public
+## [br]
+## @since 3.21.0
 ## [br]
 ## @param names: 要检查的层名列表。
 ## [br]
@@ -154,7 +188,11 @@ static func is_layer_index_valid(layer_index: int, layer_count: int = DEFAULT_LA
 ## @param case_sensitive: 是否区分大小写。
 ## [br]
 ## @return 未找到的层名列表，按首次出现顺序去重。
-static func get_missing_names(names: Array, layer_names: Array, case_sensitive: bool = true) -> PackedStringArray:
+static func get_missing_names(
+	names: Array,
+	layer_names: Array,
+	case_sensitive: bool = true
+) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	var seen: Dictionary = {}
 	for name_variant: Variant in names:
@@ -165,7 +203,11 @@ static func get_missing_names(names: Array, layer_names: Array, case_sensitive: 
 		if seen.has(seen_key):
 			continue
 		seen[seen_key] = true
-		if find_layer_index(layer_name, layer_names, case_sensitive) == INVALID_LAYER_INDEX:
+		if find_layer_index(
+			layer_name,
+			layer_names,
+			case_sensitive
+		) == INVALID_LAYER_INDEX:
 			var _appended: bool = result.append(layer_name)
 	return result
 
@@ -174,22 +216,27 @@ static func get_missing_names(names: Array, layer_names: Array, case_sensitive: 
 ## [br]
 ## @api public
 ## [br]
+## @since 3.21.0
+## [br]
 ## @param dimension: 物理维度，只支持 2 或 3。
 ## [br]
 ## @param fallback_to_default_names: 未命名层是否返回 `Layer N`。
 ## [br]
 ## @return 长度为 DEFAULT_LAYER_COUNT 的层名列表；维度无效时返回空列表。
-static func get_project_physics_layer_names(
-	dimension: int = 2,
-	fallback_to_default_names: bool = false
-) -> PackedStringArray:
+static func get_project_physics_layer_names(dimension: int = 2, fallback_to_default_names: bool = false) -> PackedStringArray:
 	if dimension != 2 and dimension != 3:
 		return PackedStringArray()
 
 	var result: PackedStringArray = PackedStringArray()
 	var prefix: String = "layer_names/%dd_physics/layer_" % dimension
-	for layer_number: int in range(1, DEFAULT_LAYER_COUNT + 1):
-		var setting_path: String = "%s%d" % [prefix, layer_number]
+	for layer_number: int in range(
+		1,
+		DEFAULT_LAYER_COUNT + 1
+	):
+		var setting_path: String = (
+			"%s%d"
+			% [prefix, layer_number]
+		)
 		var layer_name: String = ""
 		if ProjectSettings.has_setting(setting_path):
 			layer_name = GFVariantData.to_text(ProjectSettings.get_setting(setting_path))

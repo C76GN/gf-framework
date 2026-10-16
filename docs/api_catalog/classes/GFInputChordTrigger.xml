@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputChordTrigger" path="addons/gf/standard/input/triggers/gf_input_chord_trigger.gd" module="standard" extends="GFInputTrigger" classDigest="20806405af939adf6af5bd604d6e41eec64773c9bf024439ecd1b54ea68898ce">
+<class name="GFInputChordTrigger" path="addons/gf/standard/input/triggers/gf_input_chord_trigger.gd" module="standard" extends="GFInputTrigger" classDigest="bf19f8b71e0b80fc630ad3ec7494d0c20be4d2b38f3bd47c8d16078c4f2e77c6">
 	<description>GFInputChordTrigger: 组合动作触发器。
 当前输入活跃且另一个动作也处于活跃状态时触发，不绑定具体按键。</description>
 	<tags>
@@ -42,7 +42,7 @@ player-specific 查询会 fail closed，不回落到全局动作。</description
 			</tags>
 		</member>
 		<member kind="method" name="update">
-			<signature>func update(raw_active: bool, _value: Variant, _delta: float, state: Dictionary) -&gt; TriggerState:</signature>
+			<signature>func update( raw_active: bool, _value: Variant, _delta: float, state: Dictionary ) -&gt; TriggerState:</signature>
 			<description>更新运行时状态。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -53,6 +53,7 @@ player-specific 查询会 fail closed，不回落到全局动作。</description
 				<tag name="return">触发状态。</tag>
 				<tag name="schema">_value: Variant，由当前输入映射产生的动作值。</tag>
 				<tag name="schema">state: Dictionary，由输入运行时持有，包含 input_runtime: Object 和 player_index: int。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

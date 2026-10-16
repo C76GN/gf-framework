@@ -28,7 +28,6 @@ const DEFAULT_MAX_DEPTH: int = 32
 ## @since 6.0.0
 const DEFAULT_MAX_NODES: int = 10000
 
-
 ## 默认不递归读取的 Resource 内部属性名。
 ## [br]
 ## @api private
@@ -70,7 +69,14 @@ static func scan(root: Variant, options: Dictionary = {}) -> Dictionary:
 		"truncated": false,
 		"depth_limit_reached": false,
 	}
-	_scan_value(root, "", [], 0, options, state)
+	_scan_value(
+		root,
+		"",
+		[],
+		0,
+		options,
+		state
+	)
 	var nodes: Array = GFVariantData.as_array(state["nodes"])
 	return {
 		"ok": not GFVariantData.get_option_bool(state, "truncated"),
@@ -134,24 +140,69 @@ static func _scan_value(
 		return
 
 	if value == null:
-		if GFVariantData.get_option_bool(options, "include_null", false):
-			_append_node(state, _make_value_node(value, path, path_segments, depth))
+		if GFVariantData.get_option_bool(
+			options,
+			"include_null",
+			false
+		):
+			_append_node(
+				state,
+				_make_value_node(
+					value,
+					path,
+					path_segments,
+					depth
+				)
+			)
 		return
 
 	if value is Object:
-		_scan_object(value, path, path_segments, depth, options, state)
+		_scan_object(
+			value,
+			path,
+			path_segments,
+			depth,
+			options,
+			state
+		)
 		return
 
 	if value is Array:
-		_scan_array(value, path, path_segments, depth, options, state)
+		_scan_array(
+			value,
+			path,
+			path_segments,
+			depth,
+			options,
+			state
+		)
 		return
 
 	if value is Dictionary:
-		_scan_dictionary(value, path, path_segments, depth, options, state)
+		_scan_dictionary(
+			value,
+			path,
+			path_segments,
+			depth,
+			options,
+			state
+		)
 		return
 
-	if GFVariantData.get_option_bool(options, "include_scalar", false):
-		_append_node(state, _make_value_node(value, path, path_segments, depth))
+	if GFVariantData.get_option_bool(
+		options,
+		"include_scalar",
+		false
+	):
+		_append_node(
+			state,
+			_make_value_node(
+				value,
+				path,
+				path_segments,
+				depth
+			)
+		)
 
 
 ## 记录 Object 并扫描允许读取的属性，区分环和重复引用。
@@ -173,19 +224,49 @@ static func _scan_object(
 	var visited: Dictionary = GFVariantData.as_dictionary(state["visited_objects"])
 	var active: Dictionary = GFVariantData.as_dictionary(state["active_objects"])
 	if active.has(instance_id):
-		_append_cycle_node(object_value, path, path_segments, depth, state)
+		_append_cycle_node(
+			object_value,
+			path,
+			path_segments,
+			depth,
+			state
+		)
 		return
 	if visited.has(instance_id):
-		_append_node(state, _make_object_node(object_value, path, path_segments, depth, false, true))
+		_append_node(
+			state,
+			_make_object_node(
+				object_value,
+				path,
+				path_segments,
+				depth,
+				false,
+				true
+			)
+		)
 		return
 
 	visited[instance_id] = true
 	state["visited_objects"] = visited
 	active[instance_id] = true
 	state["active_objects"] = active
-	_append_node(state, _make_object_node(object_value, path, path_segments, depth, false, false))
+	_append_node(
+		state,
+		_make_object_node(
+			object_value,
+			path,
+			path_segments,
+			depth,
+			false,
+			false
+		)
+	)
 
-	if object_value is Node and not GFVariantData.get_option_bool(options, "include_nodes", false):
+	if object_value is Node and not GFVariantData.get_option_bool(
+		options,
+		"include_nodes",
+		false
+	):
 		var _node_active_removed: bool = active.erase(instance_id)
 		state["active_objects"] = active
 		return
@@ -200,7 +281,14 @@ static func _scan_object(
 		var child_path_segments: Array = path_segments.duplicate()
 		child_path_segments.append(property_name)
 		var child_path: String = _format_path(child_path_segments)
-		_scan_value(object_value.get(property_name), child_path, child_path_segments, depth + 1, options, state)
+		_scan_value(
+			object_value.get(property_name),
+			child_path,
+			child_path_segments,
+			depth + 1,
+			options,
+			state
+		)
 	var _active_removed: bool = active.erase(instance_id)
 	state["active_objects"] = active
 
@@ -218,12 +306,27 @@ static func _scan_array(
 	state: Dictionary
 ) -> void:
 	var array: Array = value
-	_append_node(state, _make_value_node(array, path, path_segments, depth))
+	_append_node(
+		state,
+		_make_value_node(
+			array,
+			path,
+			path_segments,
+			depth
+		)
+	)
 	for index: int in range(array.size()):
 		var child_path_segments: Array = path_segments.duplicate()
 		child_path_segments.append(index)
 		var child_path: String = _format_path(child_path_segments)
-		_scan_value(array[index], child_path, child_path_segments, depth + 1, options, state)
+		_scan_value(
+			array[index],
+			child_path,
+			child_path_segments,
+			depth + 1,
+			options,
+			state
+		)
 
 
 ## 记录字典节点并按键文本递归扫描其值。
@@ -239,12 +342,27 @@ static func _scan_dictionary(
 	state: Dictionary
 ) -> void:
 	var dictionary: Dictionary = value
-	_append_node(state, _make_value_node(dictionary, path, path_segments, depth))
+	_append_node(
+		state,
+		_make_value_node(
+			dictionary,
+			path,
+			path_segments,
+			depth
+		)
+	)
 	for key: Variant in dictionary.keys():
 		var child_path_segments: Array = path_segments.duplicate()
 		child_path_segments.append(GFVariantData.to_text(key))
 		var child_path: String = _format_path(child_path_segments)
-		_scan_value(dictionary[key], child_path, child_path_segments, depth + 1, options, state)
+		_scan_value(
+			dictionary[key],
+			child_path,
+			child_path_segments,
+			depth + 1,
+			options,
+			state
+		)
 
 
 ## 按属性名排除列表、include_all_properties 和 usage 标志筛选属性。
@@ -257,7 +375,11 @@ static func _property_should_scan(property_info: Dictionary, options: Dictionary
 		return false
 	if _get_excluded_properties(options).has(property_name):
 		return false
-	if GFVariantData.get_option_bool(options, "include_all_properties", false):
+	if GFVariantData.get_option_bool(
+		options,
+		"include_all_properties",
+		false
+	):
 		return true
 	var usage: int = GFVariantData.get_option_int(property_info, "usage")
 	return (usage & PROPERTY_USAGE_STORAGE) != 0 or (usage & PROPERTY_USAGE_EDITOR) != 0
@@ -279,9 +401,25 @@ static func _get_excluded_properties(options: Dictionary) -> PackedStringArray:
 ## [br]
 ## @api private
 ## [br]
-static func _append_cycle_node(object_value: Object, path: String, path_segments: Array, depth: int, state: Dictionary) -> void:
+static func _append_cycle_node(
+	object_value: Object,
+	path: String,
+	path_segments: Array,
+	depth: int,
+	state: Dictionary
+) -> void:
 	state["cycle_count"] = GFVariantData.get_option_int(state, "cycle_count") + 1
-	_append_node(state, _make_object_node(object_value, path, path_segments, depth, true, false))
+	_append_node(
+		state,
+		_make_object_node(
+			object_value,
+			path,
+			path_segments,
+			depth,
+			true,
+			false
+		)
+	)
 
 
 ## 将一个节点字典追加到扫描状态的 nodes 数组。
@@ -299,7 +437,14 @@ static func _append_node(state: Dictionary, node: Dictionary) -> void:
 ## @api private
 ## [br]
 static func _can_append_node(state: Dictionary, options: Dictionary) -> bool:
-	var max_nodes: int = maxi(GFVariantData.get_option_int(options, "max_nodes", DEFAULT_MAX_NODES), 0)
+	var max_nodes: int = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"max_nodes",
+			DEFAULT_MAX_NODES
+		),
+		0
+	)
 	if max_nodes <= 0:
 		return true
 	var nodes: Array = GFVariantData.as_array(state["nodes"])
@@ -311,7 +456,14 @@ static func _can_append_node(state: Dictionary, options: Dictionary) -> bool:
 ## @api private
 ## [br]
 static func _get_max_depth(options: Dictionary) -> int:
-	return maxi(GFVariantData.get_option_int(options, "max_depth", DEFAULT_MAX_DEPTH), 0)
+	return maxi(
+		GFVariantData.get_option_int(
+			options,
+			"max_depth",
+			DEFAULT_MAX_DEPTH
+		),
+		0
+	)
 
 
 ## 读取扫描状态的截断标志。
@@ -358,7 +510,12 @@ static func _make_object_node(
 ## [br]
 ## @api private
 ## [br]
-static func _make_value_node(value: Variant, path: String, path_segments: Array, depth: int) -> Dictionary:
+static func _make_value_node(
+	value: Variant,
+	path: String,
+	path_segments: Array,
+	depth: int
+) -> Dictionary:
 	return {
 		"path": path,
 		"path_segments": path_segments.duplicate(true),
@@ -431,7 +588,17 @@ static func _is_simple_key(text: String) -> bool:
 ## @api private
 ## [br]
 static func _is_ascii_letter_or_underscore(code: int) -> bool:
-	return code == 95 or (code >= 65 and code <= 90) or (code >= 97 and code <= 122)
+	return (
+		code == 95
+		or (
+			code >= 65
+			and code <= 90
+		)
+		or (
+			code >= 97
+			and code <= 122
+		)
+	)
 
 
 ## 检查码点是否为 ASCII 数字。

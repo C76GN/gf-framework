@@ -34,7 +34,6 @@ const FILE_NAME: String = "gf_content_package.json"
 ## @api public
 const SCHEMA_VERSION: int = 1
 
-
 ## 校验报告中用于 finalize 的固定主题。
 ## [br]
 ## @api private
@@ -398,21 +397,37 @@ func configure(
 ## @param p_source_path: manifest 文件路径。
 ## [br]
 ## @schema data: Dictionary，支持 package_id/id、display_name/name、version、content_types、dependencies、safety_kind、forbidden_resource_extensions、resources 和 metadata；字段类型必须与 manifest schema 一致，不执行字符串、数组或字典宽松转换。
-func apply_dictionary(data: Dictionary, p_root_path: String = "", p_source_path: String = "") -> void:
+func apply_dictionary(
+	data: Dictionary,
+	p_root_path: String = "",
+	p_source_path: String = ""
+) -> void:
 	_reset_dictionary_fields()
 	_validate_manifest_aliases(data)
 	_apply_schema_version(data)
 	_unknown_fields = _collect_unknown_fields(data)
-	package_id = StringName(_read_text_alias(data, "package_id", "id"))
-	display_name = _read_text_alias(data, "display_name", "name")
+	package_id = StringName(
+		_read_text_alias(
+			data,
+			"package_id",
+			"id"
+		)
+	)
+	display_name = _read_text_alias(
+		data,
+		"display_name",
+		"name"
+	)
 	version = _read_text_field(data, "version")
 	content_types = _normalize_string_list(_read_string_list_field(data, "content_types"))
 	dependencies = _normalize_string_list(_read_string_list_field(data, "dependencies"))
-	var safety_kind_text: String = _read_text_field(data, "safety_kind", String(SAFETY_KIND_DATA_ONLY))
-	safety_kind = StringName(safety_kind_text)
-	forbidden_resource_extensions = _normalize_extensions(
-		_read_string_list_field(data, "forbidden_resource_extensions")
+	var safety_kind_text: String = _read_text_field(
+		data,
+		"safety_kind",
+		String(SAFETY_KIND_DATA_ONLY)
 	)
+	safety_kind = StringName(safety_kind_text)
+	forbidden_resource_extensions = _normalize_extensions(_read_string_list_field(data, "forbidden_resource_extensions"))
 	resources = _get_resource_entries(data)
 	metadata = _read_dictionary_field(data, "metadata")
 	root_path = _normalize_root_path(p_root_path)
@@ -455,7 +470,10 @@ func to_dictionary() -> Dictionary:
 ## [br]
 ## @schema return: JSON-safe Dictionary based on to_dictionary().
 func to_report_dictionary(options: Dictionary = {}) -> Dictionary:
-	return GFReportValueCodec.to_report_dictionary(to_dictionary(), options)
+	return GFReportValueCodec.to_report_dictionary(
+		to_dictionary(),
+		options
+	)
 
 
 ## 创建 manifest 深拷贝。
@@ -522,8 +540,18 @@ func get_validation_report(options: Dictionary = {}) -> Dictionary:
 	_validate_schema_version(report)
 	_validate_required_fields(report)
 	_validate_safety_kind(report)
-	_validate_string_list(content_types, "content_types", _KIND_INVALID_CONTENT_TYPE, report)
-	_validate_string_list(dependencies, "dependencies", _KIND_INVALID_DEPENDENCY, report)
+	_validate_string_list(
+		content_types,
+		"content_types",
+		_KIND_INVALID_CONTENT_TYPE,
+		report
+	)
+	_validate_string_list(
+		dependencies,
+		"dependencies",
+		_KIND_INVALID_DEPENDENCY,
+		report
+	)
 	_validate_resources(options, report)
 	return _finalize_validation_report(report)
 
@@ -562,14 +590,16 @@ func get_normalized_resources() -> Array[Dictionary]:
 	for entry: Dictionary in resources:
 		var resource_key: StringName = _get_resource_key(entry)
 		var path: String = _get_normalized_entry_path(entry)
-		result.append({
-			"key": resource_key,
-			"path": path,
-			"type_hint": _get_resource_text_field(entry, "type_hint"),
-			"priority": _get_resource_priority(entry),
-			"metadata": _make_resource_metadata(entry),
-			"package_id": package_id,
-		})
+		result.append(
+			{
+				"key": resource_key,
+				"path": path,
+				"type_hint": _get_resource_text_field(entry, "type_hint"),
+				"priority": _get_resource_priority(entry),
+				"metadata": _make_resource_metadata(entry),
+				"package_id": package_id,
+			}
+		)
 	return result
 
 
@@ -610,7 +640,11 @@ static func from_dictionary(
 	p_source_path: String = ""
 ) -> GFContentPackageManifest:
 	var manifest: GFContentPackageManifest = GFContentPackageManifest.new()
-	manifest.apply_dictionary(data, p_root_path, p_source_path)
+	manifest.apply_dictionary(
+		data,
+		p_root_path,
+		p_source_path
+	)
 	return manifest
 
 
@@ -638,7 +672,11 @@ static func load_from_path(path: String) -> GFContentPackageManifest:
 		return null
 
 	var root: String = normalized_path.get_base_dir()
-	return GFContentPackageManifest.from_dictionary(GFVariantData.as_dictionary(parsed), root, normalized_path)
+	return GFContentPackageManifest.from_dictionary(
+		GFVariantData.as_dictionary(parsed),
+		root,
+		normalized_path
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -675,9 +713,7 @@ func _validate_schema_version(report: Dictionary) -> void:
 			_KIND_MISSING_SCHEMA_VERSION,
 			&"schema_version",
 			"schema_version is required",
-			{
-				"expected_value": SCHEMA_VERSION,
-			}
+			{ "expected_value": SCHEMA_VERSION, }
 		)
 		return
 	if not _schema_version_has_valid_type:
@@ -686,10 +722,7 @@ func _validate_schema_version(report: Dictionary) -> void:
 			_KIND_INVALID_SCHEMA_VERSION,
 			&"schema_version",
 			"schema_version must be an integer",
-			{
-				"actual_value": schema_version,
-				"expected_value": SCHEMA_VERSION,
-			}
+			{ "actual_value": schema_version, "expected_value": SCHEMA_VERSION, }
 		)
 		return
 	if schema_version != SCHEMA_VERSION:
@@ -698,10 +731,7 @@ func _validate_schema_version(report: Dictionary) -> void:
 			_KIND_UNSUPPORTED_SCHEMA_VERSION,
 			&"schema_version",
 			"schema_version is not supported",
-			{
-				"actual_value": schema_version,
-				"expected_value": SCHEMA_VERSION,
-			}
+			{ "actual_value": schema_version, "expected_value": SCHEMA_VERSION, }
 		)
 
 
@@ -715,9 +745,7 @@ func _validate_required_fields(report: Dictionary) -> void:
 			_KIND_MISSING_PACKAGE_ID,
 			&"package_id",
 			"package_id is required",
-			{
-				"expected_value": "non-empty StringName",
-			}
+			{ "expected_value": "non-empty StringName", }
 		)
 	if version.strip_edges().is_empty():
 		_add_manifest_issue(
@@ -725,9 +753,7 @@ func _validate_required_fields(report: Dictionary) -> void:
 			_KIND_MISSING_VERSION,
 			&"version",
 			"version is required",
-			{
-				"expected_value": "non-empty String",
-			}
+			{ "expected_value": "non-empty String", }
 		)
 
 
@@ -760,14 +786,15 @@ func _validate_string_list(
 ## 校验每个资源条目的结构、资源键唯一性及路径相关约束。
 ## [br]
 ## @api private
-func _validate_resources(
-	options: Dictionary,
-	report: Dictionary
-) -> void:
+func _validate_resources(options: Dictionary, report: Dictionary) -> void:
 	var seen_keys: Dictionary = {}
 	for index: int in range(resources.size()):
 		var entry: Dictionary = resources[index]
-		_validate_resource_entry_schema(entry, index, report)
+		_validate_resource_entry_schema(
+			entry,
+			index,
+			report
+		)
 		var resource_key: StringName = _get_resource_key(entry)
 		if resource_key == &"":
 			_add_resource_issue(
@@ -777,9 +804,7 @@ func _validate_resources(
 				resource_key,
 				"resource key is required",
 				&"resources",
-				{
-					"expected_value": "non-empty key",
-				}
+				{ "expected_value": "non-empty key", }
 			)
 		elif seen_keys.has(resource_key):
 			_add_resource_issue(
@@ -789,14 +814,18 @@ func _validate_resources(
 				resource_key,
 				"resource key is duplicated",
 				&"resources",
-				{
-					"actual_value": resource_key,
-				}
+				{ "actual_value": resource_key, }
 			)
 		else:
 			seen_keys[resource_key] = true
 
-		_validate_resource_path(entry, index, resource_key, options, report)
+		_validate_resource_path(
+			entry,
+			index,
+			resource_key,
+			options,
+			report
+		)
 
 
 ## 归一化单个资源路径并检查路径范围、安全扩展名及可选依赖和存在性。
@@ -818,9 +847,7 @@ func _validate_resource_path(
 			resource_key,
 			"resource path is required",
 			&"resources",
-			{
-				"expected_value": "res://, user:// or package-relative path",
-			}
+			{ "expected_value": "res://, user:// or package-relative path", }
 		)
 		return
 
@@ -833,10 +860,7 @@ func _validate_resource_path(
 			resource_key,
 			"resource path must be res://, user://, or package-relative",
 			&"resources",
-			{
-				"actual_value": raw_path,
-				"expected_value": "res://, user:// or package-relative path",
-			}
+			{ "actual_value": raw_path, "expected_value": "res://, user:// or package-relative path", }
 		)
 		return
 
@@ -848,20 +872,39 @@ func _validate_resource_path(
 			resource_key,
 			"resource path must stay inside package root",
 			&"resources",
-			{
-				"actual_value": normalized_path,
-				"expected_value": root_path,
-			}
+			{ "actual_value": normalized_path, "expected_value": root_path, }
 		)
 		return
 
-	_validate_resource_safety(normalized_path, index, resource_key, report)
-	if GFVariantData.get_option_bool(options, "check_resource_dependencies", false):
-		_validate_resource_dependencies(normalized_path, index, resource_key, options, report)
+	_validate_resource_safety(
+		normalized_path,
+		index,
+		resource_key,
+		report
+	)
+	if GFVariantData.get_option_bool(
+		options,
+		"check_resource_dependencies",
+		false
+	):
+		_validate_resource_dependencies(
+			normalized_path,
+			index,
+			resource_key,
+			options,
+			report
+		)
 
 	if (
-		GFVariantData.get_option_bool(options, "check_resource_exists", false)
-		and not _resource_path_exists(normalized_path, GFVariantData.get_option_string(entry, "type_hint"))
+		GFVariantData.get_option_bool(
+			options,
+			"check_resource_exists",
+			false
+		)
+		and not _resource_path_exists(
+			normalized_path,
+			GFVariantData.get_option_string(entry, "type_hint")
+		)
 	):
 		_add_resource_issue(
 			report,
@@ -870,9 +913,7 @@ func _validate_resource_path(
 			resource_key,
 			"resource file does not exist",
 			&"resources",
-			{
-				"actual_value": normalized_path,
-			}
+			{ "actual_value": normalized_path, }
 		)
 
 
@@ -904,10 +945,7 @@ func _validate_unknown_fields(report: Dictionary) -> void:
 			_KIND_UNKNOWN_FIELD,
 			StringName(field_name),
 			"manifest field is not supported",
-			{
-				"actual_value": field_name,
-				"expected_value": _ALLOWED_FIELDS.duplicate(),
-			}
+			{ "actual_value": field_name, "expected_value": _ALLOWED_FIELDS.duplicate(), }
 		)
 
 
@@ -919,8 +957,16 @@ func _append_schema_issues(report: Dictionary) -> void:
 		var _issue: Dictionary = GFValidationReportDictionary.append_issue(
 			report,
 			"error",
-			GFVariantData.get_option_string_name(issue, "kind", StringName(_KIND_INVALID_MANIFEST_FIELD_TYPE)),
-			GFVariantData.get_option_string(issue, "message", "manifest schema value has an invalid type"),
+			GFVariantData.get_option_string_name(
+				issue,
+				"kind",
+				StringName(_KIND_INVALID_MANIFEST_FIELD_TYPE)
+			),
+			GFVariantData.get_option_string(
+				issue,
+				"message",
+				"manifest schema value has an invalid type"
+			),
 			GFVariantData.get_option_dictionary(issue, "fields")
 		)
 
@@ -928,7 +974,11 @@ func _append_schema_issues(report: Dictionary) -> void:
 ## 检查资源条目的未知字段、文本字段类型、priority 和 metadata 类型。
 ## [br]
 ## @api private
-func _validate_resource_entry_schema(entry: Dictionary, index: int, report: Dictionary) -> void:
+func _validate_resource_entry_schema(
+	entry: Dictionary,
+	index: int,
+	report: Dictionary
+) -> void:
 	for key_value: Variant in entry.keys():
 		var field_name: String = GFVariantData.to_text(key_value)
 		if _ALLOWED_RESOURCE_FIELDS.has(field_name):
@@ -941,19 +991,45 @@ func _validate_resource_entry_schema(entry: Dictionary, index: int, report: Dict
 			"resource entry field is not supported",
 			&"resources",
 			{
-				"path": "resources[%d].%s" % [index, field_name],
+				"path": "resources[%d].%s"
+				% [index, field_name],
 				"actual_value": field_name,
 				"expected_value": _ALLOWED_RESOURCE_FIELDS.duplicate(),
 			}
 		)
 
-	_validate_resource_text_field(entry, index, "key", "resource_key", report)
-	_validate_resource_text_field(entry, index, "path", "resource_path", report)
-	_validate_resource_text_field(entry, index, "type_hint", "", report)
+	_validate_resource_text_field(
+		entry,
+		index,
+		"key",
+		"resource_key",
+		report
+	)
+	_validate_resource_text_field(
+		entry,
+		index,
+		"path",
+		"resource_path",
+		report
+	)
+	_validate_resource_text_field(
+		entry,
+		index,
+		"type_hint",
+		"",
+		report
+	)
 	if _has_field(entry, "priority"):
 		var priority_value: Variant = _get_field_value(entry, "priority")
 		if not _is_integer_value(priority_value):
-			_add_invalid_resource_field_type(report, index, _get_resource_key(entry), "priority", "integer", priority_value)
+			_add_invalid_resource_field_type(
+				report,
+				index,
+				_get_resource_key(entry),
+				"priority",
+				"integer",
+				priority_value
+			)
 	if _has_field(entry, "metadata") and not _get_field_value(entry, "metadata") is Dictionary:
 		_add_invalid_resource_field_type(
 			report,
@@ -975,7 +1051,11 @@ func _validate_resource_text_field(
 	alias_name: String,
 	report: Dictionary
 ) -> void:
-	var selected_field: String = _select_field_name(entry, field_name, alias_name)
+	var selected_field: String = _select_field_name(
+		entry,
+		field_name,
+		alias_name
+	)
 	if selected_field.is_empty():
 		return
 	var value: Variant = _get_field_value(entry, selected_field)
@@ -1010,7 +1090,8 @@ func _add_invalid_resource_field_type(
 		"resource entry field has an invalid type",
 		&"resources",
 		{
-			"path": "resources[%d].%s" % [index, field_name],
+			"path": "resources[%d].%s"
+			% [index, field_name],
 			"expected_value": expected_type,
 			"actual_value": type_string(typeof(actual_value)),
 		}
@@ -1060,11 +1141,12 @@ func _validate_resource_dependencies(
 ) -> void:
 	var dependency_options: Dictionary = GFVariantData.get_option_dictionary(options, "dependency_options")
 	dependency_options["include_root"] = false
-	var dependency_report: Dictionary = _GF_RESOURCE_REGISTRY_TOOLS.build_dependency_report(
-		normalized_path,
-		dependency_options
-	)
-	if not GFVariantData.get_option_bool(dependency_report, "ok", false):
+	var dependency_report: Dictionary = _GF_RESOURCE_REGISTRY_TOOLS.build_dependency_report(normalized_path, dependency_options)
+	if not GFVariantData.get_option_bool(
+		dependency_report,
+		"ok",
+		false
+	):
 		_add_resource_issue(
 			report,
 			_KIND_RESOURCE_DEPENDENCY_SCAN_FAILED,
@@ -1120,9 +1202,14 @@ func _add_resource_issue(
 		"row_index": row_index,
 		"row_key": resource_key,
 		"field": field_name,
-		"path": "resources[%d].%s" % [row_index, String(field_name)],
+		"path": "resources[%d].%s"
+		% [row_index, String(field_name)],
 	}
-	var merged_context: Dictionary = GFVariantData.merge_dictionary(issue_context, context, true)
+	var merged_context: Dictionary = GFVariantData.merge_dictionary(
+		issue_context,
+		context,
+		true
+	)
 	var _issue: Dictionary = GFValidationReportDictionary.append_issue(
 		report,
 		"error",
@@ -1149,7 +1236,11 @@ func _add_manifest_issue(
 		"field": field_name,
 		"path": String(field_name),
 	}
-	var merged_context: Dictionary = GFVariantData.merge_dictionary(issue_context, context, true)
+	var merged_context: Dictionary = GFVariantData.merge_dictionary(
+		issue_context,
+		context,
+		true
+	)
 	var _issue: Dictionary = GFValidationReportDictionary.append_issue(
 		report,
 		"error",
@@ -1177,10 +1268,11 @@ func _make_validation_report() -> Dictionary:
 ## [br]
 ## @api private
 func _finalize_validation_report(report: Dictionary) -> Dictionary:
-	return GFValidationReportDictionary.finalize_report(report, _REPORT_SUBJECT, {
-		"fallback_action": "Review the first content package manifest issue.",
-		"no_action": "Content package manifest is valid.",
-	})
+	return GFValidationReportDictionary.finalize_report(
+		report,
+		_REPORT_SUBJECT,
+		{ "fallback_action": "Review the first content package manifest issue.", "no_action": "Content package manifest is valid.", }
+	)
 
 
 ## 从输入字典读取 resources，并跳过类型错误的条目、记录对应 schema 问题。
@@ -1229,23 +1321,48 @@ func _parse_resource_entry(data: Dictionary, index: int) -> Dictionary:
 			"resource entry field is not supported",
 			{
 				"field": StringName(field_name),
-				"path": "resources[%d].%s" % [index, field_name],
+				"path": "resources[%d].%s"
+				% [index, field_name],
 				"actual_value": field_name,
 				"expected_value": _ALLOWED_RESOURCE_FIELDS.duplicate(),
 			}
 		)
 
 	_validate_resource_aliases(data, index)
-	var key_field: String = _select_field_name(data, "key", "resource_key")
+	var key_field: String = _select_field_name(
+		data,
+		"key",
+		"resource_key"
+	)
 	if not key_field.is_empty():
-		result["key"] = _read_resource_text_value(data, key_field, index)
-	var path_field: String = _select_field_name(data, "path", "resource_path")
+		result["key"] = _read_resource_text_value(
+			data,
+			key_field,
+			index
+		)
+	var path_field: String = _select_field_name(
+		data,
+		"path",
+		"resource_path"
+	)
 	if not path_field.is_empty():
-		result["path"] = _read_resource_text_value(data, path_field, index)
+		result["path"] = _read_resource_text_value(
+			data,
+			path_field,
+			index
+		)
 	if _has_field(data, "type_hint"):
-		result["type_hint"] = _read_resource_text_value(data, "type_hint", index)
+		result["type_hint"] = _read_resource_text_value(
+			data,
+			"type_hint",
+			index
+		)
 	if _has_field(data, "priority"):
-		result["priority"] = _read_resource_integer_value(data, "priority", index)
+		result["priority"] = _read_resource_integer_value(
+			data,
+			"priority",
+			index
+		)
 	if _has_field(data, "metadata"):
 		var raw_metadata: Variant = _get_field_value(data, "metadata")
 		if raw_metadata is Dictionary:
@@ -1265,13 +1382,18 @@ func _parse_resource_entry(data: Dictionary, index: int) -> Dictionary:
 ## 读取资源文本字段并去除首尾空白；类型错误时记问题并返回空字符串。
 ## [br]
 ## @api private
-func _read_resource_text_value(data: Dictionary, field_name: String, index: int) -> String:
+func _read_resource_text_value(
+	data: Dictionary,
+	field_name: String,
+	index: int
+) -> String:
 	var value: Variant = _get_field_value(data, field_name)
 	if _is_text_value(value):
 		return _to_text_value(value).strip_edges()
 	_append_schema_type_issue(
 		_KIND_INVALID_RESOURCE_FIELD_TYPE,
-		"resources[%d].%s" % [index, field_name],
+		"resources[%d].%s"
+		% [index, field_name],
 		"String",
 		value
 	)
@@ -1281,13 +1403,18 @@ func _read_resource_text_value(data: Dictionary, field_name: String, index: int)
 ## 读取资源整数值字段；无效类型记问题并以 0 作为回退值。
 ## [br]
 ## @api private
-func _read_resource_integer_value(data: Dictionary, field_name: String, index: int) -> int:
+func _read_resource_integer_value(
+	data: Dictionary,
+	field_name: String,
+	index: int
+) -> int:
 	var value: Variant = _get_field_value(data, field_name)
 	if _is_integer_value(value):
 		return _to_integer_value(value)
 	_append_schema_type_issue(
 		_KIND_INVALID_RESOURCE_FIELD_TYPE,
-		"resources[%d].%s" % [index, field_name],
+		"resources[%d].%s"
+		% [index, field_name],
 		"integer",
 		value
 	)
@@ -1314,16 +1441,40 @@ func _reset_dictionary_fields() -> void:
 ## [br]
 ## @api private
 func _validate_manifest_aliases(data: Dictionary) -> void:
-	_validate_text_alias_pair(data, "package_id", "id", "", -1)
-	_validate_text_alias_pair(data, "display_name", "name", "", -1)
+	_validate_text_alias_pair(
+		data,
+		"package_id",
+		"id",
+		"",
+		-1
+	)
+	_validate_text_alias_pair(
+		data,
+		"display_name",
+		"name",
+		"",
+		-1
+	)
 
 
 ## 校验资源行中的 key/resource_key 与 path/resource_path 别名对。
 ## [br]
 ## @api private
 func _validate_resource_aliases(data: Dictionary, index: int) -> void:
-	_validate_text_alias_pair(data, "key", "resource_key", "resources", index)
-	_validate_text_alias_pair(data, "path", "resource_path", "resources", index)
+	_validate_text_alias_pair(
+		data,
+		"key",
+		"resource_key",
+		"resources",
+		index
+	)
+	_validate_text_alias_pair(
+		data,
+		"path",
+		"resource_path",
+		"resources",
+		index
+	)
 
 
 ## 两个别名同时出现时检查值类型和内容一致性，并保留冲突字段路径。
@@ -1342,7 +1493,14 @@ func _validate_text_alias_pair(
 	var alias_value: Variant = _get_field_value(data, alias_name)
 	var alias_path: String = alias_name
 	if row_index >= 0:
-		alias_path = "%s[%d].%s" % [collection_path, row_index, alias_name]
+		alias_path = (
+			"%s[%d].%s"
+			% [
+				collection_path,
+				row_index,
+				alias_name,
+			]
+		)
 	if not _is_text_value(alias_value):
 		_append_schema_type_issue(
 			_KIND_INVALID_RESOURCE_FIELD_TYPE if row_index >= 0 else _KIND_INVALID_MANIFEST_FIELD_TYPE,
@@ -1359,7 +1517,14 @@ func _validate_text_alias_pair(
 		return
 	var canonical_path: String = canonical_name
 	if row_index >= 0:
-		canonical_path = "%s[%d].%s" % [collection_path, row_index, canonical_name]
+		canonical_path = (
+			"%s[%d].%s"
+			% [
+				collection_path,
+				row_index,
+				canonical_name,
+			]
+		)
 	var conflicting_values: Dictionary = {}
 	conflicting_values[canonical_name] = canonical_text
 	conflicting_values[alias_name] = alias_text
@@ -1381,8 +1546,16 @@ func _validate_text_alias_pair(
 ## 优先读取规范字段，规范字段缺失时回退到别名；两者都缺失则返回空串。
 ## [br]
 ## @api private
-func _read_text_alias(data: Dictionary, field_name: String, alias_name: String) -> String:
-	var selected_field: String = _select_field_name(data, field_name, alias_name)
+func _read_text_alias(
+	data: Dictionary,
+	field_name: String,
+	alias_name: String
+) -> String:
+	var selected_field: String = _select_field_name(
+		data,
+		field_name,
+		alias_name
+	)
 	if selected_field.is_empty():
 		return ""
 	return _read_text_field(data, selected_field)
@@ -1391,13 +1564,22 @@ func _read_text_alias(data: Dictionary, field_name: String, alias_name: String) 
 ## 读取 String/StringName 字段并裁去首尾空白；类型错误时记问题并返回默认值。
 ## [br]
 ## @api private
-func _read_text_field(data: Dictionary, field_name: String, default_value: String = "") -> String:
+func _read_text_field(
+	data: Dictionary,
+	field_name: String,
+	default_value: String = ""
+) -> String:
 	if not _has_field(data, field_name):
 		return default_value
 	var value: Variant = _get_field_value(data, field_name)
 	if _is_text_value(value):
 		return _to_text_value(value).strip_edges()
-	_append_schema_type_issue(_KIND_INVALID_MANIFEST_FIELD_TYPE, field_name, "String", value)
+	_append_schema_type_issue(
+		_KIND_INVALID_MANIFEST_FIELD_TYPE,
+		field_name,
+		"String",
+		value
+	)
 	return default_value
 
 
@@ -1413,7 +1595,12 @@ func _read_string_list_field(data: Dictionary, field_name: String) -> PackedStri
 		var packed_values: PackedStringArray = value
 		return packed_values.duplicate()
 	if not value is Array:
-		_append_schema_type_issue(_KIND_INVALID_MANIFEST_FIELD_TYPE, field_name, "Array[String]", value)
+		_append_schema_type_issue(
+			_KIND_INVALID_MANIFEST_FIELD_TYPE,
+			field_name,
+			"Array[String]",
+			value
+		)
 		return result
 	var values: Array = value
 	for index: int in range(values.size()):
@@ -1423,7 +1610,8 @@ func _read_string_list_field(data: Dictionary, field_name: String) -> PackedStri
 			continue
 		_append_schema_type_issue(
 			_KIND_INVALID_MANIFEST_FIELD_TYPE,
-			"%s[%d]" % [field_name, index],
+			"%s[%d]"
+			% [field_name, index],
 			"String",
 			item
 		)
@@ -1440,14 +1628,24 @@ func _read_dictionary_field(data: Dictionary, field_name: String) -> Dictionary:
 	if value is Dictionary:
 		var dictionary_value: Dictionary = value
 		return dictionary_value.duplicate(true)
-	_append_schema_type_issue(_KIND_INVALID_MANIFEST_FIELD_TYPE, field_name, "Dictionary", value)
+	_append_schema_type_issue(
+		_KIND_INVALID_MANIFEST_FIELD_TYPE,
+		field_name,
+		"Dictionary",
+		value
+	)
 	return {}
 
 
 ## 按字段路径和实际 Variant 类型记录 schema 类型错误。
 ## [br]
 ## @api private
-func _append_schema_type_issue(kind: String, path: String, expected_type: String, actual_value: Variant) -> void:
+func _append_schema_type_issue(
+	kind: String,
+	path: String,
+	expected_type: String,
+	actual_value: Variant
+) -> void:
 	_append_schema_issue(
 		kind,
 		"manifest schema value has an invalid type",
@@ -1463,19 +1661,29 @@ func _append_schema_type_issue(kind: String, path: String, expected_type: String
 ## 将 kind、message 与字段上下文深复制后暂存为解析阶段问题。
 ## [br]
 ## @api private
-func _append_schema_issue(kind: String, message: String, fields: Dictionary) -> void:
-	_schema_issues.append({
-		"kind": StringName(kind),
-		"message": message,
-		"fields": fields.duplicate(true),
-	})
+func _append_schema_issue(
+	kind: String,
+	message: String,
+	fields: Dictionary
+) -> void:
+	_schema_issues.append(
+		{
+			"kind": StringName(kind),
+			"message": message,
+			"fields": fields.duplicate(true),
+		}
+	)
 
 
 ## 按 key 优先、resource_key 次之读取资源键；无文本值时返回空 StringName。
 ## [br]
 ## @api private
 func _get_resource_key(entry: Dictionary) -> StringName:
-	var field_name: String = _select_field_name(entry, "key", "resource_key")
+	var field_name: String = _select_field_name(
+		entry,
+		"key",
+		"resource_key"
+	)
 	if field_name.is_empty():
 		return &""
 	var value: Variant = _get_field_value(entry, field_name)
@@ -1486,7 +1694,11 @@ func _get_resource_key(entry: Dictionary) -> StringName:
 ## [br]
 ## @api private
 func _get_resource_path(entry: Dictionary) -> String:
-	var field_name: String = _select_field_name(entry, "path", "resource_path")
+	var field_name: String = _select_field_name(
+		entry,
+		"path",
+		"resource_path"
+	)
 	if field_name.is_empty():
 		return ""
 	var value: Variant = _get_field_value(entry, field_name)
@@ -1497,7 +1709,10 @@ func _get_resource_path(entry: Dictionary) -> String:
 ## [br]
 ## @api private
 func _get_normalized_entry_path(entry: Dictionary) -> String:
-	return _normalize_package_resource_path(_get_resource_path(entry), root_path)
+	return _normalize_package_resource_path(
+		_get_resource_path(entry),
+		root_path
+	)
 
 
 ## 获取资源条目的文本字段；缺失或不是 String/StringName 时返回空串。
@@ -1624,7 +1839,10 @@ static func _normalize_package_resource_path(path: String, package_root: String)
 	var normalized_root: String = _normalize_root_path(package_root)
 	if normalized_root.is_empty():
 		return ""
-	return _normalize_resource_path(normalized_root.path_join(normalized_path), "")
+	return _normalize_resource_path(
+		normalized_root.path_join(normalized_path),
+		""
+	)
 
 
 ## 将资源路径归一化工作委托给路径工具，并透传回退路径。
@@ -1655,7 +1873,12 @@ static func _is_path_inside_root(path: String, package_root: String) -> bool:
 	var normalized_root: String = _normalize_root_path(package_root)
 	if normalized_root.is_empty():
 		return false
-	return _GF_PATH_TOOLS.is_path_under_root(path, normalized_root, true, false)
+	return _GF_PATH_TOOLS.is_path_under_root(
+		path,
+		normalized_root,
+		true,
+		false
+	)
 
 
 ## 同时检查 String 与 StringName 键形式的字段是否存在。
@@ -1678,7 +1901,11 @@ static func _get_field_value(data: Dictionary, field_name: String) -> Variant:
 ## 选择已存在的规范键，若无则选非空且存在的兼容别名。
 ## [br]
 ## @api private
-static func _select_field_name(data: Dictionary, field_name: String, alias_name: String) -> String:
+static func _select_field_name(
+	data: Dictionary,
+	field_name: String,
+	alias_name: String
+) -> String:
 	if _has_field(data, field_name):
 		return field_name
 	if not alias_name.is_empty() and _has_field(data, alias_name):

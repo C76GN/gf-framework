@@ -15,7 +15,7 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 常量 | [`DEFAULT_SEARCH_FIELDS`](#member-gfaudiolibrarytools-constants-default_search_fields) | `const DEFAULT_SEARCH_FIELDS: PackedStringArray = ["clip_id", "relative_path", "file_name", "source_path"]` |
+| 常量 | [`DEFAULT_SEARCH_FIELDS`](#member-gfaudiolibrarytools-constants-default_search_fields) | `const DEFAULT_SEARCH_FIELDS: PackedStringArray = [ 	"clip_id", 	"relative_path", 	"file_name", 	"source_path", ]` |
 | 常量 | [`DEFAULT_MAX_COPY_FILES`](#member-gfaudiolibrarytools-constants-default_max_copy_files) | `const DEFAULT_MAX_COPY_FILES: int = 10000` |
 | 常量 | [`DEFAULT_MAX_COPY_BYTES`](#member-gfaudiolibrarytools-constants-default_max_copy_bytes) | `const DEFAULT_MAX_COPY_BYTES: int = 512 * 1024 * 1024` |
 | 方法 | [`scan_library`](#member-gfaudiolibrarytools-methods-scan_library) | `static func scan_library(root_path: String, options: Dictionary = {}) -> Array[Dictionary]:` |
@@ -35,7 +35,12 @@
 - 首次版本：`5.0.0`
 
 ```gdscript
-const DEFAULT_SEARCH_FIELDS: PackedStringArray = ["clip_id", "relative_path", "file_name", "source_path"]
+const DEFAULT_SEARCH_FIELDS: PackedStringArray = [
+	"clip_id",
+	"relative_path",
+	"file_name",
+	"source_path",
+]
 ```
 
 默认搜索字段。

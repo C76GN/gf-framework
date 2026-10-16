@@ -185,9 +185,16 @@ func _apply_number_policy(value: float) -> float:
 		return 0.0
 	var result: float = value
 	if clamp_enabled:
-		result = clampf(result, minf(min_value, max_value), maxf(min_value, max_value))
+		result = clampf(
+			result,
+			minf(min_value, max_value),
+			maxf(min_value, max_value)
+		)
 	if quantize_decimals >= 0:
-		var scale: float = pow(10.0, float(quantize_decimals))
+		var scale: float = pow(
+			10.0,
+			float(quantize_decimals)
+		)
 		result = roundf(result * scale) / scale
 	return result
 
@@ -200,10 +207,7 @@ func _serialize_vector2(value: Variant) -> Array:
 	var vector: Vector2 = Vector2.ZERO
 	if value is Vector2:
 		vector = value
-	return [
-		_apply_number_policy(vector.x),
-		_apply_number_policy(vector.y),
-	]
+	return [_apply_number_policy(vector.x), _apply_number_policy(vector.y),]
 
 
 ## 将 Vector3 转为应用数值策略后的分量数组，类型不符时从零向量开始。
@@ -229,10 +233,7 @@ func _serialize_vector2i(value: Variant) -> Array:
 	var vector: Vector2i = Vector2i.ZERO
 	if value is Vector2i:
 		vector = value
-	return [
-		vector.x,
-		vector.y,
-	]
+	return [vector.x, vector.y,]
 
 
 ## 将 Vector3i 转为整数分量数组，类型不符时使用零向量。
@@ -347,10 +348,26 @@ func _deserialize_vector3i(value: Variant) -> Vector3i:
 func _deserialize_color(value: Variant) -> Color:
 	var values: Array = _read_array(value)
 	return Color(
-		_get_array_float(values, 0, 1.0),
-		_get_array_float(values, 1, 1.0),
-		_get_array_float(values, 2, 1.0),
-		_get_array_float(values, 3, 1.0)
+		_get_array_float(
+			values,
+			0,
+			1.0
+		),
+		_get_array_float(
+			values,
+			1,
+			1.0
+		),
+		_get_array_float(
+			values,
+			2,
+			1.0
+		),
+		_get_array_float(
+			values,
+			3,
+			1.0
+		)
 	)
 
 
@@ -367,7 +384,11 @@ func _deserialize_quaternion(value: Variant) -> Quaternion:
 		_get_array_float(values, 0),
 		_get_array_float(values, 1),
 		_get_array_float(values, 2),
-		_get_array_float(values, 3, 1.0)
+		_get_array_float(
+			values,
+			3,
+			1.0
+		)
 	)
 
 
@@ -398,20 +419,34 @@ func _read_array(value: Variant) -> Array:
 ## [br]
 ## @api private
 ## [br]
-func _get_array_float(values: Array, index: int, default_value: float = 0.0) -> float:
+func _get_array_float(
+	values: Array,
+	index: int,
+	default_value: float = 0.0
+) -> float:
 	if index < 0 or index >= values.size():
 		return default_value
-	return _coerce_float(values[index], default_value)
+	return _coerce_float(
+		values[index],
+		default_value
+	)
 
 
 ## 读取指定数组索引并转换为 int，越界或无效值使用默认值。
 ## [br]
 ## @api private
 ## [br]
-func _get_array_int(values: Array, index: int, default_value: int = 0) -> int:
+func _get_array_int(
+	values: Array,
+	index: int,
+	default_value: int = 0
+) -> int:
 	if index < 0 or index >= values.size():
 		return default_value
-	return _coerce_int(values[index], default_value)
+	return _coerce_int(
+		values[index],
+		default_value
+	)
 
 
 ## 将 bool、数值或受支持的文本值转换为 bool，无法识别时返回默认值。
@@ -430,9 +465,20 @@ func _coerce_bool(value: Variant, default_value: bool = false) -> bool:
 		return not is_zero_approx(float_value)
 	if value is String or value is StringName:
 		var text: String = _coerce_text(value).strip_edges().to_lower()
-		if text in ["true", "1", "yes", "on"]:
+		if text in [
+			"true",
+			"1",
+			"yes",
+			"on",
+		]:
 			return true
-		if text in ["false", "0", "no", "off", ""]:
+		if text in [
+			"false",
+			"0",
+			"no",
+			"off",
+			"",
+		]:
 			return false
 	return default_value
 
@@ -505,7 +551,12 @@ func _coerce_text(value: Variant, default_value: String = "") -> String:
 ## @api private
 ## [br]
 func _normalize_quaternion_or_identity(value: Quaternion) -> Quaternion:
-	return _normalize_quaternion_components_or_identity(value.x, value.y, value.z, value.w)
+	return _normalize_quaternion_components_or_identity(
+		value.x,
+		value.y,
+		value.z,
+		value.w
+	)
 
 
 ## 对有限且非零的四元数分量做缩放归一化，否则返回单位四元数。
@@ -530,8 +581,14 @@ func _normalize_quaternion_components_or_identity(
 	):
 		return Quaternion.IDENTITY
 	var max_component: float = maxf(
-		maxf(absf(x), absf(y)),
-		maxf(absf(z), absf(w))
+		maxf(
+			absf(x),
+			absf(y)
+		),
+		maxf(
+			absf(z),
+			absf(w)
+		)
 	)
 	if max_component <= 0.0:
 		return Quaternion.IDENTITY
@@ -539,13 +596,12 @@ func _normalize_quaternion_components_or_identity(
 	var scaled_y: float = y / max_component
 	var scaled_z: float = z / max_component
 	var scaled_w: float = w / max_component
-	var scaled_length_squared: float = (
-		scaled_x * scaled_x
-		+ scaled_y * scaled_y
-		+ scaled_z * scaled_z
-		+ scaled_w * scaled_w
-	)
-	if is_nan(scaled_length_squared) or is_inf(scaled_length_squared) or scaled_length_squared <= 0.0:
+	var scaled_length_squared: float = (scaled_x * scaled_x + scaled_y * scaled_y + scaled_z * scaled_z + scaled_w * scaled_w)
+	if (
+		is_nan(scaled_length_squared)
+		or is_inf(scaled_length_squared)
+		or scaled_length_squared <= 0.0
+	):
 		return Quaternion.IDENTITY
 	var inverse_length: float = 1.0 / sqrt(scaled_length_squared)
 	return Quaternion(

@@ -48,7 +48,11 @@ func register_source(provider: GFAssetCatalogSourceProvider, options: Dictionary
 	if configured_source_id != &"":
 		_set_source_id_if_needed(provider, configured_source_id)
 	if options.has("priority"):
-		provider.priority = GFVariantData.get_option_int(options, "priority", provider.get_priority())
+		provider.priority = GFVariantData.get_option_int(
+			options,
+			"priority",
+			provider.get_priority()
+		)
 
 	var _unregistered_existing: bool = unregister_source(provider)
 	_providers.append(provider)
@@ -66,7 +70,11 @@ func register_source(provider: GFAssetCatalogSourceProvider, options: Dictionary
 ## [br]
 ## @return 找到并移除时返回 true。
 func unregister_source(provider: GFAssetCatalogSourceProvider) -> bool:
-	for index: int in range(_providers.size() - 1, -1, -1):
+	for index: int in range(
+		_providers.size() - 1,
+		-1,
+		-1
+	):
 		if _providers[index] == provider:
 			_providers.remove_at(index)
 			return true
@@ -111,12 +119,14 @@ func get_source_records() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for index: int in range(_providers.size()):
 		var provider: GFAssetCatalogSourceProvider = _providers[index]
-		result.append({
-			"source_id": String(provider.get_source_id()),
-			"priority": provider.get_priority(),
-			"provider_class": provider.get_class(),
-			"index": index,
-		})
+		result.append(
+			{
+				"source_id": String(provider.get_source_id()),
+				"priority": provider.get_priority(),
+				"provider_class": provider.get_class(),
+				"index": index,
+			}
+		)
 	return result
 
 
@@ -134,7 +144,11 @@ func get_source_records() -> Array[Dictionary]:
 func build_catalog(options: Dictionary = {}) -> GFAssetCatalog:
 	var catalog: GFAssetCatalog = GFAssetCatalog.new()
 	var provider_options: Dictionary = GFVariantData.get_option_dictionary(options, "provider_options")
-	var overwrite: bool = GFVariantData.get_option_bool(options, "overwrite", false)
+	var overwrite: bool = GFVariantData.get_option_bool(
+		options,
+		"overwrite",
+		false
+	)
 	var selected_source_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(
 		options,
 		"source_ids",
@@ -145,7 +159,10 @@ func build_catalog(options: Dictionary = {}) -> GFAssetCatalog:
 		if not _should_include_provider(provider, selected_source_ids):
 			continue
 		var source_catalog: GFAssetCatalog = provider.build_catalog(provider_options)
-		var _merge_report: Dictionary = catalog.merge_catalog(source_catalog, { "overwrite": overwrite })
+		var _merge_report: Dictionary = catalog.merge_catalog(
+			source_catalog,
+			{ "overwrite": overwrite }
+		)
 	return catalog
 
 
@@ -166,7 +183,11 @@ func build_catalog_report(options: Dictionary = {}) -> Dictionary:
 	var issues: Array[Dictionary] = []
 	var catalog: GFAssetCatalog = GFAssetCatalog.new()
 	var provider_options: Dictionary = GFVariantData.get_option_dictionary(options, "provider_options")
-	var overwrite: bool = GFVariantData.get_option_bool(options, "overwrite", false)
+	var overwrite: bool = GFVariantData.get_option_bool(
+		options,
+		"overwrite",
+		false
+	)
 	var selected_source_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(
 		options,
 		"source_ids",
@@ -178,25 +199,32 @@ func build_catalog_report(options: Dictionary = {}) -> Dictionary:
 			continue
 		var source_catalog: GFAssetCatalog = provider.build_catalog(provider_options)
 		if source_catalog == null:
-			issues.append({
-				"severity": "error",
-				"kind": "null_source_catalog",
-				"source_id": String(provider.get_source_id()),
-			})
+			issues.append(
+				{
+					"severity": "error",
+					"kind": "null_source_catalog",
+					"source_id": String(provider.get_source_id()),
+				}
+			)
 			continue
-		var merge_report: Dictionary = catalog.merge_catalog(source_catalog, { "overwrite": overwrite })
+		var merge_report: Dictionary = catalog.merge_catalog(
+			source_catalog,
+			{ "overwrite": overwrite }
+		)
 		var duplicate_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(
 			merge_report,
 			"duplicate_ids",
 			PackedStringArray()
 		)
 		if not overwrite and not duplicate_ids.is_empty():
-			issues.append({
-				"severity": "warning",
-				"kind": "duplicate_asset_ids",
-				"source_id": String(provider.get_source_id()),
-				"asset_ids": duplicate_ids,
-			})
+			issues.append(
+				{
+					"severity": "warning",
+					"kind": "duplicate_asset_ids",
+					"source_id": String(provider.get_source_id()),
+					"asset_ids": duplicate_ids,
+				}
+			)
 
 	return {
 		"ok": _has_no_errors(issues),
@@ -242,10 +270,7 @@ static func _compare_providers(left: GFAssetCatalogSourceProvider, right: GFAsse
 ## [br]
 ## @api private
 ## [br]
-func _should_include_provider(
-	provider: GFAssetCatalogSourceProvider,
-	selected_source_ids: PackedStringArray
-) -> bool:
+func _should_include_provider(provider: GFAssetCatalogSourceProvider, selected_source_ids: PackedStringArray) -> bool:
 	if selected_source_ids.is_empty():
 		return true
 	return selected_source_ids.has(String(provider.get_source_id()))

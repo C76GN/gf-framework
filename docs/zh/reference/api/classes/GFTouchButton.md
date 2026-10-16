@@ -18,8 +18,8 @@
 | 信号 | [`button_pressed`](#member-gftouchbutton-signals-button_pressed) | `signal button_pressed` |
 | 信号 | [`button_released`](#member-gftouchbutton-signals-button_released) | `signal button_released` |
 | 属性 | [`radius`](#member-gftouchbutton-properties-radius) | `var radius: float = 48.0:` |
-| 属性 | [`color`](#member-gftouchbutton-properties-color) | `var color: Color = Color(1.0, 1.0, 1.0, 0.3):` |
-| 属性 | [`pressed_color`](#member-gftouchbutton-properties-pressed_color) | `var pressed_color: Color = Color(1.0, 1.0, 1.0, 0.65):` |
+| 属性 | [`color`](#member-gftouchbutton-properties-color) | `var color: Color = Color( 	1.0, 	1.0, 	1.0, 	0.3 ):` |
+| 属性 | [`pressed_color`](#member-gftouchbutton-properties-pressed_color) | `var pressed_color: Color = Color( 	1.0, 	1.0, 	1.0, 	0.65 ):` |
 | 属性 | [`accept_mouse_input`](#member-gftouchbutton-properties-accept_mouse_input) | `var accept_mouse_input: bool = false:` |
 | 属性 | [`action_name`](#member-gftouchbutton-properties-action_name) | `var action_name: StringName = &""` |
 | 属性 | [`emit_joypad_button`](#member-gftouchbutton-properties-emit_joypad_button) | `var emit_joypad_button: bool = false` |
@@ -73,9 +73,15 @@ var radius: float = 48.0:
 ### `color`
 
 - API：`public`
+- 首次版本：`1.17.0`
 
 ```gdscript
-var color: Color = Color(1.0, 1.0, 1.0, 0.3):
+var color: Color = Color(
+	1.0,
+	1.0,
+	1.0,
+	0.3
+):
 ```
 
 按钮常态颜色。
@@ -85,9 +91,15 @@ var color: Color = Color(1.0, 1.0, 1.0, 0.3):
 ### `pressed_color`
 
 - API：`public`
+- 首次版本：`1.17.0`
 
 ```gdscript
-var pressed_color: Color = Color(1.0, 1.0, 1.0, 0.65):
+var pressed_color: Color = Color(
+	1.0,
+	1.0,
+	1.0,
+	0.65
+):
 ```
 
 按钮按下颜色。

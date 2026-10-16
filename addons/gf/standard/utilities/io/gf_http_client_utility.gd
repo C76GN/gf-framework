@@ -179,11 +179,7 @@ func configure(
 ) -> void:
 	_max_concurrent_requests = maxi(1, max_concurrent_requests)
 	_max_pending_requests = maxi(0, max_pending_requests)
-	_default_max_response_bytes = (
-		GFHttpRequestBuilder.UNLIMITED_MAX_RESPONSE_BYTES
-		if default_max_response_bytes < 0
-		else maxi(1, default_max_response_bytes)
-	)
+	_default_max_response_bytes = (GFHttpRequestBuilder.UNLIMITED_MAX_RESPONSE_BYTES if default_max_response_bytes < 0 else maxi(1, default_max_response_bytes))
 	_request_parent_ref = weakref(request_parent) if request_parent != null else null
 	_retire_idle_workers_with_stale_parent()
 	_trim_idle_workers_to_limit()
@@ -218,10 +214,7 @@ func execute(builder: GFHttpRequestBuilder) -> GFHttpResponse:
 		return response
 
 	response.cancel_callback = _cancel_response.bind(response)
-	_pending_requests.append({
-		"builder": request_snapshot,
-		"response": response,
-	})
+	_pending_requests.append({ "builder": request_snapshot, "response": response, })
 	request_queued.emit(response)
 	_pump_queue()
 	return response
@@ -376,7 +369,11 @@ func _complete_request(
 		"status_code": status_code,
 		"headers": response_headers,
 		"body": body,
-		"text": GFVariantData.get_option_string(parsed, "text", ""),
+		"text": GFVariantData.get_option_string(
+			parsed,
+			"text",
+			""
+		),
 		"data": GFVariantData.get_option_value(parsed, "data"),
 		"metadata": response.metadata,
 	}
@@ -385,9 +382,23 @@ func _complete_request(
 	elif result_code != HTTPRequest.RESULT_SUCCESS:
 		response.complete_failure("request_failed", fields)
 	elif status_code < 200 or status_code >= 300:
-		response.complete_failure("http_status_%d" % status_code, fields)
-	elif not GFVariantData.get_option_bool(parsed, "ok", false):
-		response.complete_failure(GFVariantData.get_option_string(parsed, "error", "parse_failed"), fields)
+		response.complete_failure(
+			"http_status_%d" % status_code,
+			fields
+		)
+	elif not GFVariantData.get_option_bool(
+		parsed,
+		"ok",
+		false
+	):
+		response.complete_failure(
+			GFVariantData.get_option_string(
+				parsed,
+				"error",
+				"parse_failed"
+			),
+			fields
+		)
 	else:
 		response.complete_success(fields)
 	_pump_queue()
@@ -406,7 +417,11 @@ func _pump_queue() -> void:
 		var entry: Dictionary = _pending_requests.pop_front()
 		var builder: GFHttpRequestBuilder = _get_entry_builder(entry)
 		var response: GFHttpResponse = _get_entry_response(entry)
-		if builder == null or response == null or response.is_finished():
+		if (
+			builder == null
+			or response == null
+			or response.is_finished()
+		):
 			continue
 
 		var worker: HTTPRequest = _acquire_worker()
@@ -420,26 +435,43 @@ func _pump_queue() -> void:
 		request_started.emit(response)
 		if not _is_active:
 			return
-		if response.is_finished() or not is_instance_valid(worker) or _get_entry_response(_get_active_entry(worker)) != response:
+		if (
+			response.is_finished()
+			or not is_instance_valid(worker)
+			or _get_entry_response(_get_active_entry(worker)) != response
+		):
 			continue
-		var error: Error = _start_request(worker, builder, response)
+		var error: Error = _start_request(
+			worker,
+			builder,
+			response
+		)
 		if error != OK:
-			_fail_request_start(worker, response, error)
+			_fail_request_start(
+				worker,
+				response,
+				error
+			)
 
 
 ## 清理启动失败的活动记录并归还 worker；只完成尚未进入终态的响应。
 ## [br]
 ## @api private
 ## [br]
-func _fail_request_start(worker: HTTPRequest, response: GFHttpResponse, error: Error) -> void:
+func _fail_request_start(
+	worker: HTTPRequest,
+	response: GFHttpResponse,
+	error: Error
+) -> void:
 	var entry: Dictionary = _get_active_entry(worker)
 	_disconnect_entry_completion(entry)
 	var _active_erased: bool = _active_requests.erase(worker.get_instance_id())
 	_release_worker(worker)
 	if response != null and not response.is_finished():
-		response.complete_failure(error_string(error), {
-			"result_code": error,
-		})
+		response.complete_failure(
+			error_string(error),
+			{ "result_code": error, }
+		)
 
 
 ## 按响应身份从等待队列移除，或取消匹配的活动请求并异步恢复队列调度。
@@ -447,7 +479,11 @@ func _fail_request_start(worker: HTTPRequest, response: GFHttpResponse, error: E
 ## @api private
 ## [br]
 func _cancel_response(response: GFHttpResponse) -> void:
-	for index: int in range(_pending_requests.size() - 1, -1, -1):
+	for index: int in range(
+		_pending_requests.size() - 1,
+		-1,
+		-1
+	):
 		if _get_entry_response(_pending_requests[index]) == response:
 			_pending_requests.remove_at(index)
 			return
@@ -525,7 +561,11 @@ func _release_worker(worker: HTTPRequest) -> void:
 ## @api private
 ## [br]
 func _retire_idle_workers_with_stale_parent() -> void:
-	for index: int in range(_idle_workers.size() - 1, -1, -1):
+	for index: int in range(
+		_idle_workers.size() - 1,
+		-1,
+		-1
+	):
 		var worker: HTTPRequest = _idle_workers[index]
 		if not _worker_has_current_parent(worker):
 			_retire_worker(worker)
@@ -581,10 +621,18 @@ func _free_worker(worker: HTTPRequest) -> void:
 ## @api private
 ## [br]
 func _prune_workers() -> void:
-	for index: int in range(_workers.size() - 1, -1, -1):
+	for index: int in range(
+		_workers.size() - 1,
+		-1,
+		-1
+	):
 		if not is_instance_valid(_workers[index]):
 			_workers.remove_at(index)
-	for index: int in range(_idle_workers.size() - 1, -1, -1):
+	for index: int in range(
+		_idle_workers.size() - 1,
+		-1,
+		-1
+	):
 		if not is_instance_valid(_idle_workers[index]):
 			_idle_workers.remove_at(index)
 
@@ -618,7 +666,11 @@ func _get_request_parent() -> Node:
 func _disconnect_entry_completion(entry: Dictionary) -> void:
 	var worker: HTTPRequest = _get_entry_worker(entry)
 	var completion: Callable = _get_entry_completion(entry)
-	if is_instance_valid(worker) and completion.is_valid() and worker.request_completed.is_connected(completion):
+	if (
+		is_instance_valid(worker)
+		and completion.is_valid()
+		and worker.request_completed.is_connected(completion)
+	):
 		worker.request_completed.disconnect(completion)
 
 
@@ -693,11 +745,19 @@ func _get_entry_completion(entry: Dictionary) -> Callable:
 ## @api private
 ## [br]
 func _remove_worker_reference(worker_id: int) -> void:
-	for index: int in range(_workers.size() - 1, -1, -1):
+	for index: int in range(
+		_workers.size() - 1,
+		-1,
+		-1
+	):
 		var worker: HTTPRequest = _workers[index]
 		if is_instance_valid(worker) and worker.get_instance_id() == worker_id:
 			_workers.remove_at(index)
-	for index: int in range(_idle_workers.size() - 1, -1, -1):
+	for index: int in range(
+		_idle_workers.size() - 1,
+		-1,
+		-1
+	):
 		var idle_worker: HTTPRequest = _idle_workers[index]
 		if is_instance_valid(idle_worker) and idle_worker.get_instance_id() == worker_id:
 			_idle_workers.remove_at(index)
@@ -739,6 +799,10 @@ func _on_worker_tree_exited(worker_id: int) -> void:
 
 	var _active_erased: bool = _active_requests.erase(worker_id)
 	var response: GFHttpResponse = _get_entry_response(entry)
-	if _is_active and response != null and not response.is_finished():
+	if (
+		_is_active
+		and response != null
+		and not response.is_finished()
+	):
 		response.complete_failure("request_worker_lost")
 		call_deferred("_pump_queue")

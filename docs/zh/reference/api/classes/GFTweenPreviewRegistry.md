@@ -17,7 +17,7 @@
 |---|---|---|
 | 信号 | [`changed`](#member-gftweenpreviewregistry-signals-changed) | `signal changed` |
 | 方法 | [`get_shared`](#member-gftweenpreviewregistry-methods-get_shared) | `static func get_shared() -> GFTweenPreviewRegistry:` |
-| 方法 | [`register_adapter`](#member-gftweenpreviewregistry-methods-register_adapter) | `func register_adapter(owner: Object, descriptor: Dictionary, adapter: GFTweenPreviewAdapter) -> GFTweenPreviewRegistration:` |
+| 方法 | [`register_adapter`](#member-gftweenpreviewregistry-methods-register_adapter) | `func register_adapter( owner: Object, descriptor: Dictionary, adapter: GFTweenPreviewAdapter ) -> GFTweenPreviewRegistration:` |
 | 方法 | [`get_descriptors`](#member-gftweenpreviewregistry-methods-get_descriptors) | `func get_descriptors() -> Array[Dictionary]:` |
 | 方法 | [`get_property_records`](#member-gftweenpreviewregistry-methods-get_property_records) | `func get_property_records(adapter_id: StringName, query: String = "") -> Array[Dictionary]:` |
 | 方法 | [`register_binding`](#member-gftweenpreviewregistry-methods-register_binding) | `func register_binding( owner: Object, resource_path: String, target_id: StringName, initial_values: Dictionary = {}, label: String = "" ) -> GFTweenPreviewRegistration:` |
@@ -63,7 +63,7 @@ static func get_shared() -> GFTweenPreviewRegistry:
 - 首次版本：`unreleased`
 
 ```gdscript
-func register_adapter(owner: Object, descriptor: Dictionary, adapter: GFTweenPreviewAdapter) -> GFTweenPreviewRegistration:
+func register_adapter( owner: Object, descriptor: Dictionary, adapter: GFTweenPreviewAdapter ) -> GFTweenPreviewRegistration:
 ```
 
 注册完整描述；重复 ID、无效 owner 或超出 32 个适配器预算时整组拒绝。 revision 改变须先释放旧句柄再重新注册，不做隐式优先级选择。

@@ -24,4 +24,4 @@ func install(architecture: GFArchitecture, _scope: GFAsyncScope) -> void:
 		return
 	if architecture.get_local_utility(_GF_CONTENT_PACKAGE_UTILITY_SCRIPT) != null:
 		return
-	var _registered_content_package: bool = await architecture.register_utility_instance(_GF_CONTENT_PACKAGE_UTILITY_SCRIPT.new())
+	var _registered_content_package: bool = await (architecture.register_utility_instance(_GF_CONTENT_PACKAGE_UTILITY_SCRIPT.new()))

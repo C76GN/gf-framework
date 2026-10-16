@@ -23,15 +23,15 @@
 | 属性 | [`metadata`](#member-gfcontentpackageexportplan-properties-metadata) | `var metadata: Dictionary = {}` |
 | 方法 | [`clear`](#member-gfcontentpackageexportplan-methods-clear) | `func clear() -> void:` |
 | 方法 | [`add_entry`](#member-gfcontentpackageexportplan-methods-add_entry) | `func add_entry( source_path: String, archive_path: String = "", role: StringName = &"resource", entry_metadata: Dictionary = {} ) -> bool:` |
-| 方法 | [`build_from_manifest`](#member-gfcontentpackageexportplan-methods-build_from_manifest) | `func build_from_manifest( manifest: GFContentPackageManifest, options: Dictionary = {} ) -> GFContentPackageExportPlan:` |
-| 方法 | [`build_from_catalog`](#member-gfcontentpackageexportplan-methods-build_from_catalog) | `func build_from_catalog( catalog: GFContentPackageCatalog, options: Dictionary = {} ) -> GFContentPackageExportPlan:` |
+| 方法 | [`build_from_manifest`](#member-gfcontentpackageexportplan-methods-build_from_manifest) | `func build_from_manifest(manifest: GFContentPackageManifest, options: Dictionary = {}) -> GFContentPackageExportPlan:` |
+| 方法 | [`build_from_catalog`](#member-gfcontentpackageexportplan-methods-build_from_catalog) | `func build_from_catalog(catalog: GFContentPackageCatalog, options: Dictionary = {}) -> GFContentPackageExportPlan:` |
 | 方法 | [`get_validation_report`](#member-gfcontentpackageexportplan-methods-get_validation_report) | `func get_validation_report() -> Dictionary:` |
 | 方法 | [`get_artifact_report`](#member-gfcontentpackageexportplan-methods-get_artifact_report) | `func get_artifact_report(options: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`get_preflight_report`](#member-gfcontentpackageexportplan-methods-get_preflight_report) | `func get_preflight_report( profile: GFCompatibilityProfile = null, options: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`get_preflight_report`](#member-gfcontentpackageexportplan-methods-get_preflight_report) | `func get_preflight_report(profile: GFCompatibilityProfile = null, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`to_dictionary`](#member-gfcontentpackageexportplan-methods-to_dictionary) | `func to_dictionary() -> Dictionary:` |
 | 方法 | [`to_report_dictionary`](#member-gfcontentpackageexportplan-methods-to_report_dictionary) | `func to_report_dictionary(options: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`from_manifest`](#member-gfcontentpackageexportplan-methods-from_manifest) | `static func from_manifest( manifest: GFContentPackageManifest, options: Dictionary = {} ) -> GFContentPackageExportPlan:` |
-| 方法 | [`from_catalog`](#member-gfcontentpackageexportplan-methods-from_catalog) | `static func from_catalog( catalog: GFContentPackageCatalog, options: Dictionary = {} ) -> GFContentPackageExportPlan:` |
+| 方法 | [`from_manifest`](#member-gfcontentpackageexportplan-methods-from_manifest) | `static func from_manifest(manifest: GFContentPackageManifest, options: Dictionary = {}) -> GFContentPackageExportPlan:` |
+| 方法 | [`from_catalog`](#member-gfcontentpackageexportplan-methods-from_catalog) | `static func from_catalog(catalog: GFContentPackageCatalog, options: Dictionary = {}) -> GFContentPackageExportPlan:` |
 
 ## 属性
 
@@ -176,7 +176,7 @@ func add_entry( source_path: String, archive_path: String = "", role: StringName
 - 首次版本：`6.0.0`
 
 ```gdscript
-func build_from_manifest( manifest: GFContentPackageManifest, options: Dictionary = {} ) -> GFContentPackageExportPlan:
+func build_from_manifest(manifest: GFContentPackageManifest, options: Dictionary = {}) -> GFContentPackageExportPlan:
 ```
 
 从单个内容包 manifest 构建计划。
@@ -202,7 +202,7 @@ func build_from_manifest( manifest: GFContentPackageManifest, options: Dictionar
 - 首次版本：`6.0.0`
 
 ```gdscript
-func build_from_catalog( catalog: GFContentPackageCatalog, options: Dictionary = {} ) -> GFContentPackageExportPlan:
+func build_from_catalog(catalog: GFContentPackageCatalog, options: Dictionary = {}) -> GFContentPackageExportPlan:
 ```
 
 从内容包目录构建多包计划。
@@ -273,7 +273,7 @@ func get_artifact_report(options: Dictionary = {}) -> Dictionary:
 - 首次版本：`7.0.0`
 
 ```gdscript
-func get_preflight_report( profile: GFCompatibilityProfile = null, options: Dictionary = {} ) -> Dictionary:
+func get_preflight_report(profile: GFCompatibilityProfile = null, options: Dictionary = {}) -> Dictionary:
 ```
 
 获取内容包导出预检报告。 该报告会合并导出计划校验、可选 artifact 完整性校验，以及调用方显式传入的兼容性 Profile 约束。 GF 不在这里决定下载、启用、远程发布或业务内容策略。
@@ -345,7 +345,7 @@ func to_report_dictionary(options: Dictionary = {}) -> Dictionary:
 - 首次版本：`6.0.0`
 
 ```gdscript
-static func from_manifest( manifest: GFContentPackageManifest, options: Dictionary = {} ) -> GFContentPackageExportPlan:
+static func from_manifest(manifest: GFContentPackageManifest, options: Dictionary = {}) -> GFContentPackageExportPlan:
 ```
 
 从 manifest 创建计划。
@@ -371,7 +371,7 @@ static func from_manifest( manifest: GFContentPackageManifest, options: Dictiona
 - 首次版本：`6.0.0`
 
 ```gdscript
-static func from_catalog( catalog: GFContentPackageCatalog, options: Dictionary = {} ) -> GFContentPackageExportPlan:
+static func from_catalog(catalog: GFContentPackageCatalog, options: Dictionary = {}) -> GFContentPackageExportPlan:
 ```
 
 从 catalog 创建计划。

@@ -18,27 +18,41 @@ extends GFUtility
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param pointer_id: 指针 ID；鼠标为 0，触摸为触点 index。
 ## [br]
 ## @param position: 指针位置。
 ## [br]
 ## @param event: 原始输入事件。
-signal pointer_pressed(pointer_id: int, position: Vector2, event: InputEvent)
+signal pointer_pressed(
+	pointer_id: int,
+	position: Vector2,
+	event: InputEvent
+)
 
 ## 指针释放时发出。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param pointer_id: 指针 ID；鼠标为 0，触摸为触点 index。
 ## [br]
 ## @param position: 指针位置。
 ## [br]
 ## @param event: 原始输入事件。
-signal pointer_released(pointer_id: int, position: Vector2, event: InputEvent)
+signal pointer_released(
+	pointer_id: int,
+	position: Vector2,
+	event: InputEvent
+)
 
 ## 指针移动时发出。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param pointer_id: 指针 ID；鼠标为 0，触摸为触点 index。
 ## [br]
@@ -47,11 +61,18 @@ signal pointer_released(pointer_id: int, position: Vector2, event: InputEvent)
 ## @param previous_position: 上一次指针位置。
 ## [br]
 ## @param event: 原始输入事件。
-signal pointer_moved(pointer_id: int, position: Vector2, previous_position: Vector2, event: InputEvent)
+signal pointer_moved(
+	pointer_id: int,
+	position: Vector2,
+	previous_position: Vector2,
+	event: InputEvent
+)
 
 ## 指针从按下状态进入拖拽时发出。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param pointer_id: 指针 ID；鼠标为 0，触摸为触点 index。
 ## [br]
@@ -60,11 +81,18 @@ signal pointer_moved(pointer_id: int, position: Vector2, previous_position: Vect
 ## @param position: 当前指针位置。
 ## [br]
 ## @param event: 原始输入事件。
-signal pointer_drag_started(pointer_id: int, start_position: Vector2, position: Vector2, event: InputEvent)
+signal pointer_drag_started(
+	pointer_id: int,
+	start_position: Vector2,
+	position: Vector2,
+	event: InputEvent
+)
 
 ## 指针拖拽中发出。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param pointer_id: 指针 ID；鼠标为 0，触摸为触点 index。
 ## [br]
@@ -73,18 +101,29 @@ signal pointer_drag_started(pointer_id: int, start_position: Vector2, position: 
 ## @param delta: 本次拖拽位移。
 ## [br]
 ## @param event: 原始输入事件。
-signal pointer_dragged(pointer_id: int, position: Vector2, delta: Vector2, event: InputEvent)
+signal pointer_dragged(
+	pointer_id: int,
+	position: Vector2,
+	delta: Vector2,
+	event: InputEvent
+)
 
 ## 指针拖拽结束时发出。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param pointer_id: 指针 ID；鼠标为 0，触摸为触点 index。
 ## [br]
 ## @param position: 指针释放位置。
 ## [br]
 ## @param event: 原始输入事件。
-signal pointer_drag_ended(pointer_id: int, position: Vector2, event: InputEvent)
+signal pointer_drag_ended(
+	pointer_id: int,
+	position: Vector2,
+	event: InputEvent
+)
 
 ## 指针活动超过阈值后进入空闲时发出。
 ## [br]
@@ -284,9 +323,17 @@ func _handle_mouse_button(event: InputEventMouseButton) -> bool:
 	if event.button_index != mouse_button_index:
 		return false
 	if event.pressed:
-		_press_pointer(0, event.position, event)
+		_press_pointer(
+			0,
+			event.position,
+			event
+		)
 	else:
-		_release_pointer(0, event.position, event)
+		_release_pointer(
+			0,
+			event.position,
+			event
+		)
 	return true
 
 
@@ -295,7 +342,11 @@ func _handle_mouse_button(event: InputEventMouseButton) -> bool:
 ## @api private
 ## [br]
 func _handle_mouse_motion(event: InputEventMouseMotion) -> bool:
-	_move_pointer(0, event.position, event)
+	_move_pointer(
+		0,
+		event.position,
+		event
+	)
 	return true
 
 
@@ -307,11 +358,19 @@ func _handle_screen_touch(event: InputEventScreenTouch) -> bool:
 	if event.pressed:
 		if active_pointer_id != -1 and active_pointer_id != event.index:
 			return false
-		_press_pointer(event.index, event.position, event)
+		_press_pointer(
+			event.index,
+			event.position,
+			event
+		)
 	else:
 		if active_pointer_id != event.index:
 			return false
-		_release_pointer(event.index, event.position, event)
+		_release_pointer(
+			event.index,
+			event.position,
+			event
+		)
 	return true
 
 
@@ -322,7 +381,11 @@ func _handle_screen_touch(event: InputEventScreenTouch) -> bool:
 func _handle_screen_drag(event: InputEventScreenDrag) -> bool:
 	if active_pointer_id != -1 and active_pointer_id != event.index:
 		return false
-	_move_pointer(event.index, event.position, event)
+	_move_pointer(
+		event.index,
+		event.position,
+		event
+	)
 	return true
 
 
@@ -330,46 +393,75 @@ func _handle_screen_drag(event: InputEventScreenDrag) -> bool:
 ## [br]
 ## @api private
 ## [br]
-func _press_pointer(pointer_id: int, position: Vector2, event: InputEvent) -> void:
+func _press_pointer(
+	pointer_id: int,
+	position: Vector2,
+	event: InputEvent
+) -> void:
 	active_pointer_id = pointer_id
 	is_pointer_pressed = true
 	is_pointer_dragging = false
 	press_position = position
 	last_position = position
 	_mark_pointer_activity(pointer_id, position)
-	pointer_pressed.emit(pointer_id, position, event)
+	pointer_pressed.emit(
+		pointer_id,
+		position,
+		event
+	)
 
 
 ## 忽略与当前活动指针不一致的释放；匹配时先记录活动，必要时发出拖拽结束，再清状态并发出释放信号。
 ## [br]
 ## @api private
 ## [br]
-func _release_pointer(pointer_id: int, position: Vector2, event: InputEvent) -> void:
+func _release_pointer(
+	pointer_id: int,
+	position: Vector2,
+	event: InputEvent
+) -> void:
 	if active_pointer_id != -1 and active_pointer_id != pointer_id:
 		return
 
 	_mark_pointer_activity(pointer_id, position)
 	last_position = position
 	if is_pointer_dragging:
-		pointer_drag_ended.emit(pointer_id, position, event)
+		pointer_drag_ended.emit(
+			pointer_id,
+			position,
+			event
+		)
 	is_pointer_pressed = false
 	is_pointer_dragging = false
 	active_pointer_id = -1
-	pointer_released.emit(pointer_id, position, event)
+	pointer_released.emit(
+		pointer_id,
+		position,
+		event
+	)
 
 
 ## 忽略与当前活动指针冲突的移动；更新位置并发出移动信号，按距离阈值进入拖拽并报告位移。
 ## [br]
 ## @api private
 ## [br]
-func _move_pointer(pointer_id: int, position: Vector2, event: InputEvent) -> void:
+func _move_pointer(
+	pointer_id: int,
+	position: Vector2,
+	event: InputEvent
+) -> void:
 	if active_pointer_id != -1 and active_pointer_id != pointer_id:
 		return
 
 	var previous_position: Vector2 = last_position
 	last_position = position
 	_mark_pointer_activity(pointer_id, position)
-	pointer_moved.emit(pointer_id, position, previous_position, event)
+	pointer_moved.emit(
+		pointer_id,
+		position,
+		previous_position,
+		event
+	)
 
 	if not is_pointer_pressed:
 		return
@@ -377,9 +469,19 @@ func _move_pointer(pointer_id: int, position: Vector2, event: InputEvent) -> voi
 	var drag_distance: float = press_position.distance_to(position)
 	if not is_pointer_dragging and drag_distance >= maxf(drag_threshold_pixels, 0.0):
 		is_pointer_dragging = true
-		pointer_drag_started.emit(pointer_id, press_position, position, event)
+		pointer_drag_started.emit(
+			pointer_id,
+			press_position,
+			position,
+			event
+		)
 	if is_pointer_dragging:
-		pointer_dragged.emit(pointer_id, position, position - previous_position, event)
+		pointer_dragged.emit(
+			pointer_id,
+			position,
+			position - previous_position,
+			event
+		)
 
 
 ## 记录最近活动指针及位置，重置空闲计时；从空闲转为活动时发出 pointer_idle_ended。

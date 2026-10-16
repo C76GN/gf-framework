@@ -99,8 +99,16 @@ const _DEFAULT_PAIRS: Dictionary = {
 ## @schema options: Dictionary，可包含 delimiter_mode、quote_chars、escape_char 和 pairs。
 ## [br]
 ## @schema return: Dictionary，包含 ok、error、delimiter_mode、delimiter、delimiter_spans、issues 和 issue_count。
-static func find_top_level_delimiters(text: String, delimiter: String = _DEFAULT_DELIMITER, options: Dictionary = {}) -> Dictionary:
-	return _scan_top_level_delimiters(text, delimiter, options)
+static func find_top_level_delimiters(
+	text: String,
+	delimiter: String = _DEFAULT_DELIMITER,
+	options: Dictionary = {}
+) -> Dictionary:
+	return _scan_top_level_delimiters(
+		text,
+		delimiter,
+		options
+	)
 
 
 ## 按顶层分隔符拆分文本。
@@ -123,24 +131,56 @@ static func find_top_level_delimiters(text: String, delimiter: String = _DEFAULT
 ## @schema options: Dictionary，可包含 delimiter_mode、trim_parts、allow_empty、quote_chars、escape_char 和 pairs。
 ## [br]
 ## @schema return: Dictionary，包含 ok、error、delimiter_mode、delimiter、parts、part_spans、delimiter_spans、issues 和 issue_count。
-static func split_top_level(text: String, delimiter: String = _DEFAULT_DELIMITER, options: Dictionary = {}) -> Dictionary:
-	var scan: Dictionary = _scan_top_level_delimiters(text, delimiter, options)
+static func split_top_level(
+	text: String,
+	delimiter: String = _DEFAULT_DELIMITER,
+	options: Dictionary = {}
+) -> Dictionary:
+	var scan: Dictionary = _scan_top_level_delimiters(
+		text,
+		delimiter,
+		options
+	)
 	if GFVariantData.get_option_string_name(scan, "error") == ERROR_INVALID_DELIMITER:
 		scan["parts"] = []
 		scan["part_spans"] = []
 		return scan
 
-	var trim_parts: bool = GFVariantData.get_option_bool(options, "trim_parts", false)
-	var allow_empty: bool = GFVariantData.get_option_bool(options, "allow_empty", true)
+	var trim_parts: bool = GFVariantData.get_option_bool(
+		options,
+		"trim_parts",
+		false
+	)
+	var allow_empty: bool = GFVariantData.get_option_bool(
+		options,
+		"allow_empty",
+		true
+	)
 	var delimiter_spans: Array[Vector2i] = _to_vector2i_array(scan.get("delimiter_spans", []))
 	var parts: Array[String] = []
 	var part_spans: Array[Vector2i] = []
 	var start_index: int = 0
 
 	for delimiter_span: Vector2i in delimiter_spans:
-		_append_part(text, start_index, delimiter_span.x, trim_parts, allow_empty, parts, part_spans)
+		_append_part(
+			text,
+			start_index,
+			delimiter_span.x,
+			trim_parts,
+			allow_empty,
+			parts,
+			part_spans
+		)
 		start_index = delimiter_span.y
-	_append_part(text, start_index, text.length(), trim_parts, allow_empty, parts, part_spans)
+	_append_part(
+		text,
+		start_index,
+		text.length(),
+		trim_parts,
+		allow_empty,
+		parts,
+		part_spans
+	)
 
 	scan["parts"] = parts
 	scan["part_spans"] = part_spans
@@ -153,18 +193,51 @@ static func split_top_level(text: String, delimiter: String = _DEFAULT_DELIMITER
 ## [br]
 ## @api private
 ## [br]
-static func _scan_top_level_delimiters(text: String, delimiter: String, options: Dictionary) -> Dictionary:
+static func _scan_top_level_delimiters(
+	text: String,
+	delimiter: String,
+	options: Dictionary
+) -> Dictionary:
 	var mode: StringName = _resolve_delimiter_mode(options)
 	var effective_delimiter: String = "\\s" if mode == DELIMITER_MODE_WHITESPACE else delimiter
 	var issues: Array[Dictionary] = []
 	var delimiter_spans: Array[Vector2i] = []
 	if mode == DELIMITER_MODE_LITERAL and delimiter.is_empty():
-		issues.append(_make_issue(ERROR_INVALID_DELIMITER, 0, "", "", ""))
-		return _make_scan_report(false, ERROR_INVALID_DELIMITER, mode, effective_delimiter, delimiter_spans, issues)
+		issues.append(
+			_make_issue(
+				ERROR_INVALID_DELIMITER,
+				0,
+				"",
+				"",
+				""
+			)
+		)
+		return _make_scan_report(
+			false,
+			ERROR_INVALID_DELIMITER,
+			mode,
+			effective_delimiter,
+			delimiter_spans,
+			issues
+		)
 
-	var quote_chars: String = GFVariantData.get_option_string(options, "quote_chars", _DEFAULT_QUOTE_CHARS)
-	var escape_char: String = GFVariantData.get_option_string(options, "escape_char", _DEFAULT_ESCAPE_CHAR)
-	var pairs: Dictionary = _normalize_pairs(GFVariantData.get_option_dictionary(options, "pairs", _DEFAULT_PAIRS))
+	var quote_chars: String = GFVariantData.get_option_string(
+		options,
+		"quote_chars",
+		_DEFAULT_QUOTE_CHARS
+	)
+	var escape_char: String = GFVariantData.get_option_string(
+		options,
+		"escape_char",
+		_DEFAULT_ESCAPE_CHAR
+	)
+	var pairs: Dictionary = _normalize_pairs(
+		GFVariantData.get_option_dictionary(
+			options,
+			"pairs",
+			_DEFAULT_PAIRS
+		)
+	)
 	var closing_to_opening: Dictionary = _make_closing_to_opening(pairs)
 	var stack: Array[Dictionary] = []
 	var index: int = 0
@@ -172,14 +245,23 @@ static func _scan_top_level_delimiters(text: String, delimiter: String, options:
 	while index < text.length():
 		var character: String = text.substr(index, 1)
 		if stack.is_empty():
-			var delimiter_span: Vector2i = _match_delimiter(text, index, effective_delimiter, mode)
+			var delimiter_span: Vector2i = _match_delimiter(
+				text,
+				index,
+				effective_delimiter,
+				mode
+			)
 			if delimiter_span.y > delimiter_span.x:
 				delimiter_spans.append(delimiter_span)
 				index = delimiter_span.y
 				continue
 
 		if not stack.is_empty() and _is_stack_top_quote(stack):
-			if not escape_char.is_empty() and character == escape_char and index + 1 < text.length():
+			if (
+				not escape_char.is_empty()
+				and character == escape_char
+				and index + 1 < text.length()
+			):
 				index += 2
 				continue
 			if character == _stack_top_close(stack):
@@ -188,32 +270,61 @@ static func _scan_top_level_delimiters(text: String, delimiter: String, options:
 			continue
 
 		if _is_quote_character(character, quote_chars):
-			stack.append(_make_stack_entry(character, character, index, true))
+			stack.append(
+				_make_stack_entry(
+					character,
+					character,
+					index,
+					true
+				)
+			)
 		elif pairs.has(character):
-			stack.append(_make_stack_entry(character, GFVariantData.to_text(pairs[character]), index, false))
+			stack.append(
+				_make_stack_entry(
+					character,
+					GFVariantData.to_text(pairs[character]),
+					index,
+					false
+				)
+			)
 		elif closing_to_opening.has(character):
 			if stack.is_empty() or _stack_top_close(stack) != character:
-				issues.append(_make_issue(
-					ERROR_UNMATCHED_CLOSING,
-					index,
-					GFVariantData.to_text(closing_to_opening[character]),
-					character,
-					""
-				))
+				issues.append(
+					_make_issue(
+						ERROR_UNMATCHED_CLOSING,
+						index,
+						GFVariantData.to_text(closing_to_opening[character]),
+						character,
+						""
+					)
+				)
 			else:
 				stack.remove_at(stack.size() - 1)
 		index += 1
 
 	for entry: Dictionary in stack:
-		issues.append(_make_issue(
-			ERROR_UNMATCHED_OPENING,
-			GFVariantData.get_option_int(entry, "index", -1),
-			GFVariantData.get_option_string(entry, "open"),
-			"",
-			GFVariantData.get_option_string(entry, "close")
-		))
+		issues.append(
+			_make_issue(
+				ERROR_UNMATCHED_OPENING,
+				GFVariantData.get_option_int(
+					entry,
+					"index",
+					-1
+				),
+				GFVariantData.get_option_string(entry, "open"),
+				"",
+				GFVariantData.get_option_string(entry, "close")
+			)
+		)
 
-	return _make_scan_report(issues.is_empty(), _first_issue_kind(issues), mode, effective_delimiter, delimiter_spans, issues)
+	return _make_scan_report(
+		issues.is_empty(),
+		_first_issue_kind(issues),
+		mode,
+		effective_delimiter,
+		delimiter_spans,
+		issues
+	)
 
 
 ## 按原始字符范围提取一段文本，可选择去边缘空白或跳过空段，并记录该段范围。
@@ -229,9 +340,20 @@ static func _append_part(
 	parts: Array[String],
 	part_spans: Array[Vector2i]
 ) -> void:
-	var clamped_start: int = clampi(start_index, 0, text.length())
-	var clamped_end: int = clampi(end_index, clamped_start, text.length())
-	var part: String = text.substr(clamped_start, clamped_end - clamped_start)
+	var clamped_start: int = clampi(
+		start_index,
+		0,
+		text.length()
+	)
+	var clamped_end: int = clampi(
+		end_index,
+		clamped_start,
+		text.length()
+	)
+	var part: String = text.substr(
+		clamped_start,
+		clamped_end - clamped_start
+	)
 	if trim_parts:
 		part = part.strip_edges()
 	if not allow_empty and part.is_empty():
@@ -245,7 +367,11 @@ static func _append_part(
 ## @api private
 ## [br]
 static func _resolve_delimiter_mode(options: Dictionary) -> StringName:
-	var mode: StringName = GFVariantData.get_option_string_name(options, "delimiter_mode", DELIMITER_MODE_LITERAL)
+	var mode: StringName = GFVariantData.get_option_string_name(
+		options,
+		"delimiter_mode",
+		DELIMITER_MODE_LITERAL
+	)
 	if mode == DELIMITER_MODE_WHITESPACE:
 		return mode
 	return DELIMITER_MODE_LITERAL
@@ -255,7 +381,12 @@ static func _resolve_delimiter_mode(options: Dictionary) -> StringName:
 ## [br]
 ## @api private
 ## [br]
-static func _match_delimiter(text: String, index: int, delimiter: String, mode: StringName) -> Vector2i:
+static func _match_delimiter(
+	text: String,
+	index: int,
+	delimiter: String,
+	mode: StringName
+) -> Vector2i:
 	if mode == DELIMITER_MODE_WHITESPACE:
 		if not _is_whitespace(text.substr(index, 1)):
 			return Vector2i(index, index)
@@ -267,8 +398,14 @@ static func _match_delimiter(text: String, index: int, delimiter: String, mode: 
 		return Vector2i(index, index)
 	if index + delimiter.length() > text.length():
 		return Vector2i(index, index)
-	if text.substr(index, delimiter.length()) == delimiter:
-		return Vector2i(index, index + delimiter.length())
+	if text.substr(
+		index,
+		delimiter.length()
+	) == delimiter:
+		return Vector2i(
+			index,
+			index + delimiter.length()
+		)
 	return Vector2i(index, index)
 
 
@@ -315,14 +452,24 @@ static func _is_quote_character(character: String, quote_chars: String) -> bool:
 ## @api private
 ## [br]
 static func _is_whitespace(character: String) -> bool:
-	return character == " " or character == "\t" or character == "\n" or character == "\r"
+	return (
+		character == " "
+		or character == "\t"
+		or character == "\n"
+		or character == "\r"
+	)
 
 
 ## 创建记录开启符、关闭符、起始索引及引号标志的扫描栈项。
 ## [br]
 ## @api private
 ## [br]
-static func _make_stack_entry(open_text: String, close_text: String, index: int, is_quote: bool) -> Dictionary:
+static func _make_stack_entry(
+	open_text: String,
+	close_text: String,
+	index: int,
+	is_quote: bool
+) -> Dictionary:
 	return {
 		"open": open_text,
 		"close": close_text,
@@ -339,7 +486,11 @@ static func _is_stack_top_quote(stack: Array[Dictionary]) -> bool:
 	if stack.is_empty():
 		return false
 	var entry: Dictionary = stack[stack.size() - 1]
-	return GFVariantData.get_option_bool(entry, "is_quote", false)
+	return GFVariantData.get_option_bool(
+		entry,
+		"is_quote",
+		false
+	)
 
 
 ## 读取扫描栈顶项的关闭符；栈为空时返回空字符串。

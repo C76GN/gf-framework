@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFViewportUtility" path="addons/gf/standard/utilities/display/gf_viewport_utility.gd" module="standard" extends="GFUtility" classDigest="7d37cb65c296d3b011f6a9c48563ea88a37e71ebebcb8f855df574fd87a09dba">
+<class name="GFViewportUtility" path="addons/gf/standard/utilities/display/gf_viewport_utility.gd" module="standard" extends="GFUtility" classDigest="376aa1c0c97c7bf7f2dcbe492430a2bd88dbcd871eaa7fa10100cc81480ee5ab">
 	<description>GFViewportUtility: 通用 SubViewport 布局管理工具。
 用于本地多人、调试监视器、小地图或多视角预览等场景。它只管理 Viewport
 容器、相机挂载和后处理材质，不接管玩家、场景切换或输入规则。</description>
@@ -53,7 +53,7 @@
 	</properties>
 	<methods>
 		<member kind="method" name="setup_split_screen">
-			<signature>func setup_split_screen(root: Control, viewport_count: int, options: Dictionary = {}) -&gt; Array[SubViewport]:</signature>
+			<signature>func setup_split_screen( root: Control, viewport_count: int, options: Dictionary = {} ) -&gt; Array[SubViewport]:</signature>
 			<description>创建 1 到 4 个 SubViewport 的分屏布局。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -62,6 +62,7 @@
 				<tag name="param">options: 可选设置，支持 viewport_size、columns、disable_3d、transparent_bg、stretch。</tag>
 				<tag name="return">当前 SubViewport 列表副本。</tag>
 				<tag name="schema">options: Dictionary，包含 viewport_size: Vector2i 或 Vector2、columns: int、disable_3d: bool、transparent_bg: bool 和 stretch: bool。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clear_split_screen">

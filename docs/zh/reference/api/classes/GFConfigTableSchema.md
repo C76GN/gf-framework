@@ -40,7 +40,7 @@
 | 方法 | [`has_reference`](#member-gfconfigtableschema-methods-has_reference) | `func has_reference(reference_id: StringName) -> bool:` |
 | 方法 | [`get_column_names`](#member-gfconfigtableschema-methods-get_column_names) | `func get_column_names() -> PackedStringArray:` |
 | 方法 | [`validate_definition`](#member-gfconfigtableschema-methods-validate_definition) | `func validate_definition(options: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`validate_record`](#member-gfconfigtableschema-methods-validate_record) | `func validate_record(record: Dictionary, row_key: Variant = null, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`validate_record`](#member-gfconfigtableschema-methods-validate_record) | `func validate_record( record: Dictionary, row_key: Variant = null, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`validate_table`](#member-gfconfigtableschema-methods-validate_table) | `func validate_table(table_data: Variant, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`coerce_record`](#member-gfconfigtableschema-methods-coerce_record) | `func coerce_record(record: Dictionary) -> Dictionary:` |
 | 方法 | [`build_empty_record`](#member-gfconfigtableschema-methods-build_empty_record) | `func build_empty_record(include_optional: bool = true) -> Dictionary:` |
@@ -463,9 +463,10 @@ func validate_definition(options: Dictionary = {}) -> Dictionary:
 ### `validate_record`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func validate_record(record: Dictionary, row_key: Variant = null, options: Dictionary = {}) -> Dictionary:
+func validate_record( record: Dictionary, row_key: Variant = null, options: Dictionary = {} ) -> Dictionary:
 ```
 
 校验单条记录。

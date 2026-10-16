@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTweenPreviewRegistry" path="addons/gf/extensions/action_queue/editor/gf_tween_preview_registry.gd" module="extensions/action_queue" extends="RefCounted" classDigest="ac1a81f630cac66e0d09647f32f6f0788ce4520235372898288f8f0308e4b282">
+<class name="GFTweenPreviewRegistry" path="addons/gf/extensions/action_queue/editor/gf_tween_preview_registry.gd" module="extensions/action_queue" extends="RefCounted" classDigest="6299ff85615d27532c204c1f63972199f7cdc9bd93b71e0fff7e98e7e5d2c326">
 	<description>GFTweenPreviewRegistry: 编辑器预览样机与资源关联的有界目录。
 owner 使用弱引用；ID 不自动覆盖，内置样机不进入此目录。注册不读取来源或执行适配器。
 工具插件应持有返回句柄并在退出时 release；owner 失效与租约变化使旧会话失效。</description>
@@ -32,7 +32,7 @@ owner 使用弱引用；ID 不自动覆盖，内置样机不进入此目录。�
 			</tags>
 		</member>
 		<member kind="method" name="register_adapter">
-			<signature>func register_adapter(owner: Object, descriptor: Dictionary, adapter: GFTweenPreviewAdapter) -&gt; GFTweenPreviewRegistration:</signature>
+			<signature>func register_adapter( owner: Object, descriptor: Dictionary, adapter: GFTweenPreviewAdapter ) -&gt; GFTweenPreviewRegistration:</signature>
 			<description>注册完整描述；重复 ID、无效 owner 或超出 32 个适配器预算时整组拒绝。
 revision 改变须先释放旧句柄再重新注册，不做隐式优先级选择。</description>
 			<tags>

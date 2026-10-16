@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFPropertyBagCapability" path="addons/gf/extensions/capability/core/gf_property_bag_capability.gd" module="extensions/capability" extends="GFCapability" classDigest="f94502e0974a0ce75cf6b0de58afc8c4783bfff703345a28304b9a919b247075">
+<class name="GFPropertyBagCapability" path="addons/gf/extensions/capability/core/gf_property_bag_capability.gd" module="extensions/capability" extends="GFCapability" classDigest="0a3522152ad5efdd44f07d1b81d1b18659df3c19fdd40c6f398eec76a36720db">
 	<description>GFPropertyBagCapability: 轻量动态属性扩展能力。
 适合为对象挂载少量运行时标签值、编辑器调试值或原型数据。
 长期核心状态仍应放入 GFModel 或配置资源。</description>
@@ -10,7 +10,7 @@
 	</tags>
 	<signals>
 		<member kind="signal" name="property_changed">
-			<signature>signal property_changed(key: StringName, old_value: Variant, new_value: Variant)</signature>
+			<signature>signal property_changed( key: StringName, old_value: Variant, new_value: Variant )</signature>
 			<description>当属性值发生变化时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -19,6 +19,7 @@
 				<tag name="param">new_value: 新属性值。</tag>
 				<tag name="schema">old_value: 属性表中的任意项目值；属性之前不存在时为 null。</tag>
 				<tag name="schema">new_value: 属性表中的任意项目值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="property_removed">

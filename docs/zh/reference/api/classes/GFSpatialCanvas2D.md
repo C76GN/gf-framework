@@ -55,9 +55,9 @@
 | 方法 | [`clear_items`](#member-gfspatialcanvas2d-methods-clear_items) | `func clear_items() -> void:` |
 | 方法 | [`get_item`](#member-gfspatialcanvas2d-methods-get_item) | `func get_item(item_id: StringName) -> Dictionary:` |
 | 方法 | [`query_items_at`](#member-gfspatialcanvas2d-methods-query_items_at) | `func query_items_at(world_position: Vector2) -> PackedStringArray:` |
-| 方法 | [`query_items_in_rect`](#member-gfspatialcanvas2d-methods-query_items_in_rect) | `func query_items_in_rect( world_rect: Rect2, fully_contained: bool = false ) -> PackedStringArray:` |
-| 方法 | [`set_selection`](#member-gfspatialcanvas2d-methods-set_selection) | `func set_selection( item_ids: PackedStringArray, mode: SelectionMode = SelectionMode.REPLACE ) -> PackedStringArray:` |
-| 方法 | [`select_point`](#member-gfspatialcanvas2d-methods-select_point) | `func select_point( canvas_position: Vector2, mode: SelectionMode = SelectionMode.REPLACE ) -> PackedStringArray:` |
+| 方法 | [`query_items_in_rect`](#member-gfspatialcanvas2d-methods-query_items_in_rect) | `func query_items_in_rect(world_rect: Rect2, fully_contained: bool = false) -> PackedStringArray:` |
+| 方法 | [`set_selection`](#member-gfspatialcanvas2d-methods-set_selection) | `func set_selection(item_ids: PackedStringArray, mode: SelectionMode = SelectionMode.REPLACE) -> PackedStringArray:` |
+| 方法 | [`select_point`](#member-gfspatialcanvas2d-methods-select_point) | `func select_point(canvas_position: Vector2, mode: SelectionMode = SelectionMode.REPLACE) -> PackedStringArray:` |
 | 方法 | [`select_rect`](#member-gfspatialcanvas2d-methods-select_rect) | `func select_rect( canvas_rect: Rect2, mode: SelectionMode = SelectionMode.REPLACE, fully_contained: bool = false ) -> PackedStringArray:` |
 | 方法 | [`clear_selection`](#member-gfspatialcanvas2d-methods-clear_selection) | `func clear_selection() -> void:` |
 | 方法 | [`get_selection`](#member-gfspatialcanvas2d-methods-get_selection) | `func get_selection() -> PackedStringArray:` |
@@ -66,7 +66,7 @@
 | 方法 | [`set_placement_validator`](#member-gfspatialcanvas2d-methods-set_placement_validator) | `func set_placement_validator(callback: Callable) -> void:` |
 | 方法 | [`set_history_hook`](#member-gfspatialcanvas2d-methods-set_history_hook) | `func set_history_hook(callback: Callable) -> void:` |
 | 方法 | [`begin_placement`](#member-gfspatialcanvas2d-methods-begin_placement) | `func begin_placement( type_id: StringName, footprint: Rect2, options: Dictionary = {} ) -> int:` |
-| 方法 | [`update_placement`](#member-gfspatialcanvas2d-methods-update_placement) | `func update_placement( world_position: Vector2, options: Dictionary = {} ) -> bool:` |
+| 方法 | [`update_placement`](#member-gfspatialcanvas2d-methods-update_placement) | `func update_placement(world_position: Vector2, options: Dictionary = {}) -> bool:` |
 | 方法 | [`commit_placement`](#member-gfspatialcanvas2d-methods-commit_placement) | `func commit_placement() -> Dictionary:` |
 | 方法 | [`cancel_placement`](#member-gfspatialcanvas2d-methods-cancel_placement) | `func cancel_placement(reason: StringName = &"cancelled") -> Dictionary:` |
 | 方法 | [`has_active_placement`](#member-gfspatialcanvas2d-methods-has_active_placement) | `func has_active_placement() -> bool:` |
@@ -894,7 +894,7 @@ func query_items_at(world_position: Vector2) -> PackedStringArray:
 - 首次版本：`10.0.0`
 
 ```gdscript
-func query_items_in_rect( world_rect: Rect2, fully_contained: bool = false ) -> PackedStringArray:
+func query_items_in_rect(world_rect: Rect2, fully_contained: bool = false) -> PackedStringArray:
 ```
 
 查询与世界矩形相交的条目。
@@ -916,7 +916,7 @@ func query_items_in_rect( world_rect: Rect2, fully_contained: bool = false ) -> 
 - 首次版本：`10.0.0`
 
 ```gdscript
-func set_selection( item_ids: PackedStringArray, mode: SelectionMode = SelectionMode.REPLACE ) -> PackedStringArray:
+func set_selection(item_ids: PackedStringArray, mode: SelectionMode = SelectionMode.REPLACE) -> PackedStringArray:
 ```
 
 按模式更新选择。 只接受已登记且可选的稳定 ID；容量只限制替换或新增，不截断减去候选。
@@ -938,7 +938,7 @@ func set_selection( item_ids: PackedStringArray, mode: SelectionMode = Selection
 - 首次版本：`10.0.0`
 
 ```gdscript
-func select_point( canvas_position: Vector2, mode: SelectionMode = SelectionMode.REPLACE ) -> PackedStringArray:
+func select_point(canvas_position: Vector2, mode: SelectionMode = SelectionMode.REPLACE) -> PackedStringArray:
 ```
 
 在画布坐标点选最高优先级条目。
@@ -1114,7 +1114,7 @@ func begin_placement( type_id: StringName, footprint: Rect2, options: Dictionary
 - 首次版本：`10.0.0`
 
 ```gdscript
-func update_placement( world_position: Vector2, options: Dictionary = {} ) -> bool:
+func update_placement(world_position: Vector2, options: Dictionary = {}) -> bool:
 ```
 
 更新活动放置预览。

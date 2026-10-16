@@ -28,8 +28,15 @@ func test_option_button_uses_selected_index_not_button_pressed() -> void:
 	option.add_item("Low")
 	option.add_item("High")
 
-	assert_true(GFControlValueAdapter.set_value(option, 1), "OptionButton 应支持写入 selected。")
-	assert_eq(GFVariantData.to_int(GFControlValueAdapter.get_value(option)), 1, "OptionButton 应读取 selected 索引。")
+	assert_true(
+		GFControlValueAdapter.set_value(option, 1),
+		"OptionButton 应支持写入 selected。"
+	)
+	assert_eq(
+		GFVariantData.to_int(GFControlValueAdapter.get_value(option)),
+		1,
+		"OptionButton 应读取 selected 索引。"
+	)
 
 
 func test_form_binder_reads_and_writes_common_controls() -> void:
@@ -41,15 +48,19 @@ func test_form_binder_reads_and_writes_common_controls() -> void:
 
 	binder.bind_field(&"name", name_edit)
 	binder.bind_field(&"enabled", enabled_check)
-	binder.write_values({
-		"name": "Player",
-		"enabled": true,
-	})
+	binder.write_values({ "name": "Player", "enabled": true, })
 
 	var values: Dictionary = binder.read_values()
 
-	assert_eq(GFVariantData.get_option_string(values, &"name"), "Player", "表单绑定应读取 LineEdit 文本。")
-	assert_true(GFVariantData.get_option_bool(values, &"enabled"), "表单绑定应读取 BaseButton 状态。")
+	assert_eq(
+		GFVariantData.get_option_string(values, &"name"),
+		"Player",
+		"表单绑定应读取 LineEdit 文本。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(values, &"enabled"),
+		"表单绑定应读取 BaseButton 状态。"
+	)
 
 
 func test_form_binder_emits_field_changed_from_control_signal() -> void:
@@ -62,7 +73,11 @@ func test_form_binder_emits_field_changed_from_control_signal() -> void:
 	name_edit.text = "Changed"
 	name_edit.text_changed.emit("Changed")
 
-	assert_signal_emitted_with_parameters(binder, "field_changed", [&"name", "Changed"])
+	assert_signal_emitted_with_parameters(
+		binder,
+		"field_changed",
+		[&"name", "Changed"]
+	)
 
 
 func test_form_binder_rebind_disconnects_previous_signal_handlers() -> void:
@@ -76,7 +91,11 @@ func test_form_binder_rebind_disconnects_previous_signal_handlers() -> void:
 	name_edit.text = "Changed"
 	name_edit.text_changed.emit("Changed")
 
-	assert_signal_emit_count(binder, "field_changed", 1)
+	assert_signal_emit_count(
+		binder,
+		"field_changed",
+		1
+	)
 
 
 func test_form_binder_unbind_disconnects_signal_handlers() -> void:
@@ -90,7 +109,11 @@ func test_form_binder_unbind_disconnects_signal_handlers() -> void:
 	name_edit.text = "Changed"
 	name_edit.text_changed.emit("Changed")
 
-	assert_signal_emit_count(binder, "field_changed", 0)
+	assert_signal_emit_count(
+		binder,
+		"field_changed",
+		0
+	)
 
 
 # --- 私有/辅助方法 ---

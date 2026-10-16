@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputReleasedTrigger" path="addons/gf/standard/input/triggers/gf_input_released_trigger.gd" module="standard" extends="GFInputTrigger" classDigest="4399f52fef3d47d24b2d23f231136061a1cc1e41ae02666d771b868a4dd58230">
+<class name="GFInputReleasedTrigger" path="addons/gf/standard/input/triggers/gf_input_released_trigger.gd" module="standard" extends="GFInputTrigger" classDigest="1299ec49f5fa562b97869231c27d735753b64e191f715cf7d37377967f125229">
 	<description>GFInputReleasedTrigger: 释放瞬间触发器。
 输入从活跃变为非活跃时触发一次，适合蓄力释放、松手确认等通用交互。</description>
 	<tags>
@@ -22,7 +22,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="update">
-			<signature>func update(raw_active: bool, _value: Variant, _delta: float, state: Dictionary) -&gt; TriggerState:</signature>
+			<signature>func update( raw_active: bool, _value: Variant, _delta: float, state: Dictionary ) -&gt; TriggerState:</signature>
 			<description>更新运行时状态。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -33,6 +33,7 @@
 				<tag name="return">触发状态。</tag>
 				<tag name="schema">_value: Variant，由当前输入映射产生的动作值。</tag>
 				<tag name="schema">state: Dictionary，由输入运行时持有，包含 was_active: bool。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

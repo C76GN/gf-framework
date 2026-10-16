@@ -18,7 +18,11 @@ extends RefCounted
 ## @api public
 ## [br]
 ## @since 8.0.0
-var region_size: Vector3i = Vector3i(32, 32, 32):
+var region_size: Vector3i = Vector3i(
+	32,
+	32,
+	32
+):
 	get:
 		return _region_size
 	set(value):
@@ -48,7 +52,11 @@ var _dirty_regions: Dictionary = {}
 ## [br]
 ## @api private
 ## [br]
-var _region_size: Vector3i = Vector3i(32, 32, 32)
+var _region_size: Vector3i = Vector3i(
+	32,
+	32,
+	32
+)
 
 
 # --- 公共方法 ---
@@ -93,10 +101,25 @@ func get_region_keys_for_cell_bounds(min_cell: Vector3i, max_cell: Vector3i) -> 
 	var max_region: Vector3i = get_region_key_for_cell(safe_max)
 	var result: Array[Vector3i] = []
 
-	for x: int in range(min_region.x, max_region.x + 1):
-		for y: int in range(min_region.y, max_region.y + 1):
-			for z: int in range(min_region.z, max_region.z + 1):
-				result.append(Vector3i(x, y, z))
+	for x: int in range(
+		min_region.x,
+		max_region.x + 1
+	):
+		for y: int in range(
+			min_region.y,
+			max_region.y + 1
+		):
+			for z: int in range(
+				min_region.z,
+				max_region.z + 1
+			):
+				result.append(
+					Vector3i(
+						x,
+						y,
+						z
+					)
+				)
 
 	return result
 
@@ -175,7 +198,10 @@ func erase_cell(cell: Vector3i) -> bool:
 ## [br]
 ## @return 存在返回 true。
 func has_cell(cell: Vector3i) -> bool:
-	var region_variant: Variant = GFVariantData.get_option_value(_regions, get_region_key_for_cell(cell))
+	var region_variant: Variant = GFVariantData.get_option_value(
+		_regions,
+		get_region_key_for_cell(cell)
+	)
 	if not region_variant is Dictionary:
 		return false
 

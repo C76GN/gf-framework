@@ -28,7 +28,11 @@ extends RefCounted
 ## @param current_resource: 替换后的资源。
 ## [br]
 ## @param generation: 本次提交后的槽位 generation。
-signal resource_replaced(previous_resource: Resource, current_resource: Resource, generation: int)
+signal resource_replaced(
+	previous_resource: Resource,
+	current_resource: Resource,
+	generation: int
+)
 
 ## 槽位进入不可逆释放终态后发出。
 ##
@@ -143,7 +147,11 @@ func configure(
 	owner: Object = null,
 	type_hint_override: String = ""
 ) -> bool:
-	if not Thread.is_main_thread() or _configured or _is_notifying:
+	if (
+		not Thread.is_main_thread()
+		or _configured
+		or _is_notifying
+	):
 		return false
 	if resource_identity == null or not resource_identity.has_identity():
 		return false
@@ -153,15 +161,16 @@ func configure(
 	var normalized_type_hint: String = type_hint_override.strip_edges()
 	if normalized_type_hint.is_empty():
 		normalized_type_hint = resource_identity.type_hint.strip_edges()
-	if (
-		initial_resource != null
-		and not _resource_matches_type_hint(initial_resource, normalized_type_hint)
-	):
+	if (initial_resource != null and not _resource_matches_type_hint(initial_resource, normalized_type_hint)):
 		return false
 
 	var identity_snapshot: GFResourceIdentity = resource_identity.duplicate_identity()
 	var owner_binding: Dictionary = _prepare_owner_binding(owner)
-	if not GFVariantData.get_option_bool(owner_binding, "ok", false):
+	if not GFVariantData.get_option_bool(
+		owner_binding,
+		"ok",
+		false
+	):
 		return false
 
 	_resource_identity = identity_snapshot
@@ -171,7 +180,11 @@ func configure(
 	_configured = true
 	_released = false
 	_owner_ref = _get_weak_ref(owner_binding, "owner_ref")
-	_owner_id = GFVariantData.get_option_int(owner_binding, "owner_id", 0)
+	_owner_id = GFVariantData.get_option_int(
+		owner_binding,
+		"owner_id",
+		0
+	)
 	_owner_exit_callable = _get_callable(owner_binding, "owner_exit_callable")
 	return true
 
@@ -326,7 +339,11 @@ func replace(next_resource: Resource) -> bool:
 	_resource = next_resource
 	_generation += 1
 	_is_notifying = true
-	resource_replaced.emit(previous_resource, next_resource, _generation)
+	resource_replaced.emit(
+		previous_resource,
+		next_resource,
+		_generation
+	)
 	_is_notifying = false
 	_drain_pending_owner_release()
 	return true
@@ -360,10 +377,7 @@ func release() -> bool:
 ## [br]
 ## @api private
 ## [br]
-static func _resource_matches_type_hint(
-	candidate_resource: Resource,
-	type_hint: String
-) -> bool:
+static func _resource_matches_type_hint(candidate_resource: Resource, type_hint: String) -> bool:
 	if candidate_resource == null:
 		return false
 	if type_hint.is_empty() or candidate_resource.is_class(type_hint):
@@ -371,10 +385,7 @@ static func _resource_matches_type_hint(
 
 	var script: Script = _get_script_value(candidate_resource.get_script())
 	while script != null:
-		if (
-			GFVariantData.to_text(script.get_global_name()) == type_hint
-			or script.resource_path == type_hint
-		):
+		if (GFVariantData.to_text(script.get_global_name()) == type_hint or script.resource_path == type_hint):
 			return true
 		script = script.get_base_script()
 	return false
@@ -455,10 +466,7 @@ func _get_owner() -> Object:
 	var raw_owner: Variant = _owner_ref.get_ref()
 	if raw_owner is Object:
 		var owner: Object = raw_owner
-		if (
-			is_instance_valid(owner)
-			and owner.get_instance_id() == _owner_id
-		):
+		if (is_instance_valid(owner) and owner.get_instance_id() == _owner_id):
 			return owner
 	return null
 
@@ -496,10 +504,7 @@ func _commit_release() -> void:
 ## [br]
 func _disconnect_owner_binding() -> void:
 	var owner: Object = _get_owner()
-	if (
-		owner is Node
-		and _owner_exit_callable.is_valid()
-	):
+	if (owner is Node and _owner_exit_callable.is_valid()):
 		var owner_node: Node = owner
 		if owner_node.tree_exited.is_connected(_owner_exit_callable):
 			owner_node.tree_exited.disconnect(_owner_exit_callable)

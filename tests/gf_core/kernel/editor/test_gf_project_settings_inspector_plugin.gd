@@ -38,9 +38,7 @@ func test_builtin_setting_presentation_uses_tool_locale_and_english_fallback() -
 		"简体中文工具语言应显示中文设置名。"
 	)
 	assert_true(
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(chinese, "tooltip").contains(
-			_GF_EXTENSION_SETTINGS_SCRIPT.EXTENSION_SELECTION_MODE_SETTING
-		),
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(chinese, "tooltip").contains(_GF_EXTENSION_SETTINGS_SCRIPT.EXTENSION_SELECTION_MODE_SETTING),
 		"悬浮说明应保留稳定设置键，便于搜索和排障。"
 	)
 	assert_eq(
@@ -69,17 +67,13 @@ func test_access_policy_setting_has_builtin_presentation() -> void:
 		"访问策略 ProjectSetting 应有内核维护的中文名称。"
 	)
 	assert_true(
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(presentation, "tooltip").contains(
-			_GF_PLUGIN_PROJECT_SETTINGS_SCRIPT.ACCESS_POLICIES_SETTING
-		),
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(presentation, "tooltip").contains(_GF_PLUGIN_PROJECT_SETTINGS_SCRIPT.ACCESS_POLICIES_SETTING),
 		"访问策略悬浮说明应保留稳定设置键。"
 	)
 
 
 func test_inspector_adapter_preserves_native_editor_and_stable_enum_metadata() -> void:
-	var inspector_source: String = _read_text_file(
-		"res://addons/gf/kernel/editor/gf_project_settings_inspector_plugin.gd"
-	)
+	var inspector_source: String = _read_text_file("res://addons/gf/kernel/editor/gf_project_settings_inspector_plugin.gd")
 	var inspector_script: Script = _GF_PROJECT_SETTINGS_INSPECTOR_PLUGIN_SCRIPT
 	assert_eq(
 		String(inspector_script.get_instance_base_type()),
@@ -99,17 +93,19 @@ func test_inspector_adapter_preserves_native_editor_and_stable_enum_metadata() -
 		"枚举本地化应从原生控件读取稳定值。"
 	)
 	assert_true(
-		inspector_source.contains("option_button.set_item_text(index"),
+		inspector_source.contains("option_button.set_item_text(\n\t\t\t\tindex,\n\t\t\t\t_GF_VARIANT_ACCESS_SCRIPT.to_text(enum_labels[value])\n\t\t\t)"),
 		"枚举本地化只能改写可见文本。"
 	)
 
 
 func test_standard_setting_presentation_is_loaded_from_data_only_manifest() -> void:
-	var manifest_records: Dictionary = _GF_EDITOR_CONTRIBUTION_REGISTRY_SCRIPT.load_manifest_records(
-		_STANDARD_CONTRIBUTIONS_PATH
-	)
+	var manifest_records: Dictionary = _GF_EDITOR_CONTRIBUTION_REGISTRY_SCRIPT.load_manifest_records(_STANDARD_CONTRIBUTIONS_PATH)
 	var project_setting_records: Array[Dictionary] = _to_record_array(
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(manifest_records, "project_setting_records", [])
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+			manifest_records,
+			"project_setting_records",
+			[]
+		)
 	)
 	var section_records: Array[Dictionary] = _to_record_array(
 		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(
@@ -153,20 +149,29 @@ func test_standard_setting_presentation_is_loaded_from_data_only_manifest() -> v
 
 func test_builtin_project_settings_sections_have_labels_and_tooltips() -> void:
 	var catalog: Object = _GF_PROJECT_SETTING_PRESENTATION_CATALOG_SCRIPT.new()
-	var codegen: Dictionary = _get_section_presentation(catalog, "gf/codegen", "zh_CN")
-	var root: Dictionary = _get_section_presentation(catalog, "gf", "zh_CN")
+	var codegen: Dictionary = _get_section_presentation(
+		catalog,
+		"gf/codegen",
+		"zh_CN"
+	)
+	var root: Dictionary = _get_section_presentation(
+		catalog,
+		"gf",
+		"zh_CN"
+	)
 
 	assert_eq(
 		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(codegen, "label"),
 		"代码生成"
 	)
 	assert_true(
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(codegen, "tooltip").contains(
-			"gf/codegen"
-		),
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(codegen, "tooltip").contains("gf/codegen"),
 		"分区悬浮说明应保留稳定 section path。"
 	)
-	assert_eq(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(root, "label"), "GF")
+	assert_eq(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(root, "label"),
+		"GF"
+	)
 
 
 func test_contribution_registry_rejects_incomplete_locale_metadata() -> void:
@@ -181,12 +186,8 @@ func test_contribution_registry_rejects_incomplete_locale_metadata() -> void:
 				"name": "gf/test/invalid_presentation",
 				"default_value": false,
 				"type_name": "bool",
-				"editor_labels": {
-					"zh_CN": "缺少英文兜底",
-				},
-				"editor_descriptions": {
-					"en": "Description",
-				},
+				"editor_labels": { "zh_CN": "缺少英文兜底", },
+				"editor_descriptions": { "en": "Description", },
 			},
 		],
 	}
@@ -195,7 +196,10 @@ func test_contribution_registry_rejects_incomplete_locale_metadata() -> void:
 	var report: Dictionary = _GF_EDITOR_CONTRIBUTION_REGISTRY_SCRIPT.load_manifest_report(manifest_path)
 	_remove_path_if_exists(manifest_path)
 
-	assert_false(_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "ok"), "缺失英文兜底的展示元数据应被严格拒绝。")
+	assert_false(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "ok"),
+		"缺失英文兜底的展示元数据应被严格拒绝。"
+	)
 	assert_eq(
 		_count_issue_kind(report, "missing_setting_presentation_fallback"),
 		1,
@@ -205,13 +209,29 @@ func test_contribution_registry_rejects_incomplete_locale_metadata() -> void:
 
 # --- 私有/辅助方法 ---
 
-func _get_presentation(catalog: Object, setting_name: String, locale: String) -> Dictionary:
-	var value: Variant = catalog.call(&"get_presentation", setting_name, locale)
+func _get_presentation(
+	catalog: Object,
+	setting_name: String,
+	locale: String
+) -> Dictionary:
+	var value: Variant = catalog.call(
+		&"get_presentation",
+		setting_name,
+		locale
+	)
 	return _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(value)
 
 
-func _get_section_presentation(catalog: Object, section_path: String, locale: String) -> Dictionary:
-	var value: Variant = catalog.call(&"get_section_presentation", section_path, locale)
+func _get_section_presentation(
+	catalog: Object,
+	section_path: String,
+	locale: String
+) -> Dictionary:
+	var value: Variant = catalog.call(
+		&"get_section_presentation",
+		section_path,
+		locale
+	)
 	return _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(value)
 
 

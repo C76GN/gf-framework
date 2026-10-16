@@ -19,7 +19,7 @@
 | 属性 | [`max_gap_seconds`](#member-gfinputsequencebranch-properties-max_gap_seconds) | `var max_gap_seconds: float = -1.0:` |
 | 方法 | [`is_valid_branch`](#member-gfinputsequencebranch-methods-is_valid_branch) | `func is_valid_branch() -> bool:` |
 | 方法 | [`duplicate_branch`](#member-gfinputsequencebranch-methods-duplicate_branch) | `func duplicate_branch() -> GFInputSequenceBranch:` |
-| 方法 | [`from_action_ids`](#member-gfinputsequencebranch-methods-from_action_ids) | `static func from_action_ids( action_ids: Array[StringName], p_max_gap_seconds: float = -1.0 ) -> GFInputSequenceBranch:` |
+| 方法 | [`from_action_ids`](#member-gfinputsequencebranch-methods-from_action_ids) | `static func from_action_ids(action_ids: Array[StringName], p_max_gap_seconds: float = -1.0) -> GFInputSequenceBranch:` |
 
 ## 属性
 
@@ -82,9 +82,10 @@ func duplicate_branch() -> GFInputSequenceBranch:
 ### `from_action_ids`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-static func from_action_ids( action_ids: Array[StringName], p_max_gap_seconds: float = -1.0 ) -> GFInputSequenceBranch:
+static func from_action_ids(action_ids: Array[StringName], p_max_gap_seconds: float = -1.0) -> GFInputSequenceBranch:
 ```
 
 从动作 ID 数组创建分支。

@@ -19,10 +19,10 @@
 | 方法 | [`parse_rows_table`](#member-gfconfigtableimporter-methods-parse_rows_table) | `static func parse_rows_table(rows: Array[PackedStringArray], options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`parse_csv_table`](#member-gfconfigtableimporter-methods-parse_csv_table) | `static func parse_csv_table(text: String, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`parse_config_file_table`](#member-gfconfigtableimporter-methods-parse_config_file_table) | `static func parse_config_file_table(text: String, options: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`validate_json_table`](#member-gfconfigtableimporter-methods-validate_json_table) | `static func validate_json_table(text: String, schema: GFConfigTableSchema, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`validate_json_table`](#member-gfconfigtableimporter-methods-validate_json_table) | `static func validate_json_table( text: String, schema: GFConfigTableSchema, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`validate_json_record`](#member-gfconfigtableimporter-methods-validate_json_record) | `static func validate_json_record( text: String, schema: GFConfigTableSchema, row_key: Variant = null, options: Dictionary = {} ) -> Dictionary:` |
-| 方法 | [`validate_csv_table`](#member-gfconfigtableimporter-methods-validate_csv_table) | `static func validate_csv_table(text: String, schema: GFConfigTableSchema, options: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`validate_config_file_table`](#member-gfconfigtableimporter-methods-validate_config_file_table) | `static func validate_config_file_table(text: String, schema: GFConfigTableSchema, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`validate_csv_table`](#member-gfconfigtableimporter-methods-validate_csv_table) | `static func validate_csv_table( text: String, schema: GFConfigTableSchema, options: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`validate_config_file_table`](#member-gfconfigtableimporter-methods-validate_config_file_table) | `static func validate_config_file_table( text: String, schema: GFConfigTableSchema, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`export_csv_table`](#member-gfconfigtableimporter-methods-export_csv_table) | `static func export_csv_table( table_data: Variant, schema: GFConfigTableSchema = null, options: Dictionary = {} ) -> Dictionary:` |
 
 ## 方法
@@ -140,9 +140,10 @@ static func parse_config_file_table(text: String, options: Dictionary = {}) -> D
 ### `validate_json_table`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-static func validate_json_table(text: String, schema: GFConfigTableSchema, options: Dictionary = {}) -> Dictionary:
+static func validate_json_table( text: String, schema: GFConfigTableSchema, options: Dictionary = {} ) -> Dictionary:
 ```
 
 解析并校验 JSON 表文本。
@@ -200,7 +201,7 @@ static func validate_json_record( text: String, schema: GFConfigTableSchema, row
 - 首次版本：`3.17.0`
 
 ```gdscript
-static func validate_csv_table(text: String, schema: GFConfigTableSchema, options: Dictionary = {}) -> Dictionary:
+static func validate_csv_table( text: String, schema: GFConfigTableSchema, options: Dictionary = {} ) -> Dictionary:
 ```
 
 解析并校验 CSV 表文本。
@@ -228,7 +229,7 @@ static func validate_csv_table(text: String, schema: GFConfigTableSchema, option
 - 首次版本：`7.0.0`
 
 ```gdscript
-static func validate_config_file_table(text: String, schema: GFConfigTableSchema, options: Dictionary = {}) -> Dictionary:
+static func validate_config_file_table( text: String, schema: GFConfigTableSchema, options: Dictionary = {} ) -> Dictionary:
 ```
 
 解析并校验 Godot ConfigFile 表文本。

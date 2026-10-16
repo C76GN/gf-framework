@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFShakeTrack" path="addons/gf/extensions/feedback/resources/gf_shake_track.gd" module="extensions/feedback" extends="Resource" classDigest="38e4d3e650c498bd838650f5b7202ba134e8af857b4be59b88a08638557b27e3">
+<class name="GFShakeTrack" path="addons/gf/extensions/feedback/resources/gf_shake_track.gd" module="extensions/feedback" extends="Resource" classDigest="a2a59f79c277838c52edc6bd70b379c370c36347d1e3768a55afe0f8112ce04e">
 	<description>GFShakeTrack: 通用反馈采样轨道。
 描述一段可组合的反馈偏移轨道，供 GFShakePreset 混合采样。
 轨道只输出通用 position、rotation_degrees 和 scale 偏移，不绑定目标节点或业务事件。</description>
@@ -193,7 +193,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="blend_sample">
-			<signature>static func blend_sample(base_sample: Dictionary, track_sample: Dictionary, mode: BlendMode) -&gt; Dictionary:</signature>
+			<signature>static func blend_sample( base_sample: Dictionary, track_sample: Dictionary, mode: BlendMode ) -&gt; Dictionary:</signature>
 			<description>将轨道采样混合到当前采样。</description>
 			<tags>
 				<tag name="api">public</tag>

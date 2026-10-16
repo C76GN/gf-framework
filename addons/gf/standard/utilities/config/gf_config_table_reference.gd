@@ -93,7 +93,14 @@ func get_reference_id() -> StringName:
 	if reference_id != &"":
 		return reference_id
 	var source_suffix: String = "[]" if source_mode == SourceMode.ARRAY_ELEMENTS else ""
-	return StringName("%s%s->%s" % ["+".join(source_fields), source_suffix, String(target_table_name)])
+	return StringName(
+		"%s%s->%s"
+		% [
+			"+".join(source_fields),
+			source_suffix,
+			String(target_table_name),
+		]
+	)
 
 
 ## 检查引用声明是否有效。
@@ -111,7 +118,13 @@ func is_valid_definition() -> bool:
 			return (
 				source_fields.size() == 1
 				and not source_fields[0].is_empty()
-				and (target_fields.is_empty() or (target_fields.size() == 1 and not target_fields[0].is_empty()))
+				and (
+					target_fields.is_empty()
+					or (
+						target_fields.size() == 1
+						and not target_fields[0].is_empty()
+					)
+				)
 			)
 	return false
 
@@ -161,7 +174,10 @@ func make_source_key(record: Dictionary) -> String:
 ## [br]
 ## @schema record: Dictionary，用于构建引用键的目标配置记录。
 func make_target_key(record: Dictionary, target_schema: GFConfigTableSchema = null) -> String:
-	return _make_key(record, get_target_fields(target_schema))
+	return _make_key(
+		record,
+		get_target_fields(target_schema)
+	)
 
 
 ## 创建同内容拷贝。
@@ -221,5 +237,8 @@ func _make_key(record: Dictionary, fields: PackedStringArray) -> String:
 		var value: Variant = record[key]
 		if value == null and not allow_null_values:
 			return ""
-		var _part_appended: bool = parts.append("%d:%s" % [typeof(value), var_to_str(value)])
+		var _part_appended: bool = parts.append(
+			"%d:%s"
+			% [typeof(value), var_to_str(value)]
+		)
 	return "|".join(parts)

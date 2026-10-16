@@ -191,14 +191,14 @@ func abort_for_framework(owner: Object, _reason: StringName) -> bool:
 ## @param _reason: 供 allocator 记录的稳定结算原因；本方法不调用用户代码。
 ## [br]
 ## @return: owner identity 匹配、原 owner 已非 live 且状态尚未消费时首次返回 true。
-func invalidate_lost_owner_for_framework(
-	owner_instance_id: int,
-	_reason: StringName
-) -> bool:
+func invalidate_lost_owner_for_framework(owner_instance_id: int, _reason: StringName) -> bool:
 	if (
 		owner_instance_id <= 0
 		or owner_instance_id != _owner_id
-		or (_state != State.RESERVED and _state != State.ARMED)
+		or (
+			_state != State.RESERVED
+			and _state != State.ARMED
+		)
 	):
 		return false
 	var owner_value: Variant = _owner_ref.get_ref() if _owner_ref != null else null
@@ -261,10 +261,7 @@ func initialize_for_framework(
 ## @param launch_input: 所有 reserve callback 完成后的最终 typed input 快照。
 ## [br]
 ## @return: 替换结果；状态或 owner 不匹配时返回错误。
-func replace_launch_input_for_framework(
-	runtime: Node,
-	launch_input: Resource
-) -> Error:
+func replace_launch_input_for_framework(runtime: Node, launch_input: Resource) -> Error:
 	if (
 		_state != State.RESERVED
 		or launch_input == null
@@ -289,10 +286,7 @@ func replace_launch_input_for_framework(
 ## @param session: 已离开 UNCONFIGURED 的同一 runtime session。
 ## [br]
 ## @return: 首次记录成功时为 OK；身份或状态不匹配时返回错误。
-func record_activation_for_framework(
-	runtime: Node,
-	session: GFProjectileSession
-) -> Error:
+func record_activation_for_framework(runtime: Node, session: GFProjectileSession) -> Error:
 	if _state != State.ACTIVATING or _activated_session != null:
 		return ERR_ALREADY_IN_USE
 	var expected_runtime: Node = _node_from_ref(_runtime_ref)
@@ -329,15 +323,10 @@ func _is_same_live_owner(owner: Object) -> bool:
 ## [br]
 ## @api private
 func _is_current_claim() -> bool:
-	if (
-		_binding == null
-		or not is_instance_valid(_binding)
-	):
+	if (_binding == null or not is_instance_valid(_binding)):
 		return false
 	if not _binding.is_current():
-		var _binding_invalidated: bool = _binding.fail_for_framework(
-			GFProjectileBinding.FailureReason.RESERVATION_INVALIDATED
-		)
+		var _binding_invalidated: bool = _binding.fail_for_framework(GFProjectileBinding.FailureReason.RESERVATION_INVALIDATED)
 		return false
 	var runtime: Node = _node_from_ref(_runtime_ref)
 	var claim_is_current: bool = false
@@ -348,9 +337,7 @@ func _is_current_claim() -> bool:
 		var runtime_3d: GFProjectile3D = runtime
 		claim_is_current = runtime_3d.owns_launch_claim_for_framework(self)
 	if not claim_is_current:
-		var _claim_invalidated: bool = _binding.fail_for_framework(
-			GFProjectileBinding.FailureReason.RESERVATION_INVALIDATED
-		)
+		var _claim_invalidated: bool = _binding.fail_for_framework(GFProjectileBinding.FailureReason.RESERVATION_INVALIDATED)
 	return claim_is_current
 
 

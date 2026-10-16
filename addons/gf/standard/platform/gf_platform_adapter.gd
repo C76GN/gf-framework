@@ -185,12 +185,19 @@ func configure(
 	var normalized_adapter_id: StringName = StringName(String(adapter_id).strip_edges())
 	var normalized_platform_id: StringName = StringName(String(platform_id).strip_edges())
 	var normalized_contracts: PackedStringArray = _normalize_string_set(contract_ids)
-	if normalized_adapter_id == &"" or normalized_platform_id == &"" or normalized_contracts.is_empty():
+	if (
+		normalized_adapter_id == &""
+		or normalized_platform_id == &""
+		or normalized_contracts.is_empty()
+	):
 		return false
 	_adapter_id = normalized_adapter_id
 	_platform_id = normalized_platform_id
 	_contract_ids = normalized_contracts
-	_context = GFPlatformRuntimeContext.new().configure(_platform_id, {"adapter_id": _adapter_id})
+	_context = GFPlatformRuntimeContext.new().configure(
+		_platform_id,
+		{ "adapter_id": _adapter_id }
+	)
 	if not _apply_contract_descriptors(contract_descriptors):
 		_reset_configuration()
 		return false
@@ -249,9 +256,7 @@ func get_contract_descriptors() -> Array[GFPlatformContractDescriptor]:
 		var _appended: bool = descriptor_ids.append(str(key))
 	descriptor_ids.sort()
 	for descriptor_id: String in descriptor_ids:
-		var descriptor: GFPlatformContractDescriptor = _get_contract_descriptor_internal(
-			StringName(descriptor_id)
-		)
+		var descriptor: GFPlatformContractDescriptor = _get_contract_descriptor_internal(StringName(descriptor_id))
 		if descriptor != null:
 			result.append(descriptor.duplicate_descriptor())
 	return result
@@ -392,9 +397,7 @@ func shutdown() -> void:
 	if _initialization != null and _initialization.is_pending():
 		var _cancelled: bool = _initialization.cancel(&"adapter_shutdown")
 	for request_key: Variant in _active_handles.keys().duplicate():
-		var active_handle: GFPlatformRequestHandle = _get_active_handle(
-			StringName(str(request_key))
-		)
+		var active_handle: GFPlatformRequestHandle = _get_active_handle(StringName(str(request_key)))
 		if active_handle != null:
 			var _request_cancelled: bool = active_handle.cancel(&"adapter_shutdown")
 	_shutdown()
@@ -414,9 +417,7 @@ func shutdown() -> void:
 func get_debug_snapshot() -> Dictionary:
 	var descriptor_entries: Array[Dictionary] = []
 	for contract_id: String in _contract_ids:
-		var descriptor: GFPlatformContractDescriptor = _get_contract_descriptor_internal(
-			StringName(contract_id)
-		)
+		var descriptor: GFPlatformContractDescriptor = _get_contract_descriptor_internal(StringName(contract_id))
 		if descriptor != null:
 			descriptor_entries.append(_make_contract_debug_summary(descriptor))
 	return {
@@ -542,7 +543,11 @@ func _shutdown() -> void:
 ## [br]
 ## @return 首次成功完成返回 true。
 func _complete_initialization(context: GFPlatformRuntimeContext) -> bool:
-	if _state != State.INITIALIZING or _initialization == null or not _apply_context(context):
+	if (
+		_state != State.INITIALIZING
+		or _initialization == null
+		or not _apply_context(context)
+	):
 		return false
 	_set_state(State.READY)
 	var completed: bool = _initialization.succeed(get_context())
@@ -567,7 +572,10 @@ func _fail_initialization(error: String, metadata: Dictionary = {}) -> bool:
 	if _state != State.INITIALIZING or _initialization == null:
 		return false
 	_set_state(State.FAILED)
-	var completed: bool = _initialization.fail(error.strip_edges(), metadata)
+	var completed: bool = _initialization.fail(
+		error.strip_edges(),
+		metadata
+	)
 	_initialization = null
 	return completed
 
@@ -681,11 +689,15 @@ func _succeed_request(
 			var invalid_completed: bool = handle.fail_from_platform_layer(
 				&"invalid_adapter_result",
 				"Platform adapter result does not satisfy its declared contract.",
-				{"validation": result_report.to_dict()}
+				{ "validation": result_report.to_dict() }
 			)
 			var _invalid_released: bool = _release_request(handle)
 			return invalid_completed
-	var completed: bool = handle.succeed_from_platform_layer(value, status, metadata)
+	var completed: bool = handle.succeed_from_platform_layer(
+		value,
+		status,
+		metadata
+	)
 	var _released: bool = _release_request(handle)
 	return completed
 
@@ -750,19 +762,16 @@ func seal_configuration_from_runtime() -> void:
 ## @param started_at_msec: Runtime 在开始信号前捕获的同时钟域起始时间。
 ## [br]
 ## @return 一次性请求句柄。
-func invoke_from_runtime(
-	request: GFPlatformBridgeRequest,
-	started_at_msec: int
-) -> GFPlatformRequestHandle:
+func invoke_from_runtime(request: GFPlatformBridgeRequest, started_at_msec: int) -> GFPlatformRequestHandle:
 	var handle: GFPlatformRequestHandle = GFPlatformRequestHandle.new()
-	var canonical_request: GFPlatformBridgeRequest = (
-		request.duplicate_request()
-		if request != null
-		else null
-	)
+	var canonical_request: GFPlatformBridgeRequest = (request.duplicate_request() if request != null else null)
 	if (
 		canonical_request == null
-		or not handle.configure_from_platform_layer(canonical_request, _clock, started_at_msec)
+		or not handle.configure_from_platform_layer(
+			canonical_request,
+			_clock,
+			started_at_msec
+		)
 	):
 		var _invalid: bool = handle.reject_from_platform_layer(
 			canonical_request,
@@ -797,9 +806,7 @@ func invoke_from_runtime(
 			"Platform request ID is already pending in this adapter."
 		)
 		return handle
-	var descriptor: GFPlatformContractDescriptor = _get_contract_descriptor_internal(
-		canonical_request.contract_id
-	)
+	var descriptor: GFPlatformContractDescriptor = _get_contract_descriptor_internal(canonical_request.contract_id)
 	if descriptor == null:
 		var _invalid_contract: bool = _fail_request(
 			handle,
@@ -807,9 +814,7 @@ func invoke_from_runtime(
 			"Platform adapter is missing the descriptor for a declared contract."
 		)
 		return handle
-	var method: GFPlatformContractMethodDescriptor = descriptor.get_method(
-		canonical_request.method_id
-	)
+	var method: GFPlatformContractMethodDescriptor = descriptor.get_method(canonical_request.method_id)
 	if method == null:
 		var _unknown_method: bool = _fail_request(
 			handle,
@@ -817,27 +822,17 @@ func invoke_from_runtime(
 			"Platform contract does not declare the requested method."
 		)
 		return handle
-	var request_report: GFValidationReport = method.validate_request(
-		canonical_request.payload,
-		_context.capabilities
-	)
+	var request_report: GFValidationReport = method.validate_request(canonical_request.payload, _context.capabilities)
 	if not request_report.is_ok():
 		var _invalid_contract_request: bool = _fail_request(
 			handle,
 			&"invalid_contract_request",
 			"Platform request does not satisfy its declared contract.",
-			{"validation": request_report.to_dict()}
+			{ "validation": request_report.to_dict() }
 		)
 		return handle
-	var method_key: String = _make_method_key(
-		canonical_request.contract_id,
-		canonical_request.method_id
-	)
-	if (
-		method.max_concurrent_requests > 0
-		and GFVariantData.get_option_int(_active_method_counts, method_key)
-			>= method.max_concurrent_requests
-	):
+	var method_key: String = _make_method_key(canonical_request.contract_id, canonical_request.method_id)
+	if (method.max_concurrent_requests > 0 and GFVariantData.get_option_int(_active_method_counts, method_key) >= method.max_concurrent_requests):
 		var _concurrency_rejected: bool = _fail_request(
 			handle,
 			&"contract_concurrency_exceeded",
@@ -845,7 +840,10 @@ func invoke_from_runtime(
 		)
 		return handle
 	_track_handle(canonical_request, handle)
-	var accepted: bool = _dispatch(canonical_request.duplicate_request(), handle)
+	var accepted: bool = _dispatch(
+		canonical_request.duplicate_request(),
+		handle
+	)
 	if not accepted and handle.is_pending():
 		var _rejected: bool = _fail_request(
 			handle,
@@ -901,36 +899,34 @@ func _make_context_debug_summary() -> Dictionary:
 ## [br]
 ## @api private
 ## [br]
-func _make_contract_debug_summary(
-	descriptor: GFPlatformContractDescriptor
-) -> Dictionary:
+func _make_contract_debug_summary(descriptor: GFPlatformContractDescriptor) -> Dictionary:
 	var method_entries: Array[Dictionary] = []
 	for method: GFPlatformContractMethodDescriptor in descriptor.methods:
 		if method == null:
 			continue
-		method_entries.append({
-			"method_id": method.method_id,
-			"request_schema_id": method.request_schema.schema_id if method.request_schema != null else &"",
-			"result_schema_id": method.result_schema.schema_id if method.result_schema != null else &"",
-			"required_capability_ids": method.required_capability_ids.duplicate(),
-			"max_request_bytes": method.max_request_bytes,
-			"max_result_bytes": method.max_result_bytes,
-			"max_concurrent_requests": method.max_concurrent_requests,
-			"supports_cancellation": method.supports_cancellation,
-			"sensitive_fields": method.sensitive_fields.duplicate(),
-		})
+		method_entries.append(
+			{
+				"method_id": method.method_id,
+				"request_schema_id": method.request_schema.schema_id if method.request_schema != null else &"",
+				"result_schema_id": method.result_schema.schema_id if method.result_schema != null else &"",
+				"required_capability_ids": method.required_capability_ids.duplicate(),
+				"max_request_bytes": method.max_request_bytes,
+				"max_result_bytes": method.max_result_bytes,
+				"max_concurrent_requests": method.max_concurrent_requests,
+				"supports_cancellation": method.supports_cancellation,
+				"sensitive_fields": method.sensitive_fields.duplicate(),
+			}
+		)
 	method_entries.sort_custom(
 		func(left: Dictionary, right: Dictionary) -> bool:
-			return (
-				GFVariantData.get_option_string(left, "method_id")
-				< GFVariantData.get_option_string(right, "method_id")
-			)
+			return (GFVariantData.get_option_string(left, "method_id") < GFVariantData.get_option_string(right, "method_id"))
 	)
 	return {
 		"contract_id": descriptor.contract_id,
 		"contract_version": descriptor.contract_version,
 		"methods": method_entries,
 	}
+
 
 ## 复制上下文并补齐缺失身份；要求上下文和能力对象的身份均与 Adapter 配置一致后再替换当前值。
 ## [br]
@@ -952,10 +948,7 @@ func _apply_context(context: GFPlatformRuntimeContext) -> bool:
 		copy.capabilities.platform_id = _platform_id
 	if copy.capabilities.adapter_id == &"":
 		copy.capabilities.adapter_id = _adapter_id
-	if (
-		copy.capabilities.platform_id != _platform_id
-		or copy.capabilities.adapter_id != _adapter_id
-	):
+	if (copy.capabilities.platform_id != _platform_id or copy.capabilities.adapter_id != _adapter_id):
 		return false
 	_context = copy
 	return true
@@ -966,7 +959,11 @@ func _apply_context(context: GFPlatformRuntimeContext) -> bool:
 ## @api private
 ## [br]
 func _is_configured() -> bool:
-	return _adapter_id != &"" and _platform_id != &"" and not _contract_ids.is_empty()
+	return (
+		_adapter_id != &""
+		and _platform_id != &""
+		and not _contract_ids.is_empty()
+	)
 
 
 ## 清空身份、契约描述符、请求跟踪和上下文，以撤销失败的初始配置。
@@ -999,9 +996,7 @@ func _set_state(next_state: State) -> void:
 ## [br]
 ## @api private
 ## [br]
-func _apply_contract_descriptors(
-	descriptors: Array[GFPlatformContractDescriptor]
-) -> bool:
+func _apply_contract_descriptors(descriptors: Array[GFPlatformContractDescriptor]) -> bool:
 	_contract_descriptors.clear()
 	for descriptor: GFPlatformContractDescriptor in descriptors:
 		if descriptor == null or not descriptor.validate_definition().is_ok():
@@ -1018,14 +1013,9 @@ func _apply_contract_descriptors(
 ## [br]
 ## @api private
 ## [br]
-func _get_contract_descriptor_internal(
-	contract_id: StringName
-) -> GFPlatformContractDescriptor:
+func _get_contract_descriptor_internal(contract_id: StringName) -> GFPlatformContractDescriptor:
 	var normalized_contract_id: String = String(contract_id).strip_edges()
-	var value: Variant = GFVariantData.get_option_value(
-		_contract_descriptors,
-		normalized_contract_id
-	)
+	var value: Variant = GFVariantData.get_option_value(_contract_descriptors, normalized_contract_id)
 	if value is GFPlatformContractDescriptor:
 		var descriptor: GFPlatformContractDescriptor = value
 		return descriptor
@@ -1036,14 +1026,10 @@ func _get_contract_descriptor_internal(
 ## [br]
 ## @api private
 ## [br]
-func _get_method_descriptor(
-	request: GFPlatformBridgeRequest
-) -> GFPlatformContractMethodDescriptor:
+func _get_method_descriptor(request: GFPlatformBridgeRequest) -> GFPlatformContractMethodDescriptor:
 	if request == null:
 		return null
-	var descriptor: GFPlatformContractDescriptor = _get_contract_descriptor_internal(
-		request.contract_id
-	)
+	var descriptor: GFPlatformContractDescriptor = _get_contract_descriptor_internal(request.contract_id)
 	return descriptor.get_method(request.method_id) if descriptor != null else null
 
 
@@ -1051,17 +1037,12 @@ func _get_method_descriptor(
 ## [br]
 ## @api private
 ## [br]
-func _track_handle(
-	request: GFPlatformBridgeRequest,
-	handle: GFPlatformRequestHandle
-) -> void:
+func _track_handle(request: GFPlatformBridgeRequest, handle: GFPlatformRequestHandle) -> void:
 	_active_handles[String(request.request_id)] = handle
 	var method: GFPlatformContractMethodDescriptor = _get_method_descriptor(request)
 	if method != null:
 		var method_key: String = _make_method_key(request.contract_id, request.method_id)
-		_active_method_counts[method_key] = (
-			GFVariantData.get_option_int(_active_method_counts, method_key) + 1
-		)
+		_active_method_counts[method_key] = (GFVariantData.get_option_int(_active_method_counts, method_key) + 1)
 
 
 ## 按去除首尾空白的 request_id 读取活跃句柄并验证其类型。
@@ -1086,12 +1067,15 @@ func _get_active_handle(request_id: StringName) -> GFPlatformRequestHandle:
 static func _make_method_key(contract_id: StringName, method_id: StringName) -> String:
 	var contract_text: String = String(contract_id)
 	var method_text: String = String(method_id)
-	return "%d:%s%d:%s" % [
-		contract_text.length(),
-		contract_text,
-		method_text.length(),
-		method_text,
-	]
+	return (
+		"%d:%s%d:%s"
+		% [
+			contract_text.length(),
+			contract_text,
+			method_text.length(),
+			method_text,
+		]
+	)
 
 
 ## 去除首尾空白、过滤空项、去重并排序字符串集合。

@@ -85,7 +85,12 @@ func reset_trigger_state(state: Dictionary) -> void:
 ## @return 触发状态。
 ## [br]
 ## @since 11.0.0
-func update(raw_active: bool, _value: Variant, delta: float, state: Dictionary) -> TriggerState:
+func update(
+	raw_active: bool,
+	_value: Variant,
+	delta: float,
+	state: Dictionary
+) -> TriggerState:
 	if not raw_active:
 		state["was_active"] = false
 		state["initial_wait_pending"] = true
@@ -97,15 +102,27 @@ func update(raw_active: bool, _value: Variant, delta: float, state: Dictionary) 
 	var first_delay: float = initial_delay_seconds
 	if not is_finite(first_delay) or first_delay < 0.0:
 		first_delay = safe_interval
-	if not GFVariantData.get_option_bool(state, "was_active", false):
+	if not GFVariantData.get_option_bool(
+		state,
+		"was_active",
+		false
+	):
 		state["was_active"] = true
 		state["initial_wait_pending"] = first_delay > 0.0
 		state["elapsed"] = 0.0
 		if trigger_immediately or first_delay == 0.0:
 			return TriggerState.TRIGGERED
 
-	var initial_wait_pending: bool = GFVariantData.get_option_bool(state, "initial_wait_pending", true)
-	var elapsed: float = GFVariantData.get_option_float(state, "elapsed", 0.0)
+	var initial_wait_pending: bool = GFVariantData.get_option_bool(
+		state,
+		"initial_wait_pending",
+		true
+	)
+	var elapsed: float = GFVariantData.get_option_float(
+		state,
+		"elapsed",
+		0.0
+	)
 	if not is_finite(elapsed) or elapsed < 0.0:
 		elapsed = 0.0
 	elif not initial_wait_pending and elapsed >= safe_interval:
@@ -116,18 +133,32 @@ func update(raw_active: bool, _value: Variant, delta: float, state: Dictionary) 
 		return TriggerState.ONGOING
 
 	if initial_wait_pending:
-		var remaining_initial_wait: float = maxf(first_delay - elapsed, 0.0)
+		var remaining_initial_wait: float = maxf(
+			first_delay - elapsed,
+			0.0
+		)
 		if safe_delta < remaining_initial_wait:
 			state["elapsed"] = elapsed + safe_delta
 			return TriggerState.ONGOING
 		state["initial_wait_pending"] = false
-		var overdue: float = maxf(elapsed - first_delay, 0.0)
-		state["elapsed"] = _wrap_elapsed(overdue, safe_delta - remaining_initial_wait, safe_interval)
+		var overdue: float = maxf(
+			elapsed - first_delay,
+			0.0
+		)
+		state["elapsed"] = _wrap_elapsed(
+			overdue,
+			safe_delta - remaining_initial_wait,
+			safe_interval
+		)
 		return TriggerState.TRIGGERED
 
 	var remaining_until_pulse: float = safe_interval - elapsed
 	if safe_delta >= remaining_until_pulse:
-		state["elapsed"] = _wrap_elapsed(elapsed, safe_delta, safe_interval)
+		state["elapsed"] = _wrap_elapsed(
+			elapsed,
+			safe_delta,
+			safe_interval
+		)
 		return TriggerState.TRIGGERED
 
 	state["elapsed"] = elapsed + safe_delta
@@ -140,7 +171,11 @@ func update(raw_active: bool, _value: Variant, delta: float, state: Dictionary) 
 ## [br]
 ## @api private
 ## [br]
-func _wrap_elapsed(elapsed: float, delta: float, interval: float) -> float:
+func _wrap_elapsed(
+	elapsed: float,
+	delta: float,
+	interval: float
+) -> float:
 	var elapsed_remainder: float = fmod(elapsed, interval)
 	var delta_remainder: float = fmod(delta, interval)
 	var remaining: float = interval - elapsed_remainder

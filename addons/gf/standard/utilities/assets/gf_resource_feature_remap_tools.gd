@@ -41,10 +41,18 @@ static func normalize_remaps(remaps: Variant, options: Dictionary = {}) -> Dicti
 	var report: Dictionary = _make_normalize_report()
 	if remaps is Dictionary:
 		var remap_dictionary: Dictionary = remaps
-		_normalize_dictionary_remaps(remap_dictionary, options, report)
+		_normalize_dictionary_remaps(
+			remap_dictionary,
+			options,
+			report
+		)
 	elif remaps is Array:
 		var remap_array: Array = remaps
-		_normalize_array_remaps(remap_array, options, report)
+		_normalize_array_remaps(
+			remap_array,
+			options,
+			report
+		)
 	else:
 		_append_issue(
 			report,
@@ -117,7 +125,11 @@ static func select_remap_for_path(
 	report["resolved_path"] = target_path
 	report["feature"] = GFVariantData.get_option_string(selected_entry, "feature")
 	report["entry"] = selected_entry
-	report["entry_index"] = GFVariantData.get_option_int(selected_entry, "entry_index", -1)
+	report["entry_index"] = GFVariantData.get_option_int(
+		selected_entry,
+		"entry_index",
+		-1
+	)
 	return _finalize_selection_report(report)
 
 
@@ -175,20 +187,45 @@ static func build_remap_plan(
 
 		var selected_entry: Dictionary = _select_entry(entries, active_set)
 		if selected_entry.is_empty():
-			if GFVariantData.get_option_bool(options, "include_unmatched", true):
-				unmatched.append(_make_unmatched_record(source_path, entries, extensions))
+			if GFVariantData.get_option_bool(
+				options,
+				"include_unmatched",
+				true
+			):
+				unmatched.append(
+					_make_unmatched_record(
+						source_path,
+						entries,
+						extensions
+					)
+				)
 			continue
 
 		var selected_target: String = GFVariantData.get_option_string(selected_entry, "target_path")
 		selected_targets[source_path] = selected_target
 		selected_target_set[selected_target] = true
-		resolved.append(_make_resolved_record(source_path, selected_entry, extensions))
+		resolved.append(
+			_make_resolved_record(
+				source_path,
+				selected_entry,
+				extensions
+			)
+		)
 
 	plan["selected_targets"] = selected_targets
 	plan["resolved"] = resolved
 	plan["unmatched"] = unmatched
-	if GFVariantData.get_option_bool(options, "skip_unused_targets", true):
-		plan["skip_paths"] = _make_skip_paths(all_target_set, source_path_set, selected_target_set, options)
+	if GFVariantData.get_option_bool(
+		options,
+		"skip_unused_targets",
+		true
+	):
+		plan["skip_paths"] = _make_skip_paths(
+			all_target_set,
+			source_path_set,
+			selected_target_set,
+			options
+		)
 	return _finalize_plan_report(plan)
 
 
@@ -219,7 +256,11 @@ static func _make_normalize_report() -> Dictionary:
 ## [br]
 static func _make_selection_report(path: String, normalized: Dictionary) -> Dictionary:
 	return {
-		"ok": GFVariantData.get_option_bool(normalized, "ok", true),
+		"ok": GFVariantData.get_option_bool(
+			normalized,
+			"ok",
+			true
+		),
 		"selected": false,
 		"source_path": _normalize_path(path),
 		"target_path": "",
@@ -241,7 +282,11 @@ static func _make_selection_report(path: String, normalized: Dictionary) -> Dict
 ## [br]
 static func _make_plan_report(active_features: PackedStringArray, normalized: Dictionary) -> Dictionary:
 	return {
-		"ok": GFVariantData.get_option_bool(normalized, "ok", true),
+		"ok": GFVariantData.get_option_bool(
+			normalized,
+			"ok",
+			true
+		),
 		"active_features": _normalize_feature_list(active_features),
 		"selected_targets": {},
 		"resolved": [],
@@ -266,16 +311,29 @@ static func _make_plan_report(active_features: PackedStringArray, normalized: Di
 ## [br]
 ## @api private
 ## [br]
-static func _normalize_dictionary_remaps(remaps: Dictionary, options: Dictionary, report: Dictionary) -> void:
+static func _normalize_dictionary_remaps(
+	remaps: Dictionary,
+	options: Dictionary,
+	report: Dictionary
+) -> void:
 	for source_key: Variant in remaps.keys():
-		_normalize_source_entries(GFVariantData.to_text(source_key), remaps[source_key], options, report)
+		_normalize_source_entries(
+			GFVariantData.to_text(source_key),
+			remaps[source_key],
+			options,
+			report
+		)
 
 
 ## 校验 remap 数组记录并归一化其 source entries。
 ## [br]
 ## @api private
 ## [br]
-static func _normalize_array_remaps(remaps: Array, options: Dictionary, report: Dictionary) -> void:
+static func _normalize_array_remaps(
+	remaps: Array,
+	options: Dictionary,
+	report: Dictionary
+) -> void:
 	for index: int in range(remaps.size()):
 		var record: Dictionary = GFVariantData.as_dictionary(remaps[index])
 		if record.is_empty():
@@ -291,9 +349,19 @@ static func _normalize_array_remaps(remaps: Array, options: Dictionary, report: 
 			continue
 		var source_path: String = _extract_source_path(record)
 		if record.has("entries"):
-			_normalize_source_entries(source_path, record["entries"], options, report)
+			_normalize_source_entries(
+				source_path,
+				record["entries"],
+				options,
+				report
+			)
 		else:
-			_normalize_source_entries(source_path, [record], options, report)
+			_normalize_source_entries(
+				source_path,
+				[record],
+				options,
+				report
+			)
 
 
 ## 归一化一个来源路径及其 entry payload，并追加相关问题。
@@ -335,7 +403,13 @@ static func _normalize_source_entries(
 
 	_ensure_source(report, source_path)
 	for entry_index: int in range(entries.size()):
-		_normalize_entry(source_path, entries[entry_index], entry_index, options, report)
+		_normalize_entry(
+			source_path,
+			entries[entry_index],
+			entry_index,
+			options,
+			report
+		)
 
 
 ## 解析单条 remap 格式、feature、目标和元数据后写入归一化报告。
@@ -359,7 +433,11 @@ static func _normalize_entry(
 		features = _extract_entry_features(entry)
 		target_path = _extract_target_path(entry)
 		metadata = GFVariantData.get_option_dictionary(entry, "metadata")
-		priority = GFVariantData.get_option_int(entry, "priority", entry_index)
+		priority = GFVariantData.get_option_int(
+			entry,
+			"priority",
+			entry_index
+		)
 	elif entry_payload is Array or entry_payload is PackedStringArray:
 		var values: Array = _packed_or_array_to_array(entry_payload)
 		if values.size() >= 2:
@@ -377,8 +455,20 @@ static func _normalize_entry(
 			entry_index,
 			"Remap entry must be an Array, PackedStringArray, or Dictionary."
 		)
-		if GFVariantData.get_option_bool(options, "keep_invalid_entries", false):
-			_append_normalized_entry(report, source_path, _make_invalid_entry(source_path, entry_index, entry_payload))
+		if GFVariantData.get_option_bool(
+			options,
+			"keep_invalid_entries",
+			false
+		):
+			_append_normalized_entry(
+				report,
+				source_path,
+				_make_invalid_entry(
+					source_path,
+					entry_index,
+					entry_payload
+				)
+			)
 		return
 
 	target_path = _normalize_path(target_path)
@@ -392,7 +482,11 @@ static func _normalize_entry(
 			entry_index,
 			"Remap target path is empty."
 		)
-		if not GFVariantData.get_option_bool(options, "keep_invalid_entries", false):
+		if not GFVariantData.get_option_bool(
+			options,
+			"keep_invalid_entries",
+			false
+		):
 			return
 
 	if features.is_empty() or _all_features_empty(features):
@@ -405,14 +499,22 @@ static func _normalize_entry(
 			entry_index,
 			"Remap entry feature is empty."
 		)
-		if not GFVariantData.get_option_bool(options, "keep_invalid_entries", false):
+		if not GFVariantData.get_option_bool(
+			options,
+			"keep_invalid_entries",
+			false
+		):
 			return
 
 	for feature: String in features:
 		var normalized_feature: String = _normalize_feature(feature)
 		if normalized_feature.is_empty():
 			continue
-		if _source_has_feature(report, source_path, normalized_feature):
+		if _source_has_feature(
+			report,
+			source_path,
+			normalized_feature
+		):
 			_append_issue(
 				report,
 				"warning",
@@ -422,14 +524,18 @@ static func _normalize_entry(
 				entry_index,
 				"Source path has more than one remap entry for the same feature; first matching entry wins."
 			)
-		_append_normalized_entry(report, source_path, {
-			"source_path": source_path,
-			"target_path": target_path,
-			"feature": normalized_feature,
-			"entry_index": entry_index,
-			"priority": priority,
-			"metadata": GFVariantData.duplicate_collection(metadata),
-		})
+		_append_normalized_entry(
+			report,
+			source_path,
+			{
+				"source_path": source_path,
+				"target_path": target_path,
+				"feature": normalized_feature,
+				"entry_index": entry_index,
+				"priority": priority,
+				"metadata": GFVariantData.duplicate_collection(metadata),
+			}
+		)
 
 
 ## 将支持的 entries 输入形式展开为逐项 payload 数组。
@@ -459,7 +565,16 @@ static func _extract_entry_payloads(entries_payload: Variant) -> Array:
 static func _looks_like_single_array_entry(values: Array) -> bool:
 	if values.size() < 2:
 		return false
-	return (values[0] is String or values[0] is StringName) and (values[1] is String or values[1] is StringName)
+	return (
+		(
+			values[0] is String
+			or values[0] is StringName
+		)
+		and (
+			values[1] is String
+			or values[1] is StringName
+		)
+	)
 
 
 ## 将 PackedStringArray 转为 Array；其他值按 Array 读取。
@@ -521,16 +636,18 @@ static func _extract_entry_features(entry: Dictionary) -> PackedStringArray:
 ## [br]
 ## @api private
 ## [br]
-static func _make_invalid_entry(source_path: String, entry_index: int, payload: Variant) -> Dictionary:
+static func _make_invalid_entry(
+	source_path: String,
+	entry_index: int,
+	payload: Variant
+) -> Dictionary:
 	return {
 		"source_path": source_path,
 		"target_path": "",
 		"feature": "",
 		"entry_index": entry_index,
 		"priority": entry_index,
-		"metadata": {
-			"invalid_payload_type": type_string(typeof(payload)),
-		},
+		"metadata": { "invalid_payload_type": type_string(typeof(payload)), },
 	}
 
 
@@ -554,7 +671,11 @@ static func _ensure_source(report: Dictionary, source_path: String) -> void:
 ## [br]
 ## @api private
 ## [br]
-static func _append_normalized_entry(report: Dictionary, source_path: String, entry: Dictionary) -> void:
+static func _append_normalized_entry(
+	report: Dictionary,
+	source_path: String,
+	entry: Dictionary
+) -> void:
 	var remaps: Dictionary = GFVariantData.get_option_dictionary(report, "remaps")
 	var entries: Array = GFVariantData.get_option_array(remaps, source_path)
 	entries.append(entry)
@@ -566,7 +687,11 @@ static func _append_normalized_entry(report: Dictionary, source_path: String, en
 ## [br]
 ## @api private
 ## [br]
-static func _source_has_feature(report: Dictionary, source_path: String, feature: String) -> bool:
+static func _source_has_feature(
+	report: Dictionary,
+	source_path: String,
+	feature: String
+) -> bool:
 	var remaps: Dictionary = GFVariantData.get_option_dictionary(report, "remaps")
 	for entry_value: Variant in GFVariantData.get_option_array(remaps, source_path):
 		var entry: Dictionary = GFVariantData.as_dictionary(entry_value)
@@ -592,14 +717,22 @@ static func _select_entry(entries: Array, active_set: Dictionary) -> Dictionary:
 ## [br]
 ## @api private
 ## [br]
-static func _make_resolved_record(source_path: String, entry: Dictionary, extensions: PackedStringArray) -> Dictionary:
+static func _make_resolved_record(
+	source_path: String,
+	entry: Dictionary,
+	extensions: PackedStringArray
+) -> Dictionary:
 	var target_path: String = GFVariantData.get_option_string(entry, "target_path")
 	return {
 		"source_path": source_path,
 		"target_path": target_path,
 		"resolved_path": target_path,
 		"feature": GFVariantData.get_option_string(entry, "feature"),
-		"entry_index": GFVariantData.get_option_int(entry, "entry_index", -1),
+		"entry_index": GFVariantData.get_option_int(
+			entry,
+			"entry_index",
+			-1
+		),
 		"priority": GFVariantData.get_option_int(entry, "priority"),
 		"source_is_resource": GFResourceRegistryTools.is_resource_path(source_path, extensions),
 		"target_is_resource": GFResourceRegistryTools.is_resource_path(target_path, extensions),
@@ -611,7 +744,11 @@ static func _make_resolved_record(source_path: String, entry: Dictionary, extens
 ## [br]
 ## @api private
 ## [br]
-static func _make_unmatched_record(source_path: String, entries: Array, extensions: PackedStringArray) -> Dictionary:
+static func _make_unmatched_record(
+	source_path: String,
+	entries: Array,
+	extensions: PackedStringArray
+) -> Dictionary:
 	return {
 		"source_path": source_path,
 		"resolved_path": source_path,
@@ -634,8 +771,16 @@ static func _make_skip_paths(
 	var result: PackedStringArray = PackedStringArray()
 	var exported_path_set: Dictionary = _make_string_set(GFVariantData.get_option_packed_string_array(options, "exported_paths"))
 	var protected_path_set: Dictionary = _make_string_set(GFVariantData.get_option_packed_string_array(options, "protected_paths"))
-	var protect_original_paths: bool = GFVariantData.get_option_bool(options, "protect_original_paths", true)
-	var protect_selected_targets: bool = GFVariantData.get_option_bool(options, "protect_selected_targets", true)
+	var protect_original_paths: bool = GFVariantData.get_option_bool(
+		options,
+		"protect_original_paths",
+		true
+	)
+	var protect_selected_targets: bool = GFVariantData.get_option_bool(
+		options,
+		"protect_selected_targets",
+		true
+	)
 	for target_value: Variant in all_target_set.keys():
 		var target_path: String = _normalize_path(GFVariantData.to_text(target_value))
 		if target_path.is_empty():
@@ -666,11 +811,14 @@ static func _finalize_normalize_report(report: Dictionary) -> Dictionary:
 	report["source_count"] = remaps.size()
 	report["entry_count"] = entry_count
 	_finalize_issue_counts(report)
-	report["summary"] = "sources=%d entries=%d issues=%d" % [
-		GFVariantData.get_option_int(report, "source_count"),
-		GFVariantData.get_option_int(report, "entry_count"),
-		GFVariantData.get_option_int(report, "issue_count"),
-	]
+	report["summary"] = (
+		"sources=%d entries=%d issues=%d"
+		% [
+			GFVariantData.get_option_int(report, "source_count"),
+			GFVariantData.get_option_int(report, "entry_count"),
+			GFVariantData.get_option_int(report, "issue_count"),
+		]
+	)
 	return report
 
 
@@ -680,11 +828,14 @@ static func _finalize_normalize_report(report: Dictionary) -> Dictionary:
 ## [br]
 static func _finalize_selection_report(report: Dictionary) -> Dictionary:
 	_finalize_issue_counts(report)
-	report["summary"] = "selected=%s resolved_path=%s issues=%d" % [
-		str(GFVariantData.get_option_bool(report, "selected")),
-		GFVariantData.get_option_string(report, "resolved_path"),
-		GFVariantData.get_option_int(report, "issue_count"),
-	]
+	report["summary"] = (
+		"selected=%s resolved_path=%s issues=%d"
+		% [
+			str(GFVariantData.get_option_bool(report, "selected")),
+			GFVariantData.get_option_string(report, "resolved_path"),
+			GFVariantData.get_option_int(report, "issue_count"),
+		]
+	)
 	return report
 
 
@@ -706,14 +857,20 @@ static func _finalize_plan_report(plan: Dictionary) -> Dictionary:
 	plan["unmatched_count"] = unmatched.size()
 	plan["skip_count"] = skip_paths.size()
 	plan["resource_remap_count"] = resource_count
-	plan["raw_file_remap_count"] = maxi(resolved.size() - resource_count, 0)
+	plan["raw_file_remap_count"] = maxi(
+		resolved.size() - resource_count,
+		0
+	)
 	_finalize_issue_counts(plan)
-	plan["summary"] = "selected=%d unmatched=%d skip=%d issues=%d" % [
-		GFVariantData.get_option_int(plan, "selected_count"),
-		GFVariantData.get_option_int(plan, "unmatched_count"),
-		GFVariantData.get_option_int(plan, "skip_count"),
-		GFVariantData.get_option_int(plan, "issue_count"),
-	]
+	plan["summary"] = (
+		"selected=%d unmatched=%d skip=%d issues=%d"
+		% [
+			GFVariantData.get_option_int(plan, "selected_count"),
+			GFVariantData.get_option_int(plan, "unmatched_count"),
+			GFVariantData.get_option_int(plan, "skip_count"),
+			GFVariantData.get_option_int(plan, "issue_count"),
+		]
+	)
 	return plan
 
 
@@ -731,14 +888,16 @@ static func _append_issue(
 	message: String
 ) -> void:
 	var issues: Array = GFVariantData.get_option_array(report, "issues")
-	issues.append({
-		"severity": severity,
-		"kind": kind,
-		"source_path": source_path,
-		"target_path": target_path,
-		"entry_index": entry_index,
-		"message": message,
-	})
+	issues.append(
+		{
+			"severity": severity,
+			"kind": kind,
+			"source_path": source_path,
+			"target_path": target_path,
+			"entry_index": entry_index,
+			"message": message,
+		}
+	)
 	report["issues"] = issues
 
 

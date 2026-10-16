@@ -114,7 +114,11 @@ static func is_reference_marker(value: Variant) -> bool:
 		return false
 	var marker: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(dictionary, REFERENCE_MARKER_KEY))
 	return (
-		GFVariantData.get_option_int(marker, REFERENCE_VERSION_KEY, 0) == _REFERENCE_MARKER_VERSION
+		GFVariantData.get_option_int(
+			marker,
+			REFERENCE_VERSION_KEY,
+			0
+		) == _REFERENCE_MARKER_VERSION
 		and marker.has(REFERENCE_KIND_KEY)
 	)
 
@@ -168,11 +172,14 @@ static func encode_resource(resource: Resource) -> Dictionary:
 	if resource.resource_path.is_empty():
 		return _make_unsupported_marker(resource.get_class())
 
-	return _make_reference_marker(REFERENCE_KIND_RESOURCE, {
-		REFERENCE_PATH_KEY: resource.resource_path,
-		REFERENCE_UID_KEY: _get_resource_uid_text(resource.resource_path),
-		REFERENCE_TYPE_HINT_KEY: resource.get_class(),
-	})
+	return _make_reference_marker(
+		REFERENCE_KIND_RESOURCE,
+		{
+			REFERENCE_PATH_KEY: resource.resource_path,
+			REFERENCE_UID_KEY: _get_resource_uid_text(resource.resource_path),
+			REFERENCE_TYPE_HINT_KEY: resource.get_class(),
+		}
+	)
 
 
 ## 编码 Node 引用。
@@ -192,9 +199,10 @@ static func encode_node(node: Node, root_node: Node) -> Dictionary:
 	if root_node != node and not root_node.is_ancestor_of(node):
 		return _make_unsupported_marker(node.get_class())
 
-	return _make_reference_marker(REFERENCE_KIND_NODE, {
-		REFERENCE_NODE_PATH_KEY: String(root_node.get_path_to(node)),
-	})
+	return _make_reference_marker(
+		REFERENCE_KIND_NODE,
+		{ REFERENCE_NODE_PATH_KEY: String(root_node.get_path_to(node)), }
+	)
 
 
 ## 编码 Object 引用。
@@ -218,7 +226,10 @@ static func encode_reference(value: Variant, options: Dictionary = {}) -> Dictio
 		return encode_resource(resource)
 	if value is Node:
 		var node: Node = value
-		return encode_node(node, _get_root_node_option(options))
+		return encode_node(
+			node,
+			_get_root_node_option(options)
+		)
 	if value is Object:
 		var object: Object = value
 		return _make_unsupported_marker(object.get_class())
@@ -244,7 +255,11 @@ static func encode_reference(value: Variant, options: Dictionary = {}) -> Dictio
 ## @schema return: Dictionary with ok: bool, value: Variant, error: String, and kind: String.
 static func decode_reference(value: Variant, options: Dictionary = {}) -> Dictionary:
 	if not is_reference_marker(value):
-		return _make_decode_result(false, null, "Value is not a GF reference marker.")
+		return _make_decode_result(
+			false,
+			null,
+			"Value is not a GF reference marker."
+		)
 
 	var marker: Dictionary = get_reference_marker(value)
 	var marker_kind: String = GFVariantData.get_option_string(marker, REFERENCE_KIND_KEY)
@@ -252,10 +267,23 @@ static func decode_reference(value: Variant, options: Dictionary = {}) -> Dictio
 		REFERENCE_KIND_RESOURCE:
 			return _decode_resource_marker(marker, options)
 		REFERENCE_KIND_NODE:
-			return _decode_node_marker(marker, _get_root_node_option(options))
+			return _decode_node_marker(
+				marker,
+				_get_root_node_option(options)
+			)
 		REFERENCE_KIND_UNSUPPORTED_OBJECT:
-			return _make_decode_result(false, null, "Unsupported object reference.", marker_kind)
-	return _make_decode_result(false, null, "Unknown reference kind: %s" % marker_kind, marker_kind)
+			return _make_decode_result(
+				false,
+				null,
+				"Unsupported object reference.",
+				marker_kind
+			)
+	return _make_decode_result(
+		false,
+		null,
+		"Unknown reference kind: %s" % marker_kind,
+		marker_kind
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -268,9 +296,7 @@ static func _make_reference_marker(marker_kind: String, data: Dictionary = {}) -
 	var marker: Dictionary = data.duplicate(true)
 	marker[REFERENCE_VERSION_KEY] = _REFERENCE_MARKER_VERSION
 	marker[REFERENCE_KIND_KEY] = marker_kind
-	return {
-		REFERENCE_MARKER_KEY: marker,
-	}
+	return { REFERENCE_MARKER_KEY: marker, }
 
 
 ## 创建 unsupported-object 类型标记并记录对象类名。
@@ -278,9 +304,10 @@ static func _make_reference_marker(marker_kind: String, data: Dictionary = {}) -
 ## @api private
 ## [br]
 static func _make_unsupported_marker(class_name_text: String) -> Dictionary:
-	return _make_reference_marker(REFERENCE_KIND_UNSUPPORTED_OBJECT, {
-		REFERENCE_UNSUPPORTED_CLASS_KEY: class_name_text,
-	})
+	return _make_reference_marker(
+		REFERENCE_KIND_UNSUPPORTED_OBJECT,
+		{ REFERENCE_UNSUPPORTED_CLASS_KEY: class_name_text, }
+	)
 
 
 ## 按显式资源根目录或匹配模式策略解析候选路径，优先 UID 路径并生成解码结果。
@@ -289,11 +316,21 @@ static func _make_unsupported_marker(class_name_text: String) -> Dictionary:
 ## [br]
 static func _decode_resource_marker(marker: Dictionary, options: Dictionary) -> Dictionary:
 	if not _has_resource_path_policy(options):
-		return _make_decode_result(false, null, "Resource decode requires allowed_resource_roots or allowed_resource_patterns.", REFERENCE_KIND_RESOURCE)
+		return _make_decode_result(
+			false,
+			null,
+			"Resource decode requires allowed_resource_roots or allowed_resource_patterns.",
+			REFERENCE_KIND_RESOURCE
+		)
 
 	var resource_paths: Array[String] = _get_resource_candidate_paths(marker)
 	if resource_paths.is_empty():
-		return _make_decode_result(false, null, "Resource path is empty.", REFERENCE_KIND_RESOURCE)
+		return _make_decode_result(
+			false,
+			null,
+			"Resource path is empty.",
+			REFERENCE_KIND_RESOURCE
+		)
 
 	var type_hint: String = GFVariantData.get_option_string(marker, REFERENCE_TYPE_HINT_KEY)
 	var has_allowed_candidate: bool = false
@@ -303,10 +340,25 @@ static func _decode_resource_marker(marker: Dictionary, options: Dictionary) -> 
 		has_allowed_candidate = true
 		var resource: Resource = ResourceLoader.load(resource_path, type_hint)
 		if resource != null:
-			return _make_decode_result(true, resource, "", REFERENCE_KIND_RESOURCE)
+			return _make_decode_result(
+				true,
+				resource,
+				"",
+				REFERENCE_KIND_RESOURCE
+			)
 	if _has_resource_path_policy(options) and not has_allowed_candidate:
-		return _make_decode_result(false, null, "Resource path is not allowed: %s" % ", ".join(resource_paths), REFERENCE_KIND_RESOURCE)
-	return _make_decode_result(false, null, "Resource could not be loaded: %s" % ", ".join(resource_paths), REFERENCE_KIND_RESOURCE)
+		return _make_decode_result(
+			false,
+			null,
+			"Resource path is not allowed: %s" % ", ".join(resource_paths),
+			REFERENCE_KIND_RESOURCE
+		)
+	return _make_decode_result(
+		false,
+		null,
+		"Resource could not be loaded: %s" % ", ".join(resource_paths),
+		REFERENCE_KIND_RESOURCE
+	)
 
 
 ## 要求提供根节点及相对 NodePath，拒绝父级段并确认目标属于该根节点。
@@ -315,23 +367,58 @@ static func _decode_resource_marker(marker: Dictionary, options: Dictionary) -> 
 ## [br]
 static func _decode_node_marker(marker: Dictionary, root_node: Node) -> Dictionary:
 	if root_node == null:
-		return _make_decode_result(false, null, "Node reference root is null.", REFERENCE_KIND_NODE)
+		return _make_decode_result(
+			false,
+			null,
+			"Node reference root is null.",
+			REFERENCE_KIND_NODE
+		)
 	var node_path_text: String = GFVariantData.get_option_string(marker, REFERENCE_NODE_PATH_KEY)
 	if node_path_text.is_empty():
-		return _make_decode_result(false, null, "NodePath is empty.", REFERENCE_KIND_NODE)
+		return _make_decode_result(
+			false,
+			null,
+			"NodePath is empty.",
+			REFERENCE_KIND_NODE
+		)
 
 	var node_path: NodePath = NodePath(node_path_text)
 	if node_path.is_absolute():
-		return _make_decode_result(false, null, "NodePath must be relative to the reference root: %s" % node_path_text, REFERENCE_KIND_NODE)
+		return _make_decode_result(
+			false,
+			null,
+			"NodePath must be relative to the reference root: %s" % node_path_text,
+			REFERENCE_KIND_NODE
+		)
 	if _node_path_has_parent_segment(node_path):
-		return _make_decode_result(false, null, "NodePath must not escape the reference root: %s" % node_path_text, REFERENCE_KIND_NODE)
+		return _make_decode_result(
+			false,
+			null,
+			"NodePath must not escape the reference root: %s" % node_path_text,
+			REFERENCE_KIND_NODE
+		)
 
 	var node: Node = root_node.get_node_or_null(node_path)
 	if node == null:
-		return _make_decode_result(false, null, "Node could not be resolved: %s" % node_path_text, REFERENCE_KIND_NODE)
+		return _make_decode_result(
+			false,
+			null,
+			"Node could not be resolved: %s" % node_path_text,
+			REFERENCE_KIND_NODE
+		)
 	if node != root_node and not root_node.is_ancestor_of(node):
-		return _make_decode_result(false, null, "Node is outside the reference root: %s" % node_path_text, REFERENCE_KIND_NODE)
-	return _make_decode_result(true, node, "", REFERENCE_KIND_NODE)
+		return _make_decode_result(
+			false,
+			null,
+			"Node is outside the reference root: %s" % node_path_text,
+			REFERENCE_KIND_NODE
+		)
+	return _make_decode_result(
+		true,
+		node,
+		"",
+		REFERENCE_KIND_NODE
+	)
 
 
 ## 从资源路径读取 UID 文本；路径为空或 UID 无效时返回空文本。
@@ -405,7 +492,11 @@ static func _resource_path_allowed(resource_path: String, options: Dictionary) -
 
 	var allowed_patterns: PackedStringArray = GFVariantData.get_option_packed_string_array(options, OPTION_ALLOWED_RESOURCE_PATTERNS)
 	for allowed_pattern: String in allowed_patterns:
-		var normalized_pattern: String = GFPathTools.normalize_resource_path(allowed_pattern, "", false)
+		var normalized_pattern: String = GFPathTools.normalize_resource_path(
+			allowed_pattern,
+			"",
+			false
+		)
 		if not normalized_pattern.is_empty() and normalized_path.match(normalized_pattern):
 			return true
 
@@ -417,10 +508,7 @@ static func _resource_path_allowed(resource_path: String, options: Dictionary) -
 ## @api private
 ## [br]
 static func _has_resource_path_policy(options: Dictionary) -> bool:
-	return (
-		not GFVariantData.get_option_packed_string_array(options, OPTION_ALLOWED_RESOURCE_ROOTS).is_empty()
-		or not GFVariantData.get_option_packed_string_array(options, OPTION_ALLOWED_RESOURCE_PATTERNS).is_empty()
-	)
+	return (not GFVariantData.get_option_packed_string_array(options, OPTION_ALLOWED_RESOURCE_ROOTS).is_empty() or not GFVariantData.get_option_packed_string_array(options, OPTION_ALLOWED_RESOURCE_PATTERNS).is_empty())
 
 
 ## 读取类型为 Node 的 root_node 选项；否则返回 null。

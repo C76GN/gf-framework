@@ -29,6 +29,7 @@ enum SettlementKind {
 	CANCELLED,
 }
 
+
 ## 异步写入失败的稳定分类。
 ## [br]
 ## @api public
@@ -455,12 +456,15 @@ static func _is_valid_configuration(
 		return false
 	if not SettlementKind.values().has(int(settlement_kind)):
 		return false
-	if operation not in [
-		GFStorageAsyncOperation.OPERATION_SAVE,
-		GFStorageAsyncOperation.OPERATION_LOAD,
-		GFStorageAsyncOperation.OPERATION_DELETE,
-		GFStorageAsyncOperation.OPERATION_RESET,
-	]:
+	if (
+		operation
+		not in [
+			GFStorageAsyncOperation.OPERATION_SAVE,
+			GFStorageAsyncOperation.OPERATION_LOAD,
+			GFStorageAsyncOperation.OPERATION_DELETE,
+			GFStorageAsyncOperation.OPERATION_RESET,
+		]
+	):
 		return false
 	if settlement_kind == SettlementKind.CANCELLED:
 		return (
@@ -477,13 +481,13 @@ static func _is_valid_configuration(
 
 	match operation:
 		GFStorageAsyncOperation.OPERATION_SAVE:
-			if read_result != null or delete_result != null or reset_result != null:
+			if (
+				read_result != null
+				or delete_result != null
+				or reset_result != null
+			):
 				return false
-			return (
-				write_failure_kind == WriteFailureKind.NONE
-				if ok
-				else write_failure_kind != WriteFailureKind.NONE
-			)
+			return (write_failure_kind == WriteFailureKind.NONE if ok else write_failure_kind != WriteFailureKind.NONE)
 		GFStorageAsyncOperation.OPERATION_LOAD:
 			return (
 				read_result != null

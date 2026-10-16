@@ -8,19 +8,16 @@ extends GutTest
 ## @api framework_internal
 func test_adapter_declares_complete_static_contract() -> void:
 	var adapter: ProjectPlatformAdapter = _make_adapter_with_fake_provider()
-	var report: Dictionary = GFPlatformAdapterConformance.inspect(adapter, {
-		"required_contract_ids": PackedStringArray([
-			ProjectPlatformAdapter.CONTRACT_ID,
-		]),
-		"required_contract_versions": {
-			String(ProjectPlatformAdapter.CONTRACT_ID): "1.0.0",
-		},
-		"required_methods": {
-			String(ProjectPlatformAdapter.CONTRACT_ID): PackedStringArray([
-				ProjectPlatformAdapter.METHOD_ID,
-			]),
-		},
-	})
+	var report: Dictionary = GFPlatformAdapterConformance.inspect(
+		adapter,
+		{
+			"required_contract_ids": PackedStringArray([ProjectPlatformAdapter.CONTRACT_ID,]),
+			"required_contract_versions": { String(ProjectPlatformAdapter.CONTRACT_ID): "1.0.0", },
+			"required_methods": {
+				String(ProjectPlatformAdapter.CONTRACT_ID): PackedStringArray([ProjectPlatformAdapter.METHOD_ID,]),
+			},
+		}
+	)
 	assert_true(
 		GFVariantData.get_option_bool(report, "ok"),
 		JSON.stringify(report)
@@ -57,21 +54,25 @@ func test_native_adapter_acceptance_matrix() -> void:
 ## @api private
 func _make_adapter_with_fake_provider() -> ProjectPlatformAdapter:
 	var adapter: ProjectPlatformAdapter = ProjectPlatformAdapter.new()
-	var capabilities: GFPlatformCapabilitySet = GFPlatformCapabilitySet.new().configure(
-		&"sample_platform",
-		PackedStringArray(),
-		{},
-		&"project.sample_adapter"
+	var capabilities: GFPlatformCapabilitySet = (
+		GFPlatformCapabilitySet.new().configure(
+			&"sample_platform",
+			PackedStringArray(),
+			{},
+			&"project.sample_adapter"
+		)
 	)
-	var context: GFPlatformRuntimeContext = GFPlatformRuntimeContext.new().configure(
-		&"sample_platform",
-		{
-			"adapter_id": &"project.sample_adapter",
-			"capabilities": capabilities,
-		}
+	var context: GFPlatformRuntimeContext = (
+		GFPlatformRuntimeContext.new().configure(
+			&"sample_platform",
+			{ "adapter_id": &"project.sample_adapter", "capabilities": capabilities, }
+		)
 	)
 	assert_true(
-		adapter.configure_provider(FakeProvider.new(), context),
+		adapter.configure_provider(
+			FakeProvider.new(),
+			context
+		),
 		"Fake provider should configure the adapter."
 	)
 	return adapter

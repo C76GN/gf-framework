@@ -139,13 +139,33 @@ func apply_to_3d(player: AudioStreamPlayer3D) -> bool:
 	player.playback_type = _to_playback_type(playback_type)
 	player.attenuation_model = _to_attenuation_model(attenuation_model_3d)
 	player.unit_size = maxf(unit_size_3d, 0.01)
-	player.max_db = clampf(max_db_3d, -80.0, 24.0)
+	player.max_db = clampf(
+		max_db_3d,
+		-80.0,
+		24.0
+	)
 	player.max_distance = maxf(max_distance_3d, 0.0)
 	player.emission_angle_enabled = emission_angle_enabled_3d
-	player.emission_angle_degrees = clampf(emission_angle_degrees_3d, 0.1, 180.0)
-	player.emission_angle_filter_attenuation_db = clampf(emission_angle_filter_attenuation_db_3d, -80.0, 0.0)
-	player.attenuation_filter_cutoff_hz = clampf(attenuation_filter_cutoff_hz_3d, 1.0, 20500.0)
-	player.attenuation_filter_db = clampf(attenuation_filter_db_3d, -80.0, 0.0)
+	player.emission_angle_degrees = clampf(
+		emission_angle_degrees_3d,
+		0.1,
+		180.0
+	)
+	player.emission_angle_filter_attenuation_db = clampf(
+		emission_angle_filter_attenuation_db_3d,
+		-80.0,
+		0.0
+	)
+	player.attenuation_filter_cutoff_hz = clampf(
+		attenuation_filter_cutoff_hz_3d,
+		1.0,
+		20500.0
+	)
+	player.attenuation_filter_db = clampf(
+		attenuation_filter_db_3d,
+		-80.0,
+		0.0
+	)
 	player.doppler_tracking = _to_doppler_tracking(doppler_tracking_3d)
 	return true
 
@@ -157,7 +177,11 @@ func apply_to_3d(player: AudioStreamPlayer3D) -> bool:
 ## @api private
 ## [br]
 func _to_playback_type(value: int) -> AudioServer.PlaybackType:
-	match clampi(value, 0, 2):
+	match clampi(
+		value,
+		0,
+		2
+	):
 		AudioServer.PLAYBACK_TYPE_STREAM:
 			return AudioServer.PLAYBACK_TYPE_STREAM
 		AudioServer.PLAYBACK_TYPE_SAMPLE:
@@ -171,7 +195,11 @@ func _to_playback_type(value: int) -> AudioServer.PlaybackType:
 ## @api private
 ## [br]
 func _to_attenuation_model(value: int) -> AudioStreamPlayer3D.AttenuationModel:
-	match clampi(value, 0, 3):
+	match clampi(
+		value,
+		0,
+		3
+	):
 		AudioStreamPlayer3D.ATTENUATION_INVERSE_SQUARE_DISTANCE:
 			return AudioStreamPlayer3D.ATTENUATION_INVERSE_SQUARE_DISTANCE
 		AudioStreamPlayer3D.ATTENUATION_LOGARITHMIC:
@@ -187,7 +215,11 @@ func _to_attenuation_model(value: int) -> AudioStreamPlayer3D.AttenuationModel:
 ## @api private
 ## [br]
 func _to_doppler_tracking(value: int) -> AudioStreamPlayer3D.DopplerTracking:
-	match clampi(value, 0, 2):
+	match clampi(
+		value,
+		0,
+		2
+	):
 		AudioStreamPlayer3D.DOPPLER_TRACKING_IDLE_STEP:
 			return AudioStreamPlayer3D.DOPPLER_TRACKING_IDLE_STEP
 		AudioStreamPlayer3D.DOPPLER_TRACKING_PHYSICS_STEP:

@@ -18,7 +18,7 @@
 | 属性 | [`min_tap_seconds`](#member-gfinputtaptrigger-properties-min_tap_seconds) | `var min_tap_seconds: float = 0.0:` |
 | 属性 | [`max_tap_seconds`](#member-gfinputtaptrigger-properties-max_tap_seconds) | `var max_tap_seconds: float = 0.25:` |
 | 方法 | [`reset_trigger_state`](#member-gfinputtaptrigger-methods-reset_trigger_state) | `func reset_trigger_state(state: Dictionary) -> void:` |
-| 方法 | [`update`](#member-gfinputtaptrigger-methods-update) | `func update(raw_active: bool, _value: Variant, delta: float, state: Dictionary) -> TriggerState:` |
+| 方法 | [`update`](#member-gfinputtaptrigger-methods-update) | `func update( raw_active: bool, _value: Variant, delta: float, state: Dictionary ) -> TriggerState:` |
 
 ## 属性
 
@@ -75,9 +75,10 @@ func reset_trigger_state(state: Dictionary) -> void:
 ### `update`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func update(raw_active: bool, _value: Variant, delta: float, state: Dictionary) -> TriggerState:
+func update( raw_active: bool, _value: Variant, delta: float, state: Dictionary ) -> TriggerState:
 ```
 
 更新运行时状态。

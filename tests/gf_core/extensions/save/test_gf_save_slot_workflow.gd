@@ -1,12 +1,8 @@
 ## 测试 GFSaveSlotWorkflow 的槽位标识、元数据/卡片构建与存储摘要索引。
 extends GutTest
 
-
-const _GF_STORAGE_FAMILY_STORE_SCRIPT = preload(
-	"res://addons/gf/standard/utilities/storage/gf_storage_family_store.gd"
-)
-
-
+const _OWNED_TEST_TREE_SUPPORT = preload("res://tests/gf_core/support/gf_owned_test_tree_support.gd")
+const _GF_STORAGE_FAMILY_STORE_SCRIPT = preload("res://addons/gf/standard/utilities/storage/gf_storage_family_store.gd")
 var _storage: GFStorageUtility
 var _save_dir_name: String = ""
 
@@ -16,13 +12,15 @@ class CorruptMetadataStorageUtility extends GFStorageUtility:
 
 	func load_data(file_name: String) -> GFStorageReadResult:
 		if file_name == corrupt_file_name:
-			return GFStorageReadResult.new().configure_failure(
-				"Injected corrupt slot metadata.",
-				ERR_FILE_CORRUPT,
-				{},
-				GFStorageReadResult.IntegrityStatus.INVALID,
-				0,
-				GFStorageReadResult.FailureKind.CORRUPT
+			return (
+				GFStorageReadResult.new().configure_failure(
+					"Injected corrupt slot metadata.",
+					ERR_FILE_CORRUPT,
+					{},
+					GFStorageReadResult.IntegrityStatus.INVALID,
+					0,
+					GFStorageReadResult.FailureKind.CORRUPT
+				)
 			)
 		return super.load_data(file_name)
 
@@ -39,60 +37,47 @@ func after_each() -> void:
 		_storage.dispose()
 		_storage = null
 	if not _save_dir_name.is_empty():
-		var storage_root_path: String = _GF_STORAGE_FAMILY_STORE_SCRIPT.make_storage_root_path_for_framework(
-			_save_dir_name
-		)
+		var storage_root_path: String = _GF_STORAGE_FAMILY_STORE_SCRIPT.make_storage_root_path_for_framework(_save_dir_name)
 		assert_true(
 			storage_root_path.begins_with("user://gf-save-slot-workflow-"),
 			"测试清理只能作用于本例 UUID root。"
 		)
 		if storage_root_path.begins_with("user://gf-save-slot-workflow-"):
-			assert_eq(_remove_owned_test_tree(storage_root_path), OK)
+			assert_eq(
+				_OWNED_TEST_TREE_SUPPORT.remove_owned_tree(storage_root_path),
+				OK
+			)
 	_save_dir_name = ""
-
-
-func _remove_owned_test_tree(path: String) -> Error:
-	if FileAccess.file_exists(path):
-		return DirAccess.remove_absolute(path)
-	if not DirAccess.dir_exists_absolute(path):
-		return OK
-	var directory: DirAccess = DirAccess.open(path)
-	if directory == null:
-		return DirAccess.get_open_error()
-	directory.include_hidden = true
-	for file_name: String in directory.get_files():
-		var remove_file_error: Error = DirAccess.remove_absolute(path.path_join(file_name))
-		if remove_file_error != OK:
-			return remove_file_error
-	for directory_name: String in directory.get_directories():
-		var child_path: String = path.path_join(directory_name)
-		var remove_directory_error: Error = (
-			DirAccess.remove_absolute(child_path)
-			if directory.is_link(directory_name)
-			else _remove_owned_test_tree(child_path)
-		)
-		if remove_directory_error != OK:
-			return remove_directory_error
-	directory = null
-	return DirAccess.remove_absolute(path)
 
 
 func test_get_slot_id_for_index_replaces_template() -> void:
 	var wf: GFSaveSlotWorkflow = GFSaveSlotWorkflow.new()
 	assert_eq(wf.active_slot_index, 0)
 	wf.slot_id_template = "save_{index}_data"
-	assert_eq(wf.get_slot_id_for_index(3), &"save_3_data")
+	assert_eq(
+		wf.get_slot_id_for_index(3),
+		&"save_3_data"
+	)
 
 
 func test_slot_id_override_and_clear() -> void:
 	var wf: GFSaveSlotWorkflow = GFSaveSlotWorkflow.new()
 	wf.set_slot_id_override(2, &"cloud_a")
-	assert_eq(wf.get_slot_id_for_index(2), &"cloud_a")
+	assert_eq(
+		wf.get_slot_id_for_index(2),
+		&"cloud_a"
+	)
 	wf.set_slot_id_override(2, &"")
-	assert_eq(wf.get_slot_id_for_index(2), &"slot_2")
+	assert_eq(
+		wf.get_slot_id_for_index(2),
+		&"slot_2"
+	)
 	wf.set_slot_id_override(1, &"x")
 	wf.clear_slot_id_overrides()
-	assert_eq(wf.get_slot_id_for_index(1), &"slot_1")
+	assert_eq(
+		wf.get_slot_id_for_index(1),
+		&"slot_1"
+	)
 
 
 func test_slot_id_override_rejects_negative_index() -> void:
@@ -100,7 +85,11 @@ func test_slot_id_override_rejects_negative_index() -> void:
 
 	wf.set_slot_id_override(-1, &"invalid")
 
-	assert_eq(wf.get_slot_id_for_index(-1), &"slot_-1", "负索引不得写入 override 状态。")
+	assert_eq(
+		wf.get_slot_id_for_index(-1),
+		&"slot_-1",
+		"负索引不得写入 override 状态。"
+	)
 	assert_push_error("[GFSaveSlotWorkflow][save_slot_workflow.invalid_slot_index] set_slot_id_override failed: index must be at least 0.")
 
 
@@ -113,15 +102,36 @@ func test_select_slot_index_clamps_negative() -> void:
 func test_build_slot_metadata_injects_slot_role() -> void:
 	var wf: GFSaveSlotWorkflow = GFSaveSlotWorkflow.new()
 	var clock: GFManualClock = GFManualClock.new(0, 1700000005000)
-	assert_true(wf.set_clock(clock), "槽位工作流应接受墙上时钟。")
+	assert_true(
+		wf.set_clock(clock),
+		"槽位工作流应接受墙上时钟。"
+	)
 	wf.slot_role = &"manual"
-	var meta: GFSaveSlotMetadata = wf.build_slot_metadata(1, "标题", { "k": 1 })
+	var meta: GFSaveSlotMetadata = wf.build_slot_metadata(
+		1,
+		"标题",
+		{ "k": 1 }
+	)
 	assert_eq(meta.slot_id, &"slot_1")
 	assert_eq(meta.display_name, "标题")
-	assert_eq(GFVariantData.get_option_int(meta.custom_metadata, "k"), 1)
-	assert_eq(GFVariantData.get_option_string_name(meta.custom_metadata, "slot_role"), &"manual")
-	assert_eq(meta.created_at_unix, 1700000005, "元数据应使用注入的 Unix 秒时间。")
-	assert_eq(meta.updated_at_unix, 1700000005, "创建与更新时间应来自同一采样。")
+	assert_eq(
+		GFVariantData.get_option_int(meta.custom_metadata, "k"),
+		1
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(meta.custom_metadata, "slot_role"),
+		&"manual"
+	)
+	assert_eq(
+		meta.created_at_unix,
+		1700000005,
+		"元数据应使用注入的 Unix 秒时间。"
+	)
+	assert_eq(
+		meta.updated_at_unix,
+		1700000005,
+		"创建与更新时间应来自同一采样。"
+	)
 
 
 func test_build_empty_card_marks_active_slot() -> void:
@@ -138,13 +148,22 @@ func test_empty_display_name_template_is_opt_in() -> void:
 	var default_card: GFSaveSlotCard = wf.build_empty_card(2)
 	var default_metadata: GFSaveSlotMetadata = wf.build_slot_metadata(2)
 
-	assert_eq(wf.get_empty_display_name_for_index(2), "")
+	assert_eq(
+		wf.get_empty_display_name_for_index(2),
+		""
+	)
 	assert_eq(default_card.display_name, "")
 	assert_eq(default_metadata.display_name, "")
 
 	wf.empty_display_name_template = "Slot {index}"
-	assert_eq(wf.get_empty_display_name_for_index(2), "Slot 2")
-	assert_eq(wf.build_empty_card(2).display_name, "Slot 2")
+	assert_eq(
+		wf.get_empty_display_name_for_index(2),
+		"Slot 2"
+	)
+	assert_eq(
+		wf.build_empty_card(2).display_name,
+		"Slot 2"
+	)
 
 
 func test_build_card_for_index_empty_summary_returns_empty_card() -> void:
@@ -156,12 +175,25 @@ func test_build_card_for_index_empty_summary_returns_empty_card() -> void:
 func test_build_cards_for_indices_matches_summary_by_index() -> void:
 	var wf: GFSaveSlotWorkflow = GFSaveSlotWorkflow.new()
 	var summaries: Array = [
-		{ "slot_index": 1, "metadata": { "display_name": "A" }, "is_compatible": true },
+		{
+			"slot_index": 1,
+			"metadata": { "display_name": "A" },
+			"is_compatible": true,
+		},
 	]
-	var cards: Array[GFSaveSlotCard] = wf.build_cards_for_indices([1, 2], summaries)
-	assert_eq(cards.size(), 2)
+	var cards: Array[GFSaveSlotCard] = wf.build_cards_for_indices(
+		[1, 2],
+		summaries
+	)
+	assert_eq(
+		cards.size(),
+		2
+	)
 	assert_false(cards[0].is_empty)
-	assert_eq(cards[0].display_name, "A")
+	assert_eq(
+		cards[0].display_name,
+		"A"
+	)
 	assert_true(cards[1].is_empty)
 
 
@@ -171,52 +203,119 @@ func test_save_slot_storage_adapter_round_trips_slots_and_cards() -> void:
 	var wf: GFSaveSlotWorkflow = GFSaveSlotWorkflow.new()
 	wf.empty_display_name_template = "Slot {index}"
 
-	var save_error: Error = adapter.save_slot(2, _make_slot_document({ "hp": 10 }), {
-		"slot_id": &"manual_2",
-		"display_name": "手动二",
-	})
+	var save_error: Error = adapter.save_slot(
+		2,
+		_make_slot_document({ "hp": 10 }),
+		{ "slot_id": &"manual_2", "display_name": "手动二", }
+	)
 	var read_result: GFSaveDocumentReadResult = adapter.load_slot(2)
 	var data: Dictionary = _get_slot_payload(read_result)
 	var metadata: Dictionary = adapter.load_slot_metadata(2)
 	var summaries: Array[Dictionary] = adapter.list_slots()
-	var cards: Array[GFSaveSlotCard] = wf.build_cards_from_slot_store(adapter, [2, 3])
+	var cards: Array[GFSaveSlotCard] = wf.build_cards_from_slot_store(
+		adapter,
+		[2, 3]
+	)
 
-	assert_eq(save_error, OK, "slot adapter 应通过 storage 事务保存数据和元数据。")
-	assert_true(read_result.is_successful(), read_result.get_error())
-	assert_true(adapter.has_slot(2), "保存后槽位应存在。")
-	assert_eq(GFVariantData.get_option_int(data, "hp"), 10, "slot adapter 应能读取数据。")
-	assert_eq(GFVariantData.get_option_string_name(metadata, "slot_id"), &"manual_2", "slot adapter 应保留逻辑 slot_id。")
-	assert_eq(GFVariantData.get_option_string_name(metadata, "schema_id"), &"test.save", "metadata schema 应以文档为权威来源。")
-	assert_eq(GFVariantData.get_option_int(metadata, "schema_version"), 1)
-	assert_eq(GFVariantData.get_option_int(metadata, "updated_at_unix"), 1700000010, "缺省更新时间应使用适配器时钟。")
-	assert_eq(summaries.size(), 1, "slot adapter 应枚举完整槽位。")
-	assert_eq(GFVariantData.get_option_int(summaries[0], "slot_index"), 2, "slot summary 应包含槽位索引。")
-	assert_eq(GFVariantData.get_option_int(summaries[0], "modified_time"), 1700000010, "slot summary 应复用已读取 metadata 的更新时间。")
-	assert_false(cards[0].is_empty, "已有槽位应构建为非空卡片。")
-	assert_eq(cards[0].display_name, "手动二", "卡片应读取元数据显示名。")
-	assert_true(cards[1].is_empty, "缺失槽位应构建为空卡片。")
+	assert_eq(
+		save_error,
+		OK,
+		"slot adapter 应通过 storage 事务保存数据和元数据。"
+	)
+	assert_true(
+		read_result.is_successful(),
+		read_result.get_error()
+	)
+	assert_true(
+		adapter.has_slot(2),
+		"保存后槽位应存在。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(data, "hp"),
+		10,
+		"slot adapter 应能读取数据。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(metadata, "slot_id"),
+		&"manual_2",
+		"slot adapter 应保留逻辑 slot_id。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(metadata, "schema_id"),
+		&"test.save",
+		"metadata schema 应以文档为权威来源。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(metadata, "schema_version"),
+		1
+	)
+	assert_eq(
+		GFVariantData.get_option_int(metadata, "updated_at_unix"),
+		1700000010,
+		"缺省更新时间应使用适配器时钟。"
+	)
+	assert_eq(
+		summaries.size(),
+		1,
+		"slot adapter 应枚举完整槽位。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			summaries[0],
+			"slot_index"
+		),
+		2,
+		"slot summary 应包含槽位索引。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			summaries[0],
+			"modified_time"
+		),
+		1700000010,
+		"slot summary 应复用已读取 metadata 的更新时间。"
+	)
+	assert_false(
+		cards[0].is_empty,
+		"已有槽位应构建为非空卡片。"
+	)
+	assert_eq(
+		cards[0].display_name,
+		"手动二",
+		"卡片应读取元数据显示名。"
+	)
+	assert_true(
+		cards[1].is_empty,
+		"缺失槽位应构建为空卡片。"
+	)
 
 
 func test_save_slot_storage_adapter_uses_zero_when_domain_update_time_is_missing() -> void:
 	var adapter: GFSaveSlotStorageAdapter = GFSaveSlotStorageAdapter.new().setup(_storage)
 	var slot_index: int = 10
 	assert_eq(
-		_storage.save_data_group({
-			adapter.get_data_file_name(slot_index): {"legacy": true},
-			adapter.get_metadata_file_name(slot_index): {
-				"slot_id": "legacy_10",
-				"display_name": "Legacy",
-			},
-		}),
+		_storage.save_data_group(
+			{
+				adapter.get_data_file_name(slot_index): { "legacy": true },
+				adapter.get_metadata_file_name(slot_index): { "slot_id": "legacy_10", "display_name": "Legacy", },
+			}
+		),
 		OK,
 		"测试夹具应能写入没有 updated_at_unix 的完整旧槽位。"
 	)
 
 	var summaries: Array[Dictionary] = adapter.list_slots()
 
-	assert_eq(summaries.size(), 1)
 	assert_eq(
-		GFVariantData.get_option_int(summaries[0], "modified_time", -1),
+		summaries.size(),
+		1
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			summaries[0],
+			"modified_time",
+			-1
+		),
 		0,
 		"缺少领域更新时间时 modified_time 必须稳定回退为 0。"
 	)
@@ -227,24 +326,64 @@ func test_save_slot_storage_adapter_supports_custom_file_templates() -> void:
 	adapter.data_file_template = "campaign/{index}/data.json"
 	adapter.metadata_file_template = "campaign/{index}/meta.json"
 
-	var save_error: Error = adapter.save_slot(4, _make_slot_document({ "xp": 12 }), { "display_name": "Campaign" })
+	var save_error: Error = adapter.save_slot(
+		4,
+		_make_slot_document({ "xp": 12 }),
+		{ "display_name": "Campaign" }
+	)
 	var summaries: Array[Dictionary] = adapter.list_slots()
 
-	assert_eq(save_error, OK, "slot adapter 应支持项目自定义文件模板。")
-	assert_eq(GFVariantData.get_option_int(_get_slot_payload(adapter.load_slot(4)), "xp"), 12, "自定义模板槽位数据应可读取。")
-	assert_eq(summaries.size(), 1, "自定义模板槽位应可枚举。")
-	assert_eq(GFVariantData.get_option_string(GFVariantData.get_option_dictionary(summaries[0], "metadata"), "display_name"), "Campaign", "自定义模板槽位元数据应可读取。")
+	assert_eq(
+		save_error,
+		OK,
+		"slot adapter 应支持项目自定义文件模板。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			_get_slot_payload(adapter.load_slot(4)),
+			"xp"
+		),
+		12,
+		"自定义模板槽位数据应可读取。"
+	)
+	assert_eq(
+		summaries.size(),
+		1,
+		"自定义模板槽位应可枚举。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(
+			GFVariantData.get_option_dictionary(
+				summaries[0],
+				"metadata"
+			),
+			"display_name"
+		),
+		"Campaign",
+		"自定义模板槽位元数据应可读取。"
+	)
 	var delete_error: Error = adapter.delete_slot(4)
-	assert_eq(delete_error, OK, "自定义模板槽位应可删除。")
+	assert_eq(
+		delete_error,
+		OK,
+		"自定义模板槽位应可删除。"
+	)
 
 
 func test_save_slot_storage_adapter_rejects_template_without_index_marker() -> void:
 	var adapter: GFSaveSlotStorageAdapter = GFSaveSlotStorageAdapter.new().setup(_storage)
 	adapter.data_file_template = "shared_data.sav"
 
-	var save_error: Error = adapter.save_slot(1, _make_slot_document({"hp": 10}))
+	var save_error: Error = adapter.save_slot(
+		1,
+		_make_slot_document({ "hp": 10 })
+	)
 
-	assert_eq(save_error, ERR_INVALID_PARAMETER, "不含 index 的模板会让多个槽位覆盖同一文件，必须拒绝。")
+	assert_eq(
+		save_error,
+		ERR_INVALID_PARAMETER,
+		"不含 index 的模板会让多个槽位覆盖同一文件，必须拒绝。"
+	)
 	assert_push_error("[GFSaveSlotStorageAdapter][save_slot_storage_adapter.invalid_file_templates] save_slot failed: invalid file templates (data_file_template must contain {index}).")
 
 
@@ -253,9 +392,16 @@ func test_save_slot_storage_adapter_rejects_data_metadata_path_collision() -> vo
 	adapter.data_file_template = "slot_{index}.sav"
 	adapter.metadata_file_template = "slot_{index}.sav"
 
-	var save_error: Error = adapter.save_slot(1, _make_slot_document({"hp": 10}))
+	var save_error: Error = adapter.save_slot(
+		1,
+		_make_slot_document({ "hp": 10 })
+	)
 
-	assert_eq(save_error, ERR_INVALID_PARAMETER, "data 与 metadata 解析到同一路径时必须拒绝保存。")
+	assert_eq(
+		save_error,
+		ERR_INVALID_PARAMETER,
+		"data 与 metadata 解析到同一路径时必须拒绝保存。"
+	)
 	assert_push_error("[GFSaveSlotStorageAdapter][save_slot_storage_adapter.invalid_file_templates] save_slot failed: invalid file templates (Data and metadata templates resolve to the same storage target")
 
 
@@ -264,26 +410,57 @@ func test_save_slot_storage_adapter_rejects_noncanonical_template_before_writing
 	adapter.data_file_template = "slot_{index}.sav"
 	adapter.metadata_file_template = "./slot_{index}.sav"
 
-	var save_error: Error = adapter.save_slot(7, _make_slot_document({"hp": 10}))
+	var save_error: Error = adapter.save_slot(
+		7,
+		_make_slot_document({ "hp": 10 })
+	)
 
-	assert_eq(save_error, ERR_INVALID_PARAMETER, "非规范 logical identity 必须在写入前拒绝。")
-	assert_false(_storage.has_file("slot_7.sav"), "模板校验失败时不得写入任一 logical target。")
+	assert_eq(
+		save_error,
+		ERR_INVALID_PARAMETER,
+		"非规范 logical identity 必须在写入前拒绝。"
+	)
+	assert_false(
+		_storage.has_file("slot_7.sav"),
+		"模板校验失败时不得写入任一 logical target。"
+	)
 	assert_push_error_count(1, "无 Storage 的模板预检应在 backend 准入前报告一次有界诊断。")
 
 
 func test_save_slot_storage_adapter_excludes_missing_metadata_from_summaries() -> void:
 	var adapter: GFSaveSlotStorageAdapter = GFSaveSlotStorageAdapter.new().setup(_storage)
-	assert_eq(adapter.save_slot(5, _make_slot_document({"hp": 10}), {"display_name": "Healthy"}), OK)
-	assert_eq(_storage.delete_file(adapter.get_metadata_file_name(5)), OK)
+	assert_eq(
+		adapter.save_slot(
+			5,
+			_make_slot_document({ "hp": 10 }),
+			{ "display_name": "Healthy" }
+		),
+		OK
+	)
+	assert_eq(
+		_storage.delete_file(adapter.get_metadata_file_name(5)),
+		OK
+	)
 
 	var summaries: Array[Dictionary] = adapter.list_slots()
 
-	assert_eq(summaries.size(), 0, "metadata 缺失的半槽位不得伪装成健康非空槽位。")
+	assert_eq(
+		summaries.size(),
+		0,
+		"metadata 缺失的半槽位不得伪装成健康非空槽位。"
+	)
 
 
 func test_save_slot_storage_adapter_excludes_corrupt_metadata_from_summaries() -> void:
 	var adapter: GFSaveSlotStorageAdapter = GFSaveSlotStorageAdapter.new().setup(_storage)
-	assert_eq(adapter.save_slot(5, _make_slot_document({"hp": 10}), {"display_name": "Healthy"}), OK)
+	assert_eq(
+		adapter.save_slot(
+			5,
+			_make_slot_document({ "hp": 10 }),
+			{ "display_name": "Healthy" }
+		),
+		OK
+	)
 	var corrupt_storage: CorruptMetadataStorageUtility = CorruptMetadataStorageUtility.new()
 	corrupt_storage.save_dir_name = _save_dir_name
 	corrupt_storage.corrupt_file_name = adapter.get_metadata_file_name(5)
@@ -294,35 +471,62 @@ func test_save_slot_storage_adapter_excludes_corrupt_metadata_from_summaries() -
 
 	var summaries: Array[Dictionary] = adapter.list_slots()
 
-	assert_eq(summaries.size(), 0, "类型化 CORRUPT metadata 不得伪装成健康非空槽位。")
+	assert_eq(
+		summaries.size(),
+		0,
+		"类型化 CORRUPT metadata 不得伪装成健康非空槽位。"
+	)
 
 
 func test_save_slot_storage_adapter_reports_partial_delete_as_failure() -> void:
 	var adapter: GFSaveSlotStorageAdapter = GFSaveSlotStorageAdapter.new().setup(_storage)
-	assert_eq(_storage.save_data(adapter.get_data_file_name(6), {"hp": 10}), OK)
+	assert_eq(
+		_storage.save_data(
+			adapter.get_data_file_name(6),
+			{ "hp": 10 }
+		),
+		OK
+	)
 
 	var delete_error: Error = adapter.delete_slot(6)
 
-	assert_eq(delete_error, ERR_FILE_NOT_FOUND, "缺少 metadata 的半槽位不能报告完整删除成功。")
+	assert_eq(
+		delete_error,
+		ERR_FILE_NOT_FOUND,
+		"缺少 metadata 的半槽位不能报告完整删除成功。"
+	)
 	assert_false(_storage.has_file(adapter.get_data_file_name(6)))
 
 
 func test_save_slot_storage_adapter_rejects_unsafe_persisted_values() -> void:
 	var adapter: GFSaveSlotStorageAdapter = GFSaveSlotStorageAdapter.new().setup(_storage)
 	var unsafe_object: RefCounted = RefCounted.new()
-	var object_document: GFSaveDocument = _make_slot_document({ "hp": 10 }, {
-		"unsafe": unsafe_object,
-	})
-	var finite_document: GFSaveDocument = _make_slot_document({ "hp": 10 }, {
-		"unsafe": INF,
-	})
+	var object_document: GFSaveDocument = _make_slot_document(
+		{ "hp": 10 },
+		{ "unsafe": unsafe_object, }
+	)
+	var finite_document: GFSaveDocument = _make_slot_document(
+		{ "hp": 10 },
+		{ "unsafe": INF, }
+	)
 
 	var object_error: Error = adapter.save_slot(7, object_document)
 	var finite_error: Error = adapter.save_slot(7, finite_document)
 
-	assert_eq(object_error, ERR_INVALID_DATA, "Object 不得在持久化边界被静默转换为 null。")
-	assert_eq(finite_error, ERR_INVALID_DATA, "非有限数不得进入稳定持久化载荷。")
-	assert_false(adapter.has_slot(7), "preflight 失败不得留下半写入槽位。")
+	assert_eq(
+		object_error,
+		ERR_INVALID_DATA,
+		"Object 不得在持久化边界被静默转换为 null。"
+	)
+	assert_eq(
+		finite_error,
+		ERR_INVALID_DATA,
+		"非有限数不得进入稳定持久化载荷。"
+	)
+	assert_false(
+		adapter.has_slot(7),
+		"preflight 失败不得留下半写入槽位。"
+	)
 	assert_push_error("[GFSaveSlotStorageAdapter][save_slot_storage_adapter.invalid_document] save_slot failed: document is invalid.")
 	assert_push_error("[GFSaveSlotStorageAdapter][save_slot_storage_adapter.invalid_document] save_slot failed: document is invalid.")
 
@@ -331,10 +535,11 @@ func test_save_slot_storage_adapter_rejects_conflicting_metadata_schema() -> voi
 	var adapter: GFSaveSlotStorageAdapter = GFSaveSlotStorageAdapter.new().setup(_storage)
 	var document: GFSaveDocument = _make_slot_document({ "hp": 10 })
 
-	var save_error: Error = adapter.save_slot(8, document, {
-		"schema_id": &"other.save",
-		"schema_version": 1,
-	})
+	var save_error: Error = adapter.save_slot(
+		8,
+		document,
+		{ "schema_id": &"other.save", "schema_version": 1, }
+	)
 
 	assert_eq(save_error, ERR_INVALID_DATA)
 	assert_false(adapter.has_slot(8))
@@ -344,18 +549,22 @@ func test_save_slot_storage_adapter_rejects_conflicting_metadata_schema() -> voi
 func test_save_slot_storage_adapter_requires_and_applies_section_migration() -> void:
 	var adapter: GFSaveSlotStorageAdapter = GFSaveSlotStorageAdapter.new().setup(_storage)
 	var source_document: GFSaveDocument = _make_slot_document({ "hp": 10 })
-	assert_eq(adapter.save_slot(9, source_document), OK)
-	var target_schema: GFSaveDocumentSchema = GFSaveDocumentSchema.new().configure(
-		&"test.save",
-		1,
-		{ &"game": 2 },
-		{ "required_sections": PackedStringArray(["game"]) }
+	assert_eq(
+		adapter.save_slot(9, source_document),
+		OK
+	)
+	var target_schema: GFSaveDocumentSchema = (
+		GFSaveDocumentSchema.new().configure(
+			&"test.save",
+			1,
+			{ &"game": 2 },
+			{
+				"required_sections": PackedStringArray(["game"]),
+			}
+		)
 	)
 
-	var missing_migration_result: GFSaveDocumentReadResult = adapter.load_slot(
-		9,
-		target_schema
-	)
+	var missing_migration_result: GFSaveDocumentReadResult = adapter.load_slot(9, target_schema)
 	var registry: GFSaveMigrationRegistry = GFSaveMigrationRegistry.new()
 	assert_true(registry.register_step(SlotPayloadMigration.new()))
 	var migrated_result: GFSaveDocumentReadResult = adapter.load_slot(
@@ -365,12 +574,31 @@ func test_save_slot_storage_adapter_requires_and_applies_section_migration() -> 
 	)
 	var stored_again: GFSaveDocumentReadResult = adapter.load_slot(9)
 
-	assert_false(missing_migration_result.is_successful(), "旧分区缺少 Registry 时必须失败。")
+	assert_false(
+		missing_migration_result.is_successful(),
+		"旧分区缺少 Registry 时必须失败。"
+	)
 	assert_true(missing_migration_result.get_error().contains("migrat"))
-	assert_true(migrated_result.is_successful(), migrated_result.get_error())
+	assert_true(
+		migrated_result.is_successful(),
+		migrated_result.get_error()
+	)
 	assert_true(migrated_result.was_migrated())
-	assert_eq(GFVariantData.get_option_int(_get_slot_payload(migrated_result), "hit_points"), 10)
-	assert_eq(GFVariantData.get_option_int(_get_slot_payload(stored_again), "hp"), 10, "读取迁移不得隐式回写槽位文件。")
+	assert_eq(
+		GFVariantData.get_option_int(
+			_get_slot_payload(migrated_result),
+			"hit_points"
+		),
+		10
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			_get_slot_payload(stored_again),
+			"hp"
+		),
+		10,
+		"读取迁移不得隐式回写槽位文件。"
+	)
 	assert_false(_get_slot_payload(stored_again).has("hit_points"))
 
 
@@ -380,7 +608,11 @@ func test_save_slot_read_entries_reject_invalid_integrity() -> void:
 	storage.init()
 	var adapter: GFSaveSlotStorageAdapter = GFSaveSlotStorageAdapter.new().setup(storage)
 	assert_eq(
-		adapter.save_slot(3, _make_slot_document({ "hp": 10 }), { "display_name": "Unsafe" }),
+		adapter.save_slot(
+			3,
+			_make_slot_document({ "hp": 10 }),
+			{ "display_name": "Unsafe" }
+		),
 		OK
 	)
 	storage.mark_reads_invalid = true
@@ -390,11 +622,23 @@ func test_save_slot_read_entries_reject_invalid_integrity() -> void:
 	var summaries: Array[Dictionary] = adapter.list_slots()
 
 	assert_false(document_result.is_successful())
-	assert_eq(document_result.get_error_code(), ERR_FILE_CORRUPT)
-	assert_true(metadata.is_empty(), "明确 INVALID 的 metadata 不得进入 UI 摘要。")
-	assert_true(summaries.is_empty(), "list_slots 不得展示完整性失败的槽位。")
+	assert_eq(
+		document_result.get_error_code(),
+		ERR_FILE_CORRUPT
+	)
+	assert_true(
+		metadata.is_empty(),
+		"明确 INVALID 的 metadata 不得进入 UI 摘要。"
+	)
+	assert_true(
+		summaries.is_empty(),
+		"list_slots 不得展示完整性失败的槽位。"
+	)
 	storage.mark_reads_invalid = false
-	assert_eq(adapter.delete_slot(3), OK)
+	assert_eq(
+		adapter.delete_slot(3),
+		OK
+	)
 	storage.dispose()
 
 
@@ -410,8 +654,16 @@ func test_save_slot_workflow_preflights_custom_script_base_type() -> void:
 
 	assert_not_null(metadata, "错误 metadata_script 应回退到框架默认类型。")
 	assert_not_null(card, "错误 card_script 应回退到框架默认类型。")
-	assert_eq(WrongMetadataResource.init_count, 0, "错误 metadata script 不得先构造再做后验型别检查。")
-	assert_eq(WrongCardResource.init_count, 0, "错误 card script 不得先构造再做后验型别检查。")
+	assert_eq(
+		WrongMetadataResource.init_count,
+		0,
+		"错误 metadata script 不得先构造再做后验型别检查。"
+	)
+	assert_eq(
+		WrongCardResource.init_count,
+		0,
+		"错误 card script 不得先构造再做后验型别检查。"
+	)
 	assert_push_error("[GFSaveSlotWorkflow][save_slot_workflow.invalid_metadata_script] metadata_script must inherit GFSaveSlotMetadata and be instantiable.")
 	assert_push_error("[GFSaveSlotWorkflow][save_slot_workflow.invalid_card_script] card_script must inherit GFSaveSlotCard and be instantiable.")
 
@@ -419,8 +671,17 @@ func test_save_slot_workflow_preflights_custom_script_base_type() -> void:
 func test_parse_slot_index_from_custom_template_id() -> void:
 	var wf: GFSaveSlotWorkflow = GFSaveSlotWorkflow.new()
 	wf.slot_id_template = "save_{index}_data"
-	var summaries: Array = [{ "slot_id": "save_4_data", "metadata": {}, "is_compatible": true }]
-	var cards: Array[GFSaveSlotCard] = wf.build_cards_for_indices([4], summaries)
+	var summaries: Array = [
+		{
+			"slot_id": "save_4_data",
+			"metadata": {},
+			"is_compatible": true,
+		},
+	]
+	var cards: Array[GFSaveSlotCard] = wf.build_cards_for_indices(
+		[4],
+		summaries
+	)
 	assert_false(cards[0].is_empty)
 
 
@@ -430,35 +691,60 @@ func test_save_slot_sync_bridge_syncs_adapter_files() -> void:
 	adapter.metadata_file_template = "slots/{index}/meta.json"
 	var local: MemoryStorageBackend = MemoryStorageBackend.new()
 	var remote: MemoryStorageBackend = MemoryStorageBackend.new()
-	local.set_record(adapter.get_data_file_name(2), { "hp": 10 }, { "timestamp_unix": 100 })
-	local.set_record(adapter.get_metadata_file_name(2), { "display_name": "Slot 2" }, { "timestamp_unix": 100 })
+	local.set_record(
+		adapter.get_data_file_name(2),
+		{ "hp": 10 },
+		{ "timestamp_unix": 100 }
+	)
+	local.set_record(
+		adapter.get_metadata_file_name(2),
+		{ "display_name": "Slot 2" },
+		{ "timestamp_unix": 100 }
+	)
 	var bridge: GFSaveSlotSyncBridge = GFSaveSlotSyncBridge.new()
 
-	var result: Dictionary = bridge.sync_slot(2, adapter, local, remote)
-	var remote_data: Dictionary = GFVariantData.get_option_dictionary(remote.load_data(adapter.get_data_file_name(2)), "data")
-	var remote_metadata: Dictionary = GFVariantData.get_option_dictionary(remote.load_data(adapter.get_metadata_file_name(2)), "data")
+	var result: Dictionary = bridge.sync_slot(
+		2,
+		adapter,
+		local,
+		remote
+	)
+	var remote_data: Dictionary = GFVariantData.get_option_dictionary(
+		remote.load_data(adapter.get_data_file_name(2)),
+		"data"
+	)
+	var remote_metadata: Dictionary = GFVariantData.get_option_dictionary(
+		remote.load_data(adapter.get_metadata_file_name(2)),
+		"data"
+	)
 	var file_names: PackedStringArray = GFVariantData.get_option_packed_string_array(result, "file_names")
 
-	assert_true(GFVariantData.get_option_bool(result, "ok"), "槽位同步桥应同步所选槽位文件。")
-	assert_eq(GFVariantData.get_option_int(remote_data, "hp"), 10, "数据文件应复制到远端。")
-	assert_eq(GFVariantData.get_option_string(remote_metadata, "display_name"), "Slot 2", "元数据文件应复制到远端。")
-	assert_eq(file_names, PackedStringArray(["slots/2/data.json", "slots/2/meta.json"]), "同步结果应暴露参与同步的文件。")
+	assert_true(
+		GFVariantData.get_option_bool(result, "ok"),
+		"槽位同步桥应同步所选槽位文件。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(remote_data, "hp"),
+		10,
+		"数据文件应复制到远端。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(remote_metadata, "display_name"),
+		"Slot 2",
+		"元数据文件应复制到远端。"
+	)
+	assert_eq(
+		file_names,
+		PackedStringArray(["slots/2/data.json", "slots/2/meta.json"]),
+		"同步结果应暴露参与同步的文件。"
+	)
 
 
 func test_save_slot_sync_bridge_rejects_invalid_or_colliding_adapter_templates() -> void:
 	var cases: Array[Dictionary] = [
-		{
-			"data": "shared.sav",
-			"metadata": "slot_{index}_meta.sav",
-		},
-		{
-			"data": "slot_{index}.sav",
-			"metadata": "slot_{index}.sav",
-		},
-		{
-			"data": "slot_{index}.sav",
-			"metadata": "./slot_{index}.sav",
-		},
+		{ "data": "shared.sav", "metadata": "slot_{index}_meta.sav", },
+		{ "data": "slot_{index}.sav", "metadata": "slot_{index}.sav", },
+		{ "data": "slot_{index}.sav", "metadata": "./slot_{index}.sav", },
 	]
 	for case: Dictionary in cases:
 		var adapter: GFSaveSlotStorageAdapter = GFSaveSlotStorageAdapter.new()
@@ -468,31 +754,45 @@ func test_save_slot_sync_bridge_rejects_invalid_or_colliding_adapter_templates()
 		var remote: MemoryStorageBackend = MemoryStorageBackend.new()
 		var bridge: GFSaveSlotSyncBridge = GFSaveSlotSyncBridge.new()
 
-		var result: Dictionary = bridge.sync_slot(2, adapter, local, remote)
+		var result: Dictionary = bridge.sync_slot(
+			2,
+			adapter,
+			local,
+			remote
+		)
 
 		assert_false(GFVariantData.get_option_bool(result, "ok"))
 		assert_true(GFVariantData.get_option_packed_string_array(result, "file_names").is_empty())
-		assert_eq(local.operation_count, 0, "模板 preflight 失败前不得访问本地 backend。")
-		assert_eq(remote.operation_count, 0, "模板 preflight 失败前不得访问远端 backend。")
+		assert_eq(
+			local.operation_count,
+			0,
+			"模板 preflight 失败前不得访问本地 backend。"
+		)
+		assert_eq(
+			remote.operation_count,
+			0,
+			"模板 preflight 失败前不得访问远端 backend。"
+		)
 
 
 # --- 私有/辅助方法 ---
 
-func _make_slot_document(
-	payload: Dictionary,
-	metadata: Dictionary = {}
-) -> GFSaveDocument:
-	var section: GFSaveSection = GFSaveSection.new().configure(
-		&"game",
-		1,
-		payload
+func _make_slot_document(payload: Dictionary, metadata: Dictionary = {}) -> GFSaveDocument:
+	var section: GFSaveSection = (
+		GFSaveSection.new().configure(
+			&"game",
+			1,
+			payload
+		)
 	)
 	var sections: Array[GFSaveSection] = [section]
-	return GFSaveDocument.new().configure(
-		&"test.save",
-		1,
-		sections,
-		metadata
+	return (
+		GFSaveDocument.new().configure(
+			&"test.save",
+			1,
+			sections,
+			metadata
+		)
 	)
 
 
@@ -520,16 +820,27 @@ class MemoryStorageBackend:
 	var records: Dictionary = {}
 	var operation_count: int = 0
 
-	func set_record(file_name: String, data: Dictionary, metadata: Dictionary = {}) -> void:
-		records[file_name] = {
-			"data": data.duplicate(true),
-			"metadata": metadata.duplicate(true),
-		}
+	func set_record(
+		file_name: String,
+		data: Dictionary,
+		metadata: Dictionary = {}
+	) -> void:
+		records[file_name] = { "data": data.duplicate(true), "metadata": metadata.duplicate(true), }
 
-	func _save_data(file_name: String, data: Dictionary, metadata: Dictionary) -> Error:
+
+	func _save_data(
+		file_name: String,
+		data: Dictionary,
+		metadata: Dictionary
+	) -> Error:
 		operation_count += 1
-		set_record(file_name, data, metadata)
+		set_record(
+			file_name,
+			data,
+			metadata
+		)
 		return OK
+
 
 	func _load_data(file_name: String) -> Dictionary:
 		operation_count += 1
@@ -547,6 +858,7 @@ class MemoryStorageBackend:
 			"metadata": GFVariantData.get_option_dictionary(record, "metadata"),
 			"error": "",
 		}
+
 
 	func _get_capabilities() -> Dictionary:
 		return {
@@ -590,19 +902,19 @@ class SlotPayloadMigration extends GFSaveMigrationStep:
 		from_version = 1
 		to_version = 2
 
-	func _migrate_section(
-		section: GFSaveSection,
-		_context: Dictionary = {}
-	) -> GFSaveSection:
+
+	func _migrate_section(section: GFSaveSection, _context: Dictionary = {}) -> GFSaveSection:
 		var payload_value: Variant = section.get_payload()
 		if not payload_value is Dictionary:
 			return null
 		var payload: Dictionary = GFVariantData.as_dictionary(payload_value)
 		payload["hit_points"] = GFVariantData.get_option_int(payload, "hp")
 		var _erased: bool = payload.erase("hp")
-		return GFSaveSection.new().configure(
-			section.get_section_id(),
-			section.get_schema_version(),
-			payload,
-			section.get_metadata()
+		return (
+			GFSaveSection.new().configure(
+				section.get_section_id(),
+				section.get_schema_version(),
+				payload,
+				section.get_metadata()
+			)
 		)

@@ -69,22 +69,42 @@ static func can_connect_with_max_turns(
 	for direction_index: int in range(_ORTHOGONAL_DIRECTIONS.size()):
 		var direction: Vector2i = _ORTHOGONAL_DIRECTIONS[direction_index]
 		var next_cell: Vector2i = start + direction
-		if not _can_step_connector(next_cell, goal, grid_size, is_walkable, allow_outer_border):
+		if not _can_step_connector(
+			next_cell,
+			goal,
+			grid_size,
+			is_walkable,
+			allow_outer_border
+		):
 			continue
 
-		queue.append({
-			"cell": next_cell,
-			"direction_index": direction_index,
-			"turns": 0,
-		})
+		queue.append(
+			{
+				"cell": next_cell,
+				"direction_index": direction_index,
+				"turns": 0,
+			}
+		)
 		visited[_make_connector_key(next_cell, direction_index)] = 0
 
 	while queue_index < queue.size():
 		var state: Dictionary = queue[queue_index]
 		queue_index += 1
-		var cell: Vector2i = _get_dictionary_vector2i(state, "cell", Vector2i(-1, -1))
-		var direction_index: int = GFVariantData.get_option_int(state, "direction_index", -1)
-		var turns: int = GFVariantData.get_option_int(state, "turns", max_turns + 1)
+		var cell: Vector2i = _get_dictionary_vector2i(
+			state,
+			"cell",
+			Vector2i(-1, -1)
+		)
+		var direction_index: int = GFVariantData.get_option_int(
+			state,
+			"direction_index",
+			-1
+		)
+		var turns: int = GFVariantData.get_option_int(
+			state,
+			"turns",
+			max_turns + 1
+		)
 
 		if cell == goal and turns <= max_turns:
 			return true
@@ -97,19 +117,31 @@ static func can_connect_with_max_turns(
 				continue
 
 			var next_cell: Vector2i = cell + _ORTHOGONAL_DIRECTIONS[next_direction_index]
-			if not _can_step_connector(next_cell, goal, grid_size, is_walkable, allow_outer_border):
+			if not _can_step_connector(
+				next_cell,
+				goal,
+				grid_size,
+				is_walkable,
+				allow_outer_border
+			):
 				continue
 
 			var key: Vector3i = _make_connector_key(next_cell, next_direction_index)
-			if visited.has(key) and GFVariantData.get_option_int(visited, key, max_turns + 1) <= next_turns:
+			if visited.has(key) and GFVariantData.get_option_int(
+				visited,
+				key,
+				max_turns + 1
+			) <= next_turns:
 				continue
 
 			visited[key] = next_turns
-			queue.append({
-				"cell": next_cell,
-				"direction_index": next_direction_index,
-				"turns": next_turns,
-			})
+			queue.append(
+				{
+					"cell": next_cell,
+					"direction_index": next_direction_index,
+					"turns": next_turns,
+				}
+			)
 
 	return false
 
@@ -146,17 +178,32 @@ static func _can_step_connector(
 ## 调用有效格子谓词并转换为 bool；无效回调或转换失败时使用 fallback。
 ## [br]
 ## @api private
-static func _call_cell_predicate(predicate: Callable, cell: Vector2i, fallback: bool = false) -> bool:
+static func _call_cell_predicate(
+	predicate: Callable,
+	cell: Vector2i,
+	fallback: bool = false
+) -> bool:
 	if not predicate.is_valid():
 		return fallback
-	return GFVariantData.to_bool(predicate.call(cell), fallback)
+	return GFVariantData.to_bool(
+		predicate.call(cell),
+		fallback
+	)
 
 
 ## 读取字典中的 Vector2i 值；缺失或类型不符时返回 fallback。
 ## [br]
 ## @api private
-static func _get_dictionary_vector2i(dictionary: Dictionary, key: Variant, fallback: Vector2i) -> Vector2i:
-	var value: Variant = GFVariantData.get_option_value(dictionary, key, fallback)
+static func _get_dictionary_vector2i(
+	dictionary: Dictionary,
+	key: Variant,
+	fallback: Vector2i
+) -> Vector2i:
+	var value: Variant = GFVariantData.get_option_value(
+		dictionary,
+		key,
+		fallback
+	)
 	if value is Vector2i:
 		var cell_value: Vector2i = value
 		return cell_value
@@ -167,4 +214,8 @@ static func _get_dictionary_vector2i(dictionary: Dictionary, key: Variant, fallb
 ## [br]
 ## @api private
 static func _make_connector_key(cell: Vector2i, direction_index: int) -> Vector3i:
-	return Vector3i(cell.x, cell.y, direction_index)
+	return Vector3i(
+		cell.x,
+		cell.y,
+		direction_index
+	)

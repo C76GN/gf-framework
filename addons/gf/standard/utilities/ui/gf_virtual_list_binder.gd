@@ -40,6 +40,7 @@ enum LayoutAxis {
 	HORIZONTAL,
 }
 
+
 ## 把条目滚入视口时使用的对齐方式。
 ## [br]
 ## @api public
@@ -156,7 +157,11 @@ var layout_axis: LayoutAxis = LayoutAxis.VERTICAL:
 ## @since 11.0.0
 var max_materialized_items: int = DEFAULT_MAX_MATERIALIZED_ITEMS:
 	set(value):
-		max_materialized_items = clampi(value, 1, ABSOLUTE_MAX_MATERIALIZED_ITEMS)
+		max_materialized_items = clampi(
+			value,
+			1,
+			ABSOLUTE_MAX_MATERIALIZED_ITEMS
+		)
 
 ## parentless pool 最多保留的 Control 数量；小于 0 时按 0 处理。
 ## 同步事务内收紧预算时，会在候选提交或回滚完成后统一裁剪。
@@ -166,7 +171,11 @@ var max_materialized_items: int = DEFAULT_MAX_MATERIALIZED_ITEMS:
 ## @since 11.0.0
 var max_pooled_items: int = DEFAULT_MAX_POOLED_ITEMS:
 	set(value):
-		max_pooled_items = clampi(value, 0, ABSOLUTE_MAX_POOLED_ITEMS)
+		max_pooled_items = clampi(
+			value,
+			0,
+			ABSOLUTE_MAX_POOLED_ITEMS
+		)
 		if _is_sync_in_progress():
 			_pool_trim_requested = true
 		else:
@@ -599,9 +608,18 @@ func bind(
 	focus_target_callback: Callable = Callable()
 ) -> bool:
 	return _bind_internal(
-		owner, scroll_container, content_root, layout_model, item_factory,
-		bind_callback, unbind_callback, identity_callback, Callable(),
-		focus_model, measure_callback, focus_target_callback
+		owner,
+		scroll_container,
+		content_root,
+		layout_model,
+		item_factory,
+		bind_callback,
+		unbind_callback,
+		identity_callback,
+		Callable(),
+		focus_model,
+		measure_callback,
+		focus_target_callback
 	)
 
 
@@ -671,9 +689,18 @@ func bind_with_reuse_keys(
 	if not reuse_key_callback.is_valid():
 		return false
 	return _bind_internal(
-		owner, scroll_container, content_root, layout_model, item_factory,
-		bind_callback, unbind_callback, identity_callback, reuse_key_callback,
-		focus_model, measure_callback, focus_target_callback
+		owner,
+		scroll_container,
+		content_root,
+		layout_model,
+		item_factory,
+		bind_callback,
+		unbind_callback,
+		identity_callback,
+		reuse_key_callback,
+		focus_model,
+		measure_callback,
+		focus_target_callback
 	)
 
 
@@ -795,10 +822,7 @@ func request_measurement() -> bool:
 ## @return 索引和绑定有效、当前不在同步 callback 内，且滚动操作期间 data generation、
 ## 模型、视口、主轴与 Control 所有权快照保持有效并接受最终整数偏移时返回 true；
 ## 否则请求下一轮同步并返回 false。
-func scroll_to_item(
-	item_index: int,
-	alignment: ScrollAlignment = ScrollAlignment.NEAREST
-) -> bool:
+func scroll_to_item(item_index: int, alignment: ScrollAlignment = ScrollAlignment.NEAREST) -> bool:
 	if not is_bound() or _layout_model == null:
 		return false
 	if item_index < 0 or item_index >= _layout_model.get_item_count():
@@ -891,7 +915,11 @@ func get_debug_snapshot() -> Dictionary:
 ## [br]
 ## @return 已绑定且未进入 teardown 时返回 true。
 func is_bound() -> bool:
-	return _state in [_STATE_IDLE, _STATE_PENDING, _STATE_SYNCING]
+	return _state in [
+		_STATE_IDLE,
+		_STATE_PENDING,
+		_STATE_SYNCING,
+	]
 
 
 ## 检查是否进入不可复用终态。
@@ -911,7 +939,12 @@ func is_disposed() -> bool:
 ## [br]
 ## @since 11.0.0
 func unbind() -> void:
-	if _state in [_STATE_UNBOUND, _STATE_UNBINDING, _STATE_DISPOSING, _STATE_DISPOSED]:
+	if _state in [
+		_STATE_UNBOUND,
+		_STATE_UNBINDING,
+		_STATE_DISPOSING,
+		_STATE_DISPOSED,
+	]:
 		return
 	_unbind_requested = true
 	_lifecycle_generation += 1
@@ -956,7 +989,12 @@ func _bind_internal(
 ) -> bool:
 	if _state == _STATE_DISPOSED or _state != _STATE_UNBOUND:
 		return false
-	if not _is_valid_binding_boundary(owner, scroll_container, content_root, layout_model):
+	if not _is_valid_binding_boundary(
+		owner,
+		scroll_container,
+		content_root,
+		layout_model
+	):
 		return false
 	if (
 		not item_factory.is_valid()
@@ -991,7 +1029,12 @@ func _bind_internal(
 	_measurement_request_revision = 0
 	if auto_measure:
 		_queue_measurement_request()
-	_connect_binding_signals(owner, scroll_container, content_root, viewport)
+	_connect_binding_signals(
+		owner,
+		scroll_container,
+		content_root,
+		viewport
+	)
 	if _focus_model != null:
 		_binding_focus_initialization = true
 		var _focus_count_changed: bool = _focus_model.set_item_count(_layout_model.get_item_count())
@@ -1051,14 +1094,8 @@ func _synchronize(generation: int) -> GFVirtualListSyncResult:
 	elif reveal_index != GFVirtualListFocusModel.NO_FOCUS:
 		_clear_pending_focus_reveal()
 	planned_scroll_offset = _quantize_scroll_offset(planned_scroll_offset)
-	var viewport_range: Vector2i = layout_model.get_viewport_range(
-		planned_scroll_offset,
-		viewport_extent
-	)
-	var requested_range: Vector2i = layout_model.get_visible_range(
-		planned_scroll_offset,
-		viewport_extent
-	)
+	var viewport_range: Vector2i = layout_model.get_viewport_range(planned_scroll_offset, viewport_extent)
+	var requested_range: Vector2i = layout_model.get_visible_range(planned_scroll_offset, viewport_extent)
 	var selection: Dictionary = _select_target_indices(viewport_range, requested_range)
 	var target_indices: PackedInt32Array = _get_packed_indices(selection, "indices")
 	var truncated: bool = GFVariantData.get_option_bool(selection, "truncated")
@@ -1098,10 +1135,7 @@ func _synchronize(generation: int) -> GFVirtualListSyncResult:
 	var round_scroll_offset: float = _get_scroll_offset(scroll_container)
 	var round_viewport_extent: float = _get_viewport_extent(scroll_container)
 	var scroll_snapshot_matches: bool = round_scroll_offset == planned_scroll_offset
-	var viewport_snapshot_matches: bool = is_equal_approx(
-		round_viewport_extent,
-		viewport_extent
-	)
+	var viewport_snapshot_matches: bool = is_equal_approx(round_viewport_extent, viewport_extent)
 	if not scroll_snapshot_matches or not viewport_snapshot_matches:
 		var _requested_scroll_convergence: bool = request_sync()
 		if layout_model.get_revision() != sync_layout_revision:
@@ -1111,14 +1145,8 @@ func _synchronize(generation: int) -> GFVirtualListSyncResult:
 				sync_layout_revision,
 				sync_data_revision
 			)
-		viewport_range = layout_model.get_viewport_range(
-			round_scroll_offset,
-			round_viewport_extent
-		)
-		requested_range = layout_model.get_visible_range(
-			round_scroll_offset,
-			round_viewport_extent
-		)
+		viewport_range = layout_model.get_viewport_range(round_scroll_offset, round_viewport_extent)
+		requested_range = layout_model.get_visible_range(round_scroll_offset, round_viewport_extent)
 		selection = _select_target_indices(viewport_range, requested_range)
 		target_indices = _get_packed_indices(selection, "indices")
 		truncated = GFVariantData.get_option_bool(selection, "truncated")
@@ -1175,11 +1203,22 @@ func _synchronize(generation: int) -> GFVirtualListSyncResult:
 				sync_layout_revision,
 				sync_data_revision
 			)
-		return _make_sync_result(identity_status, viewport_range, requested_range, {
-			"truncated": truncated,
-			"error_index": GFVariantData.get_option_int(identity_plan, "error_index", -1),
-			"error": GFVariantData.get_option_string(identity_plan, "error"),
-		}, sync_layout_revision, sync_data_revision)
+		return _make_sync_result(
+			identity_status,
+			viewport_range,
+			requested_range,
+			{
+				"truncated": truncated,
+				"error_index": GFVariantData.get_option_int(
+					identity_plan,
+					"error_index",
+					-1
+				),
+				"error": GFVariantData.get_option_string(identity_plan, "error"),
+			},
+			sync_layout_revision,
+			sync_data_revision
+		)
 
 	var descriptors: Array[Dictionary] = _get_descriptor_array(identity_plan)
 	var plan: Dictionary = _stage_materialization_plan(
@@ -1198,18 +1237,26 @@ func _synchronize(generation: int) -> GFVirtualListSyncResult:
 				requested_range,
 				sync_layout_revision,
 				sync_data_revision,
-				{
-					"created_count": GFVariantData.get_option_int(plan, "created_count"),
-					"reused_count": GFVariantData.get_option_int(plan, "reused_count"),
-				}
+				{ "created_count": GFVariantData.get_option_int(plan, "created_count"), "reused_count": GFVariantData.get_option_int(plan, "reused_count"), }
 			)
-		return _make_sync_result(plan_status, viewport_range, requested_range, {
-			"truncated": truncated,
-			"created_count": GFVariantData.get_option_int(plan, "created_count"),
-			"reused_count": GFVariantData.get_option_int(plan, "reused_count"),
-			"error_index": GFVariantData.get_option_int(plan, "error_index", -1),
-			"error": GFVariantData.get_option_string(plan, "error"),
-		}, sync_layout_revision, sync_data_revision)
+		return _make_sync_result(
+			plan_status,
+			viewport_range,
+			requested_range,
+			{
+				"truncated": truncated,
+				"created_count": GFVariantData.get_option_int(plan, "created_count"),
+				"reused_count": GFVariantData.get_option_int(plan, "reused_count"),
+				"error_index": GFVariantData.get_option_int(
+					plan,
+					"error_index",
+					-1
+				),
+				"error": GFVariantData.get_option_string(plan, "error"),
+			},
+			sync_layout_revision,
+			sync_data_revision
+		)
 	var staged_records: Array[Dictionary] = _get_record_array(plan, "staged_records")
 	if not _owned_controls_are_live(staged_records):
 		dispose()
@@ -1230,11 +1277,7 @@ func _synchronize(generation: int) -> GFVirtualListSyncResult:
 		sync_data_revision
 	)
 	if generation != _lifecycle_generation or _state in [_STATE_DISPOSING, _STATE_UNBINDING]:
-		return _make_terminal_result(
-			GFVirtualListSyncResult.STATUS_DISPOSED
-			if _state == _STATE_DISPOSING
-			else GFVirtualListSyncResult.STATUS_UNBOUND
-		)
+		return _make_terminal_result((GFVirtualListSyncResult.STATUS_DISPOSED if _state == _STATE_DISPOSING else GFVirtualListSyncResult.STATUS_UNBOUND))
 	if not _owned_controls_are_live():
 		dispose()
 		return _make_terminal_result(GFVirtualListSyncResult.STATUS_DISPOSED)
@@ -1253,10 +1296,7 @@ func _synchronize(generation: int) -> GFVirtualListSyncResult:
 			and is_bound()
 			and not _sync_data_revision_is_current(sync_data_revision)
 		):
-			metrics["released_count"] = (
-				GFVariantData.get_option_int(metrics, "released_count")
-				+ _rollback_materialization_after_data_drift([], generation)
-			)
+			metrics["released_count"] = (GFVariantData.get_option_int(metrics, "released_count") + _rollback_materialization_after_data_drift([], generation))
 			if generation != _lifecycle_generation:
 				return _make_terminal_result(_get_interrupted_status())
 			return _make_deferred_sync_result(
@@ -1285,10 +1325,7 @@ func _synchronize(generation: int) -> GFVirtualListSyncResult:
 	if should_measure:
 		# Consume only the request observed by this round. A measurement callback may
 		# enqueue another request, which must remain pending for the next round.
-		if (
-			_sync_measurement_requested
-			and _measurement_request_revision == _sync_measurement_request_revision
-		):
+		if (_sync_measurement_requested and _measurement_request_revision == _sync_measurement_request_revision):
 			_measurement_requested = false
 		var measurement_metrics: Dictionary = _measure_active_controls(
 			round_scroll_offset,
@@ -1298,19 +1335,12 @@ func _synchronize(generation: int) -> GFVirtualListSyncResult:
 		metrics["measured_count"] = GFVariantData.get_option_int(measurement_metrics, "measured_count")
 		metrics["anchor_adjustment"] = GFVariantData.get_option_float(measurement_metrics, "anchor_adjustment")
 		if generation != _lifecycle_generation:
-			return _make_terminal_result(
-				GFVirtualListSyncResult.STATUS_DISPOSED
-				if _state == _STATE_DISPOSING
-				else GFVirtualListSyncResult.STATUS_UNBOUND
-			)
+			return _make_terminal_result((GFVirtualListSyncResult.STATUS_DISPOSED if _state == _STATE_DISPOSING else GFVirtualListSyncResult.STATUS_UNBOUND))
 		if not _owned_controls_are_live():
 			dispose()
 			return _make_terminal_result(GFVirtualListSyncResult.STATUS_DISPOSED)
 		if GFVariantData.get_option_bool(measurement_metrics, "deferred"):
-			metrics["released_count"] = (
-				GFVariantData.get_option_int(metrics, "released_count")
-				+ _rollback_materialization_after_data_drift([], generation)
-			)
+			metrics["released_count"] = (GFVariantData.get_option_int(metrics, "released_count") + _rollback_materialization_after_data_drift([], generation))
 			if generation != _lifecycle_generation:
 				return _make_terminal_result(_get_interrupted_status())
 			return _make_deferred_sync_result(
@@ -1323,15 +1353,9 @@ func _synchronize(generation: int) -> GFVirtualListSyncResult:
 	var data_revision_changed: bool = sync_data_revision != _last_committed_data_revision
 	var layout_revision_changed: bool = sync_layout_revision != _last_committed_layout_revision
 	if sync_focus_intent_revision == _focus_intent_revision:
-		var physical_focus_current: bool = _reconcile_pending_physical_focus(
-			generation,
-			sync_data_revision
-		)
+		var physical_focus_current: bool = _reconcile_pending_physical_focus(generation, sync_data_revision)
 		if not physical_focus_current and generation == _lifecycle_generation:
-			metrics["released_count"] = (
-				GFVariantData.get_option_int(metrics, "released_count")
-				+ _rollback_materialization_after_data_drift([], generation)
-			)
+			metrics["released_count"] = (GFVariantData.get_option_int(metrics, "released_count") + _rollback_materialization_after_data_drift([], generation))
 			if generation != _lifecycle_generation:
 				return _make_terminal_result(_get_interrupted_status())
 			return _make_deferred_sync_result(
@@ -1341,19 +1365,10 @@ func _synchronize(generation: int) -> GFVirtualListSyncResult:
 				sync_data_revision,
 				metrics
 			)
-	if (
-		generation == _lifecycle_generation
-		and sync_focus_intent_revision == _focus_intent_revision
-	):
-		var focus_handoff_current: bool = _apply_pending_focus_handoff(
-			generation,
-			sync_data_revision
-		)
+	if (generation == _lifecycle_generation and sync_focus_intent_revision == _focus_intent_revision):
+		var focus_handoff_current: bool = _apply_pending_focus_handoff(generation, sync_data_revision)
 		if not focus_handoff_current and generation == _lifecycle_generation:
-			metrics["released_count"] = (
-				GFVariantData.get_option_int(metrics, "released_count")
-				+ _rollback_materialization_after_data_drift([], generation)
-			)
+			metrics["released_count"] = (GFVariantData.get_option_int(metrics, "released_count") + _rollback_materialization_after_data_drift([], generation))
 			if generation != _lifecycle_generation:
 				return _make_terminal_result(_get_interrupted_status())
 			return _make_deferred_sync_result(
@@ -1364,19 +1379,12 @@ func _synchronize(generation: int) -> GFVirtualListSyncResult:
 				metrics
 			)
 	if generation != _lifecycle_generation:
-		return _make_terminal_result(
-			GFVirtualListSyncResult.STATUS_DISPOSED
-			if _state == _STATE_DISPOSING
-			else GFVirtualListSyncResult.STATUS_UNBOUND
-		)
+		return _make_terminal_result((GFVirtualListSyncResult.STATUS_DISPOSED if _state == _STATE_DISPOSING else GFVirtualListSyncResult.STATUS_UNBOUND))
 	if not _owned_controls_are_live():
 		dispose()
 		return _make_terminal_result(GFVirtualListSyncResult.STATUS_DISPOSED)
 	if not _sync_data_revision_is_current(sync_data_revision):
-		metrics["released_count"] = (
-			GFVariantData.get_option_int(metrics, "released_count")
-			+ _rollback_materialization_after_data_drift([], generation)
-		)
+		metrics["released_count"] = (GFVariantData.get_option_int(metrics, "released_count") + _rollback_materialization_after_data_drift([], generation))
 		if generation != _lifecycle_generation:
 			return _make_terminal_result(_get_interrupted_status())
 		return _make_deferred_sync_result(
@@ -1392,11 +1400,19 @@ func _synchronize(generation: int) -> GFVirtualListSyncResult:
 	var status: StringName = GFVirtualListSyncResult.STATUS_SYNCED
 	if GFVariantData.get_option_bool(metrics, "bind_failed"):
 		status = GFVirtualListSyncResult.STATUS_BIND_FAILED
-		metrics["error_index"] = GFVariantData.get_option_int(metrics, "bind_error_index", -1)
+		metrics["error_index"] = GFVariantData.get_option_int(
+			metrics,
+			"bind_error_index",
+			-1
+		)
 		metrics["error"] = "bind_callback rejected an item"
 	elif truncated:
 		status = GFVirtualListSyncResult.STATUS_TRUNCATED
-	elif _sync_metrics_are_unchanged(metrics, data_revision_changed, layout_revision_changed):
+	elif _sync_metrics_are_unchanged(
+		metrics,
+		data_revision_changed,
+		layout_revision_changed
+	):
 		status = GFVirtualListSyncResult.STATUS_UNCHANGED
 	metrics["truncated"] = truncated
 	return _make_sync_result(
@@ -1424,10 +1440,7 @@ func _build_identity_plan(
 		if generation != _lifecycle_generation:
 			return { "status": GFVirtualListSyncResult.STATUS_DISPOSED }
 		if not _sync_data_revision_is_current(sync_data_revision):
-			return {
-				"status": GFVirtualListSyncResult.STATUS_DEFERRED,
-				"descriptors": descriptors,
-			}
+			return { "status": GFVirtualListSyncResult.STATUS_DEFERRED, "descriptors": descriptors, }
 		var item_id: Variant = _identity_callback.call(item_index)
 		if generation != _lifecycle_generation:
 			return { "status": GFVirtualListSyncResult.STATUS_DISPOSED }
@@ -1435,10 +1448,7 @@ func _build_identity_plan(
 			dispose()
 			return { "status": GFVirtualListSyncResult.STATUS_DISPOSED }
 		if not _sync_data_revision_is_current(sync_data_revision):
-			return {
-				"status": GFVirtualListSyncResult.STATUS_DEFERRED,
-				"descriptors": descriptors,
-			}
+			return { "status": GFVirtualListSyncResult.STATUS_DEFERRED, "descriptors": descriptors, }
 		var token_report: Dictionary = _make_bounded_identity_token(item_id)
 		if not GFVariantData.get_option_bool(token_report, "ok"):
 			var token_error: String = "identity_callback returned an unstable key"
@@ -1461,21 +1471,14 @@ func _build_identity_plan(
 		seen_tokens[token] = true
 		var reuse_key: StringName = &""
 		if _uses_reuse_keys:
-			var selected_key: Variant = (
-				_reuse_key_callback.call(item_index, item_id)
-				if _reuse_key_callback.is_valid()
-				else null
-			)
+			var selected_key: Variant = (_reuse_key_callback.call(item_index, item_id) if _reuse_key_callback.is_valid() else null)
 			if generation != _lifecycle_generation:
 				return { "status": GFVirtualListSyncResult.STATUS_DISPOSED }
 			if not _owned_controls_are_live():
 				dispose()
 				return { "status": GFVirtualListSyncResult.STATUS_DISPOSED }
 			if not _sync_data_revision_is_current(sync_data_revision):
-				return {
-					"status": GFVirtualListSyncResult.STATUS_DEFERRED,
-					"descriptors": descriptors,
-				}
+				return { "status": GFVirtualListSyncResult.STATUS_DEFERRED, "descriptors": descriptors, }
 			if selected_key is StringName:
 				reuse_key = selected_key
 			if not _is_valid_reuse_key(reuse_key):
@@ -1485,16 +1488,15 @@ func _build_identity_plan(
 					"error": "reuse_key_callback must return a non-empty bounded StringName",
 					"descriptors": descriptors,
 				}
-		descriptors.append({
-			"index": item_index,
-			"identity": GFVariantData.duplicate_variant(item_id),
-			"token": token,
-			"reuse_key": reuse_key,
-		})
-	return {
-		"status": GFVirtualListSyncResult.STATUS_SYNCED,
-		"descriptors": descriptors,
-	}
+		descriptors.append(
+			{
+				"index": item_index,
+				"identity": GFVariantData.duplicate_variant(item_id),
+				"token": token,
+				"reuse_key": reuse_key,
+			}
+		)
+	return { "status": GFVirtualListSyncResult.STATUS_SYNCED, "descriptors": descriptors, }
 
 
 ## 将支持的 Variant 身份编码为受字符数和 UTF-8 字节数限制的稳定 token。
@@ -1502,7 +1504,11 @@ func _build_identity_plan(
 ## [br]
 ## @api private
 func _make_bounded_identity_token(item_id: Variant) -> Dictionary:
-	if typeof(item_id) in [TYPE_STRING, TYPE_STRING_NAME, TYPE_NODE_PATH]:
+	if typeof(item_id) in [
+		TYPE_STRING,
+		TYPE_STRING_NAME,
+		TYPE_NODE_PATH,
+	]:
 		var source_text: String = str(item_id)
 		if source_text.length() > ABSOLUTE_MAX_IDENTITY_TOKEN_LENGTH:
 			return {
@@ -1517,10 +1523,7 @@ func _make_bounded_identity_token(item_id: Variant) -> Dictionary:
 			"token": "",
 			"over_limit": false,
 		}
-	if (
-		token.length() > ABSOLUTE_MAX_IDENTITY_TOKEN_LENGTH
-		or token.to_utf8_buffer().size() > ABSOLUTE_MAX_IDENTITY_TOKEN_LENGTH
-	):
+	if (token.length() > ABSOLUTE_MAX_IDENTITY_TOKEN_LENGTH or token.to_utf8_buffer().size() > ABSOLUTE_MAX_IDENTITY_TOKEN_LENGTH):
 		return {
 			"ok": false,
 			"token": "",
@@ -1589,15 +1592,16 @@ func _stage_materialization_plan(
 		recyclable_records_by_key[reuse_key] = recyclable_records
 	for descriptor: Dictionary in descriptors:
 		var token: String = GFVariantData.get_option_string(descriptor, "token")
-		var item_index: int = GFVariantData.get_option_int(descriptor, "index", -1)
+		var item_index: int = GFVariantData.get_option_int(
+			descriptor,
+			"index",
+			-1
+		)
 		var reuse_key: StringName = GFVariantData.get_option_string_name(descriptor, "reuse_key")
 		var active_record: Dictionary = _get_active_record(token)
 		var recyclable_records: Array = GFVariantData.as_array(recyclable_records_by_key.get(reuse_key, []))
 		var record: Dictionary = {}
-		if (
-			not active_record.is_empty()
-			and _get_control_reuse_key(_get_record_control(active_record)) == reuse_key
-		):
+		if (not active_record.is_empty() and _get_control_reuse_key(_get_record_control(active_record)) == reuse_key):
 			record = _make_plan_record_from_active(active_record)
 			reused_count += 1
 		elif not recyclable_records.is_empty():
@@ -1605,7 +1609,11 @@ func _stage_materialization_plan(
 			record = _make_plan_record_from_active(GFVariantData.as_dictionary(recyclable_value))
 			reused_count += 1
 		else:
-			var acquired: Dictionary = _acquire_control(generation, staged_records, reuse_key)
+			var acquired: Dictionary = _acquire_control(
+				generation,
+				staged_records,
+				reuse_key
+			)
 			if not GFVariantData.get_option_bool(acquired, "ok"):
 				if not _sync_data_revision_is_current(sync_data_revision):
 					return {
@@ -1655,7 +1663,11 @@ func _stage_materialization_plan(
 		record["needs_rebind"] = (
 			not GFVariantData.get_option_bool(record, "bound")
 			or GFVariantData.get_option_string(record, "source_token") != token
-			or GFVariantData.get_option_int(record, "previous_index", -1) != item_index
+			or GFVariantData.get_option_int(
+				record,
+				"previous_index",
+				-1
+			) != item_index
 			or sync_data_revision != _last_committed_data_revision
 		)
 		planned_records.append(record)
@@ -1680,7 +1692,11 @@ func _make_plan_record_from_active(active_record: Dictionary) -> Dictionary:
 		"from_active": true,
 		"from_pool": false,
 		"source_token": GFVariantData.get_option_string(active_record, "token"),
-		"previous_index": GFVariantData.get_option_int(active_record, "index", -1),
+		"previous_index": GFVariantData.get_option_int(
+			active_record,
+			"index",
+			-1
+		),
 	}
 
 
@@ -1718,12 +1734,15 @@ func _commit_materialization_plan(
 			continue
 		var token: String = token_value
 		var record: Dictionary = _get_active_record(token)
-		var leaving: bool = (
-			not target_tokens.has(token)
-			or target_tokens.get(token) != _get_control_reuse_key(_get_record_control(record))
-		)
+		var leaving: bool = (not target_tokens.has(token) or target_tokens.get(token) != _get_control_reuse_key(_get_record_control(record)))
 		var needs_rebind: bool = rebind_by_source_token.has(token)
-		if (leaving or needs_rebind) and GFVariantData.get_option_bool(record, "bound"):
+		if (
+			(
+				leaving
+				or needs_rebind
+			)
+			and GFVariantData.get_option_bool(record, "bound")
+		):
 			var control: Control = _get_record_control(record)
 			var _released_commit_focus: bool = _release_control_focus_if_owned(record)
 			if generation != _lifecycle_generation:
@@ -1750,10 +1769,7 @@ func _commit_materialization_plan(
 				break
 
 	if data_drifted:
-		released_count += _rollback_materialization_after_data_drift(
-			planned_records,
-			generation
-		)
+		released_count += _rollback_materialization_after_data_drift(planned_records, generation)
 		return {
 			"created_count": GFVariantData.get_option_int(plan, "created_count"),
 			"reused_count": GFVariantData.get_option_int(plan, "reused_count"),
@@ -1773,7 +1789,11 @@ func _commit_materialization_plan(
 		if control == null:
 			dispose()
 			break
-		var item_index: int = GFVariantData.get_option_int(record, "index", -1)
+		var item_index: int = GFVariantData.get_option_int(
+			record,
+			"index",
+			-1
+		)
 		var token: String = GFVariantData.get_option_string(record, "token")
 		var needs_rebind: bool = GFVariantData.get_option_bool(record, "needs_rebind")
 		if not _ensure_control_parent(
@@ -1836,10 +1856,7 @@ func _commit_materialization_plan(
 		next_token_by_index[item_index] = token
 
 	if data_drifted:
-		released_count += _rollback_materialization_after_data_drift(
-			planned_records,
-			generation
-		)
+		released_count += _rollback_materialization_after_data_drift(planned_records, generation)
 		return {
 			"created_count": GFVariantData.get_option_int(plan, "created_count"),
 			"reused_count": GFVariantData.get_option_int(plan, "reused_count"),
@@ -1873,10 +1890,7 @@ func _commit_materialization_plan(
 		var token: String = token_value
 		var record: Dictionary = _get_active_record(token)
 		var control: Control = _get_record_control(record)
-		if (
-			control != null
-			and not next_control_ids.has(control.get_instance_id())
-		):
+		if (control != null and not next_control_ids.has(control.get_instance_id())):
 			if control in _pool:
 				continue
 			if not _release_control_to_pool(control, content_root):
@@ -1890,10 +1904,7 @@ func _commit_materialization_plan(
 				dispose()
 				break
 	if data_drifted:
-		released_count += _rollback_materialization_after_data_drift(
-			planned_records,
-			generation
-		)
+		released_count += _rollback_materialization_after_data_drift(planned_records, generation)
 		return {
 			"created_count": GFVariantData.get_option_int(plan, "created_count"),
 			"reused_count": GFVariantData.get_option_int(plan, "reused_count"),
@@ -1912,10 +1923,7 @@ func _commit_materialization_plan(
 			"bind_error_index": bind_error_index,
 		}
 	if not _sync_data_revision_is_current(sync_data_revision):
-		released_count += _rollback_materialization_after_data_drift(
-			planned_records,
-			generation
-		)
+		released_count += _rollback_materialization_after_data_drift(planned_records, generation)
 		return {
 			"created_count": GFVariantData.get_option_int(plan, "created_count"),
 			"reused_count": GFVariantData.get_option_int(plan, "reused_count"),
@@ -1975,10 +1983,7 @@ func _abort_materialization_commit(planned_records: Array[Dictionary]) -> void:
 ## generation 变化或绑定已结束时停止后续清理。
 ## [br]
 ## @api private
-func _rollback_materialization_after_data_drift(
-	planned_records: Array[Dictionary],
-	generation: int
-) -> int:
+func _rollback_materialization_after_data_drift(planned_records: Array[Dictionary], generation: int) -> int:
 	var released_count: int = 0
 	_abort_materialization_commit(planned_records)
 	if generation != _lifecycle_generation or not is_bound():
@@ -2037,14 +2042,14 @@ func _rollback_materialization_after_data_drift(
 ## 将计划内与指定 Control 相同的记录标记为已脱离内容根节点。
 ## [br]
 ## @api private
-func _mark_planned_control_parentless(
-	planned_records: Array[Dictionary],
-	control: Control
-) -> void:
+func _mark_planned_control_parentless(planned_records: Array[Dictionary], control: Control) -> void:
 	if control == null:
 		return
 	for planned_record: Dictionary in planned_records:
-		if is_same(_get_record_control(planned_record), control):
+		if is_same(
+			_get_record_control(planned_record),
+			control
+		):
 			planned_record["attached_to_content"] = false
 
 
@@ -2068,10 +2073,7 @@ func _measure_active_controls(
 		}
 	if not _sync_layout_model_is_current():
 		_queue_measurement_request()
-		return {
-			"measured_count": measured_count,
-			"anchor_adjustment": anchor_adjustment,
-		}
+		return { "measured_count": measured_count, "anchor_adjustment": anchor_adjustment, }
 	var active_indices: Array[int] = _get_active_indices()
 	var anchored_indices: Dictionary = {}
 	for item_index: int in active_indices:
@@ -2080,10 +2082,7 @@ func _measure_active_controls(
 		if geometry_extent <= 0.0:
 			dispose()
 			break
-		var item_bottom: float = (
-			GFVariantData.get_option_float(geometry, "offset")
-			+ geometry_extent
-		)
+		var item_bottom: float = GFVariantData.get_option_float(geometry, "offset") + geometry_extent
 		if item_bottom <= scroll_offset + 0.5:
 			anchored_indices[item_index] = true
 	for item_index: int in active_indices:
@@ -2121,7 +2120,11 @@ func _measure_active_controls(
 			break
 		if not is_finite(extent) or extent <= 0.0:
 			continue
-		var report: Dictionary = _sync_layout_model.set_item_extent(item_index, extent, true)
+		var report: Dictionary = _sync_layout_model.set_item_extent(
+			item_index,
+			extent,
+			true
+		)
 		var report_ok: bool = GFVariantData.get_option_bool(report, "ok")
 		if report_ok:
 			measured_count += 1
@@ -2141,10 +2144,7 @@ func _measure_active_controls(
 		var expected_revision: int = _sync_expected_layout_revision
 		if report_changed:
 			expected_revision += 1
-		if (
-			not is_same(_layout_model, _sync_layout_model)
-			or _sync_layout_model.get_revision() != expected_revision
-		):
+		if (not is_same(_layout_model, _sync_layout_model) or _sync_layout_model.get_revision() != expected_revision):
 			_queue_measurement_request()
 			break
 		_sync_expected_layout_revision = expected_revision
@@ -2155,22 +2155,13 @@ func _measure_active_controls(
 			if anchored_indices.has(item_index):
 				anchor_adjustment += GFVariantData.get_option_float(report, "delta")
 	if generation != _lifecycle_generation:
-		return {
-			"measured_count": measured_count,
-			"anchor_adjustment": 0.0,
-		}
+		return { "measured_count": measured_count, "anchor_adjustment": 0.0, }
 	_update_content_extent()
 	if generation != _lifecycle_generation:
-		return {
-			"measured_count": measured_count,
-			"anchor_adjustment": 0.0,
-		}
+		return { "measured_count": measured_count, "anchor_adjustment": 0.0, }
 	if not _owned_controls_are_live():
 		dispose()
-		return {
-			"measured_count": measured_count,
-			"anchor_adjustment": 0.0,
-		}
+		return { "measured_count": measured_count, "anchor_adjustment": 0.0, }
 	if not _sync_data_revision_is_current(sync_data_revision):
 		_queue_measurement_request()
 		return {
@@ -2179,10 +2170,7 @@ func _measure_active_controls(
 			"deferred": true,
 		}
 	if not _layout_active_controls(generation, sync_data_revision):
-		var layout_data_drifted: bool = (
-			generation == _lifecycle_generation
-			and not _sync_data_revision_is_current(sync_data_revision)
-		)
+		var layout_data_drifted: bool = (generation == _lifecycle_generation and not _sync_data_revision_is_current(sync_data_revision))
 		if layout_data_drifted:
 			_queue_measurement_request()
 		return {
@@ -2191,16 +2179,10 @@ func _measure_active_controls(
 			"deferred": layout_data_drifted,
 		}
 	if generation != _lifecycle_generation:
-		return {
-			"measured_count": measured_count,
-			"anchor_adjustment": 0.0,
-		}
+		return { "measured_count": measured_count, "anchor_adjustment": 0.0, }
 	if not _owned_controls_are_live():
 		dispose()
-		return {
-			"measured_count": measured_count,
-			"anchor_adjustment": 0.0,
-		}
+		return { "measured_count": measured_count, "anchor_adjustment": 0.0, }
 	if not _sync_data_revision_is_current(sync_data_revision):
 		_queue_measurement_request()
 		return {
@@ -2212,19 +2194,16 @@ func _measure_active_controls(
 		var scroll_container: ScrollContainer = _get_scroll_container()
 		if scroll_container != null:
 			_applying_scroll_adjustment = true
-			_set_scroll_offset(scroll_container, scroll_offset + anchor_adjustment)
+			_set_scroll_offset(
+				scroll_container,
+				scroll_offset + anchor_adjustment
+			)
 			_applying_scroll_adjustment = false
 			if generation != _lifecycle_generation:
-				return {
-					"measured_count": measured_count,
-					"anchor_adjustment": 0.0,
-				}
+				return { "measured_count": measured_count, "anchor_adjustment": 0.0, }
 			if not _owned_controls_are_live():
 				dispose()
-				return {
-					"measured_count": measured_count,
-					"anchor_adjustment": 0.0,
-				}
+				return { "measured_count": measured_count, "anchor_adjustment": 0.0, }
 			if not _sync_data_revision_is_current(sync_data_revision):
 				_queue_measurement_request()
 				return {
@@ -2232,10 +2211,7 @@ func _measure_active_controls(
 					"anchor_adjustment": anchor_adjustment,
 					"deferred": true,
 				}
-	return {
-		"measured_count": measured_count,
-		"anchor_adjustment": anchor_adjustment,
-	}
+	return { "measured_count": measured_count, "anchor_adjustment": anchor_adjustment, }
 
 
 ## 按本轮几何快照或布局模型位置尺寸写入活动行 Control。
@@ -2245,16 +2221,16 @@ func _measure_active_controls(
 func _layout_active_controls(generation: int, sync_data_revision: int) -> bool:
 	var content_root: Control = _get_content_root()
 	var scroll_container: ScrollContainer = _get_scroll_container()
-	if content_root == null or scroll_container == null or _layout_model == null:
+	if (
+		content_root == null
+		or scroll_container == null
+		or _layout_model == null
+	):
 		dispose()
 		return false
 	var effective_axis: int = _get_effective_layout_axis()
 	var effective_fill_cross_axis: bool = _get_effective_fill_cross_axis()
-	var cross_extent: float = (
-		maxf(content_root.size.y, scroll_container.size.y)
-		if effective_axis == LayoutAxis.HORIZONTAL
-		else maxf(content_root.size.x, scroll_container.size.x)
-	)
+	var cross_extent: float = (maxf(content_root.size.y, scroll_container.size.y) if effective_axis == LayoutAxis.HORIZONTAL else maxf(content_root.size.x, scroll_container.size.x))
 	for item_index: int in _get_active_indices():
 		if not _layout_write_barrier_is_current(generation, sync_data_revision):
 			return false
@@ -2299,10 +2275,7 @@ func _layout_active_controls(generation: int, sync_data_revision: int) -> bool:
 ## 确认同步代次、活动 Control 所有权和数据修订仍匹配。
 ## [br]
 ## @api private
-func _layout_write_barrier_is_current(
-	generation: int,
-	sync_data_revision: int
-) -> bool:
+func _layout_write_barrier_is_current(generation: int, sync_data_revision: int) -> bool:
 	if generation != _lifecycle_generation:
 		return false
 	if not _owned_controls_are_live():
@@ -2318,13 +2291,13 @@ func _update_content_extent() -> void:
 	var content_root: Control = _get_content_root()
 	if content_root == null or _layout_model == null:
 		return
-	var content_extent: float = (
-		_sync_content_extent
-		if _sync_context_ready
-		else _layout_model.get_content_extent()
-	)
+	var content_extent: float = (_sync_content_extent if _sync_context_ready else _layout_model.get_content_extent())
 	var next_owned_axis: int = _get_effective_layout_axis()
-	_apply_content_extent_snapshot(content_root, next_owned_axis, content_extent)
+	_apply_content_extent_snapshot(
+		content_root,
+		next_owned_axis,
+		content_extent
+	)
 
 
 ## 接管指定主轴的 custom_minimum_size；主轴改变时先恢复先前保存的基线值。
@@ -2343,11 +2316,7 @@ func _apply_content_extent_snapshot(
 			minimum_size.y = _owned_layout_axis_baseline
 		_owned_layout_axis = -1
 	if _owned_layout_axis == -1:
-		_owned_layout_axis_baseline = (
-			minimum_size.x
-			if next_owned_axis == LayoutAxis.HORIZONTAL
-			else minimum_size.y
-		)
+		_owned_layout_axis_baseline = (minimum_size.x if next_owned_axis == LayoutAxis.HORIZONTAL else minimum_size.y)
 		_owned_layout_axis = next_owned_axis
 	if next_owned_axis == LayoutAxis.HORIZONTAL:
 		minimum_size.x = content_extent
@@ -2362,21 +2331,33 @@ func _apply_content_extent_snapshot(
 ## @api private
 func _select_target_indices(viewport_range: Vector2i, requested_range: Vector2i) -> Dictionary:
 	var limit: int = maxi(_sync_max_materialized_items, 1)
-	var requested_count: int = maxi(requested_range.y - requested_range.x, 0)
+	var requested_count: int = maxi(
+		requested_range.y - requested_range.x,
+		0
+	)
 	var result: Array[int] = []
 	if requested_count <= limit:
 		for item_index: int in range(requested_range.x, requested_range.y):
 			result.append(item_index)
-		return {
-			"indices": PackedInt32Array(result),
-			"truncated": false,
-		}
+		return { "indices": PackedInt32Array(result), "truncated": false, }
 
-	for item_index: int in range(viewport_range.x, mini(viewport_range.y, viewport_range.x + limit)):
+	for item_index: int in range(
+		viewport_range.x,
+		mini(
+			viewport_range.y,
+			viewport_range.x + limit
+		)
+	):
 		result.append(item_index)
 	var before_index: int = viewport_range.x - 1
 	var after_index: int = viewport_range.y
-	while result.size() < limit and (before_index >= requested_range.x or after_index < requested_range.y):
+	while (
+		result.size() < limit
+		and (
+			before_index >= requested_range.x
+			or after_index < requested_range.y
+		)
+	):
 		if before_index >= requested_range.x and result.size() < limit:
 			result.append(before_index)
 			before_index -= 1
@@ -2384,10 +2365,7 @@ func _select_target_indices(viewport_range: Vector2i, requested_range: Vector2i)
 			result.append(after_index)
 			after_index += 1
 	result.sort()
-	return {
-		"indices": PackedInt32Array(result),
-		"truncated": true,
-	}
+	return { "indices": PackedInt32Array(result), "truncated": true, }
 
 
 ## 优先从匹配复用 key 的对象池取 Control，否则调用 factory 并登记新实例所有权。
@@ -2402,7 +2380,11 @@ func _acquire_control(
 	if not _owned_controls_are_live(staged_records):
 		dispose()
 		return { "ok": false, "error": "owned Control boundary was violated" }
-	for pool_index: int in range(_pool.size() - 1, -1, -1):
+	for pool_index: int in range(
+		_pool.size() - 1,
+		-1,
+		-1
+	):
 		var pooled: Control = _pool[pool_index]
 		if _get_control_reuse_key(pooled) != reuse_key:
 			continue
@@ -2443,7 +2425,11 @@ func _acquire_control(
 	if not (value is Control):
 		return { "ok": false, "error": "item_factory did not return Control" }
 	var control: Control = value
-	if not is_instance_valid(control) or control.is_queued_for_deletion() or control.get_parent() != null:
+	if (
+		not is_instance_valid(control)
+		or control.is_queued_for_deletion()
+		or control.get_parent() != null
+	):
 		return { "ok": false, "error": "item_factory returned an invalid or parented Control" }
 	var control_id: int = control.get_instance_id()
 	if _known_control_ids.has(control_id):
@@ -2474,7 +2460,11 @@ func _rollback_staged_records(records: Array[Dictionary]) -> void:
 ## [br]
 ## @api private
 func _release_control_to_pool(control: Control, expected_parent: Node) -> bool:
-	if control == null or not is_instance_valid(control) or control.is_queued_for_deletion():
+	if (
+		control == null
+		or not is_instance_valid(control)
+		or control.is_queued_for_deletion()
+	):
 		dispose()
 		return false
 	if _state in [_STATE_DISPOSING, _STATE_DISPOSED]:
@@ -2503,7 +2493,11 @@ func _trim_pool_to_limit() -> void:
 	if not _pool_controls_are_live():
 		dispose()
 		return
-	var limit: int = clampi(max_pooled_items, 0, ABSOLUTE_MAX_POOLED_ITEMS)
+	var limit: int = clampi(
+		max_pooled_items,
+		0,
+		ABSOLUTE_MAX_POOLED_ITEMS
+	)
 	while _pool.size() > limit:
 		var control_value: Variant = _pool.pop_back()
 		var control: Control = _get_live_control(control_value)
@@ -2561,7 +2555,11 @@ func _invoke_bind(record: Dictionary) -> bool:
 		return false
 	var result: Variant = _bind_callback.call(
 		control,
-		GFVariantData.get_option_int(record, "index", -1),
+		GFVariantData.get_option_int(
+			record,
+			"index",
+			-1
+		),
 		GFVariantData.get_option_value(record, "identity")
 	)
 	if result is bool:
@@ -2579,7 +2577,11 @@ func _invoke_unbind(record: Dictionary) -> void:
 		return
 	var _result: Variant = _unbind_callback.call(
 		control,
-		GFVariantData.get_option_int(record, "index", -1),
+		GFVariantData.get_option_int(
+			record,
+			"index",
+			-1
+		),
 		GFVariantData.get_option_value(record, "identity")
 	)
 
@@ -2594,7 +2596,11 @@ func _measure_control(record: Dictionary) -> float:
 	if _measure_callback.is_valid():
 		var value: Variant = _measure_callback.call(
 			control,
-			GFVariantData.get_option_int(record, "index", -1),
+			GFVariantData.get_option_int(
+				record,
+				"index",
+				-1
+			),
 			GFVariantData.get_option_value(record, "identity")
 		)
 		if value is float:
@@ -2605,11 +2611,7 @@ func _measure_control(record: Dictionary) -> float:
 			return float(measured_int)
 	var minimum_size: Vector2 = control.get_combined_minimum_size()
 	var effective_axis: int = _get_effective_layout_axis()
-	var extent: float = (
-		minimum_size.x
-		if effective_axis == LayoutAxis.HORIZONTAL
-		else minimum_size.y
-	)
+	var extent: float = (minimum_size.x if effective_axis == LayoutAxis.HORIZONTAL else minimum_size.y)
 	if extent <= 0.0:
 		extent = control.size.x if effective_axis == LayoutAxis.HORIZONTAL else control.size.y
 	return extent
@@ -2643,10 +2645,7 @@ func _scroll_to_item_internal(item_index: int, alignment: ScrollAlignment) -> bo
 	var operation_content_extent: float = layout_model.get_content_extent()
 	var item_start: float = layout_model.get_item_offset(item_index)
 	var item_extent: float = layout_model.get_item_extent(item_index)
-	var viewport_extent: float = _get_viewport_extent_for_axis(
-		scroll_container,
-		operation_axis
-	)
+	var viewport_extent: float = _get_viewport_extent_for_axis(scroll_container, operation_axis)
 	var scroll_offset: float = _get_scroll_offset_for_axis(scroll_container, operation_axis)
 	var next_offset: float = _calculate_scroll_offset_for_geometry(
 		item_start,
@@ -2674,7 +2673,11 @@ func _scroll_to_item_internal(item_index: int, alignment: ScrollAlignment) -> bo
 	):
 		_request_sync_after_scroll_drift()
 		return false
-	_set_scroll_offset_for_axis(scroll_container, next_offset, operation_axis)
+	_set_scroll_offset_for_axis(
+		scroll_container,
+		next_offset,
+		operation_axis
+	)
 	var operation_is_current: bool = _scroll_operation_is_current(
 		generation,
 		operation_data_revision,
@@ -2685,10 +2688,7 @@ func _scroll_to_item_internal(item_index: int, alignment: ScrollAlignment) -> bo
 		scroll_container,
 		content_root
 	)
-	operation_is_current = (
-		operation_is_current
-		and _get_scroll_offset_for_axis(scroll_container, operation_axis) == next_offset
-	)
+	operation_is_current = (operation_is_current and _get_scroll_offset_for_axis(scroll_container, operation_axis) == next_offset)
 	if not operation_is_current:
 		_request_sync_after_scroll_drift()
 	return operation_is_current
@@ -2719,8 +2719,14 @@ func _scroll_operation_is_current(
 			_get_viewport_extent_for_axis(scroll_container, operation_axis),
 			viewport_extent
 		)
-		and is_same(_get_scroll_container(), scroll_container)
-		and is_same(_get_content_root(), content_root)
+		and is_same(
+			_get_scroll_container(),
+			scroll_container
+		)
+		and is_same(
+			_get_content_root(),
+			content_root
+		)
 		and _binding_objects_are_live()
 	)
 	if not binding_is_current:
@@ -2787,18 +2793,22 @@ func _calculate_scroll_offset_for_geometry(
 				next_offset = item_start
 			elif item_end > scroll_offset + viewport_extent:
 				next_offset = item_end - viewport_extent
-	var max_offset: float = maxf(content_extent - viewport_extent, 0.0)
-	return clampf(next_offset, 0.0, max_offset)
+	var max_offset: float = maxf(
+		content_extent - viewport_extent,
+		0.0
+	)
+	return clampf(
+		next_offset,
+		0.0,
+		max_offset
+	)
 
 
 ## 同步期间若物理焦点落在与虚拟焦点不同的活动行内，则释放该行焦点。
 ## 每次焦点操作后检查生命周期、所有权和数据修订是否仍有效。
 ## [br]
 ## @api private
-func _reconcile_pending_physical_focus(
-	generation: int,
-	sync_data_revision: int
-) -> bool:
+func _reconcile_pending_physical_focus(generation: int, sync_data_revision: int) -> bool:
 	if not _sync_data_revision_is_current(sync_data_revision):
 		return false
 	if not _pending_physical_focus_reconciliation:
@@ -2808,11 +2818,7 @@ func _reconcile_pending_physical_focus(
 	var focus_owner: Control = viewport.gui_get_focus_owner() if viewport != null else null
 	if focus_owner == null:
 		return true
-	var focused_index: int = (
-		_focus_model.focused_index
-		if _focus_model != null
-		else GFVirtualListFocusModel.NO_FOCUS
-	)
+	var focused_index: int = (_focus_model.focused_index if _focus_model != null else GFVirtualListFocusModel.NO_FOCUS)
 	for item_index: int in _get_active_indices():
 		var record: Dictionary = _get_record_for_index(item_index)
 		var control: Control = _get_record_control(record)
@@ -2843,10 +2849,7 @@ func _reconcile_pending_physical_focus(
 ## 焦点目标、代次或数据快照失效时保留或清除交接状态，不继续使用过期行。
 ## [br]
 ## @api private
-func _apply_pending_focus_handoff(
-	generation: int,
-	sync_data_revision: int
-) -> bool:
+func _apply_pending_focus_handoff(generation: int, sync_data_revision: int) -> bool:
 	if not _sync_data_revision_is_current(sync_data_revision):
 		return false
 	if not _pending_focus_handoff or _focus_model == null:
@@ -2856,8 +2859,12 @@ func _apply_pending_focus_handoff(
 		_clear_pending_focus_handoff()
 		return true
 	var viewport: Viewport = _get_viewport()
-	if _pending_focus_started_with_owner and (
-		viewport == null or viewport.gui_get_focus_owner() == null
+	if (
+		_pending_focus_started_with_owner
+		and (
+			viewport == null
+			or viewport.gui_get_focus_owner() == null
+		)
 	):
 		_clear_pending_focus_handoff()
 		return true
@@ -2885,7 +2892,10 @@ func _apply_pending_focus_handoff(
 			var candidate: Control = value
 			if (
 				not candidate.is_queued_for_deletion()
-				and (candidate == control or _node_is_descendant_of(candidate, control))
+				and (
+					candidate == control
+					or _node_is_descendant_of(candidate, control)
+				)
 			):
 				focus_target = candidate
 	if not _focus_handoff_is_current(generation, handoff_index):
@@ -2919,9 +2929,15 @@ func _apply_pending_focus_handoff(
 		and (
 			(
 				focus_owner != null
-				and (focus_owner == control or _node_is_descendant_of(focus_owner, control))
+				and (
+					focus_owner == control
+					or _node_is_descendant_of(focus_owner, control)
+				)
 			)
-			or (observed_target and focus_owner == null)
+			or (
+				observed_target
+				and focus_owner == null
+			)
 		)
 	):
 		_clear_pending_focus_handoff()
@@ -2951,9 +2967,7 @@ func _arm_pending_focus_handoff(item_index: int) -> void:
 	if not _pending_focus_handoff:
 		return
 	var viewport: Viewport = _get_viewport()
-	_pending_focus_started_with_owner = (
-		viewport != null and viewport.gui_get_focus_owner() != null
-	)
+	_pending_focus_started_with_owner = (viewport != null and viewport.gui_get_focus_owner() != null)
 
 
 ## 清除待交接标记、索引和请求时的物理焦点状态。
@@ -3020,7 +3034,11 @@ func _release_control_focus_if_owned(record: Dictionary) -> bool:
 		return true
 	if (
 		_focus_model != null
-		and _focus_model.focused_index == GFVariantData.get_option_int(record, "index", -1)
+		and _focus_model.focused_index == GFVariantData.get_option_int(
+			record,
+			"index",
+			-1
+		)
 	):
 		_arm_pending_focus_handoff(_focus_model.focused_index)
 	return false
@@ -3044,7 +3062,11 @@ func _connect_binding_signals(
 	_layout_changed_callable = Callable(self, "_on_layout_changed")
 	_focus_changed_callable = Callable(self, "_on_focus_changed")
 	_viewport_focus_changed_callable = Callable(self, "_on_viewport_focus_changed")
-	var lifecycle_nodes: Array[Node] = [owner, scroll_container, content_root]
+	var lifecycle_nodes: Array[Node] = [
+		owner,
+		scroll_container,
+		content_root,
+	]
 	var connected_node_ids: Dictionary = {}
 	_binding_tree_exit_refs.clear()
 	for lifecycle_node: Node in lifecycle_nodes:
@@ -3054,16 +3076,13 @@ func _connect_binding_signals(
 		connected_node_ids[node_id] = true
 		var connect_result: Error = OK
 		if not lifecycle_node.tree_exited.is_connected(_binding_tree_exited_callable):
-			connect_result = lifecycle_node.tree_exited.connect(
-				_binding_tree_exited_callable,
-				CONNECT_ONE_SHOT
-			) as Error
+			connect_result = lifecycle_node.tree_exited.connect(_binding_tree_exited_callable, CONNECT_ONE_SHOT) as Error
 		if connect_result == OK:
 			_binding_tree_exit_refs.append(weakref(lifecycle_node))
 	var _scroll_resized_connected: Error = scroll_container.resized.connect(_scroll_resized_callable) as Error
 	var _content_resized_connected: Error = content_root.resized.connect(_content_resized_callable) as Error
-	var _vertical_connected: Error = scroll_container.get_v_scroll_bar().value_changed.connect(_vertical_scroll_callable) as Error
-	var _horizontal_connected: Error = scroll_container.get_h_scroll_bar().value_changed.connect(_horizontal_scroll_callable) as Error
+	var _vertical_connected: Error = (scroll_container.get_v_scroll_bar().value_changed.connect(_vertical_scroll_callable) as Error)
+	var _horizontal_connected: Error = (scroll_container.get_h_scroll_bar().value_changed.connect(_horizontal_scroll_callable) as Error)
 	var _layout_connected: Error = _layout_model.layout_changed.connect(_layout_changed_callable) as Error
 	if _focus_model != null:
 		var _focus_connected: Error = _focus_model.focused_index_changed.connect(_focus_changed_callable) as Error
@@ -3081,10 +3100,7 @@ func _disconnect_binding_signals() -> void:
 			continue
 		if value is Node:
 			var lifecycle_node: Node = value
-			if (
-				_binding_tree_exited_callable.is_valid()
-				and lifecycle_node.tree_exited.is_connected(_binding_tree_exited_callable)
-			):
+			if (_binding_tree_exited_callable.is_valid() and lifecycle_node.tree_exited.is_connected(_binding_tree_exited_callable)):
 				lifecycle_node.tree_exited.disconnect(_binding_tree_exited_callable)
 	_binding_tree_exit_refs.clear()
 	var scroll_container: ScrollContainer = _get_scroll_container()
@@ -3095,17 +3111,33 @@ func _disconnect_binding_signals() -> void:
 		if _vertical_scroll_callable.is_valid() and vertical_bar.value_changed.is_connected(_vertical_scroll_callable):
 			vertical_bar.value_changed.disconnect(_vertical_scroll_callable)
 		var horizontal_bar: HScrollBar = scroll_container.get_h_scroll_bar()
-		if _horizontal_scroll_callable.is_valid() and horizontal_bar.value_changed.is_connected(_horizontal_scroll_callable):
+		if (_horizontal_scroll_callable.is_valid() and horizontal_bar.value_changed.is_connected(_horizontal_scroll_callable)):
 			horizontal_bar.value_changed.disconnect(_horizontal_scroll_callable)
 	var content_root: Control = _get_content_root()
-	if content_root != null and _content_resized_callable.is_valid() and content_root.resized.is_connected(_content_resized_callable):
+	if (
+		content_root != null
+		and _content_resized_callable.is_valid()
+		and content_root.resized.is_connected(_content_resized_callable)
+	):
 		content_root.resized.disconnect(_content_resized_callable)
-	if _layout_model != null and _layout_changed_callable.is_valid() and _layout_model.layout_changed.is_connected(_layout_changed_callable):
+	if (
+		_layout_model != null
+		and _layout_changed_callable.is_valid()
+		and _layout_model.layout_changed.is_connected(_layout_changed_callable)
+	):
 		_layout_model.layout_changed.disconnect(_layout_changed_callable)
-	if _focus_model != null and _focus_changed_callable.is_valid() and _focus_model.focused_index_changed.is_connected(_focus_changed_callable):
+	if (
+		_focus_model != null
+		and _focus_changed_callable.is_valid()
+		and _focus_model.focused_index_changed.is_connected(_focus_changed_callable)
+	):
 		_focus_model.focused_index_changed.disconnect(_focus_changed_callable)
 	var viewport: Viewport = _get_viewport()
-	if viewport != null and _viewport_focus_changed_callable.is_valid() and viewport.gui_focus_changed.is_connected(_viewport_focus_changed_callable):
+	if (
+		viewport != null
+		and _viewport_focus_changed_callable.is_valid()
+		and viewport.gui_focus_changed.is_connected(_viewport_focus_changed_callable)
+	):
 		viewport.gui_focus_changed.disconnect(_viewport_focus_changed_callable)
 
 
@@ -3126,11 +3158,7 @@ func _finish_unbind() -> void:
 	_unbind_requested = false
 	_dispose_requested = false
 	_state = _STATE_DISPOSED if escalated_to_dispose else _STATE_UNBOUND
-	var terminal_status: StringName = (
-		GFVirtualListSyncResult.STATUS_DISPOSED
-		if escalated_to_dispose
-		else GFVirtualListSyncResult.STATUS_UNBOUND
-	)
+	var terminal_status: StringName = (GFVirtualListSyncResult.STATUS_DISPOSED if escalated_to_dispose else GFVirtualListSyncResult.STATUS_UNBOUND)
 	var _stored_unbind_result: GFVirtualListSyncResult = _store_result(_make_terminal_result(terminal_status))
 	_teardown_in_progress = false
 
@@ -3150,9 +3178,7 @@ func _finish_dispose() -> void:
 	_unbind_requested = false
 	_dispose_requested = false
 	_state = _STATE_DISPOSED
-	var _stored_disposed_result: GFVirtualListSyncResult = _store_result(
-		_make_terminal_result(GFVirtualListSyncResult.STATUS_DISPOSED)
-	)
+	var _stored_disposed_result: GFVirtualListSyncResult = _store_result(_make_terminal_result(GFVirtualListSyncResult.STATUS_DISPOSED))
 	_teardown_in_progress = false
 
 
@@ -3244,7 +3270,11 @@ func _schedule_deferred_sync() -> void:
 ## @api private
 func _run_deferred_sync(generation: int) -> void:
 	_deferred_sync_scheduled = false
-	if generation != _lifecycle_generation or not _pending_sync or not is_bound():
+	if (
+		generation != _lifecycle_generation
+		or not _pending_sync
+		or not is_bound()
+	):
 		return
 	var _result: GFVirtualListSyncResult = sync_now()
 
@@ -3266,23 +3296,29 @@ func _make_sync_result(
 	if resolved_layout_revision < 0:
 		resolved_layout_revision = _layout_model.get_revision() if _layout_model != null else 0
 	var resolved_data_revision: int = data_revision if data_revision >= 0 else _data_revision
-	var _configured: bool = result.configure_for_framework({
-		"status": status,
-		"layout_revision": resolved_layout_revision,
-		"data_revision": resolved_data_revision,
-		"viewport_range": viewport_range,
-		"requested_range": requested_range,
-		"materialized_indices": PackedInt32Array(_get_active_indices()),
-		"pooled_count": _pool.size(),
-		"created_count": GFVariantData.get_option_int(metrics, "created_count"),
-		"reused_count": GFVariantData.get_option_int(metrics, "reused_count"),
-		"released_count": GFVariantData.get_option_int(metrics, "released_count"),
-		"measured_count": GFVariantData.get_option_int(metrics, "measured_count"),
-		"anchor_adjustment": GFVariantData.get_option_float(metrics, "anchor_adjustment"),
-		"truncated": GFVariantData.get_option_bool(metrics, "truncated"),
-		"error_index": GFVariantData.get_option_int(metrics, "error_index", -1),
-		"error": GFVariantData.get_option_string(metrics, "error"),
-	})
+	var _configured: bool = result.configure_for_framework(
+		{
+			"status": status,
+			"layout_revision": resolved_layout_revision,
+			"data_revision": resolved_data_revision,
+			"viewport_range": viewport_range,
+			"requested_range": requested_range,
+			"materialized_indices": PackedInt32Array(_get_active_indices()),
+			"pooled_count": _pool.size(),
+			"created_count": GFVariantData.get_option_int(metrics, "created_count"),
+			"reused_count": GFVariantData.get_option_int(metrics, "reused_count"),
+			"released_count": GFVariantData.get_option_int(metrics, "released_count"),
+			"measured_count": GFVariantData.get_option_int(metrics, "measured_count"),
+			"anchor_adjustment": GFVariantData.get_option_float(metrics, "anchor_adjustment"),
+			"truncated": GFVariantData.get_option_bool(metrics, "truncated"),
+			"error_index": GFVariantData.get_option_int(
+				metrics,
+				"error_index",
+				-1
+			),
+			"error": GFVariantData.get_option_string(metrics, "error"),
+		}
+	)
 	return result
 
 
@@ -3290,7 +3326,11 @@ func _make_sync_result(
 ## [br]
 ## @api private
 func _make_terminal_result(status: StringName) -> GFVirtualListSyncResult:
-	return _make_sync_result(status, Vector2i.ZERO, Vector2i.ZERO)
+	return _make_sync_result(
+		status,
+		Vector2i.ZERO,
+		Vector2i.ZERO
+	)
 
 
 ## 活动绑定未进入 teardown 时排队下一轮，并生成保留当前截断标记的 deferred 结果。
@@ -3320,9 +3360,7 @@ func _make_deferred_sync_result(
 ## 复制已有结果字典并替换池数量；源结果为空时创建当前中断状态结果。
 ## [br]
 ## @api private
-func _copy_result_with_current_pool_count(
-	source: GFVirtualListSyncResult
-) -> GFVirtualListSyncResult:
+func _copy_result_with_current_pool_count(source: GFVirtualListSyncResult) -> GFVirtualListSyncResult:
 	if source == null:
 		return _make_terminal_result(_get_interrupted_status())
 	var snapshot: Dictionary = source.to_dict()
@@ -3458,7 +3496,11 @@ func _get_record_array(data: Dictionary, key: String) -> Array[Dictionary]:
 ## [br]
 ## @api private
 func _get_packed_indices(data: Dictionary, key: String) -> PackedInt32Array:
-	var value: Variant = GFVariantData.get_option_value(data, key, PackedInt32Array())
+	var value: Variant = GFVariantData.get_option_value(
+		data,
+		key,
+		PackedInt32Array()
+	)
 	if value is PackedInt32Array:
 		var indices: PackedInt32Array = value
 		return indices
@@ -3516,16 +3558,10 @@ func _get_sync_item_geometry(item_index: int) -> Dictionary:
 ## 清空并保存目标索引对应的布局偏移和长度快照。
 ## [br]
 ## @api private
-func _snapshot_sync_item_geometries(
-	layout_model: GFVirtualListModel,
-	target_indices: PackedInt32Array
-) -> void:
+func _snapshot_sync_item_geometries(layout_model: GFVirtualListModel, target_indices: PackedInt32Array) -> void:
 	_sync_item_geometries.clear()
 	for item_index: int in target_indices:
-		_sync_item_geometries[item_index] = {
-			"offset": layout_model.get_item_offset(item_index),
-			"extent": layout_model.get_item_extent(item_index),
-		}
+		_sync_item_geometries[item_index] = { "offset": layout_model.get_item_offset(item_index), "extent": layout_model.get_item_extent(item_index), }
 
 
 ## 将测量结果写入本轮几何快照，并平移后续条目偏移及内容总长度。
@@ -3538,7 +3574,11 @@ func _apply_sync_measurement_report(item_index: int, report: Dictionary) -> void
 		dispose()
 		return
 	var delta: float = GFVariantData.get_option_float(report, "delta")
-	geometry["extent"] = GFVariantData.get_option_float(report, "extent", previous_extent)
+	geometry["extent"] = GFVariantData.get_option_float(
+		report,
+		"extent",
+		previous_extent
+	)
 	_sync_item_geometries[item_index] = geometry
 	if not is_zero_approx(delta):
 		for key: Variant in _sync_item_geometries.keys():
@@ -3546,12 +3586,12 @@ func _apply_sync_measurement_report(item_index: int, report: Dictionary) -> void
 				var geometry_index: int = key
 				if geometry_index > item_index:
 					var shifted_geometry: Dictionary = _get_sync_item_geometry(geometry_index)
-					shifted_geometry["offset"] = (
-						GFVariantData.get_option_float(shifted_geometry, "offset")
-						+ delta
-					)
+					shifted_geometry["offset"] = (GFVariantData.get_option_float(shifted_geometry, "offset") + delta)
 					_sync_item_geometries[geometry_index] = shifted_geometry
-		_sync_content_extent = maxf(_sync_content_extent + delta, 0.0)
+		_sync_content_extent = maxf(
+			_sync_content_extent + delta,
+			0.0
+		)
 
 
 ## 重置同步轮冻结配置、模型版本、几何快照和上下文就绪标记。
@@ -3576,7 +3616,10 @@ func _clear_sync_context() -> void:
 ## [br]
 ## @api private
 func _get_scroll_offset(scroll_container: ScrollContainer) -> float:
-	return _get_scroll_offset_for_axis(scroll_container, _get_effective_layout_axis())
+	return _get_scroll_offset_for_axis(
+		scroll_container,
+		_get_effective_layout_axis()
+	)
 
 
 ## 读取指定主轴上的水平或垂直滚动偏移。
@@ -3592,7 +3635,11 @@ func _get_scroll_offset_for_axis(scroll_container: ScrollContainer, axis: int) -
 ## [br]
 ## @api private
 func _set_scroll_offset(scroll_container: ScrollContainer, value: float) -> void:
-	_set_scroll_offset_for_axis(scroll_container, value, _get_effective_layout_axis())
+	_set_scroll_offset_for_axis(
+		scroll_container,
+		value,
+		_get_effective_layout_axis()
+	)
 
 
 ## 将非负四舍五入后的偏移写入指定水平或垂直滚动属性。
@@ -3614,32 +3661,35 @@ func _set_scroll_offset_for_axis(
 ## [br]
 ## @api private
 func _quantize_scroll_offset(value: float) -> float:
-	return float(maxi(roundi(value), 0))
+	return float(
+		maxi(
+			roundi(value),
+			0
+		)
+	)
 
 
 ## 按当前有效主轴取得滚动视口长度。
 ## [br]
 ## @api private
 func _get_viewport_extent(scroll_container: ScrollContainer) -> float:
-	return _get_viewport_extent_for_axis(scroll_container, _get_effective_layout_axis())
+	return _get_viewport_extent_for_axis(
+		scroll_container,
+		_get_effective_layout_axis()
+	)
 
 
 ## 使用有效 scrollbar.page 限制容器长度；无效 page 时回退到非负容器尺寸。
 ## [br]
 ## @api private
 func _get_viewport_extent_for_axis(scroll_container: ScrollContainer, axis: int) -> float:
-	var container_extent: float = (
-		scroll_container.size.x
-		if axis == LayoutAxis.HORIZONTAL
-		else scroll_container.size.y
-	)
-	var scroll_page: float = (
-		scroll_container.get_h_scroll_bar().page
-		if axis == LayoutAxis.HORIZONTAL
-		else scroll_container.get_v_scroll_bar().page
-	)
+	var container_extent: float = (scroll_container.size.x if axis == LayoutAxis.HORIZONTAL else scroll_container.size.y)
+	var scroll_page: float = (scroll_container.get_h_scroll_bar().page if axis == LayoutAxis.HORIZONTAL else scroll_container.get_v_scroll_bar().page)
 	if is_finite(scroll_page) and scroll_page > 0.0:
-		return minf(scroll_page, maxf(container_extent, 0.0))
+		return minf(
+			scroll_page,
+			maxf(container_extent, 0.0)
+		)
 	return maxf(container_extent, 0.0)
 
 
@@ -3704,7 +3754,11 @@ func _owned_controls_are_live(additional_parentless_records: Array[Dictionary] =
 		if not (record_value is Dictionary):
 			return false
 		var record: Dictionary = record_value
-		var item_index: int = GFVariantData.get_option_int(record, "index", -1)
+		var item_index: int = GFVariantData.get_option_int(
+			record,
+			"index",
+			-1
+		)
 		if (
 			item_index < 0
 			or GFVariantData.get_option_string(record, "token") != token
@@ -3713,7 +3767,11 @@ func _owned_controls_are_live(additional_parentless_records: Array[Dictionary] =
 		):
 			return false
 		var control: Control = _get_record_control(record)
-		if not _register_owned_control(control, content_root, observed_control_ids):
+		if not _register_owned_control(
+			control,
+			content_root,
+			observed_control_ids
+		):
 			return false
 	for index_value: Variant in _token_by_index.keys():
 		if not (index_value is int):
@@ -3727,15 +3785,27 @@ func _owned_controls_are_live(additional_parentless_records: Array[Dictionary] =
 		if not (record_value is Dictionary):
 			return false
 		var record: Dictionary = record_value
-		if GFVariantData.get_option_int(record, "index", -1) != item_index:
+		if GFVariantData.get_option_int(
+			record,
+			"index",
+			-1
+		) != item_index:
 			return false
 	for control_value: Variant in _pool:
 		var control: Control = _get_live_control(control_value)
-		if not _register_owned_control(control, null, observed_control_ids):
+		if not _register_owned_control(
+			control,
+			null,
+			observed_control_ids
+		):
 			return false
 	for record: Dictionary in additional_parentless_records:
 		var control: Control = _get_record_control(record)
-		if not _register_owned_control(control, null, observed_control_ids):
+		if not _register_owned_control(
+			control,
+			null,
+			observed_control_ids
+		):
 			return false
 	if observed_control_ids.size() != _known_control_ids.size():
 		return false
@@ -3763,7 +3833,11 @@ func _transaction_owned_controls_are_live(planned_records: Array[Dictionary]) ->
 		if not (record_value is Dictionary):
 			return false
 		var record: Dictionary = record_value
-		var item_index: int = GFVariantData.get_option_int(record, "index", -1)
+		var item_index: int = GFVariantData.get_option_int(
+			record,
+			"index",
+			-1
+		)
 		if (
 			item_index < 0
 			or GFVariantData.get_option_string(record, "token") != token
@@ -3785,7 +3859,11 @@ func _transaction_owned_controls_are_live(planned_records: Array[Dictionary]) ->
 		if not (record_value is Dictionary):
 			return false
 		var record: Dictionary = record_value
-		if GFVariantData.get_option_int(record, "index", -1) != item_index:
+		if GFVariantData.get_option_int(
+			record,
+			"index",
+			-1
+		) != item_index:
 			return false
 
 	var expected_parents: Dictionary = {}
@@ -3798,11 +3876,7 @@ func _transaction_owned_controls_are_live(planned_records: Array[Dictionary]) ->
 		if planned_control_ids.has(control_id):
 			return false
 		planned_control_ids[control_id] = true
-		expected_parents[control_id] = (
-			content_root
-			if GFVariantData.get_option_bool(record, "attached_to_content")
-			else null
-		)
+		expected_parents[control_id] = (content_root if GFVariantData.get_option_bool(record, "attached_to_content") else null)
 
 	var pooled_control_ids: Dictionary = {}
 	for control_value: Variant in _pool:
@@ -3843,13 +3917,20 @@ func _transaction_owned_controls_are_live(planned_records: Array[Dictionary]) ->
 ## [br]
 ## @api private
 func _register_transaction_control(control: Control, controls_by_id: Dictionary) -> bool:
-	if control == null or not is_instance_valid(control) or control.is_queued_for_deletion():
+	if (
+		control == null
+		or not is_instance_valid(control)
+		or control.is_queued_for_deletion()
+	):
 		return false
 	var control_id: int = control.get_instance_id()
 	if not _known_control_ids.has(control_id):
 		return false
 	if controls_by_id.has(control_id):
-		return is_same(controls_by_id.get(control_id), control)
+		return is_same(
+			controls_by_id.get(control_id),
+			control
+		)
 	controls_by_id[control_id] = control
 	return true
 
@@ -3861,7 +3942,11 @@ func _pool_controls_are_live() -> bool:
 	var observed_control_ids: Dictionary = {}
 	for control_value: Variant in _pool:
 		var control: Control = _get_live_control(control_value)
-		if not _register_owned_control(control, null, observed_control_ids):
+		if not _register_owned_control(
+			control,
+			null,
+			observed_control_ids
+		):
 			return false
 	return true
 
@@ -4028,10 +4113,7 @@ func _on_focus_changed(previous_index: int, focused_index: int) -> void:
 		return
 	_focus_intent_revision += 1
 	if _sync_in_progress:
-		_pending_physical_focus_reconciliation = (
-			_pending_physical_focus_reconciliation
-			or previous_index != GFVirtualListFocusModel.NO_FOCUS
-		)
+		_pending_physical_focus_reconciliation = (_pending_physical_focus_reconciliation or previous_index != GFVirtualListFocusModel.NO_FOCUS)
 		if focused_index == GFVirtualListFocusModel.NO_FOCUS:
 			_clear_pending_focus_handoff()
 			_clear_pending_focus_reveal()
@@ -4044,9 +4126,7 @@ func _on_focus_changed(previous_index: int, focused_index: int) -> void:
 	var focus_model: GFVirtualListFocusModel = _focus_model
 	var project_focus_replaced_release: bool = false
 	if previous_index != GFVirtualListFocusModel.NO_FOCUS:
-		project_focus_replaced_release = _release_control_focus_if_owned(
-			_get_record_for_index(previous_index)
-		)
+		project_focus_replaced_release = _release_control_focus_if_owned(_get_record_for_index(previous_index))
 	if (
 		generation != _lifecycle_generation
 		or not is_bound()
@@ -4064,10 +4144,7 @@ func _on_focus_changed(previous_index: int, focused_index: int) -> void:
 		_clear_pending_focus_handoff()
 		_arm_pending_focus_reveal(focused_index)
 		if _pending_focus_reveal_index != GFVirtualListFocusModel.NO_FOCUS:
-			var _revealed_after_project_focus: bool = _scroll_to_item_internal(
-				focused_index,
-				ScrollAlignment.NEAREST
-			)
+			var _revealed_after_project_focus: bool = _scroll_to_item_internal(focused_index, ScrollAlignment.NEAREST)
 		var _requested_after_project_focus: bool = request_sync()
 		return
 	_arm_pending_focus_handoff(focused_index)
@@ -4088,7 +4165,10 @@ func _on_viewport_focus_changed(control: Control) -> void:
 		var handoff_control: Control = _get_record_control(handoff_record)
 		if (
 			handoff_control != null
-			and (control == handoff_control or _node_is_descendant_of(control, handoff_control))
+			and (
+				control == handoff_control
+				or _node_is_descendant_of(control, handoff_control)
+			)
 		):
 			_focus_handoff_observed_target = true
 			return
@@ -4101,7 +4181,10 @@ func _on_viewport_focus_changed(control: Control) -> void:
 	var pending_control: Control = _get_record_control(pending_record)
 	if (
 		pending_control != null
-		and (control == pending_control or _node_is_descendant_of(control, pending_control))
+		and (
+			control == pending_control
+			or _node_is_descendant_of(control, pending_control)
+		)
 	):
 		return
 	_clear_pending_focus_handoff()

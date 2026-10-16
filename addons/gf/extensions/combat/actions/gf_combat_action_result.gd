@@ -157,4 +157,7 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @schema return: JSON-safe Dictionary based on to_dict().
 func to_report_dictionary(options: Dictionary = {}) -> Dictionary:
-	return GFReportValueCodec.to_report_dictionary(to_dict(), options)
+	return GFReportValueCodec.to_report_dictionary(
+		to_dict(),
+		options
+	)

@@ -85,7 +85,11 @@ func _init() -> void:
 
 	_target_label = Label.new()
 	_target_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART as TextServer.AutowrapMode
-	_target_label.modulate = Color(0.75, 0.75, 0.75)
+	_target_label.modulate = Color(
+		0.75,
+		0.75,
+		0.75
+	)
 	_root.add_child(_target_label)
 
 	var toolbar: HBoxContainer = HBoxContainer.new()
@@ -122,7 +126,11 @@ func _init() -> void:
 
 	_empty_label = Label.new()
 	_empty_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART as TextServer.AutowrapMode
-	_empty_label.modulate = Color(0.75, 0.75, 0.75)
+	_empty_label.modulate = Color(
+		0.75,
+		0.75,
+		0.75
+	)
 	_root.add_child(_empty_label)
 
 
@@ -197,7 +205,11 @@ static func _is_selectable_property(property_info: Dictionary) -> bool:
 	if (usage & _PROPERTY_USAGE_READ_ONLY) != 0:
 		return false
 
-	var property_type: int = GFVariantData.get_option_int(property_info, "type", TYPE_NIL)
+	var property_type: int = GFVariantData.get_option_int(
+		property_info,
+		"type",
+		TYPE_NIL
+	)
 	return property_type != TYPE_NIL
 
 
@@ -256,13 +268,25 @@ func _rebuild_property_list() -> void:
 	for property_name: String in _available_properties:
 		if not _passes_filter(property_name, filter):
 			continue
-		_list.add_child(_make_property_checkbox(property_name, true, selected_lookup.has(property_name)))
+		_list.add_child(
+			_make_property_checkbox(
+				property_name,
+				true,
+				selected_lookup.has(property_name)
+			)
+		)
 		rendered_count += 1
 
 	for property_name: String in _current_properties:
 		if available_lookup.has(property_name) or not _passes_filter(property_name, filter):
 			continue
-		_list.add_child(_make_property_checkbox(property_name, false, true))
+		_list.add_child(
+			_make_property_checkbox(
+				property_name,
+				false,
+				true
+			)
+		)
 		rendered_count += 1
 
 	_empty_label.visible = rendered_count == 0
@@ -285,14 +309,22 @@ func _clear_list() -> void:
 ## [br]
 ## @api private
 ## [br]
-func _make_property_checkbox(property_name: String, available: bool, should_select: bool) -> CheckBox:
+func _make_property_checkbox(
+	property_name: String,
+	available: bool,
+	should_select: bool
+) -> CheckBox:
 	var checkbox: CheckBox = CheckBox.new()
 	checkbox.text = property_name if available else "%s（未找到）" % property_name
 	checkbox.tooltip_text = "保存并恢复目标节点属性：%s" % property_name if available else "该属性当前不在目标节点上。"
 	checkbox.button_pressed = should_select
 	checkbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if not available:
-		checkbox.modulate = Color(1.0, 0.78, 0.35)
+		checkbox.modulate = Color(
+			1.0,
+			0.78,
+			0.35
+		)
 	var _checkbox_connected: int = checkbox.toggled.connect(_on_property_toggled.bind(property_name))
 	return checkbox
 

@@ -19,17 +19,17 @@
 | 属性 | [`enabled`](#member-gfnodestatebehavior-properties-enabled) | `var enabled: bool = true` |
 | 属性 | [`metadata`](#member-gfnodestatebehavior-properties-metadata) | `var metadata: Dictionary = {}` |
 | 方法 | [`initialize`](#member-gfnodestatebehavior-methods-initialize) | `func initialize(state: GFNodeState) -> void:` |
-| 方法 | [`enter`](#member-gfnodestatebehavior-methods-enter) | `func enter(state: GFNodeState, previous_state: StringName = &"", args: Dictionary = {}) -> void:` |
-| 方法 | [`exit`](#member-gfnodestatebehavior-methods-exit) | `func exit(state: GFNodeState, next_state: StringName = &"", args: Dictionary = {}) -> void:` |
-| 方法 | [`pause`](#member-gfnodestatebehavior-methods-pause) | `func pause(state: GFNodeState, next_state: StringName = &"", args: Dictionary = {}) -> void:` |
-| 方法 | [`resume`](#member-gfnodestatebehavior-methods-resume) | `func resume(state: GFNodeState, previous_state: StringName = &"", args: Dictionary = {}) -> void:` |
-| 方法 | [`handle_state_event`](#member-gfnodestatebehavior-methods-handle_state_event) | `func handle_state_event(state: GFNodeState, event_id: StringName, payload: Variant = null) -> bool:` |
+| 方法 | [`enter`](#member-gfnodestatebehavior-methods-enter) | `func enter( state: GFNodeState, previous_state: StringName = &"", args: Dictionary = {} ) -> void:` |
+| 方法 | [`exit`](#member-gfnodestatebehavior-methods-exit) | `func exit( state: GFNodeState, next_state: StringName = &"", args: Dictionary = {} ) -> void:` |
+| 方法 | [`pause`](#member-gfnodestatebehavior-methods-pause) | `func pause( state: GFNodeState, next_state: StringName = &"", args: Dictionary = {} ) -> void:` |
+| 方法 | [`resume`](#member-gfnodestatebehavior-methods-resume) | `func resume( state: GFNodeState, previous_state: StringName = &"", args: Dictionary = {} ) -> void:` |
+| 方法 | [`handle_state_event`](#member-gfnodestatebehavior-methods-handle_state_event) | `func handle_state_event( state: GFNodeState, event_id: StringName, payload: Variant = null ) -> bool:` |
 | 方法 | [`_initialize`](#member-gfnodestatebehavior-methods-_initialize) | `func _initialize(_state: GFNodeState) -> void:` |
-| 方法 | [`_enter`](#member-gfnodestatebehavior-methods-_enter) | `func _enter(_state: GFNodeState, _previous_state: StringName = &"", _args: Dictionary = {}) -> void:` |
-| 方法 | [`_exit`](#member-gfnodestatebehavior-methods-_exit) | `func _exit(_state: GFNodeState, _next_state: StringName = &"", _args: Dictionary = {}) -> void:` |
-| 方法 | [`_pause`](#member-gfnodestatebehavior-methods-_pause) | `func _pause(_state: GFNodeState, _next_state: StringName = &"", _args: Dictionary = {}) -> void:` |
-| 方法 | [`_resume`](#member-gfnodestatebehavior-methods-_resume) | `func _resume(_state: GFNodeState, _previous_state: StringName = &"", _args: Dictionary = {}) -> void:` |
-| 方法 | [`_handle_state_event`](#member-gfnodestatebehavior-methods-_handle_state_event) | `func _handle_state_event(_state: GFNodeState, _event_id: StringName, _payload: Variant = null) -> bool:` |
+| 方法 | [`_enter`](#member-gfnodestatebehavior-methods-_enter) | `func _enter( _state: GFNodeState, _previous_state: StringName = &"", _args: Dictionary = {} ) -> void:` |
+| 方法 | [`_exit`](#member-gfnodestatebehavior-methods-_exit) | `func _exit( _state: GFNodeState, _next_state: StringName = &"", _args: Dictionary = {} ) -> void:` |
+| 方法 | [`_pause`](#member-gfnodestatebehavior-methods-_pause) | `func _pause( _state: GFNodeState, _next_state: StringName = &"", _args: Dictionary = {} ) -> void:` |
+| 方法 | [`_resume`](#member-gfnodestatebehavior-methods-_resume) | `func _resume( _state: GFNodeState, _previous_state: StringName = &"", _args: Dictionary = {} ) -> void:` |
+| 方法 | [`_handle_state_event`](#member-gfnodestatebehavior-methods-_handle_state_event) | `func _handle_state_event( _state: GFNodeState, _event_id: StringName, _payload: Variant = null ) -> bool:` |
 
 ## 属性
 
@@ -98,9 +98,10 @@ func initialize(state: GFNodeState) -> void:
 ### `enter`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func enter(state: GFNodeState, previous_state: StringName = &"", args: Dictionary = {}) -> void:
+func enter( state: GFNodeState, previous_state: StringName = &"", args: Dictionary = {} ) -> void:
 ```
 
 状态进入后调用。
@@ -122,9 +123,10 @@ func enter(state: GFNodeState, previous_state: StringName = &"", args: Dictionar
 ### `exit`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func exit(state: GFNodeState, next_state: StringName = &"", args: Dictionary = {}) -> void:
+func exit( state: GFNodeState, next_state: StringName = &"", args: Dictionary = {} ) -> void:
 ```
 
 状态退出前调用。
@@ -146,9 +148,10 @@ func exit(state: GFNodeState, next_state: StringName = &"", args: Dictionary = {
 ### `pause`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func pause(state: GFNodeState, next_state: StringName = &"", args: Dictionary = {}) -> void:
+func pause( state: GFNodeState, next_state: StringName = &"", args: Dictionary = {} ) -> void:
 ```
 
 状态被栈式子状态覆盖时调用。
@@ -170,9 +173,10 @@ func pause(state: GFNodeState, next_state: StringName = &"", args: Dictionary = 
 ### `resume`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func resume(state: GFNodeState, previous_state: StringName = &"", args: Dictionary = {}) -> void:
+func resume( state: GFNodeState, previous_state: StringName = &"", args: Dictionary = {} ) -> void:
 ```
 
 状态从栈式子状态恢复后调用。
@@ -194,9 +198,10 @@ func resume(state: GFNodeState, previous_state: StringName = &"", args: Dictiona
 ### `handle_state_event`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func handle_state_event(state: GFNodeState, event_id: StringName, payload: Variant = null) -> bool:
+func handle_state_event( state: GFNodeState, event_id: StringName, payload: Variant = null ) -> bool:
 ```
 
 处理状态事件。
@@ -238,9 +243,10 @@ func _initialize(_state: GFNodeState) -> void:
 ### `_enter`
 
 - API：`protected`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func _enter(_state: GFNodeState, _previous_state: StringName = &"", _args: Dictionary = {}) -> void:
+func _enter( _state: GFNodeState, _previous_state: StringName = &"", _args: Dictionary = {} ) -> void:
 ```
 
 状态进入行为扩展点。
@@ -262,9 +268,10 @@ func _enter(_state: GFNodeState, _previous_state: StringName = &"", _args: Dicti
 ### `_exit`
 
 - API：`protected`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func _exit(_state: GFNodeState, _next_state: StringName = &"", _args: Dictionary = {}) -> void:
+func _exit( _state: GFNodeState, _next_state: StringName = &"", _args: Dictionary = {} ) -> void:
 ```
 
 状态退出行为扩展点。
@@ -286,9 +293,10 @@ func _exit(_state: GFNodeState, _next_state: StringName = &"", _args: Dictionary
 ### `_pause`
 
 - API：`protected`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func _pause(_state: GFNodeState, _next_state: StringName = &"", _args: Dictionary = {}) -> void:
+func _pause( _state: GFNodeState, _next_state: StringName = &"", _args: Dictionary = {} ) -> void:
 ```
 
 状态暂停行为扩展点。
@@ -310,9 +318,10 @@ func _pause(_state: GFNodeState, _next_state: StringName = &"", _args: Dictionar
 ### `_resume`
 
 - API：`protected`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func _resume(_state: GFNodeState, _previous_state: StringName = &"", _args: Dictionary = {}) -> void:
+func _resume( _state: GFNodeState, _previous_state: StringName = &"", _args: Dictionary = {} ) -> void:
 ```
 
 状态恢复行为扩展点。
@@ -334,9 +343,10 @@ func _resume(_state: GFNodeState, _previous_state: StringName = &"", _args: Dict
 ### `_handle_state_event`
 
 - API：`protected`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func _handle_state_event(_state: GFNodeState, _event_id: StringName, _payload: Variant = null) -> bool:
+func _handle_state_event( _state: GFNodeState, _event_id: StringName, _payload: Variant = null ) -> bool:
 ```
 
 状态事件行为扩展点。

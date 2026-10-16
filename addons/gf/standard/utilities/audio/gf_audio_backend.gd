@@ -71,6 +71,8 @@ func has_capability(capability_id: StringName) -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param _path: 音频资源路径或后端事件路径。
 ## [br]
 ## @param _channel: 通道标识，如 bgm、sfx、ambient。
@@ -80,13 +82,19 @@ func has_capability(capability_id: StringName) -> bool:
 ## @schema _context: 请求上下文 Dictionary；键和值由 GFAudioUtility 或具体后端约定。
 ## [br]
 ## @return: 可处理时返回 true。
-func can_handle_path(_path: String, _channel: StringName, _context: Dictionary = {}) -> bool:
+func can_handle_path(
+	_path: String,
+	_channel: StringName,
+	_context: Dictionary = {}
+) -> bool:
 	return false
 
 
 ## 判断后端是否可处理指定音频片段。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param _clip: 音频片段配置。
 ## [br]
@@ -97,7 +105,11 @@ func can_handle_path(_path: String, _channel: StringName, _context: Dictionary =
 ## @schema _context: 请求上下文 Dictionary；键和值由 GFAudioUtility 或具体后端约定。
 ## [br]
 ## @return: 可处理时返回 true。
-func can_handle_clip(_clip: GFAudioClip, _channel: StringName, _context: Dictionary = {}) -> bool:
+func can_handle_clip(
+	_clip: GFAudioClip,
+	_channel: StringName,
+	_context: Dictionary = {}
+) -> bool:
 	return false
 
 
@@ -126,10 +138,7 @@ func evaluate_playback_region(
 	_region: GFAudioPlaybackRegion,
 	_context: Dictionary = {}
 ) -> GFAudioPlaybackRegionResult:
-	return GFAudioPlaybackRegionResult.unsupported(
-		&"backend_not_supported",
-		"Audio backend does not implement the playback region contract."
-	)
+	return GFAudioPlaybackRegionResult.unsupported(&"backend_not_supported", "Audio backend does not implement the playback region contract.")
 
 
 ## 播放 BGM 路径。
@@ -246,6 +255,8 @@ func is_bgm_paused() -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param _path: 音频资源路径或后端事件路径。
 ## [br]
 ## @param _channel: 环境音通道。
@@ -255,7 +266,11 @@ func is_bgm_paused() -> bool:
 ## @schema _options: 请求选项 Dictionary；常见字段包含 volume_db、pitch_scale、fade_seconds 和 metadata。
 ## [br]
 ## @return: 已处理返回 true。
-func play_ambient_path(_path: String, _channel: StringName = &"default", _options: Dictionary = {}) -> bool:
+func play_ambient_path(
+	_path: String,
+	_channel: StringName = &"default",
+	_options: Dictionary = {}
+) -> bool:
 	return false
 
 
@@ -274,7 +289,11 @@ func play_ambient_path(_path: String, _channel: StringName = &"default", _option
 ## @schema _options: 请求选项 Dictionary；常见字段包含 volume_db、pitch_scale、fade_seconds、playback_region 和 metadata。
 ## [br]
 ## @return: 已处理返回 true。
-func play_ambient_clip(_clip: GFAudioClip, _channel: StringName = &"default", _options: Dictionary = {}) -> bool:
+func play_ambient_clip(
+	_clip: GFAudioClip,
+	_channel: StringName = &"default",
+	_options: Dictionary = {}
+) -> bool:
 	return false
 
 
@@ -464,6 +483,8 @@ func set_bus_volume(_bus_name: String, _volume_linear: float) -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.21.0
+## [br]
 ## @param _bus_name: 总线名或后端通道名。
 ## [br]
 ## @param _volume_db: dB 音量。
@@ -471,7 +492,11 @@ func set_bus_volume(_bus_name: String, _volume_linear: float) -> bool:
 ## @param _transition_seconds: 平滑过渡秒数。
 ## [br]
 ## @return: 已处理返回 true。
-func set_bus_volume_db(_bus_name: String, _volume_db: float, _transition_seconds: float = 0.0) -> bool:
+func set_bus_volume_db(
+	_bus_name: String,
+	_volume_db: float,
+	_transition_seconds: float = 0.0
+) -> bool:
 	return false
 
 

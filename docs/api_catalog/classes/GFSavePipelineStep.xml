@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSavePipelineStep" path="addons/gf/extensions/save/pipeline/gf_save_pipeline_step.gd" module="extensions/save" extends="Resource" classDigest="e825d579e69c6c199f2ed03eefca92fd490a56d6ba007b52d7dcf3b11f2d9a6f">
+<class name="GFSavePipelineStep" path="addons/gf/extensions/save/pipeline/gf_save_pipeline_step.gd" module="extensions/save" extends="Resource" classDigest="13c90d4cfb62bd9751303d58679cfecd0c9f4e46e82c8cdf684b39840d0b4775">
 	<description>GFSavePipelineStep: 存档图流程步骤基类。
 用于在 GFSaveGraphUtility 的 Scope 采集/应用流程前后插入通用处理。
 步骤只接收 scope、payload、context 和 result，不绑定任何业务字段。</description>
@@ -39,7 +39,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="_after_gather_scope">
-			<signature>func _after_gather_scope(_scope: GFSaveScope, payload: Dictionary, _context: Dictionary = {}) -&gt; Variant:</signature>
+			<signature>func _after_gather_scope( _scope: GFSaveScope, payload: Dictionary, _context: Dictionary = {} ) -&gt; Variant:</signature>
 			<description>采集 Scope 后调用。返回 Dictionary 时会替换当前 payload。</description>
 			<tags>
 				<tag name="api">protected</tag>
@@ -50,10 +50,11 @@
 				<tag name="schema">payload: Dictionary，当前 Scope 采集结果载荷。</tag>
 				<tag name="schema">_context: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。</tag>
 				<tag name="schema">return: Variant，返回 Dictionary 会替换当前 payload；返回 null 或非 Dictionary 表示保持不变。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_before_apply_scope">
-			<signature>func _before_apply_scope(_scope: GFSaveScope, payload: Dictionary, _context: Dictionary = {}) -&gt; Variant:</signature>
+			<signature>func _before_apply_scope( _scope: GFSaveScope, payload: Dictionary, _context: Dictionary = {} ) -&gt; Variant:</signature>
 			<description>应用 Scope 前调用。返回 Dictionary 时会替换当前 payload。</description>
 			<tags>
 				<tag name="api">protected</tag>
@@ -64,6 +65,7 @@
 				<tag name="schema">payload: Dictionary，当前 Scope 待应用载荷。</tag>
 				<tag name="schema">_context: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。</tag>
 				<tag name="schema">return: Variant，返回 Dictionary 会替换当前 payload；返回 null 或非 Dictionary 表示保持不变。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_after_apply_scope">

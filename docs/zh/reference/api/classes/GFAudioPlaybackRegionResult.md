@@ -27,7 +27,7 @@
 | 方法 | [`is_success`](#member-gfaudioplaybackregionresult-methods-is_success) | `func is_success() -> bool:` |
 | 方法 | [`is_applied`](#member-gfaudioplaybackregionresult-methods-is_applied) | `func is_applied() -> bool:` |
 | 方法 | [`to_dictionary`](#member-gfaudioplaybackregionresult-methods-to_dictionary) | `func to_dictionary() -> Dictionary:` |
-| 方法 | [`unsupported`](#member-gfaudioplaybackregionresult-methods-unsupported) | `static func unsupported( reason_id: StringName, result_message: String ) -> GFAudioPlaybackRegionResult:` |
+| 方法 | [`unsupported`](#member-gfaudioplaybackregionresult-methods-unsupported) | `static func unsupported(reason_id: StringName, result_message: String) -> GFAudioPlaybackRegionResult:` |
 | 方法 | [`status_to_string`](#member-gfaudioplaybackregionresult-methods-status_to_string) | `static func status_to_string(result_status: Status) -> StringName:` |
 
 ## 枚举
@@ -225,7 +225,7 @@ func to_dictionary() -> Dictionary:
 - 首次版本：`11.0.0`
 
 ```gdscript
-static func unsupported( reason_id: StringName, result_message: String ) -> GFAudioPlaybackRegionResult:
+static func unsupported(reason_id: StringName, result_message: String) -> GFAudioPlaybackRegionResult:
 ```
 
 创建显式不支持结果。

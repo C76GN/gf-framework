@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCommandSequence" path="addons/gf/standard/sequence/gf_command_sequence.gd" module="standard" extends="RefCounted" classDigest="01e78d3f5cabda45367c2dbd7a3588c2edf0bee1bb320ea37bbf5350d759de87">
+<class name="GFCommandSequence" path="addons/gf/standard/sequence/gf_command_sequence.gd" module="standard" extends="RefCounted" classDigest="38233b5b3111c24933f839324dfb49019e6899b8e7bced69120225e92d5a1a0c">
 	<description>GFCommandSequence: 通用顺序指令执行器。
 可运行 `GFSequenceStep`、`GFCommand` 或任何实现 `execute()` / `resolve()`
 的对象。它只负责顺序、等待和架构注入，不规定具体业务语义。</description>
@@ -39,7 +39,7 @@
 			</tags>
 		</member>
 		<member kind="signal" name="step_failed">
-			<signature>signal step_failed(index: int, step: Variant, error: String)</signature>
+			<signature>signal step_failed( index: int, step: Variant, error: String )</signature>
 			<description>步骤报告失败时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -47,6 +47,7 @@
 				<tag name="param">step: 步骤对象、命令或 Callable。</tag>
 				<tag name="param">error: 错误消息。</tag>
 				<tag name="schema">step: Variant sequence step value.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="sequence_completed">
@@ -229,13 +230,14 @@
 			</tags>
 		</member>
 		<member kind="method" name="with_failure_policy">
-			<signature>func with_failure_policy( should_stop_on_error: bool = true, should_rollback_on_failure: bool = false ) -&gt; GFCommandSequence:</signature>
+			<signature>func with_failure_policy(should_stop_on_error: bool = true, should_rollback_on_failure: bool = false) -&gt; GFCommandSequence:</signature>
 			<description>设置失败处理策略，并返回自身以便链式调用。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">should_stop_on_error: 是否在失败结果后停止。</tag>
 				<tag name="param">should_rollback_on_failure: 是否逆序调用已完成步骤 undo()。</tag>
 				<tag name="return">当前序列。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

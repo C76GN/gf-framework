@@ -76,6 +76,8 @@ signal action_completed(action_id: StringName, value: Variant)
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param player_index: 玩家索引。
 ## [br]
 ## @param action_id: 动作标识。
@@ -83,11 +85,17 @@ signal action_completed(action_id: StringName, value: Variant)
 ## @param value: 新动作值。
 ## [br]
 ## @schema value: Variant，根据动作值类型使用 bool、float、Vector2 或 Vector3。
-signal player_action_value_changed(player_index: int, action_id: StringName, value: Variant)
+signal player_action_value_changed(
+	player_index: int,
+	action_id: StringName,
+	value: Variant
+)
 
 ## 玩家动作从非活跃变为活跃时发出。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param player_index: 玩家索引。
 ## [br]
@@ -96,11 +104,17 @@ signal player_action_value_changed(player_index: int, action_id: StringName, val
 ## @param value: 激活时的动作值。
 ## [br]
 ## @schema value: Variant，根据动作值类型使用 bool、float、Vector2 或 Vector3。
-signal player_action_started(player_index: int, action_id: StringName, value: Variant)
+signal player_action_started(
+	player_index: int,
+	action_id: StringName,
+	value: Variant
+)
 
 ## 玩家动作活跃且收到匹配输入事件时发出。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param player_index: 玩家索引。
 ## [br]
@@ -109,11 +123,17 @@ signal player_action_started(player_index: int, action_id: StringName, value: Va
 ## @param value: 当前动作值。
 ## [br]
 ## @schema value: Variant，根据动作值类型使用 bool、float、Vector2 或 Vector3。
-signal player_action_triggered(player_index: int, action_id: StringName, value: Variant)
+signal player_action_triggered(
+	player_index: int,
+	action_id: StringName,
+	value: Variant
+)
 
 ## 玩家动作从活跃变为非活跃时发出。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param player_index: 玩家索引。
 ## [br]
@@ -122,7 +142,11 @@ signal player_action_triggered(player_index: int, action_id: StringName, value: 
 ## @param value: 完成时的动作值。
 ## [br]
 ## @schema value: Variant，根据动作值类型使用 bool、float、Vector2 或 Vector3。
-signal player_action_completed(player_index: int, action_id: StringName, value: Variant)
+signal player_action_completed(
+	player_index: int,
+	action_id: StringName,
+	value: Variant
+)
 
 
 # --- 常量 ---
@@ -517,10 +541,7 @@ func enable_context(context: GFInputContext, priority: int = 0) -> void:
 		return
 
 	_timestamp += 1
-	_active_contexts[context] = {
-		"priority": priority,
-		"timestamp": _timestamp,
-	}
+	_active_contexts[context] = { "priority": priority, "timestamp": _timestamp, }
 	_rebuild_effective_entries()
 
 
@@ -551,10 +572,7 @@ func set_enabled_contexts(contexts: Array[GFInputContext], priority: int = 0) ->
 		if context == null:
 			continue
 		_timestamp += 1
-		_active_contexts[context] = {
-			"priority": priority,
-			"timestamp": _timestamp,
-		}
+		_active_contexts[context] = { "priority": priority, "timestamp": _timestamp, }
 	_rebuild_effective_entries()
 
 
@@ -608,7 +626,11 @@ func handle_input_event(event: InputEvent) -> void:
 		if event_blocked:
 			break
 
-		var matched: bool = _apply_entry_event(entry, event, player_index)
+		var matched: bool = _apply_entry_event(
+			entry,
+			event,
+			player_index
+		)
 		if dispatch_epoch != _dispatch_epoch:
 			return
 		if not matched:
@@ -627,7 +649,11 @@ func handle_input_event(event: InputEvent) -> void:
 			if dispatch_epoch != _dispatch_epoch:
 				return
 		if player_index >= 0 and is_action_active_for_player(player_index, action_id):
-			player_action_triggered.emit(player_index, action_id, get_action_value_for_player(player_index, action_id))
+			player_action_triggered.emit(
+				player_index,
+				action_id,
+				get_action_value_for_player(player_index, action_id)
+			)
 
 
 ## 创建可编程虚拟输入源。
@@ -648,7 +674,12 @@ func create_virtual_source(
 	player_index: int = -1,
 	timer_utility: GFTimerUtility = null
 ) -> GFVirtualInputSource:
-	return GFVirtualInputSource.new(self, source_id, player_index, timer_utility)
+	return GFVirtualInputSource.new(
+		self,
+		source_id,
+		player_index,
+		timer_utility
+	)
 
 
 ## 写入虚拟动作值。
@@ -675,7 +706,11 @@ func set_virtual_action_value(
 	player_index: int = -1
 ) -> bool:
 	var source_key: StringName = source_id if source_id != &"" else &"virtual"
-	var binding_key: String = _make_virtual_binding_key(source_key, action_id, player_index)
+	var binding_key: String = _make_virtual_binding_key(
+		source_key,
+		action_id,
+		player_index
+	)
 	if (
 		_get_registered_action(action_id) == null
 		or not _is_virtual_value_finite(value)
@@ -733,7 +768,11 @@ func clear_virtual_action(
 	player_index: int = -1
 ) -> bool:
 	var source_key: StringName = source_id if source_id != &"" else &"virtual"
-	var binding_key: String = _make_virtual_binding_key(source_key, action_id, player_index)
+	var binding_key: String = _make_virtual_binding_key(
+		source_key,
+		action_id,
+		player_index
+	)
 	if _virtual_pulse_bulk_mutation_depth > 0 or _virtual_pulse_mutation_keys.has(binding_key):
 		return false
 	_virtual_pulse_mutation_keys[binding_key] = true
@@ -744,7 +783,11 @@ func clear_virtual_action(
 	)
 	var changed: bool = false
 	if not terminated_pulse:
-		changed = _clear_virtual_action_raw(action_id, source_key, player_index)
+		changed = _clear_virtual_action_raw(
+			action_id,
+			source_key,
+			player_index
+		)
 	_erase_dictionary_key(_virtual_pulse_mutation_keys, binding_key)
 	return terminated_pulse or changed
 
@@ -776,10 +819,7 @@ func clear_virtual_source(source_id: StringName = &"virtual") -> void:
 			continue
 		var action_id: StringName = GFVariantData.to_string_name(_player_binding_to_action[key])
 		var player_index: int = _get_player_index_from_binding_key(key)
-		affected_player_actions[_make_player_action_key(player_index, action_id)] = {
-			"player_index": player_index,
-			"action_id": action_id,
-		}
+		affected_player_actions[_make_player_action_key(player_index, action_id)] = { "player_index": player_index, "action_id": action_id, }
 		_erase_dictionary_key(_player_binding_values, key)
 		_erase_dictionary_key(_player_binding_to_action, key)
 		_erase_dictionary_key(_player_binding_metadata, key)
@@ -801,14 +841,21 @@ func clear_virtual_source(source_id: StringName = &"virtual") -> void:
 		var action: GFInputAction = _get_registered_action(action_id)
 		if action != null:
 			var dispatch_epoch: int = _dispatch_epoch
-			_refresh_player_action_state(_get_entry_player_index(entry), action_id, action)
+			_refresh_player_action_state(
+				_get_entry_player_index(entry),
+				action_id,
+				action
+			)
 			if dispatch_epoch != _dispatch_epoch:
 				_virtual_pulse_bulk_mutation_depth = maxi(
 					_virtual_pulse_bulk_mutation_depth - 1,
 					0
 				)
 				return
-	_virtual_pulse_bulk_mutation_depth = maxi(_virtual_pulse_bulk_mutation_depth - 1, 0)
+	_virtual_pulse_bulk_mutation_depth = maxi(
+		_virtual_pulse_bulk_mutation_depth - 1,
+		0
+	)
 
 
 ## 获取虚拟输入源状态快照。
@@ -825,15 +872,12 @@ func get_virtual_source_snapshot(source_id: StringName = &"virtual") -> Dictiona
 	var actions: Array[Dictionary] = []
 	for key: String in _binding_to_action.keys():
 		if _is_virtual_binding_key_for_source(key, source_key):
-			_append_array_value(actions, {
-				"action_id": _binding_to_action[key],
-				"value": _get_binding_vector_value(key),
-			})
+			_append_array_value(
+				actions,
+				{ "action_id": _binding_to_action[key], "value": _get_binding_vector_value(key), }
+			)
 
-	return {
-		"source_id": source_key,
-		"actions": actions,
-	}
+	return { "source_id": source_key, "actions": actions, }
 
 
 ## 获取指定虚拟输入源与玩家身份的状态快照。
@@ -849,21 +893,15 @@ func get_virtual_source_snapshot(source_id: StringName = &"virtual") -> Dictiona
 ## @return: 玩家作用域快照字典。
 ## [br]
 ## @schema return: Dictionary，包含 source_id、player_index 和 actions: Array[Dictionary]，action 条目包含 action_id 与 value。
-func get_virtual_source_snapshot_for_player(
-	source_id: StringName = &"virtual",
-	player_index: int = -1
-) -> Dictionary:
+func get_virtual_source_snapshot_for_player(source_id: StringName = &"virtual", player_index: int = -1) -> Dictionary:
 	var source_key: StringName = source_id if source_id != &"" else &"virtual"
 	var actions: Array[Dictionary] = []
 	for key: String in _binding_to_action.keys():
-		if (
-			_is_virtual_binding_key_for_source(key, source_key)
-			and _get_binding_player_index(key) == player_index
-		):
-			_append_array_value(actions, {
-				"action_id": _binding_to_action[key],
-				"value": _get_binding_vector_value(key),
-			})
+		if (_is_virtual_binding_key_for_source(key, source_key) and _get_binding_player_index(key) == player_index):
+			_append_array_value(
+				actions,
+				{ "action_id": _binding_to_action[key], "value": _get_binding_vector_value(key), }
+			)
 
 	return {
 		"source_id": source_key,
@@ -1044,7 +1082,10 @@ func is_action_active_for_player(player_index: int, action_id: StringName) -> bo
 ## [br]
 ## @return 是否刚开始。
 func was_action_just_started_for_player(player_index: int, action_id: StringName) -> bool:
-	return GFVariantData.get_option_bool(_player_just_started, _make_player_action_key(player_index, action_id))
+	return GFVariantData.get_option_bool(
+		_player_just_started,
+		_make_player_action_key(player_index, action_id)
+	)
 
 
 ## 检查指定玩家动作是否在当前帧刚刚结束。
@@ -1057,7 +1098,10 @@ func was_action_just_started_for_player(player_index: int, action_id: StringName
 ## [br]
 ## @return 是否刚结束。
 func was_action_just_completed_for_player(player_index: int, action_id: StringName) -> bool:
-	return GFVariantData.get_option_bool(_player_just_completed, _make_player_action_key(player_index, action_id))
+	return GFVariantData.get_option_bool(
+		_player_just_completed,
+		_make_player_action_key(player_index, action_id)
+	)
 
 
 ## 获取指定玩家动作最近一次结束前的持续活跃时间。
@@ -1070,7 +1114,10 @@ func was_action_just_completed_for_player(player_index: int, action_id: StringNa
 ## [br]
 ## @return 持续秒数。
 func get_last_completed_duration_for_player(player_index: int, action_id: StringName) -> float:
-	return GFVariantData.get_option_float(_player_last_completed_duration, _make_player_action_key(player_index, action_id))
+	return GFVariantData.get_option_float(
+		_player_last_completed_duration,
+		_make_player_action_key(player_index, action_id)
+	)
 
 
 ## 消费指定玩家的一次刚开始动作。
@@ -1107,7 +1154,12 @@ func set_binding_override(
 	binding_index: int,
 	input_event: InputEvent
 ) -> void:
-	get_remap_config(true).set_binding(context_id, action_id, binding_index, input_event)
+	get_remap_config(true).set_binding(
+		context_id,
+		action_id,
+		binding_index,
+		input_event
+	)
 	_rebuild_effective_entries()
 
 
@@ -1115,13 +1167,23 @@ func set_binding_override(
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param context_id: 上下文标识。
 ## [br]
 ## @param action_id: 动作标识。
 ## [br]
 ## @param binding_index: 绑定索引。
-func unbind(context_id: StringName, action_id: StringName, binding_index: int) -> void:
-	get_remap_config(true).unbind(context_id, action_id, binding_index)
+func unbind(
+	context_id: StringName,
+	action_id: StringName,
+	binding_index: int
+) -> void:
+	get_remap_config(true).unbind(
+		context_id,
+		action_id,
+		binding_index
+	)
 	_rebuild_effective_entries()
 
 
@@ -1129,20 +1191,32 @@ func unbind(context_id: StringName, action_id: StringName, binding_index: int) -
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param context_id: 上下文标识。
 ## [br]
 ## @param action_id: 动作标识。
 ## [br]
 ## @param binding_index: 绑定索引。
-func clear_binding_override(context_id: StringName, action_id: StringName, binding_index: int) -> void:
+func clear_binding_override(
+	context_id: StringName,
+	action_id: StringName,
+	binding_index: int
+) -> void:
 	if _remap_config != null:
-		_remap_config.clear_binding(context_id, action_id, binding_index)
+		_remap_config.clear_binding(
+			context_id,
+			action_id,
+			binding_index
+		)
 		_rebuild_effective_entries()
 
 
 ## 获取可重绑条目。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param context_filter: 可选上下文过滤。
 ## [br]
@@ -1151,10 +1225,7 @@ func clear_binding_override(context_id: StringName, action_id: StringName, bindi
 ## @return 条目字典数组。
 ## [br]
 ## @schema return: Array[Dictionary]，包含 context、context_id、mapping、action、action_id、binding、binding_index、display_name、display_category 和 event 字段。
-func get_remappable_items(
-	context_filter: StringName = &"",
-	display_category_filter: String = ""
-) -> Array[Dictionary]:
+func get_remappable_items(context_filter: StringName = &"", display_category_filter: String = "") -> Array[Dictionary]:
 	var items: Array[Dictionary] = []
 	for context: GFInputContext in _get_sorted_contexts():
 		var context_id: StringName = context.get_context_id()
@@ -1162,7 +1233,11 @@ func get_remappable_items(
 			continue
 
 		for mapping: GFInputMapping in context.mappings:
-			if mapping == null or mapping.action == null or not mapping.action.remappable:
+			if (
+				mapping == null
+				or mapping.action == null
+				or not mapping.action.remappable
+			):
 				continue
 			if not display_category_filter.is_empty() and mapping.get_display_category() != display_category_filter:
 				continue
@@ -1171,18 +1246,26 @@ func get_remappable_items(
 				var binding: GFInputBinding = mapping.bindings[index]
 				if binding == null or not binding.remappable:
 					continue
-				_append_array_value(items, {
-					"context": context,
-					"context_id": context_id,
-					"mapping": mapping,
-					"action": mapping.action,
-					"action_id": mapping.get_action_id(),
-					"binding": binding,
-					"binding_index": index,
-					"display_name": mapping.get_display_name(),
-					"display_category": mapping.get_display_category(),
-					"event": _get_effective_event(context_id, mapping.get_action_id(), index, binding),
-				})
+				_append_array_value(
+					items,
+					{
+						"context": context,
+						"context_id": context_id,
+						"mapping": mapping,
+						"action": mapping.action,
+						"action_id": mapping.get_action_id(),
+						"binding": binding,
+						"binding_index": index,
+						"display_name": mapping.get_display_name(),
+						"display_category": mapping.get_display_category(),
+						"event": _get_effective_event(
+							context_id,
+							mapping.get_action_id(),
+							index,
+							binding
+						),
+					}
+				)
 	return items
 
 
@@ -1232,7 +1315,10 @@ func get_action_edge_revision_for_framework(
 		revisions = GFVariantData.get_option_dictionary(_player_action_edge_revisions, player_key)
 	else:
 		revisions = GFVariantData.get_option_dictionary(_action_edge_revisions, action_id)
-	return GFVariantData.get_option_int(revisions, "completed" if completed else "started")
+	return GFVariantData.get_option_int(
+		revisions,
+		"completed" if completed else "started"
+	)
 
 
 ## 为类型化虚拟输入脉冲取得稳定输入键的权威 lease 并写入脉冲值。
@@ -1267,32 +1353,22 @@ func begin_virtual_pulse_lease_for_framework(
 	var source_id: StringName = operation.get_source_id()
 	var player_index: int = operation.get_player_index()
 	if _get_registered_action(action_id) == null:
-		var _failed_action: bool = operation.finish_without_lease_for_framework(
-			GFVirtualInputPulseOperation.Status.FAILED,
-			&"action_not_registered"
-		)
+		var _failed_action: bool = operation.finish_without_lease_for_framework(GFVirtualInputPulseOperation.Status.FAILED, &"action_not_registered")
 		return false
-	var binding_key: String = _make_virtual_binding_key(source_id, action_id, player_index)
+	var binding_key: String = _make_virtual_binding_key(
+		source_id,
+		action_id,
+		player_index
+	)
 	if _virtual_pulse_bulk_mutation_depth > 0 or _virtual_pulse_mutation_keys.has(binding_key):
-		var _rejected_mutation: bool = operation.finish_without_lease_for_framework(
-			GFVirtualInputPulseOperation.Status.REJECTED,
-			&"input_state_mutation"
-		)
+		var _rejected_mutation: bool = operation.finish_without_lease_for_framework(GFVirtualInputPulseOperation.Status.REJECTED, &"input_state_mutation")
 		return false
 
 	var previous_record: Dictionary = _get_virtual_pulse_lease(binding_key)
 	var previous_operation: GFVirtualInputPulseOperation = _get_virtual_pulse_operation(previous_record)
-	var previous_was_pending: bool = (
-		previous_operation != null and previous_operation.is_pending()
-	)
-	if (
-		previous_was_pending
-		and replacement_policy == GFVirtualInputSource.PulseReplacementPolicy.REJECT_NEW
-	):
-		var _rejected_existing: bool = operation.finish_without_lease_for_framework(
-			GFVirtualInputPulseOperation.Status.REJECTED,
-			&"pulse_already_active"
-		)
+	var previous_was_pending: bool = previous_operation != null and previous_operation.is_pending()
+	if (previous_was_pending and replacement_policy == GFVirtualInputSource.PulseReplacementPolicy.REJECT_NEW):
+		var _rejected_existing: bool = operation.finish_without_lease_for_framework(GFVirtualInputPulseOperation.Status.REJECTED, &"pulse_already_active")
 		return false
 
 	_virtual_pulse_mutation_keys[binding_key] = true
@@ -1301,19 +1377,13 @@ func begin_virtual_pulse_lease_for_framework(
 		previous_removed = _remove_virtual_pulse_lease_record(binding_key, previous_record)
 	if not previous_removed:
 		_erase_dictionary_key(_virtual_pulse_mutation_keys, binding_key)
-		var _failed_conflict: bool = operation.finish_without_lease_for_framework(
-			GFVirtualInputPulseOperation.Status.FAILED,
-			&"pulse_lease_conflict"
-		)
+		var _failed_conflict: bool = operation.finish_without_lease_for_framework(GFVirtualInputPulseOperation.Status.FAILED, &"pulse_lease_conflict")
 		return false
 
 	var lease_record: Dictionary = _make_virtual_pulse_lease_record(operation)
 	_virtual_pulse_leases[binding_key] = lease_record
 	if not operation.mark_lease_acquired_for_framework():
-		var _removed_unclaimed_lease: bool = _erase_virtual_pulse_lease_if_current(
-			binding_key,
-			lease_record
-		)
+		var _removed_unclaimed_lease: bool = _erase_virtual_pulse_lease_if_current(binding_key, lease_record)
 		if previous_operation != null and previous_operation.is_pending():
 			_virtual_pulse_leases[binding_key] = previous_record
 		elif not previous_record.is_empty():
@@ -1325,17 +1395,21 @@ func begin_virtual_pulse_lease_for_framework(
 		_erase_dictionary_key(_virtual_pulse_mutation_keys, binding_key)
 		return false
 	var previous_released: bool = false
-	if (
-		replacement_policy == GFVirtualInputSource.PulseReplacementPolicy.RETRIGGER
-		and not previous_record.is_empty()
-	):
+	if (replacement_policy == GFVirtualInputSource.PulseReplacementPolicy.RETRIGGER and not previous_record.is_empty()):
 		var release_epoch: int = _dispatch_epoch
-		previous_released = _clear_virtual_action_raw(action_id, source_id, player_index)
+		previous_released = _clear_virtual_action_raw(
+			action_id,
+			source_id,
+			player_index
+		)
 		if (
 			release_epoch != _dispatch_epoch
 			or not operation.is_pending()
 			or not _virtual_pulse_lease_matches_operation(binding_key, operation)
-			or previous_was_pending and not previous_operation.is_pending()
+			or (
+				previous_was_pending
+				and not previous_operation.is_pending()
+			)
 		):
 			var _aborted_retrigger: bool = _abort_virtual_pulse_lease_admission(
 				binding_key,
@@ -1344,17 +1418,20 @@ func begin_virtual_pulse_lease_for_framework(
 				&"pulse_lease_conflict"
 			)
 			if previous_was_pending and previous_operation.is_pending():
-				var _finished_previous_after_interruption: bool = (
-					previous_operation.finish_from_mapping_for_framework(
-						GFVirtualInputPulseOperation.Status.REPLACED,
-						&"replaced",
-						previous_released
-					)
+				var _finished_previous_after_interruption: bool = previous_operation.finish_from_mapping_for_framework(
+					GFVirtualInputPulseOperation.Status.REPLACED,
+					&"replaced",
+					previous_released
 				)
 			_erase_dictionary_key(_virtual_pulse_mutation_keys, binding_key)
 			return false
 	var write_epoch: int = _dispatch_epoch
-	var written: bool = _set_virtual_action_value_raw(action_id, value, source_id, player_index)
+	var written: bool = _set_virtual_action_value_raw(
+		action_id,
+		value,
+		source_id,
+		player_index
+	)
 	if (
 		not written
 		or write_epoch != _dispatch_epoch
@@ -1397,10 +1474,7 @@ func begin_virtual_pulse_lease_for_framework(
 			)
 			_erase_dictionary_key(_virtual_pulse_mutation_keys, binding_key)
 			return false
-	var lease_is_current: bool = (
-		operation.is_pending()
-		and _virtual_pulse_lease_matches_operation(binding_key, operation)
-	)
+	var lease_is_current: bool = (operation.is_pending() and _virtual_pulse_lease_matches_operation(binding_key, operation))
 	_erase_dictionary_key(_virtual_pulse_mutation_keys, binding_key)
 	return lease_is_current
 
@@ -1425,10 +1499,7 @@ func finish_virtual_pulse_lease_for_framework(
 	status: GFVirtualInputPulseOperation.Status,
 	reason: StringName
 ) -> bool:
-	if operation == null or status in [
-		GFVirtualInputPulseOperation.Status.PENDING,
-		GFVirtualInputPulseOperation.Status.REJECTED,
-	]:
+	if (operation == null or (status in [GFVirtualInputPulseOperation.Status.PENDING, GFVirtualInputPulseOperation.Status.REJECTED,])):
 		return false
 	var binding_key: String = _make_virtual_binding_key(
 		operation.get_source_id(),
@@ -1439,7 +1510,11 @@ func finish_virtual_pulse_lease_for_framework(
 	if not _virtual_pulse_lease_record_matches_operation(lease_record, operation):
 		return false
 	var released: bool = _release_virtual_pulse_lease_record(binding_key, lease_record)
-	var _finished: bool = operation.finish_from_mapping_for_framework(status, reason, released)
+	var _finished: bool = operation.finish_from_mapping_for_framework(
+		status,
+		reason,
+		released
+	)
 	return true
 
 
@@ -1483,7 +1558,11 @@ func _set_virtual_action_value_raw(
 	if not _is_finite_vector3(contribution):
 		return false
 	contribution = _limit_finite_vector_to_unit_length(contribution)
-	var binding_key: String = _make_virtual_binding_key(source_id, action_id, player_index)
+	var binding_key: String = _make_virtual_binding_key(
+		source_id,
+		action_id,
+		player_index
+	)
 	_binding_values[binding_key] = contribution
 	_binding_to_action[binding_key] = action_id
 	if player_index >= 0:
@@ -1492,7 +1571,11 @@ func _set_virtual_action_value_raw(
 		_erase_dictionary_key(_binding_player_indices, binding_key)
 	if player_index >= 0:
 		var player_binding_key: String = _make_player_binding_key(player_index, binding_key)
-		_register_player_binding_metadata(player_binding_key, player_index, binding_key)
+		_register_player_binding_metadata(
+			player_binding_key,
+			player_index,
+			binding_key
+		)
 		_player_binding_values[player_binding_key] = contribution
 		_player_binding_to_action[player_binding_key] = action_id
 
@@ -1501,7 +1584,11 @@ func _set_virtual_action_value_raw(
 	if dispatch_epoch != _dispatch_epoch:
 		return true
 	if player_index >= 0:
-		_refresh_player_action_state(player_index, action_id, action)
+		_refresh_player_action_state(
+			player_index,
+			action_id,
+			action
+		)
 	return true
 
 
@@ -1515,7 +1602,11 @@ func _clear_virtual_action_raw(
 	source_id: StringName,
 	player_index: int
 ) -> bool:
-	var binding_key: String = _make_virtual_binding_key(source_id, action_id, player_index)
+	var binding_key: String = _make_virtual_binding_key(
+		source_id,
+		action_id,
+		player_index
+	)
 	var changed: bool = _binding_values.has(binding_key)
 	_erase_dictionary_key(_binding_values, binding_key)
 	_erase_dictionary_key(_binding_to_action, binding_key)
@@ -1534,7 +1625,11 @@ func _clear_virtual_action_raw(
 		if dispatch_epoch != _dispatch_epoch:
 			return changed
 		if player_index >= 0:
-			_refresh_player_action_state(player_index, action_id, action)
+			_refresh_player_action_state(
+				player_index,
+				action_id,
+				action
+			)
 	return changed
 
 
@@ -1580,8 +1675,16 @@ func _get_virtual_pulse_operation(lease_record: Dictionary) -> GFVirtualInputPul
 		return null
 	var operation: GFVirtualInputPulseOperation = operation_value
 	if (
-		operation.get_instance_id() != GFVariantData.get_option_int(lease_record, "operation_id", 0)
-		or operation.get_generation() != GFVariantData.get_option_int(lease_record, "generation", 0)
+		operation.get_instance_id() != GFVariantData.get_option_int(
+			lease_record,
+			"operation_id",
+			0
+		)
+		or operation.get_generation() != GFVariantData.get_option_int(
+			lease_record,
+			"generation",
+			0
+		)
 	):
 		return null
 	return operation
@@ -1591,10 +1694,7 @@ func _get_virtual_pulse_operation(lease_record: Dictionary) -> GFVirtualInputPul
 ## [br]
 ## @api private
 ## [br]
-func _virtual_pulse_lease_matches_operation(
-	binding_key: String,
-	operation: GFVirtualInputPulseOperation
-) -> bool:
+func _virtual_pulse_lease_matches_operation(binding_key: String, operation: GFVirtualInputPulseOperation) -> bool:
 	return _virtual_pulse_lease_record_matches_operation(
 		_get_virtual_pulse_lease(binding_key),
 		operation
@@ -1605,10 +1705,7 @@ func _virtual_pulse_lease_matches_operation(
 ## [br]
 ## @api private
 ## [br]
-func _virtual_pulse_lease_record_matches_operation(
-	lease_record: Dictionary,
-	operation: GFVirtualInputPulseOperation
-) -> bool:
+func _virtual_pulse_lease_record_matches_operation(lease_record: Dictionary, operation: GFVirtualInputPulseOperation) -> bool:
 	return (
 		not lease_record.is_empty()
 		and operation != null
@@ -1625,9 +1722,23 @@ func _erase_virtual_pulse_lease_if_current(binding_key: String, lease_record: Di
 	var current_ref: Variant = GFVariantData.get_option_value(current_record, "operation_ref")
 	var expected_ref: Variant = GFVariantData.get_option_value(lease_record, "operation_ref")
 	if (
-		GFVariantData.get_option_int(current_record, "lease_id", 0) <= 0
-		or GFVariantData.get_option_int(current_record, "lease_id", 0)
-		!= GFVariantData.get_option_int(lease_record, "lease_id", 0)
+		GFVariantData.get_option_int(
+			current_record,
+			"lease_id",
+			0
+		) <= 0
+		or (
+			GFVariantData.get_option_int(
+				current_record,
+				"lease_id",
+				0
+			)
+			!= GFVariantData.get_option_int(
+				lease_record,
+				"lease_id",
+				0
+			)
+		)
 		or not (current_ref is WeakRef)
 		or not (expected_ref is WeakRef)
 	):
@@ -1669,8 +1780,16 @@ func _release_virtual_pulse_lease_record(binding_key: String, lease_record: Dict
 		return false
 	var action_id: StringName = GFVariantData.get_option_string_name(lease_record, "action_id")
 	var source_id: StringName = GFVariantData.get_option_string_name(lease_record, "source_id")
-	var player_index: int = GFVariantData.get_option_int(lease_record, "player_index", -1)
-	return _clear_virtual_action_raw(action_id, source_id, player_index)
+	var player_index: int = GFVariantData.get_option_int(
+		lease_record,
+		"player_index",
+		-1
+	)
+	return _clear_virtual_action_raw(
+		action_id,
+		source_id,
+		player_index
+	)
 
 
 ## 处理租约准入失败：尝试释放本记录，并在操作仍待处理时以 FAILED 和给定原因结束操作。
@@ -1709,7 +1828,11 @@ func _terminate_virtual_pulse_lease_by_key(
 	var operation: GFVirtualInputPulseOperation = _get_virtual_pulse_operation(lease_record)
 	var released: bool = _release_virtual_pulse_lease_record(binding_key, lease_record)
 	if operation != null and operation.is_pending():
-		var _finished: bool = operation.finish_from_mapping_for_framework(status, reason, released)
+		var _finished: bool = operation.finish_from_mapping_for_framework(
+			status,
+			reason,
+			released
+		)
 	return released
 
 
@@ -1740,7 +1863,11 @@ func _terminate_virtual_pulse_leases_for_player(player_index: int, reason: Strin
 	for binding_key_value: Variant in binding_keys:
 		var binding_key: String = GFVariantData.to_text(binding_key_value)
 		var lease_record: Dictionary = _get_virtual_pulse_lease(binding_key)
-		if GFVariantData.get_option_int(lease_record, "player_index", -1) != player_index:
+		if GFVariantData.get_option_int(
+			lease_record,
+			"player_index",
+			-1
+		) != player_index:
 			continue
 		var _terminated: bool = _terminate_virtual_pulse_lease_by_key(
 			binding_key,
@@ -1892,7 +2019,11 @@ func _get_entry_action_id(entry: Dictionary) -> StringName:
 ## @api private
 ## [br]
 func _get_entry_player_index(entry: Dictionary) -> int:
-	return GFVariantData.get_option_int(entry, "player_index", -1)
+	return GFVariantData.get_option_int(
+		entry,
+		"player_index",
+		-1
+	)
 
 
 ## 读取有效映射条目的绑定信息数组。
@@ -1948,7 +2079,11 @@ func _get_context_timestamp(context_meta: Dictionary) -> int:
 ## @api private
 ## [br]
 func _get_binding_vector_value(binding_key: String) -> Vector3:
-	return GFVariantData.get_option_vector3(_binding_values, binding_key, Vector3.ZERO)
+	return GFVariantData.get_option_vector3(
+		_binding_values,
+		binding_key,
+		Vector3.ZERO
+	)
 
 
 ## 读取绑定对应的动作标识。
@@ -1964,7 +2099,11 @@ func _get_binding_action_id(binding_key: String) -> StringName:
 ## @api private
 ## [br]
 func _get_binding_player_index(binding_key: String) -> int:
-	return GFVariantData.get_option_int(_binding_player_indices, binding_key, -1)
+	return GFVariantData.get_option_int(
+		_binding_player_indices,
+		binding_key,
+		-1
+	)
 
 
 ## 读取玩家作用域绑定对应的动作标识。
@@ -1996,7 +2135,11 @@ func _get_action_active_elapsed(action_id: StringName) -> float:
 ## @api private
 ## [br]
 func _get_action_value_or_default(action_id: StringName, value_type: GFInputAction.ValueType) -> Variant:
-	return GFVariantData.get_option_value(_action_values, action_id, _default_value_for_type(value_type))
+	return GFVariantData.get_option_value(
+		_action_values,
+		action_id,
+		_default_value_for_type(value_type)
+	)
 
 
 ## 读取全局动作阈值判定得到的原始活跃状态。
@@ -2012,7 +2155,13 @@ func _get_raw_action_active(action_id: StringName) -> bool:
 ## @api private
 ## [br]
 func _get_action_triggers(action_id: StringName) -> Array:
-	return GFVariantData.as_array(GFVariantData.get_option_value(_action_triggers, action_id, []))
+	return GFVariantData.as_array(
+		GFVariantData.get_option_value(
+			_action_triggers,
+			action_id,
+			[]
+		)
+	)
 
 
 ## 读取全局动作修饰器数组。
@@ -2020,7 +2169,13 @@ func _get_action_triggers(action_id: StringName) -> Array:
 ## @api private
 ## [br]
 func _get_action_modifiers(action_id: StringName) -> Array:
-	return GFVariantData.as_array(GFVariantData.get_option_value(_action_modifiers, action_id, []))
+	return GFVariantData.as_array(
+		GFVariantData.get_option_value(
+			_action_modifiers,
+			action_id,
+			[]
+		)
+	)
 
 
 ## 按玩家索引和动作标识读取玩家动作活跃状态。
@@ -2075,7 +2230,11 @@ func _get_player_raw_action_active(player_action_key: String) -> bool:
 ## @api private
 ## [br]
 func _ensure_router() -> void:
-	if not _is_initialized or not automatic_input_routing or is_instance_valid(_router):
+	if (
+		not _is_initialized
+		or not automatic_input_routing
+		or is_instance_valid(_router)
+	):
 		return
 
 	var tree: SceneTree = _get_scene_tree_value(Engine.get_main_loop())
@@ -2087,7 +2246,11 @@ func _ensure_router() -> void:
 	_router._input_callback = Callable(self, "handle_input_event")
 	_router._focus_lost_callback = Callable(self, "clear_input_state")
 	_router_attach_serial += 1
-	call_deferred("_attach_router_to_root", _router, _router_attach_serial)
+	call_deferred(
+		"_attach_router_to_root",
+		_router,
+		_router_attach_serial
+	)
 
 
 ## 立即断开旧节点回调并使延迟挂载失效，再排队释放节点；同帧输入不得继续转发。
@@ -2122,7 +2285,8 @@ func _attach_router_to_root(router_variant: Variant, attach_serial: int) -> void
 			router.queue_free()
 		return
 
-	if (not is_instance_valid(router)
+	if (
+		not is_instance_valid(router)
 		or router.is_queued_for_deletion()
 		or router.is_inside_tree()
 	):
@@ -2177,8 +2341,16 @@ func _rebuild_effective_entries() -> void:
 				var binding: GFInputBinding = base_binding.duplicate_binding()
 				if binding == null:
 					continue
-				if _remap_config != null and _remap_config.has_binding(context_id, action_id, index):
-					var override_event: InputEvent = _remap_config.get_bound_event_or_null(context_id, action_id, index)
+				if _remap_config != null and _remap_config.has_binding(
+					context_id,
+					action_id,
+					index
+				):
+					var override_event: InputEvent = _remap_config.get_bound_event_or_null(
+						context_id,
+						action_id,
+						index
+					)
 					if override_event == null:
 						continue
 					var duplicated_event: InputEvent = _get_input_event_value(override_event.duplicate(true))
@@ -2186,22 +2358,32 @@ func _rebuild_effective_entries() -> void:
 						continue
 					binding.input_event = duplicated_event
 
-				_append_array_value(bindings, {
-					"binding": binding,
-					"key": _make_binding_key(context_id, action_id, index),
-				})
+				_append_array_value(
+					bindings,
+					{
+						"binding": binding,
+						"key": _make_binding_key(
+							context_id,
+							action_id,
+							index
+						),
+					}
+				)
 
 			if not _actions.has(action_id):
 				_actions[action_id] = mapping.action
 				_action_modifiers[action_id] = _duplicate_modifiers(mapping.modifiers)
 				_action_triggers[action_id] = _duplicate_triggers(mapping.triggers)
-			_append_array_value(_effective_entries, {
-				"context": context,
-				"mapping": mapping,
-				"action": mapping.action,
-				"action_id": action_id,
-				"bindings": bindings,
-			})
+			_append_array_value(
+				_effective_entries,
+				{
+					"context": context,
+					"mapping": mapping,
+					"action": mapping.action,
+					"action_id": action_id,
+					"bindings": bindings,
+				}
+			)
 
 	contexts_changed.emit(get_enabled_contexts())
 	if rebuild_epoch != _dispatch_epoch:
@@ -2220,14 +2402,15 @@ func _get_sorted_contexts() -> Array[GFInputContext]:
 		if context != null:
 			_append_array_value(contexts, context)
 
-	contexts.sort_custom(func(left: GFInputContext, right: GFInputContext) -> bool:
-		var left_meta: Dictionary = _get_context_meta(left)
-		var right_meta: Dictionary = _get_context_meta(right)
-		var left_priority: int = _get_context_priority(left_meta)
-		var right_priority: int = _get_context_priority(right_meta)
-		if left_priority != right_priority:
-			return left_priority > right_priority
-		return _get_context_timestamp(left_meta) > _get_context_timestamp(right_meta)
+	contexts.sort_custom(
+		func(left: GFInputContext, right: GFInputContext) -> bool:
+			var left_meta: Dictionary = _get_context_meta(left)
+			var right_meta: Dictionary = _get_context_meta(right)
+			var left_priority: int = _get_context_priority(left_meta)
+			var right_priority: int = _get_context_priority(right_meta)
+			if left_priority != right_priority:
+				return left_priority > right_priority
+			return _get_context_timestamp(left_meta) > _get_context_timestamp(right_meta)
 	)
 	return contexts
 
@@ -2237,7 +2420,11 @@ func _get_sorted_contexts() -> Array[GFInputContext]:
 ## [br]
 ## @api private
 ## [br]
-func _apply_entry_event(entry: Dictionary, event: InputEvent, player_index: int) -> bool:
+func _apply_entry_event(
+	entry: Dictionary,
+	event: InputEvent,
+	player_index: int
+) -> bool:
 	var matched: bool = false
 	var action: GFInputAction = _get_entry_action(entry)
 	var action_id: StringName = _get_entry_action_id(entry)
@@ -2251,13 +2438,21 @@ func _apply_entry_event(entry: Dictionary, event: InputEvent, player_index: int)
 
 		var binding_key: String = _get_binding_info_key(binding_info)
 		var key: String = _make_source_binding_key(binding_key, event)
-		var contribution: Vector3 = binding.get_contribution(event, action.value_type, _get_player_deadzone(player_index))
+		var contribution: Vector3 = binding.get_contribution(
+			event,
+			action.value_type,
+			_get_player_deadzone(player_index)
+		)
 		_binding_values[key] = contribution
 		_binding_to_action[key] = action_id
 		if player_index >= 0:
 			_binding_player_indices[key] = player_index
 			var player_binding_key: String = _make_player_binding_key(player_index, key)
-			_register_player_binding_metadata(player_binding_key, player_index, key)
+			_register_player_binding_metadata(
+				player_binding_key,
+				player_index,
+				key
+			)
 			_player_binding_values[player_binding_key] = contribution
 			_player_binding_to_action[player_binding_key] = action_id
 		else:
@@ -2270,7 +2465,11 @@ func _apply_entry_event(entry: Dictionary, event: InputEvent, player_index: int)
 		if dispatch_epoch != _dispatch_epoch:
 			return true
 		if player_index >= 0:
-			_refresh_player_action_state(player_index, action_id, action)
+			_refresh_player_action_state(
+				player_index,
+				action_id,
+				action
+			)
 
 	return matched
 
@@ -2294,7 +2493,12 @@ func _refresh_action_state(action_id: StringName, action: GFInputAction) -> void
 		action,
 		_get_raw_action_active(action_id)
 	)
-	var next_active: bool = _evaluate_action_triggers(action_id, raw_active, next_value, 0.0)
+	var next_active: bool = _evaluate_action_triggers(
+		action_id,
+		raw_active,
+		next_value,
+		0.0
+	)
 
 	_action_values[action_id] = next_value
 	_action_active[action_id] = next_active
@@ -2377,7 +2581,11 @@ func _calculate_value_from_vector(vector: Vector3, value_type: GFInputAction.Val
 		GFInputAction.ValueType.BOOL:
 			return vector.length() > 0.0
 		GFInputAction.ValueType.AXIS_1D:
-			return clampf(vector.x, -1.0, 1.0)
+			return clampf(
+				vector.x,
+				-1.0,
+				1.0
+			)
 		GFInputAction.ValueType.AXIS_2D:
 			return Vector2(vector.x, vector.y)
 		GFInputAction.ValueType.AXIS_3D:
@@ -2408,14 +2616,14 @@ func _default_value_for_type(value_type: GFInputAction.ValueType) -> Variant:
 ## [br]
 ## @api private
 ## [br]
-func _is_value_active(value: Variant, action: GFInputAction, was_raw_active: bool) -> bool:
+func _is_value_active(
+	value: Variant,
+	action: GFInputAction,
+	was_raw_active: bool
+) -> bool:
 	if action.value_type == GFInputAction.ValueType.BOOL:
 		return GFVariantData.to_bool(value)
-	var threshold: float = (
-		action.release_threshold
-		if was_raw_active
-		else action.activation_threshold
-	)
+	var threshold: float = (action.release_threshold if was_raw_active else action.activation_threshold)
 	var magnitude: float = 0.0
 	match action.value_type:
 		GFInputAction.ValueType.AXIS_1D:
@@ -2456,7 +2664,10 @@ func _action_thresholds_are_valid(action: GFInputAction) -> bool:
 ## [br]
 func _values_equal(left: Variant, right: Variant) -> bool:
 	if left is float or right is float:
-		return is_equal_approx(GFVariantData.to_float(left), GFVariantData.to_float(right))
+		return is_equal_approx(
+			GFVariantData.to_float(left),
+			GFVariantData.to_float(right)
+		)
 	if left is Vector2 and right is Vector2:
 		var left_vector2: Vector2 = left
 		var right_vector2: Vector2 = right
@@ -2474,7 +2685,11 @@ func _values_equal(left: Variant, right: Variant) -> bool:
 ## [br]
 func _mark_action_just_started(action_id: StringName) -> void:
 	_just_started[action_id] = true
-	_record_action_edge_revision(_action_edge_revisions, action_id, false)
+	_record_action_edge_revision(
+		_action_edge_revisions,
+		action_id,
+		false
+	)
 	_queue_clear_transient_input_state()
 
 
@@ -2484,7 +2699,11 @@ func _mark_action_just_started(action_id: StringName) -> void:
 ## [br]
 func _mark_action_just_completed(action_id: StringName) -> void:
 	_just_completed[action_id] = true
-	_record_action_edge_revision(_action_edge_revisions, action_id, true)
+	_record_action_edge_revision(
+		_action_edge_revisions,
+		action_id,
+		true
+	)
 	_queue_clear_transient_input_state()
 
 
@@ -2494,9 +2713,17 @@ func _mark_action_just_completed(action_id: StringName) -> void:
 ## [br]
 func _mark_player_action_just_started(player_index: int, action_id: StringName) -> void:
 	var key: String = _make_player_action_key(player_index, action_id)
-	_register_player_action_metadata(key, player_index, action_id)
+	_register_player_action_metadata(
+		key,
+		player_index,
+		action_id
+	)
 	_player_just_started[key] = true
-	_record_action_edge_revision(_player_action_edge_revisions, key, false)
+	_record_action_edge_revision(
+		_player_action_edge_revisions,
+		key,
+		false
+	)
 	_queue_clear_transient_input_state()
 
 
@@ -2506,9 +2733,17 @@ func _mark_player_action_just_started(player_index: int, action_id: StringName) 
 ## [br]
 func _mark_player_action_just_completed(player_index: int, action_id: StringName) -> void:
 	var key: String = _make_player_action_key(player_index, action_id)
-	_register_player_action_metadata(key, player_index, action_id)
+	_register_player_action_metadata(
+		key,
+		player_index,
+		action_id
+	)
 	_player_just_completed[key] = true
-	_record_action_edge_revision(_player_action_edge_revisions, key, true)
+	_record_action_edge_revision(
+		_player_action_edge_revisions,
+		key,
+		true
+	)
 	_queue_clear_transient_input_state()
 
 
@@ -2516,7 +2751,11 @@ func _mark_player_action_just_completed(player_index: int, action_id: StringName
 ## [br]
 ## @api private
 ## [br]
-func _record_action_edge_revision(records: Dictionary, key: Variant, completed: bool) -> void:
+func _record_action_edge_revision(
+	records: Dictionary,
+	key: Variant,
+	completed: bool
+) -> void:
 	_next_action_edge_revision += 1
 	var revisions: Dictionary = GFVariantData.get_option_dictionary(records, key)
 	revisions["completed" if completed else "started"] = _next_action_edge_revision
@@ -2555,10 +2794,7 @@ func _clear_transient_input_state_if_queued() -> void:
 ## [br]
 ## @api private
 ## [br]
-func _clear_runtime_state(
-	emit_completed: bool = false,
-	pulse_reason: StringName = &"input_state_cleared"
-) -> void:
+func _clear_runtime_state(emit_completed: bool = false, pulse_reason: StringName = &"input_state_cleared") -> void:
 	var clear_epoch: int = _dispatch_epoch
 	_virtual_pulse_bulk_mutation_depth += 1
 	_terminate_all_virtual_pulse_leases(pulse_reason)
@@ -2579,11 +2815,13 @@ func _clear_runtime_state(
 				continue
 			var action: GFInputAction = _get_registered_action(action_id)
 			if action != null:
-				completed_player_actions.append({
-					"player_index": player_index,
-					"action_id": action_id,
-					"value": _default_value_for_type(action.value_type),
-				})
+				completed_player_actions.append(
+					{
+						"player_index": player_index,
+						"action_id": action_id,
+						"value": _default_value_for_type(action.value_type),
+					}
+				)
 
 	_binding_values.clear()
 	_binding_to_action.clear()
@@ -2612,15 +2850,31 @@ func _clear_runtime_state(
 	_transient_input_state_mark_frame = -1
 	_reset_all_trigger_states()
 	var completion_revision: int = _next_action_edge_revision
-	_virtual_pulse_bulk_mutation_depth = maxi(_virtual_pulse_bulk_mutation_depth - 1, 0)
+	_virtual_pulse_bulk_mutation_depth = maxi(
+		_virtual_pulse_bulk_mutation_depth - 1,
+		0
+	)
 	for action_id: StringName in completed_actions:
-		if not _can_emit_cleared_action_completion(action_id, -1, clear_epoch, completion_revision):
+		if not _can_emit_cleared_action_completion(
+			action_id,
+			-1,
+			clear_epoch,
+			completion_revision
+		):
 			continue
-		action_completed.emit(action_id, completed_actions[action_id])
+		action_completed.emit(
+			action_id,
+			completed_actions[action_id]
+		)
 	for record: Dictionary in completed_player_actions:
 		var player_index: int = GFVariantData.get_option_int(record, "player_index")
 		var action_id: StringName = GFVariantData.get_option_string_name(record, "action_id")
-		if not _can_emit_cleared_action_completion(action_id, player_index, clear_epoch, completion_revision):
+		if not _can_emit_cleared_action_completion(
+			action_id,
+			player_index,
+			clear_epoch,
+			completion_revision
+		):
 			continue
 		player_action_completed.emit(
 			player_index,
@@ -2686,11 +2940,23 @@ func _clear_player_runtime_state(player_index: int, emit_completed: bool = false
 		var action: GFInputAction = _get_registered_action(action_id)
 		if action != null:
 			_refresh_action_state(action_id, action)
-	_virtual_pulse_bulk_mutation_depth = maxi(_virtual_pulse_bulk_mutation_depth - 1, 0)
+	_virtual_pulse_bulk_mutation_depth = maxi(
+		_virtual_pulse_bulk_mutation_depth - 1,
+		0
+	)
 	for action_id: StringName in completed_actions:
-		if not _can_emit_cleared_action_completion(action_id, player_index, clear_epoch, completion_revision):
+		if not _can_emit_cleared_action_completion(
+			action_id,
+			player_index,
+			clear_epoch,
+			completion_revision
+		):
 			continue
-		player_action_completed.emit(player_index, action_id, completed_actions[action_id])
+		player_action_completed.emit(
+			player_index,
+			action_id,
+			completed_actions[action_id]
+		)
 
 
 ## 仅当清理期间分发代际未变且该动作开始与完成边沿修订均未超过清理快照时允许发完成信号。
@@ -2707,7 +2973,11 @@ func _can_emit_cleared_action_completion(
 	return (
 		clear_epoch == _dispatch_epoch
 		and get_action_edge_revision_for_framework(action_id, player_index) <= completion_revision
-		and get_action_edge_revision_for_framework(action_id, player_index, true) <= completion_revision
+		and get_action_edge_revision_for_framework(
+			action_id,
+			player_index,
+			true
+		) <= completion_revision
 	)
 
 
@@ -2721,8 +2991,16 @@ func _get_effective_event(
 	binding_index: int,
 	binding: GFInputBinding
 ) -> InputEvent:
-	if _remap_config != null and _remap_config.has_binding(context_id, action_id, binding_index):
-		return _remap_config.get_bound_event_or_null(context_id, action_id, binding_index)
+	if _remap_config != null and _remap_config.has_binding(
+		context_id,
+		action_id,
+		binding_index
+	):
+		return _remap_config.get_bound_event_or_null(
+			context_id,
+			action_id,
+			binding_index
+		)
 	return binding.input_event
 
 
@@ -2730,8 +3008,19 @@ func _get_effective_event(
 ## [br]
 ## @api private
 ## [br]
-func _make_binding_key(context_id: StringName, action_id: StringName, binding_index: int) -> String:
-	return _make_compound_key(["binding", context_id, action_id, binding_index])
+func _make_binding_key(
+	context_id: StringName,
+	action_id: StringName,
+	binding_index: int
+) -> String:
+	return _make_compound_key(
+		[
+			"binding",
+			context_id,
+			action_id,
+			binding_index,
+		]
+	)
 
 
 ## 将玩家索引和基础绑定键编码为玩家绑定复合键。
@@ -2739,26 +3028,44 @@ func _make_binding_key(context_id: StringName, action_id: StringName, binding_in
 ## @api private
 ## [br]
 func _make_player_binding_key(player_index: int, binding_key: String) -> String:
-	return _make_compound_key(["player_binding", player_index, binding_key])
+	return _make_compound_key(
+		[
+			"player_binding",
+			player_index,
+			binding_key,
+		]
+	)
 
 
 ## 保存玩家绑定键对应的玩家索引和基础绑定键。
 ## [br]
 ## @api private
 ## [br]
-func _register_player_binding_metadata(key: String, player_index: int, binding_key: String) -> void:
-	_player_binding_metadata[key] = {
-		"player_index": player_index,
-		"binding_key": binding_key,
-	}
+func _register_player_binding_metadata(
+	key: String,
+	player_index: int,
+	binding_key: String
+) -> void:
+	_player_binding_metadata[key] = { "player_index": player_index, "binding_key": binding_key, }
 
 
 ## 将虚拟来源、玩家索引和动作标识编码为虚拟绑定复合键。
 ## [br]
 ## @api private
 ## [br]
-func _make_virtual_binding_key(source_id: StringName, action_id: StringName, player_index: int = -1) -> String:
-	return _make_compound_key(["virtual", source_id, player_index, action_id])
+func _make_virtual_binding_key(
+	source_id: StringName,
+	action_id: StringName,
+	player_index: int = -1
+) -> String:
+	return _make_compound_key(
+		[
+			"virtual",
+			source_id,
+			player_index,
+			action_id,
+		]
+	)
 
 
 ## 将基础绑定键和事件来源身份编码为一次物理输入来源键。
@@ -2766,7 +3073,13 @@ func _make_virtual_binding_key(source_id: StringName, action_id: StringName, pla
 ## @api private
 ## [br]
 func _make_source_binding_key(binding_key: String, event: InputEvent) -> String:
-	return _make_compound_key(["source_binding", binding_key, _make_event_source_key(event)])
+	return _make_compound_key(
+		[
+			"source_binding",
+			binding_key,
+			_make_event_source_key(event),
+		]
+	)
 
 
 ## 将玩家索引和动作标识编码为玩家动作复合键。
@@ -2774,18 +3087,25 @@ func _make_source_binding_key(binding_key: String, event: InputEvent) -> String:
 ## @api private
 ## [br]
 func _make_player_action_key(player_index: int, action_id: StringName) -> String:
-	return _make_compound_key(["player_action", player_index, action_id])
+	return _make_compound_key(
+		[
+			"player_action",
+			player_index,
+			action_id,
+		]
+	)
 
 
 ## 保存玩家动作复合键对应的玩家索引和动作标识。
 ## [br]
 ## @api private
 ## [br]
-func _register_player_action_metadata(key: String, player_index: int, action_id: StringName) -> void:
-	_player_action_metadata[key] = {
-		"player_index": player_index,
-		"action_id": action_id,
-	}
+func _register_player_action_metadata(
+	key: String,
+	player_index: int,
+	action_id: StringName
+) -> void:
+	_player_action_metadata[key] = { "player_index": player_index, "action_id": action_id, }
 
 
 ## 从玩家绑定元数据中读取基础绑定键。
@@ -2793,7 +3113,10 @@ func _register_player_action_metadata(key: String, player_index: int, action_id:
 ## @api private
 ## [br]
 func _get_player_source_binding_key(player_binding_key: String) -> String:
-	return GFVariantData.get_option_string(_get_player_binding_metadata(player_binding_key), "binding_key")
+	return GFVariantData.get_option_string(
+		_get_player_binding_metadata(player_binding_key),
+		"binding_key"
+	)
 
 
 ## 从玩家绑定元数据读取玩家索引；缺失时返回 -1。
@@ -2801,7 +3124,11 @@ func _get_player_source_binding_key(player_binding_key: String) -> String:
 ## @api private
 ## [br]
 func _get_player_index_from_binding_key(player_binding_key: String) -> int:
-	return GFVariantData.get_option_int(_get_player_binding_metadata(player_binding_key), "player_index", -1)
+	return GFVariantData.get_option_int(
+		_get_player_binding_metadata(player_binding_key),
+		"player_index",
+		-1
+	)
 
 
 ## 从玩家动作元数据读取玩家索引；缺失时返回 -1。
@@ -2809,7 +3136,11 @@ func _get_player_index_from_binding_key(player_binding_key: String) -> int:
 ## @api private
 ## [br]
 func _get_player_index_from_action_key(player_action_key: String) -> int:
-	return GFVariantData.get_option_int(_get_player_action_metadata(player_action_key), "player_index", -1)
+	return GFVariantData.get_option_int(
+		_get_player_action_metadata(player_action_key),
+		"player_index",
+		-1
+	)
 
 
 ## 从玩家动作元数据读取动作标识。
@@ -2817,7 +3148,10 @@ func _get_player_index_from_action_key(player_action_key: String) -> int:
 ## @api private
 ## [br]
 func _get_player_action_id_from_key(player_action_key: String) -> StringName:
-	return GFVariantData.get_option_string_name(_get_player_action_metadata(player_action_key), "action_id")
+	return GFVariantData.get_option_string_name(
+		_get_player_action_metadata(player_action_key),
+		"action_id"
+	)
 
 
 ## 读取玩家绑定键对应的元数据字典。
@@ -2844,8 +3178,16 @@ func _is_virtual_binding_key_for_source(binding_key: String, source_id: StringNa
 	var parts: PackedStringArray = _decode_compound_key(binding_key)
 	return (
 		parts.size() == 4
-		and _compound_key_part_equals(parts, 0, "virtual")
-		and _compound_key_part_equals(parts, 1, source_id)
+		and _compound_key_part_equals(
+			parts,
+			0,
+			"virtual"
+		)
+		and _compound_key_part_equals(
+			parts,
+			1,
+			source_id
+		)
 	)
 
 
@@ -2861,7 +3203,10 @@ func _make_compound_key(parts: Array) -> String:
 		var token: String = _make_key_part_token(part)
 		if token.is_empty():
 			return ""
-		var _segment_appended: bool = segments.append("%d:%s" % [token.length(), token])
+		var _segment_appended: bool = segments.append(
+			"%d:%s"
+			% [token.length(), token]
+		)
 	return "|".join(segments)
 
 
@@ -2880,7 +3225,10 @@ func _decode_compound_key(key: String) -> PackedStringArray:
 		var separator_index: int = key.find(":", cursor)
 		if separator_index < 0:
 			return PackedStringArray()
-		var length_text: String = key.substr(cursor, separator_index - cursor)
+		var length_text: String = key.substr(
+			cursor,
+			separator_index - cursor
+		)
 		if length_text.is_empty() or not length_text.is_valid_int():
 			return PackedStringArray()
 		var token_length: int = int(length_text)
@@ -2902,7 +3250,11 @@ func _decode_compound_key(key: String) -> PackedStringArray:
 ## [br]
 ## @api private
 ## [br]
-func _compound_key_part_equals(parts: PackedStringArray, index: int, value: Variant) -> bool:
+func _compound_key_part_equals(
+	parts: PackedStringArray,
+	index: int,
+	value: Variant
+) -> bool:
 	if index < 0 or index >= parts.size():
 		return false
 	var token: String = _make_key_part_token(value)
@@ -2928,35 +3280,95 @@ func _coerce_virtual_value_to_vector(value: Variant, value_type: GFInputAction.V
 	match value_type:
 		GFInputAction.ValueType.BOOL:
 			if value is bool:
-				return Vector3(1.0 if GFVariantData.to_bool(value) else 0.0, 0.0, 0.0)
+				return Vector3(
+					1.0 if GFVariantData.to_bool(value) else 0.0,
+					0.0,
+					0.0
+				)
 			if value is Vector2:
-				return Vector3(1.0 if GFVariantData.to_vector2(value).length() > 0.0 else 0.0, 0.0, 0.0)
+				return Vector3(
+					1.0 if GFVariantData.to_vector2(value).length() > 0.0 else 0.0,
+					0.0,
+					0.0
+				)
 			if value is Vector3:
-				return Vector3(1.0 if GFVariantData.to_vector3(value).length() > 0.0 else 0.0, 0.0, 0.0)
-			return Vector3(1.0 if absf(GFVariantData.to_float(value)) > 0.0 else 0.0, 0.0, 0.0)
+				return Vector3(
+					1.0 if GFVariantData.to_vector3(value).length() > 0.0 else 0.0,
+					0.0,
+					0.0
+				)
+			return Vector3(
+				1.0 if absf(GFVariantData.to_float(value)) > 0.0 else 0.0,
+				0.0,
+				0.0
+			)
 		GFInputAction.ValueType.AXIS_1D:
 			if value is Vector2:
 				var vector2_value: Vector2 = value
-				return Vector3(vector2_value.x, 0.0, 0.0)
+				return Vector3(
+					vector2_value.x,
+					0.0,
+					0.0
+				)
 			if value is Vector3:
 				var vector3_value: Vector3 = value
-				return Vector3(vector3_value.x, 0.0, 0.0)
-			return Vector3(clampf(GFVariantData.to_float(value), -1.0, 1.0), 0.0, 0.0)
+				return Vector3(
+					vector3_value.x,
+					0.0,
+					0.0
+				)
+			return Vector3(
+				clampf(
+					GFVariantData.to_float(value),
+					-1.0,
+					1.0
+				),
+				0.0,
+				0.0
+			)
 		GFInputAction.ValueType.AXIS_2D:
 			if value is Vector2:
 				var vector2_value: Vector2 = value
-				return Vector3(vector2_value.x, vector2_value.y, 0.0)
+				return Vector3(
+					vector2_value.x,
+					vector2_value.y,
+					0.0
+				)
 			if value is Vector3:
 				var vector3_value: Vector3 = value
-				return Vector3(vector3_value.x, vector3_value.y, 0.0)
-			return Vector3(clampf(GFVariantData.to_float(value), -1.0, 1.0), 0.0, 0.0)
+				return Vector3(
+					vector3_value.x,
+					vector3_value.y,
+					0.0
+				)
+			return Vector3(
+				clampf(
+					GFVariantData.to_float(value),
+					-1.0,
+					1.0
+				),
+				0.0,
+				0.0
+			)
 		GFInputAction.ValueType.AXIS_3D:
 			if value is Vector3:
 				return value
 			if value is Vector2:
 				var vector2_value: Vector2 = value
-				return Vector3(vector2_value.x, vector2_value.y, 0.0)
-			return Vector3(clampf(GFVariantData.to_float(value), -1.0, 1.0), 0.0, 0.0)
+				return Vector3(
+					vector2_value.x,
+					vector2_value.y,
+					0.0
+				)
+			return Vector3(
+				clampf(
+					GFVariantData.to_float(value),
+					-1.0,
+					1.0
+				),
+				0.0,
+				0.0
+			)
 	return Vector3.ZERO
 
 
@@ -3002,12 +3414,22 @@ func _is_finite_vector3(value: Vector3) -> bool:
 ## @api private
 ## [br]
 func _limit_finite_vector_to_unit_length(value: Vector3) -> Vector3:
-	var max_component: float = maxf(absf(value.x), maxf(absf(value.y), absf(value.z)))
+	var max_component: float = maxf(
+		absf(value.x),
+		maxf(
+			absf(value.y),
+			absf(value.z)
+		)
+	)
 	if max_component <= 1.0:
 		return value.normalized() if value.length_squared() > 1.0 else value
 	var scaled: Vector3 = value / max_component
 	var scaled_length: float = scaled.length()
-	if scaled_length <= 0.0 or is_nan(scaled_length) or is_inf(scaled_length):
+	if (
+		scaled_length <= 0.0
+		or is_nan(scaled_length)
+		or is_inf(scaled_length)
+	):
 		return Vector3.ZERO
 	return scaled / scaled_length
 
@@ -3027,9 +3449,7 @@ func _advance_active_durations(delta: float) -> void:
 
 	for player_action_key: String in _player_action_active.keys():
 		if _get_player_action_active_by_key(player_action_key):
-			_player_action_active_elapsed[player_action_key] = (
-				_get_player_action_active_elapsed(player_action_key) + safe_delta
-			)
+			_player_action_active_elapsed[player_action_key] = (_get_player_action_active_elapsed(player_action_key) + safe_delta)
 
 
 ## 仅忽略键盘 echo 事件。
@@ -3052,10 +3472,16 @@ func _make_event_source_key(event: InputEvent) -> String:
 		return "joypad:%d" % event.device
 	if event is InputEventScreenTouch:
 		var touch_event: InputEventScreenTouch = event
-		return "touch:%d:%d" % [touch_event.device, touch_event.index]
+		return (
+			"touch:%d:%d"
+			% [touch_event.device, touch_event.index]
+		)
 	if event is InputEventScreenDrag:
 		var drag_event: InputEventScreenDrag = event
-		return "touch:%d:%d" % [drag_event.device, drag_event.index]
+		return (
+			"touch:%d:%d"
+			% [drag_event.device, drag_event.index]
+		)
 	return "keyboard_mouse"
 
 
@@ -3071,35 +3497,61 @@ func _refresh_player_action_state(
 ) -> void:
 	var dispatch_epoch: int = _dispatch_epoch
 	var key: String = _make_player_action_key(player_index, action_id)
-	_register_player_action_metadata(key, player_index, action_id)
+	_register_player_action_metadata(
+		key,
+		player_index,
+		action_id
+	)
 	var previous_value: Variant = _get_player_action_value_or_default(key, action.value_type)
 	var previous_active: bool = _get_player_action_active_by_key(key)
-	var next_value: Variant = _calculate_player_action_value(player_index, action_id, action.value_type)
+	var next_value: Variant = _calculate_player_action_value(
+		player_index,
+		action_id,
+		action.value_type
+	)
 	var raw_active: bool = _is_value_active(
 		next_value,
 		action,
 		_get_player_raw_action_active(key)
 	)
-	var next_active: bool = _evaluate_player_action_triggers(player_index, action_id, raw_active, next_value, 0.0)
+	var next_active: bool = _evaluate_player_action_triggers(
+		player_index,
+		action_id,
+		raw_active,
+		next_value,
+		0.0
+	)
 
 	_player_action_values[key] = next_value
 	_player_action_active[key] = next_active
 	_player_raw_action_active[key] = raw_active
 
 	if not _values_equal(previous_value, next_value):
-		player_action_value_changed.emit(player_index, action_id, next_value)
+		player_action_value_changed.emit(
+			player_index,
+			action_id,
+			next_value
+		)
 		if dispatch_epoch != _dispatch_epoch:
 			return
 
 	if not previous_active and next_active:
 		_mark_player_action_just_started(player_index, action_id)
 		_player_action_active_elapsed[key] = 0.0
-		player_action_started.emit(player_index, action_id, next_value)
+		player_action_started.emit(
+			player_index,
+			action_id,
+			next_value
+		)
 	elif previous_active and not next_active:
 		_mark_player_action_just_completed(player_index, action_id)
 		_player_last_completed_duration[key] = _get_player_action_active_elapsed(key)
 		_erase_dictionary_key(_player_action_active_elapsed, key)
-		player_action_completed.emit(player_index, action_id, next_value)
+		player_action_completed.emit(
+			player_index,
+			action_id,
+			next_value
+		)
 
 
 ## 通过当前输入设备工具处理事件并解析玩家索引；工具不可用时返回 -1。
@@ -3162,7 +3614,13 @@ func _refresh_triggered_action_states(delta: float) -> void:
 			continue
 		var value: Variant = _get_action_value_or_default(action_id, action.value_type)
 		var raw_active: bool = _get_raw_action_active(action_id)
-		_set_action_active_from_triggers(action_id, action, value, raw_active, delta)
+		_set_action_active_from_triggers(
+			action_id,
+			action,
+			value,
+			raw_active,
+			delta
+		)
 
 	for player_key_variant: Variant in _player_raw_action_active.keys():
 		var player_key: String = GFVariantData.to_text(player_key_variant)
@@ -3175,7 +3633,14 @@ func _refresh_triggered_action_states(delta: float) -> void:
 			continue
 		var value: Variant = _get_player_action_value_or_default(player_key, action.value_type)
 		var raw_active: bool = _get_player_raw_action_active(player_key)
-		_set_player_action_active_from_triggers(player_index, action_id, action, value, raw_active, delta)
+		_set_player_action_active_from_triggers(
+			player_index,
+			action_id,
+			action,
+			value,
+			raw_active,
+			delta
+		)
 
 
 ## 更新全局触发器评估后的活跃状态，并在开始或完成边沿记录瞬态标记、时长和对应信号。
@@ -3190,7 +3655,12 @@ func _set_action_active_from_triggers(
 	delta: float
 ) -> void:
 	var previous_active: bool = _get_action_active(action_id)
-	var next_active: bool = _evaluate_action_triggers(action_id, raw_active, value, delta)
+	var next_active: bool = _evaluate_action_triggers(
+		action_id,
+		raw_active,
+		value,
+		delta
+	)
 	_action_active[action_id] = next_active
 	if not previous_active and next_active:
 		_mark_action_just_started(action_id)
@@ -3200,7 +3670,10 @@ func _set_action_active_from_triggers(
 		_mark_action_just_completed(action_id)
 		_last_completed_duration[action_id] = _get_action_active_elapsed(action_id)
 		_erase_dictionary_key(_action_active_elapsed, action_id)
-		action_completed.emit(action_id, _default_value_for_type(action.value_type))
+		action_completed.emit(
+			action_id,
+			_default_value_for_type(action.value_type)
+		)
 
 
 ## 更新玩家触发器评估后的活跃状态，并在开始或完成边沿记录玩家标记、时长和对应信号。
@@ -3216,19 +3689,37 @@ func _set_player_action_active_from_triggers(
 	delta: float
 ) -> void:
 	var key: String = _make_player_action_key(player_index, action_id)
-	_register_player_action_metadata(key, player_index, action_id)
+	_register_player_action_metadata(
+		key,
+		player_index,
+		action_id
+	)
 	var previous_active: bool = _get_player_action_active_by_key(key)
-	var next_active: bool = _evaluate_player_action_triggers(player_index, action_id, raw_active, value, delta)
+	var next_active: bool = _evaluate_player_action_triggers(
+		player_index,
+		action_id,
+		raw_active,
+		value,
+		delta
+	)
 	_player_action_active[key] = next_active
 	if not previous_active and next_active:
 		_mark_player_action_just_started(player_index, action_id)
 		_player_action_active_elapsed[key] = 0.0
-		player_action_started.emit(player_index, action_id, value)
+		player_action_started.emit(
+			player_index,
+			action_id,
+			value
+		)
 	elif previous_active and not next_active:
 		_mark_player_action_just_completed(player_index, action_id)
 		_player_last_completed_duration[key] = _get_player_action_active_elapsed(key)
 		_erase_dictionary_key(_player_action_active_elapsed, key)
-		player_action_completed.emit(player_index, action_id, _default_value_for_type(action.value_type))
+		player_action_completed.emit(
+			player_index,
+			action_id,
+			_default_value_for_type(action.value_type)
+		)
 
 
 ## 使用全局动作的触发器配置和运行时状态评估 raw_active。
@@ -3264,7 +3755,11 @@ func _evaluate_player_action_triggers(
 	delta: float
 ) -> bool:
 	var key: String = _make_player_action_key(player_index, action_id)
-	_register_player_action_metadata(key, player_index, action_id)
+	_register_player_action_metadata(
+		key,
+		player_index,
+		action_id
+	)
 	return _evaluate_triggers(
 		action_id,
 		player_index,
@@ -3300,8 +3795,18 @@ func _evaluate_triggers(
 		while states.size() <= index:
 			_append_array_value(states, {})
 		var state: Dictionary = GFVariantData.as_dictionary(states[index])
-		trigger.prepare_runtime(action_id, self, player_index, state)
-		var trigger_state: int = trigger.update(raw_active, value, delta, state)
+		trigger.prepare_runtime(
+			action_id,
+			self,
+			player_index,
+			state
+		)
+		var trigger_state: int = trigger.update(
+			raw_active,
+			value,
+			delta,
+			state
+		)
 		if trigger_state == GFInputTrigger.TriggerState.INACTIVE:
 			return false
 		if trigger_state == GFInputTrigger.TriggerState.ONGOING:
@@ -3352,10 +3857,22 @@ func _apply_mapping_modifiers(action_id: StringName, value: Vector3) -> Vector3:
 	for modifier: GFInputModifier in modifiers:
 		if modifier != null:
 			if action != null and action.value_type == GFInputAction.ValueType.AXIS_3D:
-				result = modifier.modify_3d(result, null, action)
+				result = modifier.modify_3d(
+					result,
+					null,
+					action
+				)
 			else:
-				var modified: Vector2 = modifier.modify(Vector2(result.x, result.y), null, action)
-				result = Vector3(modified.x, modified.y, result.z)
+				var modified: Vector2 = modifier.modify(
+					Vector2(result.x, result.y),
+					null,
+					action
+				)
+				result = Vector3(
+					modified.x,
+					modified.y,
+					result.z
+				)
 	return result
 
 
@@ -3423,7 +3940,11 @@ func _unbind_input_device_utility() -> void:
 func _clear_player_state_from_assignment_record(record: Dictionary) -> void:
 	if record.is_empty():
 		return
-	var player_index: int = GFVariantData.get_option_int(record, "player_index", -1)
+	var player_index: int = GFVariantData.get_option_int(
+		record,
+		"player_index",
+		-1
+	)
 	if player_index < 0:
 		return
 	_clear_player_runtime_state(player_index, true)
@@ -3459,26 +3980,23 @@ func _get_input_device_utility() -> GFInputDeviceUtility:
 ## @api private
 func _on_input_assignment_event_recorded(event_record: Dictionary) -> void:
 	var event_type: StringName = GFVariantData.get_option_string_name(event_record, "event_type")
-	if event_type in [
-		&"assignment_removed",
-		&"assignment_set",
-		&"assignments_cleared",
-		&"assignments_refreshed",
-	]:
+	if (
+		event_type
+		in [
+			&"assignment_removed",
+			&"assignment_set",
+			&"assignments_cleared",
+			&"assignments_refreshed",
+		]
+	):
 		_dispatch_epoch += 1
 	match event_type:
 		&"assignment_removed":
-			_clear_player_state_from_assignment_record(
-				GFVariantData.get_option_dictionary(event_record, "previous_assignment")
-			)
+			_clear_player_state_from_assignment_record(GFVariantData.get_option_dictionary(event_record, "previous_assignment"))
 		&"assignment_set":
-			_clear_player_state_from_assignment_record(
-				GFVariantData.get_option_dictionary(event_record, "previous_assignment")
-			)
+			_clear_player_state_from_assignment_record(GFVariantData.get_option_dictionary(event_record, "previous_assignment"))
 			_clear_displaced_player_states(GFVariantData.get_option_dictionary(event_record, "metadata"))
-			_clear_player_state_from_assignment_record(
-				GFVariantData.get_option_dictionary(event_record, "assignment")
-			)
+			_clear_player_state_from_assignment_record(GFVariantData.get_option_dictionary(event_record, "assignment"))
 		&"assignments_cleared", &"assignments_refreshed":
 			clear_input_state()
 
@@ -3490,6 +4008,8 @@ func _on_input_assignment_event_recorded(event_record: Dictionary) -> void:
 ## @api private
 ## [br]
 class _GFInputRouter extends Node:
+
+
 	# --- 私有变量 ---
 
 	## 同文件 Utility 安装的输入转发委托，收到 Godot _input 后同步调用。
@@ -3501,6 +4021,7 @@ class _GFInputRouter extends Node:
 	## [br]
 	## @api private
 	var _focus_lost_callback: Callable
+
 
 	# --- Godot 生命周期方法 ---
 

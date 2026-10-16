@@ -26,9 +26,9 @@
 | 方法 | [`get_uniform`](#member-gfshaderinterfacesnapshot-methods-get_uniform) | `func get_uniform(parameter_name: StringName) -> Dictionary:` |
 | 方法 | [`accepts_parameter_value`](#member-gfshaderinterfacesnapshot-methods-accepts_parameter_value) | `func accepts_parameter_value( parameter_name: StringName, value: Variant, options: Dictionary = {} ) -> bool:` |
 | 方法 | [`validate_definition`](#member-gfshaderinterfacesnapshot-methods-validate_definition) | `func validate_definition(options: Dictionary = {}) -> GFValidationReport:` |
-| 方法 | [`validate_parameters`](#member-gfshaderinterfacesnapshot-methods-validate_parameters) | `func validate_parameters( parameters: Dictionary, options: Dictionary = {} ) -> GFValidationReport:` |
-| 方法 | [`compare_with`](#member-gfshaderinterfacesnapshot-methods-compare_with) | `func compare_with( actual: GFShaderInterfaceSnapshot, options: Dictionary = {} ) -> GFValidationReport:` |
-| 方法 | [`validate_shader`](#member-gfshaderinterfacesnapshot-methods-validate_shader) | `func validate_shader( shader: Shader, options: Dictionary = {} ) -> GFValidationReport:` |
+| 方法 | [`validate_parameters`](#member-gfshaderinterfacesnapshot-methods-validate_parameters) | `func validate_parameters(parameters: Dictionary, options: Dictionary = {}) -> GFValidationReport:` |
+| 方法 | [`compare_with`](#member-gfshaderinterfacesnapshot-methods-compare_with) | `func compare_with(actual: GFShaderInterfaceSnapshot, options: Dictionary = {}) -> GFValidationReport:` |
+| 方法 | [`validate_shader`](#member-gfshaderinterfacesnapshot-methods-validate_shader) | `func validate_shader(shader: Shader, options: Dictionary = {}) -> GFValidationReport:` |
 | 方法 | [`duplicate_snapshot`](#member-gfshaderinterfacesnapshot-methods-duplicate_snapshot) | `func duplicate_snapshot() -> GFShaderInterfaceSnapshot:` |
 | 方法 | [`to_dict`](#member-gfshaderinterfacesnapshot-methods-to_dict) | `func to_dict() -> Dictionary:` |
 
@@ -270,7 +270,7 @@ func validate_definition(options: Dictionary = {}) -> GFValidationReport:
 - 首次版本：`10.0.0`
 
 ```gdscript
-func validate_parameters( parameters: Dictionary, options: Dictionary = {} ) -> GFValidationReport:
+func validate_parameters(parameters: Dictionary, options: Dictionary = {}) -> GFValidationReport:
 ```
 
 根据快照校验参数字典。 Profile 默认按部分覆盖处理，因此缺失 uniform 默认忽略；未知参数和错型值默认报错。
@@ -297,7 +297,7 @@ func validate_parameters( parameters: Dictionary, options: Dictionary = {} ) -> 
 - 首次版本：`10.0.0`
 
 ```gdscript
-func compare_with( actual: GFShaderInterfaceSnapshot, options: Dictionary = {} ) -> GFValidationReport:
+func compare_with(actual: GFShaderInterfaceSnapshot, options: Dictionary = {}) -> GFValidationReport:
 ```
 
 比较期望快照与实际快照。 当前快照作为 expected；actual 缺失和签名变化默认报错，新增 uniform 默认 warning。
@@ -323,7 +323,7 @@ func compare_with( actual: GFShaderInterfaceSnapshot, options: Dictionary = {} )
 - 首次版本：`10.0.0`
 
 ```gdscript
-func validate_shader( shader: Shader, options: Dictionary = {} ) -> GFValidationReport:
+func validate_shader(shader: Shader, options: Dictionary = {}) -> GFValidationReport:
 ```
 
 将 Shader 当前接口与本快照比较。

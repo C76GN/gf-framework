@@ -39,6 +39,8 @@ func reset_trigger_state(state: Dictionary) -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param raw_active: 原始输入是否处于激活状态。
 ## [br]
 ## @param _value: 输入值，默认实现不直接使用。
@@ -52,12 +54,21 @@ func reset_trigger_state(state: Dictionary) -> void:
 ## @schema state: Dictionary，由输入运行时持有，包含 elapsed: float。
 ## [br]
 ## @return 触发状态。
-func update(raw_active: bool, _value: Variant, delta: float, state: Dictionary) -> TriggerState:
+func update(
+	raw_active: bool,
+	_value: Variant,
+	delta: float,
+	state: Dictionary
+) -> TriggerState:
 	if not raw_active:
 		state["elapsed"] = 0.0
 		return TriggerState.INACTIVE
 
-	var elapsed: float = GFVariantData.get_option_float(state, "elapsed", 0.0)
+	var elapsed: float = GFVariantData.get_option_float(
+		state,
+		"elapsed",
+		0.0
+	)
 	elapsed += maxf(delta, 0.0)
 	state["elapsed"] = elapsed
 	if elapsed >= hold_seconds:

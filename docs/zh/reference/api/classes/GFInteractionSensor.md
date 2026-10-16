@@ -15,9 +15,9 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 信号 | [`interaction_sent`](#member-gfinteractionsensor-signals-interaction_sent) | `signal interaction_sent(context: GFInteractionContext, receiver: Object, report: Dictionary)` |
-| 信号 | [`interaction_accepted`](#member-gfinteractionsensor-signals-interaction_accepted) | `signal interaction_accepted(context: GFInteractionContext, receiver: Object, report: Dictionary)` |
-| 信号 | [`interaction_rejected`](#member-gfinteractionsensor-signals-interaction_rejected) | `signal interaction_rejected(context: GFInteractionContext, receiver: Object, report: Dictionary)` |
+| 信号 | [`interaction_sent`](#member-gfinteractionsensor-signals-interaction_sent) | `signal interaction_sent( context: GFInteractionContext, receiver: Object, report: Dictionary )` |
+| 信号 | [`interaction_accepted`](#member-gfinteractionsensor-signals-interaction_accepted) | `signal interaction_accepted( context: GFInteractionContext, receiver: Object, report: Dictionary )` |
+| 信号 | [`interaction_rejected`](#member-gfinteractionsensor-signals-interaction_rejected) | `signal interaction_rejected( context: GFInteractionContext, receiver: Object, report: Dictionary )` |
 | 属性 | [`enabled`](#member-gfinteractionsensor-properties-enabled) | `var enabled: bool = true` |
 | 属性 | [`interaction_id`](#member-gfinteractionsensor-properties-interaction_id) | `var interaction_id: StringName = &""` |
 | 属性 | [`group_name`](#member-gfinteractionsensor-properties-group_name) | `var group_name: StringName = &""` |
@@ -45,7 +45,7 @@
 - 首次版本：`3.17.0`
 
 ```gdscript
-signal interaction_sent(context: GFInteractionContext, receiver: Object, report: Dictionary)
+signal interaction_sent( context: GFInteractionContext, receiver: Object, report: Dictionary )
 ```
 
 交互已发送。
@@ -70,7 +70,7 @@ signal interaction_sent(context: GFInteractionContext, receiver: Object, report:
 - 首次版本：`3.17.0`
 
 ```gdscript
-signal interaction_accepted(context: GFInteractionContext, receiver: Object, report: Dictionary)
+signal interaction_accepted( context: GFInteractionContext, receiver: Object, report: Dictionary )
 ```
 
 交互被接收对象接受。
@@ -95,7 +95,7 @@ signal interaction_accepted(context: GFInteractionContext, receiver: Object, rep
 - 首次版本：`3.17.0`
 
 ```gdscript
-signal interaction_rejected(context: GFInteractionContext, receiver: Object, report: Dictionary)
+signal interaction_rejected( context: GFInteractionContext, receiver: Object, report: Dictionary )
 ```
 
 交互被接收对象拒绝或发送失败。

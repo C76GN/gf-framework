@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFState" path="addons/gf/standard/state_machine/pure/gf_state.gd" module="standard" extends="RefCounted" classDigest="b30eabdeb7157e93e0cf3d5d19fe38f65e19ab7c41243265daf5a056bd0da3dd">
+<class name="GFState" path="addons/gf/standard/state_machine/pure/gf_state.gd" module="standard" extends="RefCounted" classDigest="68f1a68e61e8ba24424d891304fae7a1ec73a3c89f3d67b808d5b41f76b2fe75">
 	<description>GFState: 纯代码状态机的状态抽象基类。
 继承自 RefCounted，不依赖 Node 树，可在任何逻辑层使用。
 通过持有对所属 GFStateMachine 的弱引用，间接访问框架的
@@ -146,7 +146,7 @@ Model、System、Utility 层，实现状态与框架的解耦。
 			</tags>
 		</member>
 		<member kind="method" name="register_event">
-			<signature>func register_event(event_type: Script, listener: GFEventListener, priority: int = 0) -&gt; void:</signature>
+			<signature>func register_event( event_type: Script, listener: GFEventListener, priority: int = 0 ) -&gt; void:</signature>
 			<description>注册类型事件监听器，默认以当前状态作为 owner。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -167,7 +167,7 @@ Model、System、Utility 层，实现状态与框架的解耦。
 			</tags>
 		</member>
 		<member kind="method" name="register_assignable_event">
-			<signature>func register_assignable_event(base_event_type: Script, listener: GFEventListener, priority: int = 0) -&gt; void:</signature>
+			<signature>func register_assignable_event( base_event_type: Script, listener: GFEventListener, priority: int = 0 ) -&gt; void:</signature>
 			<description>注册可赋值类型事件监听器，默认以当前状态作为 owner。</description>
 			<tags>
 				<tag name="api">public</tag>

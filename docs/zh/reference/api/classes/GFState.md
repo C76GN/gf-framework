@@ -29,9 +29,9 @@
 | 方法 | [`send_query`](#member-gfstate-methods-send_query) | `func send_query(query: Object) -> Variant:` |
 | 方法 | [`send_event`](#member-gfstate-methods-send_event) | `func send_event(event_instance: Object) -> void:` |
 | 方法 | [`send_simple_event`](#member-gfstate-methods-send_simple_event) | `func send_simple_event(event_id: StringName, payload: Variant = null) -> void:` |
-| 方法 | [`register_event`](#member-gfstate-methods-register_event) | `func register_event(event_type: Script, listener: GFEventListener, priority: int = 0) -> void:` |
+| 方法 | [`register_event`](#member-gfstate-methods-register_event) | `func register_event( event_type: Script, listener: GFEventListener, priority: int = 0 ) -> void:` |
 | 方法 | [`unregister_event`](#member-gfstate-methods-unregister_event) | `func unregister_event(event_type: Script, listener: GFEventListener) -> void:` |
-| 方法 | [`register_assignable_event`](#member-gfstate-methods-register_assignable_event) | `func register_assignable_event(base_event_type: Script, listener: GFEventListener, priority: int = 0) -> void:` |
+| 方法 | [`register_assignable_event`](#member-gfstate-methods-register_assignable_event) | `func register_assignable_event( base_event_type: Script, listener: GFEventListener, priority: int = 0 ) -> void:` |
 | 方法 | [`unregister_assignable_event`](#member-gfstate-methods-unregister_assignable_event) | `func unregister_assignable_event(base_event_type: Script, listener: GFEventListener) -> void:` |
 | 方法 | [`register_simple_event`](#member-gfstate-methods-register_simple_event) | `func register_simple_event(event_id: StringName, listener: GFEventListener) -> void:` |
 | 方法 | [`unregister_simple_event`](#member-gfstate-methods-unregister_simple_event) | `func unregister_simple_event(event_id: StringName, listener: GFEventListener) -> void:` |
@@ -342,7 +342,7 @@ func send_simple_event(event_id: StringName, payload: Variant = null) -> void:
 - 首次版本：`8.0.0`
 
 ```gdscript
-func register_event(event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
+func register_event( event_type: Script, listener: GFEventListener, priority: int = 0 ) -> void:
 ```
 
 注册类型事件监听器，默认以当前状态作为 owner。
@@ -383,7 +383,7 @@ func unregister_event(event_type: Script, listener: GFEventListener) -> void:
 - 首次版本：`8.0.0`
 
 ```gdscript
-func register_assignable_event(base_event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
+func register_assignable_event( base_event_type: Script, listener: GFEventListener, priority: int = 0 ) -> void:
 ```
 
 注册可赋值类型事件监听器，默认以当前状态作为 owner。

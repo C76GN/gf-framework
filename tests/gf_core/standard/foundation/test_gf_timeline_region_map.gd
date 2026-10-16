@@ -6,13 +6,51 @@ extends GutTest
 
 func test_timed_text_track_queries_entries() -> void:
 	var track: GFTimedTextTrack = GFTimedTextTrack.new()
-	track.call("add_entry", 0.0, 1.0, "A")
-	track.call("add_entry", 1.0, 2.0, "B")
+	track.call(
+		"add_entry",
+		0.0,
+		1.0,
+		"A"
+	)
+	track.call(
+		"add_entry",
+		1.0,
+		2.0,
+		"B"
+	)
 
-	assert_eq(GFVariantData.to_text(track.call("get_text_at_time", 0.5)), "A", "时间查询应返回命中文本。")
-	assert_eq(GFVariantData.as_array(track.call("get_entries_in_range", 0.5, 1.5)).size(), 2, "范围查询应返回相交条目。")
-	assert_eq(GFVariantData.as_array(track.call("get_entries_in_range", 1.5, 0.5)).size(), 2, "反向范围查询应归一后返回相交条目。")
-	assert_eq(GFVariantData.to_float(track.call("get_total_duration")), 2.0, "总时长应取最大结束时间。")
+	assert_eq(
+		GFVariantData.to_text(track.call("get_text_at_time", 0.5)),
+		"A",
+		"时间查询应返回命中文本。"
+	)
+	assert_eq(
+		GFVariantData.as_array(
+			track.call(
+				"get_entries_in_range",
+				0.5,
+				1.5
+			)
+		).size(),
+		2,
+		"范围查询应返回相交条目。"
+	)
+	assert_eq(
+		GFVariantData.as_array(
+			track.call(
+				"get_entries_in_range",
+				1.5,
+				0.5
+			)
+		).size(),
+		2,
+		"反向范围查询应归一后返回相交条目。"
+	)
+	assert_eq(
+		GFVariantData.to_float(track.call("get_total_duration")),
+		2.0,
+		"总时长应取最大结束时间。"
+	)
 
 
 func test_timed_text_importer_parses_srt_and_lrc() -> void:
@@ -22,25 +60,75 @@ func test_timed_text_importer_parses_srt_and_lrc() -> void:
 	var lrc_result: Dictionary = GFTimedTextImporter.parse_lrc("[00:01.00]One\n[00:03.00]Two\n", 1.0)
 	var lrc_track: GFTimedTextTrack = _as_timed_text_track(GFVariantData.get_option_value(lrc_result, "track"))
 
-	assert_true(GFVariantData.get_option_bool(srt_result, "success", false), "SRT 应解析成功。")
+	assert_true(
+		GFVariantData.get_option_bool(
+			srt_result,
+			"success",
+			false
+		),
+		"SRT 应解析成功。"
+	)
 	assert_not_null(srt_track, "SRT 应返回文本轨道。")
 	assert_not_null(lrc_track, "LRC 应返回文本轨道。")
-	assert_eq(srt_track.track_id, &"caption", "轨道 ID 应保留。")
-	assert_eq(GFVariantData.to_text(srt_track.call("get_text_at_time", 1.25)), "Hello", "SRT 时间段应可查询。")
-	assert_eq(GFVariantData.to_text(lrc_track.call("get_text_at_time", 1.5)), "One", "LRC 行应转换为时间段。")
-	assert_eq(GFVariantData.to_float(lrc_track.call("get_total_duration")), 4.0, "LRC 最后一行应使用默认时长。")
+	assert_eq(
+		srt_track.track_id,
+		&"caption",
+		"轨道 ID 应保留。"
+	)
+	assert_eq(
+		GFVariantData.to_text(srt_track.call("get_text_at_time", 1.25)),
+		"Hello",
+		"SRT 时间段应可查询。"
+	)
+	assert_eq(
+		GFVariantData.to_text(lrc_track.call("get_text_at_time", 1.5)),
+		"One",
+		"LRC 行应转换为时间段。"
+	)
+	assert_eq(
+		GFVariantData.to_float(lrc_track.call("get_total_duration")),
+		4.0,
+		"LRC 最后一行应使用默认时长。"
+	)
 
 
 func test_timed_text_importer_rejects_malformed_timestamps() -> void:
 	var srt_result: Dictionary = GFTimedTextImporter.parse_srt("1\n00:xx:01,000 --> 00:00:02,000\nBroken\n")
 	var track: GFTimedTextTrack = _as_timed_text_track(GFVariantData.get_option_value(srt_result, "track"))
 
-	assert_false(GFVariantData.get_option_bool(srt_result, "success", true), "非空输入完全无法解释时应明确失败。")
-	assert_eq(GFVariantData.get_option_string(srt_result, "error"), "no_valid_entries", "全无效输入应返回稳定错误。")
+	assert_false(
+		GFVariantData.get_option_bool(
+			srt_result,
+			"success",
+			true
+		),
+		"非空输入完全无法解释时应明确失败。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(srt_result, "error"),
+		"no_valid_entries",
+		"全无效输入应返回稳定错误。"
+	)
 	assert_not_null(track, "解析结果应仍返回轨道对象。")
-	assert_true(track != null and track.entries.is_empty(), "格式错误的时间戳不应生成 0 秒误匹配条目。")
-	assert_true(GFVariantData.get_option_bool(GFTimedTextImporter.parse_srt(""), "success"), "显式空输入仍应表示有效空轨道。")
-	assert_false(GFVariantData.get_option_bool(GFTimedTextImporter.parse_lrc("not lrc"), "success", true), "非空 LRC 全无有效条目时应失败。")
+	assert_true(
+		track != null and track.entries.is_empty(),
+		"格式错误的时间戳不应生成 0 秒误匹配条目。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(
+			GFTimedTextImporter.parse_srt(""),
+			"success"
+		),
+		"显式空输入仍应表示有效空轨道。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(
+			GFTimedTextImporter.parse_lrc("not lrc"),
+			"success",
+			true
+		),
+		"非空 LRC 全无有效条目时应失败。"
+	)
 
 
 func test_timed_text_importer_expands_multi_tag_lrc_lines() -> void:
@@ -48,45 +136,87 @@ func test_timed_text_importer_expands_multi_tag_lrc_lines() -> void:
 	var track: GFTimedTextTrack = _as_timed_text_track(GFVariantData.get_option_value(lrc_result, "track"))
 
 	assert_not_null(track, "LRC 应返回文本轨道。")
-	assert_eq(track.entries.size(), 3, "同一 LRC 行的多个时间标签应展开为多个条目。")
-	assert_eq(GFVariantData.to_text(track.call("get_text_at_time", 1.5)), "Echo", "第一时间标签应生成可查询条目。")
-	assert_eq(GFVariantData.to_text(track.call("get_text_at_time", 3.5)), "Echo", "第二时间标签应生成可查询条目。")
+	assert_eq(
+		track.entries.size(),
+		3,
+		"同一 LRC 行的多个时间标签应展开为多个条目。"
+	)
+	assert_eq(
+		GFVariantData.to_text(track.call("get_text_at_time", 1.5)),
+		"Echo",
+		"第一时间标签应生成可查询条目。"
+	)
+	assert_eq(
+		GFVariantData.to_text(track.call("get_text_at_time", 3.5)),
+		"Echo",
+		"第二时间标签应生成可查询条目。"
+	)
 
 
 func test_timed_text_importer_rejects_empty_end_time_without_script_error() -> void:
-	for suffix: String in ["", " ", "\t"]:
+	for suffix: String in [
+		"",
+		" ",
+		"\t",
+	]:
 		var cue: String = "1\n00:00:01,000 --> %s\nBroken\n" % suffix
-		for report: Dictionary in [GFTimedTextImporter.parse_srt(cue), GFTimedTextImporter.parse_vtt("WEBVTT\n\n" + cue)]:
-			assert_false(GFVariantData.get_option_bool(report, "success", true))
-			assert_eq(GFVariantData.get_option_string(report, "error"), "no_valid_entries")
+		for report: Dictionary in [GFTimedTextImporter.parse_srt(cue), GFTimedTextImporter.parse_vtt("WEBVTT\n\n" + cue),]:
+			assert_false(
+				GFVariantData.get_option_bool(
+					report,
+					"success",
+					true
+				)
+			)
+			assert_eq(
+				GFVariantData.get_option_string(report, "error"),
+				"no_valid_entries"
+			)
 			var track: GFTimedTextTrack = _as_timed_text_track(GFVariantData.get_option_value(report, "track"))
 			assert_true(track != null and track.entries.is_empty())
 		var mixed: Dictionary = GFTimedTextImporter.parse_srt(cue + "\n2\n00:00:02,000 --> 00:00:03,000\nValid\n")
-		assert_true(GFVariantData.get_option_bool(mixed, "success"), "无效 cue 不得中断后续有效 cue。")
+		assert_true(
+			GFVariantData.get_option_bool(mixed, "success"),
+			"无效 cue 不得中断后续有效 cue。"
+		)
 
 
 func test_timed_text_apply_dictionary_normalizes_invalid_time_ranges() -> void:
 	var track: GFTimedTextTrack = GFTimedTextTrack.new()
-	track.apply_dictionary({
-		"entries": [
-			{
-				"start_time": -5.0,
-				"end_time": -1.0,
-				"text": "clamped",
-			},
-			{
-				"start_time": 2.0,
-				"end_time": 1.0,
-				"text": "ordered",
-			},
-		],
-	})
+	track.apply_dictionary(
+		{
+			"entries": [
+				{
+					"start_time": -5.0,
+					"end_time": -1.0,
+					"text": "clamped",
+				},
+				{
+					"start_time": 2.0,
+					"end_time": 1.0,
+					"text": "ordered",
+				},
+			],
+		}
+	)
 	var first_entry: GFTimedTextEntry = track.entries[0]
 	var second_entry: GFTimedTextEntry = track.entries[1]
 
-	assert_eq(first_entry.start_time, 0.0, "恢复条目时负开始时间应归零。")
-	assert_eq(first_entry.end_time, 0.0, "恢复条目时结束时间不应早于开始时间。")
-	assert_eq(second_entry.end_time, second_entry.start_time, "恢复条目应修正 end < start。")
+	assert_eq(
+		first_entry.start_time,
+		0.0,
+		"恢复条目时负开始时间应归零。"
+	)
+	assert_eq(
+		first_entry.end_time,
+		0.0,
+		"恢复条目时结束时间不应早于开始时间。"
+	)
+	assert_eq(
+		second_entry.end_time,
+		second_entry.start_time,
+		"恢复条目应修正 end < start。"
+	)
 
 
 func test_timed_text_direct_time_assignment_preserves_finite_ordered_interval() -> void:
@@ -94,40 +224,100 @@ func test_timed_text_direct_time_assignment_preserves_finite_ordered_interval() 
 
 	entry.start_time = NAN
 	entry.end_time = INF
-	assert_eq(entry.start_time, 0.0, "直接写入非有限 start 应归零。")
-	assert_eq(entry.end_time, 0.0, "直接写入非有限 end 应归一为当前 start。")
+	assert_eq(
+		entry.start_time,
+		0.0,
+		"直接写入非有限 start 应归零。"
+	)
+	assert_eq(
+		entry.end_time,
+		0.0,
+		"直接写入非有限 end 应归一为当前 start。"
+	)
 
 	entry.start_time = 2.0
-	assert_eq(entry.end_time, 2.0, "提高 start 时 end 应同步保持不早于 start。")
+	assert_eq(
+		entry.end_time,
+		2.0,
+		"提高 start 时 end 应同步保持不早于 start。"
+	)
 	entry.end_time = 1.0
-	assert_eq(entry.end_time, 2.0, "直接写入 end < start 应钳制到 start。")
+	assert_eq(
+		entry.end_time,
+		2.0,
+		"直接写入 end < start 应钳制到 start。"
+	)
 	var serialized: Dictionary = entry.to_dictionary()
-	assert_true(is_finite(GFVariantData.get_option_float(serialized, "start_time")), "序列化 start 必须有限。")
-	assert_true(is_finite(GFVariantData.get_option_float(serialized, "end_time")), "序列化 end 必须有限。")
+	assert_true(
+		is_finite(GFVariantData.get_option_float(serialized, "start_time")),
+		"序列化 start 必须有限。"
+	)
+	assert_true(
+		is_finite(GFVariantData.get_option_float(serialized, "end_time")),
+		"序列化 end 必须有限。"
+	)
 
 
 func test_replay_timeline_records_queries_and_serializes_events() -> void:
 	var timeline: GFReplayTimeline = GFReplayTimeline.new()
 	timeline.timeline_id = &"session"
-	var _add_input_result_36: Variant = timeline.add_input(0.1, { "action_id": &"jump", "value": true })
-	var _add_command_result_37: Variant = timeline.add_command(0.2, { "command_id": &"open" })
-	var _add_snapshot_result_38: Variant = timeline.add_snapshot(0.3, { "tick": 3, "state": { "hp": 10 } })
+	var _add_input_result_36: Variant = timeline.add_input(
+		0.1,
+		{ "action_id": &"jump", "value": true }
+	)
+	var _add_command_result_37: Variant = timeline.add_command(
+		0.2,
+		{ "command_id": &"open" }
+	)
+	var _add_snapshot_result_38: Variant = timeline.add_snapshot(
+		0.3,
+		{
+			"tick": 3,
+			"state": { "hp": 10 },
+		}
+	)
 
 	var input_events: Array[Dictionary] = timeline.get_events_by_kind(GFReplayTimeline.EVENT_INPUT)
 	var range_events: Array[Dictionary] = timeline.get_events_in_range(0.0, 0.25)
 	var restored: GFReplayTimeline = GFReplayTimeline.from_dictionary(timeline.to_dictionary())
 
-	assert_eq(timeline.get_event_count(), 3, "时间线应记录多种事件。")
-	assert_eq(input_events.size(), 1, "应能按事件类型查询。")
-	assert_eq(range_events.size(), 2, "应能按时间范围查询。")
-	assert_eq(restored.timeline_id, &"session", "序列化应保留时间线 ID。")
-	assert_eq(restored.get_event_count(), 3, "序列化应保留事件数量。")
+	assert_eq(
+		timeline.get_event_count(),
+		3,
+		"时间线应记录多种事件。"
+	)
+	assert_eq(
+		input_events.size(),
+		1,
+		"应能按事件类型查询。"
+	)
+	assert_eq(
+		range_events.size(),
+		2,
+		"应能按时间范围查询。"
+	)
+	assert_eq(
+		restored.timeline_id,
+		&"session",
+		"序列化应保留时间线 ID。"
+	)
+	assert_eq(
+		restored.get_event_count(),
+		3,
+		"序列化应保留事件数量。"
+	)
 
 
 func test_replay_timeline_keeps_same_time_events_in_insert_order() -> void:
 	var timeline: GFReplayTimeline = GFReplayTimeline.new()
-	var _add_first_result: Variant = timeline.add_input(1.0, { "action_id": &"first" })
-	var _add_second_result: Variant = timeline.add_command(1.0, { "command_id": &"second" })
+	var _add_first_result: Variant = timeline.add_input(
+		1.0,
+		{ "action_id": &"first" }
+	)
+	var _add_second_result: Variant = timeline.add_command(
+		1.0,
+		{ "command_id": &"second" }
+	)
 
 	timeline.sort_events()
 	var events: Array[Dictionary] = timeline.get_events()
@@ -135,39 +325,108 @@ func test_replay_timeline_keeps_same_time_events_in_insert_order() -> void:
 	restored.sort_events()
 	var restored_events: Array[Dictionary] = restored.get_events()
 
-	assert_eq(GFVariantData.get_option_string_name(events[0], "event_kind"), GFReplayTimeline.EVENT_INPUT, "同时间事件应按插入顺序排序。")
-	assert_eq(GFVariantData.get_option_string_name(events[1], "event_kind"), GFReplayTimeline.EVENT_COMMAND, "同时间事件不应退化为按 kind 排序。")
-	assert_eq(GFVariantData.get_option_string_name(restored_events[0], "event_kind"), GFReplayTimeline.EVENT_INPUT, "序列化后应保留同时间事件顺序。")
-	assert_eq(GFVariantData.get_option_string_name(restored_events[1], "event_kind"), GFReplayTimeline.EVENT_COMMAND, "序列化后不应改变同时间事件顺序。")
+	assert_eq(
+		GFVariantData.get_option_string_name(
+			events[0],
+			"event_kind"
+		),
+		GFReplayTimeline.EVENT_INPUT,
+		"同时间事件应按插入顺序排序。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(
+			events[1],
+			"event_kind"
+		),
+		GFReplayTimeline.EVENT_COMMAND,
+		"同时间事件不应退化为按 kind 排序。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(
+			restored_events[0],
+			"event_kind"
+		),
+		GFReplayTimeline.EVENT_INPUT,
+		"序列化后应保留同时间事件顺序。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(
+			restored_events[1],
+			"event_kind"
+		),
+		GFReplayTimeline.EVENT_COMMAND,
+		"序列化后不应改变同时间事件顺序。"
+	)
 
 
 func test_timeline_sorting_uses_exact_time_and_normalizes_duplicate_sequences() -> void:
 	var timeline: GFReplayTimeline = GFReplayTimeline.new()
-	timeline.apply_dictionary({
-		"events": [
-			{ "time_seconds": 1.0000001, "sequence": 5, "event_kind": "later" },
-			{ "time_seconds": 1.0, "sequence": 5, "event_kind": "earlier" },
-			{ "time_seconds": 1.0000001, "sequence": 5, "event_kind": "later_second" },
-		],
-	})
+	timeline.apply_dictionary(
+		{
+			"events": [
+				{
+					"time_seconds": 1.0000001,
+					"sequence": 5,
+					"event_kind": "later",
+				},
+				{
+					"time_seconds": 1.0,
+					"sequence": 5,
+					"event_kind": "earlier",
+				},
+				{
+					"time_seconds": 1.0000001,
+					"sequence": 5,
+					"event_kind": "later_second",
+				},
+			],
+		}
+	)
 	var events: Array[Dictionary] = timeline.get_events()
 	var sequences: Dictionary = {}
 	for event: Dictionary in events:
 		sequences[GFVariantData.get_option_int(event, "sequence")] = true
 
-	assert_eq(GFVariantData.get_option_string(events[0], "event_kind"), "earlier", "相近但更早的事件必须先排序。")
-	assert_eq(sequences.size(), 3, "恢复后的重复 sequence 应按输入顺序归一为唯一值。")
+	assert_eq(
+		GFVariantData.get_option_string(
+			events[0],
+			"event_kind"
+		),
+		"earlier",
+		"相近但更早的事件必须先排序。"
+	)
+	assert_eq(
+		sequences.size(),
+		3,
+		"恢复后的重复 sequence 应按输入顺序归一为唯一值。"
+	)
 
 	var track: GFTimedTextTrack = GFTimedTextTrack.new()
-	var _later_entry: GFTimedTextEntry = track.add_entry(1.0000001, 2.0, "later")
-	var _earlier_entry: GFTimedTextEntry = track.add_entry(1.0, 2.0, "earlier")
+	var _later_entry: GFTimedTextEntry = track.add_entry(
+		1.0000001,
+		2.0,
+		"later"
+	)
+	var _earlier_entry: GFTimedTextEntry = track.add_entry(
+		1.0,
+		2.0,
+		"earlier"
+	)
 	track.sort_entries()
-	assert_eq(track.entries[0].text, "earlier", "文本轨道也应按严格 start_time 排序。")
+	assert_eq(
+		track.entries[0].text,
+		"earlier",
+		"文本轨道也应按严格 start_time 排序。"
+	)
 
 
 func test_replay_timeline_add_event_returns_decoupled_copy() -> void:
 	var timeline: GFReplayTimeline = GFReplayTimeline.new()
-	var event: Dictionary = timeline.add_event(0.2, GFReplayTimeline.EVENT_INPUT, { "action_id": &"jump" })
+	var event: Dictionary = timeline.add_event(
+		0.2,
+		GFReplayTimeline.EVENT_INPUT,
+		{ "action_id": &"jump" }
+	)
 	event["event_kind"] = &"mutated"
 	var payload: Dictionary = GFVariantData.get_option_dictionary(event, "payload")
 	payload["action_id"] = &"mutated"
@@ -176,73 +435,148 @@ func test_replay_timeline_add_event_returns_decoupled_copy() -> void:
 	var stored_event: Dictionary = events[0]
 	var stored_payload: Dictionary = GFVariantData.get_option_dictionary(stored_event, "payload")
 
-	assert_eq(GFVariantData.get_option_string_name(stored_event, "event_kind"), GFReplayTimeline.EVENT_INPUT, "add_event 返回值不应暴露内部事件字典。")
-	assert_eq(GFVariantData.get_option_string_name(stored_payload, "action_id"), &"jump", "add_event 返回值的嵌套 payload 也应与内部状态解耦。")
+	assert_eq(
+		GFVariantData.get_option_string_name(stored_event, "event_kind"),
+		GFReplayTimeline.EVENT_INPUT,
+		"add_event 返回值不应暴露内部事件字典。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(stored_payload, "action_id"),
+		&"jump",
+		"add_event 返回值的嵌套 payload 也应与内部状态解耦。"
+	)
 
 
 func test_replay_timeline_apply_dictionary_extends_duration_to_events() -> void:
 	var timeline: GFReplayTimeline = GFReplayTimeline.new()
 
-	timeline.apply_dictionary({
-		"timeline_id": "restored",
-		"duration_seconds": 0.5,
-		"events": [
-			{
-				"event_kind": "snapshot",
-				"time_seconds": 2.0,
-				"payload": {
-					"tick": 20,
+	timeline.apply_dictionary(
+		{
+			"timeline_id": "restored",
+			"duration_seconds": 0.5,
+			"events": [
+				{
+					"event_kind": "snapshot",
+					"time_seconds": 2.0,
+					"payload": { "tick": 20, },
 				},
-			},
-		],
-	})
+			],
+		}
+	)
 
-	assert_almost_eq(timeline.duration_seconds, 2.0, 0.001, "恢复数据时 duration 不应小于事件最大时间。")
+	assert_almost_eq(
+		timeline.duration_seconds,
+		2.0,
+		0.001,
+		"恢复数据时 duration 不应小于事件最大时间。"
+	)
 
 
 func test_replay_timeline_normalizes_nonfinite_times_for_json_dictionary() -> void:
 	var timeline: GFReplayTimeline = GFReplayTimeline.new()
-	var _nan_event: Dictionary = timeline.add_event(NAN, GFReplayTimeline.EVENT_INPUT, {})
-	var _inf_event: Dictionary = timeline.add_event(INF, GFReplayTimeline.EVENT_COMMAND, {})
-	timeline.apply_dictionary({
-		"duration_seconds": INF,
-		"events": [
-			{
-				"time_seconds": NAN,
-				"event_kind": "snapshot",
-			},
-		],
-	})
+	var _nan_event: Dictionary = timeline.add_event(
+		NAN,
+		GFReplayTimeline.EVENT_INPUT,
+		{}
+	)
+	var _inf_event: Dictionary = timeline.add_event(
+		INF,
+		GFReplayTimeline.EVENT_COMMAND,
+		{}
+	)
+	timeline.apply_dictionary(
+		{
+			"duration_seconds": INF,
+			"events": [
+				{ "time_seconds": NAN, "event_kind": "snapshot", },
+			],
+		}
+	)
 
 	var serialized: Dictionary = timeline.to_dictionary(true)
 	var serialized_events: Array = GFVariantData.get_option_array(serialized, "events")
 	var json_text: String = JSON.stringify(serialized)
 
-	assert_eq(GFVariantData.get_option_float(serialized, "duration_seconds"), 0.0, "非有限 duration 应归零。")
+	assert_eq(
+		GFVariantData.get_option_float(serialized, "duration_seconds"),
+		0.0,
+		"非有限 duration 应归零。"
+	)
 	for event_value: Variant in serialized_events:
 		var event: Dictionary = GFVariantData.as_dictionary(event_value)
-		var time_seconds: float = GFVariantData.get_option_float(event, "time_seconds", -1.0)
-		assert_false(is_nan(time_seconds), "事件时间不应输出 NaN。")
-		assert_false(is_inf(time_seconds), "事件时间不应输出 Infinity。")
-		assert_gte(time_seconds, 0.0, "事件时间应保持非负。")
-	assert_false(json_text.contains("NaN"), "JSON 文本不应包含 NaN。")
-	assert_false(json_text.contains("Inf"), "JSON 文本不应包含 Inf。")
+		var time_seconds: float = GFVariantData.get_option_float(
+			event,
+			"time_seconds",
+			-1.0
+		)
+		assert_false(
+			is_nan(time_seconds),
+			"事件时间不应输出 NaN。"
+		)
+		assert_false(
+			is_inf(time_seconds),
+			"事件时间不应输出 Infinity。"
+		)
+		assert_gte(
+			time_seconds,
+			0.0,
+			"事件时间应保持非负。"
+		)
+	assert_false(
+		json_text.contains("NaN"),
+		"JSON 文本不应包含 NaN。"
+	)
+	assert_false(
+		json_text.contains("Inf"),
+		"JSON 文本不应包含 Inf。"
+	)
 
 
 func test_replay_timeline_appends_filtered_timeline_with_offset() -> void:
 	var source: GFReplayTimeline = GFReplayTimeline.new()
-	var _add_input_result_53: Variant = source.add_input(0.1, { "action_id": &"dash" })
-	var _add_snapshot_result_54: Variant = source.add_snapshot(0.2, { "tick": 2 })
+	var _add_input_result_53: Variant = source.add_input(
+		0.1,
+		{ "action_id": &"dash" }
+	)
+	var _add_snapshot_result_54: Variant = source.add_snapshot(
+		0.2,
+		{ "tick": 2 }
+	)
 	var target: GFReplayTimeline = GFReplayTimeline.new()
 
-	var appended: int = target.append_timeline(source, 1.0, PackedStringArray(["snapshot"]))
+	var appended: int = target.append_timeline(
+		source,
+		1.0,
+		PackedStringArray(["snapshot"])
+	)
 	var events: Array[Dictionary] = target.get_events()
 	var event: Dictionary = events[0]
 
-	assert_eq(appended, 1, "过滤合并时应只追加匹配类型事件。")
-	assert_eq(events.size(), 1, "目标时间线应只包含追加事件。")
-	assert_eq(GFVariantData.get_option_string_name(event, "event_kind"), GFReplayTimeline.EVENT_SNAPSHOT, "追加事件类型应保留。")
-	assert_almost_eq(GFVariantData.get_option_float(event, "time_seconds", 0.0), 1.2, 0.001, "追加事件应应用时间偏移。")
+	assert_eq(
+		appended,
+		1,
+		"过滤合并时应只追加匹配类型事件。"
+	)
+	assert_eq(
+		events.size(),
+		1,
+		"目标时间线应只包含追加事件。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(event, "event_kind"),
+		GFReplayTimeline.EVENT_SNAPSHOT,
+		"追加事件类型应保留。"
+	)
+	assert_almost_eq(
+		GFVariantData.get_option_float(
+			event,
+			"time_seconds",
+			0.0
+		),
+		1.2,
+		0.001,
+		"追加事件应应用时间偏移。"
+	)
 
 
 func test_replay_timeline_self_append_uses_initial_finite_snapshot_once() -> void:
@@ -253,27 +587,89 @@ func test_replay_timeline_self_append_uses_initial_finite_snapshot_once() -> voi
 	var appended: int = timeline.append_timeline(timeline)
 	var events: Array[Dictionary] = timeline.get_events()
 
-	assert_eq(appended, 2, "self append 应只追加调用开始时的两个事件。")
-	assert_eq(events.size(), 4, "self append 应恰好使事件数量翻倍。")
-	assert_eq(GFVariantData.get_option_string_name(events[0], "event_kind"), &"first", "原事件应保持稳定排序。")
-	assert_eq(GFVariantData.get_option_string_name(events[1], "event_kind"), &"first", "快照追加事件应按新 sequence 跟随同时间原事件。")
-	assert_eq(GFVariantData.get_option_string_name(events[2], "event_kind"), &"second", "第二组原事件顺序应保留。")
-	assert_eq(GFVariantData.get_option_string_name(events[3], "event_kind"), &"second", "第二组快照事件应只追加一次。")
+	assert_eq(
+		appended,
+		2,
+		"self append 应只追加调用开始时的两个事件。"
+	)
+	assert_eq(
+		events.size(),
+		4,
+		"self append 应恰好使事件数量翻倍。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(
+			events[0],
+			"event_kind"
+		),
+		&"first",
+		"原事件应保持稳定排序。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(
+			events[1],
+			"event_kind"
+		),
+		&"first",
+		"快照追加事件应按新 sequence 跟随同时间原事件。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(
+			events[2],
+			"event_kind"
+		),
+		&"second",
+		"第二组原事件顺序应保留。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(
+			events[3],
+			"event_kind"
+		),
+		&"second",
+		"第二组快照事件应只追加一次。"
+	)
 
 
 func test_region_map_tracks_dirty_regions() -> void:
 	var region_map: GFRegionMap2D = GFRegionMap2D.new()
 	region_map.region_size = Vector2i(4, 4)
-	region_map.set_cell(Vector2i(1, 1), { "value": 1 })
-	region_map.set_cell(Vector2i(5, 1), { "value": 2 })
+	region_map.set_cell(
+		Vector2i(1, 1),
+		{ "value": 1 }
+	)
+	region_map.set_cell(
+		Vector2i(5, 1),
+		{ "value": 2 }
+	)
 
-	assert_eq(region_map.get_region_key_for_cell(Vector2i(5, 1)), Vector2i(1, 0), "格坐标应映射到区域键。")
-	assert_eq(GFVariantData.get_option_int(GFVariantData.as_dictionary(region_map.get_cell(Vector2i(1, 1))), "value", 0), 1, "应能读取格子数据。")
-	assert_eq(region_map.get_dirty_region_keys().size(), 2, "写入两个区域后应标记两个脏区。")
+	assert_eq(
+		region_map.get_region_key_for_cell(Vector2i(5, 1)),
+		Vector2i(1, 0),
+		"格坐标应映射到区域键。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			GFVariantData.as_dictionary(region_map.get_cell(Vector2i(1, 1))),
+			"value",
+			0
+		),
+		1,
+		"应能读取格子数据。"
+	)
+	assert_eq(
+		region_map.get_dirty_region_keys().size(),
+		2,
+		"写入两个区域后应标记两个脏区。"
+	)
 
 	region_map.clear_dirty(Vector2i(1, 0))
 
-	assert_eq(region_map.get_dirty_region_keys().size(), 1, "清理指定区域后应只剩一个脏区。")
+	assert_eq(
+		region_map.get_dirty_region_keys().size(),
+		1,
+		"清理指定区域后应只剩一个脏区。"
+	)
 
 
 func _as_timed_text_track(value: Variant) -> GFTimedTextTrack:

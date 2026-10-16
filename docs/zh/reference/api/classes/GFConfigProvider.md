@@ -23,7 +23,7 @@
 | 方法 | [`get_schema`](#member-gfconfigprovider-methods-get_schema) | `func get_schema(table_name: StringName) -> GFConfigTableSchema:` |
 | 方法 | [`get_schema_ids`](#member-gfconfigprovider-methods-get_schema_ids) | `func get_schema_ids() -> PackedStringArray:` |
 | 方法 | [`validate_record`](#member-gfconfigprovider-methods-validate_record) | `func validate_record( table_name: StringName, record: Dictionary, row_key: Variant = null, options: Dictionary = {} ) -> Dictionary:` |
-| 方法 | [`validate_table`](#member-gfconfigprovider-methods-validate_table) | `func validate_table(table_name: StringName, table_data: Variant = null, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`validate_table`](#member-gfconfigprovider-methods-validate_table) | `func validate_table( table_name: StringName, table_data: Variant = null, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`coerce_record`](#member-gfconfigprovider-methods-coerce_record) | `func coerce_record(table_name: StringName, record: Dictionary) -> Dictionary:` |
 
 ## 方法
@@ -205,9 +205,10 @@ func validate_record( table_name: StringName, record: Dictionary, row_key: Varia
 ### `validate_table`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func validate_table(table_name: StringName, table_data: Variant = null, options: Dictionary = {}) -> Dictionary:
+func validate_table( table_name: StringName, table_data: Variant = null, options: Dictionary = {} ) -> Dictionary:
 ```
 
 使用已注册 schema 校验整张表。

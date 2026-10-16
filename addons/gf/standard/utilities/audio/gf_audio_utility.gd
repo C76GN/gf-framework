@@ -769,20 +769,23 @@ func init() -> void:
 	_bgm_player = AudioStreamPlayer.new()
 	_bgm_player.name = "GFBGMPlayer"
 	_bgm_player.bus = _resolve_bus_name(BGM_BUS_NAME)
-	_connect_signal_checked(_bgm_player.finished, _on_bgm_player_finished.bind(_bgm_player))
+	_connect_signal_checked(
+		_bgm_player.finished,
+		_on_bgm_player_finished.bind(_bgm_player)
+	)
 	_bgm_fade_player = AudioStreamPlayer.new()
 	_bgm_fade_player.name = "GFBGMFadePlayer"
 	_bgm_fade_player.bus = _resolve_bus_name(BGM_BUS_NAME)
-	_connect_signal_checked(_bgm_fade_player.finished, _on_bgm_player_finished.bind(_bgm_fade_player))
+	_connect_signal_checked(
+		_bgm_fade_player.finished,
+		_on_bgm_player_finished.bind(_bgm_fade_player)
+	)
 	var initialization_primary: AudioStreamPlayer = _bgm_player
 	var initialization_fade: AudioStreamPlayer = _bgm_fade_player
-	
+
 	var tree: SceneTree = _get_scene_tree()
 	if tree == null or not _is_live_audio_root(tree.root):
-		_rollback_audio_initialization(
-			initialization_primary,
-			initialization_fade
-		)
+		_rollback_audio_initialization(initialization_primary, initialization_fade)
 		return
 	_root = tree.root
 	var initialization_root: Node = _root
@@ -793,10 +796,7 @@ func init() -> void:
 		initialization_fade,
 		false
 	):
-		_rollback_audio_initialization(
-			initialization_primary,
-			initialization_fade
-		)
+		_rollback_audio_initialization(initialization_primary, initialization_fade)
 		return
 	initialization_root.add_child(initialization_fade)
 	if not _is_audio_initialization_topology_current(
@@ -805,10 +805,7 @@ func init() -> void:
 		initialization_fade,
 		true
 	):
-		_rollback_audio_initialization(
-			initialization_primary,
-			initialization_fade
-		)
+		_rollback_audio_initialization(initialization_primary, initialization_fade)
 
 
 ## 释放播放器、后端、环境音和 SFX 运行时状态。
@@ -894,10 +891,7 @@ func start_bgm(
 		)
 		return operation
 
-	var request_result: Dictionary = _try_snapshot_audio_options({
-		"path": path,
-		"options": options,
-	})
+	var request_result: Dictionary = _try_snapshot_audio_options({ "path": path, "options": options, })
 	if not _backend_request_snapshot_succeeded(request_result):
 		_complete_unadmitted_bgm_start(
 			operation,
@@ -906,22 +900,11 @@ func start_bgm(
 			ERR_INVALID_PARAMETER
 		)
 		return operation
-	var request_envelope: Dictionary = _get_backend_request_snapshot_dictionary(
-		request_result
-	)
-	var request_path: String = GFVariantData.get_option_string(
-		request_envelope,
-		"path"
-	)
-	var request_options: Dictionary = GFVariantData.get_option_dictionary(
-		request_envelope,
-		"options"
-	)
+	var request_envelope: Dictionary = _get_backend_request_snapshot_dictionary(request_result)
+	var request_path: String = GFVariantData.get_option_string(request_envelope, "path")
+	var request_options: Dictionary = GFVariantData.get_option_dictionary(request_envelope, "options")
 	if request_options.has("loop") or request_options.has("playback_region"):
-		push_warning(
-			"[GFAudioUtility][audio_utility.start_bgm_options_unsupported] start_bgm does not accept loop or playback_region; "
-			+ "use GFAudioClip.playback_region as the sole looping contract."
-		)
+		push_warning("[GFAudioUtility][audio_utility.start_bgm_options_unsupported] start_bgm does not accept loop or playback_region; " + "use GFAudioClip.playback_region as the sole looping contract.")
 		_complete_unadmitted_bgm_start(
 			operation,
 			GFBgmStartResult.Status.REJECTED,
@@ -1013,9 +996,7 @@ func start_bgm_clip(
 			ERR_INVALID_PARAMETER
 		)
 		return operation
-	var playback_region: GFAudioPlaybackRegion = _snapshot_playback_region(
-		clip.playback_region
-	)
+	var playback_region: GFAudioPlaybackRegion = _snapshot_playback_region(clip.playback_region)
 	if not _validate_playback_region_request(playback_region, &"bgm"):
 		_complete_unadmitted_bgm_start(
 			operation,
@@ -1060,6 +1041,7 @@ func start_bgm_clip(
 	_dispatch_pending_bgm_clip_request(operation.get_request_id())
 	return operation
 
+
 ## 播放 BGM（背景音乐）
 ## [br]
 ## @api public
@@ -1068,9 +1050,10 @@ func start_bgm_clip(
 ## [br]
 ## @param crossfade_seconds: 淡入淡出秒数；小于 0 时使用默认值。
 func play_bgm(path: String, crossfade_seconds: float = -1.0) -> void:
-	play_bgm_with_options(path, {
-		"crossfade_seconds": crossfade_seconds,
-	})
+	play_bgm_with_options(
+		path,
+		{ "crossfade_seconds": crossfade_seconds, }
+	)
 
 
 ## 使用选项播放 BGM。每次请求创建新会话；异步加载、淡变与 finished 回调只可提交所属会话。
@@ -1089,28 +1072,14 @@ func play_bgm_with_options(path: String, options: Dictionary = {}) -> void:
 	if _is_backend_dispatch_in_progress():
 		return
 	_drain_bgm_terminal_barrier_if_needed()
-	var request_result: Dictionary = _try_snapshot_audio_options({
-		"path": path,
-		"options": options,
-	})
+	var request_result: Dictionary = _try_snapshot_audio_options({ "path": path, "options": options, })
 	if not _backend_request_snapshot_succeeded(request_result):
 		return
-	var request_envelope: Dictionary = _get_backend_request_snapshot_dictionary(
-		request_result
-	)
-	var request_path: String = GFVariantData.get_option_string(
-		request_envelope,
-		"path"
-	)
-	var request_options: Dictionary = GFVariantData.get_option_dictionary(
-		request_envelope,
-		"options"
-	)
+	var request_envelope: Dictionary = _get_backend_request_snapshot_dictionary(request_result)
+	var request_path: String = GFVariantData.get_option_string(request_envelope, "path")
+	var request_options: Dictionary = GFVariantData.get_option_dictionary(request_envelope, "options")
 	if request_options.has("loop") or request_options.has("playback_region"):
-		push_warning(
-			"[GFAudioUtility][audio_utility.play_bgm_options_unsupported] play_bgm_with_options does not accept loop or playback_region; "
-			+ "use GFAudioClip.playback_region as the sole looping contract."
-		)
+		push_warning("[GFAudioUtility][audio_utility.play_bgm_options_unsupported] play_bgm_with_options does not accept loop or playback_region; " + "use GFAudioClip.playback_region as the sole looping contract.")
 		return
 	if request_path.is_empty():
 		var legacy_crossfade: float = _finite_or_default(
@@ -1143,12 +1112,18 @@ func play_bgm_clip(clip: GFAudioClip, crossfade_seconds: float = -1.0) -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param bank: 音频集合。
 ## [br]
 ## @param clip_id: 片段标识。
 ## [br]
 ## @param crossfade_seconds: 淡入淡出秒数；小于 0 时使用默认值。
-func play_bgm_from_bank(bank: GFAudioBank, clip_id: StringName, crossfade_seconds: float = -1.0) -> void:
+func play_bgm_from_bank(
+	bank: GFAudioBank,
+	clip_id: StringName,
+	crossfade_seconds: float = -1.0
+) -> void:
 	if bank == null:
 		return
 
@@ -1172,7 +1147,10 @@ func play_bgm_event(
 	bank_id: StringName = &"",
 	crossfade_seconds: float = -1.0
 ) -> void:
-	play_bgm_clip(_get_registered_clip(event_id, bank_id), crossfade_seconds)
+	play_bgm_clip(
+		_get_registered_clip(event_id, bank_id),
+		crossfade_seconds
+	)
 
 
 ## 停止当前 BGM。淡出只绑定当前会话，后续替换会使旧完成回调失效。
@@ -1200,29 +1178,23 @@ func stop_bgm(fade_seconds: float = 0.0) -> void:
 		_schedule_deferred_audio_drain()
 		return
 	var has_pending_axis: bool = not _bgm_pending_start_request.is_empty()
-	var has_deferred_active_axis: bool = (
-		GFVariantData.get_option_int(
-			_deferred_bgm_session_terminal,
-			"session_id"
-		) == captured_session_id
-		and captured_session_id > 0
-	)
-	if _audio_dispose_deferred or has_pending_axis or has_deferred_active_axis:
+	var has_deferred_active_axis: bool = (((GFVariantData.get_option_int(_deferred_bgm_session_terminal, "session_id")) == captured_session_id) and captured_session_id > 0)
+	if (
+		_audio_dispose_deferred
+		or has_pending_axis
+		or has_deferred_active_axis
+	):
 		if has_pending_axis:
-			var _pending_intent_recorded: bool = (
-				_record_pending_bgm_terminal_intent(
-					GFBgmStartResult.Status.CANCELLED,
-					GFBgmStartResult.REASON_STOP_REQUESTED,
-					ERR_SKIP
-				)
+			var _pending_intent_recorded: bool = _record_pending_bgm_terminal_intent(
+				GFBgmStartResult.Status.CANCELLED,
+				GFBgmStartResult.REASON_STOP_REQUESTED,
+				ERR_SKIP
 			)
 		if captured_session_id > 0:
-			var _active_intent_recorded: bool = (
-				_record_deferred_bgm_session_terminal(
-					captured_session_id,
-					GFBgmSessionHandle.EndKind.STOPPED,
-					safe_fade
-				)
+			var _active_intent_recorded: bool = _record_deferred_bgm_session_terminal(
+				captured_session_id,
+				GFBgmSessionHandle.EndKind.STOPPED,
+				safe_fade
 			)
 		_run_deferred_audio_dispose_if_needed()
 		return
@@ -1238,10 +1210,7 @@ func stop_bgm(fade_seconds: float = 0.0) -> void:
 			GFBgmSessionHandle.EndKind.STOPPED
 		)
 		return
-	if (
-		_bgm_committed_session_id == 0
-		and _bgm_request_serial == captured_request_serial
-	):
+	if (_bgm_committed_session_id == 0 and _bgm_request_serial == captured_request_serial):
 		_stop_untracked_bgm_physical(safe_fade)
 
 
@@ -1292,7 +1261,11 @@ func pause_bgm(fade_seconds: float = 0.0) -> bool:
 
 	var session: Dictionary = _get_bgm_session(_bgm_current_session_id)
 	var player: AudioStreamPlayer = _get_bgm_session_player(session)
-	if not is_instance_valid(player) or player.stream == null or not player.playing:
+	if (
+		not is_instance_valid(player)
+		or player.stream == null
+		or not player.playing
+	):
 		return false
 
 	_bgm_generation += 1
@@ -1302,9 +1275,17 @@ func pause_bgm(fade_seconds: float = 0.0) -> bool:
 	_cancel_bgm_transport_tween()
 	_bgm_state = _STATE_PAUSING
 	_bgm_paused = false
-	_bgm_pause_volume_db = GFVariantData.get_option_float(session, "target_volume_db", player.volume_db)
+	_bgm_pause_volume_db = GFVariantData.get_option_float(
+		session,
+		"target_volume_db",
+		player.volume_db
+	)
 	if safe_fade > 0.0:
-		var tween: Tween = _fade_player_volume(player, SILENCE_VOLUME_DB, safe_fade)
+		var tween: Tween = _fade_player_volume(
+			player,
+			SILENCE_VOLUME_DB,
+			safe_fade
+		)
 		if tween != null:
 			_bgm_transport_tween_ref = weakref(tween)
 			_connect_signal_checked(
@@ -1319,7 +1300,12 @@ func pause_bgm(fade_seconds: float = 0.0) -> bool:
 			)
 			return true
 
-	_apply_bgm_pause(operation_generation, pause_serial, _bgm_current_session_id, player)
+	_apply_bgm_pause(
+		operation_generation,
+		pause_serial,
+		_bgm_current_session_id,
+		player
+	)
 	return true
 
 
@@ -1378,7 +1364,10 @@ func resume_bgm(from_position: float = -1.0, fade_seconds: float = 0.0) -> bool:
 	if (
 		not is_instance_valid(player)
 		or player.stream == null
-		or (not was_pausing and not player.stream_paused)
+		or (
+			not was_pausing
+			and not player.stream_paused
+		)
 	):
 		return false
 
@@ -1399,7 +1388,11 @@ func resume_bgm(from_position: float = -1.0, fade_seconds: float = 0.0) -> bool:
 	_bgm_paused = false
 	if safe_fade > 0.0:
 		player.volume_db = SILENCE_VOLUME_DB
-		var tween: Tween = _fade_player_volume(player, target_volume, safe_fade)
+		var tween: Tween = _fade_player_volume(
+			player,
+			target_volume,
+			safe_fade
+		)
 		if tween != null:
 			_bgm_transport_tween_ref = weakref(tween)
 			_connect_signal_checked(
@@ -1485,10 +1478,7 @@ func get_bgm_playback_position() -> float:
 			or _bgm_generation != expected_generation
 		):
 			return 0.0
-		var backend_position: float = _backend_dispatch_float(
-			backend_result,
-			-1.0
-		)
+		var backend_position: float = _backend_dispatch_float(backend_result, -1.0)
 		if backend_position >= 0.0:
 			return backend_position
 
@@ -1515,13 +1505,7 @@ func is_bgm_playing() -> bool:
 			return false
 		if _is_backend_dispatch_in_progress():
 			return true
-		if (
-			_audio_dispose_deferred
-			or GFVariantData.get_option_int(
-				_deferred_bgm_session_terminal,
-				"session_id"
-			) == _bgm_committed_session_id
-		):
+		if (_audio_dispose_deferred or ((GFVariantData.get_option_int(_deferred_bgm_session_terminal, "session_id")) == _bgm_committed_session_id)):
 			_run_deferred_audio_dispose_if_needed()
 			return (
 				_bgm_owner == _OWNER_BACKEND
@@ -1563,12 +1547,10 @@ func is_bgm_playing() -> bool:
 				and _audio_backend != null
 				and _bgm_state != _STATE_STOPPED
 			)
-		var _natural_intent_recorded: bool = (
-			_record_deferred_bgm_session_terminal(
-				_bgm_committed_session_id,
-				GFBgmSessionHandle.EndKind.NATURAL_FINISH,
-				0.0
-			)
+		var _natural_intent_recorded: bool = _record_deferred_bgm_session_terminal(
+			_bgm_committed_session_id,
+			GFBgmSessionHandle.EndKind.NATURAL_FINISH,
+			0.0
 		)
 		_drain_bgm_terminal_barrier_if_needed()
 		return false
@@ -1580,14 +1562,14 @@ func is_bgm_playing() -> bool:
 		if (
 			is_instance_valid(player)
 			and player.stream != null
-			and (player.playing or player.stream_paused)
+			and (
+				player.playing
+				or player.stream_paused
+			)
 		):
 			return true
 	if _bgm_committed_session_id > 0:
-		var failed_handle: GFBgmSessionHandle = _freeze_bgm_session_handle(
-			_bgm_committed_session_id,
-			GFBgmSessionHandle.EndKind.PLAYBACK_FAILED
-		)
+		var failed_handle: GFBgmSessionHandle = _freeze_bgm_session_handle(_bgm_committed_session_id, GFBgmSessionHandle.EndKind.PLAYBACK_FAILED)
 		_stop_all_local_bgm_players()
 		_clear_bgm_session_state()
 		if failed_handle != null:
@@ -1726,10 +1708,7 @@ func mount_audio_bank(
 	if bank == null:
 		push_error("[GFAudioUtility][audio_utility.mount_bank_null] Cannot mount_audio_bank: bank is null.")
 		return 0
-	if (
-		not _audio_banks.has(bank_id)
-		and _audio_banks.size() >= _AUDIO_BANK_MAX_REGISTERED_COUNT
-	):
+	if (not _audio_banks.has(bank_id) and _audio_banks.size() >= _AUDIO_BANK_MAX_REGISTERED_COUNT):
 		push_error("[GFAudioUtility][audio_utility.mount_bank_capacity_limit] Cannot mount_audio_bank: registry capacity limit reached.")
 		return 0
 	if _audio_bank_retained_mount_count >= _AUDIO_BANK_MAX_RETAINED_MOUNT_COUNT:
@@ -1745,11 +1724,14 @@ func mount_audio_bank(
 	_audio_bank_mount_token += 1
 	var token: int = _audio_bank_mount_token
 	var stack: Array = _get_audio_bank_mount_stack(bank_id)
-	_append_array_item(stack, {
-		"token": token,
-		"bank": bank,
-		"restore_previous_bank": restore_previous_bank,
-	})
+	_append_array_item(
+		stack,
+		{
+			"token": token,
+			"bank": bank,
+			"restore_previous_bank": restore_previous_bank,
+		}
+	)
 	_audio_bank_retained_mount_count += 1
 	_audio_banks[bank_id] = bank
 	return token
@@ -1772,7 +1754,11 @@ func unmount_audio_bank(bank_id: StringName, mount_token: int) -> bool:
 
 	var stack: Array = _get_audio_bank_mount_stack(bank_id)
 	var remove_index: int = -1
-	for index: int in range(stack.size() - 1, -1, -1):
+	for index: int in range(
+		stack.size() - 1,
+		-1,
+		-1
+	):
 		var entry: Dictionary = GFVariantData.as_dictionary(stack[index])
 		if _get_mount_entry_token(entry) == mount_token:
 			remove_index = index
@@ -1783,9 +1769,16 @@ func unmount_audio_bank(bank_id: StringName, mount_token: int) -> bool:
 	var removed_entry: Dictionary = GFVariantData.as_dictionary(stack[remove_index])
 	var was_top: bool = remove_index == stack.size() - 1
 	stack.remove_at(remove_index)
-	_audio_bank_retained_mount_count = maxi(_audio_bank_retained_mount_count - 1, 0)
+	_audio_bank_retained_mount_count = maxi(
+		_audio_bank_retained_mount_count - 1,
+		0
+	)
 	if was_top:
-		_restore_audio_bank_after_unmount(bank_id, stack, _get_mount_entry_restore_previous(removed_entry))
+		_restore_audio_bank_after_unmount(
+			bank_id,
+			stack,
+			_get_mount_entry_restore_previous(removed_entry)
+		)
 	if stack.is_empty():
 		_erase_dictionary_key(_audio_bank_mount_stacks, bank_id)
 		_erase_dictionary_key(_audio_bank_base_values, bank_id)
@@ -1828,9 +1821,7 @@ func set_audio_backend(backend: GFAudioBackend) -> bool:
 		return true
 	var reopen_admission: bool = _bgm_start_admission_open
 	_bgm_start_admission_open = false
-	var pending_operation: GFBgmStartOperation = (
-		_freeze_pending_bgm_start_for_backend_change()
-	)
+	var pending_operation: GFBgmStartOperation = _freeze_pending_bgm_start_for_backend_change()
 	var topology_handles: Array[GFBgmSessionHandle] = []
 	var topology_natural_history_keys: Array[String] = []
 	var changed: bool = _stop_backend_owned_sessions(
@@ -1901,9 +1892,7 @@ func clear_audio_backend(dispose_backend: bool = true) -> bool:
 		return true
 	var reopen_admission: bool = _bgm_start_admission_open
 	_bgm_start_admission_open = false
-	var pending_operation: GFBgmStartOperation = (
-		_freeze_pending_bgm_start_for_backend_change()
-	)
+	var pending_operation: GFBgmStartOperation = _freeze_pending_bgm_start_for_backend_change()
 	var topology_handles: Array[GFBgmSessionHandle] = []
 	var topology_natural_history_keys: Array[String] = []
 	var cleared: bool = _stop_backend_owned_sessions(
@@ -1958,10 +1947,7 @@ func post_audio_event(event: GFAudioEvent, options: Dictionary = {}) -> GFAudioE
 		or event.metadata.has("loop")
 		or event.metadata.has("playback_region")
 	):
-		push_warning(
-			"[GFAudioUtility][audio_utility.event_options_unsupported] post_audio_event does not accept the following metadata/options fields: "
-			+ "loop or playback_region; use GFAudioClip.playback_region."
-		)
+		push_warning("[GFAudioUtility][audio_utility.event_options_unsupported] post_audio_event does not accept the following metadata/options fields: " + "loop or playback_region; use GFAudioClip.playback_region.")
 		return null
 	var playback_region: GFAudioPlaybackRegion = null
 	if event.clip != null:
@@ -1974,9 +1960,7 @@ func post_audio_event(event: GFAudioEvent, options: Dictionary = {}) -> GFAudioE
 	var extra_options_result: Dictionary = _try_snapshot_audio_options(options)
 	if not _backend_request_snapshot_succeeded(extra_options_result):
 		return null
-	var extra_options: Dictionary = _get_backend_request_snapshot_dictionary(
-		extra_options_result
-	)
+	var extra_options: Dictionary = _get_backend_request_snapshot_dictionary(extra_options_result)
 	var merged_options: Dictionary = {}
 	for key: Variant in request_event.metadata.keys():
 		merged_options[key] = request_event.metadata[key]
@@ -1992,9 +1976,7 @@ func post_audio_event(event: GFAudioEvent, options: Dictionary = {}) -> GFAudioE
 	var request_options_result: Dictionary = _try_snapshot_audio_options(merged_options)
 	if not _backend_request_snapshot_succeeded(request_options_result):
 		return null
-	var request_options: Dictionary = _get_backend_request_snapshot_dictionary(
-		request_options_result
-	)
+	var request_options: Dictionary = _get_backend_request_snapshot_dictionary(request_options_result)
 	var expected_backend: GFAudioBackend = _audio_backend
 	if expected_backend != null:
 		var probe_event: GFAudioEvent = _snapshot_audio_event(
@@ -2009,10 +1991,7 @@ func post_audio_event(event: GFAudioEvent, options: Dictionary = {}) -> GFAudioE
 			return null
 		var can_handle_result: Dictionary = _dispatch_backend_call(
 			&"can_handle_event",
-			[
-				probe_event,
-				_get_backend_request_snapshot_dictionary(probe_options_result),
-			],
+			[probe_event, _get_backend_request_snapshot_dictionary(probe_options_result),],
 			expected_backend
 		)
 		if not _backend_dispatch_completed(can_handle_result) or _audio_backend != expected_backend:
@@ -2031,10 +2010,7 @@ func post_audio_event(event: GFAudioEvent, options: Dictionary = {}) -> GFAudioE
 			)
 			if _audio_backend != expected_backend:
 				return null
-			if (
-				region_result != null
-				and region_result.status == GFAudioPlaybackRegionResult.Status.INVALID
-			):
+			if (region_result != null and region_result.status == GFAudioPlaybackRegionResult.Status.INVALID):
 				_reject_playback_region(request_event.channel, region_result)
 				return null
 			backend_region_accepted = region_result == null or region_result.is_success()
@@ -2046,17 +2022,12 @@ func post_audio_event(event: GFAudioEvent, options: Dictionary = {}) -> GFAudioE
 			)
 			if execution_event == null:
 				return null
-			var execution_options_result: Dictionary = _try_snapshot_audio_options(
-				request_options
-			)
+			var execution_options_result: Dictionary = _try_snapshot_audio_options(request_options)
 			if not _backend_request_snapshot_succeeded(execution_options_result):
 				return null
 			var post_result: Dictionary = _dispatch_backend_call(
 				&"post_event",
-				[
-					execution_event,
-					_get_backend_request_snapshot_dictionary(execution_options_result),
-				],
+				[execution_event, _get_backend_request_snapshot_dictionary(execution_options_result),],
 				expected_backend
 			)
 			if not _backend_dispatch_completed(post_result) or _audio_backend != expected_backend:
@@ -2078,20 +2049,19 @@ func post_audio_event(event: GFAudioEvent, options: Dictionary = {}) -> GFAudioE
 func set_audio_parameter(parameter: GFAudioParameter) -> bool:
 	if _is_backend_dispatch_in_progress():
 		return false
-	var snapshot_result: Dictionary = _try_snapshot_isolated_backend_request_value(
-		parameter
-	)
+	var snapshot_result: Dictionary = _try_snapshot_isolated_backend_request_value(parameter)
 	if not _backend_request_snapshot_succeeded(snapshot_result):
 		return false
-	var snapshot_value: Variant = GFVariantData.get_option_value(
-		snapshot_result,
-		"value"
-	)
+	var snapshot_value: Variant = GFVariantData.get_option_value(snapshot_result, "value")
 	if not snapshot_value is GFAudioParameter:
 		return false
 	var request_parameter: GFAudioParameter = snapshot_value
 	return _backend_dispatch_returned_true(
-		_dispatch_backend_call(&"set_parameter", [request_parameter], _audio_backend)
+		_dispatch_backend_call(
+			&"set_parameter",
+			[request_parameter],
+			_audio_backend
+		)
 	)
 
 
@@ -2105,20 +2075,19 @@ func set_audio_parameter(parameter: GFAudioParameter) -> bool:
 func set_audio_state(state: GFAudioState) -> bool:
 	if _is_backend_dispatch_in_progress():
 		return false
-	var snapshot_result: Dictionary = _try_snapshot_isolated_backend_request_value(
-		state
-	)
+	var snapshot_result: Dictionary = _try_snapshot_isolated_backend_request_value(state)
 	if not _backend_request_snapshot_succeeded(snapshot_result):
 		return false
-	var snapshot_value: Variant = GFVariantData.get_option_value(
-		snapshot_result,
-		"value"
-	)
+	var snapshot_value: Variant = GFVariantData.get_option_value(snapshot_result, "value")
 	if not snapshot_value is GFAudioState:
 		return false
 	var request_state: GFAudioState = snapshot_value
 	return _backend_dispatch_returned_true(
-		_dispatch_backend_call(&"set_state", [request_state], _audio_backend)
+		_dispatch_backend_call(
+			&"set_state",
+			[request_state],
+			_audio_backend
+		)
 	)
 
 
@@ -2132,20 +2101,19 @@ func set_audio_state(state: GFAudioState) -> bool:
 func set_audio_switch(audio_switch: GFAudioSwitch) -> bool:
 	if _is_backend_dispatch_in_progress():
 		return false
-	var snapshot_result: Dictionary = _try_snapshot_isolated_backend_request_value(
-		audio_switch
-	)
+	var snapshot_result: Dictionary = _try_snapshot_isolated_backend_request_value(audio_switch)
 	if not _backend_request_snapshot_succeeded(snapshot_result):
 		return false
-	var snapshot_value: Variant = GFVariantData.get_option_value(
-		snapshot_result,
-		"value"
-	)
+	var snapshot_value: Variant = GFVariantData.get_option_value(snapshot_result, "value")
 	if not snapshot_value is GFAudioSwitch:
 		return false
 	var request_switch: GFAudioSwitch = snapshot_value
 	return _backend_dispatch_returned_true(
-		_dispatch_backend_call(&"set_switch", [request_switch], _audio_backend)
+		_dispatch_backend_call(
+			&"set_switch",
+			[request_switch],
+			_audio_backend
+		)
 	)
 
 
@@ -2160,14 +2128,20 @@ func set_audio_switch(audio_switch: GFAudioSwitch) -> bool:
 ## @param channel: 环境音通道。
 ## [br]
 ## @param fade_seconds: 淡入秒数。
-func play_ambient(path: String, channel: StringName = &"default", fade_seconds: float = 0.0) -> void:
+func play_ambient(
+	path: String,
+	channel: StringName = &"default",
+	fade_seconds: float = 0.0
+) -> void:
 	if _is_backend_dispatch_in_progress():
 		return
-	var request_result: Dictionary = _try_snapshot_audio_options({
-		"path": path,
-		"channel": channel,
-		"fade_seconds": fade_seconds,
-	})
+	var request_result: Dictionary = _try_snapshot_audio_options(
+		{
+			"path": path,
+			"channel": channel,
+			"fade_seconds": fade_seconds,
+		}
+	)
 	if not _backend_request_snapshot_succeeded(request_result):
 		return
 	var request: Dictionary = _get_backend_request_snapshot_dictionary(request_result)
@@ -2177,20 +2151,22 @@ func play_ambient(path: String, channel: StringName = &"default", fade_seconds: 
 		"channel",
 		&"default"
 	)
-	var request_fade: float = _finite_non_negative_or_zero(
-		GFVariantData.get_option_float(request, "fade_seconds")
-	)
+	var request_fade: float = _finite_non_negative_or_zero(GFVariantData.get_option_float(request, "fade_seconds"))
 	if request_path.is_empty():
 		stop_ambient(request_channel, request_fade)
 		return
 
 	var request_serial: int = _begin_ambient_replacement(request_channel)
-	if _try_backend_play_ambient_path(request_path, request_channel, {
-		"fade_seconds": request_fade,
-		"bus_name": BGM_BUS_NAME,
-		"volume_db": 0.0,
-		"pitch_scale": 1.0,
-	}):
+	if _try_backend_play_ambient_path(
+		request_path,
+		request_channel,
+		{
+			"fade_seconds": request_fade,
+			"bus_name": BGM_BUS_NAME,
+			"volume_db": 0.0,
+			"pitch_scale": 1.0,
+		}
+	):
 		_commit_backend_ambient_session(request_channel, request_serial)
 		return
 
@@ -2249,7 +2225,10 @@ func play_ambient_clip(
 
 	var bus_name: String = request_clip.resolve_bus(BGM_BUS_NAME)
 	var volume_db: float = _finite_or_default(request_clip.volume_db, 0.0)
-	var pitch_scale: float = _finite_or_default(request_clip.resolve_pitch(_audio_rng), 1.0)
+	var pitch_scale: float = _finite_or_default(
+		request_clip.resolve_pitch(_audio_rng),
+		1.0
+	)
 	var backend_options: Dictionary = {
 		"fade_seconds": _finite_non_negative_or_zero(fade_seconds),
 		"bus_name": bus_name,
@@ -2366,7 +2345,11 @@ func play_ambient_event(
 	bank_id: StringName = &"",
 	fade_seconds: float = 0.0
 ) -> void:
-	play_ambient_clip(_get_registered_clip(event_id, bank_id), channel, fade_seconds)
+	play_ambient_clip(
+		_get_registered_clip(event_id, bank_id),
+		channel,
+		fade_seconds
+	)
 
 
 ## 停止指定环境音通道。淡出完成只能终结调用时绑定的通道 generation。
@@ -2384,15 +2367,13 @@ func stop_ambient(channel: StringName = &"default", fade_seconds: float = 0.0) -
 	var safe_fade: float = _finite_non_negative_or_zero(fade_seconds)
 	var request_serial: int = _begin_ambient_replacement(channel)
 	var session: Dictionary = _get_ambient_session(channel)
-	var owner: StringName = GFVariantData.get_option_string_name(session, "owner", _OWNER_NONE)
-	var playback_region: Dictionary = GFVariantData.get_option_dictionary(
+	var owner: StringName = GFVariantData.get_option_string_name(
 		session,
-		"playback_region"
+		"owner",
+		_OWNER_NONE
 	)
-	var target_volume_db: float = GFVariantData.get_option_float(
-		session,
-		"target_volume_db"
-	)
+	var playback_region: Dictionary = GFVariantData.get_option_dictionary(session, "playback_region")
+	var target_volume_db: float = GFVariantData.get_option_float(session, "target_volume_db")
 	if owner == _OWNER_BACKEND:
 		if not _notify_backend_stop_ambient(channel, safe_fade):
 			_set_ambient_session(
@@ -2405,10 +2386,22 @@ func stop_ambient(channel: StringName = &"default", fade_seconds: float = 0.0) -
 				target_volume_db
 			)
 			return
-		_set_ambient_session(channel, request_serial, _STATE_STOPPED, _OWNER_NONE, 0)
+		_set_ambient_session(
+			channel,
+			request_serial,
+			_STATE_STOPPED,
+			_OWNER_NONE,
+			0
+		)
 		return
 	if owner != _OWNER_LOCAL:
-		_set_ambient_session(channel, request_serial, _STATE_STOPPED, _OWNER_NONE, 0)
+		_set_ambient_session(
+			channel,
+			request_serial,
+			_STATE_STOPPED,
+			_OWNER_NONE,
+			0
+		)
 		return
 
 	var player: AudioStreamPlayer = _get_ambient_player(channel)
@@ -2422,7 +2415,13 @@ func stop_ambient(channel: StringName = &"default", fade_seconds: float = 0.0) -
 		playback_region,
 		target_volume_db
 	)
-	_start_ambient_session_stop(channel, request_serial, playback_session_id, player, safe_fade)
+	_start_ambient_session_stop(
+		channel,
+		request_serial,
+		playback_session_id,
+		player,
+		safe_fade
+	)
 
 
 ## 停止所有环境音通道。后端拥有的通道优先批量停止，失败时逐通道回退。
@@ -2449,17 +2448,18 @@ func stop_all_ambient(fade_seconds: float = 0.0) -> void:
 		var channel: StringName = GFVariantData.to_string_name(channel_variant)
 		channels.append(channel)
 		var session: Dictionary = _get_ambient_session(channel)
-		if GFVariantData.get_option_string_name(session, "owner", _OWNER_NONE) == _OWNER_BACKEND:
+		if GFVariantData.get_option_string_name(
+			session,
+			"owner",
+			_OWNER_NONE
+		) == _OWNER_BACKEND:
 			backend_channels.append(channel)
 	channels.sort_custom(_is_string_name_lexically_before)
 	backend_channels.sort_custom(_is_string_name_lexically_before)
 	for channel: StringName in channels:
 		_invalidate_ambient_pending_request(channel)
 
-	var backend_bulk_succeeded: bool = _try_backend_stop_all_ambient(
-		backend_channels,
-		safe_fade
-	)
+	var backend_bulk_succeeded: bool = _try_backend_stop_all_ambient(backend_channels, safe_fade)
 	for channel: StringName in channels:
 		if backend_bulk_succeeded and backend_channels.has(channel):
 			continue
@@ -2476,8 +2476,16 @@ func stop_all_ambient(fade_seconds: float = 0.0) -> void:
 func is_ambient_playing(channel: StringName = &"default") -> bool:
 	_converge_inactive_local_ambient_session(channel)
 	var session: Dictionary = _get_ambient_session(channel)
-	var owner: StringName = GFVariantData.get_option_string_name(session, "owner", _OWNER_NONE)
-	var state: StringName = GFVariantData.get_option_string_name(session, "state", _STATE_STOPPED)
+	var owner: StringName = GFVariantData.get_option_string_name(
+		session,
+		"owner",
+		_OWNER_NONE
+	)
+	var state: StringName = GFVariantData.get_option_string_name(
+		session,
+		"state",
+		_STATE_STOPPED
+	)
 	if owner == _OWNER_BACKEND:
 		if state != _STATE_PLAYING or _audio_backend == null:
 			return false
@@ -2500,7 +2508,13 @@ func is_ambient_playing(channel: StringName = &"default") -> bool:
 		if _backend_dispatch_returned_true(backend_result):
 			return true
 		var stopped_generation: int = _next_ambient_request_serial(channel)
-		_set_ambient_session(channel, stopped_generation, _STATE_STOPPED, _OWNER_NONE, 0)
+		_set_ambient_session(
+			channel,
+			stopped_generation,
+			_STATE_STOPPED,
+			_OWNER_NONE,
+			0
+		)
 		return false
 	if owner != _OWNER_LOCAL or state == _STATE_STOPPED:
 		return false
@@ -2544,9 +2558,7 @@ func play_sfx(path: String) -> void:
 func play_sfx_handle(path: String) -> GFAudioEmitterHandle:
 	if _is_backend_dispatch_in_progress():
 		return null
-	var request_result: Dictionary = _try_snapshot_audio_options({
-		"path": path,
-	})
+	var request_result: Dictionary = _try_snapshot_audio_options({ "path": path, })
 	if not _backend_request_snapshot_succeeded(request_result):
 		return null
 	var request_path: String = GFVariantData.get_option_string(
@@ -2556,11 +2568,14 @@ func play_sfx_handle(path: String) -> GFAudioEmitterHandle:
 	if request_path.is_empty():
 		return null
 
-	var backend_handle: GFAudioEmitterHandle = _try_backend_play_sfx_path(request_path, {
-		"bus_name": SFX_BUS_NAME,
-		"volume_db": 0.0,
-		"pitch_scale": 1.0,
-	})
+	var backend_handle: GFAudioEmitterHandle = _try_backend_play_sfx_path(
+		request_path,
+		{
+			"bus_name": SFX_BUS_NAME,
+			"volume_db": 0.0,
+			"pitch_scale": 1.0,
+		}
+	)
 	if backend_handle != null:
 		return backend_handle
 
@@ -2569,10 +2584,18 @@ func play_sfx_handle(path: String) -> GFAudioEmitterHandle:
 	var asset_util: GFAssetUtility = _get_asset_util()
 	if asset_util == null:
 		var stream: AudioStream = _get_audio_stream_value(load(request_path))
-		_apply_sfx_request(request_serial, stream, handle)
+		_apply_sfx_request(
+			request_serial,
+			stream,
+			handle
+		)
 	else:
 		var on_loaded: Callable = func(res: Resource) -> void:
-			_apply_sfx_request(request_serial, _get_audio_stream_value(res), handle)
+			_apply_sfx_request(
+				request_serial,
+				_get_audio_stream_value(res),
+				handle
+			)
 		asset_util.load_async(request_path, on_loaded)
 	return handle
 
@@ -2621,9 +2644,7 @@ func play_sfx_from_bank_handle(bank: GFAudioBank, clip_id: StringName) -> GFAudi
 	if bank == null:
 		return null
 
-	return play_sfx_clip_handle(
-		_resolve_bounded_audio_bank_clip(bank, clip_id)
-	)
+	return play_sfx_clip_handle(_resolve_bounded_audio_bank_clip(bank, clip_id))
 
 
 ## 按事件 ID 播放注册音频集合中的 SFX。
@@ -2669,7 +2690,11 @@ func play_sfx_event_2d(
 	bank_id: StringName = &"",
 	follow_source: bool = false
 ) -> AudioStreamPlayer2D:
-	return play_sfx_clip_2d(_get_registered_clip(event_id, bank_id), source, follow_source)
+	return play_sfx_clip_2d(
+		_get_registered_clip(event_id, bank_id),
+		source,
+		follow_source
+	)
 
 
 ## 按事件 ID 在 2D 节点位置播放注册音频集合中的 SFX，并返回控制句柄。
@@ -2691,7 +2716,11 @@ func play_sfx_event_2d_handle(
 	bank_id: StringName = &"",
 	follow_source: bool = false
 ) -> GFAudioEmitterHandle:
-	return play_sfx_clip_2d_handle(_get_registered_clip(event_id, bank_id), source, follow_source)
+	return play_sfx_clip_2d_handle(
+		_get_registered_clip(event_id, bank_id),
+		source,
+		follow_source
+	)
 
 
 ## 按事件 ID 在 3D 节点位置播放注册音频集合中的 SFX。
@@ -2713,7 +2742,11 @@ func play_sfx_event_3d(
 	bank_id: StringName = &"",
 	follow_source: bool = false
 ) -> AudioStreamPlayer3D:
-	return play_sfx_clip_3d(_get_registered_clip(event_id, bank_id), source, follow_source)
+	return play_sfx_clip_3d(
+		_get_registered_clip(event_id, bank_id),
+		source,
+		follow_source
+	)
 
 
 ## 按事件 ID 在 3D 节点位置播放注册音频集合中的 SFX，并返回控制句柄。
@@ -2735,7 +2768,11 @@ func play_sfx_event_3d_handle(
 	bank_id: StringName = &"",
 	follow_source: bool = false
 ) -> GFAudioEmitterHandle:
-	return play_sfx_clip_3d_handle(_get_registered_clip(event_id, bank_id), source, follow_source)
+	return play_sfx_clip_3d_handle(
+		_get_registered_clip(event_id, bank_id),
+		source,
+		follow_source
+	)
 
 
 ## 在 2D 节点位置播放资源化 SFX 配置。
@@ -2754,7 +2791,11 @@ func play_sfx_clip_2d(
 	source: Node2D,
 	follow_source: bool = false
 ) -> AudioStreamPlayer2D:
-	var player: Node = _play_spatial_sfx_clip(clip, source, follow_source)
+	var player: Node = _play_spatial_sfx_clip(
+		clip,
+		source,
+		follow_source
+	)
 	if player is AudioStreamPlayer2D:
 		return player
 	return null
@@ -2786,9 +2827,12 @@ func play_sfx_clip_2d_handle(
 	var request_clip: GFAudioClip = _snapshot_audio_clip(clip, playback_region)
 	if request_clip == null:
 		return null
-	var backend_result: Dictionary = _try_backend_play_spatial_sfx_clip(request_clip, source, follow_source, {
-		"space": "2d",
-	})
+	var backend_result: Dictionary = _try_backend_play_spatial_sfx_clip(
+		request_clip,
+		source,
+		follow_source,
+		{ "space": "2d", }
+	)
 	if GFVariantData.get_option_bool(backend_result, "rejected"):
 		return null
 	var backend_handle_value: Variant = GFVariantData.get_option_value(backend_result, "handle")
@@ -2796,11 +2840,19 @@ func play_sfx_clip_2d_handle(
 		var backend_handle: GFAudioEmitterHandle = backend_handle_value
 		return backend_handle
 
-	var player: Node = _play_spatial_sfx_clip(request_clip, source, follow_source)
+	var player: Node = _play_spatial_sfx_clip(
+		request_clip,
+		source,
+		follow_source
+	)
 	if player == null or player.is_queued_for_deletion():
 		return null
 	var handle: GFAudioEmitterHandle = GFAudioEmitterHandle.new()
-	_attach_handle_to_playback_session(handle, player, Callable(self, "_release_spatial_sfx_session"))
+	_attach_handle_to_playback_session(
+		handle,
+		player,
+		Callable(self, "_release_spatial_sfx_session")
+	)
 	if follow_source:
 		handle.bind_to_owner(source)
 	return handle
@@ -2822,7 +2874,11 @@ func play_sfx_clip_3d(
 	source: Node3D,
 	follow_source: bool = false
 ) -> AudioStreamPlayer3D:
-	var player: Node = _play_spatial_sfx_clip(clip, source, follow_source)
+	var player: Node = _play_spatial_sfx_clip(
+		clip,
+		source,
+		follow_source
+	)
 	if player is AudioStreamPlayer3D:
 		return player
 	return null
@@ -2854,9 +2910,12 @@ func play_sfx_clip_3d_handle(
 	var request_clip: GFAudioClip = _snapshot_audio_clip(clip, playback_region)
 	if request_clip == null:
 		return null
-	var backend_result: Dictionary = _try_backend_play_spatial_sfx_clip(request_clip, source, follow_source, {
-		"space": "3d",
-	})
+	var backend_result: Dictionary = _try_backend_play_spatial_sfx_clip(
+		request_clip,
+		source,
+		follow_source,
+		{ "space": "3d", }
+	)
 	if GFVariantData.get_option_bool(backend_result, "rejected"):
 		return null
 	var backend_handle_value: Variant = GFVariantData.get_option_value(backend_result, "handle")
@@ -2864,11 +2923,19 @@ func play_sfx_clip_3d_handle(
 		var backend_handle: GFAudioEmitterHandle = backend_handle_value
 		return backend_handle
 
-	var player: Node = _play_spatial_sfx_clip(request_clip, source, follow_source)
+	var player: Node = _play_spatial_sfx_clip(
+		request_clip,
+		source,
+		follow_source
+	)
 	if player == null or player.is_queued_for_deletion():
 		return null
 	var handle: GFAudioEmitterHandle = GFAudioEmitterHandle.new()
-	_attach_handle_to_playback_session(handle, player, Callable(self, "_release_spatial_sfx_session"))
+	_attach_handle_to_playback_session(
+		handle,
+		player,
+		Callable(self, "_release_spatial_sfx_session")
+	)
 	if follow_source:
 		handle.bind_to_owner(source)
 	return handle
@@ -2887,15 +2954,27 @@ func get_ambient_handle(channel: StringName = &"default") -> GFAudioEmitterHandl
 	_converge_inactive_local_ambient_session(channel)
 	var session: Dictionary = _get_ambient_session(channel)
 	if (
-		GFVariantData.get_option_string_name(session, "owner", _OWNER_NONE) != _OWNER_LOCAL
-		or GFVariantData.get_option_string_name(session, "state", _STATE_STOPPED) != _STATE_PLAYING
+		GFVariantData.get_option_string_name(
+			session,
+			"owner",
+			_OWNER_NONE
+		) != _OWNER_LOCAL
+		or GFVariantData.get_option_string_name(
+			session,
+			"state",
+			_STATE_STOPPED
+		) != _STATE_PLAYING
 	):
 		return null
 	var player: AudioStreamPlayer = _get_ambient_player(channel)
 	var playback_session_id: int = GFVariantData.get_option_int(session, "playback_session_id")
 	if not _is_playback_session_current(player, playback_session_id):
 		return null
-	var handle: GFAudioEmitterHandle = GFAudioEmitterHandle.new(null, Callable(), channel)
+	var handle: GFAudioEmitterHandle = GFAudioEmitterHandle.new(
+		null,
+		Callable(),
+		channel
+	)
 	_attach_handle_to_playback_session(
 		handle,
 		player,
@@ -2917,7 +2996,11 @@ func get_ambient_handle(channel: StringName = &"default") -> GFAudioEmitterHandl
 ## @param transition_seconds: 平滑过渡秒数；小于等于 0 时立即应用。
 ## [br]
 ## @return: 成功应用或已交给后端处理时返回 true。
-func set_bus_volume_db(bus_name: String, volume_db: float, transition_seconds: float = 0.0) -> bool:
+func set_bus_volume_db(
+	bus_name: String,
+	volume_db: float,
+	transition_seconds: float = 0.0
+) -> bool:
 	if _is_backend_dispatch_in_progress():
 		return false
 	if not _is_finite_float(volume_db) or not _is_finite_float(transition_seconds):
@@ -2928,7 +3011,11 @@ func set_bus_volume_db(bus_name: String, volume_db: float, transition_seconds: f
 	if _backend_dispatch_returned_true(
 		_dispatch_backend_call(
 			&"set_bus_volume_db",
-			[bus_name, volume_db, transition_seconds],
+			[
+				bus_name,
+				volume_db,
+				transition_seconds,
+			],
 			_audio_backend
 		)
 	):
@@ -2994,7 +3081,11 @@ func set_bus_mute(bus_name: String, muted: bool) -> bool:
 		return false
 	var _transaction_generation: int = _begin_bus_transaction(bus_name)
 	if _backend_dispatch_returned_true(
-		_dispatch_backend_call(&"set_bus_mute", [bus_name, muted], _audio_backend)
+		_dispatch_backend_call(
+			&"set_bus_mute",
+			[bus_name, muted],
+			_audio_backend
+		)
 	):
 		return true
 
@@ -3038,24 +3129,22 @@ func set_bus_effect_property(
 		return false
 	if _is_numeric_variant(value) and not _is_finite_numeric_variant(value):
 		return false
-	var local_request_result: Dictionary = _try_snapshot_isolated_backend_request_value({
-		"bus_name": bus_name,
-		"effect_ref": effect_ref,
-		"property_name": property_name,
-		"value": value,
-		"transition_seconds": transition_seconds,
-	})
+	var local_request_result: Dictionary = _try_snapshot_isolated_backend_request_value(
+		{
+			"bus_name": bus_name,
+			"effect_ref": effect_ref,
+			"property_name": property_name,
+			"value": value,
+			"transition_seconds": transition_seconds,
+		}
+	)
 	if not _backend_request_snapshot_succeeded(local_request_result):
 		return false
 	var request: Dictionary = _get_backend_request_snapshot_dictionary(local_request_result)
-	var backend_request_result: Dictionary = _try_snapshot_isolated_backend_request_value(
-		request
-	)
+	var backend_request_result: Dictionary = _try_snapshot_isolated_backend_request_value(request)
 	if not _backend_request_snapshot_succeeded(backend_request_result):
 		return false
-	var backend_request: Dictionary = _get_backend_request_snapshot_dictionary(
-		backend_request_result
-	)
+	var backend_request: Dictionary = _get_backend_request_snapshot_dictionary(backend_request_result)
 	if _backend_dispatch_returned_true(
 		_dispatch_backend_call(
 			&"set_bus_effect_property",
@@ -3071,23 +3160,11 @@ func set_bus_effect_property(
 	):
 		return true
 
-	var request_bus_name: String = GFVariantData.get_option_string(
-		request,
-		"bus_name"
-	)
-	var request_effect_ref: Variant = GFVariantData.get_option_value(
-		request,
-		"effect_ref"
-	)
-	var request_property_name: StringName = GFVariantData.get_option_string_name(
-		request,
-		"property_name"
-	)
+	var request_bus_name: String = GFVariantData.get_option_string(request, "bus_name")
+	var request_effect_ref: Variant = GFVariantData.get_option_value(request, "effect_ref")
+	var request_property_name: StringName = GFVariantData.get_option_string_name(request, "property_name")
 	var request_value: Variant = GFVariantData.get_option_value(request, "value")
-	var request_transition: float = GFVariantData.get_option_float(
-		request,
-		"transition_seconds"
-	)
+	var request_transition: float = GFVariantData.get_option_float(request, "transition_seconds")
 
 	var bus_index: int = AudioServer.get_bus_index(request_bus_name)
 	if bus_index < 0:
@@ -3110,30 +3187,40 @@ func set_bus_effect_property(
 
 	var tween_key: String = (
 		"%s:%d:%s"
-		% [request_bus_name, effect_index, String(request_property_name)]
+		% [
+			request_bus_name,
+			effect_index,
+			String(request_property_name),
+		]
 	)
 	_kill_bus_effect_tween(tween_key)
 	if request_transition <= 0.0 or not _is_numeric_variant(request_value):
-		effect.set(String(request_property_name), request_value)
+		effect.set(
+			String(request_property_name),
+			request_value
+		)
 		return true
 
 	var start_value: Variant = _get_object_property(effect, request_property_name)
 	if not _is_numeric_variant(start_value):
-		effect.set(String(request_property_name), request_value)
+		effect.set(
+			String(request_property_name),
+			request_value
+		)
 		return true
 
 	var tween: Tween = _create_tween_or_null()
 	if tween == null:
-		effect.set(String(request_property_name), request_value)
+		effect.set(
+			String(request_property_name),
+			request_value
+		)
 		return true
 
 	_bus_effect_tween_refs[tween_key] = weakref(tween)
 	_add_tween_method(
 		tween,
-		Callable(self, "_apply_bus_effect_tween_value").bind(
-			effect,
-			request_property_name
-		),
+		Callable(self, "_apply_bus_effect_tween_value").bind(effect, request_property_name),
 		GFVariantData.to_float(start_value),
 		GFVariantData.to_float(request_value),
 		maxf(request_transition, 0.0)
@@ -3163,24 +3250,20 @@ func set_bus_effect_property(
 ## [br]
 ## @schema return: Dictionary，包含 buses 字典；每个总线条目包含 volume_db、volume_linear 和 muted。
 func capture_mix_snapshot(bus_names: PackedStringArray = PackedStringArray()) -> Dictionary:
-	var names_result: Dictionary = _try_snapshot_backend_request_value(
-		bus_names,
-		true
-	)
+	var names_result: Dictionary = _try_snapshot_backend_request_value(bus_names, true)
 	if not _backend_request_snapshot_succeeded(names_result):
-		return {
-			_MIX_SNAPSHOT_BUSES_KEY: {},
-		}
+		return { _MIX_SNAPSHOT_BUSES_KEY: {}, }
 	var names_value: Variant = GFVariantData.get_option_value(names_result, "value")
 	if not names_value is PackedStringArray:
-		return {
-			_MIX_SNAPSHOT_BUSES_KEY: {},
-		}
+		return { _MIX_SNAPSHOT_BUSES_KEY: {}, }
 	var names: PackedStringArray = names_value
 	if names.is_empty():
 		names = PackedStringArray()
 		for bus_index: int in range(AudioServer.get_bus_count()):
-			_append_packed_string(names, AudioServer.get_bus_name(bus_index))
+			_append_packed_string(
+				names,
+				AudioServer.get_bus_name(bus_index)
+			)
 
 	var buses: Dictionary = {}
 	for bus_name: String in names:
@@ -3194,9 +3277,7 @@ func capture_mix_snapshot(bus_names: PackedStringArray = PackedStringArray()) ->
 			"volume_linear": db_to_linear(volume_db),
 			"muted": muted,
 		}
-	return {
-		_MIX_SNAPSHOT_BUSES_KEY: buses,
-	}
+	return { _MIX_SNAPSHOT_BUSES_KEY: buses, }
 
 
 ## 应用混音快照。先尝试 backend bulk 接管；拒绝后按字段 backend-first，
@@ -3223,16 +3304,24 @@ func apply_mix_snapshot(snapshot: Dictionary, transition_seconds: float = 0.0) -
 		"warnings": [],
 	}
 	if not _is_finite_float(transition_seconds):
-		_append_mix_failure(report, "", "non_finite_transition", "混音快照过渡时间必须是有限值。")
+		_append_mix_failure(
+			report,
+			"",
+			"non_finite_transition",
+			"混音快照过渡时间必须是有限值。"
+		)
 		report["ok"] = false
 		return report
 	if _is_backend_dispatch_in_progress():
-		_append_mix_failure(report, "", "backend_reentry", "后端回调期间拒绝重入混音事务。")
+		_append_mix_failure(
+			report,
+			"",
+			"backend_reentry",
+			"后端回调期间拒绝重入混音事务。"
+		)
 		report["ok"] = false
 		return report
-	var snapshot_result: Dictionary = _try_snapshot_isolated_backend_request_value(
-		snapshot
-	)
+	var snapshot_result: Dictionary = _try_snapshot_isolated_backend_request_value(snapshot)
 	if not _backend_request_snapshot_succeeded(snapshot_result):
 		_append_mix_failure(
 			report,
@@ -3242,19 +3331,13 @@ func apply_mix_snapshot(snapshot: Dictionary, transition_seconds: float = 0.0) -
 		)
 		report["ok"] = false
 		return report
-	var request_snapshot: Dictionary = _get_backend_request_snapshot_dictionary(
-		snapshot_result
-	)
+	var request_snapshot: Dictionary = _get_backend_request_snapshot_dictionary(snapshot_result)
 	if not _validate_mix_snapshot_shape(request_snapshot, report):
 		report["ok"] = false
 		return report
 	var expected_backend: GFAudioBackend = _audio_backend
 	if expected_backend != null:
-		var backend_snapshot_result: Dictionary = (
-			_try_snapshot_isolated_backend_request_value(
-			request_snapshot
-			)
-		)
+		var backend_snapshot_result: Dictionary = _try_snapshot_isolated_backend_request_value(request_snapshot)
 		if not _backend_request_snapshot_succeeded(backend_snapshot_result):
 			_append_mix_failure(
 				report,
@@ -3266,10 +3349,7 @@ func apply_mix_snapshot(snapshot: Dictionary, transition_seconds: float = 0.0) -
 			return report
 		var bulk_result: Dictionary = _dispatch_backend_call(
 			&"apply_mix_snapshot",
-			[
-				_get_backend_request_snapshot_dictionary(backend_snapshot_result),
-				transition_seconds,
-			],
+			[_get_backend_request_snapshot_dictionary(backend_snapshot_result), transition_seconds,],
 			expected_backend
 		)
 		if not _backend_dispatch_completed(bulk_result):
@@ -3348,7 +3428,11 @@ func duck_bus(
 	var scopes: Dictionary = GFVariantData.get_option_dictionary(state, "scopes")
 	var had_previous_scope: bool = scopes.has(duck_id)
 	var previous_amount: Variant = scopes.get(duck_id)
-	scopes[duck_id] = clampf(amount, 0.0, 1.0)
+	scopes[duck_id] = clampf(
+		amount,
+		0.0,
+		1.0
+	)
 	state["scopes"] = scopes
 	_duck_bus_states[bus_name] = state
 	if _apply_duck_bus_state(bus_name, transition_seconds):
@@ -3426,17 +3510,17 @@ func set_bus_volume(bus_name: String, volume_linear: float) -> void:
 		return
 	var transaction_generation: int = _begin_bus_transaction(bus_name)
 	if _backend_dispatch_returned_true(
-		_dispatch_backend_call(&"set_bus_volume", [bus_name, volume_linear], _audio_backend)
+		_dispatch_backend_call(
+			&"set_bus_volume",
+			[bus_name, volume_linear],
+			_audio_backend
+		)
 	):
 		return
 
 	var bus_idx: int = AudioServer.get_bus_index(bus_name)
 	if bus_idx >= 0:
-		var target_db: float = (
-			SILENCE_VOLUME_DB
-			if volume_linear <= 0.0
-			else linear_to_db(minf(volume_linear, 1.0))
-		)
+		var target_db: float = (SILENCE_VOLUME_DB if volume_linear <= 0.0 else linear_to_db(minf(volume_linear, 1.0)))
 		var _applied: bool = _start_local_bus_mix_transaction(
 			bus_name,
 			bus_idx,
@@ -3499,13 +3583,22 @@ func get_debug_snapshot() -> Dictionary:
 		var session: Dictionary = _get_ambient_session(StringName(channel))
 		ambient_session_snapshot[channel] = {
 			"generation": GFVariantData.get_option_int(session, "generation"),
-			"state": String(GFVariantData.get_option_string_name(session, "state", _STATE_STOPPED)),
-			"owner": String(GFVariantData.get_option_string_name(session, "owner", _OWNER_NONE)),
+			"state": String(
+				GFVariantData.get_option_string_name(
+					session,
+					"state",
+					_STATE_STOPPED
+				)
+			),
+			"owner": String(
+				GFVariantData.get_option_string_name(
+					session,
+					"owner",
+					_OWNER_NONE
+				)
+			),
 			"playback_session_id": GFVariantData.get_option_int(session, "playback_session_id"),
-			"playback_region": GFVariantData.get_option_dictionary(
-				session,
-				"playback_region"
-			).duplicate(true),
+			"playback_region": (GFVariantData.get_option_dictionary(session, "playback_region").duplicate(true)),
 			"target_volume_db": GFVariantData.get_option_float(session, "target_volume_db"),
 		}
 	ambient_channels.sort()
@@ -3529,10 +3622,7 @@ func get_debug_snapshot() -> Dictionary:
 			[],
 			expected_backend
 		)
-		var capabilities_value: Variant = GFVariantData.get_option_value(
-			capabilities_result,
-			"value"
-		)
+		var capabilities_value: Variant = GFVariantData.get_option_value(capabilities_result, "value")
 		if _backend_dispatch_completed(capabilities_result) and capabilities_value is GFAudioBackendCapability:
 			var capabilities: GFAudioBackendCapability = capabilities_value
 			backend_capabilities = capabilities.to_dictionary()
@@ -3593,46 +3683,29 @@ func _dispose_audio_now() -> void:
 	_bgm_start_admission_open = false
 	_audio_dispose_deferred = false
 	var deferred_natural_history_key: String = ""
-	if GFVariantData.get_option_int(
-		_deferred_bgm_session_terminal,
-		"end_kind"
-	) == GFBgmSessionHandle.EndKind.NATURAL_FINISH:
+	if ((GFVariantData.get_option_int(_deferred_bgm_session_terminal, "end_kind")) == GFBgmSessionHandle.EndKind.NATURAL_FINISH):
 		deferred_natural_history_key = GFVariantData.get_option_string(
-			_get_bgm_session(
-				GFVariantData.get_option_int(
-					_deferred_bgm_session_terminal,
-					"session_id"
-				)
-			),
+			_get_bgm_session(GFVariantData.get_option_int(_deferred_bgm_session_terminal, "session_id")),
 			"history_key"
 		)
 	var pending_operation: GFBgmStartOperation = null
 	if not _bgm_pending_start_request.is_empty():
 		var pending_request: Dictionary = _bgm_pending_start_request
 		_bgm_pending_start_request = {}
-		_complete_bgm_pending_request(
-			GFVariantData.get_option_int(pending_request, "pending_token")
-		)
+		_complete_bgm_pending_request(GFVariantData.get_option_int(pending_request, "pending_token"))
 		pending_operation = _freeze_bgm_start_record(
 			pending_request,
 			GFBgmStartResult.Status.CANCELLED,
 			GFBgmStartResult.REASON_UTILITY_DISPOSED,
 			ERR_SKIP
 		)
-	var terminal_handles: Array[GFBgmSessionHandle] = (
-		_freeze_all_bgm_session_handles(
-			GFBgmSessionHandle.EndKind.UTILITY_DISPOSED
-		)
-	)
+	var terminal_handles: Array[GFBgmSessionHandle] = _freeze_all_bgm_session_handles(GFBgmSessionHandle.EndKind.UTILITY_DISPOSED)
 	_deferred_bgm_session_terminal.clear()
 	var backend_stop_succeeded: bool = true
 	if _audio_backend != null:
 		backend_stop_succeeded = _stop_backend_owned_sessions()
 	if not backend_stop_succeeded:
-		push_warning(
-			"[GFAudioUtility][audio_utility.dispose_stop_forced] dispose forced completion: the backend rejected stopping or is executing a callback; "
-			+ "the internal owner will be released and lifecycle resource cleanup will continue."
-		)
+		push_warning("[GFAudioUtility][audio_utility.dispose_stop_forced] dispose forced completion: the backend rejected stopping or is executing a callback; " + "the internal owner will be released and lifecycle resource cleanup will continue.")
 	var _duck_buses_restored: bool = _restore_all_ducked_buses_for_lifecycle()
 	_invalidate_bgm_pending_request()
 	_invalidate_all_ambient_pending_requests()
@@ -3653,10 +3726,7 @@ func _dispose_audio_now() -> void:
 	if not _is_backend_dispatch_in_progress():
 		backend_cleared = _clear_audio_backend(true)
 	if not backend_cleared and _audio_backend != null:
-		push_warning(
-			"[GFAudioUtility][audio_utility.dispose_callback_forced] dispose forced completion: the backend dispose callback has not completed; "
-			+ "the internal backend reference was released."
-		)
+		push_warning("[GFAudioUtility][audio_utility.dispose_callback_forced] dispose forced completion: the backend dispose callback has not completed; " + "the internal backend reference was released.")
 		_audio_backend = null
 	_release_all_sfx_players(0.0)
 	_release_all_spatial_sfx_players(0.0)
@@ -3691,9 +3761,7 @@ func _dispose_audio_now() -> void:
 	_deferred_bgm_session_terminal.clear()
 	_audio_dispose_in_progress = false
 	if pending_operation != null:
-		var _pending_emitted: bool = (
-			pending_operation.emit_completed_for_framework()
-		)
+		var _pending_emitted: bool = pending_operation.emit_completed_for_framework()
 	_emit_bgm_session_handles(terminal_handles)
 	if not deferred_natural_history_key.is_empty():
 		bgm_finished.emit(deferred_natural_history_key)
@@ -3703,10 +3771,7 @@ func _dispose_audio_now() -> void:
 ## [br]
 ## @api private
 ## [br]
-func _post_audio_event_locally(
-	request_event: GFAudioEvent,
-	request_options: Dictionary
-) -> GFAudioEmitterHandle:
+func _post_audio_event_locally(request_event: GFAudioEvent, request_options: Dictionary) -> GFAudioEmitterHandle:
 	match request_event.channel:
 		&"bgm":
 			_post_bgm_event(request_event, request_options)
@@ -3724,10 +3789,7 @@ func _post_audio_event_locally(
 ## [br]
 ## @api private
 ## [br]
-func _play_sfx_clip_handle_for_channel(
-	clip: GFAudioClip,
-	rejection_channel: StringName
-) -> GFAudioEmitterHandle:
+func _play_sfx_clip_handle_for_channel(clip: GFAudioClip, rejection_channel: StringName) -> GFAudioEmitterHandle:
 	if _is_backend_dispatch_in_progress():
 		return null
 	if clip == null or not clip.has_source():
@@ -3743,7 +3805,10 @@ func _play_sfx_clip_handle_for_channel(
 	var request_serial: int = _sfx_lifecycle_serial
 	var bus_name: String = request_clip.resolve_bus(SFX_BUS_NAME)
 	var volume_db: float = _finite_or_default(request_clip.volume_db, 0.0)
-	var pitch_scale: float = _finite_or_default(request_clip.resolve_pitch(_audio_rng), 1.0)
+	var pitch_scale: float = _finite_or_default(
+		request_clip.resolve_pitch(_audio_rng),
+		1.0
+	)
 	var backend_options: Dictionary = {
 		"bus_name": bus_name,
 		"volume_db": volume_db,
@@ -3810,7 +3875,11 @@ func _play_sfx_clip_handle_for_channel(
 ## [br]
 ## @api private
 ## [br]
-func _connect_signal_checked(source_signal: Signal, callback: Callable, flags: int = 0) -> void:
+func _connect_signal_checked(
+	source_signal: Signal,
+	callback: Callable,
+	flags: int = 0
+) -> void:
 	if source_signal.is_null():
 		push_warning("[GFAudioUtility][audio_utility.signal_null] Cannot connect signal: Signal is null.")
 		return
@@ -3820,7 +3889,10 @@ func _connect_signal_checked(source_signal: Signal, callback: Callable, flags: i
 	if source_signal.is_connected(callback):
 		return
 
-	var error: Error = source_signal.connect(callback, flags as Object.ConnectFlags) as Error
+	var error: Error = source_signal.connect(
+		callback,
+		flags as Object.ConnectFlags
+	) as Error
 	if error != OK:
 		push_warning("[GFAudioUtility][audio_utility.signal_connect_failed] Cannot connect signal: %s." % error_string(error))
 
@@ -3912,10 +3984,7 @@ func _dispatch_backend_call(
 ## @api private
 ## [br]
 func _backend_dispatch_completed(result: Dictionary) -> bool:
-	return (
-		GFVariantData.get_option_bool(result, "called")
-		and GFVariantData.get_option_bool(result, "backend_current")
-	)
+	return (GFVariantData.get_option_bool(result, "called") and GFVariantData.get_option_bool(result, "backend_current"))
 
 
 ## 判断已完成的 backend 调用是否返回 true。
@@ -4017,11 +4086,16 @@ func _notify_backend_stop_ambient(channel: StringName, fade_seconds: float) -> b
 		_backend_dispatch_returned_true(result)
 		and _audio_backend == expected_backend
 		and _get_ambient_request_serial(channel) == expected_request_serial
-		and GFVariantData.get_option_string_name(
-			current_session,
-			"owner",
-			_OWNER_NONE
-		) == expected_owner
+		and (
+			(
+				GFVariantData.get_option_string_name(
+					current_session,
+					"owner",
+					_OWNER_NONE
+				)
+			)
+			== expected_owner
+		)
 	)
 
 
@@ -4112,10 +4186,7 @@ func _is_live_audio_root(root: Node) -> bool:
 ## [br]
 ## @api private
 ## [br]
-func _is_exact_audio_root_child(
-	root: Node,
-	player: AudioStreamPlayer
-) -> bool:
+func _is_exact_audio_root_child(root: Node, player: AudioStreamPlayer) -> bool:
 	return (
 		_is_live_audio_root(root)
 		and is_instance_valid(player)
@@ -4129,10 +4200,7 @@ func _is_exact_audio_root_child(
 ## [br]
 ## @api private
 ## [br]
-func _rollback_audio_initialization(
-	initialization_primary: AudioStreamPlayer,
-	initialization_fade: AudioStreamPlayer
-) -> void:
+func _rollback_audio_initialization(initialization_primary: AudioStreamPlayer, initialization_fade: AudioStreamPlayer) -> void:
 	if (
 		_is_initialized
 		and _bgm_player == initialization_primary
@@ -4161,16 +4229,10 @@ func _is_audio_initialization_topology_current(
 		and _root == initialization_root
 		and _bgm_player == initialization_primary
 		and _bgm_fade_player == initialization_fade
-		and _is_exact_audio_root_child(
-			initialization_root,
-			initialization_primary
-		)
+		and _is_exact_audio_root_child(initialization_root, initialization_primary)
 		and (
 			not require_fade_inserted
-			or _is_exact_audio_root_child(
-				initialization_root,
-				initialization_fade
-			)
+			or _is_exact_audio_root_child(initialization_root, initialization_fade)
 		)
 	)
 
@@ -4179,9 +4241,7 @@ func _is_audio_initialization_topology_current(
 ## [br]
 ## @api private
 ## [br]
-func _snapshot_playback_region(
-	region: GFAudioPlaybackRegion
-) -> GFAudioPlaybackRegion:
+func _snapshot_playback_region(region: GFAudioPlaybackRegion) -> GFAudioPlaybackRegion:
 	return region.duplicate_region() if region != null else null
 
 
@@ -4207,9 +4267,7 @@ func _new_backend_request_snapshot_state() -> Dictionary:
 ## [br]
 ## @api private
 ## [br]
-func _snapshot_playback_region_result(
-	result: GFAudioPlaybackRegionResult
-) -> Dictionary:
+func _snapshot_playback_region_result(result: GFAudioPlaybackRegionResult) -> Dictionary:
 	if result == null:
 		return {}
 	return {
@@ -4264,10 +4322,7 @@ func _snapshot_audio_clip_with_state(
 		return null
 	if not _consume_backend_request_snapshot_item(state, depth):
 		return null
-	if (
-		not _reserve_backend_request_snapshot_string_bytes(state, clip.path)
-		or not _reserve_backend_request_snapshot_string_bytes(state, clip.bus_name)
-	):
+	if (not _reserve_backend_request_snapshot_string_bytes(state, clip.path) or not _reserve_backend_request_snapshot_string_bytes(state, clip.bus_name)):
 		return null
 	var snapshot: GFAudioClip = GFAudioClip.new()
 	_push_backend_snapshot_active_resource(state, clip)
@@ -4310,10 +4365,7 @@ func _snapshot_audio_clip_with_state(
 			if not _backend_request_snapshot_succeeded(spatial_settings_result):
 				_pop_backend_snapshot_active_resource(state)
 				return null
-			var spatial_settings_value: Variant = GFVariantData.get_option_value(
-				spatial_settings_result,
-				"value"
-			)
+			var spatial_settings_value: Variant = GFVariantData.get_option_value(spatial_settings_result, "value")
 			if not spatial_settings_value is Resource:
 				_pop_backend_snapshot_active_resource(state)
 				return null
@@ -4332,10 +4384,7 @@ func _snapshot_audio_clip_with_state(
 		if not _backend_request_snapshot_succeeded(playback_region_result):
 			_pop_backend_snapshot_active_resource(state)
 			return null
-		var playback_region_value: Variant = GFVariantData.get_option_value(
-			playback_region_result,
-			"value"
-		)
+		var playback_region_value: Variant = GFVariantData.get_option_value(playback_region_result, "value")
 		if not playback_region_value is GFAudioPlaybackRegion:
 			_pop_backend_snapshot_active_resource(state)
 			return null
@@ -4367,7 +4416,11 @@ func _snapshot_audio_clip_with_state(
 	var metadata_snapshot: Dictionary = metadata_value
 	snapshot.metadata = metadata_snapshot
 	_pop_backend_snapshot_active_resource(state)
-	_record_backend_snapshot_resource(state, clip, snapshot)
+	_record_backend_snapshot_resource(
+		state,
+		clip,
+		snapshot
+	)
 	return snapshot
 
 
@@ -4466,7 +4519,11 @@ func _snapshot_audio_event_with_state(
 	var metadata_snapshot: Dictionary = metadata_value
 	snapshot.metadata = metadata_snapshot
 	_pop_backend_snapshot_active_resource(state)
-	_record_backend_snapshot_resource(state, event, snapshot)
+	_record_backend_snapshot_resource(
+		state,
+		event,
+		snapshot
+	)
 	return snapshot
 
 
@@ -4482,12 +4539,14 @@ func _try_snapshot_audio_options(options: Dictionary) -> Dictionary:
 ## [br]
 ## @api private
 ## [br]
-func _try_snapshot_backend_request_value(
-	value: Variant,
-	duplicate_resources: bool
-) -> Dictionary:
+func _try_snapshot_backend_request_value(value: Variant, duplicate_resources: bool) -> Dictionary:
 	var state: Dictionary = _new_backend_request_snapshot_state()
-	return _snapshot_backend_request_value(value, duplicate_resources, state, 0)
+	return _snapshot_backend_request_value(
+		value,
+		duplicate_resources,
+		state,
+		0
+	)
 
 
 ## 为 backend 请求值创建独立快照并返回结果。
@@ -4496,7 +4555,13 @@ func _try_snapshot_backend_request_value(
 ## [br]
 func _try_snapshot_isolated_backend_request_value(value: Variant) -> Dictionary:
 	var state: Dictionary = _new_backend_request_snapshot_state()
-	return _snapshot_backend_request_value(value, true, state, 0, true)
+	return _snapshot_backend_request_value(
+		value,
+		true,
+		state,
+		0,
+		true
+	)
 
 
 ## 递归复制 backend 请求值并维护预算与对象身份跟踪。
@@ -4520,7 +4585,10 @@ func _snapshot_backend_request_value(
 		var existing_dictionary: Variant = _get_backend_snapshot_collection(state, dictionary)
 		if existing_dictionary is Dictionary:
 			return _successful_backend_request_snapshot(existing_dictionary)
-		if not _backend_request_snapshot_has_items(state, dictionary.size() * 2):
+		if not _backend_request_snapshot_has_items(
+			state,
+			dictionary.size() * 2
+		):
 			return _failed_backend_request_snapshot()
 		var dictionary_snapshot: Dictionary = _create_backend_snapshot_dictionary(dictionary)
 		_push_backend_snapshot_active_collection(state, dictionary)
@@ -4545,11 +4613,13 @@ func _snapshot_backend_request_value(
 			if not _backend_request_snapshot_succeeded(item_result):
 				_pop_backend_snapshot_active_collection(state)
 				return _failed_backend_request_snapshot()
-			dictionary_snapshot[GFVariantData.get_option_value(key_result, "value")] = (
-				GFVariantData.get_option_value(item_result, "value")
-			)
+			dictionary_snapshot[GFVariantData.get_option_value(key_result, "value")] = GFVariantData.get_option_value(item_result, "value")
 		_pop_backend_snapshot_active_collection(state)
-		_record_backend_snapshot_collection(state, dictionary, dictionary_snapshot)
+		_record_backend_snapshot_collection(
+			state,
+			dictionary,
+			dictionary_snapshot
+		)
 		return _successful_backend_request_snapshot(dictionary_snapshot)
 
 	if value is Array:
@@ -4559,7 +4629,10 @@ func _snapshot_backend_request_value(
 		var existing_array: Variant = _get_backend_snapshot_collection(state, array)
 		if existing_array is Array:
 			return _successful_backend_request_snapshot(existing_array)
-		if not _backend_request_snapshot_has_items(state, array.size()):
+		if not _backend_request_snapshot_has_items(
+			state,
+			array.size()
+		):
 			return _failed_backend_request_snapshot()
 		var array_snapshot: Array = _create_backend_snapshot_array(array)
 		_push_backend_snapshot_active_collection(state, array)
@@ -4579,25 +4652,34 @@ func _snapshot_backend_request_value(
 				GFVariantData.get_option_value(item_result, "value")
 			)
 		_pop_backend_snapshot_active_collection(state)
-		_record_backend_snapshot_collection(state, array, array_snapshot)
+		_record_backend_snapshot_collection(
+			state,
+			array,
+			array_snapshot
+		)
 		return _successful_backend_request_snapshot(array_snapshot)
 
 	var value_type: int = typeof(value)
 	if _is_backend_snapshot_packed_array_type(value_type):
-		return _snapshot_backend_request_packed_array(value, value_type, state)
+		return _snapshot_backend_request_packed_array(
+			value,
+			value_type,
+			state
+		)
 
 	if value is Resource:
 		var source_resource: Resource = value
 		if _backend_snapshot_has_active_resource(state, source_resource):
 			return _failed_backend_request_snapshot()
-		var existing_resource: Resource = _get_backend_snapshot_resource(
-			state,
-			source_resource
-		)
+		var existing_resource: Resource = _get_backend_snapshot_resource(state, source_resource)
 		if existing_resource != null:
 			return _successful_backend_request_snapshot(existing_resource)
 		if duplicate_resources:
-			return _snapshot_backend_request_resource(source_resource, state, depth)
+			return _snapshot_backend_request_resource(
+				source_resource,
+				state,
+				depth
+			)
 
 	if reject_shared_references and _backend_snapshot_value_shares_mutable_identity(value):
 		return _failed_backend_request_snapshot()
@@ -4664,17 +4746,17 @@ func _reserve_backend_request_snapshot_bytes(state: Dictionary, count: int) -> b
 ## [br]
 ## @api private
 ## [br]
-func _reserve_backend_request_snapshot_string_bytes(
-	state: Dictionary,
-	value: String
-) -> bool:
+func _reserve_backend_request_snapshot_string_bytes(state: Dictionary, value: String) -> bool:
 	var remaining_bytes: int = GFVariantData.get_option_int(state, "remaining_bytes")
 	var character_count: int = value.length()
 	@warning_ignore("integer_division")
 	var maximum_characters: int = remaining_bytes / 4
 	if character_count > maximum_characters:
 		return false
-	return _reserve_backend_request_snapshot_bytes(state, character_count * 4)
+	return _reserve_backend_request_snapshot_bytes(
+		state,
+		character_count * 4
+	)
 
 
 ## 检查文本是否能在 backend 请求快照字节预算内保存。
@@ -4690,16 +4772,10 @@ func _is_backend_request_text_within_budget(text: String) -> bool:
 ## [br]
 ## @api private
 ## [br]
-func _reserve_backend_request_snapshot_packed_elements(
-	state: Dictionary,
-	count: int
-) -> bool:
+func _reserve_backend_request_snapshot_packed_elements(state: Dictionary, count: int) -> bool:
 	if count < 0:
 		return false
-	var remaining_elements: int = GFVariantData.get_option_int(
-		state,
-		"remaining_packed_elements"
-	)
+	var remaining_elements: int = GFVariantData.get_option_int(state, "remaining_packed_elements")
 	if count > remaining_elements:
 		return false
 	state["remaining_packed_elements"] = remaining_elements - count
@@ -4766,7 +4842,11 @@ func _snapshot_backend_request_packed_array(
 	var snapshot: Variant = _duplicate_backend_snapshot_packed_array(value, value_type)
 	if typeof(snapshot) != value_type:
 		return _failed_backend_request_snapshot()
-	_record_backend_snapshot_collection(state, value, snapshot)
+	_record_backend_snapshot_collection(
+		state,
+		value,
+		snapshot
+	)
 	return _successful_backend_request_snapshot(snapshot)
 
 
@@ -4924,29 +5004,32 @@ func _snapshot_backend_request_resource(
 
 	_push_backend_snapshot_active_resource(state, source)
 	var property_list: Array[Dictionary] = source.get_property_list()
-	if not _consume_backend_request_snapshot_items(state, property_list.size()):
+	if not _consume_backend_request_snapshot_items(
+		state,
+		property_list.size()
+	):
 		_pop_backend_snapshot_active_resource(state)
 		return _failed_backend_request_snapshot()
 	var snapshot_property_list: Array[Dictionary] = snapshot.get_property_list()
-	if not _consume_backend_request_snapshot_items(state, snapshot_property_list.size()):
+	if not _consume_backend_request_snapshot_items(
+		state,
+		snapshot_property_list.size()
+	):
 		_pop_backend_snapshot_active_resource(state)
 		return _failed_backend_request_snapshot()
 	var native_property_list: Array[Dictionary] = ClassDB.class_get_property_list(
 		StringName(source.get_class()),
 		false
 	)
-	if not _consume_backend_request_snapshot_items(state, native_property_list.size()):
+	if not _consume_backend_request_snapshot_items(
+		state,
+		native_property_list.size()
+	):
 		_pop_backend_snapshot_active_resource(state)
 		return _failed_backend_request_snapshot()
-	var source_index_result: Dictionary = _index_backend_snapshot_storage_properties(
-		property_list
-	)
-	var snapshot_index_result: Dictionary = _index_backend_snapshot_storage_properties(
-		snapshot_property_list
-	)
-	var native_index_result: Dictionary = _index_backend_snapshot_storage_properties(
-		native_property_list
-	)
+	var source_index_result: Dictionary = _index_backend_snapshot_storage_properties(property_list)
+	var snapshot_index_result: Dictionary = _index_backend_snapshot_storage_properties(snapshot_property_list)
+	var native_index_result: Dictionary = _index_backend_snapshot_storage_properties(native_property_list)
 	if (
 		not _backend_request_snapshot_succeeded(source_index_result)
 		or not _backend_request_snapshot_succeeded(snapshot_index_result)
@@ -4954,28 +5037,13 @@ func _snapshot_backend_request_resource(
 	):
 		_pop_backend_snapshot_active_resource(state)
 		return _failed_backend_request_snapshot()
-	var source_properties: Dictionary = GFVariantData.get_option_dictionary(
-		source_index_result,
-		"properties"
-	)
-	var source_property_names: Array = GFVariantData.get_option_array(
-		source_index_result,
-		"property_names"
-	)
-	var snapshot_properties: Dictionary = GFVariantData.get_option_dictionary(
-		snapshot_index_result,
-		"properties"
-	)
-	if not _backend_snapshot_property_schemas_match(
-		source_properties,
-		snapshot_properties
-	):
+	var source_properties: Dictionary = GFVariantData.get_option_dictionary(source_index_result, "properties")
+	var source_property_names: Array = GFVariantData.get_option_array(source_index_result, "property_names")
+	var snapshot_properties: Dictionary = GFVariantData.get_option_dictionary(snapshot_index_result, "properties")
+	if not _backend_snapshot_property_schemas_match(source_properties, snapshot_properties):
 		_pop_backend_snapshot_active_resource(state)
 		return _failed_backend_request_snapshot()
-	var native_properties: Dictionary = GFVariantData.get_option_dictionary(
-		native_index_result,
-		"properties"
-	)
+	var native_properties: Dictionary = GFVariantData.get_option_dictionary(native_index_result, "properties")
 	var expected_property_names: Array[StringName] = []
 	var expected_property_values: Array = []
 	var expected_native_packed_copy: Array[bool] = []
@@ -4984,19 +5052,10 @@ func _snapshot_backend_request_resource(
 			_pop_backend_snapshot_active_resource(state)
 			return _failed_backend_request_snapshot()
 		var property_name: StringName = property_name_value
-		var property_info: Dictionary = GFVariantData.get_option_dictionary(
-			source_properties,
-			property_name
-		)
+		var property_info: Dictionary = GFVariantData.get_option_dictionary(source_properties, property_name)
 		var usage: int = GFVariantData.get_option_int(property_info, "usage")
-		var snapshot_property_info: Dictionary = GFVariantData.get_option_dictionary(
-			snapshot_properties,
-			property_name
-		)
-		var snapshot_usage: int = GFVariantData.get_option_int(
-			snapshot_property_info,
-			"usage"
-		)
+		var snapshot_property_info: Dictionary = GFVariantData.get_option_dictionary(snapshot_properties, property_name)
+		var snapshot_usage: int = GFVariantData.get_option_int(snapshot_property_info, "usage")
 		if (
 			snapshot_property_info.is_empty()
 			or (usage & PROPERTY_USAGE_NEVER_DUPLICATE) != 0
@@ -5029,14 +5088,8 @@ func _snapshot_backend_request_resource(
 		if not _backend_request_snapshot_succeeded(property_result):
 			_pop_backend_snapshot_active_resource(state)
 			return _failed_backend_request_snapshot()
-		var property_snapshot: Variant = GFVariantData.get_option_value(
-			property_result,
-			"value"
-		)
-		if not GFObjectPropertyTools.value_matches_property_type(
-			property_snapshot,
-			snapshot_property_type
-		):
+		var property_snapshot: Variant = GFVariantData.get_option_value(property_result, "value")
+		if not (GFObjectPropertyTools.value_matches_property_type(property_snapshot, snapshot_property_type)):
 			_pop_backend_snapshot_active_resource(state)
 			return _failed_backend_request_snapshot()
 		snapshot.set(property_name, property_snapshot)
@@ -5045,53 +5098,45 @@ func _snapshot_backend_request_resource(
 		expected_native_packed_copy.append(native_properties.has(property_name))
 
 	var final_property_list: Array[Dictionary] = snapshot.get_property_list()
-	if not _consume_backend_request_snapshot_items(state, final_property_list.size()):
+	if not _consume_backend_request_snapshot_items(
+		state,
+		final_property_list.size()
+	):
 		_pop_backend_snapshot_active_resource(state)
 		return _failed_backend_request_snapshot()
-	var final_index_result: Dictionary = _index_backend_snapshot_storage_properties(
-		final_property_list
-	)
+	var final_index_result: Dictionary = _index_backend_snapshot_storage_properties(final_property_list)
 	if not _backend_request_snapshot_succeeded(final_index_result):
 		_pop_backend_snapshot_active_resource(state)
 		return _failed_backend_request_snapshot()
-	var final_properties: Dictionary = GFVariantData.get_option_dictionary(
-		final_index_result,
-		"properties"
-	)
-	if not _backend_snapshot_property_schemas_match(
-		source_properties,
-		final_properties
-	):
+	var final_properties: Dictionary = GFVariantData.get_option_dictionary(final_index_result, "properties")
+	if not _backend_snapshot_property_schemas_match(source_properties, final_properties):
 		_pop_backend_snapshot_active_resource(state)
 		return _failed_backend_request_snapshot()
 
 	for index: int in range(expected_property_names.size()):
 		var property_name: StringName = expected_property_names[index]
 		var expected_property: Variant = expected_property_values[index]
-		var source_property_info: Dictionary = GFVariantData.get_option_dictionary(
-			source_properties,
-			property_name
-		)
-		var final_property_info: Dictionary = GFVariantData.get_option_dictionary(
-			final_properties,
-			property_name
-		)
-		var final_usage: int = GFVariantData.get_option_int(
-			final_property_info,
-			"usage"
-		)
+		var source_property_info: Dictionary = GFVariantData.get_option_dictionary(source_properties, property_name)
+		var final_property_info: Dictionary = GFVariantData.get_option_dictionary(final_properties, property_name)
+		var final_usage: int = GFVariantData.get_option_int(final_property_info, "usage")
 		if (
 			(final_usage & PROPERTY_USAGE_NEVER_DUPLICATE) != 0
 			or (final_usage & PROPERTY_USAGE_READ_ONLY) != 0
-			or GFVariantData.get_option_int(
-				final_property_info,
-				"type",
-				TYPE_NIL
-			)
-			!= GFVariantData.get_option_int(
-				source_property_info,
-				"type",
-				TYPE_NIL
+			or (
+				(
+					GFVariantData.get_option_int(
+						final_property_info,
+						"type",
+						TYPE_NIL
+					)
+				)
+				!= (
+					GFVariantData.get_option_int(
+						source_property_info,
+						"type",
+						TYPE_NIL
+					)
+				)
 			)
 		):
 			_pop_backend_snapshot_active_resource(state)
@@ -5106,7 +5151,11 @@ func _snapshot_backend_request_resource(
 			return _failed_backend_request_snapshot()
 
 	_pop_backend_snapshot_active_resource(state)
-	_record_backend_snapshot_resource(state, source, snapshot)
+	_record_backend_snapshot_resource(
+		state,
+		source,
+		snapshot
+	)
 	return _successful_backend_request_snapshot(snapshot)
 
 
@@ -5134,7 +5183,10 @@ func _instantiate_backend_snapshot_resource(source: Resource) -> Resource:
 			return null
 		var source_script: Script = script_value
 		snapshot.set_script(source_script)
-		if not is_same(snapshot.get_script(), source_script):
+		if not is_same(
+			snapshot.get_script(),
+			source_script
+		):
 			return null
 	if snapshot.get_class() != source.get_class():
 		return null
@@ -5145,19 +5197,14 @@ func _instantiate_backend_snapshot_resource(source: Resource) -> Resource:
 ## [br]
 ## @api private
 ## [br]
-func _index_backend_snapshot_storage_properties(
-	property_list: Array[Dictionary]
-) -> Dictionary:
+func _index_backend_snapshot_storage_properties(property_list: Array[Dictionary]) -> Dictionary:
 	var properties: Dictionary = {}
 	var property_names: Array[StringName] = []
 	for property_info: Dictionary in property_list:
 		var usage: int = GFVariantData.get_option_int(property_info, "usage")
 		if (usage & PROPERTY_USAGE_STORAGE) == 0:
 			continue
-		var property_name: StringName = GFVariantData.get_option_string_name(
-			property_info,
-			"name"
-		)
+		var property_name: StringName = GFVariantData.get_option_string_name(property_info, "name")
 		if property_name == &"script":
 			continue
 		if property_name == &"" or properties.has(property_name):
@@ -5176,10 +5223,7 @@ func _index_backend_snapshot_storage_properties(
 ## [br]
 ## @api private
 ## [br]
-func _backend_snapshot_property_schemas_match(
-	source_properties: Dictionary,
-	target_properties: Dictionary
-) -> bool:
+func _backend_snapshot_property_schemas_match(source_properties: Dictionary, target_properties: Dictionary) -> bool:
 	if source_properties.size() != target_properties.size():
 		return false
 	for property_name: Variant in source_properties.keys():
@@ -5198,17 +5242,11 @@ func _backend_snapshot_property_value_matches(
 	allow_native_packed_copy: bool = false
 ) -> bool:
 	var expected_type: int = typeof(expected_value)
-	if (
-		allow_native_packed_copy
-		and _is_backend_snapshot_packed_array_type(expected_type)
-	):
+	if (allow_native_packed_copy and _is_backend_snapshot_packed_array_type(expected_type)):
 		return GFVariantData.values_equal(applied_value, expected_value)
 	if _backend_snapshot_value_requires_identity(expected_value):
 		return is_same(applied_value, expected_value)
-	return (
-		is_same(applied_value, expected_value)
-		or GFVariantData.values_equal(applied_value, expected_value)
-	)
+	return (is_same(applied_value, expected_value) or GFVariantData.values_equal(applied_value, expected_value))
 
 
 ## 判断快照值是否要求维持源对象身份。
@@ -5244,10 +5282,7 @@ func _backend_snapshot_value_shares_mutable_identity(value: Variant) -> bool:
 ## @api private
 ## [br]
 func _successful_backend_request_snapshot(value: Variant) -> Dictionary:
-	return {
-		"ok": true,
-		"value": value,
-	}
+	return { "ok": true, "value": value, }
 
 
 ## 构造失败的 backend 请求快照结果。
@@ -5255,10 +5290,7 @@ func _successful_backend_request_snapshot(value: Variant) -> Dictionary:
 ## @api private
 ## [br]
 func _failed_backend_request_snapshot() -> Dictionary:
-	return {
-		"ok": false,
-		"value": null,
-	}
+	return { "ok": false, "value": null, }
 
 
 ## 检查 backend 请求快照结果的成功标记。
@@ -5288,9 +5320,7 @@ func _get_backend_request_snapshot_dictionary(result: Dictionary) -> Dictionary:
 ## @api private
 ## [br]
 func _backend_snapshot_has_active_collection(state: Dictionary, value: Variant) -> bool:
-	var active_collections: Array = GFVariantData.as_array(
-		GFVariantData.get_option_value(state, "active_collections")
-	)
+	var active_collections: Array = GFVariantData.as_array(GFVariantData.get_option_value(state, "active_collections"))
 	for active_collection: Variant in active_collections:
 		if is_same(active_collection, value):
 			return true
@@ -5302,9 +5332,7 @@ func _backend_snapshot_has_active_collection(state: Dictionary, value: Variant) 
 ## @api private
 ## [br]
 func _push_backend_snapshot_active_collection(state: Dictionary, value: Variant) -> void:
-	var active_collections: Array = GFVariantData.as_array(
-		GFVariantData.get_option_value(state, "active_collections")
-	)
+	var active_collections: Array = GFVariantData.as_array(GFVariantData.get_option_value(state, "active_collections"))
 	_append_array_item(active_collections, value)
 
 
@@ -5313,9 +5341,7 @@ func _push_backend_snapshot_active_collection(state: Dictionary, value: Variant)
 ## @api private
 ## [br]
 func _pop_backend_snapshot_active_collection(state: Dictionary) -> void:
-	var active_collections: Array = GFVariantData.as_array(
-		GFVariantData.get_option_value(state, "active_collections")
-	)
+	var active_collections: Array = GFVariantData.as_array(GFVariantData.get_option_value(state, "active_collections"))
 	if active_collections.is_empty():
 		return
 	var _removed_collection: Variant = active_collections.pop_back()
@@ -5326,14 +5352,13 @@ func _pop_backend_snapshot_active_collection(state: Dictionary) -> void:
 ## @api private
 ## [br]
 func _get_backend_snapshot_collection(state: Dictionary, source: Variant) -> Variant:
-	var collection_sources: Array = GFVariantData.as_array(
-		GFVariantData.get_option_value(state, "collection_sources")
-	)
-	var collection_snapshots: Array = GFVariantData.as_array(
-		GFVariantData.get_option_value(state, "collection_snapshots")
-	)
+	var collection_sources: Array = GFVariantData.as_array(GFVariantData.get_option_value(state, "collection_sources"))
+	var collection_snapshots: Array = GFVariantData.as_array(GFVariantData.get_option_value(state, "collection_snapshots"))
 	for index: int in range(collection_sources.size()):
-		if not is_same(collection_sources[index], source):
+		if not is_same(
+			collection_sources[index],
+			source
+		):
 			continue
 		if index >= collection_snapshots.size():
 			return null
@@ -5350,12 +5375,8 @@ func _record_backend_snapshot_collection(
 	source: Variant,
 	snapshot: Variant
 ) -> void:
-	var collection_sources: Array = GFVariantData.as_array(
-		GFVariantData.get_option_value(state, "collection_sources")
-	)
-	var collection_snapshots: Array = GFVariantData.as_array(
-		GFVariantData.get_option_value(state, "collection_snapshots")
-	)
+	var collection_sources: Array = GFVariantData.as_array(GFVariantData.get_option_value(state, "collection_sources"))
+	var collection_snapshots: Array = GFVariantData.as_array(GFVariantData.get_option_value(state, "collection_snapshots"))
 	_append_array_item(collection_sources, source)
 	_append_array_item(collection_snapshots, snapshot)
 
@@ -5365,9 +5386,7 @@ func _record_backend_snapshot_collection(
 ## @api private
 ## [br]
 func _backend_snapshot_has_active_resource(state: Dictionary, source: Resource) -> bool:
-	var active_resources: Array = GFVariantData.as_array(
-		GFVariantData.get_option_value(state, "active_resources")
-	)
+	var active_resources: Array = GFVariantData.as_array(GFVariantData.get_option_value(state, "active_resources"))
 	for active_resource: Variant in active_resources:
 		if is_same(active_resource, source):
 			return true
@@ -5379,9 +5398,7 @@ func _backend_snapshot_has_active_resource(state: Dictionary, source: Resource) 
 ## @api private
 ## [br]
 func _push_backend_snapshot_active_resource(state: Dictionary, source: Resource) -> void:
-	var active_resources: Array = GFVariantData.as_array(
-		GFVariantData.get_option_value(state, "active_resources")
-	)
+	var active_resources: Array = GFVariantData.as_array(GFVariantData.get_option_value(state, "active_resources"))
 	_append_array_item(active_resources, source)
 
 
@@ -5390,9 +5407,7 @@ func _push_backend_snapshot_active_resource(state: Dictionary, source: Resource)
 ## @api private
 ## [br]
 func _pop_backend_snapshot_active_resource(state: Dictionary) -> void:
-	var active_resources: Array = GFVariantData.as_array(
-		GFVariantData.get_option_value(state, "active_resources")
-	)
+	var active_resources: Array = GFVariantData.as_array(GFVariantData.get_option_value(state, "active_resources"))
 	if active_resources.is_empty():
 		return
 	var _removed_resource: Variant = active_resources.pop_back()
@@ -5403,14 +5418,13 @@ func _pop_backend_snapshot_active_resource(state: Dictionary) -> void:
 ## @api private
 ## [br]
 func _get_backend_snapshot_resource(state: Dictionary, source: Resource) -> Resource:
-	var resource_sources: Array = GFVariantData.as_array(
-		GFVariantData.get_option_value(state, "resource_sources")
-	)
-	var resource_snapshots: Array = GFVariantData.as_array(
-		GFVariantData.get_option_value(state, "resource_snapshots")
-	)
+	var resource_sources: Array = GFVariantData.as_array(GFVariantData.get_option_value(state, "resource_sources"))
+	var resource_snapshots: Array = GFVariantData.as_array(GFVariantData.get_option_value(state, "resource_snapshots"))
 	for index: int in range(resource_sources.size()):
-		if not is_same(resource_sources[index], source):
+		if not is_same(
+			resource_sources[index],
+			source
+		):
 			continue
 		if index >= resource_snapshots.size():
 			return null
@@ -5431,12 +5445,8 @@ func _record_backend_snapshot_resource(
 	source: Resource,
 	snapshot: Resource
 ) -> void:
-	var resource_sources: Array = GFVariantData.as_array(
-		GFVariantData.get_option_value(state, "resource_sources")
-	)
-	var resource_snapshots: Array = GFVariantData.as_array(
-		GFVariantData.get_option_value(state, "resource_snapshots")
-	)
+	var resource_sources: Array = GFVariantData.as_array(GFVariantData.get_option_value(state, "resource_sources"))
+	var resource_snapshots: Array = GFVariantData.as_array(GFVariantData.get_option_value(state, "resource_snapshots"))
 	_append_array_item(resource_sources, source)
 	_append_array_item(resource_snapshots, snapshot)
 
@@ -5457,7 +5467,11 @@ func _seed_backend_snapshot_resource(
 	var existing_snapshot: Resource = _get_backend_snapshot_resource(state, source)
 	if existing_snapshot != null:
 		return is_same(existing_snapshot, snapshot)
-	_record_backend_snapshot_resource(state, source, snapshot)
+	_record_backend_snapshot_resource(
+		state,
+		source,
+		snapshot
+	)
 	return true
 
 
@@ -5465,10 +5479,7 @@ func _seed_backend_snapshot_resource(
 ## [br]
 ## @api private
 ## [br]
-func _validate_playback_region_request(
-	region: GFAudioPlaybackRegion,
-	channel: StringName
-) -> bool:
+func _validate_playback_region_request(region: GFAudioPlaybackRegion, channel: StringName) -> bool:
 	if region == null:
 		return true
 	var result: GFAudioPlaybackRegionResult = region.validate()
@@ -5491,14 +5502,15 @@ func _prepare_playback_region_stream(
 	if region == null:
 		return null
 	var result: GFAudioPlaybackRegionResult = region.prepare_stream(stream)
-	if result != null and result.is_applied() and result.prepared_stream != null:
+	if (
+		result != null
+		and result.is_applied()
+		and result.prepared_stream != null
+	):
 		return result
 	var rejected_result: GFAudioPlaybackRegionResult = result
 	if result == null or result.is_success():
-		rejected_result = GFAudioPlaybackRegionResult.unsupported(
-			&"local_result_not_prepared",
-			"Local playback region preparation did not return a private stream."
-		)
+		rejected_result = GFAudioPlaybackRegionResult.unsupported(&"local_result_not_prepared", "Local playback region preparation did not return a private stream.")
 	_reject_playback_region(channel, rejected_result)
 	return rejected_result
 
@@ -5546,10 +5558,7 @@ func _build_local_playback_execution_plan(
 ## [br]
 ## @api private
 ## [br]
-func _reject_playback_region(
-	channel: StringName,
-	result: GFAudioPlaybackRegionResult
-) -> void:
+func _reject_playback_region(channel: StringName, result: GFAudioPlaybackRegionResult) -> void:
 	var status: int = GFAudioPlaybackRegionResult.Status.INVALID
 	var reason: StringName = &"invalid_result"
 	if result != null:
@@ -5597,22 +5606,17 @@ func _evaluate_backend_playback_region(
 	):
 		return null
 	if not _backend_dispatch_returned_true(capability_result):
-		return GFAudioPlaybackRegionResult.unsupported(
-			&"backend_contract_unavailable",
-			"Audio backend does not declare the playback region contract."
-		)
-	var clip_snapshot: GFAudioClip = _snapshot_audio_clip(clip, normalized_region, true)
+		return GFAudioPlaybackRegionResult.unsupported(&"backend_contract_unavailable", "Audio backend does not declare the playback region contract.")
+	var clip_snapshot: GFAudioClip = _snapshot_audio_clip(
+		clip,
+		normalized_region,
+		true
+	)
 	if clip_snapshot == null:
-		return _backend_request_snapshot_rejection(
-			&"backend_snapshot_unavailable",
-			"Audio backend request resources could not be isolated."
-		)
+		return _backend_request_snapshot_rejection(&"backend_snapshot_unavailable", "Audio backend request resources could not be isolated.")
 	var context_snapshot_result: Dictionary = _try_snapshot_audio_options(context)
 	if not _backend_request_snapshot_succeeded(context_snapshot_result):
-		return _backend_request_snapshot_rejection(
-			&"backend_snapshot_unavailable",
-			"Audio backend request options could not be isolated."
-		)
+		return _backend_request_snapshot_rejection(&"backend_snapshot_unavailable", "Audio backend request options could not be isolated.")
 	var evaluation_result: Dictionary = _dispatch_backend_call(
 		&"evaluate_playback_region",
 		[
@@ -5633,21 +5637,12 @@ func _evaluate_backend_playback_region(
 	):
 		return null
 	if not _backend_dispatch_completed(evaluation_result):
-		return GFAudioPlaybackRegionResult.unsupported(
-			&"backend_evaluation_failed",
-			"Audio backend did not complete playback region evaluation."
-		)
+		return GFAudioPlaybackRegionResult.unsupported(&"backend_evaluation_failed", "Audio backend did not complete playback region evaluation.")
 	var value: Variant = GFVariantData.get_option_value(evaluation_result, "value")
 	if value is GFAudioPlaybackRegionResult:
 		var result: GFAudioPlaybackRegionResult = value
-		if (
-			result.status == GFAudioPlaybackRegionResult.Status.NONE
-			or result.status == GFAudioPlaybackRegionResult.Status.VALID
-		):
-			return GFAudioPlaybackRegionResult.unsupported(
-				&"backend_result_not_applied",
-				"Audio backend must return APPLIED for an accepted playback region."
-			)
+		if (result.status == GFAudioPlaybackRegionResult.Status.NONE or result.status == GFAudioPlaybackRegionResult.Status.VALID):
+			return GFAudioPlaybackRegionResult.unsupported(&"backend_result_not_applied", "Audio backend must return APPLIED for an accepted playback region.")
 		if result.status == GFAudioPlaybackRegionResult.Status.APPLIED:
 			var applied: GFAudioPlaybackRegionResult = GFAudioPlaybackRegionResult.new()
 			applied.status = GFAudioPlaybackRegionResult.Status.APPLIED
@@ -5657,29 +5652,17 @@ func _evaluate_backend_playback_region(
 			applied.loop_start_seconds = validation.loop_start_seconds
 			applied.loop_mode = validation.loop_mode
 			return applied
-		if (
-			result.status != GFAudioPlaybackRegionResult.Status.INVALID
-			and result.status != GFAudioPlaybackRegionResult.Status.UNSUPPORTED
-		):
-			return GFAudioPlaybackRegionResult.unsupported(
-				&"backend_result_invalid",
-				"Audio backend returned an unknown playback region status."
-			)
+		if (result.status != GFAudioPlaybackRegionResult.Status.INVALID and result.status != GFAudioPlaybackRegionResult.Status.UNSUPPORTED):
+			return GFAudioPlaybackRegionResult.unsupported(&"backend_result_invalid", "Audio backend returned an unknown playback region status.")
 		return result
-	return GFAudioPlaybackRegionResult.unsupported(
-		&"backend_result_invalid",
-		"Audio backend returned an invalid playback region evaluation."
-	)
+	return GFAudioPlaybackRegionResult.unsupported(&"backend_result_invalid", "Audio backend returned an invalid playback region evaluation.")
 
 
 ## 构造带有稳定拒绝原因和消息的快照拒绝结果。
 ## [br]
 ## @api private
 ## [br]
-func _backend_request_snapshot_rejection(
-	reason: StringName,
-	message: String
-) -> GFAudioPlaybackRegionResult:
+func _backend_request_snapshot_rejection(reason: StringName, message: String) -> GFAudioPlaybackRegionResult:
 	var result: GFAudioPlaybackRegionResult = GFAudioPlaybackRegionResult.new()
 	result.status = GFAudioPlaybackRegionResult.Status.INVALID
 	result.reason = reason
@@ -5691,10 +5674,7 @@ func _backend_request_snapshot_rejection(
 ## [br]
 ## @api private
 ## [br]
-func _apply_validated_playback_region(
-	region: GFAudioPlaybackRegion,
-	result: GFAudioPlaybackRegionResult
-) -> void:
+func _apply_validated_playback_region(region: GFAudioPlaybackRegion, result: GFAudioPlaybackRegionResult) -> void:
 	if region == null or result == null:
 		return
 	region.start_seconds = result.start_seconds
@@ -5707,9 +5687,7 @@ func _apply_validated_playback_region(
 ## [br]
 ## @api private
 ## [br]
-func _playback_region_from_result(
-	result: GFAudioPlaybackRegionResult
-) -> GFAudioPlaybackRegion:
+func _playback_region_from_result(result: GFAudioPlaybackRegionResult) -> GFAudioPlaybackRegion:
 	var region: GFAudioPlaybackRegion = GFAudioPlaybackRegion.new()
 	_apply_validated_playback_region(region, result)
 	return region
@@ -5720,7 +5698,12 @@ func _playback_region_from_result(
 ## @api private
 ## [br]
 func _playback_region_diagnostic_channel(channel: StringName) -> StringName:
-	if channel in [&"bgm", &"ambient", &"sfx", &"spatial_sfx"]:
+	if channel in [
+		&"bgm",
+		&"ambient",
+		&"sfx",
+		&"spatial_sfx",
+	]:
 		return channel
 	return &"custom"
 
@@ -5730,7 +5713,13 @@ func _playback_region_diagnostic_channel(channel: StringName) -> StringName:
 ## @api private
 ## [br]
 func _get_audio_bank_mount_stack(bank_id: StringName) -> Array:
-	return GFVariantData.as_array(GFVariantData.get_option_value(_audio_bank_mount_stacks, bank_id, []))
+	return GFVariantData.as_array(
+		GFVariantData.get_option_value(
+			_audio_bank_mount_stacks,
+			bank_id,
+			[]
+		)
+	)
 
 
 ## 清理指定音频库的挂载栈与关联状态。
@@ -5753,7 +5742,11 @@ func _clear_audio_bank_mount_state(bank_id: StringName) -> void:
 ## @api private
 ## [br]
 func _get_mount_entry_token(entry: Dictionary) -> int:
-	return GFVariantData.get_option_int(entry, "token", 0)
+	return GFVariantData.get_option_int(
+		entry,
+		"token",
+		0
+	)
 
 
 ## 读取挂载记录是否需要恢复先前的音频库。
@@ -5761,7 +5754,11 @@ func _get_mount_entry_token(entry: Dictionary) -> int:
 ## @api private
 ## [br]
 func _get_mount_entry_restore_previous(entry: Dictionary) -> bool:
-	return GFVariantData.get_option_bool(entry, "restore_previous_bank", true)
+	return GFVariantData.get_option_bool(
+		entry,
+		"restore_previous_bank",
+		true
+	)
 
 
 ## 按 ID 读取已注册的音频库。
@@ -5785,7 +5782,13 @@ func _get_ambient_player(channel: StringName) -> AudioStreamPlayer:
 ## @api private
 ## [br]
 func _get_report_array(report: Dictionary, key: Variant) -> Array:
-	return GFVariantData.as_array(GFVariantData.get_option_value(report, key, []))
+	return GFVariantData.as_array(
+		GFVariantData.get_option_value(
+			report,
+			key,
+			[]
+		)
+	)
 
 
 ## 读取指定环境音通道的当前请求序号。
@@ -5793,14 +5796,22 @@ func _get_report_array(report: Dictionary, key: Variant) -> Array:
 ## @api private
 ## [br]
 func _get_ambient_request_serial(channel: StringName) -> int:
-	return GFVariantData.get_option_int(_ambient_request_serials, channel, 0)
+	return GFVariantData.get_option_int(
+		_ambient_request_serials,
+		channel,
+		0
+	)
 
 
 ## 读取对象属性。
 ## [br]
 ## @api private
 ## [br]
-func _get_object_property(object: Object, property_name: StringName, default_value: Variant = null) -> Variant:
+func _get_object_property(
+	object: Object,
+	property_name: StringName,
+	default_value: Variant = null
+) -> Variant:
 	if object == null or property_name == &"":
 		return default_value
 	var value: Variant = object.get_indexed(NodePath(String(property_name)))
@@ -5888,9 +5899,18 @@ func _add_tween_method(
 	to_value: Variant,
 	duration_seconds: float
 ) -> void:
-	if tween == null or not method.is_valid() or not _is_finite_float(duration_seconds):
+	if (
+		tween == null
+		or not method.is_valid()
+		or not _is_finite_float(duration_seconds)
+	):
 		return
-	var tweener: Variant = tween.tween_method(method, from_value, to_value, maxf(duration_seconds, 0.0))
+	var tweener: Variant = tween.tween_method(
+		method,
+		from_value,
+		to_value,
+		maxf(duration_seconds, 0.0)
+	)
 	if tweener == null:
 		push_warning("[GFAudioUtility][audio_utility.tween_method_creation_failed] Cannot create the Tween method step.")
 
@@ -5906,7 +5926,11 @@ func _add_tween_property(
 	final_value: Variant,
 	duration_seconds: float
 ) -> void:
-	if tween == null or target == null or not _is_finite_float(duration_seconds):
+	if (
+		tween == null
+		or target == null
+		or not _is_finite_float(duration_seconds)
+	):
 		return
 	var tweener: Variant = tween.tween_property(
 		target,
@@ -5935,9 +5959,7 @@ func _begin_bus_transaction(bus_name: String) -> int:
 ## @api private
 ## [br]
 func _is_bus_transaction_current(bus_name: String, generation: int) -> bool:
-	return generation > 0 and GFVariantData.to_int(
-		_bus_transaction_generations.get(bus_name)
-	) == generation
+	return (generation > 0 and ((GFVariantData.to_int(_bus_transaction_generations.get(bus_name))) == generation))
 
 
 ## 开始由本地总线控制状态支持的混音过渡事务。
@@ -6044,9 +6066,16 @@ func _finish_bus_volume_tween(
 ## [br]
 ## @api private
 ## [br]
-func _apply_bus_effect_tween_value(value: float, effect: Object, property_name: StringName) -> void:
+func _apply_bus_effect_tween_value(
+	value: float,
+	effect: Object,
+	property_name: StringName
+) -> void:
 	if effect != null and _is_finite_float(value):
-		effect.set(String(property_name), value)
+		effect.set(
+			String(property_name),
+			value
+		)
 
 
 ## 完成总线效果补间动画。
@@ -6060,7 +6089,10 @@ func _finish_bus_effect_tween(
 	value: Variant
 ) -> void:
 	if effect != null:
-		effect.set(String(property_name), value)
+		effect.set(
+			String(property_name),
+			value
+		)
 	_erase_dictionary_key(_bus_effect_tween_refs, tween_key)
 
 
@@ -6130,12 +6162,24 @@ func _effect_matches_ref(effect: Object, expected: String) -> bool:
 	if effect == null:
 		return false
 	var names: PackedStringArray = PackedStringArray()
-	_append_packed_string(names, _normalize_effect_match_text(effect.get_class()))
+	_append_packed_string(
+		names,
+		_normalize_effect_match_text(effect.get_class())
+	)
 	if effect is Resource:
 		var resource: Resource = effect
-		_append_packed_string(names, _normalize_effect_match_text(resource.resource_name))
+		_append_packed_string(
+			names,
+			_normalize_effect_match_text(resource.resource_name)
+		)
 	for effect_name: String in names:
-		if effect_name == expected or (not expected.is_empty() and effect_name.find(expected) >= 0):
+		if (
+			effect_name == expected
+			or (
+				not expected.is_empty()
+				and effect_name.find(expected) >= 0
+			)
+		):
 			return true
 	return false
 
@@ -6156,7 +6200,11 @@ func _object_has_property(object: Object, property_name: StringName) -> bool:
 	if object == null:
 		return false
 	for property: Dictionary in object.get_property_list():
-		if GFVariantData.get_option_string_name(property, "name", &"") == property_name:
+		if GFVariantData.get_option_string_name(
+			property,
+			"name",
+			&""
+		) == property_name:
 			return true
 	return false
 
@@ -6330,7 +6378,12 @@ func _apply_mix_snapshot_buses(
 				expected_backend
 			)
 		else:
-			_append_mix_failure(report, bus_name, "invalid_bus_entry", "总线快照条目必须是 Dictionary 或数值。")
+			_append_mix_failure(
+				report,
+				bus_name,
+				"invalid_bus_entry",
+				"总线快照条目必须是 Dictionary 或数值。"
+			)
 
 
 ## 校验并应用一个混音快照总线条目。
@@ -6344,14 +6397,26 @@ func _apply_mix_snapshot_bus_entry(
 	report: Dictionary,
 	expected_backend: GFAudioBackend
 ) -> void:
-	var entry_transition: float = GFVariantData.get_option_float(entry, "transition_seconds", transition_seconds)
+	var entry_transition: float = GFVariantData.get_option_float(
+		entry,
+		"transition_seconds",
+		transition_seconds
+	)
 	if not _is_finite_float(entry_transition):
-		_append_mix_failure(report, bus_name, "non_finite_transition", "总线过渡时间必须是有限值。")
+		_append_mix_failure(
+			report,
+			bus_name,
+			"non_finite_transition",
+			"总线过渡时间必须是有限值。"
+		)
 		return
 	var has_volume: bool = entry.has("volume_db") or entry.has("volume_linear")
 	var has_mute: bool = entry.has("muted")
 	if not has_volume and not has_mute:
-		_append_mix_warning(report, "总线 %s 的快照条目没有可应用字段。" % bus_name)
+		_append_mix_warning(
+			report,
+			"总线 %s 的快照条目没有可应用字段。" % bus_name
+		)
 		return
 
 	var bus_index: int = AudioServer.get_bus_index(bus_name)
@@ -6359,12 +6424,22 @@ func _apply_mix_snapshot_bus_entry(
 	if entry.has("volume_db"):
 		target_db = GFVariantData.to_float(entry["volume_db"])
 		if not _is_finite_float(target_db):
-			_append_mix_failure(report, bus_name, "non_finite_volume", "总线音量必须是有限值。")
+			_append_mix_failure(
+				report,
+				bus_name,
+				"non_finite_volume",
+				"总线音量必须是有限值。"
+			)
 			return
 	elif entry.has("volume_linear"):
 		var linear_volume: float = GFVariantData.to_float(entry["volume_linear"])
 		if not _is_finite_float(linear_volume):
-			_append_mix_failure(report, bus_name, "non_finite_volume", "线性总线音量必须是有限值。")
+			_append_mix_failure(
+				report,
+				bus_name,
+				"non_finite_volume",
+				"线性总线音量必须是有限值。"
+			)
 			return
 		linear_volume = maxf(linear_volume, 0.0)
 		target_db = SILENCE_VOLUME_DB if linear_volume <= 0.0 else linear_to_db(linear_volume)
@@ -6372,14 +6447,22 @@ func _apply_mix_snapshot_bus_entry(
 	var target_muted: bool = (
 		GFVariantData.to_bool(entry["muted"])
 		if has_mute
-		else (AudioServer.is_bus_mute(bus_index) if bus_index >= 0 else false)
+		else (
+			AudioServer.is_bus_mute(bus_index)
+			if bus_index >= 0
+			else false
+		)
 	)
 
 	var backend_volume_handled: bool = false
 	if has_volume and expected_backend != null:
 		var volume_result: Dictionary = _dispatch_backend_call(
 			&"set_bus_volume_db",
-			[bus_name, target_db, entry_transition],
+			[
+				bus_name,
+				target_db,
+				entry_transition,
+			],
 			expected_backend
 		)
 		if not _backend_dispatch_completed(volume_result):
@@ -6410,9 +6493,15 @@ func _apply_mix_snapshot_bus_entry(
 		backend_mute_handled = _backend_dispatch_returned_true(mute_result)
 
 	if backend_volume_handled:
-		_append_mix_applied(report, "bus:%s:volume_db" % bus_name)
+		_append_mix_applied(
+			report,
+			"bus:%s:volume_db" % bus_name
+		)
 	if backend_mute_handled:
-		_append_mix_applied(report, "bus:%s:muted" % bus_name)
+		_append_mix_applied(
+			report,
+			"bus:%s:muted" % bus_name
+		)
 
 	var apply_local_volume: bool = has_volume and not backend_volume_handled
 	var apply_local_mute: bool = has_mute and not backend_mute_handled
@@ -6420,21 +6509,23 @@ func _apply_mix_snapshot_bus_entry(
 		return
 	if bus_index < 0:
 		if apply_local_volume:
-			_append_mix_failure(report, bus_name, "missing_bus", "无法设置总线音量。")
+			_append_mix_failure(
+				report,
+				bus_name,
+				"missing_bus",
+				"无法设置总线音量。"
+			)
 		if apply_local_mute:
-			_append_mix_failure(report, bus_name, "missing_bus", "无法设置总线静音状态。")
+			_append_mix_failure(
+				report,
+				bus_name,
+				"missing_bus",
+				"无法设置总线静音状态。"
+			)
 		return
 
-	var local_target_db: float = (
-		target_db
-		if apply_local_volume
-		else AudioServer.get_bus_volume_db(bus_index)
-	)
-	var local_target_muted: bool = (
-		target_muted
-		if apply_local_mute
-		else AudioServer.is_bus_mute(bus_index)
-	)
+	var local_target_db: float = (target_db if apply_local_volume else AudioServer.get_bus_volume_db(bus_index))
+	var local_target_muted: bool = (target_muted if apply_local_mute else AudioServer.is_bus_mute(bus_index))
 	var transaction_generation: int = _begin_bus_transaction(bus_name)
 	if not _start_local_bus_mix_transaction(
 		bus_name,
@@ -6444,28 +6535,52 @@ func _apply_mix_snapshot_bus_entry(
 		entry_transition,
 		transaction_generation
 	):
-		_append_mix_failure(report, bus_name, "missing_bus", "无法应用总线混音状态。")
+		_append_mix_failure(
+			report,
+			bus_name,
+			"missing_bus",
+			"无法应用总线混音状态。"
+		)
 		return
 	if apply_local_volume:
-		_append_mix_applied(report, "bus:%s:volume_db" % bus_name)
+		_append_mix_applied(
+			report,
+			"bus:%s:volume_db" % bus_name
+		)
 	if apply_local_mute:
-		_append_mix_applied(report, "bus:%s:muted" % bus_name)
+		_append_mix_applied(
+			report,
+			"bus:%s:muted" % bus_name
+		)
 
 
 ## 按混音快照逐项应用总线效果属性。
 ## [br]
 ## @api private
 ## [br]
-func _apply_mix_snapshot_effects(effect_payload: Variant, transition_seconds: float, report: Dictionary) -> void:
+func _apply_mix_snapshot_effects(
+	effect_payload: Variant,
+	transition_seconds: float,
+	report: Dictionary
+) -> void:
 	if effect_payload == null:
 		return
 	if effect_payload is Array:
 		var effect_entries: Array = GFVariantData.as_array(effect_payload)
 		for entry: Variant in effect_entries:
 			if entry is Dictionary:
-				_apply_mix_snapshot_effect_entry(GFVariantData.as_dictionary(entry), transition_seconds, report)
+				_apply_mix_snapshot_effect_entry(
+					GFVariantData.as_dictionary(entry),
+					transition_seconds,
+					report
+				)
 			else:
-				_append_mix_failure(report, "", "invalid_effect_entry", "effects 数组元素必须是 Dictionary。")
+				_append_mix_failure(
+					report,
+					"",
+					"invalid_effect_entry",
+					"effects 数组元素必须是 Dictionary。"
+				)
 		return
 	if effect_payload is Dictionary:
 		var effect_map: Dictionary = GFVariantData.as_dictionary(effect_payload)
@@ -6475,17 +6590,21 @@ func _apply_mix_snapshot_effects(effect_payload: Variant, transition_seconds: fl
 				var bus_effect_entries: Array = GFVariantData.as_array(bus_effects)
 				for entry: Variant in bus_effect_entries:
 					if entry is Dictionary:
-						var effect_entry: Dictionary = (
-							GFVariantData.as_dictionary(entry).duplicate(false)
-						)
+						var effect_entry: Dictionary = GFVariantData.as_dictionary(entry).duplicate(false)
 						effect_entry["bus"] = str(bus_key)
-						_apply_mix_snapshot_effect_entry(effect_entry, transition_seconds, report)
+						_apply_mix_snapshot_effect_entry(
+							effect_entry,
+							transition_seconds,
+							report
+						)
 			elif bus_effects is Dictionary:
-				var single_entry: Dictionary = (
-					GFVariantData.as_dictionary(bus_effects).duplicate(false)
-				)
+				var single_entry: Dictionary = GFVariantData.as_dictionary(bus_effects).duplicate(false)
 				single_entry["bus"] = str(bus_key)
-				_apply_mix_snapshot_effect_entry(single_entry, transition_seconds, report)
+				_apply_mix_snapshot_effect_entry(
+					single_entry,
+					transition_seconds,
+					report
+				)
 			else:
 				_append_mix_failure(
 					report,
@@ -6506,24 +6625,82 @@ func _apply_mix_snapshot_effects(effect_payload: Variant, transition_seconds: fl
 ## [br]
 ## @api private
 ## [br]
-func _apply_mix_snapshot_effect_entry(entry: Dictionary, transition_seconds: float, report: Dictionary) -> void:
-	var bus_name: String = GFVariantData.get_option_string(entry, "bus", "")
-	var property_name: StringName = GFVariantData.get_option_string_name(entry, "property", &"")
-	if bus_name.is_empty() or property_name == &"" or not entry.has("value"):
-		_append_mix_failure(report, bus_name, "invalid_effect_entry", "效果条目必须包含 bus、property 和 value。")
+func _apply_mix_snapshot_effect_entry(
+	entry: Dictionary,
+	transition_seconds: float,
+	report: Dictionary
+) -> void:
+	var bus_name: String = GFVariantData.get_option_string(
+		entry,
+		"bus",
+		""
+	)
+	var property_name: StringName = GFVariantData.get_option_string_name(
+		entry,
+		"property",
+		&""
+	)
+	if (
+		bus_name.is_empty()
+		or property_name == &""
+		or not entry.has("value")
+	):
+		_append_mix_failure(
+			report,
+			bus_name,
+			"invalid_effect_entry",
+			"效果条目必须包含 bus、property 和 value。"
+		)
 		return
-	var effect_ref: Variant = GFVariantData.get_option_value(entry, "effect", 0)
-	var entry_transition: float = GFVariantData.get_option_float(entry, "transition_seconds", transition_seconds)
+	var effect_ref: Variant = GFVariantData.get_option_value(
+		entry,
+		"effect",
+		0
+	)
+	var entry_transition: float = GFVariantData.get_option_float(
+		entry,
+		"transition_seconds",
+		transition_seconds
+	)
 	if not _is_finite_float(entry_transition):
-		_append_mix_failure(report, bus_name, "non_finite_transition", "效果过渡时间必须是有限值。")
+		_append_mix_failure(
+			report,
+			bus_name,
+			"non_finite_transition",
+			"效果过渡时间必须是有限值。"
+		)
 		return
 	if _is_numeric_variant(entry["value"]) and not _is_finite_numeric_variant(entry["value"]):
-		_append_mix_failure(report, bus_name, "non_finite_effect_value", "效果数值必须是有限值。")
+		_append_mix_failure(
+			report,
+			bus_name,
+			"non_finite_effect_value",
+			"效果数值必须是有限值。"
+		)
 		return
-	if set_bus_effect_property(bus_name, effect_ref, property_name, entry["value"], entry_transition):
-		_append_mix_applied(report, "effect:%s:%s:%s" % [bus_name, str(effect_ref), String(property_name)])
+	if set_bus_effect_property(
+		bus_name,
+		effect_ref,
+		property_name,
+		entry["value"],
+		entry_transition
+	):
+		_append_mix_applied(
+			report,
+			"effect:%s:%s:%s"
+			% [
+				bus_name,
+				str(effect_ref),
+				String(property_name),
+			]
+		)
 	else:
-		_append_mix_failure(report, bus_name, "effect_failed", "无法设置效果属性。")
+		_append_mix_failure(
+			report,
+			bus_name,
+			"effect_failed",
+			"无法设置效果属性。"
+		)
 
 
 ## 将已应用的混音目标追加到报告。
@@ -6532,7 +6709,11 @@ func _apply_mix_snapshot_effect_entry(entry: Dictionary, transition_seconds: flo
 ## [br]
 func _append_mix_applied(report: Dictionary, value: String) -> void:
 	var applied: PackedStringArray = _get_packed_string_array_value(
-		GFVariantData.get_option_value(report, "applied", PackedStringArray())
+		GFVariantData.get_option_value(
+			report,
+			"applied",
+			PackedStringArray()
+		)
 	)
 	_append_packed_string(applied, value)
 	report["applied"] = applied
@@ -6552,13 +6733,21 @@ func _append_mix_warning(report: Dictionary, message: String) -> void:
 ## [br]
 ## @api private
 ## [br]
-func _append_mix_failure(report: Dictionary, bus_name: String, reason: String, message: String) -> void:
+func _append_mix_failure(
+	report: Dictionary,
+	bus_name: String,
+	reason: String,
+	message: String
+) -> void:
 	var failed: Array = _get_report_array(report, "failed")
-	_append_array_item(failed, {
-		"bus": bus_name,
-		"reason": reason,
-		"message": message,
-	})
+	_append_array_item(
+		failed,
+		{
+			"bus": bus_name,
+			"reason": reason,
+			"message": message,
+		}
+	)
 	report["failed"] = failed
 
 
@@ -6616,7 +6805,10 @@ func _capture_duck_bus_base_state(bus_name: String) -> Dictionary:
 				"base_db": (
 					SILENCE_VOLUME_DB
 					if base_linear <= 0.0
-					else maxf(linear_to_db(base_linear), SILENCE_VOLUME_DB)
+					else maxf(
+						linear_to_db(base_linear),
+						SILENCE_VOLUME_DB
+					)
 				),
 				"base_muted": mute_value,
 			}
@@ -6668,7 +6860,11 @@ func _apply_backend_duck_bus_mix_state(
 		return false
 	var volume_result: Dictionary = _dispatch_backend_call(
 		&"set_bus_volume_db",
-		[bus_name, target_db, transition_seconds],
+		[
+			bus_name,
+			target_db,
+			transition_seconds,
+		],
 		expected_backend
 	)
 	return _backend_dispatch_returned_true(volume_result) and _audio_backend == expected_backend
@@ -6756,9 +6952,17 @@ func _apply_duck_bus_state(bus_name: String, transition_seconds: float) -> bool:
 	for amount_value: Variant in scopes.values():
 		strongest_amount = maxf(
 			strongest_amount,
-			clampf(GFVariantData.to_float(amount_value), 0.0, 1.0)
+			clampf(
+				GFVariantData.to_float(amount_value),
+				0.0,
+				1.0
+			)
 		)
-	var base_db: float = GFVariantData.get_option_float(state, "base_db", SILENCE_VOLUME_DB)
+	var base_db: float = GFVariantData.get_option_float(
+		state,
+		"base_db",
+		SILENCE_VOLUME_DB
+	)
 	var target_db: float = base_db - strongest_amount * 18.0
 	return _apply_duck_bus_mix_state(
 		bus_name,
@@ -6778,7 +6982,10 @@ func _restore_all_ducked_buses_for_lifecycle() -> bool:
 		return true
 	var bus_names: PackedStringArray = PackedStringArray()
 	for bus_name_variant: Variant in _duck_bus_states.keys():
-		_append_packed_string(bus_names, GFVariantData.to_text(bus_name_variant))
+		_append_packed_string(
+			bus_names,
+			GFVariantData.to_text(bus_name_variant)
+		)
 	bus_names.sort()
 
 	var restored_all: bool = true
@@ -6787,10 +6994,7 @@ func _restore_all_ducked_buses_for_lifecycle() -> bool:
 		if state.is_empty() or _restore_duck_bus_base_for_lifecycle(bus_name, state):
 			continue
 		restored_all = false
-		push_warning(
-			"[GFAudioUtility][audio_utility.duck_mix_restore_failed] Lifecycle cleanup could not restore the baseline mix for duck bus \"%s\"."
-			% bus_name
-		)
+		push_warning("[GFAudioUtility][audio_utility.duck_mix_restore_failed] Lifecycle cleanup could not restore the baseline mix for duck bus \"%s\"." % bus_name)
 	return restored_all
 
 
@@ -6799,7 +7003,11 @@ func _restore_all_ducked_buses_for_lifecycle() -> bool:
 ## @api private
 ## [br]
 func _restore_duck_bus_base_for_lifecycle(bus_name: String, state: Dictionary) -> bool:
-	var base_db: float = GFVariantData.get_option_float(state, "base_db", SILENCE_VOLUME_DB)
+	var base_db: float = GFVariantData.get_option_float(
+		state,
+		"base_db",
+		SILENCE_VOLUME_DB
+	)
 	var base_muted: bool = GFVariantData.get_option_bool(state, "base_muted")
 	return _apply_duck_bus_mix_state(
 		bus_name,
@@ -6851,7 +7059,11 @@ func _stop_backend_owned_sessions(
 	for channel_variant: Variant in _ambient_sessions.keys():
 		var channel: StringName = GFVariantData.to_string_name(channel_variant)
 		var session: Dictionary = _get_ambient_session(channel)
-		if GFVariantData.get_option_string_name(session, "owner", _OWNER_NONE) != _OWNER_BACKEND:
+		if GFVariantData.get_option_string_name(
+			session,
+			"owner",
+			_OWNER_NONE
+		) != _OWNER_BACKEND:
 			continue
 		backend_ambient_channels.append(channel)
 	backend_ambient_channels.sort_custom(_is_string_name_lexically_before)
@@ -6859,28 +7071,14 @@ func _stop_backend_owned_sessions(
 
 	if backend_owns_bgm:
 		var stopped_session_id: int = _bgm_committed_session_id
-		var first_terminal_intent: Dictionary = (
-			_take_deferred_bgm_session_terminal(stopped_session_id)
-		)
-		var end_kind: GFBgmSessionHandle.EndKind = (
-			GFBgmSessionHandle.EndKind.STOPPED
-		)
+		var first_terminal_intent: Dictionary = _take_deferred_bgm_session_terminal(stopped_session_id)
+		var end_kind: GFBgmSessionHandle.EndKind = GFBgmSessionHandle.EndKind.STOPPED
 		var stop_fade_seconds: float = 0.0
 		if not first_terminal_intent.is_empty():
-			end_kind = GFVariantData.get_option_int(
-				first_terminal_intent,
-				"end_kind"
-			) as GFBgmSessionHandle.EndKind
-			stop_fade_seconds = GFVariantData.get_option_float(
-				first_terminal_intent,
-				"fade_seconds"
-			)
-		var backend_stopped: bool = _notify_backend_stop_bgm(
-			stop_fade_seconds
-		)
-		var later_terminal_intent: Dictionary = _take_deferred_bgm_session_terminal(
-			stopped_session_id
-		)
+			end_kind = GFVariantData.get_option_int(first_terminal_intent, "end_kind") as GFBgmSessionHandle.EndKind
+			stop_fade_seconds = GFVariantData.get_option_float(first_terminal_intent, "fade_seconds")
+		var backend_stopped: bool = _notify_backend_stop_bgm(stop_fade_seconds)
+		var later_terminal_intent: Dictionary = _take_deferred_bgm_session_terminal(stopped_session_id)
 		if (
 			not backend_stopped
 			and first_terminal_intent.is_empty()
@@ -6893,10 +7091,7 @@ func _stop_backend_owned_sessions(
 				_get_bgm_session(stopped_session_id),
 				"history_key"
 			)
-		terminal_bgm_handle = _freeze_bgm_session_handle(
-			stopped_session_id,
-			end_kind
-		)
+		terminal_bgm_handle = _freeze_bgm_session_handle(stopped_session_id, end_kind)
 		_bgm_request_serial += 1
 		_bgm_generation += 1
 		_clear_bgm_session_state()
@@ -6916,16 +7111,23 @@ func _stop_backend_owned_sessions(
 		if _audio_backend != expected_backend:
 			return false
 		var session: Dictionary = _get_ambient_session(channel)
-		if GFVariantData.get_option_string_name(session, "owner", _OWNER_NONE) != _OWNER_BACKEND:
+		if GFVariantData.get_option_string_name(
+			session,
+			"owner",
+			_OWNER_NONE
+		) != _OWNER_BACKEND:
 			return false
 		if not _notify_backend_stop_ambient(channel, 0.0):
 			return false
 		var generation: int = _next_ambient_request_serial(channel)
-		_set_ambient_session(channel, generation, _STATE_STOPPED, _OWNER_NONE, 0)
-	var still_current: bool = (
-		_audio_backend == expected_backend
-		and not _audio_dispose_deferred
-	)
+		_set_ambient_session(
+			channel,
+			generation,
+			_STATE_STOPPED,
+			_OWNER_NONE,
+			0
+		)
+	var still_current: bool = (_audio_backend == expected_backend and not _audio_dispose_deferred)
 	return still_current
 
 
@@ -6933,10 +7135,7 @@ func _stop_backend_owned_sessions(
 ## [br]
 ## @api private
 ## [br]
-func _try_backend_stop_all_ambient(
-	backend_channels: Array[StringName],
-	fade_seconds: float
-) -> bool:
+func _try_backend_stop_all_ambient(backend_channels: Array[StringName], fade_seconds: float) -> bool:
 	if backend_channels.is_empty() or _audio_backend == null:
 		return backend_channels.is_empty()
 	if _is_backend_dispatch_in_progress():
@@ -6947,7 +7146,11 @@ func _try_backend_stop_all_ambient(
 	for channel: StringName in backend_channels:
 		var session: Dictionary = _get_ambient_session(channel)
 		var generation: int = GFVariantData.get_option_int(session, "generation")
-		if not _is_backend_ambient_session_current(channel, generation, expected_backend):
+		if not _is_backend_ambient_session_current(
+			channel,
+			generation,
+			expected_backend
+		):
 			return false
 		expected_generations[channel] = generation
 
@@ -6959,10 +7162,7 @@ func _try_backend_stop_all_ambient(
 	if not _backend_dispatch_returned_true(bulk_result):
 		return false
 	for channel: StringName in backend_channels:
-		var expected_generation: int = GFVariantData.get_option_int(
-			expected_generations,
-			channel
-		)
+		var expected_generation: int = GFVariantData.get_option_int(expected_generations, channel)
 		if not _is_backend_ambient_session_current(
 			channel,
 			expected_generation,
@@ -6972,7 +7172,13 @@ func _try_backend_stop_all_ambient(
 
 	for channel: StringName in backend_channels:
 		var stopped_generation: int = _next_ambient_request_serial(channel)
-		_set_ambient_session(channel, stopped_generation, _STATE_STOPPED, _OWNER_NONE, 0)
+		_set_ambient_session(
+			channel,
+			stopped_generation,
+			_STATE_STOPPED,
+			_OWNER_NONE,
+			0
+		)
 	return true
 
 
@@ -6991,10 +7197,16 @@ func _is_backend_ambient_session_current(
 		and _audio_backend == expected_backend
 		and _get_ambient_request_serial(channel) == expected_generation
 		and GFVariantData.get_option_int(session, "generation") == expected_generation
-		and GFVariantData.get_option_string_name(session, "owner", _OWNER_NONE)
-		== _OWNER_BACKEND
-		and GFVariantData.get_option_string_name(session, "state", _STATE_STOPPED)
-		== _STATE_PLAYING
+		and GFVariantData.get_option_string_name(
+			session,
+			"owner",
+			_OWNER_NONE
+		) == _OWNER_BACKEND
+		and GFVariantData.get_option_string_name(
+			session,
+			"state",
+			_STATE_STOPPED
+		) == _STATE_PLAYING
 	)
 
 
@@ -7048,7 +7260,11 @@ func _try_backend_play_bgm_path(path: String, options: Dictionary) -> bool:
 		return false
 	var can_handle_result: Dictionary = _dispatch_backend_call(
 		&"can_handle_path",
-		[path, &"bgm", _get_backend_request_snapshot_dictionary(probe_options_result)],
+		[
+			path,
+			&"bgm",
+			_get_backend_request_snapshot_dictionary(probe_options_result),
+		],
 		expected_backend
 	)
 	if (
@@ -7092,7 +7308,11 @@ func _try_backend_play_bgm_clip(clip: GFAudioClip, options: Dictionary) -> Dicti
 	var expected_owner: StringName = _bgm_owner
 	if expected_backend == null:
 		return outcome
-	var probe_clip: GFAudioClip = _snapshot_audio_clip(clip, clip.playback_region, true)
+	var probe_clip: GFAudioClip = _snapshot_audio_clip(
+		clip,
+		clip.playback_region,
+		true
+	)
 	if probe_clip == null:
 		outcome["rejected"] = true
 		return outcome
@@ -7138,7 +7358,11 @@ func _try_backend_play_bgm_clip(clip: GFAudioClip, options: Dictionary) -> Dicti
 		if not region_result.is_success():
 			return outcome
 		outcome["playback_region"] = _snapshot_playback_region_result(region_result)
-	var execution_clip: GFAudioClip = _snapshot_audio_clip(clip, clip.playback_region, true)
+	var execution_clip: GFAudioClip = _snapshot_audio_clip(
+		clip,
+		clip.playback_region,
+		true
+	)
 	if execution_clip == null:
 		outcome["rejected"] = true
 		return outcome
@@ -7148,10 +7372,7 @@ func _try_backend_play_bgm_clip(clip: GFAudioClip, options: Dictionary) -> Dicti
 		return outcome
 	var play_result: Dictionary = _dispatch_backend_call(
 		&"play_bgm_clip",
-		[
-			execution_clip,
-			_get_backend_request_snapshot_dictionary(execution_options_result),
-		],
+		[execution_clip, _get_backend_request_snapshot_dictionary(execution_options_result),],
 		expected_backend
 	)
 	outcome["handled"] = (
@@ -7173,10 +7394,7 @@ func _try_typed_backend_bgm_path(
 	path: String,
 	options: Dictionary
 ) -> Dictionary:
-	var outcome: Dictionary = {
-		"started": false,
-		"disposition": GFBgmStartResult.BackendDisposition.NOT_ATTEMPTED,
-	}
+	var outcome: Dictionary = { "started": false, "disposition": GFBgmStartResult.BackendDisposition.NOT_ATTEMPTED, }
 	var expected_backend: GFAudioBackend = _audio_backend
 	if expected_backend == null:
 		return outcome
@@ -7186,7 +7404,11 @@ func _try_typed_backend_bgm_path(
 		return outcome
 	var can_handle_result: Dictionary = _dispatch_backend_call(
 		&"can_handle_path",
-		[path, &"bgm", _get_backend_request_snapshot_dictionary(probe_options_result)],
+		[
+			path,
+			&"bgm",
+			_get_backend_request_snapshot_dictionary(probe_options_result),
+		],
 		expected_backend
 	)
 	if not _is_pending_bgm_start_request(request_id) or _audio_backend != expected_backend:
@@ -7302,18 +7524,13 @@ func _try_typed_backend_bgm_clip(
 		true
 	)
 	var execution_options_result: Dictionary = _try_snapshot_audio_options(options)
-	if execution_clip == null or not _backend_request_snapshot_succeeded(
-		execution_options_result
-	):
+	if (execution_clip == null or not _backend_request_snapshot_succeeded(execution_options_result)):
 		outcome["request_rejected"] = true
 		outcome["disposition"] = GFBgmStartResult.BackendDisposition.REJECTED
 		return outcome
 	var play_result: Dictionary = _dispatch_backend_call(
 		&"play_bgm_clip",
-		[
-			execution_clip,
-			_get_backend_request_snapshot_dictionary(execution_options_result),
-		],
+		[execution_clip, _get_backend_request_snapshot_dictionary(execution_options_result),],
 		expected_backend
 	)
 	if not _is_pending_bgm_start_request(request_id) or _audio_backend != expected_backend:
@@ -7336,7 +7553,11 @@ func _try_typed_backend_bgm_clip(
 ## [br]
 ## @api private
 ## [br]
-func _try_backend_play_ambient_path(path: String, channel: StringName, options: Dictionary) -> bool:
+func _try_backend_play_ambient_path(
+	path: String,
+	channel: StringName,
+	options: Dictionary
+) -> bool:
 	var expected_backend: GFAudioBackend = _audio_backend
 	var expected_request_serial: int = _get_ambient_request_serial(channel)
 	var expected_session: Dictionary = _get_ambient_session(channel)
@@ -7354,7 +7575,11 @@ func _try_backend_play_ambient_path(path: String, channel: StringName, options: 
 		return false
 	var can_handle_result: Dictionary = _dispatch_backend_call(
 		&"can_handle_path",
-		[path, &"ambient", _get_backend_request_snapshot_dictionary(probe_options_result)],
+		[
+			path,
+			&"ambient",
+			_get_backend_request_snapshot_dictionary(probe_options_result),
+		],
 		expected_backend
 	)
 	if (
@@ -7372,7 +7597,11 @@ func _try_backend_play_ambient_path(path: String, channel: StringName, options: 
 		return false
 	var play_result: Dictionary = _dispatch_backend_call(
 		&"play_ambient_path",
-		[path, channel, _get_backend_request_snapshot_dictionary(execution_options_result)],
+		[
+			path,
+			channel,
+			_get_backend_request_snapshot_dictionary(execution_options_result),
+		],
 		expected_backend
 	)
 	return (
@@ -7412,7 +7641,11 @@ func _try_backend_play_ambient_clip(
 		return outcome
 	var context: Dictionary = options.duplicate(false)
 	context["ambient_channel"] = channel
-	var probe_clip: GFAudioClip = _snapshot_audio_clip(clip, clip.playback_region, true)
+	var probe_clip: GFAudioClip = _snapshot_audio_clip(
+		clip,
+		clip.playback_region,
+		true
+	)
 	if probe_clip == null:
 		outcome["rejected"] = true
 		return outcome
@@ -7460,7 +7693,11 @@ func _try_backend_play_ambient_clip(
 		if not region_result.is_success():
 			return outcome
 		outcome["playback_region"] = _snapshot_playback_region_result(region_result)
-	var execution_clip: GFAudioClip = _snapshot_audio_clip(clip, clip.playback_region, true)
+	var execution_clip: GFAudioClip = _snapshot_audio_clip(
+		clip,
+		clip.playback_region,
+		true
+	)
 	if execution_clip == null:
 		outcome["rejected"] = true
 		return outcome
@@ -7503,8 +7740,11 @@ func _is_ambient_backend_request_current(
 	return (
 		_audio_backend == expected_backend
 		and _get_ambient_request_serial(channel) == expected_request_serial
-		and GFVariantData.get_option_string_name(session, "owner", _OWNER_NONE)
-		== expected_owner
+		and GFVariantData.get_option_string_name(
+			session,
+			"owner",
+			_OWNER_NONE
+		) == expected_owner
 	)
 
 
@@ -7522,7 +7762,11 @@ func _try_backend_play_sfx_path(path: String, options: Dictionary) -> GFAudioEmi
 		return null
 	var can_handle_result: Dictionary = _dispatch_backend_call(
 		&"can_handle_path",
-		[path, &"sfx", _get_backend_request_snapshot_dictionary(probe_options_result)],
+		[
+			path,
+			&"sfx",
+			_get_backend_request_snapshot_dictionary(probe_options_result),
+		],
 		expected_backend
 	)
 	if (
@@ -7539,10 +7783,7 @@ func _try_backend_play_sfx_path(path: String, options: Dictionary) -> GFAudioEmi
 		[path, _get_backend_request_snapshot_dictionary(execution_options_result)],
 		expected_backend
 	)
-	if (
-		_audio_backend != expected_backend
-		or _sfx_lifecycle_serial != expected_lifecycle_serial
-	):
+	if (_audio_backend != expected_backend or _sfx_lifecycle_serial != expected_lifecycle_serial):
 		return null
 	return _backend_dispatch_handle(play_result)
 
@@ -7556,15 +7797,16 @@ func _try_backend_play_sfx_clip(
 	options: Dictionary,
 	rejection_channel: StringName = &"sfx"
 ) -> Dictionary:
-	var outcome: Dictionary = {
-		"handle": null,
-		"rejected": false,
-	}
+	var outcome: Dictionary = { "handle": null, "rejected": false, }
 	var expected_backend: GFAudioBackend = _audio_backend
 	var expected_lifecycle_serial: int = _sfx_lifecycle_serial
 	if expected_backend == null:
 		return outcome
-	var probe_clip: GFAudioClip = _snapshot_audio_clip(clip, clip.playback_region, true)
+	var probe_clip: GFAudioClip = _snapshot_audio_clip(
+		clip,
+		clip.playback_region,
+		true
+	)
 	if probe_clip == null:
 		outcome["rejected"] = true
 		return outcome
@@ -7602,7 +7844,11 @@ func _try_backend_play_sfx_clip(
 			return outcome
 		if not region_result.is_success():
 			return outcome
-	var execution_clip: GFAudioClip = _snapshot_audio_clip(clip, clip.playback_region, true)
+	var execution_clip: GFAudioClip = _snapshot_audio_clip(
+		clip,
+		clip.playback_region,
+		true
+	)
 	if execution_clip == null:
 		outcome["rejected"] = true
 		return outcome
@@ -7612,16 +7858,10 @@ func _try_backend_play_sfx_clip(
 		return outcome
 	var play_result: Dictionary = _dispatch_backend_call(
 		&"play_sfx_clip",
-		[
-			execution_clip,
-			_get_backend_request_snapshot_dictionary(execution_options_result),
-		],
+		[execution_clip, _get_backend_request_snapshot_dictionary(execution_options_result),],
 		expected_backend
 	)
-	if (
-		_audio_backend != expected_backend
-		or _sfx_lifecycle_serial != expected_lifecycle_serial
-	):
+	if (_audio_backend != expected_backend or _sfx_lifecycle_serial != expected_lifecycle_serial):
 		return outcome
 	outcome["handle"] = _backend_dispatch_handle(play_result)
 	return outcome
@@ -7637,10 +7877,7 @@ func _try_backend_play_spatial_sfx_clip(
 	follow_source: bool,
 	options: Dictionary
 ) -> Dictionary:
-	var outcome: Dictionary = {
-		"handle": null,
-		"rejected": false,
-	}
+	var outcome: Dictionary = { "handle": null, "rejected": false, }
 	var expected_backend: GFAudioBackend = _audio_backend
 	var expected_lifecycle_serial: int = _sfx_lifecycle_serial
 	if expected_backend == null:
@@ -7649,7 +7886,11 @@ func _try_backend_play_spatial_sfx_clip(
 	context["follow_source"] = follow_source
 	context["source"] = source
 	context["spatial_settings"] = _get_clip_spatial_settings(clip)
-	var probe_clip: GFAudioClip = _snapshot_audio_clip(clip, clip.playback_region, true)
+	var probe_clip: GFAudioClip = _snapshot_audio_clip(
+		clip,
+		clip.playback_region,
+		true
+	)
 	if probe_clip == null:
 		outcome["rejected"] = true
 		return outcome
@@ -7687,7 +7928,11 @@ func _try_backend_play_spatial_sfx_clip(
 			return outcome
 		if not region_result.is_success():
 			return outcome
-	var execution_clip: GFAudioClip = _snapshot_audio_clip(clip, clip.playback_region, true)
+	var execution_clip: GFAudioClip = _snapshot_audio_clip(
+		clip,
+		clip.playback_region,
+		true
+	)
 	if execution_clip == null:
 		outcome["rejected"] = true
 		return outcome
@@ -7705,10 +7950,7 @@ func _try_backend_play_spatial_sfx_clip(
 		],
 		expected_backend
 	)
-	if (
-		_audio_backend != expected_backend
-		or _sfx_lifecycle_serial != expected_lifecycle_serial
-	):
+	if (_audio_backend != expected_backend or _sfx_lifecycle_serial != expected_lifecycle_serial):
 		return outcome
 	outcome["handle"] = _backend_dispatch_handle(play_result)
 	return outcome
@@ -7719,11 +7961,19 @@ func _try_backend_play_spatial_sfx_clip(
 ## @api private
 ## [br]
 func _post_bgm_event(event: GFAudioEvent, options: Dictionary) -> void:
-	var fade_seconds: float = GFVariantData.get_option_float(options, "fade_seconds", 0.0)
+	var fade_seconds: float = GFVariantData.get_option_float(
+		options,
+		"fade_seconds",
+		0.0
+	)
 	if event.clip != null:
 		play_bgm_clip(event.clip, fade_seconds)
 	elif event.event_id != &"":
-		play_bgm_event(event.event_id, event.bank_id, fade_seconds)
+		play_bgm_event(
+			event.event_id,
+			event.bank_id,
+			fade_seconds
+		)
 	elif not event.path.is_empty():
 		play_bgm(event.path, fade_seconds)
 
@@ -7733,23 +7983,37 @@ func _post_bgm_event(event: GFAudioEvent, options: Dictionary) -> void:
 ## @api private
 ## [br]
 func _post_ambient_event(event: GFAudioEvent, options: Dictionary) -> void:
-	var fade_seconds: float = GFVariantData.get_option_float(options, "fade_seconds", 0.0)
+	var fade_seconds: float = GFVariantData.get_option_float(
+		options,
+		"fade_seconds",
+		0.0
+	)
 	if event.clip != null:
-		play_ambient_clip(event.clip, event.ambient_channel, fade_seconds)
+		play_ambient_clip(
+			event.clip,
+			event.ambient_channel,
+			fade_seconds
+		)
 	elif event.event_id != &"":
-		play_ambient_event(event.event_id, event.ambient_channel, event.bank_id, fade_seconds)
+		play_ambient_event(
+			event.event_id,
+			event.ambient_channel,
+			event.bank_id,
+			fade_seconds
+		)
 	elif not event.path.is_empty():
-		play_ambient(event.path, event.ambient_channel, fade_seconds)
+		play_ambient(
+			event.path,
+			event.ambient_channel,
+			fade_seconds
+		)
 
 
 ## 将 SFX 事件交由本地音效播放流程执行。
 ## [br]
 ## @api private
 ## [br]
-func _post_sfx_event(
-	event: GFAudioEvent,
-	rejection_channel: StringName = &"sfx"
-) -> GFAudioEmitterHandle:
+func _post_sfx_event(event: GFAudioEvent, rejection_channel: StringName = &"sfx") -> GFAudioEmitterHandle:
 	if event.clip != null:
 		return _play_sfx_clip_handle_for_channel(event.clip, rejection_channel)
 	if event.event_id != &"":
@@ -7768,30 +8032,58 @@ func _post_spatial_sfx_event(event: GFAudioEvent, options: Dictionary) -> GFAudi
 	if source == null:
 		return null
 
-	var follow_source: bool = GFVariantData.get_option_bool(options, "follow_source", false)
+	var follow_source: bool = GFVariantData.get_option_bool(
+		options,
+		"follow_source",
+		false
+	)
 	if event.clip != null:
-		return _play_spatial_sfx_event_clip(event.clip, source, follow_source)
+		return _play_spatial_sfx_event_clip(
+			event.clip,
+			source,
+			follow_source
+		)
 	if event.event_id != &"":
-		return _play_spatial_sfx_event_clip(_get_registered_clip(event.event_id, event.bank_id), source, follow_source)
+		return _play_spatial_sfx_event_clip(
+			_get_registered_clip(event.event_id, event.bank_id),
+			source,
+			follow_source
+		)
 	if event.path.is_empty():
 		return null
 
 	var clip: GFAudioClip = GFAudioClip.new()
 	clip.path = event.path
-	return _play_spatial_sfx_event_clip(clip, source, follow_source)
+	return _play_spatial_sfx_event_clip(
+		clip,
+		source,
+		follow_source
+	)
 
 
 ## 按空间 SFX 事件的设置播放其中的音频片段。
 ## [br]
 ## @api private
 ## [br]
-func _play_spatial_sfx_event_clip(clip: GFAudioClip, source: Node, follow_source: bool) -> GFAudioEmitterHandle:
+func _play_spatial_sfx_event_clip(
+	clip: GFAudioClip,
+	source: Node,
+	follow_source: bool
+) -> GFAudioEmitterHandle:
 	if source is Node2D:
 		var source_2d: Node2D = source
-		return play_sfx_clip_2d_handle(clip, source_2d, follow_source)
+		return play_sfx_clip_2d_handle(
+			clip,
+			source_2d,
+			follow_source
+		)
 	if source is Node3D:
 		var source_3d: Node3D = source
-		return play_sfx_clip_3d_handle(clip, source_3d, follow_source)
+		return play_sfx_clip_3d_handle(
+			clip,
+			source_3d,
+			follow_source
+		)
 	return null
 
 
@@ -7818,11 +8110,7 @@ func _get_registered_clip(event_id: StringName, bank_id: StringName = &"") -> GF
 		if not _is_audio_bank_identifier_valid(bank_id):
 			return null
 		var bank: GFAudioBank = get_audio_bank(bank_id)
-		return (
-			_resolve_bounded_audio_bank_clip(bank, event_id)
-			if bank != null
-			else null
-		)
+		return (_resolve_bounded_audio_bank_clip(bank, event_id) if bank != null else null)
 	if _audio_banks.size() > _AUDIO_BANK_MAX_REGISTERED_COUNT:
 		return null
 
@@ -7837,10 +8125,7 @@ func _get_registered_clip(event_id: StringName, bank_id: StringName = &"") -> GF
 		var bank: GFAudioBank = _get_audio_bank_by_id(StringName(key_text))
 		if bank == null:
 			continue
-		var clip: GFAudioClip = _resolve_bounded_audio_bank_clip(
-			bank,
-			event_id
-		)
+		var clip: GFAudioClip = _resolve_bounded_audio_bank_clip(bank, event_id)
 		if clip != null:
 			return clip
 	return null
@@ -7850,36 +8135,21 @@ func _get_registered_clip(event_id: StringName, bank_id: StringName = &"") -> GF
 ## [br]
 ## @api private
 ## [br]
-func _resolve_bounded_audio_bank_clip(
-	bank: GFAudioBank,
-	clip_id: StringName
-) -> GFAudioClip:
+func _resolve_bounded_audio_bank_clip(bank: GFAudioBank, clip_id: StringName) -> GFAudioClip:
 	if bank == null or not _is_audio_bank_identifier_valid(clip_id):
 		return null
 	var separator: String = bank.fallback_separator
 	if separator.length() > _AUDIO_BANK_MAX_SEPARATOR_CHARACTERS:
 		return null
 	var current_id: String = String(clip_id)
-	var selected_clip: GFAudioClip = _select_bounded_audio_bank_clip(
-		bank,
-		clip_id
-	)
+	var selected_clip: GFAudioClip = _select_bounded_audio_bank_clip(bank, clip_id)
 	if selected_clip != null:
-		return _snapshot_audio_clip(
-			selected_clip,
-			selected_clip.playback_region
-		)
+		return _snapshot_audio_clip(selected_clip, selected_clip.playback_region)
 	if separator.is_empty():
 		return null
 
-	var fallback_components: PackedStringArray = current_id.split(
-		separator,
-		false
-	)
-	if (
-		fallback_components.size() <= 1
-		or fallback_components.size() > _AUDIO_BANK_MAX_IDENTIFIER_CHARACTERS
-	):
+	var fallback_components: PackedStringArray = current_id.split(separator, false)
+	if (fallback_components.size() <= 1 or fallback_components.size() > _AUDIO_BANK_MAX_IDENTIFIER_CHARACTERS):
 		return null
 	var fallback_step_count: int = mini(
 		fallback_components.size() - 1,
@@ -7887,18 +8157,10 @@ func _resolve_bounded_audio_bank_clip(
 	)
 	for _fallback_step: int in range(fallback_step_count):
 		fallback_components.remove_at(fallback_components.size() - 1)
-		var fallback_id: StringName = StringName(
-			separator.join(fallback_components)
-		)
-		selected_clip = _select_bounded_audio_bank_clip(
-			bank,
-			fallback_id
-		)
+		var fallback_id: StringName = StringName(separator.join(fallback_components))
+		selected_clip = _select_bounded_audio_bank_clip(bank, fallback_id)
 		if selected_clip != null:
-			return _snapshot_audio_clip(
-				selected_clip,
-				selected_clip.playback_region
-			)
+			return _snapshot_audio_clip(selected_clip, selected_clip.playback_region)
 	return null
 
 
@@ -7906,10 +8168,7 @@ func _resolve_bounded_audio_bank_clip(
 ## [br]
 ## @api private
 ## [br]
-func _select_bounded_audio_bank_clip(
-	bank: GFAudioBank,
-	clip_id: StringName
-) -> GFAudioClip:
+func _select_bounded_audio_bank_clip(bank: GFAudioBank, clip_id: StringName) -> GFAudioClip:
 	var raw_value: Variant = GFVariantData.get_option_value(bank.clips, clip_id)
 	if raw_value is GFAudioClip:
 		var single_clip: GFAudioClip = raw_value
@@ -7965,20 +8224,29 @@ func _is_audio_bank_identifier_valid(value: StringName) -> bool:
 ## @api private
 ## [br]
 func _is_audio_bank_identifier_text_valid(value: String) -> bool:
-	return (
-		not value.is_empty()
-		and value.length() <= _AUDIO_BANK_MAX_IDENTIFIER_CHARACTERS
-	)
+	return (not value.is_empty() and value.length() <= _AUDIO_BANK_MAX_IDENTIFIER_CHARACTERS)
 
 
 ## 创建空间 SFX 播放节点并启动片段播放。
 ## [br]
 ## @api private
 ## [br]
-func _play_spatial_sfx_clip(clip: GFAudioClip, source: Node, follow_source: bool = false) -> Node:
-	if _is_backend_dispatch_in_progress() or not _is_initialized or not _is_live_audio_root(_root):
+func _play_spatial_sfx_clip(
+	clip: GFAudioClip,
+	source: Node,
+	follow_source: bool = false
+) -> Node:
+	if (
+		_is_backend_dispatch_in_progress()
+		or not _is_initialized
+		or not _is_live_audio_root(_root)
+	):
 		return null
-	if clip == null or not clip.has_source() or not is_instance_valid(source):
+	if (
+		clip == null
+		or not clip.has_source()
+		or not is_instance_valid(source)
+	):
 		return null
 	var playback_region: GFAudioPlaybackRegion = _snapshot_playback_region(clip.playback_region)
 	if not _validate_playback_region_request(playback_region, &"spatial_sfx"):
@@ -8034,7 +8302,10 @@ func _play_spatial_sfx_clip(clip: GFAudioClip, source: Node, follow_source: bool
 
 	var bus_name: String = request_clip.resolve_bus(SFX_BUS_NAME)
 	var volume_db: float = _finite_or_default(request_clip.volume_db, 0.0)
-	var pitch_scale: float = _finite_or_default(request_clip.resolve_pitch(_audio_rng), 1.0)
+	var pitch_scale: float = _finite_or_default(
+		request_clip.resolve_pitch(_audio_rng),
+		1.0
+	)
 	var spatial_settings: Resource = _get_clip_spatial_settings(request_clip)
 	if request_clip.stream != null:
 		var applied_inline: bool = _apply_spatial_sfx_request(
@@ -8107,10 +8378,7 @@ func _apply_spatial_sfx_request(
 		_release_spatial_sfx_player(player, 0.0)
 		return false
 	var playback_session_id: int = _get_playback_session_id(player)
-	if (
-		playback_session_id <= 0
-		or not _is_playback_session_current(player, playback_session_id)
-	):
+	if (playback_session_id <= 0 or not _is_playback_session_current(player, playback_session_id)):
 		_release_spatial_sfx_player(player, 0.0)
 		return false
 	var prepared_stream: AudioStream = stream
@@ -8134,14 +8402,19 @@ func _apply_spatial_sfx_request(
 		player_2d.pitch_scale = _finite_or_default(pitch_scale, 1.0)
 		player_2d.stream = prepared_stream
 		_apply_spatial_settings_2d(player_2d, spatial_settings)
-		var finished_callback: Callable = _get_spatial_sfx_finished_callback(
-			player_2d,
-			playback_session_id
-		)
+		var finished_callback: Callable = _get_spatial_sfx_finished_callback(player_2d, playback_session_id)
 		if not player_2d.finished.is_connected(finished_callback):
-			_connect_signal_checked(player_2d.finished, finished_callback, CONNECT_ONE_SHOT)
+			_connect_signal_checked(
+				player_2d.finished,
+				finished_callback,
+				CONNECT_ONE_SHOT
+			)
 		player_2d.play(start_seconds)
-		_set_playback_session_state(player_2d, playback_session_id, _STATE_PLAYING)
+		_set_playback_session_state(
+			player_2d,
+			playback_session_id,
+			_STATE_PLAYING
+		)
 	elif player is AudioStreamPlayer3D:
 		var player_3d: AudioStreamPlayer3D = player
 		player_3d.bus = _resolve_bus_name(bus_name)
@@ -8149,14 +8422,19 @@ func _apply_spatial_sfx_request(
 		player_3d.pitch_scale = _finite_or_default(pitch_scale, 1.0)
 		player_3d.stream = prepared_stream
 		_apply_spatial_settings_3d(player_3d, spatial_settings)
-		var finished_callback: Callable = _get_spatial_sfx_finished_callback(
-			player_3d,
-			playback_session_id
-		)
+		var finished_callback: Callable = _get_spatial_sfx_finished_callback(player_3d, playback_session_id)
 		if not player_3d.finished.is_connected(finished_callback):
-			_connect_signal_checked(player_3d.finished, finished_callback, CONNECT_ONE_SHOT)
+			_connect_signal_checked(
+				player_3d.finished,
+				finished_callback,
+				CONNECT_ONE_SHOT
+			)
 		player_3d.play(start_seconds)
-		_set_playback_session_state(player_3d, playback_session_id, _STATE_PLAYING)
+		_set_playback_session_state(
+			player_3d,
+			playback_session_id,
+			_STATE_PLAYING
+		)
 	else:
 		_release_spatial_sfx_player(player, 0.0)
 		return false
@@ -8170,10 +8448,7 @@ func _apply_spatial_sfx_request(
 func _get_clip_spatial_settings(clip: GFAudioClip) -> Resource:
 	if clip == null or clip.spatial_settings == null:
 		return null
-	if (
-		not clip.spatial_settings.has_method(_APPLY_SPATIAL_SETTINGS_2D_METHOD)
-		and not clip.spatial_settings.has_method(_APPLY_SPATIAL_SETTINGS_3D_METHOD)
-	):
+	if (not clip.spatial_settings.has_method(_APPLY_SPATIAL_SETTINGS_2D_METHOD) and not clip.spatial_settings.has_method(_APPLY_SPATIAL_SETTINGS_3D_METHOD)):
 		return null
 	return clip.spatial_settings
 
@@ -8220,7 +8495,12 @@ func _get_spatial_sfx_parent(source: Node) -> Node:
 ## @api private
 ## [br]
 func _play_bgm_stream(stream: AudioStream) -> void:
-	_play_bgm_stream_with_settings(stream, BGM_BUS_NAME, 0.0, 1.0)
+	_play_bgm_stream_with_settings(
+		stream,
+		BGM_BUS_NAME,
+		0.0,
+		1.0
+	)
 
 
 ## 使用给定的总线、音量和淡入设置启动 BGM 音频流。
@@ -8261,9 +8541,11 @@ func _make_bgm_start_operation() -> GFBgmStartOperation:
 	var request_id: int = _next_bgm_start_request_id
 	_next_bgm_start_request_id += 1
 	var operation: GFBgmStartOperation = GFBgmStartOperation.new()
-	if not operation.configure_for_framework(
-		request_id,
-		Callable(self, "_cancel_bgm_start_operation_for_framework")
+	if not (
+		operation.configure_for_framework(
+			request_id,
+			Callable(self, "_cancel_bgm_start_operation_for_framework")
+		)
 	):
 		push_error("[GFAudioUtility][audio_utility.bgm_start_configuration_failed] Cannot configure the BGM start Operation.")
 		return null
@@ -8284,14 +8566,16 @@ func _complete_unadmitted_bgm_start(
 	if operation == null or not operation.is_pending():
 		return
 	var result: GFBgmStartResult = GFBgmStartResult.new()
-	if not result.configure_for_framework(
-		status,
-		operation.get_request_id(),
-		reason,
-		error_code,
-		history_key,
-		GFBgmSessionHandle.OwnerKind.NONE,
-		GFBgmStartResult.BackendDisposition.NOT_ATTEMPTED
+	if not (
+		result.configure_for_framework(
+			status,
+			operation.get_request_id(),
+			reason,
+			error_code,
+			history_key,
+			GFBgmSessionHandle.OwnerKind.NONE,
+			GFBgmStartResult.BackendDisposition.NOT_ATTEMPTED
+		)
 	):
 		push_error("[GFAudioUtility][audio_utility.bgm_unadmitted_terminal_failed] Cannot configure the unadmitted BGM start terminal result.")
 		return
@@ -8316,7 +8600,10 @@ func _make_bgm_start_request(
 		history_key = GFVariantData.to_text(options["history_key"])
 	var bus_name: String = BGM_BUS_NAME
 	if options.has("bus_name"):
-		bus_name = GFVariantData.to_text(options["bus_name"], BGM_BUS_NAME)
+		bus_name = GFVariantData.to_text(
+			options["bus_name"],
+			BGM_BUS_NAME
+		)
 	return {
 		"request_id": operation.get_request_id(),
 		"operation": operation,
@@ -8325,15 +8612,27 @@ func _make_bgm_start_request(
 		"history_key": history_key,
 		"bus_name": bus_name,
 		"volume_db": _finite_or_default(
-			GFVariantData.get_option_float(options, "volume_db", 0.0),
+			GFVariantData.get_option_float(
+				options,
+				"volume_db",
+				0.0
+			),
 			0.0
 		),
 		"pitch_scale": _finite_or_default(
-			GFVariantData.get_option_float(options, "pitch_scale", 1.0),
+			GFVariantData.get_option_float(
+				options,
+				"pitch_scale",
+				1.0
+			),
 			1.0
 		),
 		"crossfade_seconds": _finite_or_default(
-			GFVariantData.get_option_float(options, "crossfade_seconds", -1.0),
+			GFVariantData.get_option_float(
+				options,
+				"crossfade_seconds",
+				-1.0
+			),
 			-1.0
 		),
 		"playback_region": playback_region,
@@ -8376,19 +8675,13 @@ func _admit_bgm_start_request(request: Dictionary) -> bool:
 		return false
 	var previous_request: Dictionary = _bgm_pending_start_request
 	if owner != null:
-		var invocation: GFWeakMethodInvocation = GFWeakMethodInvocation.new(
-			self,
-			&"_on_bgm_start_owner_tree_exiting"
-		)
+		var invocation: GFWeakMethodInvocation = GFWeakMethodInvocation.new(self, &"_on_bgm_start_owner_tree_exiting")
 		var request_id: int = operation.get_request_id()
 		var callback: Callable = func() -> void:
 			var _invoke_result: Dictionary = invocation.invoke([request_id])
 		request["owner_exit_callback"] = callback
 		if not owner.tree_exiting.is_connected(callback):
-			var connect_error: Error = owner.tree_exiting.connect(
-				callback,
-				CONNECT_ONE_SHOT
-			) as Error
+			var connect_error: Error = owner.tree_exiting.connect(callback, CONNECT_ONE_SHOT) as Error
 			if connect_error != OK:
 				return false
 	var pending_token: int = _reserve_bgm_pending_request()
@@ -8448,11 +8741,7 @@ func _get_bgm_start_owner(request: Dictionary) -> Node:
 	if not owner_value is Node:
 		return null
 	var owner: Node = owner_value
-	if (
-		not is_instance_valid(owner)
-		or owner.get_instance_id()
-		!= GFVariantData.get_option_int(request, "owner_instance_id")
-	):
+	if (not is_instance_valid(owner) or owner.get_instance_id() != GFVariantData.get_option_int(request, "owner_instance_id")):
 		return null
 	return owner
 
@@ -8472,10 +8761,7 @@ func _pending_bgm_start_has_owner(request: Dictionary) -> bool:
 func _is_pending_bgm_start_request(request_id: int) -> bool:
 	return (
 		request_id > 0
-		and GFVariantData.get_option_int(
-			_bgm_pending_start_request,
-			"request_id"
-		) == request_id
+		and ((GFVariantData.get_option_int(_bgm_pending_start_request, "request_id")) == request_id)
 		and _get_bgm_start_operation(_bgm_pending_start_request) != null
 	)
 
@@ -8486,10 +8772,7 @@ func _is_pending_bgm_start_request(request_id: int) -> bool:
 ## [br]
 func _disconnect_bgm_start_owner(request: Dictionary) -> void:
 	var owner: Node = _get_bgm_start_owner(request)
-	var callback_value: Variant = GFVariantData.get_option_value(
-		request,
-		"owner_exit_callback"
-	)
+	var callback_value: Variant = GFVariantData.get_option_value(request, "owner_exit_callback")
 	if owner != null and callback_value is Callable:
 		var callback: Callable = callback_value
 		if callback.is_valid() and owner.tree_exiting.is_connected(callback):
@@ -8500,9 +8783,7 @@ func _disconnect_bgm_start_owner(request: Dictionary) -> void:
 ## [br]
 ## @api private
 ## [br]
-func _cancel_bgm_start_operation_for_framework(
-	operation: GFBgmStartOperation
-) -> bool:
+func _cancel_bgm_start_operation_for_framework(operation: GFBgmStartOperation) -> bool:
 	if (
 		not Thread.is_main_thread()
 		or operation == null
@@ -8541,10 +8822,13 @@ func _cancel_pending_bgm_start(
 		return intent_recorded
 	var request: Dictionary = _bgm_pending_start_request
 	_bgm_pending_start_request = {}
-	_complete_bgm_pending_request(
-		GFVariantData.get_option_int(request, "pending_token")
+	_complete_bgm_pending_request(GFVariantData.get_option_int(request, "pending_token"))
+	return _complete_bgm_start_record(
+		request,
+		status,
+		reason,
+		error_code
 	)
-	return _complete_bgm_start_record(request, status, reason, error_code)
 
 
 ## backend 更换时冻结当前待处理 BGM 启动记录。
@@ -8556,13 +8840,9 @@ func _freeze_pending_bgm_start_for_backend_change() -> GFBgmStartOperation:
 		return null
 	var request: Dictionary = _bgm_pending_start_request
 	_bgm_pending_start_request = {}
-	_complete_bgm_pending_request(
-		GFVariantData.get_option_int(request, "pending_token")
-	)
+	_complete_bgm_pending_request(GFVariantData.get_option_int(request, "pending_token"))
 	if GFVariantData.get_option_dictionary(request, "terminal_intent").is_empty():
-		request["backend_disposition"] = (
-			GFBgmStartResult.BackendDisposition.INVALIDATED
-		)
+		request["backend_disposition"] = (GFBgmStartResult.BackendDisposition.INVALIDATED)
 	return _freeze_bgm_start_record(
 		request,
 		GFBgmStartResult.Status.CANCELLED,
@@ -8603,43 +8883,31 @@ func _freeze_bgm_start_record(
 	var effective_status: GFBgmStartResult.Status = status
 	var effective_reason: StringName = reason
 	var effective_error_code: Error = error_code
-	var first_intent: Dictionary = GFVariantData.get_option_dictionary(
-		request,
-		"terminal_intent"
-	)
+	var first_intent: Dictionary = GFVariantData.get_option_dictionary(request, "terminal_intent")
 	if not first_intent.is_empty():
-		effective_status = GFVariantData.get_option_int(
-			first_intent,
-			"status"
-		) as GFBgmStartResult.Status
-		effective_reason = GFVariantData.get_option_string_name(
-			first_intent,
-			"reason"
-		)
-		effective_error_code = GFVariantData.get_option_int(
-			first_intent,
-			"error_code"
-		) as Error
+		effective_status = GFVariantData.get_option_int(first_intent, "status") as GFBgmStartResult.Status
+		effective_reason = GFVariantData.get_option_string_name(first_intent, "reason")
+		effective_error_code = GFVariantData.get_option_int(first_intent, "error_code") as Error
 	var operation: GFBgmStartOperation = _get_bgm_start_operation(request)
-	var disposition: GFBgmStartResult.BackendDisposition = (
-		GFVariantData.get_option_int(
-			request,
-			"backend_disposition",
-			GFBgmStartResult.BackendDisposition.NOT_ATTEMPTED
-		) as GFBgmStartResult.BackendDisposition
-	)
+	var disposition: GFBgmStartResult.BackendDisposition = GFVariantData.get_option_int(
+		request,
+		"backend_disposition",
+		GFBgmStartResult.BackendDisposition.NOT_ATTEMPTED
+	) as GFBgmStartResult.BackendDisposition
 	_disconnect_bgm_start_owner(request)
 	if operation == null or not operation.is_pending():
 		return null
 	var result: GFBgmStartResult = GFBgmStartResult.new()
-	if not result.configure_for_framework(
-		effective_status,
-		operation.get_request_id(),
-		effective_reason,
-		effective_error_code,
-		GFVariantData.get_option_string(request, "history_key"),
-		GFBgmSessionHandle.OwnerKind.NONE,
-		disposition
+	if not (
+		result.configure_for_framework(
+			effective_status,
+			operation.get_request_id(),
+			effective_reason,
+			effective_error_code,
+			GFVariantData.get_option_string(request, "history_key"),
+			GFBgmSessionHandle.OwnerKind.NONE,
+			disposition
+		)
 	):
 		push_error("[GFAudioUtility][audio_utility.bgm_pending_terminal_failed] Cannot configure the pending BGM start terminal result.")
 		return null
@@ -8668,9 +8936,7 @@ func _record_pending_bgm_terminal_intent(
 		"error_code": int(error_code),
 	}
 	if reason == GFBgmStartResult.REASON_BACKEND_CHANGED:
-		_bgm_pending_start_request["backend_disposition"] = (
-			GFBgmStartResult.BackendDisposition.INVALIDATED
-		)
+		_bgm_pending_start_request["backend_disposition"] = (GFBgmStartResult.BackendDisposition.INVALIDATED)
 	return true
 
 
@@ -8679,10 +8945,7 @@ func _record_pending_bgm_terminal_intent(
 ## @api private
 ## [br]
 func _pending_bgm_has_terminal_intent(request_id: int) -> bool:
-	return (
-		_is_pending_bgm_start_request(request_id)
-		and _bgm_pending_start_request.has("terminal_intent")
-	)
+	return (_is_pending_bgm_start_request(request_id) and _bgm_pending_start_request.has("terminal_intent"))
 
 
 ## 为已失效的 backend BGM 启动请求执行补偿。
@@ -8700,19 +8963,14 @@ func _compensate_invalidated_backend_bgm_start() -> void:
 		true
 	)
 	if not _backend_dispatch_returned_true(stop_result):
-		push_warning(
-			"[GFAudioUtility][audio_utility.bgm_compensating_stop_failed] Cannot complete the compensating stop for an invalidated backend BGM start."
-		)
+		push_warning("[GFAudioUtility][audio_utility.bgm_compensating_stop_failed] Cannot complete the compensating stop for an invalidated backend BGM start.")
 
 
 ## 收敛已失效的 backend BGM 启动记录及其结果。
 ## [br]
 ## @api private
 ## [br]
-func _settle_invalidated_backend_bgm_start(
-	request_id: int,
-	backend_started: bool
-) -> void:
+func _settle_invalidated_backend_bgm_start(request_id: int, backend_started: bool) -> void:
 	if not _is_pending_bgm_start_request(request_id):
 		return
 	var previous_owner: StringName = _bgm_owner
@@ -8720,20 +8978,13 @@ func _settle_invalidated_backend_bgm_start(
 		_compensate_invalidated_backend_bgm_start()
 	if not _is_pending_bgm_start_request(request_id):
 		return
-	var intent: Dictionary = GFVariantData.get_option_dictionary(
-		_bgm_pending_start_request,
-		"terminal_intent"
-	)
+	var intent: Dictionary = GFVariantData.get_option_dictionary(_bgm_pending_start_request, "terminal_intent")
 	if intent.is_empty():
 		return
 	var request: Dictionary = _bgm_pending_start_request
 	_bgm_pending_start_request = {}
-	_complete_bgm_pending_request(
-		GFVariantData.get_option_int(request, "pending_token")
-	)
-	request["backend_disposition"] = (
-		GFBgmStartResult.BackendDisposition.INVALIDATED
-	)
+	_complete_bgm_pending_request(GFVariantData.get_option_int(request, "pending_token"))
+	request["backend_disposition"] = (GFBgmStartResult.BackendDisposition.INVALIDATED)
 	var operation: GFBgmStartOperation = _freeze_bgm_start_record(
 		request,
 		GFVariantData.get_option_int(intent, "status") as GFBgmStartResult.Status,
@@ -8742,17 +8993,10 @@ func _settle_invalidated_backend_bgm_start(
 	)
 	var handle: GFBgmSessionHandle = null
 	var session_id: int = _bgm_committed_session_id
-	var active_intent: Dictionary = _take_deferred_bgm_session_terminal(
-		session_id
-	)
-	var active_end_kind: GFBgmSessionHandle.EndKind = (
-		GFBgmSessionHandle.EndKind.NONE
-	)
+	var active_intent: Dictionary = _take_deferred_bgm_session_terminal(session_id)
+	var active_end_kind: GFBgmSessionHandle.EndKind = GFBgmSessionHandle.EndKind.NONE
 	if not active_intent.is_empty():
-		active_end_kind = GFVariantData.get_option_int(
-			active_intent,
-			"end_kind"
-		) as GFBgmSessionHandle.EndKind
+		active_end_kind = GFVariantData.get_option_int(active_intent, "end_kind") as GFBgmSessionHandle.EndKind
 	elif backend_started and previous_owner == _OWNER_BACKEND:
 		active_end_kind = GFBgmSessionHandle.EndKind.PLAYBACK_FAILED
 	var natural_history_key: String = ""
@@ -8769,10 +9013,7 @@ func _settle_invalidated_backend_bgm_start(
 		var _operation_emitted: bool = operation.emit_completed_for_framework()
 	if handle != null:
 		var _handle_emitted: bool = handle.emit_ended_for_framework()
-	if (
-		active_end_kind == GFBgmSessionHandle.EndKind.NATURAL_FINISH
-		and not natural_history_key.is_empty()
-	):
+	if (active_end_kind == GFBgmSessionHandle.EndKind.NATURAL_FINISH and not natural_history_key.is_empty()):
 		bgm_finished.emit(natural_history_key)
 
 
@@ -8802,13 +9043,7 @@ func _record_deferred_bgm_session_terminal(
 ## @api private
 ## [br]
 func _take_deferred_bgm_session_terminal(session_id: int) -> Dictionary:
-	if (
-		session_id <= 0
-		or GFVariantData.get_option_int(
-			_deferred_bgm_session_terminal,
-			"session_id"
-		) != session_id
-	):
+	if (session_id <= 0 or ((GFVariantData.get_option_int(_deferred_bgm_session_terminal, "session_id")) != session_id)):
 		return {}
 	var terminal_intent: Dictionary = _deferred_bgm_session_terminal
 	_deferred_bgm_session_terminal = {}
@@ -8819,33 +9054,19 @@ func _take_deferred_bgm_session_terminal(session_id: int) -> Dictionary:
 ## [br]
 ## @api private
 ## [br]
-func _take_effective_bgm_session_end_kind(
-	session_id: int,
-	fallback_end_kind: GFBgmSessionHandle.EndKind
-) -> GFBgmSessionHandle.EndKind:
-	var terminal_intent: Dictionary = _take_deferred_bgm_session_terminal(
-		session_id
-	)
+func _take_effective_bgm_session_end_kind(session_id: int, fallback_end_kind: GFBgmSessionHandle.EndKind) -> GFBgmSessionHandle.EndKind:
+	var terminal_intent: Dictionary = _take_deferred_bgm_session_terminal(session_id)
 	if terminal_intent.is_empty():
 		return fallback_end_kind
-	return GFVariantData.get_option_int(
-		terminal_intent,
-		"end_kind"
-	) as GFBgmSessionHandle.EndKind
+	return GFVariantData.get_option_int(terminal_intent, "end_kind") as GFBgmSessionHandle.EndKind
 
 
 ## 在自然结束条件成立时记录 BGM 历史。
 ## [br]
 ## @api private
 ## [br]
-func _emit_bgm_natural_history_if_needed(
-	end_kind: GFBgmSessionHandle.EndKind,
-	history_key: String
-) -> void:
-	if (
-		end_kind == GFBgmSessionHandle.EndKind.NATURAL_FINISH
-		and not history_key.is_empty()
-	):
+func _emit_bgm_natural_history_if_needed(end_kind: GFBgmSessionHandle.EndKind, history_key: String) -> void:
+	if (end_kind == GFBgmSessionHandle.EndKind.NATURAL_FINISH and not history_key.is_empty()):
 		bgm_finished.emit(history_key)
 
 
@@ -8871,13 +9092,8 @@ func _capture_bgm_session_terminal_notification(
 ## [br]
 ## @api private
 ## [br]
-func _emit_captured_bgm_session_terminal_notification(
-	settlement: Dictionary
-) -> void:
-	var handle_value: Variant = GFVariantData.get_option_value(
-		settlement,
-		"handle"
-	)
+func _emit_captured_bgm_session_terminal_notification(settlement: Dictionary) -> void:
+	var handle_value: Variant = GFVariantData.get_option_value(settlement, "handle")
 	if handle_value is GFBgmSessionHandle:
 		var handle: GFBgmSessionHandle = handle_value
 		var _handle_emitted: bool = handle.emit_ended_for_framework()
@@ -8916,65 +9132,36 @@ func _run_deferred_audio_dispose_if_needed() -> void:
 		_dispose_audio_now()
 		return
 	var pending_operation: GFBgmStartOperation = null
-	if (
-		not _bgm_pending_start_request.is_empty()
-		and _bgm_pending_start_request.has("terminal_intent")
-	):
+	if (not _bgm_pending_start_request.is_empty() and _bgm_pending_start_request.has("terminal_intent")):
 		var pending_request: Dictionary = _bgm_pending_start_request
 		_bgm_pending_start_request = {}
-		_complete_bgm_pending_request(
-			GFVariantData.get_option_int(pending_request, "pending_token")
-		)
-		var pending_intent: Dictionary = GFVariantData.get_option_dictionary(
-			pending_request,
-			"terminal_intent"
-		)
+		_complete_bgm_pending_request(GFVariantData.get_option_int(pending_request, "pending_token"))
+		var pending_intent: Dictionary = GFVariantData.get_option_dictionary(pending_request, "terminal_intent")
 		pending_operation = _freeze_bgm_start_record(
 			pending_request,
-			GFVariantData.get_option_int(
-				pending_intent,
-				"status"
-			) as GFBgmStartResult.Status,
+			GFVariantData.get_option_int(pending_intent, "status") as GFBgmStartResult.Status,
 			GFVariantData.get_option_string_name(pending_intent, "reason"),
-			GFVariantData.get_option_int(
-				pending_intent,
-				"error_code"
-			) as Error
+			GFVariantData.get_option_int(pending_intent, "error_code") as Error
 		)
 	var terminal_intent: Dictionary = _deferred_bgm_session_terminal
 	_deferred_bgm_session_terminal = {}
 	var session_terminal_settlement: Dictionary = {}
 	if not terminal_intent.is_empty():
-		var deferred_session_id: int = GFVariantData.get_option_int(
-			terminal_intent,
-			"session_id"
-		)
+		var deferred_session_id: int = GFVariantData.get_option_int(terminal_intent, "session_id")
 		if deferred_session_id == _bgm_committed_session_id:
-			var terminal_end_kind: GFBgmSessionHandle.EndKind = (
-				GFVariantData.get_option_int(
-					terminal_intent,
-					"end_kind"
-				) as GFBgmSessionHandle.EndKind
-			)
+			var terminal_end_kind: GFBgmSessionHandle.EndKind = GFVariantData.get_option_int(terminal_intent, "end_kind") as GFBgmSessionHandle.EndKind
 			var _session_settled: bool = _stop_exact_committed_bgm_session(
 				deferred_session_id,
-				GFVariantData.get_option_float(
-					terminal_intent,
-					"fade_seconds"
-				),
+				GFVariantData.get_option_float(terminal_intent, "fade_seconds"),
 				terminal_end_kind,
 				true,
 				false,
 				session_terminal_settlement
 			)
 	if pending_operation != null:
-		var _pending_emitted: bool = (
-			pending_operation.emit_completed_for_framework()
-		)
+		var _pending_emitted: bool = pending_operation.emit_completed_for_framework()
 	if not session_terminal_settlement.is_empty():
-		_emit_captured_bgm_session_terminal_notification(
-			session_terminal_settlement
-		)
+		_emit_captured_bgm_session_terminal_notification(session_terminal_settlement)
 
 
 ## 取出待处理 BGM 操作的终态意图并执行相应收尾。
@@ -8984,25 +9171,18 @@ func _run_deferred_audio_dispose_if_needed() -> void:
 func _consume_pending_bgm_terminal_intent(request_id: int) -> bool:
 	if not _is_pending_bgm_start_request(request_id):
 		return false
-	var intent: Dictionary = GFVariantData.get_option_dictionary(
-		_bgm_pending_start_request,
-		"terminal_intent"
-	)
+	var intent: Dictionary = GFVariantData.get_option_dictionary(_bgm_pending_start_request, "terminal_intent")
 	if intent.is_empty():
 		return false
 	var request: Dictionary = _bgm_pending_start_request
 	_bgm_pending_start_request = {}
-	_complete_bgm_pending_request(
-		GFVariantData.get_option_int(request, "pending_token")
-	)
+	_complete_bgm_pending_request(GFVariantData.get_option_int(request, "pending_token"))
 	return _complete_bgm_start_record(
 		request,
 		GFVariantData.get_option_int(intent, "status") as GFBgmStartResult.Status,
 		GFVariantData.get_option_string_name(intent, "reason"),
 		GFVariantData.get_option_int(intent, "error_code") as Error
 	)
-
-
 
 
 ## 将待处理 BGM 路径请求交给 backend 或本地异步加载流程。
@@ -9037,10 +9217,7 @@ func _dispatch_pending_bgm_path_request(request_id: int) -> void:
 		) as GFBgmStartResult.BackendDisposition
 	)
 	if _pending_bgm_has_terminal_intent(request_id):
-		_set_pending_bgm_backend_disposition(
-			request_id,
-			GFBgmStartResult.BackendDisposition.INVALIDATED
-		)
+		_set_pending_bgm_backend_disposition(request_id, GFBgmStartResult.BackendDisposition.INVALIDATED)
 		_settle_invalidated_backend_bgm_start(
 			request_id,
 			GFVariantData.get_option_bool(backend_outcome, "started")
@@ -9096,10 +9273,7 @@ func _dispatch_pending_bgm_clip_request(request_id: int) -> void:
 		) as GFBgmStartResult.BackendDisposition
 	)
 	if _pending_bgm_has_terminal_intent(request_id):
-		_set_pending_bgm_backend_disposition(
-			request_id,
-			GFBgmStartResult.BackendDisposition.INVALIDATED
-		)
+		_set_pending_bgm_backend_disposition(request_id, GFBgmStartResult.BackendDisposition.INVALIDATED)
 		_settle_invalidated_backend_bgm_start(
 			request_id,
 			GFVariantData.get_option_bool(backend_outcome, "started")
@@ -9118,10 +9292,7 @@ func _dispatch_pending_bgm_clip_request(request_id: int) -> void:
 	if GFVariantData.get_option_bool(backend_outcome, "started"):
 		_commit_pending_backend_bgm_start(
 			request_id,
-			GFVariantData.get_option_dictionary(
-				backend_outcome,
-				"playback_region"
-			)
+			GFVariantData.get_option_dictionary(backend_outcome, "playback_region")
 		)
 		_run_deferred_audio_dispose_if_needed()
 		return
@@ -9136,7 +9307,11 @@ func _dispatch_pending_bgm_clip_request(request_id: int) -> void:
 func _make_pending_bgm_backend_options(request: Dictionary) -> Dictionary:
 	var backend_options: Dictionary = {
 		"crossfade_seconds": _resolve_bgm_crossfade_seconds(
-			GFVariantData.get_option_float(request, "crossfade_seconds", -1.0)
+			GFVariantData.get_option_float(
+				request,
+				"crossfade_seconds",
+				-1.0
+			)
 		),
 		"history_key": GFVariantData.get_option_string(request, "history_key"),
 		"bus_name": GFVariantData.get_option_string(
@@ -9145,12 +9320,13 @@ func _make_pending_bgm_backend_options(request: Dictionary) -> Dictionary:
 			BGM_BUS_NAME
 		),
 		"volume_db": GFVariantData.get_option_float(request, "volume_db"),
-		"pitch_scale": GFVariantData.get_option_float(request, "pitch_scale", 1.0),
+		"pitch_scale": GFVariantData.get_option_float(
+			request,
+			"pitch_scale",
+			1.0
+		),
 	}
-	var playback_region_value: Variant = GFVariantData.get_option_value(
-		request,
-		"playback_region"
-	)
+	var playback_region_value: Variant = GFVariantData.get_option_value(request, "playback_region")
 	if playback_region_value is GFAudioPlaybackRegion:
 		var playback_region: GFAudioPlaybackRegion = playback_region_value
 		backend_options["playback_region"] = playback_region.duplicate_region()
@@ -9161,10 +9337,7 @@ func _make_pending_bgm_backend_options(request: Dictionary) -> Dictionary:
 ## [br]
 ## @api private
 ## [br]
-func _set_pending_bgm_backend_disposition(
-	request_id: int,
-	disposition: GFBgmStartResult.BackendDisposition
-) -> void:
+func _set_pending_bgm_backend_disposition(request_id: int, disposition: GFBgmStartResult.BackendDisposition) -> void:
 	if not _is_pending_bgm_start_request(request_id):
 		return
 	_bgm_pending_start_request["backend_disposition"] = disposition
@@ -9177,10 +9350,7 @@ func _set_pending_bgm_backend_disposition(
 func _reserve_pending_bgm_start_session_id(request_id: int) -> int:
 	if not _is_pending_bgm_start_request(request_id):
 		return 0
-	var reserved_session_id: int = GFVariantData.get_option_int(
-		_bgm_pending_start_request,
-		"reserved_session_id"
-	)
+	var reserved_session_id: int = GFVariantData.get_option_int(_bgm_pending_start_request, "reserved_session_id")
 	if reserved_session_id > 0:
 		return reserved_session_id
 	reserved_session_id = _reserve_bgm_session_id()
@@ -9193,19 +9363,13 @@ func _reserve_pending_bgm_start_session_id(request_id: int) -> int:
 ## [br]
 ## @api private
 ## [br]
-func _load_pending_local_bgm_start(
-	request_id: int,
-	immediate_stream: AudioStream
-) -> void:
+func _load_pending_local_bgm_start(request_id: int, immediate_stream: AudioStream) -> void:
 	if not _is_pending_bgm_start_request(request_id):
 		return
 	if immediate_stream != null:
 		_try_commit_typed_pending_local_bgm_start(request_id, immediate_stream)
 		return
-	var path: String = GFVariantData.get_option_string(
-		_bgm_pending_start_request,
-		"path"
-	)
+	var path: String = GFVariantData.get_option_string(_bgm_pending_start_request, "path")
 	if path.is_empty():
 		_fail_pending_bgm_start(
 			request_id,
@@ -9218,15 +9382,10 @@ func _load_pending_local_bgm_start(
 		var stream: AudioStream = _get_audio_stream_value(load(path))
 		_on_bgm_start_asset_loaded(request_id, stream)
 		return
-	var invocation: GFWeakMethodInvocation = GFWeakMethodInvocation.new(
-		self,
-		&"_on_bgm_start_asset_loaded"
-	)
+	var invocation: GFWeakMethodInvocation = GFWeakMethodInvocation.new(self, &"_on_bgm_start_asset_loaded")
 	var on_loaded: Callable = func(resource: Resource) -> void:
 		var _invoke_result: Dictionary = invocation.invoke([request_id, resource])
 	asset_util.load_async(path, on_loaded)
-
-
 
 
 ## 根据待处理本地 BGM 请求状态确定失败原因。
@@ -9241,11 +9400,7 @@ func _resolve_pending_bgm_local_failure_reason(request_id: int) -> StringName:
 		"backend_disposition",
 		GFBgmStartResult.BackendDisposition.NOT_ATTEMPTED
 	)
-	return (
-		GFBgmStartResult.REASON_BACKEND_REJECTED_AND_LOCAL_FAILED
-		if disposition == GFBgmStartResult.BackendDisposition.REJECTED
-		else GFBgmStartResult.REASON_ASSET_LOAD_FAILED
-	)
+	return (GFBgmStartResult.REASON_BACKEND_REJECTED_AND_LOCAL_FAILED if disposition == GFBgmStartResult.BackendDisposition.REJECTED else GFBgmStartResult.REASON_ASSET_LOAD_FAILED)
 
 
 ## 按给定原因结束并清理待处理 BGM 启动操作。
@@ -9262,9 +9417,7 @@ func _fail_pending_bgm_start(
 		return
 	var request: Dictionary = _bgm_pending_start_request
 	_bgm_pending_start_request = {}
-	_complete_bgm_pending_request(
-		GFVariantData.get_option_int(request, "pending_token")
-	)
+	_complete_bgm_pending_request(GFVariantData.get_option_int(request, "pending_token"))
 	var _completed: bool = _complete_bgm_start_record(
 		request,
 		status,
@@ -9277,10 +9430,7 @@ func _fail_pending_bgm_start(
 ## [br]
 ## @api private
 ## [br]
-func _try_commit_typed_pending_local_bgm_start(
-	request_id: int,
-	stream: AudioStream
-) -> void:
+func _try_commit_typed_pending_local_bgm_start(request_id: int, stream: AudioStream) -> void:
 	if not _is_pending_bgm_start_request(request_id):
 		return
 	if _pending_bgm_start_has_owner(_bgm_pending_start_request):
@@ -9299,10 +9449,7 @@ func _try_commit_typed_pending_local_bgm_start(
 		)
 		return
 	var request: Dictionary = _bgm_pending_start_request
-	var playback_region_value: Variant = GFVariantData.get_option_value(
-		request,
-		"playback_region"
-	)
+	var playback_region_value: Variant = GFVariantData.get_option_value(request, "playback_region")
 	var playback_region: GFAudioPlaybackRegion = null
 	if playback_region_value is GFAudioPlaybackRegion:
 		playback_region = playback_region_value
@@ -9311,27 +9458,12 @@ func _try_commit_typed_pending_local_bgm_start(
 		playback_region,
 		&"bgm"
 	)
-	if (
-		not GFVariantData.get_option_bool(execution_plan, "accepted")
-		or _get_audio_stream_value(
-			GFVariantData.get_option_value(execution_plan, "prepared_stream")
-		) == null
-	):
-		var failure_reason: StringName = (
-			GFBgmStartResult.REASON_BACKEND_REJECTED_AND_LOCAL_FAILED
-			if GFVariantData.get_option_int(
-				request,
-				"backend_disposition"
-			) == GFBgmStartResult.BackendDisposition.REJECTED
-			else GFBgmStartResult.REASON_STREAM_UNPLAYABLE
-		)
+	if (not GFVariantData.get_option_bool(execution_plan, "accepted") or (_get_audio_stream_value(GFVariantData.get_option_value(execution_plan, "prepared_stream")) == null)):
+		var failure_reason: StringName = (GFBgmStartResult.REASON_BACKEND_REJECTED_AND_LOCAL_FAILED if ((GFVariantData.get_option_int(request, "backend_disposition")) == GFBgmStartResult.BackendDisposition.REJECTED) else GFBgmStartResult.REASON_STREAM_UNPLAYABLE)
 		_fail_pending_bgm_start(
 			request_id,
 			failure_reason,
-			ERR_CANT_OPEN
-			if failure_reason
-			== GFBgmStartResult.REASON_BACKEND_REJECTED_AND_LOCAL_FAILED
-			else ERR_INVALID_DATA
+			(ERR_CANT_OPEN if failure_reason == GFBgmStartResult.REASON_BACKEND_REJECTED_AND_LOCAL_FAILED else ERR_INVALID_DATA)
 		)
 		return
 	if not is_instance_valid(_root):
@@ -9341,10 +9473,7 @@ func _try_commit_typed_pending_local_bgm_start(
 			ERR_CANT_CREATE
 		)
 		return
-	var candidate: Dictionary = _prepare_typed_local_bgm_candidate(
-		request,
-		execution_plan
-	)
+	var candidate: Dictionary = _prepare_typed_local_bgm_candidate(request, execution_plan)
 	if candidate.is_empty():
 		_fail_pending_bgm_start(
 			request_id,
@@ -9363,22 +9492,15 @@ func _try_commit_typed_pending_local_bgm_start(
 		_release_typed_bgm_candidate(candidate)
 		if _is_pending_bgm_start_request(request_id):
 			if not _pending_bgm_has_terminal_intent(request_id):
-				var _owner_intent_recorded: bool = (
-					_record_pending_bgm_terminal_intent(
-						GFBgmStartResult.Status.CANCELLED,
-						GFBgmStartResult.REASON_OWNER_RELEASED,
-						ERR_SKIP
-					)
+				var _owner_intent_recorded: bool = _record_pending_bgm_terminal_intent(
+					GFBgmStartResult.Status.CANCELLED,
+					GFBgmStartResult.REASON_OWNER_RELEASED,
+					ERR_SKIP
 				)
-			var _intent_completed: bool = _consume_pending_bgm_terminal_intent(
-				request_id
-			)
+			var _intent_completed: bool = _consume_pending_bgm_terminal_intent(request_id)
 		return
 	request = _bgm_pending_start_request
-	var session_id: int = GFVariantData.get_option_int(
-		request,
-		"reserved_session_id"
-	)
+	var session_id: int = GFVariantData.get_option_int(request, "reserved_session_id")
 	if session_id <= 0:
 		_release_typed_bgm_candidate(candidate)
 		_fail_pending_bgm_start(
@@ -9399,10 +9521,7 @@ func _try_commit_typed_pending_local_bgm_start(
 		backend_was_released = _backend_dispatch_returned_true(stop_result)
 		if _pending_bgm_has_terminal_intent(request_id):
 			_release_typed_bgm_candidate(candidate)
-			_settle_pending_local_handoff_intent(
-				request_id,
-				backend_was_released
-			)
+			_settle_pending_local_handoff_intent(request_id, backend_was_released)
 			_run_deferred_audio_dispose_if_needed()
 			return
 		if not backend_was_released or _audio_backend != expected_backend:
@@ -9426,10 +9545,7 @@ func _try_commit_typed_pending_local_bgm_start(
 		_settle_failed_bgm_publication(
 			request_id,
 			GFBgmStartResult.REASON_LOCAL_PLAYER_REJECTED,
-			GFVariantData.get_option_int(
-				_bgm_pending_start_request,
-				"backend_disposition"
-			) as GFBgmStartResult.BackendDisposition,
+			GFVariantData.get_option_int(_bgm_pending_start_request, "backend_disposition") as GFBgmStartResult.BackendDisposition,
 			backend_was_released
 		)
 		return
@@ -9444,10 +9560,7 @@ func _try_commit_typed_pending_local_bgm_start(
 		_settle_failed_bgm_publication(
 			request_id,
 			GFBgmStartResult.REASON_LOCAL_PLAYER_REJECTED,
-			GFVariantData.get_option_int(
-				_bgm_pending_start_request,
-				"backend_disposition"
-			) as GFBgmStartResult.BackendDisposition,
+			GFVariantData.get_option_int(_bgm_pending_start_request, "backend_disposition") as GFBgmStartResult.BackendDisposition,
 			backend_was_released
 		)
 		return
@@ -9464,18 +9577,16 @@ func _try_commit_typed_pending_local_bgm_start(
 ## [br]
 ## @api private
 ## [br]
-func _prepare_typed_local_bgm_candidate(
-	request: Dictionary,
-	execution_plan: Dictionary
-) -> Dictionary:
-	var stream: AudioStream = _get_audio_stream_value(
-		GFVariantData.get_option_value(execution_plan, "prepared_stream")
-	)
+func _prepare_typed_local_bgm_candidate(request: Dictionary, execution_plan: Dictionary) -> Dictionary:
+	var stream: AudioStream = _get_audio_stream_value(GFVariantData.get_option_value(execution_plan, "prepared_stream"))
 	if stream == null or not is_instance_valid(_root):
 		return {}
 	var player: AudioStreamPlayer = AudioStreamPlayer.new()
 	player.name = "GFBGMStandbyPlayer"
-	_connect_signal_checked(player.finished, _on_bgm_player_finished.bind(player))
+	_connect_signal_checked(
+		player.finished,
+		_on_bgm_player_finished.bind(player)
+	)
 	var candidate_root: Node = _root
 	var request_id: int = GFVariantData.get_option_int(request, "request_id")
 	candidate_root.add_child(player)
@@ -9486,26 +9597,17 @@ func _prepare_typed_local_bgm_candidate(
 	):
 		_release_typed_bgm_player(player)
 		return {}
-	var target_volume_db: float = GFVariantData.get_option_float(
-		request,
-		"volume_db"
-	)
+	var target_volume_db: float = GFVariantData.get_option_float(request, "volume_db")
 	var fade_seconds: float = _resolve_bgm_crossfade_seconds(
-		GFVariantData.get_option_float(request, "crossfade_seconds", -1.0)
-	)
-	var previous_session: Dictionary = _get_bgm_session(
-		_bgm_committed_session_id
-	)
-	var previous_player: AudioStreamPlayer = _get_bgm_session_player(
-		previous_session
-	)
-	var can_crossfade: bool = (
-		fade_seconds > 0.0
-		and _is_typed_bgm_crossfade_source_ready(
-			candidate_root,
-			previous_player
+		GFVariantData.get_option_float(
+			request,
+			"crossfade_seconds",
+			-1.0
 		)
 	)
+	var previous_session: Dictionary = _get_bgm_session(_bgm_committed_session_id)
+	var previous_player: AudioStreamPlayer = _get_bgm_session_player(previous_session)
+	var can_crossfade: bool = (fade_seconds > 0.0 and _is_typed_bgm_crossfade_source_ready(candidate_root, previous_player))
 	var replacement_player: AudioStreamPlayer = null
 	if not can_crossfade:
 		replacement_player = _create_typed_bgm_replacement_player()
@@ -9521,9 +9623,17 @@ func _prepare_typed_local_bgm_candidate(
 	_apply_player_settings(
 		player,
 		stream,
-		GFVariantData.get_option_string(request, "bus_name", BGM_BUS_NAME),
+		GFVariantData.get_option_string(
+			request,
+			"bus_name",
+			BGM_BUS_NAME
+		),
 		SILENCE_VOLUME_DB,
-		GFVariantData.get_option_float(request, "pitch_scale", 1.0)
+		GFVariantData.get_option_float(
+			request,
+			"pitch_scale",
+			1.0
+		)
 	)
 	player.play(GFVariantData.get_option_float(execution_plan, "start_seconds"))
 	var candidate: Dictionary = {
@@ -9569,13 +9679,8 @@ func _seal_typed_local_bgm_candidate(
 	candidate: Dictionary
 ) -> bool:
 	var player: AudioStreamPlayer = _get_bgm_candidate_player(candidate)
-	var replacement_player: AudioStreamPlayer = (
-		_get_bgm_candidate_replacement_player(candidate)
-	)
-	var can_crossfade: bool = GFVariantData.get_option_bool(
-		candidate,
-		"can_crossfade"
-	)
+	var replacement_player: AudioStreamPlayer = _get_bgm_candidate_replacement_player(candidate)
+	var can_crossfade: bool = GFVariantData.get_option_bool(candidate, "can_crossfade")
 	var candidate_players: Array[AudioStreamPlayer] = [player]
 	if replacement_player != null:
 		candidate_players.append(replacement_player)
@@ -9588,13 +9693,8 @@ func _seal_typed_local_bgm_candidate(
 	if not _is_typed_bgm_candidate_player_ready(candidate_root, player):
 		return false
 	if can_crossfade:
-		var previous_player: AudioStreamPlayer = _get_bgm_session_player(
-			_get_bgm_session(_bgm_committed_session_id)
-		)
-		if not _is_typed_bgm_crossfade_source_ready(
-			candidate_root,
-			previous_player
-		):
+		var previous_player: AudioStreamPlayer = _get_bgm_session_player(_get_bgm_session(_bgm_committed_session_id))
+		if not _is_typed_bgm_crossfade_source_ready(candidate_root, previous_player):
 			can_crossfade = false
 			candidate["can_crossfade"] = false
 	if not can_crossfade and replacement_player == null:
@@ -9613,27 +9713,16 @@ func _seal_typed_local_bgm_candidate(
 	if not _is_typed_bgm_candidate_player_ready(candidate_root, player):
 		return false
 	if can_crossfade:
-		var previous_player: AudioStreamPlayer = _get_bgm_session_player(
-			_get_bgm_session(_bgm_committed_session_id)
-		)
-		return _is_typed_bgm_crossfade_source_ready(
-			candidate_root,
-			previous_player
-		)
-	return _is_typed_bgm_replacement_player_ready(
-		candidate_root,
-		replacement_player
-	)
+		var previous_player: AudioStreamPlayer = _get_bgm_session_player(_get_bgm_session(_bgm_committed_session_id))
+		return _is_typed_bgm_crossfade_source_ready(candidate_root, previous_player)
+	return _is_typed_bgm_replacement_player_ready(candidate_root, replacement_player)
 
 
 ## 检查类型化 BGM 交叉淡化所需的来源播放器是否就绪。
 ## [br]
 ## @api private
 ## [br]
-func _is_typed_bgm_crossfade_source_ready(
-	candidate_root: Node,
-	player: AudioStreamPlayer
-) -> bool:
+func _is_typed_bgm_crossfade_source_ready(candidate_root: Node, player: AudioStreamPlayer) -> bool:
 	return (
 		_bgm_owner == _OWNER_LOCAL
 		and _is_exact_audio_root_child(candidate_root, player)
@@ -9646,14 +9735,14 @@ func _is_typed_bgm_crossfade_source_ready(
 ## [br]
 ## @api private
 ## [br]
-func _is_typed_bgm_candidate_player_ready(
-	candidate_root: Node,
-	player: AudioStreamPlayer
-) -> bool:
+func _is_typed_bgm_candidate_player_ready(candidate_root: Node, player: AudioStreamPlayer) -> bool:
 	return (
 		_is_exact_audio_root_child(candidate_root, player)
 		and player.stream != null
-		and (player.playing or player.stream_paused)
+		and (
+			player.playing
+			or player.stream_paused
+		)
 	)
 
 
@@ -9661,10 +9750,7 @@ func _is_typed_bgm_candidate_player_ready(
 ## [br]
 ## @api private
 ## [br]
-func _is_typed_bgm_replacement_player_ready(
-	candidate_root: Node,
-	player: AudioStreamPlayer
-) -> bool:
+func _is_typed_bgm_replacement_player_ready(candidate_root: Node, player: AudioStreamPlayer) -> bool:
 	return (
 		_is_exact_audio_root_child(candidate_root, player)
 		and not player.playing
@@ -9756,26 +9842,16 @@ func _release_typed_bgm_player(player: AudioStreamPlayer) -> void:
 ## [br]
 ## @api private
 ## [br]
-func _settle_pending_local_handoff_intent(
-	request_id: int,
-	backend_was_released: bool
-) -> void:
+func _settle_pending_local_handoff_intent(request_id: int, backend_was_released: bool) -> void:
 	if not _is_pending_bgm_start_request(request_id):
 		return
-	var intent: Dictionary = GFVariantData.get_option_dictionary(
-		_bgm_pending_start_request,
-		"terminal_intent"
-	)
+	var intent: Dictionary = GFVariantData.get_option_dictionary(_bgm_pending_start_request, "terminal_intent")
 	if intent.is_empty():
 		return
 	var request: Dictionary = _bgm_pending_start_request
 	_bgm_pending_start_request = {}
-	_complete_bgm_pending_request(
-		GFVariantData.get_option_int(request, "pending_token")
-	)
-	request["backend_disposition"] = (
-		GFBgmStartResult.BackendDisposition.INVALIDATED
-	)
+	_complete_bgm_pending_request(GFVariantData.get_option_int(request, "pending_token"))
+	request["backend_disposition"] = (GFBgmStartResult.BackendDisposition.INVALIDATED)
 	var operation: GFBgmStartOperation = _freeze_bgm_start_record(
 		request,
 		GFVariantData.get_option_int(intent, "status") as GFBgmStartResult.Status,
@@ -9783,19 +9859,12 @@ func _settle_pending_local_handoff_intent(
 		GFVariantData.get_option_int(intent, "error_code") as Error
 	)
 	var session_id: int = _bgm_committed_session_id
-	var active_intent: Dictionary = _take_deferred_bgm_session_terminal(
-		session_id
-	)
+	var active_intent: Dictionary = _take_deferred_bgm_session_terminal(session_id)
 	var handle: GFBgmSessionHandle = null
 	if backend_was_released or not active_intent.is_empty():
-		var end_kind: GFBgmSessionHandle.EndKind = (
-			GFBgmSessionHandle.EndKind.PLAYBACK_FAILED
-		)
+		var end_kind: GFBgmSessionHandle.EndKind = GFBgmSessionHandle.EndKind.PLAYBACK_FAILED
 		if not active_intent.is_empty():
-			end_kind = GFVariantData.get_option_int(
-				active_intent,
-				"end_kind"
-			) as GFBgmSessionHandle.EndKind
+			end_kind = GFVariantData.get_option_int(active_intent, "end_kind") as GFBgmSessionHandle.EndKind
 		handle = _freeze_bgm_session_handle(session_id, end_kind)
 		_stop_all_local_bgm_players()
 		_clear_bgm_session_state()
@@ -9819,9 +9888,7 @@ func _settle_failed_bgm_publication(
 		return
 	var request: Dictionary = _bgm_pending_start_request
 	_bgm_pending_start_request = {}
-	_complete_bgm_pending_request(
-		GFVariantData.get_option_int(request, "pending_token")
-	)
+	_complete_bgm_pending_request(GFVariantData.get_option_int(request, "pending_token"))
 	request["backend_disposition"] = backend_disposition
 	var operation: GFBgmStartOperation = _freeze_bgm_start_record(
 		request,
@@ -9830,15 +9897,10 @@ func _settle_failed_bgm_publication(
 		ERR_CANT_CREATE
 	)
 	var session_id: int = _bgm_committed_session_id
-	var active_intent: Dictionary = _take_deferred_bgm_session_terminal(
-		session_id
-	)
+	var active_intent: Dictionary = _take_deferred_bgm_session_terminal(session_id)
 	var end_kind: GFBgmSessionHandle.EndKind = GFBgmSessionHandle.EndKind.NONE
 	if not active_intent.is_empty():
-		end_kind = GFVariantData.get_option_int(
-			active_intent,
-			"end_kind"
-		) as GFBgmSessionHandle.EndKind
+		end_kind = GFVariantData.get_option_int(active_intent, "end_kind") as GFBgmSessionHandle.EndKind
 	elif previous_session_was_lost:
 		end_kind = GFBgmSessionHandle.EndKind.PLAYBACK_FAILED
 	var natural_history_key: String = ""
@@ -9870,18 +9932,11 @@ func _commit_typed_local_bgm_candidate(
 	session_id: int
 ) -> void:
 	var candidate_player: AudioStreamPlayer = _get_bgm_candidate_player(candidate)
-	var replacement_player: AudioStreamPlayer = (
-		_get_bgm_candidate_replacement_player(candidate)
-	)
+	var replacement_player: AudioStreamPlayer = _get_bgm_candidate_replacement_player(candidate)
 	var previous_session_id: int = _bgm_committed_session_id
 	var previous_session: Dictionary = _get_bgm_session(previous_session_id)
-	var previous_player: AudioStreamPlayer = _get_bgm_session_player(
-		previous_session
-	)
-	var can_crossfade: bool = GFVariantData.get_option_bool(
-		candidate,
-		"can_crossfade"
-	)
+	var previous_player: AudioStreamPlayer = _get_bgm_session_player(previous_session)
+	var can_crossfade: bool = GFVariantData.get_option_bool(candidate, "can_crossfade")
 	_bgm_request_serial += 1
 	_bgm_generation += 1
 	_bgm_pause_serial += 1
@@ -9896,7 +9951,10 @@ func _commit_typed_local_bgm_candidate(
 		if (
 			is_instance_valid(old_player)
 			and old_player != candidate_player
-			and (not can_crossfade or old_player != previous_player)
+			and (
+				not can_crossfade
+				or old_player != previous_player
+			)
 		):
 			_remove_bgm_session_for_player(old_player, true)
 			_stop_local_bgm_player(old_player)
@@ -9915,10 +9973,7 @@ func _commit_typed_local_bgm_candidate(
 		&"incoming" if can_crossfade else &"current"
 	)
 	_bgm_owner = _OWNER_LOCAL
-	_current_bgm_region = GFVariantData.get_option_dictionary(
-		execution_plan,
-		"playback_region"
-	).duplicate(true)
+	_current_bgm_region = (GFVariantData.get_option_dictionary(execution_plan, "playback_region").duplicate(true))
 	if can_crossfade:
 		_set_bgm_session_role(previous_session_id, &"outgoing")
 		_bgm_player = previous_player
@@ -9933,10 +9988,7 @@ func _commit_typed_local_bgm_candidate(
 			GFVariantData.get_option_float(candidate, "fade_seconds")
 		)
 	else:
-		candidate_player.volume_db = GFVariantData.get_option_float(
-			candidate,
-			"target_volume_db"
-		)
+		candidate_player.volume_db = GFVariantData.get_option_float(candidate, "target_volume_db")
 		_bgm_player = candidate_player
 		_bgm_fade_player = replacement_player
 		_bgm_current_session_id = session_id
@@ -9968,7 +10020,13 @@ func _start_committed_bgm_crossfade(
 		)
 		return
 	_bgm_fade_tween_ref = weakref(tween)
-	_add_tween_property(tween, _bgm_player, "volume_db", SILENCE_VOLUME_DB, fade_seconds)
+	_add_tween_property(
+		tween,
+		_bgm_player,
+		"volume_db",
+		SILENCE_VOLUME_DB,
+		fade_seconds
+	)
 	var parallel_tween: Tween = tween.parallel()
 	_add_tween_property(
 		parallel_tween,
@@ -9994,18 +10052,12 @@ func _start_committed_bgm_crossfade(
 ## [br]
 ## @api private
 ## [br]
-func _commit_pending_backend_bgm_start(
-	request_id: int,
-	playback_region: Dictionary
-) -> void:
+func _commit_pending_backend_bgm_start(request_id: int, playback_region: Dictionary) -> void:
 	if not _is_pending_bgm_start_request(request_id):
 		return
 	if _pending_bgm_start_has_owner(_bgm_pending_start_request):
 		if _get_bgm_start_owner(_bgm_pending_start_request) == null:
-			_set_pending_bgm_backend_disposition(
-				request_id,
-				GFBgmStartResult.BackendDisposition.INVALIDATED
-			)
+			_set_pending_bgm_backend_disposition(request_id, GFBgmStartResult.BackendDisposition.INVALIDATED)
 			var _intent_recorded: bool = _record_pending_bgm_terminal_intent(
 				GFBgmStartResult.Status.CANCELLED,
 				GFBgmStartResult.REASON_OWNER_RELEASED,
@@ -10015,10 +10067,7 @@ func _commit_pending_backend_bgm_start(
 			return
 	var request: Dictionary = _bgm_pending_start_request
 	var previous_owner: StringName = _bgm_owner
-	var session_id: int = GFVariantData.get_option_int(
-		request,
-		"reserved_session_id"
-	)
+	var session_id: int = GFVariantData.get_option_int(request, "reserved_session_id")
 	if session_id <= 0:
 		_settle_backend_bgm_publication_failure(request_id, previous_owner)
 		return
@@ -10062,16 +10111,10 @@ func _commit_pending_backend_bgm_start(
 ## [br]
 ## @api private
 ## [br]
-func _settle_backend_bgm_publication_failure(
-	request_id: int,
-	previous_owner: StringName
-) -> void:
+func _settle_backend_bgm_publication_failure(request_id: int, previous_owner: StringName) -> void:
 	if not _is_pending_bgm_start_request(request_id):
 		return
-	_set_pending_bgm_backend_disposition(
-		request_id,
-		GFBgmStartResult.BackendDisposition.INVALIDATED
-	)
+	_set_pending_bgm_backend_disposition(request_id, GFBgmStartResult.BackendDisposition.INVALIDATED)
 	var _failure_intent_recorded: bool = _record_pending_bgm_terminal_intent(
 		GFBgmStartResult.Status.FAILED,
 		GFBgmStartResult.REASON_SESSION_PUBLICATION_FAILED,
@@ -10079,12 +10122,10 @@ func _settle_backend_bgm_publication_failure(
 	)
 	var previous_session_was_lost: bool = previous_owner == _OWNER_BACKEND
 	if previous_session_was_lost:
-		var _active_failure_recorded: bool = (
-			_record_deferred_bgm_session_terminal(
-				_bgm_committed_session_id,
-				GFBgmSessionHandle.EndKind.PLAYBACK_FAILED,
-				0.0
-			)
+		var _active_failure_recorded: bool = _record_deferred_bgm_session_terminal(
+			_bgm_committed_session_id,
+			GFBgmSessionHandle.EndKind.PLAYBACK_FAILED,
+			0.0
 		)
 	_compensate_invalidated_backend_bgm_start()
 	_settle_failed_bgm_publication(
@@ -10112,39 +10153,35 @@ func _prepare_started_bgm_publication(
 		return {}
 	var history_key: String = GFVariantData.get_option_string(request, "history_key")
 	var handle: GFBgmSessionHandle = GFBgmSessionHandle.new()
-	if not handle.configure_for_framework(
-		session_id,
-		request_id,
-		history_key,
-		owner_kind,
-		Callable(self, "_request_bgm_session_stop_for_framework")
+	if not (
+		handle.configure_for_framework(
+			session_id,
+			request_id,
+			history_key,
+			owner_kind,
+			Callable(self, "_request_bgm_session_stop_for_framework")
+		)
 	):
 		push_error("[GFAudioUtility][audio_utility.bgm_session_configuration_failed] Cannot configure the BGM Session Handle.")
 		return {}
-	var disposition: GFBgmStartResult.BackendDisposition = (
-		GFVariantData.get_option_int(
-			request,
-			"backend_disposition"
-		) as GFBgmStartResult.BackendDisposition
-	)
+	var disposition: GFBgmStartResult.BackendDisposition = GFVariantData.get_option_int(request, "backend_disposition") as GFBgmStartResult.BackendDisposition
 	var started_reason: StringName = GFBgmStartResult.REASON_LOCAL_STARTED
 	if owner_kind == GFBgmSessionHandle.OwnerKind.BACKEND:
 		started_reason = GFBgmStartResult.REASON_BACKEND_STARTED
-	elif disposition in [
-		GFBgmStartResult.BackendDisposition.NOT_CLAIMED,
-		GFBgmStartResult.BackendDisposition.REJECTED,
-	]:
+	elif (disposition in [GFBgmStartResult.BackendDisposition.NOT_CLAIMED, GFBgmStartResult.BackendDisposition.REJECTED,]):
 		started_reason = GFBgmStartResult.REASON_BACKEND_FALLBACK_STARTED
 	var result: GFBgmStartResult = GFBgmStartResult.new()
-	if not result.configure_for_framework(
-		GFBgmStartResult.Status.STARTED,
-		request_id,
-		started_reason,
-		OK,
-		history_key,
-		owner_kind,
-		disposition,
-		handle
+	if not (
+		result.configure_for_framework(
+			GFBgmStartResult.Status.STARTED,
+			request_id,
+			started_reason,
+			OK,
+			history_key,
+			owner_kind,
+			disposition,
+			handle
+		)
 	):
 		push_error("[GFAudioUtility][audio_utility.bgm_started_terminal_failed] Cannot configure the STARTED BGM terminal result.")
 		return {}
@@ -10152,17 +10189,10 @@ func _prepare_started_bgm_publication(
 		push_error("[GFAudioUtility][audio_utility.bgm_started_freeze_failed] Cannot freeze the STARTED BGM Operation.")
 		return {}
 	var previous_session_id: int = _bgm_committed_session_id
-	var previous_end_kind: GFBgmSessionHandle.EndKind = (
-		GFBgmSessionHandle.EndKind.REPLACED
-	)
-	var previous_terminal_intent: Dictionary = (
-		_take_deferred_bgm_session_terminal(previous_session_id)
-	)
+	var previous_end_kind: GFBgmSessionHandle.EndKind = GFBgmSessionHandle.EndKind.REPLACED
+	var previous_terminal_intent: Dictionary = _take_deferred_bgm_session_terminal(previous_session_id)
 	if not previous_terminal_intent.is_empty():
-		previous_end_kind = GFVariantData.get_option_int(
-			previous_terminal_intent,
-			"end_kind"
-		) as GFBgmSessionHandle.EndKind
+		previous_end_kind = GFVariantData.get_option_int(previous_terminal_intent, "end_kind") as GFBgmSessionHandle.EndKind
 	return {
 		"request": request,
 		"operation": operation,
@@ -10182,18 +10212,9 @@ func _prepare_started_bgm_publication(
 ## @api private
 ## [br]
 func _finalize_started_bgm_publication(publication: Dictionary) -> void:
-	var request: Dictionary = GFVariantData.get_option_dictionary(
-		publication,
-		"request"
-	)
-	var operation_value: Variant = GFVariantData.get_option_value(
-		publication,
-		"operation"
-	)
-	var handle_value: Variant = GFVariantData.get_option_value(
-		publication,
-		"handle"
-	)
+	var request: Dictionary = GFVariantData.get_option_dictionary(publication, "request")
+	var operation_value: Variant = GFVariantData.get_option_value(publication, "operation")
+	var handle_value: Variant = GFVariantData.get_option_value(publication, "handle")
 	if not operation_value is GFBgmStartOperation:
 		return
 	if not handle_value is GFBgmSessionHandle:
@@ -10201,37 +10222,28 @@ func _finalize_started_bgm_publication(publication: Dictionary) -> void:
 	var operation: GFBgmStartOperation = operation_value
 	var handle: GFBgmSessionHandle = handle_value
 	var session_id: int = GFVariantData.get_option_int(publication, "session_id")
-	var previous_session_id: int = GFVariantData.get_option_int(
-		publication,
-		"previous_session_id"
+	var previous_session_id: int = GFVariantData.get_option_int(publication, "previous_session_id")
+	_register_bgm_session_lifecycle(
+		session_id,
+		request,
+		handle
 	)
-	_register_bgm_session_lifecycle(session_id, request, handle)
 	_bgm_committed_session_id = session_id
 	_bgm_pending_start_request = {}
-	_complete_bgm_pending_request(
-		GFVariantData.get_option_int(request, "pending_token")
-	)
+	_complete_bgm_pending_request(GFVariantData.get_option_int(request, "pending_token"))
 	var previous_handle: GFBgmSessionHandle = null
-	var previous_end_kind: GFBgmSessionHandle.EndKind = (
-		GFVariantData.get_option_int(
-			publication,
-			"previous_end_kind",
-			GFBgmSessionHandle.EndKind.REPLACED
-		) as GFBgmSessionHandle.EndKind
-	)
+	var previous_end_kind: GFBgmSessionHandle.EndKind = GFVariantData.get_option_int(
+		publication,
+		"previous_end_kind",
+		GFBgmSessionHandle.EndKind.REPLACED
+	) as GFBgmSessionHandle.EndKind
 	if previous_session_id > 0 and previous_session_id != session_id:
-		previous_handle = _freeze_bgm_session_handle(
-			previous_session_id,
-			previous_end_kind
-		)
+		previous_handle = _freeze_bgm_session_handle(previous_session_id, previous_end_kind)
 	var _operation_emitted: bool = operation.emit_completed_for_framework()
 	if previous_handle != null:
 		var _previous_emitted: bool = previous_handle.emit_ended_for_framework()
 	if previous_end_kind == GFBgmSessionHandle.EndKind.NATURAL_FINISH:
-		var previous_history_key: String = GFVariantData.get_option_string(
-			publication,
-			"previous_history_key"
-		)
+		var previous_history_key: String = GFVariantData.get_option_string(publication, "previous_history_key")
 		if not previous_history_key.is_empty():
 			bgm_finished.emit(previous_history_key)
 
@@ -10249,14 +10261,8 @@ func _register_bgm_session_lifecycle(
 		"request_id": GFVariantData.get_option_int(request, "request_id"),
 		"handle_ref": weakref(handle),
 		"owner_ref": GFVariantData.get_option_value(request, "owner_ref"),
-		"owner_instance_id": GFVariantData.get_option_int(
-			request,
-			"owner_instance_id"
-		),
-		"owner_exit_callback": GFVariantData.get_option_value(
-			request,
-			"owner_exit_callback"
-		),
+		"owner_instance_id": GFVariantData.get_option_int(request, "owner_instance_id"),
+		"owner_exit_callback": GFVariantData.get_option_value(request, "owner_exit_callback"),
 	}
 
 
@@ -10265,13 +10271,8 @@ func _register_bgm_session_lifecycle(
 ## @api private
 ## [br]
 func _get_bgm_session_handle(session_id: int) -> GFBgmSessionHandle:
-	var lifecycle: Dictionary = GFVariantData.as_dictionary(
-		_bgm_session_lifecycles.get(session_id)
-	)
-	var handle_ref_value: Variant = GFVariantData.get_option_value(
-		lifecycle,
-		"handle_ref"
-	)
+	var lifecycle: Dictionary = GFVariantData.as_dictionary(_bgm_session_lifecycles.get(session_id))
+	var handle_ref_value: Variant = GFVariantData.get_option_value(lifecycle, "handle_ref")
 	if handle_ref_value is WeakRef:
 		var handle_ref: WeakRef = handle_ref_value
 		var handle_value: Variant = handle_ref.get_ref()
@@ -10285,16 +10286,9 @@ func _get_bgm_session_handle(session_id: int) -> GFBgmSessionHandle:
 ## [br]
 ## @api private
 ## [br]
-func _freeze_bgm_session_handle(
-	session_id: int,
-	end_kind: GFBgmSessionHandle.EndKind
-) -> GFBgmSessionHandle:
-	var effective_end_kind: GFBgmSessionHandle.EndKind = (
-		_take_effective_bgm_session_end_kind(session_id, end_kind)
-	)
-	var lifecycle: Dictionary = GFVariantData.as_dictionary(
-		_bgm_session_lifecycles.get(session_id)
-	)
+func _freeze_bgm_session_handle(session_id: int, end_kind: GFBgmSessionHandle.EndKind) -> GFBgmSessionHandle:
+	var effective_end_kind: GFBgmSessionHandle.EndKind = _take_effective_bgm_session_end_kind(session_id, end_kind)
+	var lifecycle: Dictionary = GFVariantData.as_dictionary(_bgm_session_lifecycles.get(session_id))
 	var handle: GFBgmSessionHandle = _get_bgm_session_handle(session_id)
 	_disconnect_bgm_session_owner(lifecycle)
 	var _erased: bool = _bgm_session_lifecycles.erase(session_id)
@@ -10310,14 +10304,8 @@ func _freeze_bgm_session_handle(
 ## [br]
 ## @api private
 ## [br]
-func _complete_bgm_session_handle(
-	session_id: int,
-	end_kind: GFBgmSessionHandle.EndKind
-) -> bool:
-	var handle: GFBgmSessionHandle = _freeze_bgm_session_handle(
-		session_id,
-		end_kind
-	)
+func _complete_bgm_session_handle(session_id: int, end_kind: GFBgmSessionHandle.EndKind) -> bool:
+	var handle: GFBgmSessionHandle = _freeze_bgm_session_handle(session_id, end_kind)
 	return handle != null and handle.emit_ended_for_framework()
 
 
@@ -10325,12 +10313,8 @@ func _complete_bgm_session_handle(
 ## [br]
 ## @api private
 ## [br]
-func _complete_all_bgm_session_handles(
-	end_kind: GFBgmSessionHandle.EndKind
-) -> void:
-	var handles: Array[GFBgmSessionHandle] = _freeze_all_bgm_session_handles(
-		end_kind
-	)
+func _complete_all_bgm_session_handles(end_kind: GFBgmSessionHandle.EndKind) -> void:
+	var handles: Array[GFBgmSessionHandle] = _freeze_all_bgm_session_handles(end_kind)
 	_emit_bgm_session_handles(handles)
 
 
@@ -10338,9 +10322,7 @@ func _complete_all_bgm_session_handles(
 ## [br]
 ## @api private
 ## [br]
-func _freeze_all_bgm_session_handles(
-	end_kind: GFBgmSessionHandle.EndKind
-) -> Array[GFBgmSessionHandle]:
+func _freeze_all_bgm_session_handles(end_kind: GFBgmSessionHandle.EndKind) -> Array[GFBgmSessionHandle]:
 	var handles: Array[GFBgmSessionHandle] = []
 	var session_ids: Array = _bgm_session_lifecycles.keys()
 	session_ids.sort()
@@ -10370,14 +10352,8 @@ func _emit_bgm_session_handles(handles: Array[GFBgmSessionHandle]) -> void:
 ## @api private
 ## [br]
 func _disconnect_bgm_session_owner(lifecycle: Dictionary) -> void:
-	var owner_ref_value: Variant = GFVariantData.get_option_value(
-		lifecycle,
-		"owner_ref"
-	)
-	var callback_value: Variant = GFVariantData.get_option_value(
-		lifecycle,
-		"owner_exit_callback"
-	)
+	var owner_ref_value: Variant = GFVariantData.get_option_value(lifecycle, "owner_ref")
+	var callback_value: Variant = GFVariantData.get_option_value(lifecycle, "owner_exit_callback")
 	if not owner_ref_value is WeakRef or not callback_value is Callable:
 		return
 	var owner_ref: WeakRef = owner_ref_value
@@ -10396,9 +10372,7 @@ func _disconnect_bgm_session_owner(lifecycle: Dictionary) -> void:
 func _find_bgm_lifecycle_session_for_request(request_id: int) -> int:
 	for session_id_value: Variant in _bgm_session_lifecycles.keys():
 		var session_id: int = GFVariantData.to_int(session_id_value)
-		var lifecycle: Dictionary = GFVariantData.as_dictionary(
-			_bgm_session_lifecycles.get(session_id)
-		)
+		var lifecycle: Dictionary = GFVariantData.as_dictionary(_bgm_session_lifecycles.get(session_id))
 		if GFVariantData.get_option_int(lifecycle, "request_id") == request_id:
 			return session_id
 	return 0
@@ -10408,10 +10382,7 @@ func _find_bgm_lifecycle_session_for_request(request_id: int) -> int:
 ## [br]
 ## @api private
 ## [br]
-func _request_bgm_session_stop_for_framework(
-	handle: GFBgmSessionHandle,
-	fade_seconds: float
-) -> bool:
+func _request_bgm_session_stop_for_framework(handle: GFBgmSessionHandle, fade_seconds: float) -> bool:
 	if (
 		not Thread.is_main_thread()
 		or handle == null
@@ -10446,31 +10417,25 @@ func _request_bgm_session_stop_by_id(
 		if accepted:
 			_schedule_deferred_audio_drain()
 		return accepted
-	var pending_terminal_waiting: bool = (
-		not _bgm_pending_start_request.is_empty()
-		and _bgm_pending_start_request.has("terminal_intent")
-	)
-	var active_terminal_waiting: bool = (
-		GFVariantData.get_option_int(
-			_deferred_bgm_session_terminal,
-			"session_id"
-		) == session_id
-	)
+	var pending_terminal_waiting: bool = (not _bgm_pending_start_request.is_empty() and _bgm_pending_start_request.has("terminal_intent"))
+	var active_terminal_waiting: bool = ((GFVariantData.get_option_int(_deferred_bgm_session_terminal, "session_id")) == session_id)
 	if (
 		_audio_dispose_deferred
 		or pending_terminal_waiting
 		or active_terminal_waiting
 	):
-		var terminal_intent_recorded: bool = (
-			_record_deferred_bgm_session_terminal(
-				session_id,
-				end_kind,
-				fade_seconds
-			)
+		var terminal_intent_recorded: bool = _record_deferred_bgm_session_terminal(
+			session_id,
+			end_kind,
+			fade_seconds
 		)
 		_run_deferred_audio_dispose_if_needed()
 		return terminal_intent_recorded
-	return _stop_exact_committed_bgm_session(session_id, fade_seconds, end_kind)
+	return _stop_exact_committed_bgm_session(
+		session_id,
+		fade_seconds,
+		end_kind
+	)
 
 
 ## 仅停止与给定 ID 匹配的已提交 BGM 会话。
@@ -10491,32 +10456,20 @@ func _stop_exact_committed_bgm_session(
 		or session_id != _bgm_committed_session_id
 	):
 		return false
-	var first_terminal_intent: Dictionary = (
-		_take_deferred_bgm_session_terminal(session_id)
-	)
+	var first_terminal_intent: Dictionary = _take_deferred_bgm_session_terminal(session_id)
 	var effective_end_kind: GFBgmSessionHandle.EndKind = end_kind
 	var effective_fade_seconds: float = fade_seconds
 	if not first_terminal_intent.is_empty():
-		effective_end_kind = GFVariantData.get_option_int(
-			first_terminal_intent,
-			"end_kind"
-		) as GFBgmSessionHandle.EndKind
-		effective_fade_seconds = GFVariantData.get_option_float(
-			first_terminal_intent,
-			"fade_seconds"
-		)
-	var effective_was_deferred: bool = (
-		accepted_deferred or not first_terminal_intent.is_empty()
-	)
+		effective_end_kind = GFVariantData.get_option_int(first_terminal_intent, "end_kind") as GFBgmSessionHandle.EndKind
+		effective_fade_seconds = GFVariantData.get_option_float(first_terminal_intent, "fade_seconds")
+	var effective_was_deferred: bool = accepted_deferred or not first_terminal_intent.is_empty()
 	var natural_history_key: String = ""
 	if effective_end_kind == GFBgmSessionHandle.EndKind.NATURAL_FINISH:
 		natural_history_key = GFVariantData.get_option_string(
 			_get_bgm_session(session_id),
 			"history_key"
 		)
-	var safe_fade: float = _finite_non_negative_or_zero(
-		effective_fade_seconds
-	)
+	var safe_fade: float = _finite_non_negative_or_zero(effective_fade_seconds)
 	var previous_state: StringName = _bgm_state
 	var previous_paused: bool = _bgm_paused
 	_bgm_request_serial += 1
@@ -10532,29 +10485,18 @@ func _stop_exact_committed_bgm_session(
 		var later_terminal_intent: Dictionary = {}
 		if effective_end_kind != GFBgmSessionHandle.EndKind.NATURAL_FINISH:
 			backend_stopped = _notify_backend_stop_bgm(safe_fade)
-			later_terminal_intent = _take_deferred_bgm_session_terminal(
-				session_id
-			)
+			later_terminal_intent = _take_deferred_bgm_session_terminal(session_id)
 		if not backend_stopped:
 			_bgm_state = previous_state
 			_bgm_paused = previous_paused
 			if (
 				not effective_was_deferred
 				and later_terminal_intent.is_empty()
-				and effective_end_kind not in [
-					GFBgmSessionHandle.EndKind.OWNER_RELEASED,
-					GFBgmSessionHandle.EndKind.UTILITY_DISPOSED,
-				]
+				and (effective_end_kind not in [GFBgmSessionHandle.EndKind.OWNER_RELEASED, GFBgmSessionHandle.EndKind.UTILITY_DISPOSED,])
 			):
 				return false
-			push_warning(
-				"[GFAudioUtility][audio_utility.bgm_admitted_stop_rejected] The backend rejected stopping an admitted BGM terminal result; "
-				+ "the framework will finalize the logical Session Handle and release its owner."
-			)
-		var handle: GFBgmSessionHandle = _freeze_bgm_session_handle(
-			session_id,
-			effective_end_kind
-		)
+			push_warning("[GFAudioUtility][audio_utility.bgm_admitted_stop_rejected] The backend rejected stopping an admitted BGM terminal result; " + "the framework will finalize the logical Session Handle and release its owner.")
+		var handle: GFBgmSessionHandle = _freeze_bgm_session_handle(session_id, effective_end_kind)
 		_stop_all_local_bgm_players()
 		_clear_bgm_session_state()
 		_capture_bgm_session_terminal_notification(
@@ -10566,14 +10508,8 @@ func _stop_exact_committed_bgm_session(
 		)
 		return true
 
-	if (
-		_bgm_state == _STATE_CROSSFADING
-		or session_id != _bgm_current_session_id
-	):
-		var crossfade_handle: GFBgmSessionHandle = _freeze_bgm_session_handle(
-			session_id,
-			effective_end_kind
-		)
+	if (_bgm_state == _STATE_CROSSFADING or session_id != _bgm_current_session_id):
+		var crossfade_handle: GFBgmSessionHandle = _freeze_bgm_session_handle(session_id, effective_end_kind)
 		_stop_all_local_bgm_players()
 		_clear_bgm_session_state()
 		_capture_bgm_session_terminal_notification(
@@ -10589,10 +10525,7 @@ func _stop_exact_committed_bgm_session(
 	var session: Dictionary = _get_bgm_session(_bgm_current_session_id)
 	var player: AudioStreamPlayer = _get_bgm_session_player(session)
 	if _bgm_owner != _OWNER_LOCAL or not is_instance_valid(player):
-		var missing_handle: GFBgmSessionHandle = _freeze_bgm_session_handle(
-			session_id,
-			effective_end_kind
-		)
+		var missing_handle: GFBgmSessionHandle = _freeze_bgm_session_handle(session_id, effective_end_kind)
 		_stop_all_local_bgm_players()
 		_clear_bgm_session_state()
 		_capture_bgm_session_terminal_notification(
@@ -10606,10 +10539,7 @@ func _stop_exact_committed_bgm_session(
 
 	_bgm_state = _STATE_STOPPING
 	player.stream_paused = false
-	var local_handle: GFBgmSessionHandle = _freeze_bgm_session_handle(
-		session_id,
-		effective_end_kind
-	)
+	var local_handle: GFBgmSessionHandle = _freeze_bgm_session_handle(session_id, effective_end_kind)
 	_start_bgm_session_stop(
 		player,
 		_bgm_current_session_id,
@@ -10827,9 +10757,7 @@ func _commit_local_bgm_execution_plan(
 ) -> int:
 	if request_serial != _bgm_request_serial:
 		return 0
-	var prepared_stream: AudioStream = _get_audio_stream_value(
-		GFVariantData.get_option_value(execution_plan, "prepared_stream")
-	)
+	var prepared_stream: AudioStream = _get_audio_stream_value(GFVariantData.get_option_value(execution_plan, "prepared_stream"))
 	if (
 		not GFVariantData.get_option_bool(execution_plan, "accepted")
 		or prepared_stream == null
@@ -10837,14 +10765,8 @@ func _commit_local_bgm_execution_plan(
 	):
 		_restore_bgm_state_after_failed_request(request_serial)
 		return 0
-	var start_seconds: float = GFVariantData.get_option_float(
-		execution_plan,
-		"start_seconds"
-	)
-	var playback_region_snapshot: Dictionary = GFVariantData.get_option_dictionary(
-		execution_plan,
-		"playback_region"
-	)
+	var start_seconds: float = GFVariantData.get_option_float(execution_plan, "start_seconds")
+	var playback_region_snapshot: Dictionary = GFVariantData.get_option_dictionary(execution_plan, "playback_region")
 
 	if _bgm_owner == _OWNER_BACKEND:
 		if not backend_already_released and not _notify_backend_stop_bgm(0.0):
@@ -10876,7 +10798,13 @@ func _commit_local_bgm_execution_plan(
 
 	_stop_all_local_bgm_players()
 	_bgm_owner = _OWNER_LOCAL
-	_apply_player_settings(_bgm_player, prepared_stream, bus_name, volume_db, pitch_scale)
+	_apply_player_settings(
+		_bgm_player,
+		prepared_stream,
+		bus_name,
+		volume_db,
+		pitch_scale
+	)
 	_bgm_current_session_id = _create_bgm_session(
 		_bgm_player,
 		request_serial,
@@ -11002,7 +10930,13 @@ func _start_bgm_crossfade(
 	if not is_instance_valid(_bgm_fade_player):
 		_stop_all_local_bgm_players()
 		_bgm_owner = _OWNER_LOCAL
-		_apply_player_settings(_bgm_player, stream, bus_name, volume_db, pitch_scale)
+		_apply_player_settings(
+			_bgm_player,
+			stream,
+			bus_name,
+			volume_db,
+			pitch_scale
+		)
 		_bgm_current_session_id = _create_bgm_session(
 			_bgm_player,
 			request_serial,
@@ -11022,7 +10956,13 @@ func _start_bgm_crossfade(
 	var outgoing_session_id: int = _bgm_current_session_id
 	_set_bgm_session_role(outgoing_session_id, &"outgoing")
 	_remove_bgm_session_for_player(_bgm_fade_player, true)
-	_apply_player_settings(_bgm_fade_player, stream, bus_name, -80.0, pitch_scale)
+	_apply_player_settings(
+		_bgm_fade_player,
+		stream,
+		bus_name,
+		-80.0,
+		pitch_scale
+	)
 	_bgm_incoming_session_id = _create_bgm_session(
 		_bgm_fade_player,
 		request_serial,
@@ -11048,9 +10988,21 @@ func _start_bgm_crossfade(
 		return incoming_session_id
 
 	_bgm_fade_tween_ref = weakref(tween)
-	_add_tween_property(tween, _bgm_player, "volume_db", -80.0, fade_seconds)
+	_add_tween_property(
+		tween,
+		_bgm_player,
+		"volume_db",
+		-80.0,
+		fade_seconds
+	)
 	var parallel_tween: Tween = tween.parallel()
-	_add_tween_property(parallel_tween, _bgm_fade_player, "volume_db", volume_db, fade_seconds)
+	_add_tween_property(
+		parallel_tween,
+		_bgm_fade_player,
+		"volume_db",
+		volume_db,
+		fade_seconds
+	)
 	var finished_callback: Callable = func() -> void:
 		_complete_bgm_crossfade(
 			operation_generation,
@@ -11059,7 +11011,11 @@ func _start_bgm_crossfade(
 			incoming_session_id,
 			volume_db
 		)
-	_connect_signal_checked(tween.finished, finished_callback, CONNECT_ONE_SHOT)
+	_connect_signal_checked(
+		tween.finished,
+		finished_callback,
+		CONNECT_ONE_SHOT
+	)
 	return incoming_session_id
 
 
@@ -11087,10 +11043,7 @@ func _complete_bgm_crossfade(
 	var incoming_player: AudioStreamPlayer = _get_bgm_session_player(incoming_session)
 	if not is_instance_valid(incoming_player) or not incoming_player.playing:
 		if incoming_session_id == _bgm_committed_session_id:
-			var handle: GFBgmSessionHandle = _freeze_bgm_session_handle(
-				incoming_session_id,
-				GFBgmSessionHandle.EndKind.PLAYBACK_FAILED
-			)
+			var handle: GFBgmSessionHandle = _freeze_bgm_session_handle(incoming_session_id, GFBgmSessionHandle.EndKind.PLAYBACK_FAILED)
 			_stop_all_local_bgm_players()
 			_clear_bgm_session_state()
 			if handle != null:
@@ -11121,10 +11074,7 @@ func _complete_bgm_crossfade(
 	_set_bgm_session_role(incoming_session_id, &"current")
 	_bgm_state = _STATE_PLAYING
 	_current_bgm_key = GFVariantData.get_option_string(incoming_session, "history_key")
-	_current_bgm_region = GFVariantData.get_option_dictionary(
-		incoming_session,
-		"playback_region"
-	).duplicate(true)
+	_current_bgm_region = (GFVariantData.get_option_dictionary(incoming_session, "playback_region").duplicate(true))
 
 
 ## 按当前暂停操作应用 BGM 播放状态变化。
@@ -11355,10 +11305,7 @@ func _abort_bgm_incoming_session(_incoming_finished: bool) -> void:
 		)
 		_set_bgm_session_role(_bgm_current_session_id, &"current")
 		_current_bgm_key = GFVariantData.get_option_string(outgoing_session, "history_key")
-		_current_bgm_region = GFVariantData.get_option_dictionary(
-			outgoing_session,
-			"playback_region"
-		).duplicate(true)
+		_current_bgm_region = (GFVariantData.get_option_dictionary(outgoing_session, "playback_region").duplicate(true))
 		_bgm_state = _STATE_PLAYING
 		return
 
@@ -11393,7 +11340,10 @@ func _restore_bgm_state_after_failed_request(request_serial: int) -> void:
 		_bgm_owner == _OWNER_LOCAL
 		and is_instance_valid(current_player)
 		and current_player.stream != null
-		and (current_player.playing or current_player.stream_paused)
+		and (
+			current_player.playing
+			or current_player.stream_paused
+		)
 	):
 		_bgm_state = _STATE_PAUSED if current_player.stream_paused else _STATE_PLAYING
 		_bgm_paused = current_player.stream_paused
@@ -11404,14 +11354,15 @@ func _restore_bgm_state_after_failed_request(request_serial: int) -> void:
 				current_player.volume_db
 			)
 		_current_bgm_key = GFVariantData.get_option_string(current_session, "history_key")
-		_current_bgm_region = GFVariantData.get_option_dictionary(
-			current_session,
-			"playback_region"
-		).duplicate(true)
+		_current_bgm_region = (GFVariantData.get_option_dictionary(current_session, "playback_region").duplicate(true))
 		return
 	if _bgm_owner == _OWNER_BACKEND:
 		_bgm_paused = _backend_dispatch_returned_true(
-			_dispatch_backend_call(&"is_bgm_paused", [], _audio_backend)
+			_dispatch_backend_call(
+				&"is_bgm_paused",
+				[],
+				_audio_backend
+			)
 		)
 		_bgm_state = _STATE_PAUSED if _bgm_paused else _STATE_PLAYING
 		return
@@ -11502,17 +11453,33 @@ func _start_bgm_session_stop(
 		_clear_bgm_session_state()
 		return
 	if fade_seconds <= 0.0 or not player.playing:
-		_finish_bgm_session_stop(operation_generation, session_id, player)
+		_finish_bgm_session_stop(
+			operation_generation,
+			session_id,
+			player
+		)
 		return
 
-	var tween: Tween = _fade_player_volume(player, SILENCE_VOLUME_DB, fade_seconds)
+	var tween: Tween = _fade_player_volume(
+		player,
+		SILENCE_VOLUME_DB,
+		fade_seconds
+	)
 	if tween == null:
-		_finish_bgm_session_stop(operation_generation, session_id, player)
+		_finish_bgm_session_stop(
+			operation_generation,
+			session_id,
+			player
+		)
 		return
 	_bgm_stop_tween_ref = weakref(tween)
 	_connect_signal_checked(
 		tween.finished,
-		_finish_bgm_session_stop.bind(operation_generation, session_id, player),
+		_finish_bgm_session_stop.bind(
+			operation_generation,
+			session_id,
+			player
+		),
 		CONNECT_ONE_SHOT
 	)
 	_start_bgm_stop_fallback_timer(
@@ -11632,25 +11599,15 @@ func _reserve_ambient_pending_request(channel: StringName) -> int:
 ## [br]
 ## @api private
 ## [br]
-func _is_ambient_pending_request_current(
-	channel: StringName,
-	pending_token: int
-) -> bool:
-	return (
-		pending_token > 0
-		and GFVariantData.get_option_int(_ambient_pending_request_tokens, channel)
-		== pending_token
-	)
+func _is_ambient_pending_request_current(channel: StringName, pending_token: int) -> bool:
+	return (pending_token > 0 and GFVariantData.get_option_int(_ambient_pending_request_tokens, channel) == pending_token)
 
 
 ## 令牌仍有效时清除该通道的环境音待处理请求。
 ## [br]
 ## @api private
 ## [br]
-func _complete_ambient_pending_request(
-	channel: StringName,
-	pending_token: int
-) -> void:
+func _complete_ambient_pending_request(channel: StringName, pending_token: int) -> void:
 	if _is_ambient_pending_request_current(channel, pending_token):
 		_erase_dictionary_key(_ambient_pending_request_tokens, channel)
 
@@ -11677,10 +11634,7 @@ func _invalidate_all_ambient_pending_requests() -> void:
 ## [br]
 ## @api private
 ## [br]
-func _begin_ambient_replacement(
-	channel: StringName,
-	pending_token: int = 0
-) -> int:
+func _begin_ambient_replacement(channel: StringName, pending_token: int = 0) -> int:
 	if pending_token > 0:
 		if not _is_ambient_pending_request_current(channel, pending_token):
 			return 0
@@ -11690,11 +11644,19 @@ func _begin_ambient_replacement(
 	var request_serial: int = _next_ambient_request_serial(channel)
 	_cancel_ambient_tween(channel)
 	var session: Dictionary = _get_ambient_session(channel)
-	var owner: StringName = GFVariantData.get_option_string_name(session, "owner", _OWNER_NONE)
+	var owner: StringName = GFVariantData.get_option_string_name(
+		session,
+		"owner",
+		_OWNER_NONE
+	)
 	var playback_session_id: int = GFVariantData.get_option_int(session, "playback_session_id")
 	var player: AudioStreamPlayer = _get_ambient_player(channel)
 	if playback_session_id > 0 and _is_playback_session_current(player, playback_session_id):
-		_disconnect_ambient_finished_callback(channel, player, playback_session_id)
+		_disconnect_ambient_finished_callback(
+			channel,
+			player,
+			playback_session_id
+		)
 		_invalidate_playback_session(player, playback_session_id)
 	_set_ambient_session(
 		channel,
@@ -11720,7 +11682,11 @@ func _commit_backend_ambient_session(
 	if request_serial != _get_ambient_request_serial(channel):
 		return
 	var session: Dictionary = _get_ambient_session(channel)
-	var previous_owner: StringName = GFVariantData.get_option_string_name(session, "owner", _OWNER_NONE)
+	var previous_owner: StringName = GFVariantData.get_option_string_name(
+		session,
+		"owner",
+		_OWNER_NONE
+	)
 	if previous_owner == _OWNER_LOCAL:
 		var player: AudioStreamPlayer = _get_ambient_player(channel)
 		if is_instance_valid(player):
@@ -11786,23 +11752,12 @@ func _commit_local_ambient_execution_plan(
 ) -> void:
 	if request_serial != _get_ambient_request_serial(channel):
 		return
-	var prepared_stream: AudioStream = _get_audio_stream_value(
-		GFVariantData.get_option_value(execution_plan, "prepared_stream")
-	)
-	if (
-		not GFVariantData.get_option_bool(execution_plan, "accepted")
-		or prepared_stream == null
-	):
+	var prepared_stream: AudioStream = _get_audio_stream_value(GFVariantData.get_option_value(execution_plan, "prepared_stream"))
+	if (not GFVariantData.get_option_bool(execution_plan, "accepted") or prepared_stream == null):
 		_restore_ambient_state_after_failed_request(channel, request_serial)
 		return
-	var start_seconds: float = GFVariantData.get_option_float(
-		execution_plan,
-		"start_seconds"
-	)
-	var playback_region_snapshot: Dictionary = GFVariantData.get_option_dictionary(
-		execution_plan,
-		"playback_region"
-	)
+	var start_seconds: float = GFVariantData.get_option_float(execution_plan, "start_seconds")
+	var playback_region_snapshot: Dictionary = GFVariantData.get_option_dictionary(execution_plan, "playback_region")
 
 	var previous_session: Dictionary = _get_ambient_session(channel)
 	var previous_owner: StringName = GFVariantData.get_option_string_name(
@@ -11816,7 +11771,13 @@ func _commit_local_ambient_execution_plan(
 			return
 	var player: AudioStreamPlayer = _get_or_create_ambient_player(channel)
 	if player == null:
-		_set_ambient_session(channel, request_serial, _STATE_STOPPED, _OWNER_NONE, 0)
+		_set_ambient_session(
+			channel,
+			request_serial,
+			_STATE_STOPPED,
+			_OWNER_NONE,
+			0
+		)
 		return
 
 	player.stop()
@@ -11830,10 +11791,22 @@ func _commit_local_ambient_execution_plan(
 		pitch_scale
 	)
 	var playback_session_id: int = _begin_playback_session(player)
-	var finished_callback: Callable = _get_ambient_finished_callback(channel, player, playback_session_id)
-	_connect_signal_checked(player.finished, finished_callback, CONNECT_ONE_SHOT)
+	var finished_callback: Callable = _get_ambient_finished_callback(
+		channel,
+		player,
+		playback_session_id
+	)
+	_connect_signal_checked(
+		player.finished,
+		finished_callback,
+		CONNECT_ONE_SHOT
+	)
 	player.play(start_seconds)
-	_set_playback_session_state(player, playback_session_id, _STATE_PLAYING)
+	_set_playback_session_state(
+		player,
+		playback_session_id,
+		_STATE_PLAYING
+	)
 	_set_ambient_session(
 		channel,
 		request_serial,
@@ -11844,12 +11817,20 @@ func _commit_local_ambient_execution_plan(
 		volume_db
 	)
 	if should_fade:
-		var tween: Tween = _fade_player_volume(player, volume_db, safe_fade)
+		var tween: Tween = _fade_player_volume(
+			player,
+			volume_db,
+			safe_fade
+		)
 		if tween != null:
 			_ambient_tween_refs[channel] = weakref(tween)
 			_connect_signal_checked(
 				tween.finished,
-				_finish_ambient_fade.bind(channel, request_serial, playback_session_id),
+				_finish_ambient_fade.bind(
+					channel,
+					request_serial,
+					playback_session_id
+				),
 				CONNECT_ONE_SHOT
 			)
 
@@ -11902,15 +11883,13 @@ func _restore_ambient_state_after_failed_request(channel: StringName, request_se
 	if request_serial != _get_ambient_request_serial(channel):
 		return
 	var session: Dictionary = _get_ambient_session(channel)
-	var owner: StringName = GFVariantData.get_option_string_name(session, "owner", _OWNER_NONE)
-	var playback_region: Dictionary = GFVariantData.get_option_dictionary(
+	var owner: StringName = GFVariantData.get_option_string_name(
 		session,
-		"playback_region"
+		"owner",
+		_OWNER_NONE
 	)
-	var target_volume_db: float = GFVariantData.get_option_float(
-		session,
-		"target_volume_db"
-	)
+	var playback_region: Dictionary = GFVariantData.get_option_dictionary(session, "playback_region")
+	var target_volume_db: float = GFVariantData.get_option_float(session, "target_volume_db")
 	if owner == _OWNER_BACKEND:
 		_set_ambient_session(
 			channel,
@@ -11923,7 +11902,11 @@ func _restore_ambient_state_after_failed_request(channel: StringName, request_se
 		)
 		return
 	var player: AudioStreamPlayer = _get_ambient_player(channel)
-	if owner == _OWNER_LOCAL and is_instance_valid(player) and player.playing:
+	if (
+		owner == _OWNER_LOCAL
+		and is_instance_valid(player)
+		and player.playing
+	):
 		player.volume_db = target_volume_db
 		var playback_session_id: int = _begin_playback_session(player)
 		var finished_callback: Callable = _get_ambient_finished_callback(
@@ -11931,8 +11914,16 @@ func _restore_ambient_state_after_failed_request(channel: StringName, request_se
 			player,
 			playback_session_id
 		)
-		_connect_signal_checked(player.finished, finished_callback, CONNECT_ONE_SHOT)
-		_set_playback_session_state(player, playback_session_id, _STATE_PLAYING)
+		_connect_signal_checked(
+			player.finished,
+			finished_callback,
+			CONNECT_ONE_SHOT
+		)
+		_set_playback_session_state(
+			player,
+			playback_session_id,
+			_STATE_PLAYING
+		)
 		_set_ambient_session(
 			channel,
 			request_serial,
@@ -11946,7 +11937,13 @@ func _restore_ambient_state_after_failed_request(channel: StringName, request_se
 	if owner == _OWNER_LOCAL and is_instance_valid(player):
 		player.stop()
 		player.stream = null
-	_set_ambient_session(channel, request_serial, _STATE_STOPPED, _OWNER_NONE, 0)
+	_set_ambient_session(
+		channel,
+		request_serial,
+		_STATE_STOPPED,
+		_OWNER_NONE,
+		0
+	)
 
 
 ## 完成指定环境音会话的淡化并更新播放状态。
@@ -11959,10 +11956,7 @@ func _finish_ambient_fade(
 	playback_session_id: int
 ) -> void:
 	var session: Dictionary = _get_ambient_session(channel)
-	if (
-		request_serial != _get_ambient_request_serial(channel)
-		or GFVariantData.get_option_int(session, "playback_session_id") != playback_session_id
-	):
+	if (request_serial != _get_ambient_request_serial(channel) or GFVariantData.get_option_int(session, "playback_session_id") != playback_session_id):
 		return
 	_erase_dictionary_key(_ambient_tween_refs, channel)
 
@@ -11979,22 +11973,51 @@ func _start_ambient_session_stop(
 	fade_seconds: float
 ) -> void:
 	if not is_instance_valid(player):
-		_set_ambient_session(channel, request_serial, _STATE_STOPPED, _OWNER_NONE, 0)
+		_set_ambient_session(
+			channel,
+			request_serial,
+			_STATE_STOPPED,
+			_OWNER_NONE,
+			0
+		)
 		return
 	if playback_session_id > 0:
-		_disconnect_ambient_finished_callback(channel, player, playback_session_id)
+		_disconnect_ambient_finished_callback(
+			channel,
+			player,
+			playback_session_id
+		)
 		_complete_playback_session_handle(playback_session_id)
 	if fade_seconds <= 0.0 or not player.playing:
-		_finish_ambient_session_stop(channel, request_serial, playback_session_id, player)
+		_finish_ambient_session_stop(
+			channel,
+			request_serial,
+			playback_session_id,
+			player
+		)
 		return
-	var tween: Tween = _fade_player_volume(player, SILENCE_VOLUME_DB, fade_seconds)
+	var tween: Tween = _fade_player_volume(
+		player,
+		SILENCE_VOLUME_DB,
+		fade_seconds
+	)
 	if tween == null:
-		_finish_ambient_session_stop(channel, request_serial, playback_session_id, player)
+		_finish_ambient_session_stop(
+			channel,
+			request_serial,
+			playback_session_id,
+			player
+		)
 		return
 	_ambient_tween_refs[channel] = weakref(tween)
 	_connect_signal_checked(
 		tween.finished,
-		_finish_ambient_session_stop.bind(channel, request_serial, playback_session_id, player),
+		_finish_ambient_session_stop.bind(
+			channel,
+			request_serial,
+			playback_session_id,
+			player
+		),
 		CONNECT_ONE_SHOT
 	)
 
@@ -12012,7 +12035,11 @@ func _finish_ambient_session_stop(
 	var session: Dictionary = _get_ambient_session(channel)
 	if (
 		request_serial != _get_ambient_request_serial(channel)
-		or GFVariantData.get_option_string_name(session, "state", _STATE_STOPPED) != _STATE_STOPPING
+		or GFVariantData.get_option_string_name(
+			session,
+			"state",
+			_STATE_STOPPED
+		) != _STATE_STOPPING
 	):
 		return
 	_erase_dictionary_key(_ambient_tween_refs, channel)
@@ -12021,7 +12048,13 @@ func _finish_ambient_session_stop(
 		player.stream = null
 		if playback_session_id > 0:
 			_invalidate_playback_session(player, playback_session_id)
-	_set_ambient_session(channel, request_serial, _STATE_STOPPED, _OWNER_NONE, 0)
+	_set_ambient_session(
+		channel,
+		request_serial,
+		_STATE_STOPPED,
+		_OWNER_NONE,
+		0
+	)
 
 
 ## 释放环境音会话及其关联播放器。
@@ -12034,21 +12067,12 @@ func _release_ambient_session(
 	playback_session_id: int
 ) -> void:
 	var session: Dictionary = _get_ambient_session(channel)
-	if (
-		GFVariantData.get_option_int(session, "playback_session_id") != playback_session_id
-		or not _is_playback_session_current(player, playback_session_id)
-	):
+	if (GFVariantData.get_option_int(session, "playback_session_id") != playback_session_id or not _is_playback_session_current(player, playback_session_id)):
 		return
 	_cancel_ambient_tween(channel)
 	var request_serial: int = _get_ambient_request_serial(channel)
-	var playback_region: Dictionary = GFVariantData.get_option_dictionary(
-		session,
-		"playback_region"
-	)
-	var target_volume_db: float = GFVariantData.get_option_float(
-		session,
-		"target_volume_db"
-	)
+	var playback_region: Dictionary = GFVariantData.get_option_dictionary(session, "playback_region")
+	var target_volume_db: float = GFVariantData.get_option_float(session, "target_volume_db")
 	_set_ambient_session(
 		channel,
 		request_serial,
@@ -12066,8 +12090,6 @@ func _release_ambient_session(
 	)
 
 
-
-
 ## 读取环境音结束回调。
 ## [br]
 ## @api private
@@ -12077,7 +12099,11 @@ func _get_ambient_finished_callback(
 	player: AudioStreamPlayer,
 	playback_session_id: int
 ) -> Callable:
-	return _on_ambient_player_finished.bind(channel, player, playback_session_id)
+	return _on_ambient_player_finished.bind(
+		channel,
+		player,
+		playback_session_id
+	)
 
 
 ## 断开环境音结束回调。
@@ -12091,7 +12117,11 @@ func _disconnect_ambient_finished_callback(
 ) -> void:
 	if not is_instance_valid(player) or playback_session_id <= 0:
 		return
-	var callback: Callable = _get_ambient_finished_callback(channel, player, playback_session_id)
+	var callback: Callable = _get_ambient_finished_callback(
+		channel,
+		player,
+		playback_session_id
+	)
 	if player.finished.is_connected(callback):
 		player.finished.disconnect(callback)
 
@@ -12122,8 +12152,15 @@ func _converge_inactive_local_ambient_session(channel: StringName) -> void:
 	)
 	if (
 		GFVariantData.get_option_int(session, "generation") != request_serial
-		or GFVariantData.get_option_string_name(session, "owner", _OWNER_NONE) != _OWNER_LOCAL
-		or (state != _STATE_PLAYING and state != _STATE_STOPPING)
+		or GFVariantData.get_option_string_name(
+			session,
+			"owner",
+			_OWNER_NONE
+		) != _OWNER_LOCAL
+		or (
+			state != _STATE_PLAYING
+			and state != _STATE_STOPPING
+		)
 	):
 		return
 
@@ -12136,13 +12173,23 @@ func _converge_inactive_local_ambient_session(channel: StringName) -> void:
 			return
 	_cancel_ambient_tween(channel)
 	if is_instance_valid(player):
-		_disconnect_ambient_finished_callback(channel, player, playback_session_id)
+		_disconnect_ambient_finished_callback(
+			channel,
+			player,
+			playback_session_id
+		)
 		_invalidate_playback_session(player, playback_session_id)
 		player.stream = null
 	else:
 		_complete_playback_session_handle(playback_session_id)
 		_erase_playback_session(playback_session_id)
-	_set_ambient_session(channel, request_serial, _STATE_STOPPED, _OWNER_NONE, 0)
+	_set_ambient_session(
+		channel,
+		request_serial,
+		_STATE_STOPPED,
+		_OWNER_NONE,
+		0
+	)
 
 
 ## 保存指定通道的环境音会话状态。
@@ -12282,7 +12329,11 @@ func _free_all_ambient_players() -> void:
 		var playback_session_id: int = GFVariantData.get_option_int(session, "playback_session_id")
 		var player: AudioStreamPlayer = _get_ambient_player(channel)
 		if playback_session_id > 0 and _is_playback_session_current(player, playback_session_id):
-			_disconnect_ambient_finished_callback(channel, player, playback_session_id)
+			_disconnect_ambient_finished_callback(
+				channel,
+				player,
+				playback_session_id
+			)
 			_invalidate_playback_session(player, playback_session_id)
 	for player_variant: Variant in _ambient_players.values():
 		var player: AudioStreamPlayer = _get_audio_stream_player_value(player_variant)
@@ -12301,7 +12352,11 @@ func _free_all_ambient_players() -> void:
 ## [br]
 ## @api private
 ## [br]
-func _fade_player_volume(player: AudioStreamPlayer, volume_db: float, fade_seconds: float) -> Tween:
+func _fade_player_volume(
+	player: AudioStreamPlayer,
+	volume_db: float,
+	fade_seconds: float
+) -> Tween:
 	if not _is_finite_float(volume_db) or not _is_finite_float(fade_seconds):
 		return null
 	var tween: Tween = _create_tween_or_null()
@@ -12309,7 +12364,13 @@ func _fade_player_volume(player: AudioStreamPlayer, volume_db: float, fade_secon
 		player.volume_db = volume_db
 		return null
 
-	_add_tween_property(tween, player, "volume_db", volume_db, maxf(fade_seconds, 0.0))
+	_add_tween_property(
+		tween,
+		player,
+		"volume_db",
+		volume_db,
+		maxf(fade_seconds, 0.0)
+	)
 	return tween
 
 
@@ -12380,15 +12441,8 @@ func _start_bgm_stop_fallback_timer(
 func _cancel_bgm_stop_fallback_timer() -> void:
 	if is_instance_valid(_bgm_stop_fallback_timer):
 		_bgm_stop_fallback_timer.stop()
-		if (
-			_bgm_stop_fallback_callback.is_valid()
-			and _bgm_stop_fallback_timer.timeout.is_connected(
-				_bgm_stop_fallback_callback
-			)
-		):
-			_bgm_stop_fallback_timer.timeout.disconnect(
-				_bgm_stop_fallback_callback
-			)
+		if (_bgm_stop_fallback_callback.is_valid() and (_bgm_stop_fallback_timer.timeout.is_connected(_bgm_stop_fallback_callback))):
+			_bgm_stop_fallback_timer.timeout.disconnect(_bgm_stop_fallback_callback)
 	_bgm_stop_fallback_callback = Callable()
 
 
@@ -12459,7 +12513,11 @@ func _apply_sfx_request(
 		if player == null:
 			handle.stop(0.0)
 		else:
-			_attach_handle_to_playback_session(handle, player, Callable(self, "_release_sfx_session"))
+			_attach_handle_to_playback_session(
+				handle,
+				player,
+				Callable(self, "_release_sfx_session")
+			)
 
 
 ## 应用SFX请求与设置。
@@ -12512,7 +12570,11 @@ func _apply_sfx_request_with_settings(
 		if player == null:
 			handle.stop(0.0)
 		else:
-			_attach_handle_to_playback_session(handle, player, Callable(self, "_release_sfx_session"))
+			_attach_handle_to_playback_session(
+				handle,
+				player,
+				Callable(self, "_release_sfx_session")
+			)
 
 
 ## 播放SFX流。
@@ -12520,7 +12582,12 @@ func _apply_sfx_request_with_settings(
 ## @api private
 ## [br]
 func _play_sfx_stream(stream: AudioStream) -> AudioStreamPlayer:
-	return _play_sfx_stream_with_settings(stream, SFX_BUS_NAME, 0.0, 1.0)
+	return _play_sfx_stream_with_settings(
+		stream,
+		SFX_BUS_NAME,
+		0.0,
+		1.0
+	)
 
 
 ## 播放SFX流与设置。
@@ -12534,7 +12601,11 @@ func _play_sfx_stream_with_settings(
 	pitch_scale: float,
 	start_seconds: float = 0.0
 ) -> AudioStreamPlayer:
-	if stream == null or not _is_initialized or not _is_live_audio_root(_root):
+	if (
+		stream == null
+		or not _is_initialized
+		or not _is_live_audio_root(_root)
+	):
 		return null
 
 	if not _ensure_sfx_capacity_available():
@@ -12549,7 +12620,11 @@ func _play_sfx_stream_with_settings(
 	player.pitch_scale = _finite_or_default(pitch_scale, 1.0)
 	player.stream = stream
 	var finished_callback: Callable = _get_sfx_finished_callback(player, playback_session_id)
-	_connect_signal_checked(player.finished, finished_callback, CONNECT_ONE_SHOT)
+	_connect_signal_checked(
+		player.finished,
+		finished_callback,
+		CONNECT_ONE_SHOT
+	)
 	_track_sfx_player(player)
 	if player.get_parent() == null:
 		playback_root.add_child(player)
@@ -12564,14 +12639,12 @@ func _play_sfx_stream_with_settings(
 		_finish_release_sfx_player(player, playback_session_id)
 		return null
 	player.play(start_seconds)
-	_set_playback_session_state(player, playback_session_id, _STATE_PLAYING)
+	_set_playback_session_state(
+		player,
+		playback_session_id,
+		_STATE_PLAYING
+	)
 	return player
-
-
-
-
-
-
 
 
 ## 读取资源工具。
@@ -12597,7 +12670,10 @@ func _resolve_bus_name(bus_name: String) -> String:
 
 	if not _missing_bus_warnings.has(bus_name):
 		_missing_bus_warnings[bus_name] = true
-		push_warning("[GFAudioUtility][audio_utility.bus_fallback] Audio bus not found: %s; fell back to %s." % [bus_name, _FALLBACK_BUS_NAME])
+		push_warning(
+			"[GFAudioUtility][audio_utility.bus_fallback] Audio bus not found: %s; fell back to %s."
+			% [bus_name, _FALLBACK_BUS_NAME]
+		)
 	return _FALLBACK_BUS_NAME
 
 
@@ -12721,7 +12797,13 @@ func _stop_oldest_sfx() -> void:
 	var oldest_session_id: int = 0
 	for normal_player: AudioStreamPlayer in _active_sfx_players:
 		var normal_session_id: int = _get_playback_session_id(normal_player)
-		if normal_session_id > 0 and (oldest_session_id == 0 or normal_session_id < oldest_session_id):
+		if (
+			normal_session_id > 0
+			and (
+				oldest_session_id == 0
+				or normal_session_id < oldest_session_id
+			)
+		):
 			oldest_player = normal_player
 			oldest_session_id = normal_session_id
 	for retiring_normal_player: AudioStreamPlayer in _retiring_sfx_players:
@@ -12737,7 +12819,13 @@ func _stop_oldest_sfx() -> void:
 			oldest_session_id = retiring_normal_session_id
 	for spatial_player: Node in _active_spatial_sfx_players:
 		var spatial_session_id: int = _get_playback_session_id(spatial_player)
-		if spatial_session_id > 0 and (oldest_session_id == 0 or spatial_session_id < oldest_session_id):
+		if (
+			spatial_session_id > 0
+			and (
+				oldest_session_id == 0
+				or spatial_session_id < oldest_session_id
+			)
+		):
 			oldest_player = spatial_player
 			oldest_session_id = spatial_session_id
 	for retiring_spatial_player: Node in _retiring_spatial_sfx_players:
@@ -12915,10 +13003,7 @@ func _set_playback_session_retiring_tween(
 ## [br]
 func _kill_playback_session_retiring_tween(playback_session_id: int) -> void:
 	var session: Dictionary = _get_playback_session(playback_session_id)
-	var tween_ref_value: Variant = GFVariantData.get_option_value(
-		session,
-		"retiring_tween_ref"
-	)
+	var tween_ref_value: Variant = GFVariantData.get_option_value(session, "retiring_tween_ref")
 	if tween_ref_value is WeakRef:
 		var tween_ref: WeakRef = tween_ref_value
 		_kill_tween_ref(tween_ref)
@@ -12967,10 +13052,6 @@ func _get_playback_session_handle_refs(playback_session_id: int) -> Array:
 			var handle_ref: WeakRef = handle_ref_value
 			if handle_ref.get_ref() != null:
 				handle_refs.append(handle_ref)
-	elif handle_refs_value is WeakRef:
-		var legacy_handle_ref: WeakRef = handle_refs_value
-		if legacy_handle_ref.get_ref() != null:
-			handle_refs.append(legacy_handle_ref)
 	return handle_refs
 
 
@@ -13045,13 +13126,25 @@ func _release_sfx_player(player: AudioStreamPlayer, fade_seconds: float = 0.0) -
 			_finish_release_sfx_player(player, playback_session_id)
 		return
 	_track_retiring_sfx_player(player)
-	_set_playback_session_state(player, playback_session_id, _STATE_RETIRING)
+	_set_playback_session_state(
+		player,
+		playback_session_id,
+		_STATE_RETIRING
+	)
 	_complete_playback_session_handle(playback_session_id)
 	_disconnect_sfx_finished_callback(player, playback_session_id)
 	if safe_fade_seconds > 0.0 and player.playing:
-		var tween: Tween = _fade_player_volume(player, -80.0, safe_fade_seconds)
+		var tween: Tween = _fade_player_volume(
+			player,
+			-80.0,
+			safe_fade_seconds
+		)
 		if tween != null:
-			_set_playback_session_retiring_tween(player, playback_session_id, tween)
+			_set_playback_session_retiring_tween(
+				player,
+				playback_session_id,
+				tween
+			)
 			_connect_signal_checked(
 				tween.finished,
 				_finish_release_sfx_player.bind(player, playback_session_id),
@@ -13109,13 +13202,25 @@ func _release_spatial_sfx_player(player: Node, fade_seconds: float = 0.0) -> voi
 			_finish_release_spatial_sfx_player(player, playback_session_id)
 		return
 	_track_retiring_spatial_sfx_player(player)
-	_set_playback_session_state(player, playback_session_id, _STATE_RETIRING)
+	_set_playback_session_state(
+		player,
+		playback_session_id,
+		_STATE_RETIRING
+	)
 	_complete_playback_session_handle(playback_session_id)
 	_disconnect_spatial_sfx_finished_callback(player, playback_session_id)
 	if safe_fade_seconds > 0.0 and _is_audio_node_playing(player):
-		var tween: Tween = _fade_audio_node_volume(player, -80.0, safe_fade_seconds)
+		var tween: Tween = _fade_audio_node_volume(
+			player,
+			-80.0,
+			safe_fade_seconds
+		)
 		if tween != null:
-			_set_playback_session_retiring_tween(player, playback_session_id, tween)
+			_set_playback_session_retiring_tween(
+				player,
+				playback_session_id,
+				tween
+			)
 			_connect_signal_checked(
 				tween.finished,
 				_finish_release_spatial_sfx_player.bind(player, playback_session_id),
@@ -13156,7 +13261,11 @@ func _finish_release_spatial_sfx_player(player: Node, playback_session_id: int) 
 ## @api private
 ## [br]
 func _prune_inactive_sfx_players() -> void:
-	for i: int in range(_active_sfx_players.size() - 1, -1, -1):
+	for i: int in range(
+		_active_sfx_players.size() - 1,
+		-1,
+		-1
+	):
 		var player: AudioStreamPlayer = _active_sfx_players[i]
 		if not is_instance_valid(player):
 			_active_sfx_players.remove_at(i)
@@ -13167,12 +13276,13 @@ func _prune_inactive_sfx_players() -> void:
 				_invalidate_playback_session(player, playback_session_id)
 			_active_sfx_players.remove_at(i)
 			continue
-		if (
-			_get_playback_session_state(playback_session_id) == _STATE_PLAYING
-			and not player.playing
-		):
+		if (_get_playback_session_state(playback_session_id) == _STATE_PLAYING and not player.playing):
 			_finish_release_sfx_player(player, playback_session_id)
-	for retiring_index: int in range(_retiring_sfx_players.size() - 1, -1, -1):
+	for retiring_index: int in range(
+		_retiring_sfx_players.size() - 1,
+		-1,
+		-1
+	):
 		var retiring_player: AudioStreamPlayer = _retiring_sfx_players[retiring_index]
 		if not is_instance_valid(retiring_player):
 			_retiring_sfx_players.remove_at(retiring_index)
@@ -13197,7 +13307,11 @@ func _prune_inactive_sfx_players() -> void:
 ## @api private
 ## [br]
 func _prune_inactive_spatial_sfx_players() -> void:
-	for i: int in range(_active_spatial_sfx_players.size() - 1, -1, -1):
+	for i: int in range(
+		_active_spatial_sfx_players.size() - 1,
+		-1,
+		-1
+	):
 		var player: Node = _active_spatial_sfx_players[i]
 		if not is_instance_valid(player):
 			_active_spatial_sfx_players.remove_at(i)
@@ -13208,12 +13322,13 @@ func _prune_inactive_spatial_sfx_players() -> void:
 				_invalidate_playback_session(player, playback_session_id)
 			_active_spatial_sfx_players.remove_at(i)
 			continue
-		if (
-			_get_playback_session_state(playback_session_id) == _STATE_PLAYING
-			and not _is_audio_node_playing(player)
-		):
+		if (_get_playback_session_state(playback_session_id) == _STATE_PLAYING and not _is_audio_node_playing(player)):
 			_finish_release_spatial_sfx_player(player, playback_session_id)
-	for retiring_index: int in range(_retiring_spatial_sfx_players.size() - 1, -1, -1):
+	for retiring_index: int in range(
+		_retiring_spatial_sfx_players.size() - 1,
+		-1,
+		-1
+	):
 		var retiring_player: Node = _retiring_spatial_sfx_players[retiring_index]
 		if not is_instance_valid(retiring_player):
 			_retiring_spatial_sfx_players.remove_at(retiring_index)
@@ -13292,7 +13407,11 @@ func _take_sfx_player() -> AudioStreamPlayer:
 ## @api private
 ## [br]
 func _trim_idle_sfx_players(reserved_slots: int = 0) -> void:
-	for index: int in range(_idle_sfx_players.size() - 1, -1, -1):
+	for index: int in range(
+		_idle_sfx_players.size() - 1,
+		-1,
+		-1
+	):
 		var player: AudioStreamPlayer = _idle_sfx_players[index]
 		if not is_instance_valid(player):
 			_idle_sfx_players.remove_at(index)
@@ -13306,7 +13425,10 @@ func _trim_idle_sfx_players(reserved_slots: int = 0) -> void:
 			player.queue_free()
 	if max_sfx_players <= 0:
 		return
-	var available_slots: int = maxi(max_sfx_players - _get_tracked_sfx_count() - reserved_slots, 0)
+	var available_slots: int = maxi(
+		max_sfx_players - _get_tracked_sfx_count() - reserved_slots,
+		0
+	)
 	while _idle_sfx_players.size() > available_slots:
 		var player: AudioStreamPlayer = _get_audio_stream_player_value(_idle_sfx_players.pop_back())
 		player.queue_free()
@@ -13336,10 +13458,7 @@ func _get_sfx_finished_callback(player: AudioStreamPlayer, playback_session_id: 
 ## [br]
 ## @api private
 ## [br]
-func _disconnect_sfx_finished_callback(
-	player: AudioStreamPlayer,
-	playback_session_id: int
-) -> void:
+func _disconnect_sfx_finished_callback(player: AudioStreamPlayer, playback_session_id: int) -> void:
 	if not is_instance_valid(player) or playback_session_id <= 0:
 		return
 	var finished_callback: Callable = _get_sfx_finished_callback(player, playback_session_id)
@@ -13392,7 +13511,11 @@ func _is_audio_node_playing(player: Node) -> bool:
 ## [br]
 ## @api private
 ## [br]
-func _fade_audio_node_volume(player: Node, volume_db: float, fade_seconds: float) -> Tween:
+func _fade_audio_node_volume(
+	player: Node,
+	volume_db: float,
+	fade_seconds: float
+) -> Tween:
 	if not _is_finite_float(volume_db) or not _is_finite_float(fade_seconds):
 		return null
 	var tween: Tween = _create_tween_or_null()
@@ -13400,7 +13523,13 @@ func _fade_audio_node_volume(player: Node, volume_db: float, fade_seconds: float
 		player.set("volume_db", volume_db)
 		return null
 
-	_add_tween_property(tween, player, "volume_db", volume_db, maxf(fade_seconds, 0.0))
+	_add_tween_property(
+		tween,
+		player,
+		"volume_db",
+		volume_db,
+		maxf(fade_seconds, 0.0)
+	)
 	return tween
 
 
@@ -13426,8 +13555,6 @@ func _on_bgm_start_owner_tree_exiting(request_id: int) -> void:
 		)
 
 
-
-
 ## 仅处理仍为当前请求的加载结果；无有效音频流时结算失败，否则尝试提交本地 BGM 启动。
 ## [br]
 ## @api private
@@ -13445,8 +13572,6 @@ func _on_bgm_start_asset_loaded(request_id: int, resource: Resource) -> void:
 	_try_commit_typed_pending_local_bgm_start(request_id, stream)
 
 
-
-
 ## 同时核对环境音通道和播放器会话身份；仅当前播放可清理渐变、释放流并把通道置为停止。
 ## [br]
 ## @api private
@@ -13456,10 +13581,7 @@ func _on_ambient_player_finished(
 	playback_session_id: int
 ) -> void:
 	var session: Dictionary = _get_ambient_session(channel)
-	if (
-		GFVariantData.get_option_int(session, "playback_session_id") != playback_session_id
-		or not _is_playback_session_current(player, playback_session_id)
-	):
+	if (GFVariantData.get_option_int(session, "playback_session_id") != playback_session_id or not _is_playback_session_current(player, playback_session_id)):
 		return
 	_cancel_ambient_tween(channel)
 	_invalidate_playback_session(player, playback_session_id)
@@ -13473,8 +13595,6 @@ func _on_ambient_player_finished(
 	)
 
 
-
-
 ## 逻辑当前 BGM 的自然结束先登记终态意图，经后端通知屏障统一结算；旧输出会话则直接清理。
 ## 正在主动停止的当前播放器结束时还会撤销停止渐变，避免晚到回调重复处理。
 ## [br]
@@ -13486,16 +13606,18 @@ func _on_bgm_player_finished(player: AudioStreamPlayer) -> void:
 	var session: Dictionary = _get_bgm_session(session_id)
 	if session.is_empty():
 		return
-	var role: StringName = GFVariantData.get_option_string_name(session, "role", &"")
+	var role: StringName = GFVariantData.get_option_string_name(
+		session,
+		"role",
+		&""
+	)
 	var logical_current_finished: bool = session_id == _bgm_committed_session_id
 	player.stream = null
 	if logical_current_finished:
-		var _natural_intent_recorded: bool = (
-			_record_deferred_bgm_session_terminal(
-				session_id,
-				GFBgmSessionHandle.EndKind.NATURAL_FINISH,
-				0.0
-			)
+		var _natural_intent_recorded: bool = _record_deferred_bgm_session_terminal(
+			session_id,
+			GFBgmSessionHandle.EndKind.NATURAL_FINISH,
+			0.0
 		)
 		if _is_backend_dispatch_in_progress():
 			_schedule_deferred_audio_drain()
@@ -13522,8 +13644,6 @@ func _on_bgm_player_finished(player: AudioStreamPlayer) -> void:
 		return
 
 
-
-
 ## 只归还仍匹配捕获会话的非空间音效播放器；复用后到达的旧 finished 回调无效。
 ## [br]
 ## @api private
@@ -13531,8 +13651,6 @@ func _on_sfx_finished(player: AudioStreamPlayer, playback_session_id: int) -> vo
 	if not _is_playback_session_current(player, playback_session_id):
 		return
 	_finish_release_sfx_player(player, playback_session_id)
-
-
 
 
 ## 只归还仍匹配捕获会话的空间音效播放器，避免旧完成信号回收已复用实例。

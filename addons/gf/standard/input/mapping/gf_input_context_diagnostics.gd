@@ -40,7 +40,13 @@ static func build_context_report(
 	include_non_remappable: bool = true,
 	options: Dictionary = {}
 ) -> Dictionary:
-	return build_contexts_report([context], remap_config, false, include_non_remappable, options)
+	return build_contexts_report(
+		[context],
+		remap_config,
+		false,
+		include_non_remappable,
+		options
+	)
 
 
 ## 构建多个输入上下文诊断报告。
@@ -81,7 +87,12 @@ static func build_contexts_report(
 	)
 	var issues: Array[Dictionary] = []
 	for context_index: int in range(contexts.size()):
-		_collect_context_structure_issues(contexts[context_index], context_index, issues, options)
+		_collect_context_structure_issues(
+			contexts[context_index],
+			context_index,
+			issues,
+			options
+		)
 	for conflict_variant: Variant in GFVariantData.get_option_array(report, "conflicts"):
 		if conflict_variant is Dictionary:
 			var conflict: Dictionary = GFVariantData.as_dictionary(conflict_variant)
@@ -96,19 +107,26 @@ static func build_contexts_report(
 		report["context_id"] = context.get_context_id()
 		report["context_name"] = context.get_display_name()
 	report["issues"] = issues
-	report["resource_summary"] = "上下文：%d  动作：%d  绑定：%d  冲突：%d  问题：%d" % [
-		GFVariantData.get_option_int(report, "context_count"),
-		GFVariantData.get_option_int(report, "mapping_count"),
-		GFVariantData.get_option_int(report, "binding_count"),
-		GFVariantData.get_option_int(report, "conflict_count"),
-		issues.size(),
-	]
-	return GFValidationReportDictionary.finalize_report(report, "Input mapping", {
-		"include_issue_count": true,
-		"next_actions": get_next_actions(),
-		"fallback_action": "检查输入映射诊断中的第一条问题。",
-		"no_action": "当前输入上下文结构健康。",
-	})
+	report["resource_summary"] = (
+		"上下文：%d  动作：%d  绑定：%d  冲突：%d  问题：%d"
+		% [
+			GFVariantData.get_option_int(report, "context_count"),
+			GFVariantData.get_option_int(report, "mapping_count"),
+			GFVariantData.get_option_int(report, "binding_count"),
+			GFVariantData.get_option_int(report, "conflict_count"),
+			issues.size(),
+		]
+	)
+	return GFValidationReportDictionary.finalize_report(
+		report,
+		"Input mapping",
+		{
+			"include_issue_count": true,
+			"next_actions": get_next_actions(),
+			"fallback_action": "检查输入映射诊断中的第一条问题。",
+			"no_action": "当前输入上下文结构健康。",
+		}
+	)
 
 
 ## 收集单个输入上下文的结构问题。
@@ -128,7 +146,12 @@ static func build_contexts_report(
 ## @since 5.2.0
 static func collect_structure_issues(context: GFInputContext, options: Dictionary = {}) -> Array[Dictionary]:
 	var issues: Array[Dictionary] = []
-	_collect_context_structure_issues(context, 0, issues, options)
+	_collect_context_structure_issues(
+		context,
+		0,
+		issues,
+		options
+	)
 	return issues
 
 
@@ -178,19 +201,46 @@ static func _collect_context_structure_issues(
 	options: Dictionary
 ) -> void:
 	if context == null:
-		issues.append(_make_issue("error", "null_context", "contexts/%d" % context_index, "输入上下文为空。"))
+		issues.append(
+			_make_issue(
+				"error",
+				"null_context",
+				"contexts/%d" % context_index,
+				"输入上下文为空。"
+			)
+		)
 		return
 	if context.get_context_id() == &"":
-		issues.append(_make_issue("warning", "empty_context_id", "contexts/%d" % context_index, "输入上下文缺少稳定 context_id。"))
+		issues.append(
+			_make_issue(
+				"warning",
+				"empty_context_id",
+				"contexts/%d" % context_index,
+				"输入上下文缺少稳定 context_id。"
+			)
+		)
 
 	var action_paths_by_id: Dictionary = {}
 	for mapping_index: int in range(context.mappings.size()):
 		var mapping: GFInputMapping = context.mappings[mapping_index]
 		var mapping_path: String = _make_mapping_path(context_index, mapping_index)
 		if mapping == null:
-			issues.append(_make_issue("error", "null_mapping", mapping_path, "映射为空。"))
+			issues.append(
+				_make_issue(
+					"error",
+					"null_mapping",
+					mapping_path,
+					"映射为空。"
+				)
+			)
 			continue
-		_collect_mapping_issues(mapping, mapping_path, action_paths_by_id, issues, options)
+		_collect_mapping_issues(
+			mapping,
+			mapping_path,
+			action_paths_by_id,
+			issues,
+			options
+		)
 
 
 ## 检查映射动作、动作 ID、阈值、空绑定及映射/绑定修饰器和触发器槽位。
@@ -205,22 +255,72 @@ static func _collect_mapping_issues(
 	options: Dictionary
 ) -> void:
 	if mapping.action == null:
-		issues.append(_make_issue("error", "missing_action", mapping_path, "映射缺少 GFInputAction。"))
+		issues.append(
+			_make_issue(
+				"error",
+				"missing_action",
+				mapping_path,
+				"映射缺少 GFInputAction。"
+			)
+		)
 	elif mapping.get_action_id() == &"":
-		issues.append(_make_issue("warning", "empty_action_id", mapping_path, "动作缺少稳定 action_id。"))
+		issues.append(
+			_make_issue(
+				"warning",
+				"empty_action_id",
+				mapping_path,
+				"动作缺少稳定 action_id。"
+			)
+		)
 	else:
-		_collect_action_id_issue(mapping, mapping_path, action_paths_by_id, issues)
-		_collect_action_threshold_issue(mapping, mapping_path, issues)
+		_collect_action_id_issue(
+			mapping,
+			mapping_path,
+			action_paths_by_id,
+			issues
+		)
+		_collect_action_threshold_issue(
+			mapping,
+			mapping_path,
+			issues
+		)
 
 	if mapping.bindings.is_empty():
-		issues.append(_make_issue("warning", "empty_bindings", mapping_path, "动作没有任何输入绑定。"))
+		issues.append(
+			_make_issue(
+				"warning",
+				"empty_bindings",
+				mapping_path,
+				"动作没有任何输入绑定。"
+			)
+		)
 
-	_collect_null_slots(mapping.modifiers, "%s/modifiers" % mapping_path, "null_mapping_modifier", "映射修饰器为空。", issues)
-	_collect_null_slots(mapping.triggers, "%s/triggers" % mapping_path, "null_trigger", "触发器为空。", issues)
+	_collect_null_slots(
+		mapping.modifiers,
+		"%s/modifiers" % mapping_path,
+		"null_mapping_modifier",
+		"映射修饰器为空。",
+		issues
+	)
+	_collect_null_slots(
+		mapping.triggers,
+		"%s/triggers" % mapping_path,
+		"null_trigger",
+		"触发器为空。",
+		issues
+	)
 	for binding_index: int in range(mapping.bindings.size()):
 		var binding: GFInputBinding = mapping.bindings[binding_index]
-		var binding_path: String = "%s/bindings/%d" % [mapping_path, binding_index]
-		_collect_binding_issues(binding, binding_path, issues, options)
+		var binding_path: String = (
+			"%s/bindings/%d"
+			% [mapping_path, binding_index]
+		)
+		_collect_binding_issues(
+			binding,
+			binding_path,
+			issues,
+			options
+		)
 
 
 ## 发现重复 action_id 时记录本路径及首次出现路径，否则登记首次路径。
@@ -235,16 +335,15 @@ static func _collect_action_id_issue(
 ) -> void:
 	var action_id: String = String(mapping.get_action_id())
 	if action_paths_by_id.has(action_id):
-		issues.append(_make_issue(
-			"warning",
-			"duplicate_action_id",
-			mapping_path,
-			"动作 action_id 重复：%s。" % action_id,
-			{
-				"action_id": action_id,
-				"first_path": GFVariantData.get_option_string(action_paths_by_id, action_id),
-			}
-		))
+		issues.append(
+			_make_issue(
+				"warning",
+				"duplicate_action_id",
+				mapping_path,
+				"动作 action_id 重复：%s。" % action_id,
+				{ "action_id": action_id, "first_path": GFVariantData.get_option_string(action_paths_by_id, action_id), }
+			)
+		)
 	else:
 		action_paths_by_id[action_id] = mapping_path
 
@@ -267,35 +366,40 @@ static func _collect_action_threshold_issue(
 	var activation_valid: bool = _is_unit_threshold(activation_threshold)
 	var release_valid: bool = _is_unit_threshold(release_threshold)
 	if not activation_valid:
-		issues.append(_make_issue(
-			"warning",
-			"invalid_activation_threshold",
-			"%s/action" % mapping_path,
-			"动作 activation_threshold 超出 0.0 到 1.0：%.3f。" % activation_threshold,
-			{ "value": activation_threshold }
-		))
+		issues.append(
+			_make_issue(
+				"warning",
+				"invalid_activation_threshold",
+				"%s/action" % mapping_path,
+				"动作 activation_threshold 超出 0.0 到 1.0：%.3f。" % activation_threshold,
+				{ "value": activation_threshold }
+			)
+		)
 	if not release_valid:
-		issues.append(_make_issue(
-			"warning",
-			"invalid_release_threshold",
-			"%s/action" % mapping_path,
-			"动作 release_threshold 超出 0.0 到 1.0：%.3f。" % release_threshold,
-			{ "value": release_threshold }
-		))
-	if activation_valid and release_valid and release_threshold > activation_threshold:
-		issues.append(_make_issue(
-			"warning",
-			"invalid_threshold_order",
-			"%s/action" % mapping_path,
-			(
+		issues.append(
+			_make_issue(
+				"warning",
+				"invalid_release_threshold",
+				"%s/action" % mapping_path,
+				"动作 release_threshold 超出 0.0 到 1.0：%.3f。" % release_threshold,
+				{ "value": release_threshold }
+			)
+		)
+	if (
+		activation_valid
+		and release_valid
+		and release_threshold > activation_threshold
+	):
+		issues.append(
+			_make_issue(
+				"warning",
+				"invalid_threshold_order",
+				"%s/action" % mapping_path,
 				"动作 release_threshold %.3f 高于 activation_threshold %.3f。"
-				% [release_threshold, activation_threshold]
-			),
-			{
-				"activation_threshold": activation_threshold,
-				"release_threshold": release_threshold,
-			}
-		))
+				% [release_threshold, activation_threshold],
+				{ "activation_threshold": activation_threshold, "release_threshold": release_threshold, }
+			)
+		)
 
 
 ## 检查浮点阈值有限且位于闭区间 0..1。
@@ -303,7 +407,12 @@ static func _collect_action_threshold_issue(
 ## @api private
 ## [br]
 static func _is_unit_threshold(value: float) -> bool:
-	return not is_nan(value) and not is_inf(value) and value >= 0.0 and value <= 1.0
+	return (
+		not is_nan(value)
+		and not is_inf(value)
+		and value >= 0.0
+		and value <= 1.0
+	)
 
 
 ## 检查绑定空值、输入事件、deadzone 范围和空修饰器槽位。
@@ -317,26 +426,53 @@ static func _collect_binding_issues(
 	options: Dictionary
 ) -> void:
 	if binding == null:
-		issues.append(_make_issue("error", "null_binding", binding_path, "绑定为空。"))
+		issues.append(
+			_make_issue(
+				"error",
+				"null_binding",
+				binding_path,
+				"绑定为空。"
+			)
+		)
 		return
 	if binding.input_event == null:
-		issues.append(_make_issue("warning", "empty_input_event", binding_path, "绑定没有输入事件。"))
+		issues.append(
+			_make_issue(
+				"warning",
+				"empty_input_event",
+				binding_path,
+				"绑定没有输入事件。"
+			)
+		)
 	else:
-		_collect_input_event_action_issue(binding.input_event, binding_path, issues, options)
+		_collect_input_event_action_issue(
+			binding.input_event,
+			binding_path,
+			issues,
+			options
+		)
 	if (
 		is_nan(binding.deadzone)
 		or is_inf(binding.deadzone)
 		or binding.deadzone < 0.0
 		or binding.deadzone > 1.0
 	):
-		issues.append(_make_issue(
-			"warning",
-			"invalid_deadzone",
-			binding_path,
-			"绑定 deadzone 超出 0.0 到 1.0：%.3f。" % binding.deadzone,
-			{ "value": binding.deadzone }
-		))
-	_collect_null_slots(binding.modifiers, "%s/modifiers" % binding_path, "null_binding_modifier", "绑定修饰器为空。", issues)
+		issues.append(
+			_make_issue(
+				"warning",
+				"invalid_deadzone",
+				binding_path,
+				"绑定 deadzone 超出 0.0 到 1.0：%.3f。" % binding.deadzone,
+				{ "value": binding.deadzone }
+			)
+		)
+	_collect_null_slots(
+		binding.modifiers,
+		"%s/modifiers" % binding_path,
+		"null_binding_modifier",
+		"绑定修饰器为空。",
+		issues
+	)
 
 
 ## 按选项决定是否检查 InputEventAction；报告空 action 名或项目 InputMap 中不存在的 action。
@@ -349,7 +485,11 @@ static func _collect_input_event_action_issue(
 	issues: Array[Dictionary],
 	options: Dictionary
 ) -> void:
-	if not GFVariantData.get_option_bool(options, "include_project_input_map_checks", true):
+	if not GFVariantData.get_option_bool(
+		options,
+		"include_project_input_map_checks",
+		true
+	):
 		return
 	if not (input_event is InputEventAction):
 		return
@@ -357,15 +497,24 @@ static func _collect_input_event_action_issue(
 	var action_event: InputEventAction = input_event
 	var action_name: StringName = action_event.action
 	if action_name == &"":
-		issues.append(_make_issue("warning", "empty_input_event_action", binding_path, "InputEventAction 缺少 action 名称。"))
+		issues.append(
+			_make_issue(
+				"warning",
+				"empty_input_event_action",
+				binding_path,
+				"InputEventAction 缺少 action 名称。"
+			)
+		)
 	elif not InputMap.has_action(action_name):
-		issues.append(_make_issue(
-			"warning",
-			"missing_project_input_action",
-			binding_path,
-			"ProjectSettings/Input Map 中不存在 action：%s。" % String(action_name),
-			{ "action": String(action_name) }
-		))
+		issues.append(
+			_make_issue(
+				"warning",
+				"missing_project_input_action",
+				binding_path,
+				"ProjectSettings/Input Map 中不存在 action：%s。" % String(action_name),
+				{ "action": String(action_name) }
+			)
+		)
 
 
 ## 为数组中每个 null 槽位按路径生成指定类别的问题。
@@ -381,7 +530,15 @@ static func _collect_null_slots(
 ) -> void:
 	for index: int in range(values.size()):
 		if values[index] == null:
-			issues.append(_make_issue("warning", kind, "%s/%d" % [path, index], message))
+			issues.append(
+				_make_issue(
+					"warning",
+					kind,
+					"%s/%d"
+					% [path, index],
+					message
+				)
+			)
 
 
 ## 把冲突字典转换为 binding_conflict 警告，并将冲突内容递归转成报告安全值。
@@ -392,11 +549,24 @@ static func _make_conflict_issue(conflict: Dictionary) -> Dictionary:
 	return _make_issue(
 		"warning",
 		"binding_conflict",
-		"%s/%s" % [
-			GFVariantData.get_option_string(conflict, "context_id", ""),
-			GFVariantData.get_option_string(conflict, "action_id", ""),
+		"%s/%s"
+		% [
+			GFVariantData.get_option_string(
+				conflict,
+				"context_id",
+				""
+			),
+			GFVariantData.get_option_string(
+				conflict,
+				"action_id",
+				""
+			),
 		],
-		"输入绑定冲突：%s" % GFVariantData.get_option_string(conflict, "event_text", ""),
+		"输入绑定冲突：%s" % GFVariantData.get_option_string(
+			conflict,
+			"event_text",
+			""
+		),
 		{ "conflict": _sanitize_for_report(conflict) }
 	)
 
@@ -415,10 +585,7 @@ static func _count_context_resources(contexts: Array[GFInputContext]) -> Diction
 		for mapping: GFInputMapping in context.mappings:
 			if mapping != null:
 				binding_count += mapping.bindings.size()
-	return {
-		"mapping_count": mapping_count,
-		"binding_count": binding_count,
-	}
+	return { "mapping_count": mapping_count, "binding_count": binding_count, }
 
 
 ## 为每个上下文生成摘要；空项记为无效，非空项包含 ID、名称、路径和数量。
@@ -430,20 +597,19 @@ static func _collect_context_summaries(contexts: Array[GFInputContext]) -> Array
 	for context_index: int in range(contexts.size()):
 		var context: GFInputContext = contexts[context_index]
 		if context == null:
-			summaries.append({
-				"index": context_index,
-				"valid": false,
-			})
+			summaries.append({ "index": context_index, "valid": false, })
 			continue
-		summaries.append({
-			"index": context_index,
-			"valid": true,
-			"context_id": context.get_context_id(),
-			"display_name": context.get_display_name(),
-			"resource_path": context.resource_path,
-			"mapping_count": context.mappings.size(),
-			"binding_count": _count_context_bindings(context),
-		})
+		summaries.append(
+			{
+				"index": context_index,
+				"valid": true,
+				"context_id": context.get_context_id(),
+				"display_name": context.get_display_name(),
+				"resource_path": context.resource_path,
+				"mapping_count": context.mappings.size(),
+				"binding_count": _count_context_bindings(context),
+			}
+		)
 	return summaries
 
 
@@ -464,7 +630,10 @@ static func _count_context_bindings(context: GFInputContext) -> int:
 ## @api private
 ## [br]
 static func _make_mapping_path(context_index: int, mapping_index: int) -> String:
-	return "contexts/%d/mappings/%d" % [context_index, mapping_index]
+	return (
+		"contexts/%d/mappings/%d"
+		% [context_index, mapping_index]
+	)
 
 
 ## 构造严重度、类别、路径和消息字段，并在 metadata 非空时深复制附加信息。

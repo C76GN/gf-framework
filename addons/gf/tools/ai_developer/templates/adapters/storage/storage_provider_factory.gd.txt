@@ -24,9 +24,7 @@ func create_provider() -> ProjectStorageProvider:
 ## @param _provider: 本次测试新建的 Provider 实例。
 ## [br]
 ## @return 与该实例绑定的故障驱动；未实现时为 null。
-func create_fault_driver(
-	_provider: ProjectStorageProvider
-) -> ProjectStorageProviderFaultDriver:
+func create_fault_driver(_provider: ProjectStorageProvider) -> ProjectStorageProviderFaultDriver:
 	return null
 
 

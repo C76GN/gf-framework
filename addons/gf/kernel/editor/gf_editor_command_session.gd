@@ -112,10 +112,28 @@ func configure(
 ## @schema return: Dictionary with ok, status, command_name, executed, history_count, context, and metadata.
 func preview_command(command: GFEditorCommandBase, context: Dictionary = {}) -> Dictionary:
 	if command == null:
-		return _make_command_result(false, &"missing_command", null, ERR_INVALID_PARAMETER, context)
+		return _make_command_result(
+			false,
+			&"missing_command",
+			null,
+			ERR_INVALID_PARAMETER,
+			context
+		)
 	if not command.can_execute():
-		return _make_command_result(false, &"unavailable", command, ERR_UNAVAILABLE, context)
-	return _make_command_result(true, &"ready", command, OK, context)
+		return _make_command_result(
+			false,
+			&"unavailable",
+			command,
+			ERR_UNAVAILABLE,
+			context
+		)
+	return _make_command_result(
+		true,
+		&"ready",
+		command,
+		OK,
+		context
+	)
 
 
 ## 提交命令。存在上下文时可接入 UndoRedo，否则直接执行。
@@ -139,19 +157,43 @@ func commit_command(
 	use_undo: bool = true
 ) -> Dictionary:
 	if command == null:
-		return _make_command_result(false, &"missing_command", null, ERR_INVALID_PARAMETER)
+		return _make_command_result(
+			false,
+			&"missing_command",
+			null,
+			ERR_INVALID_PARAMETER
+		)
 	var error: Error = OK
-	var managed_by_undo: bool = context != null and use_undo and context.undo_manager != null
+	var managed_by_undo: bool = (
+		context != null
+		and use_undo
+		and context.undo_manager != null
+	)
 	if context != null:
 		error = context.commit_command(command, use_undo)
 	else:
 		error = command.execute()
 	if error != OK:
-		return _make_command_result(false, &"commit_failed", command, error)
+		return _make_command_result(
+			false,
+			&"commit_failed",
+			command,
+			error
+		)
 	if managed_by_undo:
-		return _make_command_result(true, &"committed_to_undo_manager", command, OK)
+		return _make_command_result(
+			true,
+			&"committed_to_undo_manager",
+			command,
+			OK
+		)
 	_history.append(command)
-	return _make_command_result(true, &"committed", command, OK)
+	return _make_command_result(
+		true,
+		&"committed",
+		command,
+		OK
+	)
 
 
 ## 撤销最近一次提交的命令。
@@ -165,13 +207,28 @@ func commit_command(
 ## @schema return: Dictionary with ok, status, error, command_name, executed, history_count, and metadata.
 func revert_last() -> Dictionary:
 	if _history.is_empty():
-		return _make_command_result(false, &"empty_history", null, ERR_UNAVAILABLE)
+		return _make_command_result(
+			false,
+			&"empty_history",
+			null,
+			ERR_UNAVAILABLE
+		)
 	var command: GFEditorCommandBase = _history[_history.size() - 1]
 	var error: Error = command.revert()
 	if error != OK:
-		return _make_command_result(false, &"revert_failed", command, error)
+		return _make_command_result(
+			false,
+			&"revert_failed",
+			command,
+			error
+		)
 	_history.remove_at(_history.size() - 1)
-	return _make_command_result(true, &"reverted", command, OK)
+	return _make_command_result(
+		true,
+		&"reverted",
+		command,
+		OK
+	)
 
 
 ## 清空会话历史，不调用撤销。

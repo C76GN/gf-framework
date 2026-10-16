@@ -18,6 +18,8 @@ extends GFUtility
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param key: 设置键。
 ## [br]
 ## @param old_value: 旧值。
@@ -27,7 +29,11 @@ extends GFUtility
 ## @param new_value: 新值。
 ## [br]
 ## @schema new_value: Variant next setting value or null when the setting was removed.
-signal setting_changed(key: StringName, old_value: Variant, new_value: Variant)
+signal setting_changed(
+	key: StringName,
+	old_value: Variant,
+	new_value: Variant
+)
 
 ## 设置加载进入终态时发出。
 ## [br]
@@ -384,10 +390,7 @@ func init() -> void:
 		_leave_lifecycle_critical()
 		return
 	if store_available:
-		var _load_result: GFSettingsLoadResult = _load_settings_admitted(
-			storage_file_name,
-			null
-		)
+		var _load_result: GFSettingsLoadResult = _load_settings_admitted(storage_file_name, null)
 	else:
 		_apply_defaults_to_missing()
 	_leave_lifecycle_critical()
@@ -437,9 +440,7 @@ func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:
 		var _failed_disposed: bool = completion.fail("Settings utility is disposed.")
 		return completion
 	if _quiesce_completion != null:
-		var _failed_quiesced: bool = completion.fail(
-			"Settings utility cannot reactivate after quiesce."
-		)
+		var _failed_quiesced: bool = completion.fail("Settings utility cannot reactivate after quiesce.")
 		return completion
 	_enter_lifecycle_critical()
 	var store_available: bool = not persistence_enabled
@@ -451,19 +452,17 @@ func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:
 	if _disposed or _dispose_requested:
 		activation_error = "Settings utility was disposed during activation."
 	elif not store_available:
-		activation_error = (
-			"GFSettingsStoreUtility must be available before Settings activation."
-		)
+		activation_error = ("GFSettingsStoreUtility must be available before Settings activation.")
 	else:
 		if (
-			(_architecture_mode or _load_store_on_activation)
+			(
+				_architecture_mode
+				or _load_store_on_activation
+			)
 			and persistence_enabled
 			and auto_load_on_init
 		):
-			var _load_result: GFSettingsLoadResult = _load_settings_admitted(
-				storage_file_name,
-				null
-			)
+			var _load_result: GFSettingsLoadResult = _load_settings_admitted(storage_file_name, null)
 		_load_store_on_activation = false
 		if _disposed or _dispose_requested:
 			activation_error = "Settings utility was disposed during activation."
@@ -471,9 +470,7 @@ func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:
 			_mutation_admission_open = true
 	_leave_lifecycle_critical()
 	if _disposed or _dispose_requested:
-		var _failed_disposed_during_activation: bool = completion.fail(
-			"Settings utility was disposed during activation."
-		)
+		var _failed_disposed_during_activation: bool = completion.fail("Settings utility was disposed during activation.")
 	elif not activation_error.is_empty():
 		var _failed_activation: bool = completion.fail(activation_error)
 	else:
@@ -636,6 +633,8 @@ func get_definitions() -> Array[GFSettingDefinition]:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param key: 设置键。
 ## [br]
 ## @param value: 设置值。
@@ -643,11 +642,20 @@ func get_definitions() -> Array[GFSettingDefinition]:
 ## @schema value: Variant setting value coerced by the registered definition when present.
 ## [br]
 ## @param save_after_change: 若为持久化设置，变化后是否保存。
-func set_value(key: StringName, value: Variant, save_after_change: bool = true) -> void:
+func set_value(
+	key: StringName,
+	value: Variant,
+	save_after_change: bool = true
+) -> void:
 	if not _can_accept_mutation("set_value"):
 		return
 	_enter_lifecycle_critical()
-	_set_value_internal(key, value, true, save_after_change)
+	_set_value_internal(
+		key,
+		value,
+		true,
+		save_after_change
+	)
 	_leave_lifecycle_critical()
 
 
@@ -669,7 +677,11 @@ func stage_value(key: StringName, value: Variant) -> void:
 	if not _can_accept_mutation("stage_value"):
 		return
 	_enter_lifecycle_critical()
-	_stage_value_internal(key, value, true)
+	_stage_value_internal(
+		key,
+		value,
+		true
+	)
 	_leave_lifecycle_critical()
 
 
@@ -833,7 +845,13 @@ func apply_staged_values(options: Dictionary = {}) -> Dictionary:
 		rejected_report["staged_applied_keys"] = PackedStringArray()
 		return rejected_report
 	_enter_lifecycle_critical()
-	var scope: Dictionary = _normalize_apply_scope(GFVariantData.get_option_value(options, "scope", []))
+	var scope: Dictionary = _normalize_apply_scope(
+		GFVariantData.get_option_value(
+			options,
+			"scope",
+			[]
+		)
+	)
 	var selected_values: Dictionary = {}
 	for key_variant: Variant in _staged_values.keys():
 		var key: StringName = GFVariantData.to_string_name(key_variant)
@@ -844,8 +862,16 @@ func apply_staged_values(options: Dictionary = {}) -> Dictionary:
 		selected_values[key] = GFVariantData.duplicate_variant(_staged_values[key_variant])
 
 	var apply_options: Dictionary = {
-		"save_after_change": GFVariantData.get_option_bool(options, "save_after_change", true),
-		"emit_changes": GFVariantData.get_option_bool(options, "emit_changes", true),
+		"save_after_change": GFVariantData.get_option_bool(
+			options,
+			"save_after_change",
+			true
+		),
+		"emit_changes": GFVariantData.get_option_bool(
+			options,
+			"emit_changes",
+			true
+		),
 	}
 	var report: Dictionary = _apply_values_internal(selected_values, apply_options)
 	var applied_keys: PackedStringArray = PackedStringArray()
@@ -932,7 +958,11 @@ func flush_pending_save() -> Error:
 	if _disposed or _dispose_requested:
 		return ERR_UNAVAILABLE
 	var flush_report: Dictionary = _flush_pending_save_records()
-	return GFVariantData.get_option_int(flush_report, "error_code", int(OK)) as Error
+	return GFVariantData.get_option_int(
+		flush_report,
+		"error_code",
+		int(OK)
+	) as Error
 
 
 ## 获取一个值。
@@ -981,7 +1011,11 @@ func reset_value(key: StringName, save_after_change: bool = true) -> void:
 	if not _can_accept_mutation("reset_value"):
 		return
 	_enter_lifecycle_critical()
-	_reset_value_internal(key, true, save_after_change)
+	_reset_value_internal(
+		key,
+		true,
+		save_after_change
+	)
 	_leave_lifecycle_critical()
 
 
@@ -1005,11 +1039,19 @@ func reset_all(save_after_change: bool = true) -> void:
 		var old_value: Variant = previous_values[key]
 		var new_value: Variant = GFVariantData.get_option_value(_values, key)
 		if old_value != new_value:
-			setting_changed.emit(key, old_value, new_value)
+			setting_changed.emit(
+				key,
+				old_value,
+				new_value
+			)
 
 	for key: StringName in _values.keys():
 		if not previous_values.has(key):
-			setting_changed.emit(key, null, _values[key])
+			setting_changed.emit(
+				key,
+				null,
+				_values[key]
+			)
 
 	if save_after_change:
 		_queue_auto_save()
@@ -1068,7 +1110,12 @@ func merge_from_dict(data: Dictionary, emit_changes: bool = true) -> void:
 	_enter_lifecycle_critical()
 	for key_variant: Variant in data.keys():
 		var key: StringName = GFVariantData.to_string_name(key_variant)
-		_set_value_internal(key, _deserialize_value(data[key_variant]), emit_changes, false)
+		_set_value_internal(
+			key,
+			_deserialize_value(data[key_variant]),
+			emit_changes,
+			false
+		)
 	_apply_defaults_to_missing()
 	for staged_key_variant: Variant in _staged_values.keys():
 		_reconcile_staged_value(GFVariantData.to_string_name(staged_key_variant))
@@ -1093,35 +1140,16 @@ func merge_from_dict(data: Dictionary, emit_changes: bool = true) -> void:
 ## @return 隔离的结构化加载结果。
 ## [br]
 ## @schema return: GFSettingsLoadResult preserving status, application state, recovery action, and storage evidence.
-func load_settings(
-	file_name: String = "",
-	recovery_policy: GFSettingsRecoveryPolicy = null
-) -> GFSettingsLoadResult:
+func load_settings(file_name: String = "", recovery_policy: GFSettingsRecoveryPolicy = null) -> GFSettingsLoadResult:
 	var target_file_name: String = storage_file_name if file_name.is_empty() else file_name
 	if _disposed or _dispose_requested:
-		return _make_unavailable_settings_load_result(
-			target_file_name,
-			"Settings utility is disposed."
-		)
+		return _make_unavailable_settings_load_result(target_file_name, "Settings utility is disposed.")
 	if not persistence_enabled:
-		return _complete_settings_load(
-			_make_unavailable_settings_load_result(
-				target_file_name,
-				"Settings persistence is disabled."
-			)
-		)
+		return _complete_settings_load(_make_unavailable_settings_load_result(target_file_name, "Settings persistence is disabled."))
 	if not _can_accept_mutation("load_settings"):
-		return _complete_settings_load(
-			_make_unavailable_settings_load_result(
-				target_file_name,
-				"Settings no longer accepts load requests."
-			)
-		)
+		return _complete_settings_load(_make_unavailable_settings_load_result(target_file_name, "Settings no longer accepts load requests."))
 	_enter_lifecycle_critical()
-	var completed_result: GFSettingsLoadResult = _load_settings_admitted(
-		target_file_name,
-		recovery_policy
-	)
+	var completed_result: GFSettingsLoadResult = _load_settings_admitted(target_file_name, recovery_policy)
 	_leave_lifecycle_critical()
 	return completed_result
 
@@ -1154,7 +1182,11 @@ func save_settings(file_name: String = "") -> Error:
 	var record_id: int = _upsert_save_record(_pending_save_records, record)
 	var record_ids: Array[int] = [record_id]
 	var flush_report: Dictionary = _flush_pending_save_records(record_ids)
-	return GFVariantData.get_option_int(flush_report, "error_code", int(OK)) as Error
+	return GFVariantData.get_option_int(
+		flush_report,
+		"error_code",
+		int(OK)
+	) as Error
 
 
 ## 驱动自动保存防抖。
@@ -1185,7 +1217,11 @@ func tick(delta: float = 0.0) -> void:
 		record[_SAVE_RECORD_ELAPSED_SECONDS_KEY] = elapsed_seconds
 		if elapsed_seconds >= debounce_seconds:
 			due_record_ids.append(
-				GFVariantData.get_option_int(record, _SAVE_RECORD_ID_KEY, 0)
+				GFVariantData.get_option_int(
+					record,
+					_SAVE_RECORD_ID_KEY,
+					0
+				)
 			)
 	if not due_record_ids.is_empty():
 		var _flush_report: Dictionary = _flush_pending_save_records(due_record_ids)
@@ -1237,7 +1273,10 @@ func _read_persisted_data(file_name: String) -> GFStorageReadResult:
 func _write_persisted_data(file_name: String, data: Dictionary) -> Error:
 	if not persistence_enabled or _settings_store == null:
 		return ERR_UNAVAILABLE
-	return _settings_store.write_settings(file_name, data.duplicate(true))
+	return _settings_store.write_settings(
+		file_name,
+		data.duplicate(true)
+	)
 
 
 # --- 框架内部方法 ---
@@ -1269,10 +1308,7 @@ func inject_dependencies(architecture: GFArchitecture) -> void:
 ## @param owns: Settings Utility 是否负责 dispose 该 Store。
 ## [br]
 ## @return 注入成功返回 OK；生命周期或待保存状态已冻结时返回 ERR_BUSY。
-func set_settings_store_for_framework(
-	store: GFSettingsStoreUtility,
-	owns: bool = false
-) -> Error:
+func set_settings_store_for_framework(store: GFSettingsStoreUtility, owns: bool = false) -> Error:
 	if (
 		_disposed
 		or _architecture_mode
@@ -1324,10 +1360,7 @@ func _dispose_now() -> void:
 ## [br]
 ## @api private
 ## [br]
-func _register_definition_internal(
-	definition: GFSettingDefinition,
-	apply_default: bool = true
-) -> void:
+func _register_definition_internal(definition: GFSettingDefinition, apply_default: bool = true) -> void:
 	if definition == null:
 		push_error("[GFSettingsUtility][settings_utility.definition_null] Cannot register_definition: definition is null.")
 		return
@@ -1352,7 +1385,10 @@ func _register_definition_internal(
 func _discard_staged_values_internal() -> PackedStringArray:
 	var discarded_keys: PackedStringArray = get_staged_keys()
 	for key_text: String in discarded_keys:
-		var _discarded: bool = _discard_staged_value_internal(StringName(key_text), true)
+		var _discarded: bool = _discard_staged_value_internal(
+			StringName(key_text),
+			true
+		)
 	if not discarded_keys.is_empty():
 		staged_settings_discarded.emit(discarded_keys)
 	return discarded_keys
@@ -1364,11 +1400,27 @@ func _discard_staged_values_internal() -> PackedStringArray:
 ## [br]
 func _apply_values_internal(values: Dictionary, options: Dictionary) -> Dictionary:
 	var report: Dictionary = _make_apply_values_report()
-	var save_after_change: bool = GFVariantData.get_option_bool(options, "save_after_change", true)
-	var emit_changes: bool = GFVariantData.get_option_bool(options, "emit_changes", true)
-	var reset_missing: bool = GFVariantData.get_option_bool(options, "reset_missing", false)
+	var save_after_change: bool = GFVariantData.get_option_bool(
+		options,
+		"save_after_change",
+		true
+	)
+	var emit_changes: bool = GFVariantData.get_option_bool(
+		options,
+		"emit_changes",
+		true
+	)
+	var reset_missing: bool = GFVariantData.get_option_bool(
+		options,
+		"reset_missing",
+		false
+	)
 	var scope: Dictionary = _normalize_apply_scope(
-		GFVariantData.get_option_value(options, "scope", [])
+		GFVariantData.get_option_value(
+			options,
+			"scope",
+			[]
+		)
 	)
 	if reset_missing and scope.is_empty():
 		_add_apply_values_issue(
@@ -1408,7 +1460,12 @@ func _apply_values_internal(values: Dictionary, options: Dictionary) -> Dictiona
 	_begin_batch_internal()
 	for key: StringName in normalized_values.keys():
 		var old_value: Variant = get_value(key)
-		_set_value_internal(key, normalized_values[key], emit_changes, save_after_change)
+		_set_value_internal(
+			key,
+			normalized_values[key],
+			emit_changes,
+			save_after_change
+		)
 		var new_value: Variant = get_value(key)
 		_increment_report_count(report, "applied_count")
 		if old_value != new_value:
@@ -1419,7 +1476,11 @@ func _apply_values_internal(values: Dictionary, options: Dictionary) -> Dictiona
 			if normalized_values.has(key) or not has_setting(key):
 				continue
 			var old_value: Variant = get_value(key)
-			_reset_value_internal(key, emit_changes, save_after_change)
+			_reset_value_internal(
+				key,
+				emit_changes,
+				save_after_change
+			)
 			var new_value: Variant = get_value(key)
 			_increment_report_count(report, "reset_count")
 			if old_value != new_value:
@@ -1481,18 +1542,16 @@ func _replace_from_dict_internal(data: Dictionary, emit_changes: bool = true) ->
 ## [br]
 ## @api private
 ## [br]
-func _load_settings_admitted(
-	target_file_name: String,
-	recovery_policy: GFSettingsRecoveryPolicy
-) -> GFSettingsLoadResult:
+func _load_settings_admitted(target_file_name: String, recovery_policy: GFSettingsRecoveryPolicy) -> GFSettingsLoadResult:
 	if recovery_policy != null:
 		var policy_report: Dictionary = recovery_policy.validate_policy()
 		if _disposed or _dispose_requested:
-			return _make_unavailable_settings_load_result(
-				target_file_name,
-				"Settings utility was disposed during recovery policy validation."
-			)
-		if not GFVariantData.get_option_bool(policy_report, "ok", false):
+			return _make_unavailable_settings_load_result(target_file_name, "Settings utility was disposed during recovery policy validation.")
+		if not GFVariantData.get_option_bool(
+			policy_report,
+			"ok",
+			false
+		):
 			var policy_read_result: GFStorageReadResult = _make_persisted_read_failure(
 				"Settings recovery policy is invalid.",
 				ERR_INVALID_PARAMETER,
@@ -1517,10 +1576,7 @@ func _load_settings_admitted(
 	var read_result: GFStorageReadResult = _read_persisted_data(target_file_name)
 	_persistence_hook_depth -= 1
 	if _disposed or _dispose_requested:
-		return _make_unavailable_settings_load_result(
-			target_file_name,
-			"Settings utility was disposed during load."
-		)
+		return _make_unavailable_settings_load_result(target_file_name, "Settings utility was disposed during load.")
 	if read_result == null:
 		read_result = _make_persisted_read_failure(
 			"Settings storage returned no read result.",
@@ -1544,10 +1600,7 @@ func _load_settings_admitted(
 		)
 	else:
 		var failure_status: StringName = _get_settings_load_failure_status(read_result)
-		var recovery_action: StringName = _resolve_settings_recovery_action(
-			read_result,
-			recovery_policy
-		)
+		var recovery_action: StringName = _resolve_settings_recovery_action(read_result, recovery_policy)
 		match recovery_action:
 			GFSettingsRecoveryPolicy.ACTION_USE_CURRENT_STATE:
 				load_result = _make_settings_load_result(
@@ -1576,10 +1629,7 @@ func _load_settings_admitted(
 				)
 			_:
 				var failure_error_code: Error = _get_settings_load_error_code(read_result)
-				var failure_error: String = _get_settings_load_error(
-					read_result,
-					failure_status
-				)
+				var failure_error: String = _get_settings_load_error(read_result, failure_status)
 				load_result = _make_settings_load_result(
 					false,
 					failure_status,
@@ -1646,9 +1696,7 @@ func _try_finish_quiesce() -> void:
 	_quiesce_flush_started = true
 	var flush_report: Dictionary
 	if _quiesce_join_active_flush:
-		var attempted_record_ids: Array[int] = _get_flush_report_attempted_record_ids(
-			_quiesce_joined_flush_report
-		)
+		var attempted_record_ids: Array[int] = _get_flush_report_attempted_record_ids(_quiesce_joined_flush_report)
 		var remaining_record_ids: Array[int] = []
 		for record: Dictionary in _pending_save_records:
 			var record_id: int = GFVariantData.get_option_int(
@@ -1660,21 +1708,17 @@ func _try_finish_quiesce() -> void:
 				remaining_record_ids.append(record_id)
 		var remaining_flush_report: Dictionary = {}
 		if not remaining_record_ids.is_empty():
-			remaining_flush_report = _flush_pending_save_records(
-				remaining_record_ids,
-				true
-			)
-		flush_report = _merge_flush_reports(
-			_quiesce_joined_flush_report,
-			remaining_flush_report
-		)
+			remaining_flush_report = _flush_pending_save_records(remaining_record_ids, true)
+		flush_report = _merge_flush_reports(_quiesce_joined_flush_report, remaining_flush_report)
 	else:
 		flush_report = _flush_pending_save_records([], true)
 	if not _quiesce_completion.is_pending():
 		return
-	var flush_error: Error = (
-		GFVariantData.get_option_int(flush_report, "error_code", int(OK)) as Error
-	)
+	var flush_error: Error = GFVariantData.get_option_int(
+		flush_report,
+		"error_code",
+		int(OK)
+	) as Error
 	if flush_error != OK:
 		var failed_file_names: PackedStringArray = PackedStringArray()
 		var failed_file_names_value: Variant = GFVariantData.get_option_value(
@@ -1691,10 +1735,7 @@ func _try_finish_quiesce() -> void:
 			"failed_count": GFVariantData.get_option_int(flush_report, "failed_count"),
 			"pending_count": _pending_save_records.size(),
 		}
-		var _failed_flush: bool = _quiesce_completion.fail(
-			"Settings pending saves failed to flush.",
-			failure_metadata
-		)
+		var _failed_flush: bool = _quiesce_completion.fail("Settings pending saves failed to flush.", failure_metadata)
 		return
 	var _succeeded: bool = _quiesce_completion.succeed()
 
@@ -1725,20 +1766,18 @@ func _get_flush_report_attempted_record_ids(report: Dictionary) -> Array[int]:
 ## @api private
 ## [br]
 func _merge_flush_reports(first_report: Dictionary, second_report: Dictionary) -> Dictionary:
-	var first_error: Error = (
-		GFVariantData.get_option_int(first_report, "error_code", int(OK)) as Error
-	)
-	var second_error: Error = (
-		GFVariantData.get_option_int(second_report, "error_code", int(OK)) as Error
-	)
-	var error_codes: Dictionary = GFVariantData.get_option_dictionary(
+	var first_error: Error = GFVariantData.get_option_int(
 		first_report,
-		"error_codes"
-	)
-	for file_name_value: Variant in GFVariantData.get_option_dictionary(
+		"error_code",
+		int(OK)
+	) as Error
+	var second_error: Error = GFVariantData.get_option_int(
 		second_report,
-		"error_codes"
-	).keys():
+		"error_code",
+		int(OK)
+	) as Error
+	var error_codes: Dictionary = GFVariantData.get_option_dictionary(first_report, "error_codes")
+	for file_name_value: Variant in (GFVariantData.get_option_dictionary(second_report, "error_codes").keys()):
 		var file_name: String = GFVariantData.to_text(file_name_value)
 		error_codes[file_name] = GFVariantData.get_option_int(
 			GFVariantData.get_option_dictionary(second_report, "error_codes"),
@@ -1746,15 +1785,10 @@ func _merge_flush_reports(first_report: Dictionary, second_report: Dictionary) -
 		)
 	var failed_file_names: PackedStringArray = PackedStringArray()
 	for record: Dictionary in _pending_save_records:
-		var file_name: String = GFVariantData.get_option_string(
-			record,
-			_SAVE_RECORD_FILE_NAME_KEY
-		)
+		var file_name: String = GFVariantData.get_option_string(record, _SAVE_RECORD_FILE_NAME_KEY)
 		if error_codes.has(file_name):
 			var _file_name_appended: bool = failed_file_names.append(file_name)
-	var attempted_record_ids: Array[int] = _get_flush_report_attempted_record_ids(
-		first_report
-	)
+	var attempted_record_ids: Array[int] = _get_flush_report_attempted_record_ids(first_report)
 	for record_id: int in _get_flush_report_attempted_record_ids(second_report):
 		if not attempted_record_ids.has(record_id):
 			attempted_record_ids.append(record_id)
@@ -1802,10 +1836,7 @@ func _make_settings_load_result(
 ## [br]
 ## @api private
 ## [br]
-func _make_unavailable_settings_load_result(
-	file_name: String,
-	error_message: String
-) -> GFSettingsLoadResult:
+func _make_unavailable_settings_load_result(file_name: String, error_message: String) -> GFSettingsLoadResult:
 	var read_result: GFStorageReadResult = _make_persisted_read_failure(
 		error_message,
 		ERR_UNAVAILABLE,
@@ -1851,10 +1882,7 @@ func _get_settings_load_failure_status(read_result: GFStorageReadResult) -> Stri
 ## [br]
 ## @api private
 ## [br]
-func _resolve_settings_recovery_action(
-	read_result: GFStorageReadResult,
-	recovery_policy: GFSettingsRecoveryPolicy
-) -> StringName:
+func _resolve_settings_recovery_action(read_result: GFStorageReadResult, recovery_policy: GFSettingsRecoveryPolicy) -> StringName:
 	if recovery_policy == null:
 		return GFSettingsRecoveryPolicy.ACTION_FAIL
 
@@ -1882,10 +1910,7 @@ func _get_settings_load_error_code(read_result: GFStorageReadResult) -> Error:
 ## [br]
 ## @api private
 ## [br]
-func _get_settings_load_error(
-	read_result: GFStorageReadResult,
-	failure_status: StringName
-) -> String:
+func _get_settings_load_error(read_result: GFStorageReadResult, failure_status: StringName) -> String:
 	if read_result.ok and not read_result.is_integrity_accepted():
 		return "Settings integrity status is not accepted."
 	if not read_result.error.is_empty():
@@ -1902,13 +1927,15 @@ func _make_persisted_read_failure(
 	error_code: Error,
 	failure_kind: GFStorageReadResult.FailureKind
 ) -> GFStorageReadResult:
-	return GFStorageReadResult.new().configure_failure(
-		error_message,
-		error_code,
-		{},
-		GFStorageReadResult.IntegrityStatus.NOT_CHECKED,
-		0,
-		failure_kind
+	return (
+		GFStorageReadResult.new().configure_failure(
+			error_message,
+			error_code,
+			{},
+			GFStorageReadResult.IntegrityStatus.NOT_CHECKED,
+			0,
+			failure_kind
+		)
 	)
 
 
@@ -1916,9 +1943,7 @@ func _make_persisted_read_failure(
 ## [br]
 ## @api private
 ## [br]
-func _complete_settings_load(
-	load_result: GFSettingsLoadResult
-) -> GFSettingsLoadResult:
+func _complete_settings_load(load_result: GFSettingsLoadResult) -> GFSettingsLoadResult:
 	_last_load_result = load_result.duplicate_result()
 	settings_load_completed.emit(load_result.duplicate_result())
 	return load_result
@@ -1928,10 +1953,19 @@ func _complete_settings_load(
 ## [br]
 ## @api private
 ## [br]
-func _reset_value_internal(key: StringName, emit_change: bool, save_after_change: bool) -> void:
+func _reset_value_internal(
+	key: StringName,
+	emit_change: bool,
+	save_after_change: bool
+) -> void:
 	var definition: GFSettingDefinition = _get_definition(key)
 	if definition != null:
-		_set_value_internal(key, definition.default_value, emit_change, save_after_change)
+		_set_value_internal(
+			key,
+			definition.default_value,
+			emit_change,
+			save_after_change
+		)
 		return
 
 	if not _values.has(key):
@@ -1940,7 +1974,11 @@ func _reset_value_internal(key: StringName, emit_change: bool, save_after_change
 	var old_value: Variant = _values[key]
 	var _erased: bool = _values.erase(key)
 	if emit_change:
-		setting_changed.emit(key, old_value, null)
+		setting_changed.emit(
+			key,
+			old_value,
+			null
+		)
 	if save_after_change and auto_save_on_change:
 		_queue_auto_save()
 
@@ -1967,9 +2005,17 @@ func _set_value_internal(
 
 	_values[key] = next_value
 	if emit_change:
-		setting_changed.emit(key, old_value, next_value)
+		setting_changed.emit(
+			key,
+			old_value,
+			next_value
+		)
 
-	if save_after_change and auto_save_on_change and _should_persist(key):
+	if (
+		save_after_change
+		and auto_save_on_change
+		and _should_persist(key)
+	):
 		_queue_auto_save()
 
 
@@ -1977,7 +2023,11 @@ func _set_value_internal(
 ## [br]
 ## @api private
 ## [br]
-func _stage_value_internal(key: StringName, value: Variant, emit_change: bool) -> void:
+func _stage_value_internal(
+	key: StringName,
+	value: Variant,
+	emit_change: bool
+) -> void:
 	if key == &"":
 		push_error("[GFSettingsUtility][settings_utility.stage_key_empty] Cannot stage_value: settings key is empty.")
 		return
@@ -2019,7 +2069,11 @@ func _discard_staged_value_internal(key: StringName, emit_change: bool) -> bool:
 func _reconcile_staged_value(key: StringName) -> void:
 	if not _staged_values.has(key):
 		return
-	_stage_value_internal(key, _staged_values[key], true)
+	_stage_value_internal(
+		key,
+		_staged_values[key],
+		true
+	)
 
 
 ## 创建包含计数、健康状态和问题列表默认值的批量应用报告。
@@ -2090,8 +2144,23 @@ func _add_apply_values_issue(
 ## [br]
 func _finalize_apply_values_report(report: Dictionary) -> void:
 	report["issue_count"] = _get_report_issues(report).size()
-	report["ok"] = GFVariantData.get_option_int(report, "error_count", 0) == 0
-	report["healthy"] = GFVariantData.get_option_int(report, "error_count", 0) == 0 and GFVariantData.get_option_int(report, "warning_count", 0) == 0
+	report["ok"] = GFVariantData.get_option_int(
+		report,
+		"error_count",
+		0
+	) == 0
+	report["healthy"] = (
+		GFVariantData.get_option_int(
+			report,
+			"error_count",
+			0
+		) == 0
+		and GFVariantData.get_option_int(
+			report,
+			"warning_count",
+			0
+		) == 0
+	)
 
 
 ## 把字典、数组、PackedStringArray 或单个字符串键规范化为键集合。
@@ -2137,7 +2206,10 @@ func _queue_auto_save() -> void:
 		not persistence_enabled
 		or _disposed
 		or _persistence_hook_depth > 0
-		or (not _mutation_admission_open and _lifecycle_critical_depth <= 0)
+		or (
+			not _mutation_admission_open
+			and _lifecycle_critical_depth <= 0
+		)
 	):
 		return
 	var record: Dictionary = _capture_save_record(storage_file_name)
@@ -2164,15 +2236,16 @@ func _capture_save_record(file_name: String) -> Dictionary:
 	var data: Dictionary = _to_dict_with_state(true, serialization_state)
 	var capture_error_code: Error = OK
 	if (
-		GFVariantData.get_option_int(
-			serialization_state,
-			_SETTING_SERIALIZATION_ERROR_COUNT_KEY,
-			0
-		) > 0
-	):
-		push_error(
-			"[GFSettingsUtility][settings_utility.persistence_cycle] Settings data contains a cyclic reference; persistence rejected: %s." % target_file_name
+		(
+			GFVariantData.get_option_int(
+				serialization_state,
+				_SETTING_SERIALIZATION_ERROR_COUNT_KEY,
+				0
+			)
 		)
+		> 0
+	):
+		push_error("[GFSettingsUtility][settings_utility.persistence_cycle] Settings data contains a cyclic reference; persistence rejected: %s." % target_file_name)
 		capture_error_code = ERR_INVALID_DATA
 		data = {}
 	var record: Dictionary = {
@@ -2192,22 +2265,22 @@ func _capture_save_record(file_name: String) -> Dictionary:
 ## @api private
 ## [br]
 func _upsert_save_record(records: Array[Dictionary], record: Dictionary) -> int:
-	var file_name: String = GFVariantData.get_option_string(
-		record,
-		_SAVE_RECORD_FILE_NAME_KEY
-	)
+	var file_name: String = GFVariantData.get_option_string(record, _SAVE_RECORD_FILE_NAME_KEY)
 	for record_index: int in range(records.size()):
 		var existing_record: Dictionary = records[record_index]
-		if (
-			GFVariantData.get_option_string(
-				existing_record,
-				_SAVE_RECORD_FILE_NAME_KEY
-			) == file_name
-		):
+		if ((GFVariantData.get_option_string(existing_record, _SAVE_RECORD_FILE_NAME_KEY)) == file_name):
 			records[record_index] = record
-			return GFVariantData.get_option_int(record, _SAVE_RECORD_ID_KEY, 0)
+			return GFVariantData.get_option_int(
+				record,
+				_SAVE_RECORD_ID_KEY,
+				0
+			)
 	records.append(record)
-	return GFVariantData.get_option_int(record, _SAVE_RECORD_ID_KEY, 0)
+	return GFVariantData.get_option_int(
+		record,
+		_SAVE_RECORD_ID_KEY,
+		0
+	)
 
 
 ## 将批次记录合并到待写队列，清空批次队列并返回编号。
@@ -2235,10 +2308,7 @@ func _promote_open_batch_save_records() -> void:
 ## [br]
 ## @api private
 ## [br]
-func _flush_pending_save_records(
-	record_ids: Array[int] = [],
-	is_quiesce_drain: bool = false
-) -> Dictionary:
+func _flush_pending_save_records(record_ids: Array[int] = [], is_quiesce_drain: bool = false) -> Dictionary:
 	if _save_flush_in_progress or _persistence_hook_depth > 0:
 		return {
 			"error_code": int(ERR_BUSY),
@@ -2251,7 +2321,11 @@ func _flush_pending_save_records(
 	_enter_lifecycle_critical()
 	var records_to_flush: Array[Dictionary] = []
 	for record: Dictionary in _pending_save_records:
-		var record_id: int = GFVariantData.get_option_int(record, _SAVE_RECORD_ID_KEY, 0)
+		var record_id: int = GFVariantData.get_option_int(
+			record,
+			_SAVE_RECORD_ID_KEY,
+			0
+		)
 		if not record_ids.is_empty() and not record_ids.has(record_id):
 			continue
 		records_to_flush.append(record.duplicate(true))
@@ -2261,7 +2335,11 @@ func _flush_pending_save_records(
 	var error_codes: Dictionary = {}
 	var attempted_record_ids: Array[int] = []
 	for record: Dictionary in records_to_flush:
-		var record_id: int = GFVariantData.get_option_int(record, _SAVE_RECORD_ID_KEY, 0)
+		var record_id: int = GFVariantData.get_option_int(
+			record,
+			_SAVE_RECORD_ID_KEY,
+			0
+		)
 		if _find_pending_save_record_index(record_id) < 0:
 			continue
 		if _should_stop_current_flush_for_quiesce(is_quiesce_drain):
@@ -2269,22 +2347,17 @@ func _flush_pending_save_records(
 				first_error = ERR_BUSY
 			break
 		attempted_record_ids.append(record_id)
-		var file_name: String = GFVariantData.get_option_string(
-			record,
-			_SAVE_RECORD_FILE_NAME_KEY
-		)
+		var file_name: String = GFVariantData.get_option_string(record, _SAVE_RECORD_FILE_NAME_KEY)
 		var data_value: Variant = GFVariantData.get_option_value(
 			record,
 			_SAVE_RECORD_DATA_KEY,
 			{}
 		)
-		var error: Error = (
-			GFVariantData.get_option_int(
-				record,
-				_SAVE_RECORD_CAPTURE_ERROR_CODE_KEY,
-				int(OK)
-			) as Error
-		)
+		var error: Error = GFVariantData.get_option_int(
+			record,
+			_SAVE_RECORD_CAPTURE_ERROR_CODE_KEY,
+			int(OK)
+		) as Error
 		if error == OK and data_value is Dictionary:
 			var data: Dictionary = data_value
 			_persistence_hook_depth += 1
@@ -2337,11 +2410,14 @@ func _should_stop_current_flush_for_quiesce(is_quiesce_drain: bool) -> bool:
 func _find_pending_save_record_index(record_id: int) -> int:
 	for record_index: int in range(_pending_save_records.size()):
 		if (
-			GFVariantData.get_option_int(
-				_pending_save_records[record_index],
-				_SAVE_RECORD_ID_KEY,
-				0
-			) == record_id
+			(
+				GFVariantData.get_option_int(
+					_pending_save_records[record_index],
+					_SAVE_RECORD_ID_KEY,
+					0
+				)
+			)
+			== record_id
 		):
 			return record_index
 	return -1
@@ -2375,9 +2451,7 @@ func _mark_pending_save_record_failed(record_id: int) -> void:
 func _get_pending_save_file_names() -> PackedStringArray:
 	var file_names: PackedStringArray = PackedStringArray()
 	for record: Dictionary in _pending_save_records:
-		var _file_name_appended: bool = file_names.append(
-			GFVariantData.get_option_string(record, _SAVE_RECORD_FILE_NAME_KEY)
-		)
+		var _file_name_appended: bool = file_names.append(GFVariantData.get_option_string(record, _SAVE_RECORD_FILE_NAME_KEY))
 	return file_names
 
 
@@ -2411,7 +2485,11 @@ func _can_accept_mutation(_operation: String) -> bool:
 ## @api private
 ## [br]
 func _replace_settings_store(store: GFSettingsStoreUtility, owns: bool) -> Error:
-	if _disposed or _dispose_requested or _quiesce_completion != null:
+	if (
+		_disposed
+		or _dispose_requested
+		or _quiesce_completion != null
+	):
 		return ERR_BUSY
 	if _settings_store == store:
 		_owns_settings_store = owns and store != null
@@ -2495,12 +2573,20 @@ func _emit_replaced_value_changes(previous_values: Dictionary) -> void:
 		var has_new_value: bool = _values.has(key)
 		var new_value: Variant = GFVariantData.get_option_value(_values, key)
 		if not has_new_value or old_value != new_value:
-			setting_changed.emit(key, old_value, new_value if has_new_value else null)
+			setting_changed.emit(
+				key,
+				old_value,
+				new_value if has_new_value else null
+			)
 
 	for key: StringName in _values.keys():
 		if previous_values.has(key):
 			continue
-		setting_changed.emit(key, null, _values[key])
+		setting_changed.emit(
+			key,
+			null,
+			_values[key]
+		)
 
 
 ## 从定义表读取指定键的类型化定义，不匹配时返回空值。
@@ -2520,7 +2606,11 @@ func _get_definition(key: StringName) -> GFSettingDefinition:
 ## @api private
 ## [br]
 func _get_report_issues(report: Dictionary) -> Array:
-	var issues_value: Variant = GFVariantData.get_option_value(report, "issues", [])
+	var issues_value: Variant = GFVariantData.get_option_value(
+		report,
+		"issues",
+		[]
+	)
 	if issues_value is Array:
 		var existing_issues: Array = issues_value
 		return existing_issues
@@ -2535,7 +2625,11 @@ func _get_report_issues(report: Dictionary) -> Array:
 ## @api private
 ## [br]
 func _increment_report_count(report: Dictionary, key: String) -> void:
-	report[key] = GFVariantData.get_option_int(report, key, 0) + 1
+	report[key] = GFVariantData.get_option_int(
+		report,
+		key,
+		0
+	) + 1
 
 
 ## 将支持的内建类型编码为设置包装器，其余值交由 Variant JSON 编解码器转换。
@@ -2567,17 +2661,23 @@ func _serialize_value(value: Variant) -> Variant:
 			"a": color.a,
 		}
 	if typeof(value) == TYPE_STRING_NAME:
-		return {
-			_SETTING_TYPE_KEY: "StringName",
-			_SETTING_VALUE_KEY: GFVariantData.to_text(value),
-		}
+		return { _SETTING_TYPE_KEY: "StringName", _SETTING_VALUE_KEY: GFVariantData.to_text(value), }
 	if value is Array:
 		var source_array: Array = value
-		return GFVariantJsonCodec.variant_to_json_compatible(source_array, { "encode_dictionary_keys": true })
+		return GFVariantJsonCodec.variant_to_json_compatible(
+			source_array,
+			{ "encode_dictionary_keys": true }
+		)
 	if value is Dictionary:
 		var source_dictionary: Dictionary = value
-		return GFVariantJsonCodec.variant_to_json_compatible(source_dictionary, { "encode_dictionary_keys": true })
-	return GFVariantJsonCodec.variant_to_json_compatible(value, { "encode_dictionary_keys": true })
+		return GFVariantJsonCodec.variant_to_json_compatible(
+			source_dictionary,
+			{ "encode_dictionary_keys": true }
+		)
+	return GFVariantJsonCodec.variant_to_json_compatible(
+		value,
+		{ "encode_dictionary_keys": true }
+	)
 
 
 ## 递归解码数组、Variant JSON 标记和设置类型包装器，其他字典按字段递归还原。
@@ -2601,18 +2701,60 @@ func _deserialize_value(value: Variant) -> Variant:
 	if _is_serialized_setting_wrapper(data):
 		match str(data[_SETTING_TYPE_KEY]):
 			"Vector2":
-				return Vector2(GFVariantData.get_option_float(data, "x", 0.0), GFVariantData.get_option_float(data, "y", 0.0))
+				return Vector2(
+					GFVariantData.get_option_float(
+						data,
+						"x",
+						0.0
+					),
+					GFVariantData.get_option_float(
+						data,
+						"y",
+						0.0
+					)
+				)
 			"Vector2i":
-				return Vector2i(GFVariantData.get_option_int(data, "x", 0), GFVariantData.get_option_int(data, "y", 0))
+				return Vector2i(
+					GFVariantData.get_option_int(
+						data,
+						"x",
+						0
+					),
+					GFVariantData.get_option_int(
+						data,
+						"y",
+						0
+					)
+				)
 			"Color":
 				return Color(
-					GFVariantData.get_option_float(data, "r", 1.0),
-					GFVariantData.get_option_float(data, "g", 1.0),
-					GFVariantData.get_option_float(data, "b", 1.0),
-					GFVariantData.get_option_float(data, "a", 1.0)
+					GFVariantData.get_option_float(
+						data,
+						"r",
+						1.0
+					),
+					GFVariantData.get_option_float(
+						data,
+						"g",
+						1.0
+					),
+					GFVariantData.get_option_float(
+						data,
+						"b",
+						1.0
+					),
+					GFVariantData.get_option_float(
+						data,
+						"a",
+						1.0
+					)
 				)
 			"StringName":
-				return GFVariantData.get_option_string_name(data, _SETTING_VALUE_KEY, &"")
+				return GFVariantData.get_option_string_name(
+					data,
+					_SETTING_VALUE_KEY,
+					&""
+				)
 
 	var dictionary_result: Dictionary = {}
 	for key_variant: Variant in data.keys():
@@ -2629,9 +2771,19 @@ func _is_serialized_setting_wrapper(data: Dictionary) -> bool:
 		return false
 	match str(data[_SETTING_TYPE_KEY]):
 		"Vector2", "Vector2i":
-			return data.size() == 3 and data.has("x") and data.has("y")
+			return (
+				data.size() == 3
+				and data.has("x")
+				and data.has("y")
+			)
 		"Color":
-			return data.size() == 5 and data.has("r") and data.has("g") and data.has("b") and data.has("a")
+			return (
+				data.size() == 5
+				and data.has("r")
+				and data.has("g")
+				and data.has("b")
+				and data.has("a")
+			)
 		"StringName":
 			return data.size() == 2 and data.has(_SETTING_VALUE_KEY)
 	return false
@@ -2645,12 +2797,21 @@ func _to_dict_with_state(persistent_only: bool, serialization_state: Dictionary)
 	var result: Dictionary = {}
 	for key: StringName in _values.keys():
 		var definition: GFSettingDefinition = _get_definition(key)
-		if persistent_only and definition != null and not definition.persistent:
+		if (
+			persistent_only
+			and definition != null
+			and not definition.persistent
+		):
 			continue
 		var serialized_value: Variant = _serialize_value(_values[key])
 		if _contains_circular_reference_marker(serialized_value):
 			serialization_state[_SETTING_SERIALIZATION_ERROR_COUNT_KEY] = (
-				GFVariantData.get_option_int(serialization_state, _SETTING_SERIALIZATION_ERROR_COUNT_KEY, 0) + 1
+				GFVariantData.get_option_int(
+					serialization_state,
+					_SETTING_SERIALIZATION_ERROR_COUNT_KEY,
+					0
+				)
+				+ 1
 			)
 		result[String(key)] = serialized_value
 	return result
@@ -2672,9 +2833,7 @@ func _contains_circular_reference_marker(value: Variant) -> bool:
 
 	var dictionary_value: Dictionary = value
 	if dictionary_value.has(GFVariantJsonCodec.JSON_MARKER_KEY):
-		var marker: Dictionary = GFVariantData.as_dictionary(
-			GFVariantData.get_option_value(dictionary_value, GFVariantJsonCodec.JSON_MARKER_KEY)
-		)
+		var marker: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(dictionary_value, GFVariantJsonCodec.JSON_MARKER_KEY))
 		if GFVariantData.get_option_string(marker, GFVariantJsonCodec.JSON_TYPE_KEY) == "CircularReference":
 			return true
 	for key_variant: Variant in dictionary_value.keys():

@@ -81,10 +81,17 @@ func get_event_rich_text(input_event: InputEvent, options: Dictionary = {}) -> S
 	if icon == null or icon.resource_path.is_empty():
 		return ""
 
-	var size: int = GFVariantData.get_option_int(options, "icon_size", icon_size)
+	var size: int = GFVariantData.get_option_int(
+		options,
+		"icon_size",
+		icon_size
+	)
 	var escaped_path: String = _escape_bbcode(icon.resource_path)
 	if size > 0:
-		return "[img=%d]%s[/img]" % [size, escaped_path]
+		return (
+			"[img=%d]%s[/img]"
+			% [size, escaped_path]
+		)
 	return "[img]%s[/img]" % escaped_path
 
 

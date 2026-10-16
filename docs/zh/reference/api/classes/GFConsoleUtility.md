@@ -38,7 +38,7 @@
 | 方法 | [`get_command_catalog`](#member-gfconsoleutility-methods-get_command_catalog) | `func get_command_catalog() -> Dictionary:` |
 | 方法 | [`suggest_commands`](#member-gfconsoleutility-methods-suggest_commands) | `func suggest_commands(prefix: String) -> PackedStringArray:` |
 | 方法 | [`suggest_command_arguments`](#member-gfconsoleutility-methods-suggest_command_arguments) | `func suggest_command_arguments(raw_input: String) -> PackedStringArray:` |
-| 方法 | [`suggest_similar_commands`](#member-gfconsoleutility-methods-suggest_similar_commands) | `func suggest_similar_commands(cmd_name: String, limit: int = 3, threshold: float = 0.5) -> PackedStringArray:` |
+| 方法 | [`suggest_similar_commands`](#member-gfconsoleutility-methods-suggest_similar_commands) | `func suggest_similar_commands( cmd_name: String, limit: int = 3, threshold: float = 0.5 ) -> PackedStringArray:` |
 | 方法 | [`execute_command`](#member-gfconsoleutility-methods-execute_command) | `func execute_command(raw_input: String) -> bool:` |
 | 方法 | [`set_console_visible`](#member-gfconsoleutility-methods-set_console_visible) | `func set_console_visible(console_visible: bool) -> void:` |
 | 方法 | [`is_console_visible`](#member-gfconsoleutility-methods-is_console_visible) | `func is_console_visible() -> bool:` |
@@ -407,9 +407,10 @@ func suggest_command_arguments(raw_input: String) -> PackedStringArray:
 ### `suggest_similar_commands`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func suggest_similar_commands(cmd_name: String, limit: int = 3, threshold: float = 0.5) -> PackedStringArray:
+func suggest_similar_commands( cmd_name: String, limit: int = 3, threshold: float = 0.5 ) -> PackedStringArray:
 ```
 
 根据字符串相似度获取可能的命令名，用于未知命令诊断。

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputPulseTrigger" path="addons/gf/standard/input/triggers/gf_input_pulse_trigger.gd" module="standard" extends="GFInputTrigger" classDigest="80cb7906d4890f648389c847b9bcf749386c8f109bc7c8ac463f9498f17ded84">
+<class name="GFInputPulseTrigger" path="addons/gf/standard/input/triggers/gf_input_pulse_trigger.gd" module="standard" extends="GFInputTrigger" classDigest="dbb6fc462c8b33bf92e57f064c3a58232d84c55e827a8ca31c1a27059d244a55">
 	<description>GFInputPulseTrigger: 周期脉冲触发器。
 输入持续活跃时按固定间隔触发一次，可用于连发、菜单重复导航等通用场景。</description>
 	<tags>
@@ -50,7 +50,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="update">
-			<signature>func update(raw_active: bool, _value: Variant, delta: float, state: Dictionary) -&gt; TriggerState:</signature>
+			<signature>func update( raw_active: bool, _value: Variant, delta: float, state: Dictionary ) -&gt; TriggerState:</signature>
 			<description>更新运行时状态；每次最多返回一个脉冲，跨期只保留周期余数，不补发历史脉冲。
 激活时产生即时脉冲会忽略当次 delta；否则首次等待消费当次 delta。
 持续活跃期间只有有限正 delta 才能触发新的脉冲，事件刷新不会重复触发。

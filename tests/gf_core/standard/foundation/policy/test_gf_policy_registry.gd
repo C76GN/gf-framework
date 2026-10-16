@@ -4,57 +4,106 @@ extends GutTest
 
 func test_policy_registry_evaluates_matching_providers_in_priority_order() -> void:
 	var first: RecordingPolicyProvider = RecordingPolicyProvider.new()
-	var _first_configured: GFPolicyProvider = first.configure(&"first", PackedStringArray(["import_plan"]))
+	var _first_configured: GFPolicyProvider = first.configure(
+		&"first",
+		PackedStringArray(["import_plan"])
+	)
 	first.priority = 20
 	var second: RecordingPolicyProvider = RecordingPolicyProvider.new()
-	var _second_configured: GFPolicyProvider = second.configure(&"second", PackedStringArray(["import_plan"]))
+	var _second_configured: GFPolicyProvider = second.configure(
+		&"second",
+		PackedStringArray(["import_plan"])
+	)
 	second.priority = 10
 	var skipped: RecordingPolicyProvider = RecordingPolicyProvider.new()
-	var _skipped_configured: GFPolicyProvider = skipped.configure(&"skipped", PackedStringArray(["other"]))
+	var _skipped_configured: GFPolicyProvider = skipped.configure(
+		&"skipped",
+		PackedStringArray(["other"])
+	)
 
 	var registry: GFPolicyRegistry = GFPolicyRegistry.new()
-	assert_true(registry.register_provider(first), "有效 provider 应可注册。")
-	assert_true(registry.register_provider(second), "第二个 provider 应可注册。")
-	assert_true(registry.register_provider(skipped), "不匹配 kind 的 provider 也应可注册。")
+	assert_true(
+		registry.register_provider(first),
+		"有效 provider 应可注册。"
+	)
+	assert_true(
+		registry.register_provider(second),
+		"第二个 provider 应可注册。"
+	)
+	assert_true(
+		registry.register_provider(skipped),
+		"不匹配 kind 的 provider 也应可注册。"
+	)
 
-	var result: Dictionary = registry.evaluate_artifact({
-		"kind": "import_plan",
-		"id": "items",
-	})
+	var result: Dictionary = registry.evaluate_artifact({ "kind": "import_plan", "id": "items", })
 	var results: Array = GFVariantData.get_option_array(result, "results")
 	var first_result: Dictionary = GFVariantData.as_dictionary(results[0])
 	var second_result: Dictionary = GFVariantData.as_dictionary(results[1])
 
-	assert_true(GFVariantData.get_option_bool(result, "ok"), "全部匹配策略通过时汇总结果应通过。")
-	assert_eq(GFVariantData.get_option_int(result, "provider_count"), 2, "只应执行支持该 artifact kind 的 provider。")
-	assert_eq(GFVariantData.get_option_string_name(first_result, "provider_id"), &"second", "低 priority provider 应先执行。")
-	assert_eq(GFVariantData.get_option_string_name(second_result, "provider_id"), &"first", "高 priority provider 应后执行。")
-	assert_eq(first.evaluate_count, 1, "匹配 provider 应执行。")
-	assert_eq(skipped.evaluate_count, 0, "不匹配 provider 不应执行。")
+	assert_true(
+		GFVariantData.get_option_bool(result, "ok"),
+		"全部匹配策略通过时汇总结果应通过。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(result, "provider_count"),
+		2,
+		"只应执行支持该 artifact kind 的 provider。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(first_result, "provider_id"),
+		&"second",
+		"低 priority provider 应先执行。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(second_result, "provider_id"),
+		&"first",
+		"高 priority provider 应后执行。"
+	)
+	assert_eq(
+		first.evaluate_count,
+		1,
+		"匹配 provider 应执行。"
+	)
+	assert_eq(
+		skipped.evaluate_count,
+		0,
+		"不匹配 provider 不应执行。"
+	)
 
 
 func test_policy_registry_sorts_exported_provider_snapshot_during_evaluation() -> void:
 	var first: RecordingPolicyProvider = RecordingPolicyProvider.new()
-	var _first_configured: GFPolicyProvider = first.configure(&"first", PackedStringArray(["asset"]))
+	var _first_configured: GFPolicyProvider = first.configure(
+		&"first",
+		PackedStringArray(["asset"])
+	)
 	first.priority = 20
 	var second: RecordingPolicyProvider = RecordingPolicyProvider.new()
-	var _second_configured: GFPolicyProvider = second.configure(&"second", PackedStringArray(["asset"]))
+	var _second_configured: GFPolicyProvider = second.configure(
+		&"second",
+		PackedStringArray(["asset"])
+	)
 	second.priority = 10
 	var registry: GFPolicyRegistry = GFPolicyRegistry.new()
 	registry.providers = [first, second]
 
-	var result: Dictionary = registry.evaluate_artifact({
-		"artifact_kind": "asset",
-	})
+	var result: Dictionary = registry.evaluate_artifact({ "artifact_kind": "asset", })
 	var results: Array = GFVariantData.get_option_array(result, "results")
 	var first_result: Dictionary = GFVariantData.as_dictionary(results[0])
 
-	assert_eq(GFVariantData.get_option_string_name(first_result, "provider_id"), &"second", "直接赋值 providers 也应按 priority 执行。")
+	assert_eq(
+		GFVariantData.get_option_string_name(first_result, "provider_id"),
+		&"second",
+		"直接赋值 providers 也应按 priority 执行。"
+	)
 
 
 func test_policy_registry_aggregates_failed_policy_issues() -> void:
 	var provider: RecordingPolicyProvider = RecordingPolicyProvider.new()
-	var _configured_provider: GFPolicyProvider = provider.configure(&"deny", PackedStringArray(["asset"]))
+	var _configured_provider: GFPolicyProvider = provider.configure(
+		&"deny",
+		PackedStringArray(["asset"])
+	)
 	provider.should_fail = true
 	var registry: GFPolicyRegistry = GFPolicyRegistry.new()
 	var _registered: bool = registry.register_provider(provider)
@@ -63,54 +112,90 @@ func test_policy_registry_aggregates_failed_policy_issues() -> void:
 	var issues: Array = GFVariantData.get_option_array(result, "issues")
 	var issue: Dictionary = GFVariantData.as_dictionary(issues[0])
 
-	assert_false(GFVariantData.get_option_bool(result, "ok"), "任一策略失败时汇总结果应失败。")
-	assert_eq(GFVariantData.get_option_string(issue, "kind"), "denied", "失败策略 issue 应进入汇总。")
+	assert_false(
+		GFVariantData.get_option_bool(result, "ok"),
+		"任一策略失败时汇总结果应失败。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(issue, "kind"),
+		"denied",
+		"失败策略 issue 应进入汇总。"
+	)
 
 
 func test_policy_provider_normalizes_failed_status_without_ok() -> void:
 	var provider: RecordingPolicyProvider = RecordingPolicyProvider.new()
-	var _configured_provider: GFPolicyProvider = provider.configure(&"status_only", PackedStringArray(["asset"]))
+	var _configured_provider: GFPolicyProvider = provider.configure(
+		&"status_only",
+		PackedStringArray(["asset"])
+	)
 	provider.raw_result = {
 		"status": &"failed",
 		"issues": [
-			{
-				"kind": "status_failed",
-				"message": "failed by status",
-			},
+			{ "kind": "status_failed", "message": "failed by status", },
 		],
 	}
 
 	var result: Dictionary = provider.evaluate({ "artifact_kind": "asset" })
 
-	assert_false(GFVariantData.get_option_bool(result, "ok", true), "失败 status 不应在缺少 ok 字段时默认通过。")
-	assert_eq(GFVariantData.get_option_string_name(result, "provider_id"), &"status_only", "provider_id 应来自 provider。")
+	assert_false(
+		GFVariantData.get_option_bool(
+			result,
+			"ok",
+			true
+		),
+		"失败 status 不应在缺少 ok 字段时默认通过。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(result, "provider_id"),
+		&"status_only",
+		"provider_id 应来自 provider。"
+	)
 
 
 func test_policy_provider_preserves_extra_fields_without_identity_override() -> void:
 	var provider: RecordingPolicyProvider = RecordingPolicyProvider.new()
-	var _configured_provider: GFPolicyProvider = provider.configure(&"source", PackedStringArray(["asset"]), { "base": true })
+	var _configured_provider: GFPolicyProvider = provider.configure(
+		&"source",
+		PackedStringArray(["asset"]),
+		{ "base": true }
+	)
 	provider.raw_result = {
 		"ok": true,
 		"status": &"passed",
 		"provider_id": &"spoofed",
 		"artifact_kind": "spoofed",
-		"metadata": {
-			"local": true,
-		},
-		"diagnostics": {
-			"score": 3,
-		},
+		"metadata": { "local": true, },
+		"diagnostics": { "score": 3, },
 	}
 
 	var result: Dictionary = provider.evaluate({ "artifact_kind": "asset" })
 	var result_metadata: Dictionary = GFVariantData.get_option_dictionary(result, "metadata")
 	var diagnostics: Dictionary = GFVariantData.get_option_dictionary(result, "diagnostics")
 
-	assert_eq(GFVariantData.get_option_string_name(result, "provider_id"), &"source", "raw result 不应覆盖 provider_id。")
-	assert_eq(GFVariantData.get_option_string(result, "artifact_kind"), "asset", "raw result 不应覆盖 artifact kind。")
-	assert_true(GFVariantData.get_option_bool(result_metadata, "base"), "provider metadata 应保留。")
-	assert_true(GFVariantData.get_option_bool(result_metadata, "local"), "raw result metadata 应合并。")
-	assert_eq(GFVariantData.get_option_int(diagnostics, "score"), 3, "非保留诊断字段应保留。")
+	assert_eq(
+		GFVariantData.get_option_string_name(result, "provider_id"),
+		&"source",
+		"raw result 不应覆盖 provider_id。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(result, "artifact_kind"),
+		"asset",
+		"raw result 不应覆盖 artifact kind。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(result_metadata, "base"),
+		"provider metadata 应保留。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(result_metadata, "local"),
+		"raw result metadata 应合并。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(diagnostics, "score"),
+		3,
+		"非保留诊断字段应保留。"
+	)
 
 
 class RecordingPolicyProvider extends GFPolicyProvider:
@@ -118,16 +203,21 @@ class RecordingPolicyProvider extends GFPolicyProvider:
 	var should_fail: bool = false
 	var raw_result: Dictionary = {}
 
-
 	func _evaluate_policy(_artifact: Dictionary, _context: Dictionary) -> Dictionary:
 		evaluate_count += 1
 		if not raw_result.is_empty():
 			return raw_result.duplicate(true)
 		if should_fail:
-			return make_result(false, &"failed", _artifact, [
-				{
-					"kind": "denied",
-					"message": "denied by test policy",
-				},
-			])
-		return make_result(true, &"passed", _artifact)
+			return make_result(
+				false,
+				&"failed",
+				_artifact,
+				[
+					{ "kind": "denied", "message": "denied by test policy", },
+				]
+			)
+		return make_result(
+			true,
+			&"passed",
+			_artifact
+		)

@@ -73,7 +73,10 @@ func test_transform_local_cell_handles_all_rectangular_symmetries() -> void:
 
 
 func test_transform_cell_applies_source_rect_and_target_origin() -> void:
-	var source_rect: Rect2i = Rect2i(Vector2i(10, 20), Vector2i(3, 2))
+	var source_rect: Rect2i = Rect2i(
+		Vector2i(10, 20),
+		Vector2i(3, 2)
+	)
 	var target_origin: Vector2i = Vector2i(100, 200)
 	var cell: Vector2i = Vector2i(10, 20)
 
@@ -91,40 +94,42 @@ func test_transform_cell_applies_source_rect_and_target_origin() -> void:
 
 func test_transform_cells_preserves_input_order() -> void:
 	var transformed: Array[Vector2i] = GF_GRID_TRANSFORM_2D.transform_cells(
-		[Vector2i.ZERO, Vector2i(1, 0), Vector2i(2, 1)],
-		Rect2i(Vector2i.ZERO, Vector2i(3, 2)),
+		[
+			Vector2i.ZERO,
+			Vector2i(1, 0),
+			Vector2i(2, 1),
+		],
+		Rect2i(
+			Vector2i.ZERO,
+			Vector2i(3, 2)
+		),
 		GF_GRID_TRANSFORM_2D.Transform.MIRROR_X
 	)
 
 	assert_eq(
 		transformed,
-		[Vector2i(2, 0), Vector2i(1, 0), Vector2i(0, 1)],
+		[
+			Vector2i(2, 0),
+			Vector2i(1, 0),
+			Vector2i(0, 1),
+		],
 		"批量变换应保留输入顺序。"
 	)
 
 
 func test_transform_cardinal_direction_matches_grid_symmetry() -> void:
 	assert_eq(
-		GF_GRID_TRANSFORM_2D.transform_cardinal_direction(
-			Vector2i.RIGHT,
-			GF_GRID_TRANSFORM_2D.Transform.ROTATE_90
-		),
+		GF_GRID_TRANSFORM_2D.transform_cardinal_direction(Vector2i.RIGHT, GF_GRID_TRANSFORM_2D.Transform.ROTATE_90),
 		Vector2i.DOWN,
 		"方向旋转应与格子坐标旋转一致。"
 	)
 	assert_eq(
-		GF_GRID_TRANSFORM_2D.transform_cardinal_direction(
-			Vector2i.DOWN,
-			GF_GRID_TRANSFORM_2D.Transform.MIRROR_X
-		),
+		GF_GRID_TRANSFORM_2D.transform_cardinal_direction(Vector2i.DOWN, GF_GRID_TRANSFORM_2D.Transform.MIRROR_X),
 		Vector2i.DOWN,
 		"左右镜像不应改变向下方向。"
 	)
 	assert_eq(
-		GF_GRID_TRANSFORM_2D.transform_cardinal_direction(
-			Vector2i.RIGHT,
-			GF_GRID_TRANSFORM_2D.Transform.DIAGONAL_ANTI
-		),
+		GF_GRID_TRANSFORM_2D.transform_cardinal_direction(Vector2i.RIGHT, GF_GRID_TRANSFORM_2D.Transform.DIAGONAL_ANTI),
 		Vector2i.UP,
 		"副对角翻转应把向右映射为向上。"
 	)
@@ -165,14 +170,22 @@ func test_inverse_transform_restores_local_cell_when_using_transformed_size() ->
 	var source_size: Vector2i = Vector2i(4, 2)
 	var original: Vector2i = Vector2i(3, 1)
 	var transform: int = GF_GRID_TRANSFORM_2D.Transform.ROTATE_90
-	var transformed: Vector2i = GF_GRID_TRANSFORM_2D.transform_local_cell(original, source_size, transform)
+	var transformed: Vector2i = GF_GRID_TRANSFORM_2D.transform_local_cell(
+		original,
+		source_size,
+		transform
+	)
 	var restored: Vector2i = GF_GRID_TRANSFORM_2D.transform_local_cell(
 		transformed,
 		GF_GRID_TRANSFORM_2D.get_transformed_size(source_size, transform),
 		GF_GRID_TRANSFORM_2D.get_inverse_transform(transform)
 	)
 
-	assert_eq(restored, original, "逆变换应能还原局部格坐标。")
+	assert_eq(
+		restored,
+		original,
+		"逆变换应能还原局部格坐标。"
+	)
 
 
 func test_invalid_transform_and_size_return_safe_defaults() -> void:

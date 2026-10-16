@@ -91,7 +91,10 @@ func get_entry_keys() -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for entry: GFBlackboardEntry in entries:
 		if entry != null and entry.get_key() != &"":
-			_append_packed_string(result, String(entry.get_key()))
+			_append_packed_string(
+				result,
+				String(entry.get_key())
+			)
 	result.sort()
 	return result
 
@@ -119,6 +122,8 @@ func build_defaults(include_optional: bool = true) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param values: 输入黑板数据。
 ## [br]
 ## @param include_optional: 为 true 时补齐非必填字段。
@@ -130,7 +135,11 @@ func build_defaults(include_optional: bool = true) -> Dictionary:
 ## @schema values: Dictionary source blackboard values.
 ## [br]
 ## @schema return: Dictionary normalized blackboard values.
-func apply_defaults(values: Dictionary, include_optional: bool = true, should_coerce: bool = true) -> Dictionary:
+func apply_defaults(
+	values: Dictionary,
+	include_optional: bool = true,
+	should_coerce: bool = true
+) -> Dictionary:
 	var result: Dictionary = _normalize_keys(values)
 	for entry: GFBlackboardEntry in entries:
 		if entry == null or entry.get_key() == &"":
@@ -139,10 +148,13 @@ func apply_defaults(values: Dictionary, include_optional: bool = true, should_co
 		var entry_key: StringName = entry.get_key()
 		if result.has(entry_key):
 			if should_coerce:
-				result[entry_key] = _coerce_value_or_original(entry, result[entry_key])
+				result[entry_key] = _coerce_value_or_original(
+					entry,
+					result[entry_key]
+				)
 			continue
 		if entry.required or include_optional:
-			result[entry_key] = _coerce_value_or_original(entry, entry.default_value) if should_coerce else GFVariantData.duplicate_variant(entry.default_value)
+			result[entry_key] = (_coerce_value_or_original(entry, entry.default_value) if should_coerce else GFVariantData.duplicate_variant(entry.default_value))
 	return result
 
 
@@ -160,11 +172,26 @@ func apply_defaults(values: Dictionary, include_optional: bool = true, should_co
 ## [br]
 ## @schema return: Dictionary coerced blackboard values.
 func coerce_dictionary(values: Dictionary, include_defaults: bool = true) -> Dictionary:
-	var result: Dictionary = apply_defaults(values, include_defaults, false) if include_defaults else _normalize_keys(values)
+	var result: Dictionary = (
+		apply_defaults(
+			values,
+			include_defaults,
+			false
+		)
+		if include_defaults
+		else _normalize_keys(values)
+	)
 	for entry: GFBlackboardEntry in entries:
-		if entry == null or entry.get_key() == &"" or not result.has(entry.get_key()):
+		if (
+			entry == null
+			or entry.get_key() == &""
+			or not result.has(entry.get_key())
+		):
 			continue
-		result[entry.get_key()] = _coerce_value_or_original(entry, result[entry.get_key()])
+		result[entry.get_key()] = _coerce_value_or_original(
+			entry,
+			result[entry.get_key()]
+		)
 	return result
 
 
@@ -181,45 +208,88 @@ func coerce_dictionary(values: Dictionary, include_defaults: bool = true) -> Dic
 ## @schema return: Dictionary validation report.
 func validate_values(values: Dictionary) -> Dictionary:
 	var report: Dictionary = _make_report()
-	var working_values: Dictionary = _coerce_values_for_validation(values, report) if coerce_values else _normalize_keys(values)
+	var working_values: Dictionary = (_coerce_values_for_validation(values, report) if coerce_values else _normalize_keys(values))
 	var declared_keys: Dictionary = {}
 
 	for entry: GFBlackboardEntry in entries:
 		if entry == null:
-			_append_issue(report, "error", "null_entry", &"", "字段声明为空。")
+			_append_issue(
+				report,
+				"error",
+				"null_entry",
+				&"",
+				"字段声明为空。"
+			)
 			continue
 
 		var entry_key: StringName = entry.get_key()
 		if entry_key == &"":
-			_append_issue(report, "error", "empty_key", &"", "字段键为空。")
+			_append_issue(
+				report,
+				"error",
+				"empty_key",
+				&"",
+				"字段键为空。"
+			)
 			continue
 
 		if declared_keys.has(entry_key):
-			_append_issue(report, "error", "duplicate_entry_key", entry_key, "字段键重复：%s。" % String(entry_key))
+			_append_issue(
+				report,
+				"error",
+				"duplicate_entry_key",
+				entry_key,
+				"字段键重复：%s。" % String(entry_key)
+			)
 			continue
 
 		declared_keys[entry_key] = true
 		if not working_values.has(entry_key):
 			if entry.required:
-				_append_issue(report, "error", "missing_required", entry_key, "缺少必填字段：%s。" % String(entry_key))
+				_append_issue(
+					report,
+					"error",
+					"missing_required",
+					entry_key,
+					"缺少必填字段：%s。" % String(entry_key)
+				)
 			continue
 
 		var value: Variant = working_values[entry_key]
 		if value == null and not entry.allow_null:
-			_append_issue(report, "error", "null_value", entry_key, "字段不允许为空：%s。" % String(entry_key))
+			_append_issue(
+				report,
+				"error",
+				"null_value",
+				entry_key,
+				"字段不允许为空：%s。" % String(entry_key)
+			)
 		elif not entry.is_value_valid(value):
-			_append_issue(report, "error", "invalid_type", entry_key, "字段类型不匹配：%s。" % String(entry_key))
+			_append_issue(
+				report,
+				"error",
+				"invalid_type",
+				entry_key,
+				"字段类型不匹配：%s。" % String(entry_key)
+			)
 
 	if not allow_extra_keys:
 		for key_variant: Variant in working_values.keys():
 			var entry_key: StringName = GFVariantData.to_string_name(key_variant)
 			if not declared_keys.has(entry_key):
-				_append_issue(report, "error", "extra_key", entry_key, "存在未声明字段：%s。" % String(entry_key))
+				_append_issue(
+					report,
+					"error",
+					"extra_key",
+					entry_key,
+					"存在未声明字段：%s。" % String(entry_key)
+				)
 
-	return GFValidationReportDictionary.finalize_report(report, "Blackboard schema", {
-		"next_actions": _get_validation_next_actions(),
-		"fallback_action": "Review the first reported blackboard schema issue.",
-	})
+	return GFValidationReportDictionary.finalize_report(
+		report,
+		"Blackboard schema",
+		{ "next_actions": _get_validation_next_actions(), "fallback_action": "Review the first reported blackboard schema issue.", }
+	)
 
 
 ## 创建同内容拷贝，避免运行时修改污染共享 Resource。
@@ -298,7 +368,11 @@ func _coerce_values_for_validation(values: Dictionary, report: Dictionary) -> Di
 		var source_value: Variant = result[entry_key]
 		var coerce_result: Dictionary = entry.try_coerce_value(source_value)
 		result[entry_key] = GFVariantData.get_option_value(coerce_result, "value")
-		if GFVariantData.get_option_bool(coerce_result, "ok", false):
+		if GFVariantData.get_option_bool(
+			coerce_result,
+			"ok",
+			false
+		):
 			continue
 
 		var severity: String = "error" if fail_on_coerce_error else "warning"
@@ -307,7 +381,11 @@ func _coerce_values_for_validation(values: Dictionary, report: Dictionary) -> Di
 			severity,
 			"coerce_failed",
 			entry_key,
-			GFVariantData.get_option_string(coerce_result, "message", "字段类型转换失败：%s。" % String(entry_key))
+			GFVariantData.get_option_string(
+				coerce_result,
+				"message",
+				"字段类型转换失败：%s。" % String(entry_key)
+			)
 		)
 	return result
 
@@ -317,7 +395,11 @@ func _coerce_values_for_validation(values: Dictionary, report: Dictionary) -> Di
 ## @api private
 func _coerce_value_or_original(entry: GFBlackboardEntry, source_value: Variant) -> Variant:
 	var coerce_result: Dictionary = entry.try_coerce_value(source_value)
-	if GFVariantData.get_option_bool(coerce_result, "ok", false):
+	if GFVariantData.get_option_bool(
+		coerce_result,
+		"ok",
+		false
+	):
 		return GFVariantData.get_option_value(coerce_result, "value")
 	return GFVariantData.duplicate_variant(source_value)
 
@@ -335,11 +417,20 @@ func _normalize_keys(values: Dictionary) -> Dictionary:
 ## 将 schema 标识和字段键写入共享校验报告的问题列表。
 ## [br]
 ## @api private
-func _append_issue(report: Dictionary, severity: String, kind: String, entry_key: StringName, message: String) -> void:
-	var _issue: Dictionary = GFValidationReportDictionary.append_issue(report, severity, StringName(kind), message, {
-		"key": String(entry_key),
-		"schema_id": schema_id,
-	})
+func _append_issue(
+	report: Dictionary,
+	severity: String,
+	kind: String,
+	entry_key: StringName,
+	message: String
+) -> void:
+	var _issue: Dictionary = GFValidationReportDictionary.append_issue(
+		report,
+		severity,
+		StringName(kind),
+		message,
+		{ "key": String(entry_key), "schema_id": schema_id, }
+	)
 
 
 ## 返回各类 schema 校验问题对应的建议操作文本。

@@ -259,12 +259,28 @@ func configure_from_time_layer(
 	if _configured:
 		return false
 	if status == STATUS_BUILT:
-		if not _is_valid_built_grid(year, month, week_start, row_count, cells):
+		if not _is_valid_built_grid(
+			year,
+			month,
+			week_start,
+			row_count,
+			cells
+		):
 			return false
 	else:
-		if status not in [STATUS_INVALID_REQUEST, STATUS_INSUFFICIENT_ROWS, STATUS_OUT_OF_RANGE]:
+		if status not in [
+			STATUS_INVALID_REQUEST,
+			STATUS_INSUFFICIENT_ROWS,
+			STATUS_OUT_OF_RANGE,
+		]:
 			return false
-		if year != 0 or month != 0 or week_start != 0 or row_count != 0 or not cells.is_empty():
+		if (
+			year != 0
+			or month != 0
+			or week_start != 0
+			or row_count != 0
+			or not cells.is_empty()
+		):
 			return false
 
 	_configured = true

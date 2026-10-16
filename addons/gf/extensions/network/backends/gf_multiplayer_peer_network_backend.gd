@@ -26,6 +26,7 @@ enum Ownership {
 	OWNED,
 }
 
+
 ## Peer 在当前会话中的角色。
 ## [br]
 ## @api public
@@ -164,7 +165,7 @@ func adopt_peer(peer: MultiplayerPeer, options: Dictionary = {}) -> Error:
 			true,
 			true,
 			"peer_replaced"
-	)
+		)
 		if _peer_generation != detached_generation:
 			return ERR_BUSY
 	_peer_generation += 1
@@ -172,7 +173,11 @@ func adopt_peer(peer: MultiplayerPeer, options: Dictionary = {}) -> Error:
 	_ownership = _get_ownership(ownership_id)
 	_role = next_role
 	_endpoint = GFVariantData.get_option_string(options, "endpoint").strip_edges()
-	_supports_channels = GFVariantData.get_option_bool(options, "supports_channels", true)
+	_supports_channels = GFVariantData.get_option_bool(
+		options,
+		"supports_channels",
+		true
+	)
 	_supports_transfer_modes = GFVariantData.get_option_bool(
 		options,
 		"supports_transfer_modes",
@@ -208,7 +213,11 @@ func get_peer() -> MultiplayerPeer:
 ## [br]
 ## @return 原 Peer；未配置时返回 null。
 func take_peer() -> MultiplayerPeer:
-	return _detach_peer(false, true, "peer_taken")
+	return _detach_peer(
+		false,
+		true,
+		"peer_taken"
+	)
 
 
 ## 检查 Backend 是否拥有当前 Peer。
@@ -235,14 +244,10 @@ func get_session_bootstrap() -> Dictionary:
 	if _peer == null or _role == Role.UNKNOWN:
 		return {}
 	return {
-		"mode": (
-			GFNetworkSession.Mode.HOST
-			if _role == Role.SERVER
-			else GFNetworkSession.Mode.CLIENT
-		),
+		"mode": (GFNetworkSession.Mode.HOST if _role == Role.SERVER else GFNetworkSession.Mode.CLIENT),
 		"endpoint": _endpoint if not _endpoint.is_empty() else "multiplayer-peer",
 		"local_peer_id": _peer.get_unique_id(),
-		"metadata": {"backend": "GFMultiplayerPeerNetworkBackend"},
+		"metadata": { "backend": "GFMultiplayerPeerNetworkBackend" },
 	}
 
 
@@ -254,7 +259,11 @@ func get_session_bootstrap() -> Dictionary:
 ## [br]
 ## @since 10.0.0
 func disconnect_backend() -> void:
-	var _released_peer: MultiplayerPeer = _detach_peer(true, true, "closed")
+	var _released_peer: MultiplayerPeer = _detach_peer(
+		true,
+		true,
+		"closed"
+	)
 
 
 ## 发送 bytes。
@@ -285,8 +294,12 @@ func send_bytes(
 		return ERR_CONNECTION_ERROR
 	if not _supports_channels and GFVariantData.get_option_int(options, "channel") != 0:
 		return ERR_UNAVAILABLE
-	if not _supports_transfer_modes and (
-		options.has("transfer_mode") or options.has("reliable")
+	if (
+		not _supports_transfer_modes
+		and (
+			options.has("transfer_mode")
+			or options.has("reliable")
+		)
 	):
 		return ERR_UNAVAILABLE
 	_peer.set_target_peer(_map_target_peer(peer_id))
@@ -317,7 +330,10 @@ func poll(_delta: float) -> void:
 	while (
 		_peer != null
 		and _peer.get_available_packet_count() > 0
-		and (max_packets_per_poll <= 0 or processed_packets < max_packets_per_poll)
+		and (
+			max_packets_per_poll <= 0
+			or processed_packets < max_packets_per_poll
+		)
 	):
 		var peer_id: int = _peer.get_packet_peer()
 		var bytes: PackedByteArray = _peer.get_packet()
@@ -335,25 +351,23 @@ func poll(_delta: float) -> void:
 ## [br]
 ## @schema return: Dictionary adoptable MultiplayerPeer backend snapshot.
 func get_debug_snapshot() -> Dictionary:
-	var status: int = (
-		MultiplayerPeer.CONNECTION_DISCONNECTED
-		if _peer == null
-		else _peer.get_connection_status()
+	var status: int = (MultiplayerPeer.CONNECTION_DISCONNECTED if _peer == null else _peer.get_connection_status())
+	return GFNetworkDebugTools.sanitize_debug_dictionary(
+		{
+			"backend": "GFMultiplayerPeerNetworkBackend",
+			"available": _peer != null,
+			"ownership": _get_ownership_name(_ownership),
+			"role": _get_role_name(_role),
+			"endpoint": _endpoint,
+			"connection_status": status,
+			"connection_status_name": _get_status_name(status),
+			"connected_peer_count": _connected_peer_ids.size(),
+			"available_packet_count": 0 if _peer == null else _peer.get_available_packet_count(),
+			"max_packets_per_poll": max_packets_per_poll,
+			"supports_channels": _supports_channels,
+			"supports_transfer_modes": _supports_transfer_modes,
+		}
 	)
-	return GFNetworkDebugTools.sanitize_debug_dictionary({
-		"backend": "GFMultiplayerPeerNetworkBackend",
-		"available": _peer != null,
-		"ownership": _get_ownership_name(_ownership),
-		"role": _get_role_name(_role),
-		"endpoint": _endpoint,
-		"connection_status": status,
-		"connection_status_name": _get_status_name(status),
-		"connected_peer_count": _connected_peer_ids.size(),
-		"available_packet_count": 0 if _peer == null else _peer.get_available_packet_count(),
-		"max_packets_per_poll": max_packets_per_poll,
-		"supports_channels": _supports_channels,
-		"supports_transfer_modes": _supports_transfer_modes,
-	})
 
 
 # --- 可重写钩子 / 虚方法 ---
@@ -368,10 +382,7 @@ func get_debug_snapshot() -> Dictionary:
 ## @param metrics: 基类本次采样创建的有界指标快照，仅追加 RECEIVE_QUEUE_PACKETS。
 ## [br]
 ## @param budget: 基类提供的协作预算，读取队列数量并尝试写入前必须成功消费一步。
-func _enrich_transport_metrics(
-	metrics: GFNetworkTransportMetrics,
-	budget: GFExecutionBudget
-) -> void:
+func _enrich_transport_metrics(metrics: GFNetworkTransportMetrics, budget: GFExecutionBudget) -> void:
 	if _peer == null:
 		return
 	if not budget.consume_steps():
@@ -392,13 +403,9 @@ func _connect_peer_signals() -> void:
 	if _peer == null:
 		return
 	if not _peer.peer_connected.is_connected(_on_peer_connected):
-		var _connected_error: Error = _peer.peer_connected.connect(
-			_on_peer_connected
-		) as Error
+		var _connected_error: Error = _peer.peer_connected.connect(_on_peer_connected) as Error
 	if not _peer.peer_disconnected.is_connected(_on_peer_disconnected):
-		var _disconnected_error: Error = _peer.peer_disconnected.connect(
-			_on_peer_disconnected
-		) as Error
+		var _disconnected_error: Error = _peer.peer_disconnected.connect(_on_peer_disconnected) as Error
 
 
 ## 移除当前 Peer 上由后端建立的信号连接。
@@ -424,7 +431,10 @@ func _detach_peer(
 	reason: String
 ) -> MultiplayerPeer:
 	if _peer == null:
-		_emit_tracked_peer_disconnections(_take_tracked_peer_ids(), _peer_generation)
+		_emit_tracked_peer_disconnections(
+			_take_tracked_peer_ids(),
+			_peer_generation
+		)
 		return null
 	var detached_peer: MultiplayerPeer = _peer
 	var should_close: bool = close_owned and _ownership == Ownership.OWNED
@@ -475,11 +485,7 @@ func _update_connection_status() -> void:
 ## @api private
 ## [br]
 func _map_target_peer(peer_id: int) -> int:
-	return (
-		MultiplayerPeer.TARGET_PEER_BROADCAST
-		if peer_id == BROADCAST_PEER_ID
-		else peer_id
-	)
+	return (MultiplayerPeer.TARGET_PEER_BROADCAST if peer_id == BROADCAST_PEER_ID else peer_id)
 
 
 ## 按显式模式或 reliable 选项选择传输模式。
@@ -491,7 +497,11 @@ func _get_transfer_mode(options: Dictionary) -> MultiplayerPeer.TransferMode:
 		return _to_transfer_mode(GFVariantData.to_int(options["transfer_mode"]))
 	return (
 		MultiplayerPeer.TRANSFER_MODE_RELIABLE
-		if GFVariantData.get_option_bool(options, "reliable", true)
+		if GFVariantData.get_option_bool(
+			options,
+			"reliable",
+			true
+		)
 		else MultiplayerPeer.TRANSFER_MODE_UNRELIABLE
 	)
 

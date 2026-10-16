@@ -1,6 +1,5 @@
 extends "res://tests/gf_core/support/gf_gut_post_run_hook.gd"
 
-
 const ORPHAN_META_KEY: StringName = &"gf_lifecycle_gate_orphan_fixture"
 
 

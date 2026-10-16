@@ -54,13 +54,25 @@ static func ensure_setting(
 		ProjectSettings.set_setting(normalized_name, default_value)
 		ProjectSettings.set_initial_value(normalized_name, default_value)
 		wrote_default = true
-	elif _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "update_initial_value", false):
+	elif _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		options,
+		"update_initial_value",
+		false
+	):
 		ProjectSettings.set_initial_value(normalized_name, default_value)
 
-	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "register_property_info", true):
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		options,
+		"register_property_info",
+		true
+	):
 		register_property_info(
 			normalized_name,
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, "type", typeof(default_value)),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+				options,
+				"type",
+				typeof(default_value)
+			),
 			options
 		)
 	return wrote_default
@@ -90,13 +102,22 @@ static func register_property_info(
 		return
 
 	if value_type != TYPE_NIL:
-		var property_info: Dictionary = {
-			"name": normalized_name,
-			"type": value_type,
-		}
-		var hint: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, "hint", PROPERTY_HINT_NONE)
-		var hint_string: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "hint_string", "")
-		var usage: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, "usage", -1)
+		var property_info: Dictionary = { "name": normalized_name, "type": value_type, }
+		var hint: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			options,
+			"hint",
+			PROPERTY_HINT_NONE
+		)
+		var hint_string: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			options,
+			"hint_string",
+			""
+		)
+		var usage: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			options,
+			"usage",
+			-1
+		)
 		if hint != PROPERTY_HINT_NONE:
 			property_info["hint"] = hint
 		if not hint_string.is_empty():
@@ -108,15 +129,27 @@ static func register_property_info(
 	if options.has("basic"):
 		ProjectSettings.set_as_basic(
 			normalized_name,
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "basic", false)
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+				options,
+				"basic",
+				false
+			)
 		)
 	if options.has("restart_if_changed"):
 		ProjectSettings.set_restart_if_changed(
 			normalized_name,
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "restart_if_changed", false)
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+				options,
+				"restart_if_changed",
+				false
+			)
 		)
 	if options.has("internal"):
 		ProjectSettings.set_as_internal(
 			normalized_name,
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "internal", false)
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+				options,
+				"internal",
+				false
+			)
 		)

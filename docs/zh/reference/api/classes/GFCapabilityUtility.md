@@ -15,9 +15,9 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 信号 | [`capability_added`](#member-gfcapabilityutility-signals-capability_added) | `signal capability_added(receiver: Object, capability_type: Script, capability: Object)` |
-| 信号 | [`capability_removed`](#member-gfcapabilityutility-signals-capability_removed) | `signal capability_removed(receiver: Object, capability_type: Script, capability: Object)` |
-| 信号 | [`capability_active_changed`](#member-gfcapabilityutility-signals-capability_active_changed) | `signal capability_active_changed(receiver: Object, capability_type: Script, capability: Object, active: bool)` |
+| 信号 | [`capability_added`](#member-gfcapabilityutility-signals-capability_added) | `signal capability_added( receiver: Object, capability_type: Script, capability: Object )` |
+| 信号 | [`capability_removed`](#member-gfcapabilityutility-signals-capability_removed) | `signal capability_removed( receiver: Object, capability_type: Script, capability: Object )` |
+| 信号 | [`capability_active_changed`](#member-gfcapabilityutility-signals-capability_active_changed) | `signal capability_active_changed( receiver: Object, capability_type: Script, capability: Object, active: bool )` |
 | 枚举 | [`DependencyRemovalPolicy`](#member-gfcapabilityutility-enums-dependencyremovalpolicy) | `enum DependencyRemovalPolicy` |
 | 常量 | [`HOOK_GET_REQUIRED_CAPABILITIES`](#member-gfcapabilityutility-constants-hook_get_required_capabilities) | `const HOOK_GET_REQUIRED_CAPABILITIES: StringName = &"get_required_capabilities"` |
 | 常量 | [`HOOK_GET_DEPENDENCY_REMOVAL_POLICY`](#member-gfcapabilityutility-constants-hook_get_dependency_removal_policy) | `const HOOK_GET_DEPENDENCY_REMOVAL_POLICY: StringName = &"get_dependency_removal_policy"` |
@@ -45,17 +45,17 @@
 | 方法 | [`get_receivers_in_group_with`](#member-gfcapabilityutility-methods-get_receivers_in_group_with) | `func get_receivers_in_group_with( group_name: StringName, capability_type: Script, include_subclasses: bool = true ) -> Array[Object]:` |
 | 方法 | [`add_capability`](#member-gfcapabilityutility-methods-add_capability) | `func add_capability(receiver: Object, capability_type: Script) -> Object:` |
 | 方法 | [`add_required_capability`](#member-gfcapabilityutility-methods-add_required_capability) | `func add_required_capability(receiver: Object, capability_type: Script) -> Object:` |
-| 方法 | [`add_capability_instance`](#member-gfcapabilityutility-methods-add_capability_instance) | `func add_capability_instance(receiver: Object, capability: Object, as_type: Script = null) -> Object:` |
+| 方法 | [`add_capability_instance`](#member-gfcapabilityutility-methods-add_capability_instance) | `func add_capability_instance( receiver: Object, capability: Object, as_type: Script = null ) -> Object:` |
 | 方法 | [`adopt_capability_instance`](#member-gfcapabilityutility-methods-adopt_capability_instance) | `func adopt_capability_instance( receiver: Object, capability: Object, as_type: Script = null ) -> Object:` |
-| 方法 | [`add_scene_capability`](#member-gfcapabilityutility-methods-add_scene_capability) | `func add_scene_capability(receiver: Node, scene: PackedScene, as_type: Script = null) -> Object:` |
-| 方法 | [`set_capability_active`](#member-gfcapabilityutility-methods-set_capability_active) | `func set_capability_active(receiver: Object, capability_type: Script, active: bool) -> void:` |
+| 方法 | [`add_scene_capability`](#member-gfcapabilityutility-methods-add_scene_capability) | `func add_scene_capability( receiver: Node, scene: PackedScene, as_type: Script = null ) -> Object:` |
+| 方法 | [`set_capability_active`](#member-gfcapabilityutility-methods-set_capability_active) | `func set_capability_active( receiver: Object, capability_type: Script, active: bool ) -> void:` |
 | 方法 | [`is_capability_active`](#member-gfcapabilityutility-methods-is_capability_active) | `func is_capability_active(receiver: Object, capability_type: Script) -> bool:` |
 | 方法 | [`remove_capability`](#member-gfcapabilityutility-methods-remove_capability) | `func remove_capability(receiver: Object, capability_type: Script) -> void:` |
 | 方法 | [`unregister_capability`](#member-gfcapabilityutility-methods-unregister_capability) | `func unregister_capability(receiver: Object, capability_type: Script) -> void:` |
 | 方法 | [`clear_capabilities`](#member-gfcapabilityutility-methods-clear_capabilities) | `func clear_capabilities(receiver: Object) -> void:` |
 | 方法 | [`clear_receiver_groups`](#member-gfcapabilityutility-methods-clear_receiver_groups) | `func clear_receiver_groups(receiver: Object) -> void:` |
-| 方法 | [`apply_recipe`](#member-gfcapabilityutility-methods-apply_recipe) | `func apply_recipe(receiver: Object, recipe: GFCapabilityRecipe, options: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`remove_recipe`](#member-gfcapabilityutility-methods-remove_recipe) | `func remove_recipe(receiver: Object, recipe: GFCapabilityRecipe, remove_groups: bool = true) -> Dictionary:` |
+| 方法 | [`apply_recipe`](#member-gfcapabilityutility-methods-apply_recipe) | `func apply_recipe( receiver: Object, recipe: GFCapabilityRecipe, options: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`remove_recipe`](#member-gfcapabilityutility-methods-remove_recipe) | `func remove_recipe( receiver: Object, recipe: GFCapabilityRecipe, remove_groups: bool = true ) -> Dictionary:` |
 | 方法 | [`validate_receiver_dependencies`](#member-gfcapabilityutility-methods-validate_receiver_dependencies) | `func validate_receiver_dependencies(receiver: Object) -> Dictionary:` |
 | 方法 | [`inspect_receiver`](#member-gfcapabilityutility-methods-inspect_receiver) | `func inspect_receiver(receiver: Object) -> Dictionary:` |
 
@@ -66,9 +66,10 @@
 ### `capability_added`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal capability_added(receiver: Object, capability_type: Script, capability: Object)
+signal capability_added( receiver: Object, capability_type: Script, capability: Object )
 ```
 
 当能力成功挂载到对象后发出。
@@ -89,7 +90,7 @@ signal capability_added(receiver: Object, capability_type: Script, capability: O
 - 首次版本：`3.17.0`
 
 ```gdscript
-signal capability_removed(receiver: Object, capability_type: Script, capability: Object)
+signal capability_removed( receiver: Object, capability_type: Script, capability: Object )
 ```
 
 当能力记录已从对象摘除、但 owned 实例尚未释放时发出。
@@ -107,9 +108,10 @@ signal capability_removed(receiver: Object, capability_type: Script, capability:
 ### `capability_active_changed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal capability_active_changed(receiver: Object, capability_type: Script, capability: Object, active: bool)
+signal capability_active_changed( receiver: Object, capability_type: Script, capability: Object, active: bool )
 ```
 
 当能力启停状态变化后发出。
@@ -651,7 +653,7 @@ func add_required_capability(receiver: Object, capability_type: Script) -> Objec
 - 首次版本：`3.17.0`
 
 ```gdscript
-func add_capability_instance(receiver: Object, capability: Object, as_type: Script = null) -> Object:
+func add_capability_instance( receiver: Object, capability: Object, as_type: Script = null ) -> Object:
 ```
 
 给对象挂载一个已经存在的能力实例。 该入口不会接管传入实例的所有权；架构销毁时只注销能力记录。 调用方应在外部释放实例前显式注销；需要转移所有权时请使用 adopt_capability_instance()。
@@ -694,9 +696,10 @@ func adopt_capability_instance( receiver: Object, capability: Object, as_type: S
 ### `add_scene_capability`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func add_scene_capability(receiver: Node, scene: PackedScene, as_type: Script = null) -> Object:
+func add_scene_capability( receiver: Node, scene: PackedScene, as_type: Script = null ) -> Object:
 ```
 
 实例化 PackedScene 并作为能力挂载。
@@ -719,7 +722,7 @@ func add_scene_capability(receiver: Node, scene: PackedScene, as_type: Script = 
 - 首次版本：`1.11.0`
 
 ```gdscript
-func set_capability_active(receiver: Object, capability_type: Script, active: bool) -> void:
+func set_capability_active( receiver: Object, capability_type: Script, active: bool ) -> void:
 ```
 
 设置对象上指定能力的启停状态。 Node 能力树会在写状态前完成有界预检；超出 max_capability_tree_nodes 时保持原状态， 不调用 active Hook，也不发出 capability_active_changed。
@@ -832,9 +835,10 @@ func clear_receiver_groups(receiver: Object) -> void:
 ### `apply_recipe`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func apply_recipe(receiver: Object, recipe: GFCapabilityRecipe, options: Dictionary = {}) -> Dictionary:
+func apply_recipe( receiver: Object, recipe: GFCapabilityRecipe, options: Dictionary = {} ) -> Dictionary:
 ```
 
 把能力组合 Recipe 应用到 receiver。
@@ -859,9 +863,10 @@ func apply_recipe(receiver: Object, recipe: GFCapabilityRecipe, options: Diction
 ### `remove_recipe`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func remove_recipe(receiver: Object, recipe: GFCapabilityRecipe, remove_groups: bool = true) -> Dictionary:
+func remove_recipe( receiver: Object, recipe: GFCapabilityRecipe, remove_groups: bool = true ) -> Dictionary:
 ```
 
 移除 Recipe 描述的能力和可选分组。

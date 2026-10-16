@@ -26,7 +26,7 @@ GFResourceServiceDomain：一个 Broker 及其消费者的稳定资源服务入�
 | 方法 | [`get_mode`](#member-gfresourceservicedomain-methods-get_mode) | `func get_mode() -> Mode:` |
 | 方法 | [`get_current_generation`](#member-gfresourceservicedomain-methods-get_current_generation) | `func get_current_generation() -> int:` |
 | 方法 | [`is_accepting_requests`](#member-gfresourceservicedomain-methods-is_accepting_requests) | `func is_accepting_requests() -> bool:` |
-| 方法 | [`request`](#member-gfresourceservicedomain-methods-request) | `func request(path: String, type_hint: String = "", options: Dictionary = {}) -> GFResourceLease:` |
+| 方法 | [`request`](#member-gfresourceservicedomain-methods-request) | `func request( path: String, type_hint: String = "", options: Dictionary = {} ) -> GFResourceLease:` |
 | 方法 | [`begin_switch`](#member-gfresourceservicedomain-methods-begin_switch) | `func begin_switch(broker: GFResourceBroker, timeout_msec: int = 30000) -> GFAsyncCompletion:` |
 | 方法 | [`pump`](#member-gfresourceservicedomain-methods-pump) | `func pump() -> void:` |
 | 方法 | [`can_remove_from_active_lifecycle`](#member-gfresourceservicedomain-methods-can_remove_from_active_lifecycle) | `func can_remove_from_active_lifecycle() -> bool:` |
@@ -234,7 +234,7 @@ func is_accepting_requests() -> bool:
 - 首次版本：`unreleased`
 
 ```gdscript
-func request(path: String, type_hint: String = "", options: Dictionary = {}) -> GFResourceLease:
+func request( path: String, type_hint: String = "", options: Dictionary = {} ) -> GFResourceLease:
 ```
 
 立即发起绑定当前代次的请求；旧结果仍通过返回租约读取。 已完成租约也需 release；只取 Resource 后释放租约表示资源已脱离服务所有权。

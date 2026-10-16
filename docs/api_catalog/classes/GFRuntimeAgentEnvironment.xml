@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFRuntimeAgentEnvironment" path="addons/gf/standard/utilities/agent/gf_runtime_agent_environment.gd" module="standard" extends="GFUtility" classDigest="0f7574146533b7b15aa18cacdc3943e5792fecf45a83f8252b375283ca1752e8">
+<class name="GFRuntimeAgentEnvironment" path="addons/gf/standard/utilities/agent/gf_runtime_agent_environment.gd" module="standard" extends="GFUtility" classDigest="6f13b992d4f38dab27610ec4ec90818a83627f1917813a0e13a0e07dd9f56970">
 	<description>GFRuntimeAgentEnvironment: 传输无关的受限运行时 Agent 调用环境。
 受信宿主显式注册严格 endpoint，再为调用方签发仅授权指定 endpoint 的短期 session。
 环境负责协议版本、bearer token、TTL、限流、防重放、结构预算、策略检查和无载荷审计；
@@ -122,7 +122,7 @@ endpoint_grant_stale 失败，避免注销/重注册的 ABA 权限恢复。</des
 			</tags>
 		</member>
 		<member kind="method" name="open_session">
-			<signature>func open_session( endpoint_ids: PackedStringArray, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<signature>func open_session(endpoint_ids: PackedStringArray, options: Dictionary = {}) -&gt; Dictionary:</signature>
 			<description>为一组精确 endpoint grant 创建短期 session。
 此方法属于受信宿主控制面，不是无需认证的远程 endpoint。返回的 token 只出现一次；
 环境仅保存与 session id 绑定后的 SHA-256。时间字段使用环境单调毫秒时钟，不是 Unix 时间。</description>

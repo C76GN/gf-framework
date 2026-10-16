@@ -27,23 +27,35 @@ signal position_updated(snapshot: Dictionary)
 ## [br]
 ## @api public
 ## [br]
+## @since 4.2.0
+## [br]
 ## @param beat_index: 从 0 开始的全局 beat 索引。
 ## [br]
 ## @param beat_in_measure: 当前小节内的 beat 索引。
 ## [br]
 ## @param position_seconds: 该 beat 边界对应的播放时间。
-signal beat_reached(beat_index: int, beat_in_measure: int, position_seconds: float)
+signal beat_reached(
+	beat_index: int,
+	beat_in_measure: int,
+	position_seconds: float
+)
 
 ## update() 检测到新的 measure 边界后发出。
 ## [br]
 ## @api public
+## [br]
+## @since 4.2.0
 ## [br]
 ## @param measure_index: 从 0 开始的小节索引。
 ## [br]
 ## @param beat_index: 该小节起点对应的全局 beat 索引。
 ## [br]
 ## @param position_seconds: 该小节边界对应的播放时间。
-signal measure_reached(measure_index: int, beat_index: int, position_seconds: float)
+signal measure_reached(
+	measure_index: int,
+	beat_index: int,
+	position_seconds: float
+)
 
 
 # --- 枚举 ---
@@ -243,8 +255,16 @@ func update(position_seconds: float) -> Dictionary:
 	var beat_index: int = GFVariantData.get_option_int(snapshot, "beat_index")
 	var had_last_position: bool = _has_last_position
 	var previous_beat_index: int = _last_beat_index
-	var safe_beats_per_measure: int = GFVariantData.get_option_int(snapshot, "beats_per_measure", get_beats_per_measure())
-	var seconds_per_beat: float = GFVariantData.get_option_float(snapshot, "seconds_per_beat", get_seconds_per_beat())
+	var safe_beats_per_measure: int = GFVariantData.get_option_int(
+		snapshot,
+		"beats_per_measure",
+		get_beats_per_measure()
+	)
+	var seconds_per_beat: float = GFVariantData.get_option_float(
+		snapshot,
+		"seconds_per_beat",
+		get_seconds_per_beat()
+	)
 	var snapshot_offset_seconds: float = offset_seconds
 	var max_emitted_steps: int = max_emitted_steps_per_update
 
@@ -283,9 +303,15 @@ func update(position_seconds: float) -> Dictionary:
 ## [br]
 ## @schema return: Dictionary，包含 position_seconds、adjusted_seconds、bpm、seconds_per_beat、beats_per_measure、beat_float、beat_index、beat_in_measure、beat_progress、measure_index、measure_progress 和 measure_start_beat。
 func sample(position_seconds: float) -> Dictionary:
-	var safe_position: float = maxf(_sanitize_finite(position_seconds, 0.0), 0.0)
+	var safe_position: float = maxf(
+		_sanitize_finite(position_seconds, 0.0),
+		0.0
+	)
 	var safe_offset: float = _sanitize_finite(offset_seconds, 0.0)
-	var adjusted_seconds: float = maxf(safe_position + safe_offset, 0.0)
+	var adjusted_seconds: float = maxf(
+		safe_position + safe_offset,
+		0.0
+	)
 	var seconds_per_beat: float = get_seconds_per_beat()
 	var safe_beats_per_measure: int = get_beats_per_measure()
 	var beat_float: float = adjusted_seconds / seconds_per_beat
@@ -355,7 +381,10 @@ func get_seconds_per_measure() -> float:
 ## [br]
 ## @return beat 数。
 func seconds_to_beats(duration_seconds: float) -> float:
-	return maxf(_sanitize_finite(duration_seconds, 0.0), 0.0) / get_seconds_per_beat()
+	return maxf(
+		_sanitize_finite(duration_seconds, 0.0),
+		0.0
+	) / get_seconds_per_beat()
 
 
 ## 将 beat 数转换为持续时间秒数，不应用 offset_seconds。
@@ -366,7 +395,10 @@ func seconds_to_beats(duration_seconds: float) -> float:
 ## [br]
 ## @return 持续时间秒数。
 func beats_to_seconds(beat_count: float) -> float:
-	return maxf(_sanitize_finite(beat_count, 0.0), 0.0) * get_seconds_per_beat()
+	return maxf(
+		_sanitize_finite(beat_count, 0.0),
+		0.0
+	) * get_seconds_per_beat()
 
 
 ## 将播放时间转换为 beat 数，会应用 offset_seconds。
@@ -389,7 +421,10 @@ func position_to_beats(position_seconds: float) -> float:
 ## [br]
 ## @return 播放时间，单位秒。
 func beat_to_position_seconds(beat_index: int) -> float:
-	return maxf(beats_to_seconds(float(maxi(beat_index, 0))) - _sanitize_finite(offset_seconds, 0.0), 0.0)
+	return maxf(
+		beats_to_seconds(float(maxi(beat_index, 0))) - _sanitize_finite(offset_seconds, 0.0),
+		0.0
+	)
 
 
 ## 量化播放时间到 beat 网格。
@@ -419,7 +454,10 @@ func quantize_position(
 			quantized_steps = ceil(beat_value / step_beats)
 		_:
 			quantized_steps = round(beat_value / step_beats)
-	return maxf(beats_to_seconds(quantized_steps * step_beats) - _sanitize_finite(offset_seconds, 0.0), 0.0)
+	return maxf(
+		beats_to_seconds(quantized_steps * step_beats) - _sanitize_finite(offset_seconds, 0.0),
+		0.0
+	)
 
 
 ## 获取上一帧快照副本。
@@ -460,7 +498,11 @@ func has_last_position() -> bool:
 func _store_snapshot(snapshot: Dictionary) -> void:
 	_last_snapshot = snapshot.duplicate(true)
 	_last_position_seconds = GFVariantData.get_option_float(snapshot, "position_seconds")
-	_last_beat_index = GFVariantData.get_option_int(snapshot, "beat_index", -1)
+	_last_beat_index = GFVariantData.get_option_int(
+		snapshot,
+		"beat_index",
+		-1
+	)
 	_has_last_position = true
 
 
@@ -483,7 +525,10 @@ func _emit_crossed_boundaries(
 
 	var emitted_count: int = 0
 	var safe_first_beat_index: int = maxi(first_beat_index, 0)
-	for beat_index: int in range(safe_first_beat_index, last_beat_index + 1):
+	for beat_index: int in range(
+		safe_first_beat_index,
+		last_beat_index + 1
+	):
 		if emitted_count >= max_emitted_steps:
 			return
 
@@ -493,10 +538,18 @@ func _emit_crossed_boundaries(
 			seconds_per_beat,
 			snapshot_offset_seconds
 		)
-		beat_reached.emit(beat_index, beat_in_measure, position_seconds)
+		beat_reached.emit(
+			beat_index,
+			beat_in_measure,
+			position_seconds
+		)
 		if beat_in_measure == 0:
 			var measure_index: int = floori(float(beat_index) / float(safe_beats_per_measure))
-			measure_reached.emit(measure_index, beat_index, position_seconds)
+			measure_reached.emit(
+				measure_index,
+				beat_index,
+				position_seconds
+			)
 		emitted_count += 1
 
 
@@ -509,7 +562,10 @@ func _beat_to_position_seconds_for_timing(
 	seconds_per_beat: float,
 	snapshot_offset_seconds: float
 ) -> float:
-	return maxf(float(maxi(beat_index, 0)) * maxf(seconds_per_beat, 0.0) - snapshot_offset_seconds, 0.0)
+	return maxf(
+		float(maxi(beat_index, 0)) * maxf(seconds_per_beat, 0.0) - snapshot_offset_seconds,
+		0.0
+	)
 
 
 ## 判断 Variant 是否为整数或浮点数，不接受布尔值和数值文本。

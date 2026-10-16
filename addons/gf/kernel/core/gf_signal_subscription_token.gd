@@ -60,9 +60,15 @@ func _init(
 	_source_signal = source_signal
 	_callback = callback
 	if _connect_source_signal(flags):
-		super._init(Callable(self, "_disconnect_source_signal"), debug_label)
+		super._init(
+			Callable(self, "_disconnect_source_signal"),
+			debug_label
+		)
 	else:
-		super._init(Callable(), debug_label)
+		super._init(
+			Callable(),
+			debug_label
+		)
 
 
 # --- 公共方法 ---
@@ -155,7 +161,10 @@ func _connect_source_signal(flags: int) -> bool:
 	if _source_signal.is_connected(_callback):
 		return false
 
-	var connect_error: Error = _source_signal.connect(_callback, flags as Object.ConnectFlags) as Error
+	var connect_error: Error = _source_signal.connect(
+		_callback,
+		flags as Object.ConnectFlags
+	) as Error
 	return connect_error == OK
 
 
@@ -163,7 +172,11 @@ func _connect_source_signal(flags: int) -> bool:
 ## [br]
 ## @api private
 func _disconnect_source_signal() -> void:
-	if not _source_signal.is_null() and _callback.is_valid() and _source_signal.is_connected(_callback):
+	if (
+		not _source_signal.is_null()
+		and _callback.is_valid()
+		and _source_signal.is_connected(_callback)
+	):
 		_source_signal.disconnect(_callback)
 	_source_signal = Signal()
 	_callback = Callable()

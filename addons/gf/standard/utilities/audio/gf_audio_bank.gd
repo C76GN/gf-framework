@@ -191,26 +191,67 @@ func get_clip_with_fallback(clip_id: StringName, rng: RandomNumberGenerator = nu
 func resolve_clip(clip_id: StringName, rng: RandomNumberGenerator = null) -> Dictionary:
 	var attempted_ids: PackedStringArray = PackedStringArray()
 	if clip_id == &"":
-		return _make_resolution_report(false, clip_id, &"", false, attempted_ids, null)
+		return _make_resolution_report(
+			false,
+			clip_id,
+			&"",
+			false,
+			attempted_ids,
+			null
+		)
 
-	_append_packed_string(attempted_ids, String(clip_id))
+	_append_packed_string(
+		attempted_ids,
+		String(clip_id)
+	)
 	var clip: GFAudioClip = get_weighted_clip(clip_id, rng)
 	if clip != null:
-		return _make_resolution_report(true, clip_id, clip_id, false, attempted_ids, clip)
+		return _make_resolution_report(
+			true,
+			clip_id,
+			clip_id,
+			false,
+			attempted_ids,
+			clip
+		)
 
 	var separator: String = fallback_separator
 	if separator.is_empty():
-		return _make_resolution_report(false, clip_id, &"", false, attempted_ids, null)
+		return _make_resolution_report(
+			false,
+			clip_id,
+			&"",
+			false,
+			attempted_ids,
+			null
+		)
 
 	var parts: PackedStringArray = String(clip_id).split(separator, false)
 	while parts.size() > 1:
 		parts.remove_at(parts.size() - 1)
 		var fallback_id: StringName = StringName(separator.join(parts))
-		_append_packed_string(attempted_ids, String(fallback_id))
+		_append_packed_string(
+			attempted_ids,
+			String(fallback_id)
+		)
 		clip = get_weighted_clip(fallback_id, rng)
 		if clip != null:
-			return _make_resolution_report(true, clip_id, fallback_id, true, attempted_ids, clip)
-	return _make_resolution_report(false, clip_id, &"", false, attempted_ids, null)
+			return _make_resolution_report(
+				true,
+				clip_id,
+				fallback_id,
+				true,
+				attempted_ids,
+				clip
+			)
+	return _make_resolution_report(
+		false,
+		clip_id,
+		&"",
+		false,
+		attempted_ids,
+		null
+	)
 
 
 ## 把 resolve_clip() 的原始报告转换为 JSON-safe 诊断报告。
@@ -254,7 +295,10 @@ func has_clip(clip_id: StringName) -> bool:
 func get_clip_ids() -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for key: Variant in clips.keys():
-		_append_packed_string(result, GFVariantData.to_text(key))
+		_append_packed_string(
+			result,
+			GFVariantData.to_text(key)
+		)
 	result.sort()
 	return result
 
@@ -299,26 +343,53 @@ func validate_bank(check_resource_exists: bool = false) -> GFValidationReport:
 	for key: Variant in clips.keys():
 		var clip_id: StringName = GFVariantData.to_string_name(key)
 		if clip_id == &"":
-			var _add_error_result_280: Variant = report.add_error(&"empty_clip_id", "Audio clip id is empty.", key)
+			var _add_error_result_280: Variant = report.add_error(
+				&"empty_clip_id",
+				"Audio clip id is empty.",
+				key
+			)
 			continue
 
 		var raw_value: Variant = clips[key]
 		if raw_value is GFAudioClip:
-			_validate_clip(report, clip_id, _variant_to_audio_clip(raw_value), check_resource_exists)
+			_validate_clip(
+				report,
+				clip_id,
+				_variant_to_audio_clip(raw_value),
+				check_resource_exists
+			)
 		elif raw_value is Array:
 			var clip_list: Array = GFVariantData.as_array(raw_value)
 			if clip_list.is_empty():
-				var _add_warning_result_289: Variant = report.add_warning(&"empty_clip_list", "Audio clip candidate list is empty.", clip_id)
+				var _add_warning_result_289: Variant = report.add_warning(
+					&"empty_clip_list",
+					"Audio clip candidate list is empty.",
+					clip_id
+				)
 			for index: int in range(clip_list.size()):
 				var clip: GFAudioClip = _variant_to_audio_clip(clip_list[index])
 				if clip == null:
-					var _add_error_result_293: Variant = report.add_error(&"invalid_clip_candidate", "Audio clip candidate is not GFAudioClip.", clip_id, "", {
-						"index": index,
-					})
+					var _add_error_result_293: Variant = report.add_error(
+						&"invalid_clip_candidate",
+						"Audio clip candidate is not GFAudioClip.",
+						clip_id,
+						"",
+						{ "index": index, }
+					)
 					continue
-				_validate_clip(report, clip_id, clip, check_resource_exists, index)
+				_validate_clip(
+					report,
+					clip_id,
+					clip,
+					check_resource_exists,
+					index
+				)
 		else:
-			var _add_error_result_299: Variant = report.add_error(&"invalid_clip_value", "Audio clip value must be GFAudioClip or Array[GFAudioClip].", clip_id)
+			var _add_error_result_299: Variant = report.add_error(
+				&"invalid_clip_value",
+				"Audio clip value must be GFAudioClip or Array[GFAudioClip].",
+				clip_id
+			)
 	return report
 
 
@@ -361,10 +432,26 @@ func _validate_clip(
 	if index >= 0:
 		metadata["index"] = index
 	if not clip.has_source():
-		var _add_warning_result_334: Variant = report.add_warning(&"missing_audio_source", "Audio clip has no stream or path.", clip_id, "", metadata)
+		var _add_warning_result_334: Variant = report.add_warning(
+			&"missing_audio_source",
+			"Audio clip has no stream or path.",
+			clip_id,
+			"",
+			metadata
+		)
 		return
-	if check_resource_exists and clip.stream == null and not ResourceLoader.exists(clip.path, "AudioStream"):
-		var _add_warning_result_337: Variant = report.add_warning(&"missing_audio_resource", "Audio clip path does not resolve to AudioStream.", clip_id, clip.path, metadata)
+	if (
+		check_resource_exists
+		and clip.stream == null
+		and not ResourceLoader.exists(clip.path, "AudioStream")
+	):
+		var _add_warning_result_337: Variant = report.add_warning(
+			&"missing_audio_resource",
+			"Audio clip path does not resolve to AudioStream.",
+			clip_id,
+			clip.path,
+			metadata
+		)
 
 
 ## 将 Variant 收窄为 GFAudioClip，不匹配时返回 null。

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFVirtualInputSource" path="addons/gf/standard/input/sources/gf_virtual_input_source.gd" module="standard" extends="RefCounted" classDigest="89361fcd4a0c0b54eb8751f0c6e60044a6728216b269abb55611c140a28d6dbf">
+<class name="GFVirtualInputSource" path="addons/gf/standard/input/sources/gf_virtual_input_source.gd" module="standard" extends="RefCounted" classDigest="5db7b8b9a8290a58686f5dee0ab6a7ce132edf4e2a7517239db950a64c0fa551">
 	<description>GFVirtualInputSource: 可编程虚拟输入源。
 用于测试、回放、AI 控制或项目自定义输入桥接，向 GFInputMappingUtility
 注入抽象动作值；它不读取 InputMap，也不规定具体设备或玩法语义。</description>
@@ -115,7 +115,7 @@ owner 与 cancellation_token 均可省略；同时提供时采用 OR 语义。�
 			</tags>
 		</member>
 		<member kind="method" name="set_action_value_for_player">
-			<signature>func set_action_value_for_player(action_id: StringName, value: Variant, next_player_index: int) -&gt; bool:</signature>
+			<signature>func set_action_value_for_player( action_id: StringName, value: Variant, next_player_index: int ) -&gt; bool:</signature>
 			<description>为指定玩家写入动作值。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -124,6 +124,7 @@ owner 与 cancellation_token 均可省略；同时提供时采用 OR 语义。�
 				<tag name="param">next_player_index: 玩家索引。</tag>
 				<tag name="return">写入成功返回 true。</tag>
 				<tag name="schema">value: Variant，GFInputMappingUtility 接受的动作值，通常为 bool、float、Vector2 或 Vector3。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="press">

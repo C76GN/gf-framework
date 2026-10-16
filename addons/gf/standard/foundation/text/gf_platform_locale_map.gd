@@ -59,7 +59,13 @@ func set_mapping(
 	fallback_locale: String = "",
 	display_name: String = ""
 ) -> Dictionary:
-	var entry: Dictionary = make_entry(platform_id, platform_locale, locale, fallback_locale, display_name)
+	var entry: Dictionary = make_entry(
+		platform_id,
+		platform_locale,
+		locale,
+		fallback_locale,
+		display_name
+	)
 	if entry.is_empty():
 		return {}
 	var index: int = _find_entry_index(platform_id, platform_locale)
@@ -103,7 +109,11 @@ func get_mapping(platform_id: StringName, platform_locale: String) -> Dictionary
 ## @param fallback_value: 未命中时的调用方 fallback。
 ## [br]
 ## @return Godot locale。
-func map_locale(platform_id: StringName, platform_locale: String, fallback_value: String = "") -> String:
+func map_locale(
+	platform_id: StringName,
+	platform_locale: String,
+	fallback_value: String = ""
+) -> String:
 	var entry: Dictionary = get_mapping(platform_id, platform_locale)
 	if not entry.is_empty():
 		return GFVariantData.get_option_string(entry, "locale")
@@ -125,7 +135,11 @@ func map_locale(platform_id: StringName, platform_locale: String, fallback_value
 ## @param fallback_value: 未命中时的调用方 fallback。
 ## [br]
 ## @return fallback Godot locale。
-func map_fallback_locale(platform_id: StringName, platform_locale: String, fallback_value: String = "") -> String:
+func map_fallback_locale(
+	platform_id: StringName,
+	platform_locale: String,
+	fallback_value: String = ""
+) -> String:
 	var entry: Dictionary = get_mapping(platform_id, platform_locale)
 	if not entry.is_empty():
 		var mapped_fallback: String = GFVariantData.get_option_string(entry, "fallback_locale").strip_edges()
@@ -166,10 +180,7 @@ func erase_mapping(platform_id: StringName, platform_locale: String) -> bool:
 ## [br]
 ## @schema return: Dictionary with entries and default_locale.
 func to_dict() -> Dictionary:
-	return {
-		"entries": _copy_entries(entries),
-		"default_locale": default_locale,
-	}
+	return { "entries": _copy_entries(entries), "default_locale": default_locale, }
 
 
 ## 从字典应用映射表。
@@ -239,7 +250,11 @@ static func make_entry(
 ) -> Dictionary:
 	var normalized_platform_locale: String = _normalize_platform_locale(platform_locale)
 	var normalized_locale: String = locale.strip_edges()
-	if platform_id == &"" or normalized_platform_locale.is_empty() or normalized_locale.is_empty():
+	if (
+		platform_id == &""
+		or normalized_platform_locale.is_empty()
+		or normalized_locale.is_empty()
+	):
 		return {}
 	return {
 		"platform_id": platform_id,
@@ -277,10 +292,7 @@ func _find_entry_index(platform_id: StringName, platform_locale: String) -> int:
 	var normalized_platform_locale: String = _normalize_platform_locale(platform_locale)
 	for index: int in range(entries.size()):
 		var entry: Dictionary = entries[index]
-		if (
-			GFVariantData.get_option_string_name(entry, "platform_id") == platform_id
-			and GFVariantData.get_option_string(entry, "platform_locale") == normalized_platform_locale
-		):
+		if (GFVariantData.get_option_string_name(entry, "platform_id") == platform_id and GFVariantData.get_option_string(entry, "platform_locale") == normalized_platform_locale):
 			return index
 	return -1
 

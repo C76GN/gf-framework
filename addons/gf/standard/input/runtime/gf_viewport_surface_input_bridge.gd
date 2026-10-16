@@ -314,17 +314,24 @@ func forward_mouse_hover(
 	normalized_position: Vector2,
 	timestamp_msec: int
 ) -> bool:
-	if not _can_accept_input() or not _surface_sample_is_valid(
-		source_id,
-		device_id,
-		pointer_id,
-		target,
-		target_generation,
-		normalized_position,
-		timestamp_msec
+	if (
+		not _can_accept_input()
+		or not _surface_sample_is_valid(
+			source_id,
+			device_id,
+			pointer_id,
+			target,
+			target_generation,
+			normalized_position,
+			timestamp_msec
+		)
 	):
 		return false
-	var key: String = _make_pointer_key(source_id, device_id, pointer_id)
+	var key: String = _make_pointer_key(
+		source_id,
+		device_id,
+		pointer_id
+	)
 	if _captures.has(key) or not _pointer_timestamp_is_current(key, timestamp_msec):
 		return false
 	_started = true
@@ -382,34 +389,44 @@ func capture_pointer(
 	timestamp_msec: int,
 	mouse_button: MouseButton = MOUSE_BUTTON_LEFT
 ) -> GFViewportSurfaceInputCapture:
-	if not _can_accept_input() or not _surface_sample_is_valid(
-		source_id,
-		device_id,
-		pointer_id,
-		target,
-		target_generation,
-		normalized_position,
-		timestamp_msec
+	if (
+		not _can_accept_input()
+		or not _surface_sample_is_valid(
+			source_id,
+			device_id,
+			pointer_id,
+			target,
+			target_generation,
+			normalized_position,
+			timestamp_msec
+		)
 	):
 		return null
 	if pointer_type not in [PointerType.MOUSE, PointerType.TOUCH]:
 		return null
 	if pointer_type == PointerType.MOUSE and not _mouse_button_is_supported(mouse_button):
 		return null
-	var key: String = _make_pointer_key(source_id, device_id, pointer_id)
+	var key: String = _make_pointer_key(
+		source_id,
+		device_id,
+		pointer_id
+	)
 	if not _pointer_timestamp_is_current(key, timestamp_msec):
 		return null
 
 	_started = true
 	var _pruned: int = _prune_dead_records(timestamp_msec)
-	if not _can_accept_input() or not _surface_sample_is_valid(
-		source_id,
-		device_id,
-		pointer_id,
-		target,
-		target_generation,
-		normalized_position,
-		timestamp_msec
+	if (
+		not _can_accept_input()
+		or not _surface_sample_is_valid(
+			source_id,
+			device_id,
+			pointer_id,
+			target,
+			target_generation,
+			normalized_position,
+			timestamp_msec
+		)
 	):
 		return null
 	if not _pointer_timestamp_is_current(key, timestamp_msec):
@@ -468,10 +485,23 @@ func capture_pointer(
 	_remember_pointer_timestamp(key, timestamp_msec)
 	_advance_pointer_epoch(key)
 
-	var double_click: bool = _is_double_click(record, mouse_button, timestamp_msec)
-	var event: InputEvent = _make_press_event(record, target, mouse_button, double_click)
+	var double_click: bool = _is_double_click(
+		record,
+		mouse_button,
+		timestamp_msec
+	)
+	var event: InputEvent = _make_press_event(
+		record,
+		target,
+		mouse_button,
+		double_click
+	)
 	var dispatch_epoch: int = _get_pointer_epoch(key)
-	if event == null or not _dispatch_record_event(record, target, event):
+	if event == null or not _dispatch_record_event(
+		record,
+		target,
+		event
+	):
 		if _get_capture_record(key) == record and _get_pointer_epoch(key) == dispatch_epoch:
 			var _erased_failed_capture: bool = _captures.erase(key)
 			_advance_pointer_epoch(key)
@@ -520,8 +550,16 @@ func move_pointer(
 	record.last_timestamp_msec = timestamp_msec
 	_remember_pointer_timestamp(record.key, timestamp_msec)
 	_advance_pointer_epoch(record.key)
-	var event: InputEvent = _make_motion_event(record, position, position - previous_position)
-	return event != null and _dispatch_record_event(record, target, event)
+	var event: InputEvent = _make_motion_event(
+		record,
+		position,
+		position - previous_position
+	)
+	return event != null and _dispatch_record_event(
+		record,
+		target,
+		event
+	)
 
 
 ## 在已捕获鼠标上增加一个非滚轮按钮。
@@ -578,10 +616,18 @@ func press_mouse_button(
 		target,
 		mouse_button,
 		true,
-		_is_double_click(record, mouse_button, timestamp_msec),
+		_is_double_click(
+			record,
+			mouse_button,
+			timestamp_msec
+		),
 		false
 	)
-	return _dispatch_record_event(record, target, event)
+	return _dispatch_record_event(
+		record,
+		target,
+		event
+	)
 
 
 ## 在最后一个合法表面位置释放指针或鼠标按钮。
@@ -605,7 +651,12 @@ func release_pointer(
 	var record: CaptureRecord = _get_record_for_receipt(capture, timestamp_msec)
 	if record == null:
 		return false
-	return _release_record(record, capture, timestamp_msec, mouse_button)
+	return _release_record(
+		record,
+		capture,
+		timestamp_msec,
+		mouse_button
+	)
 
 
 ## 更新最后合法表面位置后释放指针或鼠标按钮。
@@ -650,7 +701,12 @@ func release_pointer_on_surface(
 			return false
 	record.last_uv = normalized_position
 	record.last_timestamp_msec = timestamp_msec
-	return _release_record(record, capture, timestamp_msec, mouse_button)
+	return _release_record(
+		record,
+		capture,
+		timestamp_msec,
+		mouse_button
+	)
 
 
 ## 在最后合法位置取消整个指针捕获。
@@ -689,7 +745,12 @@ func cancel_source(
 	timestamp_msec: int,
 	device_id: int = -1
 ) -> int:
-	if not _can_accept_input() or source_id == &"" or timestamp_msec < 0 or device_id < -1:
+	if (
+		not _can_accept_input()
+		or source_id == &""
+		or timestamp_msec < 0
+		or device_id < -1
+	):
 		return 0
 	_remove_completed_source_lifecycle_state(source_id, device_id)
 	var removed: int = 0
@@ -700,7 +761,10 @@ func cancel_source(
 			continue
 		var epoch_before_cancel: int = _begin_pointer_dispatch(record.key)
 		var expected_cancel_epoch: int = _next_pointer_epoch_value(epoch_before_cancel)
-		var _cancelled: bool = _cancel_record(record, maxi(timestamp_msec, record.last_timestamp_msec))
+		var _cancelled: bool = _cancel_record(
+			record,
+			maxi(timestamp_msec, record.last_timestamp_msec)
+		)
 		if (
 			not _captures.has(record.key)
 			and not _pointer_has_click_history(record.key)
@@ -725,7 +789,11 @@ func cancel_source(
 ## @param timestamp_msec: 终止样本单调毫秒。
 ## [br]
 ## @return: 本次移除的捕获数。
-func cancel_target(target: Viewport, target_generation: int, timestamp_msec: int) -> int:
+func cancel_target(
+	target: Viewport,
+	target_generation: int,
+	timestamp_msec: int
+) -> int:
 	if (
 		not _can_accept_input()
 		or target == null
@@ -743,7 +811,10 @@ func cancel_target(target: Viewport, target_generation: int, timestamp_msec: int
 			or record.target_generation != target_generation
 		):
 			continue
-		var _cancelled: bool = _cancel_record(record, maxi(timestamp_msec, record.last_timestamp_msec))
+		var _cancelled: bool = _cancel_record(
+			record,
+			maxi(timestamp_msec, record.last_timestamp_msec)
+		)
 		removed += 1
 	return removed
 
@@ -773,7 +844,11 @@ func prune_released_captures(timestamp_msec: int = 0) -> int:
 ## [br]
 ## @return: 桥、key、代际、回执对象和弱目标均仍匹配时返回 true。
 func has_capture(capture: GFViewportSurfaceInputCapture) -> bool:
-	var record: CaptureRecord = _get_record_for_receipt(capture, -1, false)
+	var record: CaptureRecord = _get_record_for_receipt(
+		capture,
+		-1,
+		false
+	)
 	return record != null and _get_live_target(record) != null
 
 
@@ -837,7 +912,10 @@ func dispose(timestamp_msec: int = 0) -> void:
 			if _get_capture_record(record.key) == record:
 				var _cancelled: bool = _cancel_record(
 					record,
-					maxi(maxi(timestamp_msec, 0), record.last_timestamp_msec),
+					maxi(
+						maxi(timestamp_msec, 0),
+						record.last_timestamp_msec
+					),
 					true
 				)
 	_captures.clear()
@@ -921,7 +999,11 @@ func _get_record_for_receipt(
 	timestamp_msec: int,
 	validate_time: bool = true
 ) -> CaptureRecord:
-	if not _can_accept_input() or capture == null or not capture.is_valid():
+	if (
+		not _can_accept_input()
+		or capture == null
+		or not capture.is_valid()
+	):
 		return null
 	if not capture.belongs_to_bridge_from_input_layer(get_instance_id()):
 		return null
@@ -933,7 +1015,13 @@ func _get_record_for_receipt(
 	var record: CaptureRecord = _get_capture_record(key)
 	if not _record_matches_receipt(record, capture):
 		return null
-	if validate_time and (timestamp_msec < 0 or timestamp_msec < record.last_timestamp_msec):
+	if (
+		validate_time
+		and (
+			timestamp_msec < 0
+			or timestamp_msec < record.last_timestamp_msec
+		)
+	):
 		return null
 	return record
 
@@ -942,10 +1030,7 @@ func _get_record_for_receipt(
 ## [br]
 ## @api private
 ## [br]
-func _record_matches_receipt(
-	record: CaptureRecord,
-	receipt: GFViewportSurfaceInputCapture
-) -> bool:
+func _record_matches_receipt(record: CaptureRecord, receipt: GFViewportSurfaceInputCapture) -> bool:
 	if record == null or receipt == null:
 		return false
 	var current_receipt: GFViewportSurfaceInputCapture = _get_receipt(record)
@@ -981,10 +1066,24 @@ func _release_record(
 		var _erased_touch_capture: bool = _captures.erase(record.key)
 		record.last_timestamp_msec = timestamp_msec
 		_remember_pointer_timestamp(record.key, timestamp_msec)
-		_remember_click(record, 0, timestamp_msec)
+		_remember_click(
+			record,
+			0,
+			timestamp_msec
+		)
 		_advance_pointer_epoch(record.key)
-		var touch_event: InputEventScreenTouch = _make_touch_event(record, target, false, false, false)
-		var delivered_touch: bool = _dispatch_record_event(record, target, touch_event)
+		var touch_event: InputEventScreenTouch = _make_touch_event(
+			record,
+			target,
+			false,
+			false,
+			false
+		)
+		var delivered_touch: bool = _dispatch_record_event(
+			record,
+			target,
+			touch_event
+		)
 		_prune_pointer_epoch(record.key)
 		return delivered_touch
 	if record.pointer_type != PointerType.MOUSE or not _mouse_button_is_supported(mouse_button):
@@ -997,7 +1096,11 @@ func _release_record(
 	record.button_mask &= ~bit
 	record.last_timestamp_msec = timestamp_msec
 	_remember_pointer_timestamp(record.key, timestamp_msec)
-	_remember_click(record, mouse_button, timestamp_msec)
+	_remember_click(
+		record,
+		mouse_button,
+		timestamp_msec
+	)
 	if record.button_mask == 0:
 		var _erased_capture: bool = _captures.erase(record.key)
 	_advance_pointer_epoch(record.key)
@@ -1009,10 +1112,20 @@ func _release_record(
 		false,
 		false
 	)
-	var delivered: bool = _dispatch_record_event(record, target, mouse_event)
-	var completed: bool = delivered and (
-		record.button_mask != 0
-		or not _record_matches_receipt(_get_capture_record(record.key), receipt)
+	var delivered: bool = _dispatch_record_event(
+		record,
+		target,
+		mouse_event
+	)
+	var completed: bool = (
+		delivered
+		and (
+			record.button_mask != 0
+			or not _record_matches_receipt(
+				_get_capture_record(record.key),
+				receipt
+			)
+		)
 	)
 	_prune_pointer_epoch(record.key)
 	return completed
@@ -1032,7 +1145,11 @@ func _cancel_record(
 	var target: Viewport = _get_live_target(record)
 	var original_mask: int = record.button_mask
 	var _erased_capture: bool = _captures.erase(record.key)
-	_remove_click_history_for_pointer(record.source_id, record.device_id, record.pointer_id)
+	_remove_click_history_for_pointer(
+		record.source_id,
+		record.device_id,
+		record.pointer_id
+	)
 	_advance_pointer_epoch(record.key)
 	record.last_timestamp_msec = maxi(timestamp_msec, record.last_timestamp_msec)
 	_remember_pointer_timestamp(record.key, record.last_timestamp_msec)
@@ -1040,7 +1157,13 @@ func _cancel_record(
 		_prune_pointer_epoch(record.key)
 		return false
 	if record.pointer_type == PointerType.TOUCH:
-		var touch_event: InputEventScreenTouch = _make_touch_event(record, target, false, false, true)
+		var touch_event: InputEventScreenTouch = _make_touch_event(
+			record,
+			target,
+			false,
+			false,
+			true
+		)
 		var delivered_touch: bool = _dispatch_record_event(
 			record,
 			target,
@@ -1065,7 +1188,12 @@ func _cancel_record(
 			false,
 			true
 		)
-		if not _dispatch_record_event(record, target, event, allow_disposed_dispatch):
+		if not _dispatch_record_event(
+			record,
+			target,
+			event,
+			allow_disposed_dispatch
+		):
 			_prune_pointer_epoch(record.key)
 			return false
 		delivered_any = true
@@ -1081,7 +1209,11 @@ func _drop_record(record: CaptureRecord) -> void:
 	if record == null or _get_capture_record(record.key) != record:
 		return
 	var _erased_capture: bool = _captures.erase(record.key)
-	_remove_click_history_for_pointer(record.source_id, record.device_id, record.pointer_id)
+	_remove_click_history_for_pointer(
+		record.source_id,
+		record.device_id,
+		record.pointer_id
+	)
 	_remember_pointer_timestamp(record.key, record.last_timestamp_msec)
 	_advance_pointer_epoch(record.key)
 	_prune_pointer_epoch(record.key)
@@ -1113,7 +1245,10 @@ func _prune_dead_records(timestamp_msec: int) -> int:
 		if target != null and _get_receipt(record) != null:
 			continue
 		if target != null:
-			var _cancelled: bool = _cancel_record(record, maxi(timestamp_msec, record.last_timestamp_msec))
+			var _cancelled: bool = _cancel_record(
+				record,
+				maxi(timestamp_msec, record.last_timestamp_msec)
+			)
 		else:
 			_drop_record(record)
 		removed += 1
@@ -1143,9 +1278,22 @@ func _make_press_event(
 	double_click: bool
 ) -> InputEvent:
 	if record.pointer_type == PointerType.MOUSE:
-		return _make_mouse_button_event(record, target, mouse_button, true, double_click, false)
+		return _make_mouse_button_event(
+			record,
+			target,
+			mouse_button,
+			true,
+			double_click,
+			false
+		)
 	if record.pointer_type == PointerType.TOUCH:
-		return _make_touch_event(record, target, true, double_click, false)
+		return _make_touch_event(
+			record,
+			target,
+			true,
+			double_click,
+			false
+		)
 	return null
 
 
@@ -1189,7 +1337,10 @@ func _make_mouse_button_event(
 	canceled: bool
 ) -> InputEventMouseButton:
 	var event: InputEventMouseButton = InputEventMouseButton.new()
-	var position: Vector2 = _uv_to_position(record.last_uv, _get_target_size(target))
+	var position: Vector2 = _uv_to_position(
+		record.last_uv,
+		_get_target_size(target)
+	)
 	event.device = record.device_id
 	event.position = position
 	event.global_position = position
@@ -1215,7 +1366,10 @@ func _make_touch_event(
 	var event: InputEventScreenTouch = InputEventScreenTouch.new()
 	event.device = record.device_id
 	event.index = record.pointer_id
-	event.position = _uv_to_position(record.last_uv, _get_target_size(target))
+	event.position = _uv_to_position(
+		record.last_uv,
+		_get_target_size(target)
+	)
 	event.pressed = pressed
 	event.double_tap = double_tap
 	event.canceled = canceled
@@ -1263,9 +1417,17 @@ func _dispatch_event(
 	expect_active_record: bool = false,
 	allow_disposed_dispatch: bool = false
 ) -> bool:
-	if not Thread.is_main_thread() or not _target_is_live(target) or event == null:
+	if (
+		not Thread.is_main_thread()
+		or not _target_is_live(target)
+		or event == null
+	):
 		return false
-	var pointer_key: String = _make_pointer_key(source_id, device_id, pointer_id)
+	var pointer_key: String = _make_pointer_key(
+		source_id,
+		device_id,
+		pointer_id
+	)
 	var expected_epoch: int = _begin_pointer_dispatch(pointer_key)
 	target.push_input(event, true)
 	var completed: bool = _dispatch_expectation_holds(
@@ -1311,7 +1473,10 @@ func _dispatch_expectation_holds(
 	allow_disposed_dispatch: bool
 ) -> bool:
 	if (
-		(_disposed and not allow_disposed_dispatch)
+		(
+			_disposed
+			and not allow_disposed_dispatch
+		)
 		or not _target_is_live(target)
 		or _get_pointer_epoch(pointer_key) != expected_epoch
 	):
@@ -1320,10 +1485,7 @@ func _dispatch_expectation_holds(
 		return true
 	var current_record: CaptureRecord = _get_capture_record(expected_record.key)
 	if expect_active_record:
-		return (
-			current_record == expected_record
-			and current_record.capture_generation == expected_record.capture_generation
-		)
+		return (current_record == expected_record and current_record.capture_generation == expected_record.capture_generation)
 	return current_record == null
 
 
@@ -1444,7 +1606,11 @@ func _remember_pointer_timestamp(pointer_key: String, timestamp_msec: int) -> vo
 ## [br]
 ## @api private
 ## [br]
-func _remember_click(record: CaptureRecord, mouse_button: int, timestamp_msec: int) -> void:
+func _remember_click(
+	record: CaptureRecord,
+	mouse_button: int,
+	timestamp_msec: int
+) -> void:
 	if _max_click_history == 0:
 		return
 	var target: Viewport = _get_live_target(record)
@@ -1499,12 +1665,14 @@ func _is_double_click(
 ) -> bool:
 	if _max_click_history == 0:
 		return false
-	var click: ClickRecord = _get_click_record(_make_click_key(
-		record.source_id,
-		record.device_id,
-		record.pointer_id,
-		mouse_button if record.pointer_type == PointerType.MOUSE else 0
-	))
+	var click: ClickRecord = _get_click_record(
+		_make_click_key(
+			record.source_id,
+			record.device_id,
+			record.pointer_id,
+			mouse_button if record.pointer_type == PointerType.MOUSE else 0
+		)
+	)
 	if (
 		click == null
 		or click.target_instance_id != record.target_instance_id
@@ -1518,12 +1686,7 @@ func _is_double_click(
 	if target == null or click_target != target:
 		return false
 	var size: Vector2 = _get_target_size(target)
-	return (
-		_uv_to_position(click.normalized_position, size).distance_to(
-			_uv_to_position(record.last_uv, size)
-		)
-		<= _double_click_distance_pixels
-	)
+	return ((_uv_to_position(click.normalized_position, size).distance_to(_uv_to_position(record.last_uv, size))) <= _double_click_distance_pixels)
 
 
 ## 删除与来源、设备和指针标识完全匹配的全部点击历史记录。
@@ -1564,7 +1727,10 @@ func _remove_completed_source_lifecycle_state(source_id: StringName, device_id: 
 		if (
 			click == null
 			or click.source_id != source_id
-			or (device_id >= 0 and click.device_id != device_id)
+			or (
+				device_id >= 0
+				and click.device_id != device_id
+			)
 		):
 			continue
 		var pointer_key: String = _make_pointer_key(
@@ -1582,7 +1748,11 @@ func _remove_completed_source_lifecycle_state(source_id: StringName, device_id: 
 		var pointer_key: String = pointer_key_variant
 		if (
 			_captures.has(pointer_key)
-			or not _pointer_key_matches_source(pointer_key, source_id, device_id)
+			or not _pointer_key_matches_source(
+				pointer_key,
+				source_id,
+				device_id
+			)
 		):
 			continue
 		var _erased_timestamp: bool = _pointer_timestamp_high_water.erase(pointer_key)
@@ -1605,7 +1775,10 @@ static func _pointer_key_matches_source(
 	device_id: int
 ) -> bool:
 	var source: String = String(source_id)
-	var prefix: String = "%d:%s:" % [source.length(), source]
+	var prefix: String = (
+		"%d:%s:"
+		% [source.length(), source]
+	)
 	if not pointer_key.begins_with(prefix):
 		return false
 	if device_id < 0:
@@ -1700,9 +1873,21 @@ func _take_capture_generation() -> int:
 ## [br]
 ## @api private
 ## [br]
-static func _make_pointer_key(source_id: StringName, device_id: int, pointer_id: int) -> String:
+static func _make_pointer_key(
+	source_id: StringName,
+	device_id: int,
+	pointer_id: int
+) -> String:
 	var source: String = String(source_id)
-	return "%d:%s:%d:%d" % [source.length(), source, device_id, pointer_id]
+	return (
+		"%d:%s:%d:%d"
+		% [
+			source.length(),
+			source,
+			device_id,
+			pointer_id,
+		]
+	)
 
 
 ## 在指针复合键后追加鼠标按钮编号，生成点击历史键。
@@ -1715,7 +1900,17 @@ static func _make_click_key(
 	pointer_id: int,
 	mouse_button: int
 ) -> String:
-	return "%s:%d" % [_make_pointer_key(source_id, device_id, pointer_id), mouse_button]
+	return (
+		"%s:%d"
+		% [
+			_make_pointer_key(
+				source_id,
+				device_id,
+				pointer_id
+			),
+			mouse_button,
+		]
+	)
 
 
 ## 判断 Viewport 非空、实例有效且已进入 SceneTree。
@@ -1723,7 +1918,11 @@ static func _make_click_key(
 ## @api private
 ## [br]
 static func _target_is_live(target: Viewport) -> bool:
-	return target != null and is_instance_valid(target) and target.is_inside_tree()
+	return (
+		target != null
+		and is_instance_valid(target)
+		and target.is_inside_tree()
+	)
 
 
 ## 读取有效目标尺寸；SubViewport 使用其 size，其他 Viewport 使用可见矩形尺寸，无效或非正尺寸返回零。
@@ -1737,7 +1936,11 @@ static func _get_target_size(target: Viewport) -> Vector2:
 	if target is SubViewport:
 		var sub_viewport: SubViewport = target
 		size = Vector2(sub_viewport.size)
-	if not _vector_is_finite(size) or size.x <= 0.0 or size.y <= 0.0:
+	if (
+		not _vector_is_finite(size)
+		or size.x <= 0.0
+		or size.y <= 0.0
+	):
 		return Vector2.ZERO
 	return size
 
@@ -1762,8 +1965,14 @@ static func _normalized_position_is_valid(position: Vector2) -> bool:
 ## [br]
 static func _uv_to_position(normalized_position: Vector2, size: Vector2) -> Vector2:
 	var last_position: Vector2 = Vector2(
-		maxf(size.x - 1.0, 0.0),
-		maxf(size.y - 1.0, 0.0)
+		maxf(
+			size.x - 1.0,
+			0.0
+		),
+		maxf(
+			size.y - 1.0,
+			0.0
+		)
 	)
 	return normalized_position * last_position
 

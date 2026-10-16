@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFResourceResolverUtility" path="addons/gf/standard/utilities/assets/gf_resource_resolver_utility.gd" module="standard" extends="GFUtility" classDigest="372d2b2ff1660629ebe3bacc7a2a2a100041a125d9d9b9967a31da13c4855f66">
+<class name="GFResourceResolverUtility" path="addons/gf/standard/utilities/assets/gf_resource_resolver_utility.gd" module="standard" extends="GFUtility" classDigest="5abbac2b09d84c333033c91a00fa89021ce5dcff7330f0b321fff5cd8c2d61b7">
 	<description>GFResourceResolverUtility: 通用资源键解析工具。
 将项目稳定资源键解析为路径或已加载 Resource，并支持显式注册表、provider 覆盖链和显式直接路径回退。
 它不扫描目录、不下载资源、不解释业务内容类型，也不负责实例化节点。</description>
@@ -117,7 +117,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="register_provider">
-			<signature>func register_provider(provider: Object, provider_id: StringName = &amp;"", priority: int = 0) -&gt; bool:</signature>
+			<signature>func register_provider( provider: Object, provider_id: StringName = &amp;"", priority: int = 0 ) -&gt; bool:</signature>
 			<description>注册一个资源解析 provider。
 provider 应实现 `resolve_resource(request: Dictionary) -&gt; Variant`。返回值可为 Dictionary、String 路径或 Resource。
 Dictionary 可包含 `ok`、`path`、`resource`、`type_hint`、`cache_key`、`resource_identity`、`reason`、`metadata` 和 `provider_id`。</description>

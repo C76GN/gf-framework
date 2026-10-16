@@ -15,7 +15,7 @@ Tile 元数据绘制工具辅助。 为 `GFTileMetadataLayer` 提供编辑器友
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 常量 | [`DEFAULT_OVERLAY_COLOR`](#member-gftilemetadatapainttool-constants-default_overlay_color) | `const DEFAULT_OVERLAY_COLOR: Color = Color(0.2, 0.65, 1.0, 0.45)` |
+| 常量 | [`DEFAULT_OVERLAY_COLOR`](#member-gftilemetadatapainttool-constants-default_overlay_color) | `const DEFAULT_OVERLAY_COLOR: Color = Color( 	0.2, 	0.65, 	1.0, 	0.45 )` |
 | 方法 | [`make_paint_patch`](#member-gftilemetadatapainttool-methods-make_paint_patch) | `static func make_paint_patch( layer: GFTileMetadataLayer, target_cells: Array[Vector2i], key: StringName, value: Variant, erase: bool = false ) -> Dictionary:` |
 | 方法 | [`apply_paint_patch`](#member-gftilemetadatapainttool-methods-apply_paint_patch) | `static func apply_paint_patch(layer: GFTileMetadataLayer, patch: Dictionary) -> Dictionary:` |
 | 方法 | [`revert_paint_patch`](#member-gftilemetadatapainttool-methods-revert_paint_patch) | `static func revert_paint_patch(layer: GFTileMetadataLayer, patch: Dictionary) -> Dictionary:` |
@@ -33,7 +33,12 @@ Tile 元数据绘制工具辅助。 为 `GFTileMetadataLayer` 提供编辑器友
 - 首次版本：`7.0.0`
 
 ```gdscript
-const DEFAULT_OVERLAY_COLOR: Color = Color(0.2, 0.65, 1.0, 0.45)
+const DEFAULT_OVERLAY_COLOR: Color = Color(
+	0.2,
+	0.65,
+	1.0,
+	0.45
+)
 ```
 
 默认 overlay 颜色。

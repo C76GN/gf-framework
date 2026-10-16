@@ -118,22 +118,26 @@ const _ABSOLUTE_MAX_JSON_OUTPUT_BYTES: int = 256 * 1024 * 1024
 ## @return: 单表物化结果。
 ## [br]
 ## @schema return: Dictionary，包含 success、phase、table、ir、error_kind 和 error。
-func materialize_table(
-	table_ir: GFConfigPipelineTableIR,
-	options: Dictionary = {}
-) -> Dictionary:
+func materialize_table(table_ir: GFConfigPipelineTableIR, options: Dictionary = {}) -> Dictionary:
 	if table_ir == null:
 		return _make_table_failure("invalid_table_ir", "待物化的 Table IR 为空。")
 	var contract: Dictionary = table_ir.validate_contract()
 	if not GFVariantData.get_option_bool(contract, "success"):
-		return _make_table_failure("invalid_table_ir", GFVariantData.get_option_string(contract, "error"))
+		return _make_table_failure(
+			"invalid_table_ir",
+			GFVariantData.get_option_string(contract, "error")
+		)
 
 	var table: GFConfigTableResource = GFConfigTableResource.new()
 	table.table_name = table_ir.get_table_name()
 	table.schema = table_ir.get_schema()
 	table.records = table_ir.get_records()
 	table.metadata = table_ir.get_metadata()
-	if GFVariantData.get_option_bool(options, "rebuild_indexes", true):
+	if GFVariantData.get_option_bool(
+		options,
+		"rebuild_indexes",
+		true
+	):
 		var _id_index_count: int = table.rebuild_index()
 		var _named_index_count: int = table.rebuild_indexes()
 	return {
@@ -162,15 +166,16 @@ func materialize_table(
 ## @return: 数据库物化结果。
 ## [br]
 ## @schema return: Dictionary，包含 success、phase、database、report、ir、error_kind 和 error。
-func materialize_database(
-	compilation_ir: GFConfigPipelineIR,
-	options: Dictionary = {}
-) -> Dictionary:
+func materialize_database(compilation_ir: GFConfigPipelineIR, options: Dictionary = {}) -> Dictionary:
 	if compilation_ir == null:
 		return _make_database_failure("invalid_pipeline_ir", "待物化的数据库 IR 为空。")
 	var contract: Dictionary = compilation_ir.validate_contract()
 	if not GFVariantData.get_option_bool(contract, "success"):
-		return _make_database_failure("invalid_pipeline_ir", GFVariantData.get_option_string(contract, "error"), compilation_ir)
+		return _make_database_failure(
+			"invalid_pipeline_ir",
+			GFVariantData.get_option_string(contract, "error"),
+			compilation_ir
+		)
 
 	var database: GFConfigDatabaseResource = GFConfigDatabaseResource.new()
 	database.database_id = compilation_ir.get_database_id()
@@ -180,14 +185,23 @@ func materialize_database(
 		var table_result: Dictionary = materialize_table(table_ir, options)
 		if not GFVariantData.get_option_bool(table_result, "success"):
 			return _make_database_failure(
-				GFVariantData.get_option_string(table_result, "error_kind", "table_target_failed"),
+				GFVariantData.get_option_string(
+					table_result,
+					"error_kind",
+					"table_target_failed"
+				),
 				GFVariantData.get_option_string(table_result, "error"),
 				compilation_ir,
 				database
 			)
 		var table_value: Variant = GFVariantData.get_option_value(table_result, "table")
 		if not (table_value is GFConfigTableResource):
-			return _make_database_failure("invalid_table_target", "Target 没有返回 GFConfigTableResource。", compilation_ir, database)
+			return _make_database_failure(
+				"invalid_table_target",
+				"Target 没有返回 GFConfigTableResource。",
+				compilation_ir,
+				database
+			)
 		var table: GFConfigTableResource = table_value
 		if not database.register_table(table):
 			return _make_database_failure(
@@ -198,14 +212,28 @@ func materialize_database(
 			)
 
 	var report: Dictionary = GFConfigValidationReport.new().make_report(database.database_id)
-	if GFVariantData.get_option_bool(options, "validate_database", true):
-		report = database.validate_database({
-			"validate_schema": GFVariantData.get_option_bool(options, "validate_schema", false),
-		})
+	if GFVariantData.get_option_bool(
+		options,
+		"validate_database",
+		true
+	):
+		report = database.validate_database(
+			{
+				"validate_schema": GFVariantData.get_option_bool(
+					options,
+					"validate_schema",
+					false
+				),
+			}
+		)
 		_enrich_issue_source_locations(report, compilation_ir)
 	else:
 		GFConfigValidationReport.new().finalize_report(report)
-	var success: bool = GFVariantData.get_option_bool(report, "ok", true)
+	var success: bool = GFVariantData.get_option_bool(
+		report,
+		"ok",
+		true
+	)
 	return {
 		"success": success,
 		"phase": "target",
@@ -232,10 +260,7 @@ func materialize_database(
 ## @return: JSON 兼容导出结果。
 ## [br]
 ## @schema return: Dictionary，包含 success、data 和 error。
-func make_database_export(
-	database: GFConfigDatabaseResource,
-	options: Dictionary = {}
-) -> Dictionary:
+func make_database_export(database: GFConfigDatabaseResource, options: Dictionary = {}) -> Dictionary:
 	if database == null:
 		return _make_export_failure("配置数据库资源为空。")
 
@@ -243,11 +268,22 @@ func make_database_export(
 	var tables: Array[Dictionary] = []
 	var table_ids: PackedStringArray = database.get_table_ids()
 	for table_id: String in table_ids:
-		var table_resource: GFConfigTableResource = database.get_table_resource(StringName(table_id), false)
+		var table_resource: GFConfigTableResource = database.get_table_resource(
+			StringName(table_id),
+			false
+		)
 		if table_resource == null:
 			continue
-		var table_data: Dictionary = _make_table_export(table_resource, state, options)
-		if not GFVariantData.get_option_bool(state, "success", true):
+		var table_data: Dictionary = _make_table_export(
+			table_resource,
+			state,
+			options
+		)
+		if not GFVariantData.get_option_bool(
+			state,
+			"success",
+			true
+		):
 			return _make_export_failure(GFVariantData.get_option_string(state, "error"))
 		tables.append(table_data)
 
@@ -257,10 +293,18 @@ func make_database_export(
 		"artifact_owner": _ARTIFACT_OWNER,
 		"database_id": String(database.database_id),
 		"version": database.version,
-		"metadata": _to_json_compatible(database.metadata, state, 0),
+		"metadata": _to_json_compatible(
+			database.metadata,
+			state,
+			0
+		),
 		"tables": tables,
 	}
-	if not GFVariantData.get_option_bool(state, "success", true):
+	if not GFVariantData.get_option_bool(
+		state,
+		"success",
+		true
+	):
 		return _make_export_failure(GFVariantData.get_option_string(state, "error"))
 	return {
 		"success": true,
@@ -284,10 +328,7 @@ func make_database_export(
 ## @return: JSON 目标结果。
 ## [br]
 ## @schema return: Dictionary，包含 success、data、text 和 error。
-func make_database_json(
-	database: GFConfigDatabaseResource,
-	options: Dictionary = {}
-) -> Dictionary:
+func make_database_json(database: GFConfigDatabaseResource, options: Dictionary = {}) -> Dictionary:
 	var export_result: Dictionary = make_database_export(database, options)
 	if not GFVariantData.get_option_bool(export_result, "success"):
 		return {
@@ -299,8 +340,16 @@ func make_database_json(
 	var export_data: Dictionary = GFVariantData.get_option_dictionary(export_result, "data")
 	var json_text: String = JSON.stringify(
 		export_data,
-		GFVariantData.get_option_string(options, "indent", _DEFAULT_JSON_INDENT),
-		GFVariantData.get_option_bool(options, "sort_keys", true)
+		GFVariantData.get_option_string(
+			options,
+			"indent",
+			_DEFAULT_JSON_INDENT
+		),
+		GFVariantData.get_option_bool(
+			options,
+			"sort_keys",
+			true
+		)
 	)
 	var max_output_bytes: int = _resolve_json_limit(
 		options,
@@ -314,10 +363,10 @@ func make_database_json(
 			"success": false,
 			"data": {},
 			"text": "",
-			"error": "配置数据库 JSON 导出超过 max_output_bytes：%d > %d。" % [
-				output_bytes,
-				max_output_bytes,
-			],
+			"error": (
+				"配置数据库 JSON 导出超过 max_output_bytes：%d > %d。"
+				% [output_bytes, max_output_bytes,]
+			),
 		}
 	return {
 		"success": true,
@@ -351,11 +400,18 @@ func get_stage_descriptor() -> Dictionary:
 			"res://addons/gf/standard/foundation/variant/gf_variant_data.gd",
 		],
 		"input_contracts": [
-			"%s@%d" % [GFConfigPipelineTableIR.FORMAT, GFConfigPipelineTableIR.FORMAT_VERSION],
-			"%s@%d" % [GFConfigPipelineIR.FORMAT, GFConfigPipelineIR.FORMAT_VERSION],
+			"%s@%d"
+			% [GFConfigPipelineTableIR.FORMAT, GFConfigPipelineTableIR.FORMAT_VERSION],
+			"%s@%d"
+			% [GFConfigPipelineIR.FORMAT, GFConfigPipelineIR.FORMAT_VERSION],
 			"GFConfigDatabaseResource",
 		],
-		"output_contracts": ["GFConfigTableResource", "GFConfigDatabaseResource", "gf.config.database@1", "String"],
+		"output_contracts": [
+			"GFConfigTableResource",
+			"GFConfigDatabaseResource",
+			"gf.config.database@1",
+			"String",
+		],
 	}
 
 
@@ -380,7 +436,12 @@ func _enrich_issue_source_locations(report: Dictionary, compilation_ir: GFConfig
 		var table_name: StringName = GFVariantData.get_option_string_name(issue, "table_name")
 		var source_map: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(source_maps, table_name))
 		var location: Dictionary = _make_issue_source_location(issue, source_map)
-		for key: String in ["source", "line", "column", "column_index"]:
+		for key: String in [
+			"source",
+			"line",
+			"column",
+			"column_index",
+		]:
 			if not issue.has(key) and location.has(key):
 				issue[key] = location[key]
 	report["issues"] = issues
@@ -418,7 +479,11 @@ func _copy_source_location(target: Dictionary, source: Dictionary) -> void:
 		var source_path: String = source_value
 		if not source_path.is_empty():
 			target["source"] = source_path
-	for key: String in ["line", "column", "column_index"]:
+	for key: String in [
+		"line",
+		"column",
+		"column_index",
+	]:
 		var value: Variant = GFVariantData.get_option_value(source, key)
 		if value is int:
 			var position: int = value
@@ -436,18 +501,46 @@ func _make_table_export(
 	state: Dictionary,
 	options: Dictionary
 ) -> Dictionary:
-	var include_schema: bool = GFVariantData.get_option_bool(options, "include_schema", true)
-	var include_indexes: bool = GFVariantData.get_option_bool(options, "include_indexes", false)
+	var include_schema: bool = GFVariantData.get_option_bool(
+		options,
+		"include_schema",
+		true
+	)
+	var include_indexes: bool = GFVariantData.get_option_bool(
+		options,
+		"include_indexes",
+		false
+	)
 	var result: Dictionary = {
 		"table_name": String(table_resource.get_table_key()),
-		"metadata": _to_json_compatible(table_resource.metadata, state, 0),
-		"records": _to_json_compatible(table_resource.records, state, 0),
+		"metadata": _to_json_compatible(
+			table_resource.metadata,
+			state,
+			0
+		),
+		"records": _to_json_compatible(
+			table_resource.records,
+			state,
+			0
+		),
 	}
 	if include_schema and table_resource.schema != null:
-		result["schema"] = _to_json_compatible(table_resource.schema.describe(), state, 0)
+		result["schema"] = _to_json_compatible(
+			table_resource.schema.describe(),
+			state,
+			0
+		)
 	if include_indexes:
-		result["records_by_id"] = _to_json_compatible(table_resource.records_by_id, state, 0)
-		result["records_by_index"] = _to_json_compatible(table_resource.records_by_index, state, 0)
+		result["records_by_id"] = _to_json_compatible(
+			table_resource.records_by_id,
+			state,
+			0
+		)
+		result["records_by_index"] = _to_json_compatible(
+			table_resource.records_by_index,
+			state,
+			0
+		)
 	return result
 
 
@@ -480,7 +573,11 @@ func _make_database_failure(
 		"success": false,
 		"phase": "target",
 		"database": database,
-		"report": GFConfigValidationReport.new().make_error_report(&"", error_kind, message),
+		"report": GFConfigValidationReport.new().make_error_report(
+			&"",
+			error_kind,
+			message
+		),
 		"ir": compilation_ir,
 		"error_kind": error_kind,
 		"error": message,
@@ -534,10 +631,22 @@ func _make_json_state(options: Dictionary) -> Dictionary:
 ## 在共享深度、节点和文本预算内投影受支持 Variant；向量与颜色使用带类型标记的有限分量，容器递归复制，失败通过共享状态与空值共同表达。
 ## [br]
 ## @api private
-func _to_json_compatible(value: Variant, state: Dictionary, depth: int) -> Variant:
-	if not GFVariantData.get_option_bool(state, "success", true):
+func _to_json_compatible(
+	value: Variant,
+	state: Dictionary,
+	depth: int
+) -> Variant:
+	if not GFVariantData.get_option_bool(
+		state,
+		"success",
+		true
+	):
 		return null
-	if depth > GFVariantData.get_option_int(state, "max_depth", 256):
+	if depth > GFVariantData.get_option_int(
+		state,
+		"max_depth",
+		256
+	):
 		return _fail_json_export(state, "配置数据库 JSON 导出结构超过 max_depth。")
 	if not _reserve_json_nodes(state, 1):
 		return null
@@ -558,46 +667,104 @@ func _to_json_compatible(value: Variant, state: Dictionary, depth: int) -> Varia
 			return float_value
 		TYPE_STRING:
 			var string_value: String = value
-			if not _reserve_json_bytes(state, string_value.to_utf8_buffer().size()):
+			if not _reserve_json_bytes(
+				state,
+				string_value.to_utf8_buffer().size()
+			):
 				return null
 			return string_value
 		TYPE_STRING_NAME:
 			var string_name_value: StringName = value
 			var string_name_text: String = String(string_name_value)
-			if not _reserve_json_bytes(state, string_name_text.to_utf8_buffer().size()):
+			if not _reserve_json_bytes(
+				state,
+				string_name_text.to_utf8_buffer().size()
+			):
 				return null
 			return string_name_text
 		TYPE_NODE_PATH:
 			var node_path_value: NodePath = value
 			var node_path_text: String = String(node_path_value)
-			if not _reserve_json_bytes(state, node_path_text.to_utf8_buffer().size()):
+			if not _reserve_json_bytes(
+				state,
+				node_path_text.to_utf8_buffer().size()
+			):
 				return null
 			return node_path_text
 		TYPE_VECTOR2:
 			var vector_2: Vector2 = value
 			if not _are_finite_floats([vector_2.x, vector_2.y]):
 				return _fail_json_export(state, "配置数据库 JSON 导出不支持包含 NaN 或 Inf 的 Vector2。")
-			return _make_json_variant("Vector2", [vector_2.x, vector_2.y])
+			return _make_json_variant(
+				"Vector2",
+				[vector_2.x, vector_2.y]
+			)
 		TYPE_VECTOR2I:
 			var vector_2i: Vector2i = value
-			return _make_json_variant("Vector2i", [vector_2i.x, vector_2i.y])
+			return _make_json_variant(
+				"Vector2i",
+				[vector_2i.x, vector_2i.y]
+			)
 		TYPE_VECTOR3:
 			var vector_3: Vector3 = value
-			if not _are_finite_floats([vector_3.x, vector_3.y, vector_3.z]):
+			if not _are_finite_floats(
+				[
+					vector_3.x,
+					vector_3.y,
+					vector_3.z,
+				]
+			):
 				return _fail_json_export(state, "配置数据库 JSON 导出不支持包含 NaN 或 Inf 的 Vector3。")
-			return _make_json_variant("Vector3", [vector_3.x, vector_3.y, vector_3.z])
+			return _make_json_variant(
+				"Vector3",
+				[
+					vector_3.x,
+					vector_3.y,
+					vector_3.z,
+				]
+			)
 		TYPE_VECTOR3I:
 			var vector_3i: Vector3i = value
-			return _make_json_variant("Vector3i", [vector_3i.x, vector_3i.y, vector_3i.z])
+			return _make_json_variant(
+				"Vector3i",
+				[
+					vector_3i.x,
+					vector_3i.y,
+					vector_3i.z,
+				]
+			)
 		TYPE_COLOR:
 			var color_value: Color = value
-			if not _are_finite_floats([color_value.r, color_value.g, color_value.b, color_value.a]):
+			if not _are_finite_floats(
+				[
+					color_value.r,
+					color_value.g,
+					color_value.b,
+					color_value.a,
+				]
+			):
 				return _fail_json_export(state, "配置数据库 JSON 导出不支持包含 NaN 或 Inf 的 Color。")
-			return _make_json_variant("Color", [color_value.r, color_value.g, color_value.b, color_value.a])
+			return _make_json_variant(
+				"Color",
+				[
+					color_value.r,
+					color_value.g,
+					color_value.b,
+					color_value.a,
+				]
+			)
 		TYPE_ARRAY:
-			return _array_to_json_compatible(value, state, depth)
+			return _array_to_json_compatible(
+				value,
+				state,
+				depth
+			)
 		TYPE_DICTIONARY:
-			return _dictionary_to_json_compatible(value, state, depth)
+			return _dictionary_to_json_compatible(
+				value,
+				state,
+				depth
+			)
 		TYPE_PACKED_STRING_ARRAY:
 			var packed_strings: PackedStringArray = value
 			return _packed_string_array_to_json(packed_strings, state)
@@ -614,20 +781,37 @@ func _to_json_compatible(value: Variant, state: Dictionary, depth: int) -> Varia
 			var packed_float64: PackedFloat64Array = value
 			return _packed_float64_array_to_json(packed_float64, state)
 
-	return _fail_json_export(state, "配置数据库 JSON 导出不支持 Variant 类型：%s。" % type_string(typeof(value)))
+	return _fail_json_export(
+		state,
+		"配置数据库 JSON 导出不支持 Variant 类型：%s。" % type_string(typeof(value))
+	)
 
 
 ## 进入活动容器栈后以加一深度复制数组元素；子项失败时丢弃候选数组，并在所有已进入的退出路径弹出当前容器。
 ## [br]
 ## @api private
-func _array_to_json_compatible(value: Variant, state: Dictionary, depth: int) -> Array:
+func _array_to_json_compatible(
+	value: Variant,
+	state: Dictionary,
+	depth: int
+) -> Array:
 	var source: Array = GFVariantData.as_array(value)
 	if not _enter_json_container(source, state):
 		return []
 	var result: Array = []
 	for item: Variant in source:
-		result.append(_to_json_compatible(item, state, depth + 1))
-		if not GFVariantData.get_option_bool(state, "success", true):
+		result.append(
+			_to_json_compatible(
+				item,
+				state,
+				depth + 1
+			)
+		)
+		if not GFVariantData.get_option_bool(
+			state,
+			"success",
+			true
+		):
 			_leave_json_container(state)
 			return []
 	_leave_json_container(state)
@@ -637,22 +821,41 @@ func _array_to_json_compatible(value: Variant, state: Dictionary, depth: int) ->
 ## 将允许的键转成 JSON 文本并递归复制值，文本键碰撞立即失败；成功或子项失败都恢复活动容器栈。
 ## [br]
 ## @api private
-func _dictionary_to_json_compatible(value: Variant, state: Dictionary, depth: int) -> Dictionary:
+func _dictionary_to_json_compatible(
+	value: Variant,
+	state: Dictionary,
+	depth: int
+) -> Dictionary:
 	var source: Dictionary = GFVariantData.as_dictionary(value)
 	if not _enter_json_container(source, state):
 		return {}
 	var result: Dictionary = {}
 	for key: Variant in source.keys():
 		var key_text: String = _json_key_to_text(key, state)
-		if not GFVariantData.get_option_bool(state, "success", true):
+		if not GFVariantData.get_option_bool(
+			state,
+			"success",
+			true
+		):
 			_leave_json_container(state)
 			return {}
 		if result.has(key_text):
-			var _failed_duplicate_key: Variant = _fail_json_export(state, "配置数据库 JSON 导出遇到重复 JSON key：%s。" % key_text)
+			var _failed_duplicate_key: Variant = _fail_json_export(
+				state,
+				"配置数据库 JSON 导出遇到重复 JSON key：%s。" % key_text
+			)
 			_leave_json_container(state)
 			return {}
-		result[key_text] = _to_json_compatible(source[key], state, depth + 1)
-		if not GFVariantData.get_option_bool(state, "success", true):
+		result[key_text] = _to_json_compatible(
+			source[key],
+			state,
+			depth + 1
+		)
+		if not GFVariantData.get_option_bool(
+			state,
+			"success",
+			true
+		):
 			_leave_json_container(state)
 			return {}
 	_leave_json_container(state)
@@ -667,19 +870,28 @@ func _json_key_to_text(key: Variant, state: Dictionary) -> String:
 	match typeof(key):
 		TYPE_STRING:
 			var string_key: String = key
-			if not _reserve_json_bytes(state, string_key.to_utf8_buffer().size()):
+			if not _reserve_json_bytes(
+				state,
+				string_key.to_utf8_buffer().size()
+			):
 				return ""
 			return string_key
 		TYPE_STRING_NAME:
 			var string_name_key: StringName = key
 			var string_name_text: String = String(string_name_key)
-			if not _reserve_json_bytes(state, string_name_text.to_utf8_buffer().size()):
+			if not _reserve_json_bytes(
+				state,
+				string_name_text.to_utf8_buffer().size()
+			):
 				return ""
 			return string_name_text
 		TYPE_INT:
 			var int_key: int = key
 			return str(int_key)
-	var _failed_key_type: Variant = _fail_json_export(state, "配置数据库 JSON 导出不支持 Dictionary key 类型：%s。" % type_string(typeof(key)))
+	var _failed_key_type: Variant = _fail_json_export(
+		state,
+		"配置数据库 JSON 导出不支持 Dictionary key 类型：%s。" % type_string(typeof(key))
+	)
 	return ""
 
 
@@ -689,10 +901,16 @@ func _json_key_to_text(key: Variant, state: Dictionary) -> String:
 ## [br]
 func _packed_string_array_to_json(values: PackedStringArray, state: Dictionary) -> Array:
 	var result: Array = []
-	if not _reserve_json_nodes(state, values.size()):
+	if not _reserve_json_nodes(
+		state,
+		values.size()
+	):
 		return result
 	for value: String in values:
-		if not _reserve_json_bytes(state, value.to_utf8_buffer().size()):
+		if not _reserve_json_bytes(
+			state,
+			value.to_utf8_buffer().size()
+		):
 			return []
 		result.append(value)
 	return result
@@ -704,7 +922,10 @@ func _packed_string_array_to_json(values: PackedStringArray, state: Dictionary) 
 ## [br]
 func _packed_int32_array_to_json(values: PackedInt32Array, state: Dictionary) -> Array:
 	var result: Array = []
-	if not _reserve_json_nodes(state, values.size()):
+	if not _reserve_json_nodes(
+		state,
+		values.size()
+	):
 		return result
 	for value: int in values:
 		result.append(value)
@@ -717,7 +938,10 @@ func _packed_int32_array_to_json(values: PackedInt32Array, state: Dictionary) ->
 ## [br]
 func _packed_int64_array_to_json(values: PackedInt64Array, state: Dictionary) -> Array:
 	var result: Array = []
-	if not _reserve_json_nodes(state, values.size()):
+	if not _reserve_json_nodes(
+		state,
+		values.size()
+	):
 		return result
 	for value: int in values:
 		result.append(value)
@@ -730,7 +954,10 @@ func _packed_int64_array_to_json(values: PackedInt64Array, state: Dictionary) ->
 ## [br]
 func _packed_float32_array_to_json(values: PackedFloat32Array, state: Dictionary) -> Array:
 	var result: Array = []
-	if not _reserve_json_nodes(state, values.size()):
+	if not _reserve_json_nodes(
+		state,
+		values.size()
+	):
 		return result
 	for value: float in values:
 		if is_nan(value) or is_inf(value):
@@ -746,7 +973,10 @@ func _packed_float32_array_to_json(values: PackedFloat32Array, state: Dictionary
 ## [br]
 func _packed_float64_array_to_json(values: PackedFloat64Array, state: Dictionary) -> Array:
 	var result: Array = []
-	if not _reserve_json_nodes(state, values.size()):
+	if not _reserve_json_nodes(
+		state,
+		values.size()
+	):
 		return result
 	for value: float in values:
 		if is_nan(value) or is_inf(value):
@@ -761,10 +991,7 @@ func _packed_float64_array_to_json(values: PackedFloat64Array, state: Dictionary
 ## @api private
 ## [br]
 func _make_json_variant(type_name: String, variant_value: Variant) -> Dictionary:
-	return {
-		_JSON_VARIANT_TYPE_KEY: type_name,
-		_JSON_VARIANT_VALUE_KEY: variant_value,
-	}
+	return { _JSON_VARIANT_TYPE_KEY: type_name, _JSON_VARIANT_VALUE_KEY: variant_value, }
 
 
 ## 仅检查数组中的 float 项；任何 NaN 或 Inf 都会使结果为 false。
@@ -796,7 +1023,11 @@ func _resolve_json_limit(
 		key,
 		default_value
 	)
-	return clampi(requested, 1, absolute_maximum)
+	return clampi(
+		requested,
+		1,
+		absolute_maximum
+	)
 
 
 ## 为 JSON 状态预留节点数；负数或超出剩余预算时记录失败，否则递增 node_count。
@@ -805,10 +1036,7 @@ func _resolve_json_limit(
 ## [br]
 func _reserve_json_nodes(state: Dictionary, count: int) -> bool:
 	if count < 0:
-		var _invalid_count_failure: Variant = _fail_json_export(
-			state,
-			"配置数据库 JSON 导出节点预算计数无效。"
-		)
+		var _invalid_count_failure: Variant = _fail_json_export(state, "配置数据库 JSON 导出节点预算计数无效。")
 		return false
 	var node_count: int = GFVariantData.get_option_int(state, "node_count")
 	var max_nodes: int = GFVariantData.get_option_int(
@@ -817,10 +1045,7 @@ func _reserve_json_nodes(state: Dictionary, count: int) -> bool:
 		_DEFAULT_MAX_JSON_NODES
 	)
 	if count > max_nodes - node_count:
-		var _node_budget_failure: Variant = _fail_json_export(
-			state,
-			"配置数据库 JSON 导出结构超过 max_nodes。"
-		)
+		var _node_budget_failure: Variant = _fail_json_export(state, "配置数据库 JSON 导出结构超过 max_nodes。")
 		return false
 	state["node_count"] = node_count + count
 	return true
@@ -831,20 +1056,14 @@ func _reserve_json_nodes(state: Dictionary, count: int) -> bool:
 ## @api private
 ## [br]
 func _reserve_json_bytes(state: Dictionary, count: int) -> bool:
-	var estimated_bytes: int = GFVariantData.get_option_int(
-		state,
-		"estimated_bytes"
-	)
+	var estimated_bytes: int = GFVariantData.get_option_int(state, "estimated_bytes")
 	var max_output_bytes: int = GFVariantData.get_option_int(
 		state,
 		"max_output_bytes",
 		_DEFAULT_MAX_JSON_OUTPUT_BYTES
 	)
 	if count < 0 or count > max_output_bytes - estimated_bytes:
-		var _byte_budget_failure: Variant = _fail_json_export(
-			state,
-			"配置数据库 JSON 导出结构超过 max_output_bytes。"
-		)
+		var _byte_budget_failure: Variant = _fail_json_export(state, "配置数据库 JSON 导出结构超过 max_output_bytes。")
 		return false
 	state["estimated_bytes"] = estimated_bytes + count
 	return true
@@ -856,18 +1075,12 @@ func _reserve_json_bytes(state: Dictionary, count: int) -> bool:
 func _enter_json_container(container: Variant, state: Dictionary) -> bool:
 	var active_value: Variant = state.get("active_containers", [])
 	if not active_value is Array:
-		var _state_failure: Variant = _fail_json_export(
-			state,
-			"配置数据库 JSON 导出循环检测状态无效。"
-		)
+		var _state_failure: Variant = _fail_json_export(state, "配置数据库 JSON 导出循环检测状态无效。")
 		return false
 	var active_containers: Array = active_value
 	for active_container: Variant in active_containers:
 		if is_same(active_container, container):
-			var _cycle_failure: Variant = _fail_json_export(
-				state,
-				"配置数据库 JSON 导出不支持循环 Array/Dictionary。"
-			)
+			var _cycle_failure: Variant = _fail_json_export(state, "配置数据库 JSON 导出不支持循环 Array/Dictionary。")
 			return false
 	active_containers.append(container)
 	return true
@@ -890,7 +1103,11 @@ func _leave_json_container(state: Dictionary) -> void:
 ## @api private
 ## [br]
 func _fail_json_export(state: Dictionary, message: String) -> Variant:
-	if GFVariantData.get_option_bool(state, "success", true):
+	if GFVariantData.get_option_bool(
+		state,
+		"success",
+		true
+	):
 		state["success"] = false
 		state["error"] = message
 	return null

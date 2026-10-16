@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigProviderAdapter" path="addons/gf/standard/utilities/config/gf_config_provider_adapter.gd" module="standard" extends="GFConfigProvider" classDigest="6b2bac7cc94eea65c4cd90841a5f67e97a5ee29411eedaa034eac74fc08688e1">
+<class name="GFConfigProviderAdapter" path="addons/gf/standard/utilities/config/gf_config_provider_adapter.gd" module="standard" extends="GFConfigProvider" classDigest="40cfa00bf16b457c5b4ff62a7fc1a3876d44763dbd64229ff8196ec23a1be9aa">
 	<description>GFConfigProviderAdapter: 通用配置表 Provider 适配器。
 用于把项目自己的生成表对象、字典表、数组表或懒加载 Callable 接入 GFConfigProvider。
 适配器只负责统一查询协议、懒加载缓存和诊断报告，不绑定具体导表工具、文件格式或业务字段。</description>
@@ -47,7 +47,7 @@
 	<properties />
 	<methods>
 		<member kind="method" name="register_table_source">
-			<signature>func register_table_source(table_name: StringName, source: Variant, options: Dictionary = {}) -&gt; bool:</signature>
+			<signature>func register_table_source( table_name: StringName, source: Variant, options: Dictionary = {} ) -&gt; bool:</signature>
 			<description>注册一个配置表源。
 source 可以是 Array、Dictionary、自定义 Object 或 Callable。Callable 会在首次查询时以
 `(table_name: StringName, metadata: Dictionary)` 调用，并返回实际表数据。</description>

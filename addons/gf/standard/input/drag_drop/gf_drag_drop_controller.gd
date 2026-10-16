@@ -39,7 +39,12 @@ signal drag_started(session_id: int, drag_type: StringName)
 ## @param delta: 本次位移。
 ## [br]
 ## @param zone_id: 当前最佳落点 ID；没有落点时为空。
-signal drag_moved(session_id: int, position: Vector2, delta: Vector2, zone_id: StringName)
+signal drag_moved(
+	session_id: int,
+	position: Vector2,
+	delta: Vector2,
+	zone_id: StringName
+)
 
 ## 旧会话的 pointer/source/reparent lease 已清理后同步发出。
 ## [br]
@@ -54,7 +59,11 @@ signal drag_moved(session_id: int, position: Vector2, delta: Vector2, zone_id: S
 ## @param result: 落点返回结果。
 ## [br]
 ## @schema result: Dictionary，由 GFDragDropUtility.drop() 规范化，包含 ok、session_id、zone_id、reason 和可选 value。
-signal drag_dropped(session_id: int, zone_id: StringName, result: Dictionary)
+signal drag_dropped(
+	session_id: int,
+	zone_id: StringName,
+	result: Dictionary
+)
 
 ## 拖拽释放被拒绝时发出；终态拒绝会先清理旧 lease，可重试拒绝仍保留会话。
 ## [br]
@@ -292,7 +301,12 @@ func register_rect_zone(
 	accepted_types: PackedStringArray = PackedStringArray(),
 	options: Dictionary = {}
 ) -> GFDropZone:
-	return _utility.register_rect_zone(zone_id, rect, accepted_types, options)
+	return _utility.register_rect_zone(
+		zone_id,
+		rect,
+		accepted_types,
+		options
+	)
 
 
 ## 注册 Control 全局矩形落点。
@@ -318,7 +332,12 @@ func register_control_zone(
 	accepted_types: PackedStringArray = PackedStringArray(),
 	options: Dictionary = {}
 ) -> GFDropZone:
-	return _utility.register_control_zone(zone_id, control, accepted_types, options)
+	return _utility.register_control_zone(
+		zone_id,
+		control,
+		accepted_types,
+		options
+	)
 
 
 ## 注销落点。
@@ -386,15 +405,28 @@ func start_drag(
 	source: Object = null,
 	options: Dictionary = {}
 ) -> int:
-	if _start_in_progress or _finish_in_progress or has_active_drag() or drag_type == &"":
+	if (
+		_start_in_progress
+		or _finish_in_progress
+		or has_active_drag()
+		or drag_type == &""
+	):
 		return -1
 
 	var source_node: Node = _node_from_object(source)
 	if not _validate_drag_visual_transaction(source_node, options):
 		return -1
 
-	var pointer_id: int = GFVariantData.get_option_int(options, "pointer_id", 0)
-	var capture_pointer: bool = GFVariantData.get_option_bool(options, "capture_pointer", true)
+	var pointer_id: int = GFVariantData.get_option_int(
+		options,
+		"pointer_id",
+		0
+	)
+	var capture_pointer: bool = GFVariantData.get_option_bool(
+		options,
+		"capture_pointer",
+		true
+	)
 	if capture_pointer and pointer_id == _NO_POINTER_ID:
 		return -1
 	_start_in_progress = true
@@ -402,10 +434,26 @@ func start_drag(
 	_captures_pointer = capture_pointer
 	_active_pointer_id = pointer_id if capture_pointer else _NO_POINTER_ID
 
-	_restore_source_parent_on_cancel = GFVariantData.get_option_bool(options, "restore_source_parent_on_cancel", true)
-	_restore_source_parent_on_rejected_drop = GFVariantData.get_option_bool(options, "restore_source_parent_on_rejected_drop", true)
-	_restore_source_parent_on_success = GFVariantData.get_option_bool(options, "restore_source_parent_on_success", false)
-	_reparent_keep_global_transform = GFVariantData.get_option_bool(options, "keep_global_transform", true)
+	_restore_source_parent_on_cancel = GFVariantData.get_option_bool(
+		options,
+		"restore_source_parent_on_cancel",
+		true
+	)
+	_restore_source_parent_on_rejected_drop = GFVariantData.get_option_bool(
+		options,
+		"restore_source_parent_on_rejected_drop",
+		true
+	)
+	_restore_source_parent_on_success = GFVariantData.get_option_bool(
+		options,
+		"restore_source_parent_on_success",
+		false
+	)
+	_reparent_keep_global_transform = GFVariantData.get_option_bool(
+		options,
+		"keep_global_transform",
+		true
+	)
 
 	_source_ref = weakref(source) if is_instance_valid(source) else null
 	if source_node != null:
@@ -417,9 +465,19 @@ func start_drag(
 			return -1
 
 	var metadata: Dictionary = GFVariantData.as_dictionary(
-		GFVariantData.get_option_value(options, "metadata", {})
+		GFVariantData.get_option_value(
+			options,
+			"metadata",
+			{}
+		)
 	)
-	var session_id: int = _utility.start_drag(drag_type, payload, position, source, metadata)
+	var session_id: int = _utility.start_drag(
+		drag_type,
+		payload,
+		position,
+		source,
+		metadata
+	)
 	_starting_session_id = -1
 	if session_id < 0 or not _utility.has_active_session(session_id):
 		_rollback_start_transaction()
@@ -471,7 +529,11 @@ func update_pointer(position: Vector2, pointer_id: int = 0) -> bool:
 func get_active_drop_candidates(position: Vector2, only_accepting: bool = true) -> Array[GFDropZone]:
 	if not has_active_drag():
 		return []
-	return _utility.get_drop_candidates(_active_session_id, position, only_accepting)
+	return _utility.get_drop_candidates(
+		_active_session_id,
+		position,
+		only_accepting
+	)
 
 
 ## 获取活动拖拽在当前位置的最佳落点。
@@ -504,11 +566,26 @@ func get_active_best_drop_zone(position: Vector2) -> GFDropZone:
 ## @schema return: Dictionary，包含 ok、session_id、zone_id、reason 和可选 value。
 func drop(position: Vector2, pointer_id: int = 0) -> Dictionary:
 	if not has_active_drag():
-		return _make_result(false, -1, &"", &"missing_session")
+		return _make_result(
+			false,
+			-1,
+			&"",
+			&"missing_session"
+		)
 	if _captures_pointer and pointer_id != _active_pointer_id:
-		return _make_result(false, _active_session_id, &"", &"pointer_mismatch")
+		return _make_result(
+			false,
+			_active_session_id,
+			&"",
+			&"pointer_mismatch"
+		)
 	if _cancel_active_drag_if_source_invalid():
-		return _make_result(false, -1, &"", &"source_invalid")
+		return _make_result(
+			false,
+			-1,
+			&"",
+			&"source_invalid"
+		)
 	return _utility.drop(_active_session_id, position)
 
 
@@ -526,7 +603,11 @@ func cancel_drag(reason: StringName = &"cancelled") -> bool:
 		return false
 	_pending_cancel_reason = reason
 	if not _utility.cancel_drag(_active_session_id):
-		_finish_controller_session(_active_session_id, reason, _restore_source_parent_on_cancel)
+		_finish_controller_session(
+			_active_session_id,
+			reason,
+			_restore_source_parent_on_cancel
+		)
 		return false
 	return true
 
@@ -644,7 +725,11 @@ func _cancel_active_drag_if_source_invalid() -> bool:
 ## [br]
 ## @api private
 ## [br]
-func _finish_controller_session(session_id: int, _reason: StringName, restore_source_parent: bool) -> void:
+func _finish_controller_session(
+	session_id: int,
+	_reason: StringName,
+	restore_source_parent: bool
+) -> void:
 	if session_id != _active_session_id or _finish_in_progress:
 		return
 	_finish_in_progress = true
@@ -744,8 +829,15 @@ func _restore_active_source_parent() -> bool:
 	if source_node.get_parent() != original_parent:
 		return false
 	if source_node.get_parent() == original_parent and _original_index >= 0:
-		var max_index: int = max(0, original_parent.get_child_count() - 1)
-		var target_index: int = clampi(_original_index, 0, max_index)
+		var max_index: int = max(
+			0,
+			original_parent.get_child_count() - 1
+		)
+		var target_index: int = clampi(
+			_original_index,
+			0,
+			max_index
+		)
 		if source_node.get_index() != target_index:
 			original_parent.move_child(source_node, target_index)
 	return source_node.get_parent() == original_parent
@@ -820,10 +912,7 @@ func _rollback_start_transaction() -> void:
 ## @api private
 ## [br]
 func _get_pointer_capture_dictionary() -> Dictionary:
-	return {
-		"active_pointer_id": _active_pointer_id,
-		"active": _captures_pointer and _active_pointer_id != _NO_POINTER_ID,
-	}
+	return { "active_pointer_id": _active_pointer_id, "active": _captures_pointer and _active_pointer_id != _NO_POINTER_ID, }
 
 
 ## 通过来源弱引用读取对象并收窄为有效 Node。
@@ -888,7 +977,12 @@ func _object_from_ref(ref: WeakRef) -> Object:
 ## [br]
 ## @api private
 ## [br]
-func _make_result(ok: bool, session_id: int, zone_id: StringName, reason: StringName) -> Dictionary:
+func _make_result(
+	ok: bool,
+	session_id: int,
+	zone_id: StringName,
+	reason: StringName
+) -> Dictionary:
 	return {
 		"ok": ok,
 		"session_id": session_id,
@@ -912,23 +1006,44 @@ func _on_utility_drag_started(session_id: int, drag_type: StringName) -> void:
 ## 查询当前位置的最佳投放区后再次确认会话仍活动，避免查询回调结束拖拽后发送过期移动通知。
 ## [br]
 ## @api private
-func _on_utility_drag_moved(session_id: int, position: Vector2, delta: Vector2) -> void:
+func _on_utility_drag_moved(
+	session_id: int,
+	position: Vector2,
+	delta: Vector2
+) -> void:
 	var zone: GFDropZone = _utility.get_best_drop_zone(session_id, position)
 	if not _utility.has_active_session(session_id):
 		return
 	var zone_id: StringName = zone.zone_id if zone != null else &""
-	drag_moved.emit(session_id, position, delta, zone_id)
+	drag_moved.emit(
+		session_id,
+		position,
+		delta,
+		zone_id
+	)
 
 
 ## 当前受管会话先按成功策略恢复源节点父级并结束控制器状态，再转发投放结果。
 ## [br]
 ## @api private
-func _on_utility_drag_dropped(session_id: int, zone_id: StringName, result: Dictionary) -> void:
+func _on_utility_drag_dropped(
+	session_id: int,
+	zone_id: StringName,
+	result: Dictionary
+) -> void:
 	var managed_session: bool = session_id == _active_session_id
 	var restore_source_parent: bool = _restore_source_parent_on_success
 	if managed_session:
-		_finish_controller_session(session_id, &"dropped", restore_source_parent)
-	drag_dropped.emit(session_id, zone_id, result)
+		_finish_controller_session(
+			session_id,
+			&"dropped",
+			restore_source_parent
+		)
+	drag_dropped.emit(
+		session_id,
+		zone_id,
+		result
+	)
 
 
 ## 仅终结当前受管且已不活动的会话；非终态拒绝保留拖拽，随后转发拒绝原因。
@@ -939,7 +1054,11 @@ func _on_utility_drag_drop_rejected(session_id: int, reason: StringName) -> void
 	var managed_session: bool = session_id == _active_session_id
 	var restore_source_parent: bool = _restore_source_parent_on_rejected_drop
 	if terminal_reject and managed_session:
-		_finish_controller_session(session_id, reason, restore_source_parent)
+		_finish_controller_session(
+			session_id,
+			reason,
+			restore_source_parent
+		)
 	drag_drop_rejected.emit(session_id, reason)
 
 
@@ -950,15 +1069,15 @@ func _on_utility_drag_cancelled(session_id: int) -> void:
 	if _start_in_progress and session_id == _starting_session_id:
 		return
 	var managed_session: bool = session_id == _active_session_id
-	var reason: StringName = (
-		_pending_cancel_reason
-		if managed_session and _pending_cancel_reason != &""
-		else &"utility_cancelled"
-	)
+	var reason: StringName = (_pending_cancel_reason if managed_session and _pending_cancel_reason != &"" else &"utility_cancelled")
 	var restore_source_parent: bool = _restore_source_parent_on_cancel
 	if managed_session:
 		_pending_cancel_reason = &""
-		_finish_controller_session(session_id, reason, restore_source_parent)
+		_finish_controller_session(
+			session_id,
+			reason,
+			restore_source_parent
+		)
 	drag_cancelled.emit(session_id, reason)
 
 

@@ -83,6 +83,7 @@ const _MERGE_DEFAULT_MAX_NODES: int = 16_384
 ## @api private
 const _MERGE_DEFAULT_MAX_COLLECTION_ITEMS: int = 65_536
 
+
 # --- 框架内部方法 ---
 
 ## 安全比较两个 Variant 值是否等价。
@@ -104,17 +105,29 @@ const _MERGE_DEFAULT_MAX_COLLECTION_ITEMS: int = 65_536
 ## @return 两个值按 GF 通用 Variant 语义等价时返回 true。
 ## [br]
 ## @schema return: bool。
-static func values_equal(left: Variant, right: Variant, options: Dictionary = {}) -> bool:
+static func values_equal(
+	left: Variant,
+	right: Variant,
+	options: Dictionary = {}
+) -> bool:
 	var left_type: int = typeof(left)
 	var right_type: int = typeof(right)
 	if left_type == right_type:
 		if left_type == TYPE_FLOAT:
-			return _float_values_equal(left, right, options)
+			return _float_values_equal(
+				left,
+				right,
+				options
+			)
 		return left == right
 	if _is_numeric_variant_type(left_type) and _is_numeric_variant_type(right_type):
 		return _mixed_integer_float_values_equal(left, right)
 	if (
-		get_option_bool(options, "match_string_names", false)
+		get_option_bool(
+			options,
+			"match_string_names",
+			false
+		)
 		and _is_string_like_value(left)
 		and _is_string_like_value(right)
 	):
@@ -141,17 +154,29 @@ static func values_equal(left: Variant, right: Variant, options: Dictionary = {}
 ## @return 支持复制时返回副本，否则返回原值。
 ## [br]
 ## @schema return: 内部 Variant 访问辅助结果；返回形态由当前函数契约定义。
-static func duplicate_variant(value: Variant, deep: bool = true, duplicate_resources: bool = false) -> Variant:
+static func duplicate_variant(
+	value: Variant,
+	deep: bool = true,
+	duplicate_resources: bool = false
+) -> Variant:
 	if value is Dictionary:
 		var dictionary: Dictionary = value
 		if not deep:
 			return dictionary.duplicate(false)
-		return _duplicate_variant_safe(dictionary, duplicate_resources, [])
+		return _duplicate_variant_safe(
+			dictionary,
+			duplicate_resources,
+			[]
+		)
 	if value is Array:
 		var array: Array = value
 		if not deep:
 			return array.duplicate(false)
-		return _duplicate_variant_safe(array, duplicate_resources, [])
+		return _duplicate_variant_safe(
+			array,
+			duplicate_resources,
+			[]
+		)
 	if deep and _is_packed_array_type(typeof(value)):
 		return _duplicate_packed_array(value)
 	if duplicate_resources and value is Resource:
@@ -199,9 +224,17 @@ static func duplicate_collection(value: Variant, deep: bool = true) -> Variant:
 ## @return JSON 兼容值；非有限 float 使用稳定文本表示。
 ## [br]
 ## @schema return: JSON 兼容 Variant；预算耗尽、非法 Dictionary key 或 key 碰撞时返回稳定 marker。
-static func to_json_compatible(value: Variant, max_depth: int = 32, options: Dictionary = {}) -> Variant:
+static func to_json_compatible(
+	value: Variant,
+	max_depth: int = 32,
+	options: Dictionary = {}
+) -> Variant:
 	var state: Dictionary = _make_json_conversion_state(max_depth, options)
-	var converted: Variant = _to_json_compatible(value, state, 0)
+	var converted: Variant = _to_json_compatible(
+		value,
+		state,
+		0
+	)
 	var failure_marker: String = get_option_string(state, "failure_marker")
 	return failure_marker if not failure_marker.is_empty() else converted
 
@@ -225,7 +258,11 @@ static func to_json_compatible(value: Variant, max_depth: int = 32, options: Dic
 ## @return Dictionary 副本或兜底值副本。
 ## [br]
 ## @schema return: 内部 Variant 访问辅助结果；返回形态由当前函数契约定义。
-static func to_dictionary(value: Variant, default_value: Dictionary = {}, deep: bool = true) -> Dictionary:
+static func to_dictionary(
+	value: Variant,
+	default_value: Dictionary = {},
+	deep: bool = true
+) -> Dictionary:
 	return as_dictionary(value, default_value).duplicate(deep)
 
 
@@ -273,7 +310,11 @@ static func as_dictionary(value: Variant, default_value: Variant = null) -> Dict
 ## @return Array 副本或兜底值副本。
 ## [br]
 ## @schema return: 内部 Variant 访问辅助结果；返回形态由当前函数契约定义。
-static func to_array(value: Variant, default_value: Array = [], deep: bool = true) -> Array:
+static func to_array(
+	value: Variant,
+	default_value: Array = [],
+	deep: bool = true
+) -> Array:
 	return as_array(value, default_value).duplicate(deep)
 
 
@@ -331,9 +372,19 @@ static func to_bool(value: Variant, default_value: bool = false) -> bool:
 		return not is_zero_approx(float_value)
 	if value is String or value is StringName:
 		var text: String = to_text(value).strip_edges().to_lower()
-		if text == "false" or text == "0" or text == "no" or text == "off":
+		if (
+			text == "false"
+			or text == "0"
+			or text == "no"
+			or text == "off"
+		):
 			return false
-		if text == "true" or text == "1" or text == "yes" or text == "on":
+		if (
+			text == "true"
+			or text == "1"
+			or text == "yes"
+			or text == "on"
+		):
 			return true
 	return default_value
 
@@ -486,17 +537,34 @@ static func to_vector2(value: Variant, default_value: Vector2 = Vector2.ZERO) ->
 		return Vector2(vector_3i.x, vector_3i.y)
 	if value is Dictionary:
 		var data: Dictionary = value
-		if _has_any_key(data, ["x", "y"]):
+		if _has_any_key(
+			data,
+			["x", "y"]
+		):
 			return Vector2(
-				get_option_float(data, "x", default_value.x),
-				get_option_float(data, "y", default_value.y)
+				get_option_float(
+					data,
+					"x",
+					default_value.x
+				),
+				get_option_float(
+					data,
+					"y",
+					default_value.y
+				)
 			)
 	if value is Array:
 		var values: Array = value
 		if values.size() >= 2:
 			return Vector2(
-				to_float(values[0], default_value.x),
-				to_float(values[1], default_value.y)
+				to_float(
+					values[0],
+					default_value.x
+				),
+				to_float(
+					values[1],
+					default_value.y
+				)
 			)
 	return default_value
 
@@ -522,33 +590,79 @@ static func to_vector3(value: Variant, default_value: Vector3 = Vector3.ZERO) ->
 		return vector_3
 	if value is Vector3i:
 		var vector_3i: Vector3i = value
-		return Vector3(vector_3i.x, vector_3i.y, vector_3i.z)
+		return Vector3(
+			vector_3i.x,
+			vector_3i.y,
+			vector_3i.z
+		)
 	if value is Vector2:
 		var vector_2: Vector2 = value
-		return Vector3(vector_2.x, vector_2.y, default_value.z)
+		return Vector3(
+			vector_2.x,
+			vector_2.y,
+			default_value.z
+		)
 	if value is Vector2i:
 		var vector_2i: Vector2i = value
-		return Vector3(vector_2i.x, vector_2i.y, default_value.z)
+		return Vector3(
+			vector_2i.x,
+			vector_2i.y,
+			default_value.z
+		)
 	if value is Dictionary:
 		var data: Dictionary = value
-		if _has_any_key(data, ["x", "y", "z"]):
+		if _has_any_key(
+			data,
+			[
+				"x",
+				"y",
+				"z",
+			]
+		):
 			return Vector3(
-				get_option_float(data, "x", default_value.x),
-				get_option_float(data, "y", default_value.y),
-				get_option_float(data, "z", default_value.z)
+				get_option_float(
+					data,
+					"x",
+					default_value.x
+				),
+				get_option_float(
+					data,
+					"y",
+					default_value.y
+				),
+				get_option_float(
+					data,
+					"z",
+					default_value.z
+				)
 			)
 	if value is Array:
 		var values: Array = value
 		if values.size() >= 3:
 			return Vector3(
-				to_float(values[0], default_value.x),
-				to_float(values[1], default_value.y),
-				to_float(values[2], default_value.z)
+				to_float(
+					values[0],
+					default_value.x
+				),
+				to_float(
+					values[1],
+					default_value.y
+				),
+				to_float(
+					values[2],
+					default_value.z
+				)
 			)
 		if values.size() >= 2:
 			return Vector3(
-				to_float(values[0], default_value.x),
-				to_float(values[1], default_value.y),
+				to_float(
+					values[0],
+					default_value.x
+				),
+				to_float(
+					values[1],
+					default_value.y
+				),
 				default_value.z
 			)
 	return default_value
@@ -652,7 +766,11 @@ static func to_int_array(value: Variant, default_value: Array[int] = []) -> Arra
 		for item: Variant in values:
 			result.append(to_int(item))
 		return result
-	if value is int or value is bool or value is float:
+	if (
+		value is int
+		or value is bool
+		or value is float
+	):
 		result.append(to_int(value))
 		return result
 	if value is String or value is StringName:
@@ -700,12 +818,16 @@ static func merge_dictionary(
 ) -> Dictionary:
 	var budget_failure: String = _validate_merge_source_budget(source, budget_options)
 	if not budget_failure.is_empty():
-		push_error(
-			"[GFVariantAccess][variant_access.merge_budget_exceeded] merge_dictionary failed: source exceeded the %s budget; target was not modified."
-			% budget_failure
-		)
+		push_error("[GFVariantAccess][variant_access.merge_budget_exceeded] merge_dictionary failed: source exceeded the %s budget; target was not modified." % budget_failure)
 		return target
-	return _merge_dictionary(target, source, overwrite, recursive, [], [])
+	return _merge_dictionary(
+		target,
+		source,
+		overwrite,
+		recursive,
+		[],
+		[]
+	)
 
 
 ## 读取选项字段，并支持 String 与 StringName 等价键。
@@ -727,8 +849,16 @@ static func merge_dictionary(
 ## @return 原始选项值或兜底值。
 ## [br]
 ## @schema return: 内部 Variant 访问辅助结果；返回形态由当前函数契约定义。
-static func get_option_value(options: Dictionary, key: Variant, default_value: Variant = null) -> Variant:
-	return _get_key_value(options, key, default_value)
+static func get_option_value(
+	options: Dictionary,
+	key: Variant,
+	default_value: Variant = null
+) -> Variant:
+	return _get_key_value(
+		options,
+		key,
+		default_value
+	)
 
 
 ## 读取并收窄 bool 选项。
@@ -750,8 +880,19 @@ static func get_option_value(options: Dictionary, key: Variant, default_value: V
 ## @return 收窄后的 bool 或兜底值。
 ## [br]
 ## @schema return: 内部 Variant 访问辅助结果；返回形态由当前函数契约定义。
-static func get_option_bool(options: Dictionary, key: Variant, default_value: bool = false) -> bool:
-	return to_bool(_get_key_value(options, key, default_value), default_value)
+static func get_option_bool(
+	options: Dictionary,
+	key: Variant,
+	default_value: bool = false
+) -> bool:
+	return to_bool(
+		_get_key_value(
+			options,
+			key,
+			default_value
+		),
+		default_value
+	)
 
 
 ## 读取并收窄 int 选项。
@@ -773,8 +914,19 @@ static func get_option_bool(options: Dictionary, key: Variant, default_value: bo
 ## @return 收窄后的 int 或兜底值。
 ## [br]
 ## @schema return: 内部 Variant 访问辅助结果；返回形态由当前函数契约定义。
-static func get_option_int(options: Dictionary, key: Variant, default_value: int = 0) -> int:
-	return to_int(_get_key_value(options, key, default_value), default_value)
+static func get_option_int(
+	options: Dictionary,
+	key: Variant,
+	default_value: int = 0
+) -> int:
+	return to_int(
+		_get_key_value(
+			options,
+			key,
+			default_value
+		),
+		default_value
+	)
 
 
 ## 读取并收窄 float 选项。
@@ -796,8 +948,19 @@ static func get_option_int(options: Dictionary, key: Variant, default_value: int
 ## @return 收窄后的 float 或兜底值。
 ## [br]
 ## @schema return: 内部 Variant 访问辅助结果；返回形态由当前函数契约定义。
-static func get_option_float(options: Dictionary, key: Variant, default_value: float = 0.0) -> float:
-	return to_float(_get_key_value(options, key, default_value), default_value)
+static func get_option_float(
+	options: Dictionary,
+	key: Variant,
+	default_value: float = 0.0
+) -> float:
+	return to_float(
+		_get_key_value(
+			options,
+			key,
+			default_value
+		),
+		default_value
+	)
 
 
 ## 读取并收窄 String 选项。
@@ -819,8 +982,19 @@ static func get_option_float(options: Dictionary, key: Variant, default_value: f
 ## @return 收窄后的 String 或兜底值。
 ## [br]
 ## @schema return: 内部 Variant 访问辅助结果；返回形态由当前函数契约定义。
-static func get_option_string(options: Dictionary, key: Variant, default_value: String = "") -> String:
-	return to_text(_get_key_value(options, key, default_value), default_value)
+static func get_option_string(
+	options: Dictionary,
+	key: Variant,
+	default_value: String = ""
+) -> String:
+	return to_text(
+		_get_key_value(
+			options,
+			key,
+			default_value
+		),
+		default_value
+	)
 
 
 ## 读取并收窄 StringName 选项。
@@ -842,8 +1016,19 @@ static func get_option_string(options: Dictionary, key: Variant, default_value: 
 ## @return 收窄后的 StringName 或兜底值。
 ## [br]
 ## @schema return: 内部 Variant 访问辅助结果；返回形态由当前函数契约定义。
-static func get_option_string_name(options: Dictionary, key: Variant, default_value: StringName = &"") -> StringName:
-	return to_string_name(_get_key_value(options, key, default_value), default_value)
+static func get_option_string_name(
+	options: Dictionary,
+	key: Variant,
+	default_value: StringName = &""
+) -> StringName:
+	return to_string_name(
+		_get_key_value(
+			options,
+			key,
+			default_value
+		),
+		default_value
+	)
 
 
 ## 读取并收窄 Vector2 选项。
@@ -865,8 +1050,19 @@ static func get_option_string_name(options: Dictionary, key: Variant, default_va
 ## @return Vector2 选项值或兜底值。
 ## [br]
 ## @schema return: 内部 Variant 访问辅助结果；返回形态由当前函数契约定义。
-static func get_option_vector2(options: Dictionary, key: Variant, default_value: Vector2 = Vector2.ZERO) -> Vector2:
-	return to_vector2(_get_key_value(options, key, default_value), default_value)
+static func get_option_vector2(
+	options: Dictionary,
+	key: Variant,
+	default_value: Vector2 = Vector2.ZERO
+) -> Vector2:
+	return to_vector2(
+		_get_key_value(
+			options,
+			key,
+			default_value
+		),
+		default_value
+	)
 
 
 ## 读取并收窄 Vector3 选项。
@@ -888,8 +1084,19 @@ static func get_option_vector2(options: Dictionary, key: Variant, default_value:
 ## @return Vector3 选项值或兜底值。
 ## [br]
 ## @schema return: 内部 Variant 访问辅助结果；返回形态由当前函数契约定义。
-static func get_option_vector3(options: Dictionary, key: Variant, default_value: Vector3 = Vector3.ZERO) -> Vector3:
-	return to_vector3(_get_key_value(options, key, default_value), default_value)
+static func get_option_vector3(
+	options: Dictionary,
+	key: Variant,
+	default_value: Vector3 = Vector3.ZERO
+) -> Vector3:
+	return to_vector3(
+		_get_key_value(
+			options,
+			key,
+			default_value
+		),
+		default_value
+	)
 
 
 ## 读取并收窄 Dictionary 选项副本。
@@ -911,8 +1118,19 @@ static func get_option_vector3(options: Dictionary, key: Variant, default_value:
 ## @return Dictionary 选项副本或兜底值副本。
 ## [br]
 ## @schema return: 内部 Variant 访问辅助结果；返回形态由当前函数契约定义。
-static func get_option_dictionary(options: Dictionary, key: Variant, default_value: Dictionary = {}) -> Dictionary:
-	return to_dictionary(_get_key_value(options, key, default_value), default_value)
+static func get_option_dictionary(
+	options: Dictionary,
+	key: Variant,
+	default_value: Dictionary = {}
+) -> Dictionary:
+	return to_dictionary(
+		_get_key_value(
+			options,
+			key,
+			default_value
+		),
+		default_value
+	)
 
 
 ## 读取并收窄 Array 选项副本。
@@ -934,8 +1152,19 @@ static func get_option_dictionary(options: Dictionary, key: Variant, default_val
 ## @return Array 选项副本或兜底值副本。
 ## [br]
 ## @schema return: 内部 Variant 访问辅助结果；返回形态由当前函数契约定义。
-static func get_option_array(options: Dictionary, key: Variant, default_value: Array = []) -> Array:
-	return to_array(_get_key_value(options, key, default_value), default_value)
+static func get_option_array(
+	options: Dictionary,
+	key: Variant,
+	default_value: Array = []
+) -> Array:
+	return to_array(
+		_get_key_value(
+			options,
+			key,
+			default_value
+		),
+		default_value
+	)
 
 
 ## 读取并收窄 String 数组选项副本。
@@ -962,7 +1191,14 @@ static func get_option_string_array(
 	key: Variant,
 	default_value: Array[String] = []
 ) -> Array[String]:
-	return to_string_array(_get_key_value(options, key, default_value), default_value)
+	return to_string_array(
+		_get_key_value(
+			options,
+			key,
+			default_value
+		),
+		default_value
+	)
 
 
 ## 读取并收窄 StringName 数组选项副本。
@@ -989,7 +1225,14 @@ static func get_option_string_name_array(
 	key: Variant,
 	default_value: Array[StringName] = []
 ) -> Array[StringName]:
-	return to_string_name_array(_get_key_value(options, key, default_value), default_value)
+	return to_string_name_array(
+		_get_key_value(
+			options,
+			key,
+			default_value
+		),
+		default_value
+	)
 
 
 ## 读取并收窄 int 数组选项副本。
@@ -1016,7 +1259,14 @@ static func get_option_int_array(
 	key: Variant,
 	default_value: Array[int] = []
 ) -> Array[int]:
-	return to_int_array(_get_key_value(options, key, default_value), default_value)
+	return to_int_array(
+		_get_key_value(
+			options,
+			key,
+			default_value
+		),
+		default_value
+	)
 
 
 ## 读取并收窄 PackedStringArray 选项副本。
@@ -1043,7 +1293,11 @@ static func get_option_packed_string_array(
 	key: Variant,
 	default_value: PackedStringArray = PackedStringArray()
 ) -> PackedStringArray:
-	var value: Variant = _get_key_value(options, key, default_value)
+	var value: Variant = _get_key_value(
+		options,
+		key,
+		default_value
+	)
 	if value is PackedStringArray:
 		var packed_strings: PackedStringArray = value
 		return packed_strings.duplicate()
@@ -1075,7 +1329,12 @@ static func _merge_dictionary(
 	visited_sources: Array
 ) -> Dictionary:
 	if recursive:
-		if _has_visited_dictionary_pair(visited_targets, visited_sources, target, source):
+		if _has_visited_dictionary_pair(
+			visited_targets,
+			visited_sources,
+			target,
+			source
+		):
 			return target
 		visited_targets.append(target)
 		visited_sources.append(source)
@@ -1114,8 +1373,19 @@ static func _has_visited_dictionary_pair(
 	target: Dictionary,
 	source: Dictionary
 ) -> bool:
-	for index: int in range(mini(visited_targets.size(), visited_sources.size())):
-		if is_same(visited_targets[index], target) and is_same(visited_sources[index], source):
+	for index: int in range(
+		mini(
+			visited_targets.size(),
+			visited_sources.size()
+		)
+	):
+		if is_same(
+			visited_targets[index],
+			target
+		) and is_same(
+			visited_sources[index],
+			source
+		):
 			return true
 	return false
 
@@ -1125,8 +1395,22 @@ static func _has_visited_dictionary_pair(
 ## @api private
 static func _validate_merge_source_budget(source: Dictionary, budget_options: Dictionary) -> String:
 	var state: Dictionary = {
-		"max_depth": maxi(get_option_int(budget_options, "max_depth", _MERGE_DEFAULT_MAX_DEPTH), 0),
-		"max_nodes": maxi(get_option_int(budget_options, "max_nodes", _MERGE_DEFAULT_MAX_NODES), 0),
+		"max_depth": maxi(
+			get_option_int(
+				budget_options,
+				"max_depth",
+				_MERGE_DEFAULT_MAX_DEPTH
+			),
+			0
+		),
+		"max_nodes": maxi(
+			get_option_int(
+				budget_options,
+				"max_nodes",
+				_MERGE_DEFAULT_MAX_NODES
+			),
+			0
+		),
 		"max_collection_items": maxi(
 			get_option_int(
 				budget_options,
@@ -1139,13 +1423,21 @@ static func _validate_merge_source_budget(source: Dictionary, budget_options: Di
 		"collection_item_count": 0,
 		"active_collections": [],
 	}
-	return _visit_merge_source_budget(source, state, 0)
+	return _visit_merge_source_budget(
+		source,
+		state,
+		0
+	)
 
 
 ## 递归计数源字典的键值及数组元素，当前路径循环不再展开；Packed Array 以长度批量计数，返回首个预算失败原因。
 ## [br]
 ## @api private
-static func _visit_merge_source_budget(value: Variant, state: Dictionary, depth: int) -> String:
+static func _visit_merge_source_budget(
+	value: Variant,
+	state: Dictionary,
+	depth: int
+) -> String:
 	if depth > get_option_int(state, "max_depth"):
 		return "max_depth"
 	if not _consume_merge_nodes(state, 1):
@@ -1172,23 +1464,41 @@ static func _visit_merge_source_budget(value: Variant, state: Dictionary, depth:
 	var failure: String
 	if value is Dictionary:
 		var dictionary: Dictionary = value
-		if not _consume_merge_collection_items(state, dictionary.size()):
+		if not _consume_merge_collection_items(
+			state,
+			dictionary.size()
+		):
 			failure = "max_collection_items"
 		else:
 			for key: Variant in dictionary.keys():
-				failure = _visit_merge_source_budget(key, state, depth + 1)
+				failure = _visit_merge_source_budget(
+					key,
+					state,
+					depth + 1
+				)
 				if not failure.is_empty():
 					break
-				failure = _visit_merge_source_budget(dictionary[key], state, depth + 1)
+				failure = _visit_merge_source_budget(
+					dictionary[key],
+					state,
+					depth + 1
+				)
 				if not failure.is_empty():
 					break
 	else:
 		var array: Array = value
-		if not _consume_merge_collection_items(state, array.size()):
+		if not _consume_merge_collection_items(
+			state,
+			array.size()
+		):
 			failure = "max_collection_items"
 		else:
 			for item: Variant in array:
-				failure = _visit_merge_source_budget(item, state, depth + 1)
+				failure = _visit_merge_source_budget(
+					item,
+					state,
+					depth + 1
+				)
 				if not failure.is_empty():
 					break
 
@@ -1230,7 +1540,11 @@ static func _get_merge_active_collections(state: Dictionary) -> Array:
 ## 按引用映射复制字典与数组并保留共享或循环关系，Packed Array 独立复制；可选 Resource 深复制，其他对象仍保留原引用。
 ## [br]
 ## @api private
-static func _duplicate_variant_safe(value: Variant, duplicate_resources: bool, visited: Array) -> Variant:
+static func _duplicate_variant_safe(
+	value: Variant,
+	duplicate_resources: bool,
+	visited: Array
+) -> Variant:
 	if value is Dictionary:
 		var dictionary: Dictionary = value
 		var existing_dictionary: Variant = _get_visited_duplicate(visited, dictionary)
@@ -1238,13 +1552,18 @@ static func _duplicate_variant_safe(value: Variant, duplicate_resources: bool, v
 			return existing_dictionary
 		var dictionary_copy: Dictionary = dictionary.duplicate(false)
 		dictionary_copy.clear()
-		visited.append({
-			"source": dictionary,
-			"copy": dictionary_copy,
-		})
+		visited.append({ "source": dictionary, "copy": dictionary_copy, })
 		for key: Variant in dictionary.keys():
-			var copied_key: Variant = _duplicate_variant_safe(key, duplicate_resources, visited)
-			dictionary_copy[copied_key] = _duplicate_variant_safe(dictionary[key], duplicate_resources, visited)
+			var copied_key: Variant = _duplicate_variant_safe(
+				key,
+				duplicate_resources,
+				visited
+			)
+			dictionary_copy[copied_key] = _duplicate_variant_safe(
+				dictionary[key],
+				duplicate_resources,
+				visited
+			)
 		return dictionary_copy
 	if value is Array:
 		var array: Array = value
@@ -1253,12 +1572,15 @@ static func _duplicate_variant_safe(value: Variant, duplicate_resources: bool, v
 			return existing_array
 		var array_copy: Array = array.duplicate(false)
 		array_copy.clear()
-		visited.append({
-			"source": array,
-			"copy": array_copy,
-		})
+		visited.append({ "source": array, "copy": array_copy, })
 		for item: Variant in array:
-			array_copy.append(_duplicate_variant_safe(item, duplicate_resources, visited))
+			array_copy.append(
+				_duplicate_variant_safe(
+					item,
+					duplicate_resources,
+					visited
+				)
+			)
 		return array_copy
 	if _is_packed_array_type(typeof(value)):
 		return _duplicate_packed_array(value)
@@ -1270,10 +1592,7 @@ static func _duplicate_variant_safe(value: Variant, duplicate_resources: bool, v
 		var resource_copy: Resource = resource.duplicate(true)
 		if resource_copy == null:
 			return null
-		visited.append({
-			"source": resource,
-			"copy": resource_copy,
-		})
+		visited.append({ "source": resource, "copy": resource_copy, })
 		return resource_copy
 	return value
 
@@ -1323,7 +1642,10 @@ static func _get_visited_duplicate(visited: Array, source: Variant) -> Variant:
 		if not record_value is Dictionary:
 			continue
 		var record: Dictionary = record_value
-		if is_same(_get_key_value(record, "source"), source):
+		if is_same(
+			_get_key_value(record, "source"),
+			source
+		):
 			return _get_key_value(record, "copy")
 	return null
 
@@ -1331,16 +1653,32 @@ static func _get_visited_duplicate(visited: Array, source: Variant) -> Variant:
 ## 先比较浮点精确相等；有限且不等时才应用非负 numeric_epsilon。
 ## [br]
 ## @api private
-static func _float_values_equal(left: Variant, right: Variant, options: Dictionary) -> bool:
+static func _float_values_equal(
+	left: Variant,
+	right: Variant,
+	options: Dictionary
+) -> bool:
 	if not left is float or not right is float:
 		return false
 	var left_number: float = left
 	var right_number: float = right
 	if left_number == right_number:
 		return true
-	if is_nan(left_number) or is_nan(right_number) or is_inf(left_number) or is_inf(right_number):
+	if (
+		is_nan(left_number)
+		or is_nan(right_number)
+		or is_inf(left_number)
+		or is_inf(right_number)
+	):
 		return false
-	var epsilon: float = maxf(get_option_float(options, "numeric_epsilon", 0.0), 0.0)
+	var epsilon: float = maxf(
+		get_option_float(
+			options,
+			"numeric_epsilon",
+			0.0
+		),
+		0.0
+	)
 	return epsilon > 0.0 and absf(left_number - right_number) <= epsilon
 
 
@@ -1403,7 +1741,11 @@ static func _is_string_like_value(value: Variant) -> bool:
 ## 在共享预算内递归转换 Variant，首个失败标记会阻止后续转换；集合交由专用 helper，常用向量和颜色转为组件字典，其他类型转文本。
 ## [br]
 ## @api private
-static func _to_json_compatible(value: Variant, state: Dictionary, depth: int) -> Variant:
+static func _to_json_compatible(
+	value: Variant,
+	state: Dictionary,
+	depth: int
+) -> Variant:
 	var existing_failure: String = get_option_string(state, "failure_marker")
 	if not existing_failure.is_empty():
 		return existing_failure
@@ -1423,10 +1765,7 @@ static func _to_json_compatible(value: Variant, state: Dictionary, depth: int) -
 			converted = str(value)
 		TYPE_VECTOR2:
 			var vector2_value: Vector2 = value
-			converted = {
-				"x": _to_json_compatible_float(vector2_value.x),
-				"y": _to_json_compatible_float(vector2_value.y),
-			}
+			converted = { "x": _to_json_compatible_float(vector2_value.x), "y": _to_json_compatible_float(vector2_value.y), }
 		TYPE_VECTOR3:
 			var vector3_value: Vector3 = value
 			converted = {
@@ -1452,40 +1791,88 @@ static func _to_json_compatible(value: Variant, state: Dictionary, depth: int) -
 			}
 		TYPE_DICTIONARY:
 			var dictionary: Dictionary = value
-			return _json_dictionary_to_compatible(dictionary, state, depth)
+			return _json_dictionary_to_compatible(
+				dictionary,
+				state,
+				depth
+			)
 		TYPE_ARRAY:
 			var array: Array = value
-			return _json_array_to_compatible(array, state, depth)
+			return _json_array_to_compatible(
+				array,
+				state,
+				depth
+			)
 		TYPE_PACKED_BYTE_ARRAY:
 			var packed_bytes: PackedByteArray = value
-			return _json_packed_array_to_compatible(packed_bytes, state, depth)
+			return _json_packed_array_to_compatible(
+				packed_bytes,
+				state,
+				depth
+			)
 		TYPE_PACKED_INT32_ARRAY:
 			var packed_int32: PackedInt32Array = value
-			return _json_packed_array_to_compatible(packed_int32, state, depth)
+			return _json_packed_array_to_compatible(
+				packed_int32,
+				state,
+				depth
+			)
 		TYPE_PACKED_INT64_ARRAY:
 			var packed_int64: PackedInt64Array = value
-			return _json_packed_array_to_compatible(packed_int64, state, depth)
+			return _json_packed_array_to_compatible(
+				packed_int64,
+				state,
+				depth
+			)
 		TYPE_PACKED_STRING_ARRAY:
 			var packed_strings: PackedStringArray = value
-			return _json_packed_array_to_compatible(packed_strings, state, depth)
+			return _json_packed_array_to_compatible(
+				packed_strings,
+				state,
+				depth
+			)
 		TYPE_PACKED_FLOAT32_ARRAY:
 			var packed_float32: PackedFloat32Array = value
-			return _json_packed_array_to_compatible(packed_float32, state, depth)
+			return _json_packed_array_to_compatible(
+				packed_float32,
+				state,
+				depth
+			)
 		TYPE_PACKED_FLOAT64_ARRAY:
 			var packed_float64: PackedFloat64Array = value
-			return _json_packed_array_to_compatible(packed_float64, state, depth)
+			return _json_packed_array_to_compatible(
+				packed_float64,
+				state,
+				depth
+			)
 		TYPE_PACKED_VECTOR2_ARRAY:
 			var packed_vector2: PackedVector2Array = value
-			return _json_packed_array_to_compatible(packed_vector2, state, depth)
+			return _json_packed_array_to_compatible(
+				packed_vector2,
+				state,
+				depth
+			)
 		TYPE_PACKED_VECTOR3_ARRAY:
 			var packed_vector3: PackedVector3Array = value
-			return _json_packed_array_to_compatible(packed_vector3, state, depth)
+			return _json_packed_array_to_compatible(
+				packed_vector3,
+				state,
+				depth
+			)
 		TYPE_PACKED_VECTOR4_ARRAY:
 			var packed_vector4: PackedVector4Array = value
-			return _json_packed_array_to_compatible(packed_vector4, state, depth)
+			return _json_packed_array_to_compatible(
+				packed_vector4,
+				state,
+				depth
+			)
 		TYPE_PACKED_COLOR_ARRAY:
 			var packed_colors: PackedColorArray = value
-			return _json_packed_array_to_compatible(packed_colors, state, depth)
+			return _json_packed_array_to_compatible(
+				packed_colors,
+				state,
+				depth
+			)
 		_:
 			converted = str(value)
 	if not _reserve_json_value_bytes(state, converted):
@@ -1496,13 +1883,26 @@ static func _to_json_compatible(value: Variant, state: Dictionary, depth: int) -
 ## 检查当前路径循环、集合与字节预算并预检字符串键及碰撞，再递归转换值；失败写入共享状态，调用方据此处理部分结果。
 ## [br]
 ## @api private
-static func _json_dictionary_to_compatible(dictionary: Dictionary, state: Dictionary, depth: int) -> Variant:
+static func _json_dictionary_to_compatible(
+	dictionary: Dictionary,
+	state: Dictionary,
+	depth: int
+) -> Variant:
 	var active_collections: Array = _get_json_active_collections(state)
 	if _has_active_collection(active_collections, dictionary):
 		return _json_marker_value(state, _JSON_CIRCULAR_MARKER)
-	if not _consume_json_collection_items(state, dictionary.size()):
+	if not _consume_json_collection_items(
+		state,
+		dictionary.size()
+	):
 		return get_option_string(state, "failure_marker")
-	if not _reserve_json_bytes(state, 2 + maxi(dictionary.size() - 1, 0)):
+	if not _reserve_json_bytes(
+		state,
+		2 + maxi(
+			dictionary.size() - 1,
+			0
+		)
+	):
 		return get_option_string(state, "failure_marker")
 
 	var source_keys: Array = dictionary.keys()
@@ -1522,7 +1922,10 @@ static func _json_dictionary_to_compatible(dictionary: Dictionary, state: Dictio
 		seen_key_texts[key_text] = true
 		key_texts.append(key_text)
 		var encoded_key: String = JSON.stringify(key_text)
-		if not _reserve_json_bytes(state, encoded_key.to_utf8_buffer().size() + 1):
+		if not _reserve_json_bytes(
+			state,
+			encoded_key.to_utf8_buffer().size() + 1
+		):
 			return get_option_string(state, "failure_marker")
 
 	active_collections.append(dictionary)
@@ -1530,7 +1933,11 @@ static func _json_dictionary_to_compatible(dictionary: Dictionary, state: Dictio
 	for key_index: int in range(source_keys.size()):
 		var key: Variant = source_keys[key_index]
 		var key_text: String = key_texts[key_index]
-		result[key_text] = _to_json_compatible(dictionary[key], state, depth + 1)
+		result[key_text] = _to_json_compatible(
+			dictionary[key],
+			state,
+			depth + 1
+		)
 		if not get_option_string(state, "failure_marker").is_empty():
 			break
 	var _removed_dictionary: Variant = active_collections.pop_back()
@@ -1540,12 +1947,20 @@ static func _json_dictionary_to_compatible(dictionary: Dictionary, state: Dictio
 ## 用当前递归路径检测数组循环，再委托序列转换并弹出路径记录；同一数组在不同分支重用不算循环。
 ## [br]
 ## @api private
-static func _json_array_to_compatible(array: Array, state: Dictionary, depth: int) -> Variant:
+static func _json_array_to_compatible(
+	array: Array,
+	state: Dictionary,
+	depth: int
+) -> Variant:
 	var active_collections: Array = _get_json_active_collections(state)
 	if _has_active_collection(active_collections, array):
 		return _json_marker_value(state, _JSON_CIRCULAR_MARKER)
 	active_collections.append(array)
-	var result: Variant = _json_sequence_to_compatible(array, state, depth)
+	var result: Variant = _json_sequence_to_compatible(
+		array,
+		state,
+		depth
+	)
 	var _removed_array: Variant = active_collections.pop_back()
 	return result
 
@@ -1553,16 +1968,32 @@ static func _json_array_to_compatible(array: Array, state: Dictionary, depth: in
 ## 先为 Packed Array 预留条目与结构字节，再逐项转为普通数组；共享失败状态出现后停止追加。
 ## [br]
 ## @api private
-static func _json_packed_array_to_compatible(value: Variant, state: Dictionary, depth: int) -> Variant:
+static func _json_packed_array_to_compatible(
+	value: Variant,
+	state: Dictionary,
+	depth: int
+) -> Variant:
 	var item_count: int = len(value)
 	if not _consume_json_collection_items(state, item_count):
 		return get_option_string(state, "failure_marker")
-	if not _reserve_json_bytes(state, 2 + maxi(item_count - 1, 0)):
+	if not _reserve_json_bytes(
+		state,
+		2 + maxi(
+			item_count - 1,
+			0
+		)
+	):
 		return get_option_string(state, "failure_marker")
 
 	var result: Array = []
 	for index: int in range(item_count):
-		result.append(_to_json_compatible(value[index], state, depth + 1))
+		result.append(
+			_to_json_compatible(
+				value[index],
+				state,
+				depth + 1
+			)
+		)
 		if not get_option_string(state, "failure_marker").is_empty():
 			break
 	return result
@@ -1571,15 +2002,34 @@ static func _json_packed_array_to_compatible(value: Variant, state: Dictionary, 
 ## 先预留普通数组条目和结构字节，再在共享预算下递归转换元素；首个失败后停止，留给上层读取失败标记。
 ## [br]
 ## @api private
-static func _json_sequence_to_compatible(values: Array, state: Dictionary, depth: int) -> Variant:
-	if not _consume_json_collection_items(state, values.size()):
+static func _json_sequence_to_compatible(
+	values: Array,
+	state: Dictionary,
+	depth: int
+) -> Variant:
+	if not _consume_json_collection_items(
+		state,
+		values.size()
+	):
 		return get_option_string(state, "failure_marker")
-	if not _reserve_json_bytes(state, 2 + maxi(values.size() - 1, 0)):
+	if not _reserve_json_bytes(
+		state,
+		2 + maxi(
+			values.size() - 1,
+			0
+		)
+	):
 		return get_option_string(state, "failure_marker")
 
 	var result: Array = []
 	for item: Variant in values:
-		result.append(_to_json_compatible(item, state, depth + 1))
+		result.append(
+			_to_json_compatible(
+				item,
+				state,
+				depth + 1
+			)
+		)
 		if not get_option_string(state, "failure_marker").is_empty():
 			break
 	return result
@@ -1591,12 +2041,30 @@ static func _json_sequence_to_compatible(values: Array, state: Dictionary, depth
 static func _make_json_conversion_state(max_depth: int, options: Dictionary) -> Dictionary:
 	return {
 		"max_depth": maxi(max_depth, 0),
-		"max_nodes": maxi(get_option_int(options, "max_nodes", _JSON_DEFAULT_MAX_NODES), 0),
-		"max_collection_items": maxi(
-			get_option_int(options, "max_collection_items", _JSON_DEFAULT_MAX_COLLECTION_ITEMS),
+		"max_nodes": maxi(
+			get_option_int(
+				options,
+				"max_nodes",
+				_JSON_DEFAULT_MAX_NODES
+			),
 			0
 		),
-		"max_bytes": maxi(get_option_int(options, "max_bytes", _JSON_DEFAULT_MAX_BYTES), 0),
+		"max_collection_items": maxi(
+			get_option_int(
+				options,
+				"max_collection_items",
+				_JSON_DEFAULT_MAX_COLLECTION_ITEMS
+			),
+			0
+		),
+		"max_bytes": maxi(
+			get_option_int(
+				options,
+				"max_bytes",
+				_JSON_DEFAULT_MAX_BYTES
+			),
+			0
+		),
 		"node_count": 0,
 		"collection_item_count": 0,
 		"byte_count": 0,
@@ -1634,7 +2102,10 @@ static func _consume_json_collection_items(state: Dictionary, item_count: int) -
 ## @api private
 static func _reserve_json_value_bytes(state: Dictionary, value: Variant) -> bool:
 	var encoded: String = JSON.stringify(value)
-	return _reserve_json_bytes(state, encoded.to_utf8_buffer().size())
+	return _reserve_json_bytes(
+		state,
+		encoded.to_utf8_buffer().size()
+	)
 
 
 ## 累加非负字节数；超过预算时记录字节预算失败。
@@ -1704,7 +2175,11 @@ static func _to_json_compatible_float(value: float) -> Variant:
 ## 读取精确键；String 与 StringName 可互相回退匹配，否则返回默认值。
 ## [br]
 ## @api private
-static func _get_key_value(data: Dictionary, key: Variant, default_value: Variant = null) -> Variant:
+static func _get_key_value(
+	data: Dictionary,
+	key: Variant,
+	default_value: Variant = null
+) -> Variant:
 	if data.has(key):
 		return data[key]
 	if key is StringName:

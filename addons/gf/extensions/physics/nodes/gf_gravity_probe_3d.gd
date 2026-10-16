@@ -167,13 +167,16 @@ func sample() -> Vector3:
 	var query_fallback_acceleration: Vector3 = fallback_acceleration
 	var fields: Array[Node] = _get_fields_from_group(query_field_group)
 	var field_signature: String = _get_field_group_signature(fields)
-	if query_cache_samples_per_frame and _can_use_cached_sample(
-		field_signature,
-		query_position,
-		query_field_group,
-		query_combination_mode,
-		query_use_fallback_when_empty,
-		query_fallback_acceleration
+	if (
+		query_cache_samples_per_frame
+		and _can_use_cached_sample(
+			field_signature,
+			query_position,
+			query_field_group,
+			query_combination_mode,
+			query_use_fallback_when_empty,
+			query_fallback_acceleration
+		)
 	):
 		last_acceleration = _cached_acceleration
 	else:
@@ -333,7 +336,11 @@ func _collect_field_samples(fields: Array, query_position: Vector3) -> Array[Dic
 	var field_snapshot: Array = fields.duplicate()
 	for field_value: Variant in field_snapshot:
 		var field: Object = _variant_to_valid_object(field_value)
-		if field == null or not _is_field_in_probe_scope(field) or not _can_call_get_acceleration_at(field):
+		if (
+			field == null
+			or not _is_field_in_probe_scope(field)
+			or not _can_call_get_acceleration_at(field)
+		):
 			continue
 		var value: Variant = field.call("get_acceleration_at", query_position)
 		if not is_instance_valid(field):
@@ -342,11 +349,13 @@ func _collect_field_samples(fields: Array, query_position: Vector3) -> Array[Dic
 			var acceleration_value: Vector3 = value
 			if not _is_finite_vector3(acceleration_value):
 				continue
-			samples.append({
-				"acceleration": acceleration_value,
-				"priority": _get_field_priority(field),
-				"order_key": _get_field_order_key(field),
-			})
+			samples.append(
+				{
+					"acceleration": acceleration_value,
+					"priority": _get_field_priority(field),
+					"order_key": _get_field_order_key(field),
+				}
+			)
 	return samples
 
 
@@ -405,7 +414,13 @@ func _sample_strongest_field(samples: Array[Dictionary]) -> Vector3:
 		if (
 			not has_best_sample
 			or magnitude_comparison > 0
-			or (magnitude_comparison == 0 and (best_order_key.is_empty() or order_key < best_order_key))
+			or (
+				magnitude_comparison == 0
+				and (
+					best_order_key.is_empty()
+					or order_key < best_order_key
+				)
+			)
 		):
 			has_best_sample = true
 			best_order_key = order_key
@@ -418,7 +433,10 @@ func _sample_strongest_field(samples: Array[Dictionary]) -> Vector3:
 ## @api private
 ## [br]
 func _compare_vector3_magnitude(left: Vector3, right: Vector3) -> int:
-	var comparison_scale: float = maxf(_get_max_abs_component(left), _get_max_abs_component(right))
+	var comparison_scale: float = maxf(
+		_get_max_abs_component(left),
+		_get_max_abs_component(right)
+	)
 	if comparison_scale <= 0.0:
 		return 0
 	var left_scaled_length_squared: float = (left / comparison_scale).length_squared()
@@ -433,7 +451,13 @@ func _compare_vector3_magnitude(left: Vector3, right: Vector3) -> int:
 ## @api private
 ## [br]
 func _get_max_abs_component(value: Vector3) -> float:
-	return maxf(absf(value.x), maxf(absf(value.y), absf(value.z)))
+	return maxf(
+		absf(value.x),
+		maxf(
+			absf(value.y),
+			absf(value.z)
+		)
+	)
 
 
 ## 汇总非零样本中最高优先级的加速度；累加溢出时返回零向量。
@@ -607,7 +631,11 @@ func _variant_to_valid_object(value: Variant) -> Object:
 func _is_field_in_probe_scope(field: Object) -> bool:
 	if field is Node3D:
 		var field_node: Node3D = field
-		if is_inside_tree() and field_node.is_inside_tree() and field_node.get_world_3d() != get_world_3d():
+		if (
+			is_inside_tree()
+			and field_node.is_inside_tree()
+			and field_node.get_world_3d() != get_world_3d()
+		):
 			return false
 	return true
 
@@ -633,10 +661,23 @@ func _can_call_get_acceleration_at(field: Object) -> bool:
 func _method_accepts_argument_count(method_info: Dictionary, argument_count: int) -> bool:
 	var arguments: Array = GFVariantData.get_option_array(method_info, "args")
 	var default_arguments: Array = GFVariantData.get_option_array(method_info, "default_args")
-	var required_count: int = maxi(arguments.size() - default_arguments.size(), 0)
-	var method_flags: int = GFVariantData.get_option_int(method_info, "flags", 0)
+	var required_count: int = maxi(
+		arguments.size() - default_arguments.size(),
+		0
+	)
+	var method_flags: int = GFVariantData.get_option_int(
+		method_info,
+		"flags",
+		0
+	)
 	var accepts_varargs: bool = (method_flags & METHOD_FLAG_VARARG) != 0
-	return required_count <= argument_count and (argument_count <= arguments.size() or accepts_varargs)
+	return (
+		required_count <= argument_count
+		and (
+			argument_count <= arguments.size()
+			or accepts_varargs
+		)
+	)
 
 
 ## 返回节点路径；节点不在 SceneTree 时使用实例 ID 字符串。
@@ -664,19 +705,22 @@ func _get_field_signature(field: Node) -> String:
 		var _position_appended: bool = parts.append(str(node_3d.global_position))
 	if field is GFGravityField3D:
 		var gravity_field: GFGravityField3D = field
-		var _state_appended: bool = parts.append("%s:%s:%s:%s:%s:%s:%s:%s:%s:%s:%s" % [
-			str(gravity_field.enabled),
-			str(gravity_field.priority),
-			str(gravity_field.acceleration),
-			str(gravity_field.radius),
-			str(gravity_field.min_distance),
-			str(gravity_field.direction_mode),
-			str(gravity_field.constant_direction),
-			str(gravity_field.falloff_mode),
-			str(gravity_field.falloff_curve.get_instance_id() if gravity_field.falloff_curve != null else 0),
-			str(gravity_field.is_inside_tree()),
-			str(gravity_field.get_gravity_revision_for_probe()),
-		])
+		var _state_appended: bool = parts.append(
+			"%s:%s:%s:%s:%s:%s:%s:%s:%s:%s:%s"
+			% [
+				str(gravity_field.enabled),
+				str(gravity_field.priority),
+				str(gravity_field.acceleration),
+				str(gravity_field.radius),
+				str(gravity_field.min_distance),
+				str(gravity_field.direction_mode),
+				str(gravity_field.constant_direction),
+				str(gravity_field.falloff_mode),
+				str(gravity_field.falloff_curve.get_instance_id() if gravity_field.falloff_curve != null else 0),
+				str(gravity_field.is_inside_tree()),
+				str(gravity_field.get_gravity_revision_for_probe()),
+			]
+		)
 	return ":".join(parts)
 
 

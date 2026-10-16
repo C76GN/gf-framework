@@ -15,7 +15,7 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 方法 | [`_init`](#member-gflifetimesubscription-methods-_init) | `func _init(owner: Object = null, cancel_callback: Callable = Callable(), debug_label: String = "") -> void:` |
+| 方法 | [`_init`](#member-gflifetimesubscription-methods-_init) | `func _init( owner: Object = null, cancel_callback: Callable = Callable(), debug_label: String = "" ) -> void:` |
 | 方法 | [`cancel`](#member-gflifetimesubscription-methods-cancel) | `func cancel() -> bool:` |
 | 方法 | [`is_active`](#member-gflifetimesubscription-methods-is_active) | `func is_active() -> bool:` |
 | 方法 | [`get_owner`](#member-gflifetimesubscription-methods-get_owner) | `func get_owner() -> Object:` |
@@ -32,7 +32,7 @@
 - 首次版本：`8.0.0`
 
 ```gdscript
-func _init(owner: Object = null, cancel_callback: Callable = Callable(), debug_label: String = "") -> void:
+func _init( owner: Object = null, cancel_callback: Callable = Callable(), debug_label: String = "" ) -> void:
 ```
 
 构造函数。

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFEquipmentSet" path="addons/gf/extensions/domain/equipment/gf_equipment_set.gd" module="extensions/domain" extends="Resource" classDigest="0c4276cffb00099acbb6b67b08a1db8a6c624d9813df876f5532811404e3ade2">
+<class name="GFEquipmentSet" path="addons/gf/extensions/domain/equipment/gf_equipment_set.gd" module="extensions/domain" extends="Resource" classDigest="c6d93c3e14928d200ed623b22a8076961a5f2a80c397fb1ec867ae24335e95cc">
 	<description>GFEquipmentSet: 通用槽位集合。
 用于管理一组 `GFEquipmentSlot`，不约束槽位名称或装备类型。</description>
 	<tags>
@@ -39,7 +39,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="equip">
-			<signature>func equip(slot_id: StringName, item_id: StringName, item_tags: Array[StringName] = []) -&gt; bool:</signature>
+			<signature>func equip( slot_id: StringName, item_id: StringName, item_tags: Array[StringName] = [] ) -&gt; bool:</signature>
 			<description>挂载物品到槽位。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -48,6 +48,7 @@
 				<tag name="param">item_tags: 物品标签。</tag>
 				<tag name="return">成功时返回 true。</tag>
 				<tag name="schema">item_tags: Array[StringName]，当前物品拥有的标签列表。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unequip">

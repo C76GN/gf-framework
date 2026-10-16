@@ -67,6 +67,8 @@ func has_formula(formula_id: StringName) -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param formula_id: 公式标识。
 ## [br]
 ## @param parameter: 公式参数。
@@ -78,7 +80,11 @@ func has_formula(formula_id: StringName) -> bool:
 ## @return 公式结果或 fallback。
 ## [br]
 ## @schema return: Variant formula result or fallback.
-func calculate(formula_id: StringName, parameter: GFFormulaParameter = null, fallback: Variant = null) -> Variant:
+func calculate(
+	formula_id: StringName,
+	parameter: GFFormulaParameter = null,
+	fallback: Variant = null
+) -> Variant:
 	var formula: GFFormula = get_formula(formula_id)
 	if formula == null:
 		return fallback

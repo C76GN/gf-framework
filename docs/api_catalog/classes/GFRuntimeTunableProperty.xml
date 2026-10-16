@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFRuntimeTunableProperty" path="addons/gf/standard/utilities/debug/gf_runtime_tunable_property.gd" module="standard" extends="Resource" classDigest="69960ab538ae9e3355cb3c10a87cb85d9576c063937e64870080e54d1e00f504">
+<class name="GFRuntimeTunableProperty" path="addons/gf/standard/utilities/debug/gf_runtime_tunable_property.gd" module="standard" extends="Resource" classDigest="66e0d933fe69e3e6d93ae6b00162adbc8b794551839679d8f8776f33bca1c386">
 	<description>GFRuntimeTunableProperty: 运行时可调属性声明。
 用显式 schema 描述一个目标对象上允许被运行时工具读取或写入的属性。
 它不自动扫描业务对象，也不决定具体调参界面。</description>
@@ -178,7 +178,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="configure_range">
-			<signature>func configure_range(p_min_value: float, p_max_value: float, p_step: float = 1.0) -&gt; bool:</signature>
+			<signature>func configure_range( p_min_value: float, p_max_value: float, p_step: float = 1.0 ) -&gt; bool:</signature>
 			<description>配置数值范围。</description>
 			<tags>
 				<tag name="api">public</tag>

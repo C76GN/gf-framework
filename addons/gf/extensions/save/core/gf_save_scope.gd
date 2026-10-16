@@ -23,6 +23,7 @@ enum RestorePolicy {
 	ALLOW_FACTORIES,
 }
 
+
 ## Scope/Source 执行阶段。
 ## [br]
 ## @api public

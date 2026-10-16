@@ -29,6 +29,7 @@ enum Status {
 	OUTCOME_UNKNOWN,
 }
 
+
 ## caller 终态的稳定来源分类。
 ## [br]
 ## @api public
@@ -328,9 +329,7 @@ func to_dict() -> Dictionary:
 		"reason": _reason,
 		"completed_at_msec": _completed_at_msec,
 		"error_code": int(_error_code),
-		"physical_result": (
-			_physical_result.to_dict() if _physical_result != null else {}
-		),
+		"physical_result": _physical_result.to_dict() if _physical_result != null else {},
 	}
 
 
@@ -377,37 +376,40 @@ func configure_for_framework(
 	error_code: Error,
 	physical_result: GFStorageAsyncResult = null
 ) -> bool:
-	if _consumer_id != 0 or consumer_id <= 0 or request_id <= 0 or completed_at_msec < 0:
+	if (
+		_consumer_id != 0
+		or consumer_id <= 0
+		or request_id <= 0
+		or completed_at_msec < 0
+	):
 		return false
-	if operation not in [
-		_OPERATION_SAVE,
-		_OPERATION_LOAD,
-		_OPERATION_DELETE,
-		_OPERATION_RESET,
-	]:
+	if (
+		operation
+		not in [
+			_OPERATION_SAVE,
+			_OPERATION_LOAD,
+			_OPERATION_DELETE,
+			_OPERATION_RESET,
+		]
+	):
 		return false
 	if not Status.values().has(int(status)) or not EndKind.values().has(int(end_kind)):
 		return false
 	if status == Status.PHYSICAL_SETTLED:
-		if physical_result == null or not _matches_physical_result(
-			physical_result,
-			request_id,
-			operation,
-			file_name,
-			error_code
+		if (
+			physical_result == null
+			or not _matches_physical_result(
+				physical_result,
+				request_id,
+				operation,
+				file_name,
+				error_code
+			)
 		):
 			return false
-		if (
-			physical_result.get_settlement_kind()
-				== GFStorageAsyncResult.SettlementKind.DOMAIN_RESULT
-			and end_kind != EndKind.PHYSICAL_SETTLEMENT
-		):
+		if (physical_result.get_settlement_kind() == GFStorageAsyncResult.SettlementKind.DOMAIN_RESULT and end_kind != EndKind.PHYSICAL_SETTLEMENT):
 			return false
-		if (
-			physical_result.get_settlement_kind()
-				== GFStorageAsyncResult.SettlementKind.CANCELLED
-			and end_kind == EndKind.PHYSICAL_SETTLEMENT
-		):
+		if (physical_result.get_settlement_kind() == GFStorageAsyncResult.SettlementKind.CANCELLED and end_kind == EndKind.PHYSICAL_SETTLEMENT):
 			return false
 	elif physical_result != null or end_kind == EndKind.PHYSICAL_SETTLEMENT:
 		return false
@@ -416,7 +418,11 @@ func configure_for_framework(
 			return false
 	elif status == Status.OUTCOME_UNKNOWN:
 		if (
-			operation not in [_OPERATION_SAVE, _OPERATION_DELETE, _OPERATION_RESET]
+			operation not in [
+				_OPERATION_SAVE,
+				_OPERATION_DELETE,
+				_OPERATION_RESET,
+			]
 			or error_code != ERR_BUSY
 		):
 			return false

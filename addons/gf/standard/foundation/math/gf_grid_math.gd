@@ -161,7 +161,11 @@ static func get_neighbors(
 	grid_size: Vector2i,
 	include_diagonal: bool = false
 ) -> Array[Vector2i]:
-	return GFGridCoordinateMath2D.get_neighbors(cell, grid_size, include_diagonal)
+	return GFGridCoordinateMath2D.get_neighbors(
+		cell,
+		grid_size,
+		include_diagonal
+	)
 
 
 ## 获取两个端点之间的矩形格子。
@@ -182,7 +186,11 @@ static func get_rectangle_cells(
 	to_cell: Vector2i,
 	grid_size: Vector2i = Vector2i(-1, -1)
 ) -> Array[Vector2i]:
-	return GFGridCoordinateMath2D.get_rectangle_cells(from_cell, to_cell, grid_size)
+	return GFGridCoordinateMath2D.get_rectangle_cells(
+		from_cell,
+		to_cell,
+		grid_size
+	)
 
 
 ## 获取指定半径内的所有格子。
@@ -206,7 +214,12 @@ static func get_range(
 	grid_size: Vector2i = Vector2i(-1, -1),
 	include_diagonal: bool = false
 ) -> Array[Vector2i]:
-	return GFGridCoordinateMath2D.get_range(center, radius, grid_size, include_diagonal)
+	return GFGridCoordinateMath2D.get_range(
+		center,
+		radius,
+		grid_size,
+		include_diagonal
+	)
 
 
 ## 获取指定半径的外环格子。
@@ -230,7 +243,12 @@ static func get_ring(
 	grid_size: Vector2i = Vector2i(-1, -1),
 	include_diagonal: bool = false
 ) -> Array[Vector2i]:
-	return GFGridCoordinateMath2D.get_ring(center, radius, grid_size, include_diagonal)
+	return GFGridCoordinateMath2D.get_ring(
+		center,
+		radius,
+		grid_size,
+		include_diagonal
+	)
 
 
 ## 获取中心 chunk 周围的候选窗口。
@@ -253,7 +271,11 @@ static func get_chunk_window(
 	radius: int,
 	shape: StringName = &"circle"
 ) -> Array[Vector2i]:
-	return GFGridCoordinateMath2D.get_chunk_window(center_chunk, radius, shape)
+	return GFGridCoordinateMath2D.get_chunk_window(
+		center_chunk,
+		radius,
+		shape
+	)
 
 
 ## 计算两个格子集合的稳定差分。
@@ -313,7 +335,12 @@ static func has_line_of_sight(
 	is_blocking: Callable,
 	include_endpoints: bool = false
 ) -> bool:
-	return GFGridCoordinateMath2D.has_line_of_sight(from_cell, to_cell, is_blocking, include_endpoints)
+	return GFGridCoordinateMath2D.has_line_of_sight(
+		from_cell,
+		to_cell,
+		is_blocking,
+		include_endpoints
+	)
 
 
 ## 从起点执行泛洪搜索，返回所有满足匹配条件且连通的格子。
@@ -335,7 +362,12 @@ static func flood_fill(
 	is_match: Callable,
 	include_diagonal: bool = false
 ) -> Array[Vector2i]:
-	return GFGridCoordinateMath2D.flood_fill(grid_size, start, is_match, include_diagonal)
+	return GFGridCoordinateMath2D.flood_fill(
+		grid_size,
+		start,
+		is_match,
+		include_diagonal
+	)
 
 
 ## 使用回溯生成矩形网格迷宫拓扑。
@@ -455,7 +487,11 @@ static func filter_cell_regions_by_size(
 	minimum_region_size: int,
 	options: Dictionary = {}
 ) -> Dictionary:
-	return GFGridGenerationMath2D.filter_cell_regions_by_size(cells, minimum_region_size, options)
+	return GFGridGenerationMath2D.filter_cell_regions_by_size(
+		cells,
+		minimum_region_size,
+		options
+	)
 
 
 ## 使用 BFS 查找一条最短路径。
@@ -480,7 +516,13 @@ static func find_path_bfs(
 	is_walkable: Callable,
 	allow_diagonal: bool = false
 ) -> Array[Vector2i]:
-	return GFGridPathMath2D.find_path_bfs(grid_size, start, goal, is_walkable, allow_diagonal)
+	return GFGridPathMath2D.find_path_bfs(
+		grid_size,
+		start,
+		goal,
+		is_walkable,
+		allow_diagonal
+	)
 
 
 ## 使用 A* 查找一条低代价路径。
@@ -591,7 +633,11 @@ static func simplify_path_line_of_sight(
 	is_blocking: Callable,
 	include_endpoints: bool = false
 ) -> Array[Vector2i]:
-	return GFGridPathMath2D.simplify_path_line_of_sight(path, is_blocking, include_endpoints)
+	return GFGridPathMath2D.simplify_path_line_of_sight(
+		path,
+		is_blocking,
+		include_endpoints
+	)
 
 
 ## 从一个或多个目标格生成 Flow Field。

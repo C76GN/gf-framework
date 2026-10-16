@@ -13,6 +13,7 @@
 class_name GFRuntimeDebuggerPlugin
 extends EditorDebuggerPlugin
 
+
 # --- 私有变量 ---
 
 ## 按 EditorDebuggerSession ID 保存对应的运行时诊断页签实例。
@@ -34,7 +35,11 @@ func _has_capture(capture: String) -> bool:
 ## 找到会话页签后按消息类型转交快照、目录或命令结果；页签不存在或消息未知时返回未处理。
 ## [br]
 ## @api private
-func _capture(message: String, data: Array, session_id: int) -> bool:
+func _capture(
+	message: String,
+	data: Array,
+	session_id: int
+) -> bool:
 	var tab: GFRuntimeDebuggerTab = _get_tab(session_id)
 	if tab == null:
 		return false
@@ -47,7 +52,10 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 			tab.handle_catalog(_data_dictionary(data, 0))
 			return true
 		GFDiagnosticsUtility.DEBUGGER_MESSAGE_COMMAND_RESULT:
-			tab.handle_command_result(_data_string_name(data, 0), _data_dictionary(data, 1))
+			tab.handle_command_result(
+				_data_string_name(data, 0),
+				_data_dictionary(data, 1)
+			)
 			return true
 		_:
 			return false
@@ -84,10 +92,7 @@ func get_debug_snapshot() -> Dictionary:
 	for session_id: int in _tabs_by_session_id.keys():
 		var _id_appended: bool = session_ids.append(str(session_id))
 	session_ids.sort()
-	return {
-		"session_ids": session_ids,
-		"tab_count": _tabs_by_session_id.size(),
-	}
+	return { "session_ids": session_ids, "tab_count": _tabs_by_session_id.size(), }
 
 
 # --- 私有/辅助方法 ---
@@ -97,7 +102,11 @@ func get_debug_snapshot() -> Dictionary:
 ## @api private
 ## [br]
 func _get_tab(session_id: int) -> GFRuntimeDebuggerTab:
-	var value: Variant = GFVariantData.get_option_value(_tabs_by_session_id, session_id, null)
+	var value: Variant = GFVariantData.get_option_value(
+		_tabs_by_session_id,
+		session_id,
+		null
+	)
 	if value is GFRuntimeDebuggerTab:
 		var tab: GFRuntimeDebuggerTab = value
 		return tab

@@ -29,10 +29,7 @@ const SIGNAL_CALLBACK_SECTION_MARKERS: Array[String] = [
 	"signal handler",
 	"signal callback",
 ]
-const VARIABLE_SECTION_MARKERS: Array[String] = [
-	"变量",
-	"variable",
-]
+const VARIABLE_SECTION_MARKERS: Array[String] = ["变量", "variable",]
 const VIRTUAL_SECTION_MARKERS: Array[String] = [
 	"虚方法",
 	"可重写",
@@ -90,21 +87,95 @@ const GODOT_CALLBACK_NAMES: Dictionary = {
 	"_validate_property": true,
 }
 const SECTION_ORDER_RULES: Array[Dictionary] = [
-	{ "markers": ["信号处理", "信号回调", "signal handler", "signal callback"], "rank": 115 },
-	{ "markers": ["信号"], "rank": 10 },
-	{ "markers": ["枚举"], "rank": 20 },
-	{ "markers": ["常量"], "rank": 30 },
-	{ "markers": ["导出变量"], "rank": 40 },
-	{ "markers": ["公共变量"], "rank": 50 },
-	{ "markers": ["私有变量", "私有静态变量"], "rank": 60 },
-	{ "markers": ["@onready"], "rank": 70 },
-	{ "markers": ["生命周期", "回调", "lifecycle", "callback"], "rank": 80 },
-	{ "markers": ["公共方法", "获取方法", "注册方法", "事件系统", "命令", "查询"], "rank": 90 },
-	{ "markers": ["虚方法", "可重写", "hook", "virtual"], "rank": 100 },
-	{ "markers": ["框架内部方法", "framework internal"], "rank": 105 },
-	{ "markers": ["层内方法", "layer internal"], "rank": 107 },
-	{ "markers": ["私有", "内部", "辅助", "private", "internal", "helper"], "rank": 110 },
-	{ "markers": ["内部类", "subclass"], "rank": 120 },
+	{
+		"markers": [
+			"信号处理",
+			"信号回调",
+			"signal handler",
+			"signal callback",
+		],
+		"rank": 115,
+	},
+	{
+		"markers": ["信号"],
+		"rank": 10,
+	},
+	{
+		"markers": ["枚举"],
+		"rank": 20,
+	},
+	{
+		"markers": ["常量"],
+		"rank": 30,
+	},
+	{
+		"markers": ["导出变量"],
+		"rank": 40,
+	},
+	{
+		"markers": ["公共变量"],
+		"rank": 50,
+	},
+	{
+		"markers": ["私有变量", "私有静态变量"],
+		"rank": 60,
+	},
+	{
+		"markers": ["@onready"],
+		"rank": 70,
+	},
+	{
+		"markers": [
+			"生命周期",
+			"回调",
+			"lifecycle",
+			"callback",
+		],
+		"rank": 80,
+	},
+	{
+		"markers": [
+			"公共方法",
+			"获取方法",
+			"注册方法",
+			"事件系统",
+			"命令",
+			"查询",
+		],
+		"rank": 90,
+	},
+	{
+		"markers": [
+			"虚方法",
+			"可重写",
+			"hook",
+			"virtual",
+		],
+		"rank": 100,
+	},
+	{
+		"markers": ["框架内部方法", "framework internal"],
+		"rank": 105,
+	},
+	{
+		"markers": ["层内方法", "layer internal"],
+		"rank": 107,
+	},
+	{
+		"markers": [
+			"私有",
+			"内部",
+			"辅助",
+			"private",
+			"internal",
+			"helper",
+		],
+		"rank": 110,
+	},
+	{
+		"markers": ["内部类", "subclass"],
+		"rank": 120,
+	},
 ]
 const GF_VARIANT_ACCESS = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 const CONTRACT_SOURCES = preload("res://tests/gf_core/maintenance/helpers/gf_comment_contract_sources.gd")
@@ -118,7 +189,11 @@ func test_underscore_methods_use_matching_sections() -> void:
 	for path: String in script_paths:
 		issues.append_array(_collect_underscore_method_section_issues(path))
 
-	assert_eq(issues, [], "下划线方法应放在匹配语义的 section 中：\n%s" % _join_lines(issues))
+	assert_eq(
+		issues,
+		[],
+		"下划线方法应放在匹配语义的 section 中：\n%s" % _join_lines(issues)
+	)
 
 
 func test_top_level_private_variables_use_private_sections() -> void:
@@ -127,13 +202,23 @@ func test_top_level_private_variables_use_private_sections() -> void:
 	for path: String in script_paths:
 		issues.append_array(_collect_private_variable_section_issues(path))
 
-	assert_eq(issues, [], "私有变量应放在私有变量 section 中：\n%s" % _join_lines(issues))
+	assert_eq(
+		issues,
+		[],
+		"私有变量应放在私有变量 section 中：\n%s" % _join_lines(issues)
+	)
 
 
 func test_private_exports_keep_export_sections() -> void:
 	for declaration: String in ["@export var _source: Resource", "@export_storage var _configured: bool = false"]:
-		assert_true(_private_variable_section_is_valid(declaration, "导出变量"), "私有性不改变导出声明的分区。")
-		assert_false(_private_variable_section_is_valid(declaration, "私有变量"), "导出声明不能混入普通私有变量。")
+		assert_true(
+			_private_variable_section_is_valid(declaration, "导出变量"),
+			"私有性不改变导出声明的分区。"
+		)
+		assert_false(
+			_private_variable_section_is_valid(declaration, "私有变量"),
+			"导出声明不能混入普通私有变量。"
+		)
 	assert_true(_private_variable_section_is_valid("static var _cache: Dictionary = {}", "私有变量"))
 	assert_false(_private_variable_section_is_valid("var _cache: Dictionary = {}", "导出变量"))
 
@@ -144,7 +229,11 @@ func test_public_methods_do_not_use_private_sections() -> void:
 	for path: String in script_paths:
 		issues.append_array(_collect_public_method_in_private_section_issues(path))
 
-	assert_eq(issues, [], "普通公共方法不应放在私有/辅助 section 中：\n%s" % _join_lines(issues))
+	assert_eq(
+		issues,
+		[],
+		"普通公共方法不应放在私有/辅助 section 中：\n%s" % _join_lines(issues)
+	)
 
 
 func test_private_helper_sections_do_not_return_to_public_sections() -> void:
@@ -153,7 +242,11 @@ func test_private_helper_sections_do_not_return_to_public_sections() -> void:
 	for path: String in script_paths:
 		issues.append_array(_collect_section_regression_issues(path))
 
-	assert_eq(issues, [], "私有/辅助方法 section 后不应再回到普通公共 section：\n%s" % _join_lines(issues))
+	assert_eq(
+		issues,
+		[],
+		"私有/辅助方法 section 后不应再回到普通公共 section：\n%s" % _join_lines(issues)
+	)
 
 
 func test_class_name_files_document_class_before_class_name() -> void:
@@ -162,7 +255,11 @@ func test_class_name_files_document_class_before_class_name() -> void:
 	for path: String in script_paths:
 		issues.append_array(_collect_class_doc_order_issues(path))
 
-	assert_eq(issues, [], "class_name 文件应先写文件级说明再声明 class_name：\n%s" % _join_lines(issues))
+	assert_eq(
+		issues,
+		[],
+		"class_name 文件应先写文件级说明再声明 class_name：\n%s" % _join_lines(issues)
+	)
 
 
 func test_top_level_inner_classes_use_inner_class_sections() -> void:
@@ -171,7 +268,11 @@ func test_top_level_inner_classes_use_inner_class_sections() -> void:
 	for path: String in script_paths:
 		issues.append_array(_collect_inner_class_section_issues(path))
 
-	assert_eq(issues, [], "顶层内部类应放在内部类 section 中：\n%s" % _join_lines(issues))
+	assert_eq(
+		issues,
+		[],
+		"顶层内部类应放在内部类 section 中：\n%s" % _join_lines(issues)
+	)
 
 
 func test_top_level_sections_follow_documented_order() -> void:
@@ -180,7 +281,11 @@ func test_top_level_sections_follow_documented_order() -> void:
 	for path: String in script_paths:
 		issues.append_array(_collect_section_order_issues(path))
 
-	assert_eq(issues, [], "顶层 section 应遵循 CODING_STYLE.md 的布局顺序：\n%s" % _join_lines(issues))
+	assert_eq(
+		issues,
+		[],
+		"顶层 section 应遵循 CODING_STYLE.md 的布局顺序：\n%s" % _join_lines(issues)
+	)
 
 
 func test_framework_internal_type_section_is_not_treated_as_inner_class() -> void:
@@ -196,11 +301,25 @@ func test_framework_internal_type_section_is_not_treated_as_inner_class() -> voi
 		private_helper_rank,
 		"框架内部方法应按 canonical 顺序排在私有/辅助方法之前。",
 	)
-	assert_true(_section_is_inner_class_section("内部类"), "canonical 内部类 section 应继续被识别。")
+	assert_true(
+		_section_is_inner_class_section("内部类"),
+		"canonical 内部类 section 应继续被识别。"
+	)
 
 
 func test_editor_plugin_native_callbacks_use_callback_sections() -> void:
-	for method_name: String in ["_forward_3d_gui_input", "_get_plugin_name", "_make_custom_tooltip", "_handles", "_generate", "_set_read_only", "_update_property", "_get_drag_data", "_can_drop_data", "_drop_data"]:
+	for method_name: String in [
+		"_forward_3d_gui_input",
+		"_get_plugin_name",
+		"_make_custom_tooltip",
+		"_handles",
+		"_generate",
+		"_set_read_only",
+		"_update_property",
+		"_get_drag_data",
+		"_can_drop_data",
+		"_drop_data",
+	]:
 		assert_true(
 			_underscore_method_section_is_valid(method_name, "Godot 回调方法"),
 			"EditorPlugin 原生虚回调应保留 Godot 回调 section：" + method_name,
@@ -215,7 +334,13 @@ func test_initialize_preserves_native_callback_and_framework_hook_sections() -> 
 	var declares_initialize: bool = false
 	for method: Dictionary in ClassDB.class_get_method_list(&"MainLoop", true):
 		var method_name: Variant = method.get("name")
-		if (method_name is String or method_name is StringName) and method_name == &"_initialize":
+		if (
+			(
+				method_name is String
+				or method_name is StringName
+			)
+			and method_name == &"_initialize"
+		):
 			declares_initialize = true
 			break
 	assert_true(declares_initialize, "引擎声明的 MainLoop 原生回调应进入维护布局契约。")
@@ -226,22 +351,26 @@ func test_initialize_preserves_native_callback_and_framework_hook_sections() -> 
 		"SceneTree 继承的原生初始化回调应能使用 Godot 回调分区。",
 	)
 	var helper_source: String = source.replace("_initialize()", "_initialize_workflow()")
-	var helper_issues: Array[String] = _collect_underscore_method_section_issues_from_source(
-		helper_source, "main_loop_helper.gd",
+	var helper_issues: Array[String] = _collect_underscore_method_section_issues_from_source(helper_source, "main_loop_helper.gd",)
+	assert_eq(
+		helper_issues.size(),
+		1,
+		"相似命名的普通 helper 仍必须满足原有分区约束。"
 	)
-	assert_eq(helper_issues.size(), 1, "相似命名的普通 helper 仍必须满足原有分区约束。")
 	assert_true(_join_lines(helper_issues).contains("_initialize_workflow"))
-	var hook_source: String = "extends RefCounted\n# --- 可重写钩子 / 虚方法 ---\n## 初始化框架组件。\n## [br]\n## @api protected\nfunc _initialize() -> bool:\n\treturn true\n"
+	var hook_source: String = ("extends RefCounted\n# --- 可重写钩子 / 虚方法 ---\n## 初始化框架组件。\n## [br]\n## @api protected\nfunc _initialize() -> bool:\n\treturn true\n")
 	assert_eq(
 		_collect_underscore_method_section_issues_from_source(hook_source, "framework_initialize_hook.gd"),
 		[],
 		"同名的框架 protected 初始化钩子应保留原有虚方法分区。",
 	)
 	var public_source: String = hook_source.replace("可重写钩子 / 虚方法", "公共方法")
-	var public_issues: Array[String] = _collect_underscore_method_section_issues_from_source(
-		public_source, "public_initialize_helper.gd",
+	var public_issues: Array[String] = _collect_underscore_method_section_issues_from_source(public_source, "public_initialize_helper.gd",)
+	assert_eq(
+		public_issues.size(),
+		1,
+		"初始化名称不能放宽普通公共方法分区。"
 	)
-	assert_eq(public_issues.size(), 1, "初始化名称不能放宽普通公共方法分区。")
 	assert_true(_join_lines(public_issues).contains("_initialize"))
 	var other_callback_source: String = hook_source.replace("RefCounted", "Node").replace("_initialize", "_ready")
 	assert_eq(
@@ -267,10 +396,22 @@ func test_editor_generation_templates_use_documented_sections() -> void:
 	var actions_source: String = actions_file.get_as_text()
 	actions_file.close()
 
-	assert_false(source.contains("# --- 私有辅助方法 ---") or actions_source.contains("# --- 私有辅助方法 ---"), "编辑器代码生成模板应使用规范 section 名称。")
-	assert_false(_source_contains_lifecycle_template(actions_source, "Godot 生命周期方法"), "GF 模块模板不应把 GF 生命周期误写成 Godot 生命周期。")
-	assert_true(source.contains("# --- 私有/辅助方法 ---"), "编辑器代码生成模板应包含私有/辅助方法 section。")
-	assert_true(_source_contains_lifecycle_template(actions_source, "GF 生命周期方法"), "编辑器代码生成模板应包含 GF 生命周期 section。")
+	assert_false(
+		source.contains("# --- 私有辅助方法 ---") or actions_source.contains("# --- 私有辅助方法 ---"),
+		"编辑器代码生成模板应使用规范 section 名称。"
+	)
+	assert_false(
+		_source_contains_lifecycle_template(actions_source, "Godot 生命周期方法"),
+		"GF 模块模板不应把 GF 生命周期误写成 Godot 生命周期。"
+	)
+	assert_true(
+		source.contains("# --- 私有/辅助方法 ---"),
+		"编辑器代码生成模板应包含私有/辅助方法 section。"
+	)
+	assert_true(
+		_source_contains_lifecycle_template(actions_source, "GF 生命周期方法"),
+		"编辑器代码生成模板应包含 GF 生命周期 section。"
+	)
 
 
 func test_local_variables_do_not_shadow_node_name_property() -> void:
@@ -280,56 +421,113 @@ func test_local_variables_do_not_shadow_node_name_property() -> void:
 	for path: String in script_paths:
 		issues.append_array(_collect_local_name_shadow_issues(path))
 
-	assert_eq(issues, [], "局部变量不应命名为 name，以免在 Node 派生脚本和 GUT 测试中遮蔽 Node.name：\n%s" % _join_lines(issues))
+	assert_eq(
+		issues,
+		[],
+		"局部变量不应命名为 name，以免在 Node 派生脚本和 GUT 测试中遮蔽 Node.name：\n%s" % _join_lines(issues)
+	)
 
 
 func test_layout_scanner_does_not_hide_methods_after_comment_quotes() -> void:
 	for delimiter: String in ['"""', "'''"]:
-		var source: String = "extends RefCounted\n# 示例分隔符为 %s\n# --- 公共方法 ---\nfunc _hidden() -> void: pass\n" % delimiter
+		var source: String = ("extends RefCounted\n# 示例分隔符为 %s\n# --- 公共方法 ---\nfunc _hidden() -> void: pass\n" % delimiter)
 		var issues: Array[String] = _collect_underscore_method_section_issues_from_source(source, "comment_fixture.gd.txt")
-		assert_eq(issues.size(), 1, "普通注释中的引号不能屏蔽真实私有方法的分区错误。")
+		assert_eq(
+			issues.size(),
+			1,
+			"普通注释中的引号不能屏蔽真实私有方法的分区错误。"
+		)
 		assert_true(_join_lines(issues).contains("_hidden"))
 
 
 func test_layout_scanner_ignores_both_multiline_string_forms() -> void:
 	for delimiter: String in ['"""', "'''"]:
-		var source: String = "extends RefCounted\nconst EXAMPLE = %s\n# --- 公共方法 ---\nfunc _phantom() -> void: pass\n%s\n# --- 私有/辅助方法 ---\nfunc _real() -> void: pass\n" % [delimiter, delimiter]
-		assert_eq(_collect_underscore_method_section_issues_from_source(source, "literal_fixture.gd"), [], "字符串中的伪分区和声明不能进入布局校验。")
+		var source: String = (
+			"extends RefCounted\nconst EXAMPLE = %s\n# --- 公共方法 ---\nfunc _phantom() -> void: pass\n%s\n# --- 私有/辅助方法 ---\nfunc _real() -> void: pass\n"
+			% [delimiter, delimiter]
+		)
+		assert_eq(
+			_collect_underscore_method_section_issues_from_source(source, "literal_fixture.gd"),
+			[],
+			"字符串中的伪分区和声明不能进入布局校验。"
+		)
 		var lines: PackedStringArray = _structure_lines(source)
-		assert_eq(lines.size(), source.split("\n").size(), "词法屏蔽必须保留诊断行号。")
+		assert_eq(
+			lines.size(),
+			source.split("\n").size(),
+			"词法屏蔽必须保留诊断行号。"
+		)
 		assert_false("\n".join(lines).contains("_phantom"))
 		assert_true("\n".join(lines).contains("_real"))
 
 
 func test_export_annotations_remain_bound_across_lines() -> void:
-	for annotation: String in ["@export_storage", "@export # 说明", "@export_range(\n\t0, 10,\n)"]:
+	for annotation: String in [
+		"@export_storage",
+		"@export # 说明",
+		"@export_range(\n\t0, 10,\n)",
+	]:
 		for path: String in ["export_fixture.gd", "export_fixture.gd.txt"]:
-			var source: String = "extends Resource\n# --- 导出变量 ---\n## 序列化设置。\n## [br]\n## @api private\n%s\nvar _configured: int = 0\n" % annotation
+			var source: String = ("extends Resource\n# --- 导出变量 ---\n## 序列化设置。\n## [br]\n## @api private\n%s\nvar _configured: int = 0\n" % annotation)
 			var lines: PackedStringArray = _structure_lines(CONTRACT_SOURCES.render_source(source, path))
 			var declaration: String = lines[lines.size() - 2]
-			assert_true(_line_starts_private_variable(declaration), "跨行注解仍必须枚举私有字段。")
-			assert_true(_private_variable_section_is_valid(declaration, "导出变量"), "独立与多行导出注解和同一行注解的分区契约相同。")
-			assert_false(_private_variable_section_is_valid(declaration, "私有变量"), "导出字段仍不能藏到普通私有区。")
+			assert_true(
+				_line_starts_private_variable(declaration),
+				"跨行注解仍必须枚举私有字段。"
+			)
+			assert_true(
+				_private_variable_section_is_valid(declaration, "导出变量"),
+				"独立与多行导出注解和同一行注解的分区契约相同。"
+			)
+			assert_false(
+				_private_variable_section_is_valid(declaration, "私有变量"),
+				"导出字段仍不能藏到普通私有区。"
+			)
 
 
 func test_leading_annotations_preserve_variable_sections() -> void:
 	for path: String in ["annotations.gd", "annotations.gd.txt"]:
-		for annotations: String in ["@warning_ignore(\"unused_private_class_variable\")\n@onready\n", "@warning_ignore(\"unused_private_class_variable\") @onready ", "@onready\n@warning_ignore(\n\t\"unused_private_class_variable\",\n)\n"]:
+		for annotations: String in [
+			"@warning_ignore(\"unused_private_class_variable\")\n@onready\n",
+			"@warning_ignore(\"unused_private_class_variable\") @onready ",
+			"@onready\n@warning_ignore(\n\t\"unused_private_class_variable\",\n)\n",
+		]:
 			var source: String = "extends Node\n%svar _value: Node = null\nvar _ordinary: int = 0\n" % annotations
 			var lines: PackedStringArray = _structure_lines(CONTRACT_SOURCES.render_source(source, path))
 			var declaration: String = lines[lines.size() - 3]
-			assert_true(_line_starts_private_variable(declaration), "前置注解不能隐藏私有字段。")
-			assert_true(_private_variable_section_is_valid(declaration, "@onready 变量"), "完整注解块决定 onready 分区。")
-			assert_false(_private_variable_section_is_valid(declaration, "私有变量"), "onready 字段不能混入普通私有区。")
-			assert_true(_private_variable_section_is_valid(lines[lines.size() - 2], "私有变量"), "注解不能泄漏到下一声明。")
-		for annotations: String in ["@warning_ignore(\"unused_private_class_variable\")\n@export_range(\n\t0, 10,\n)\n", "@warning_ignore(\"unused_private_class_variable\") @export "]:
+			assert_true(
+				_line_starts_private_variable(declaration),
+				"前置注解不能隐藏私有字段。"
+			)
+			assert_true(
+				_private_variable_section_is_valid(declaration, "@onready 变量"),
+				"完整注解块决定 onready 分区。"
+			)
+			assert_false(
+				_private_variable_section_is_valid(declaration, "私有变量"),
+				"onready 字段不能混入普通私有区。"
+			)
+			assert_true(
+				_private_variable_section_is_valid(
+					lines[lines.size() - 2],
+					"私有变量"
+				),
+				"注解不能泄漏到下一声明。"
+			)
+		for annotations: String in ["@warning_ignore(\"unused_private_class_variable\")\n@export_range(\n\t0, 10,\n)\n", "@warning_ignore(\"unused_private_class_variable\") @export ",]:
 			var lines: PackedStringArray = _structure_lines("extends Resource\n%svar _value: int = 0\n" % annotations)
 			var declaration: String = lines[lines.size() - 2]
 			assert_true(_line_starts_private_variable(declaration))
 			assert_true(_private_variable_section_is_valid(declaration, "导出变量"))
 			assert_false(_private_variable_section_is_valid(declaration, "私有变量"))
 		var literal_lines: PackedStringArray = _structure_lines("extends Node\n@warning_ignore(\"@onready @export\")\nvar _text: String = \"@onready @export\"\n")
-		assert_true(_private_variable_section_is_valid(literal_lines[literal_lines.size() - 2], "私有变量"), "字符串中的伪注解不改变字段分区。")
+		assert_true(
+			_private_variable_section_is_valid(
+				literal_lines[literal_lines.size() - 2],
+				"私有变量"
+			),
+			"字符串中的伪注解不改变字段分区。"
+		)
 
 
 # --- 私有/辅助方法 ---
@@ -343,7 +541,7 @@ func _structure_lines(source: String) -> PackedStringArray:
 		var lexical: Dictionary = CONTRACT_SOURCES.lex_line(raw_line, delimiter)
 		delimiter = GF_VARIANT_ACCESS.get_option_string(lexical, "multiline_delimiter")
 		# 保留真正的文档和 section 注释；字符串内同样的文本只保留空白位置。
-		if not GF_VARIANT_ACCESS.get_option_bool(lexical, "starts_in_multiline") and raw_line.strip_edges().begins_with("#"):
+		if (not GF_VARIANT_ACCESS.get_option_bool(lexical, "starts_in_multiline") and raw_line.strip_edges().begins_with("#")):
 			lines[index] = raw_line
 		else:
 			lines[index] = GF_VARIANT_ACCESS.get_option_string(lexical, "code")
@@ -369,11 +567,30 @@ func _normalize_annotated_declaration(structure: String) -> String:
 	var is_onready: bool = false
 	while remaining.begins_with("@"):
 		var offset: int = 1
-		while offset < remaining.length() and (remaining[offset].is_valid_identifier() or remaining[offset].is_valid_int()):
+		while (
+			offset < remaining.length()
+			and (
+				remaining[offset].is_valid_identifier()
+				or remaining[offset].is_valid_int()
+			)
+		):
 			offset += 1
-		var annotation: String = remaining.substr(1, offset - 1)
+		var annotation: String = remaining.substr(
+			1,
+			offset - 1
+		)
 		is_onready = is_onready or annotation == "onready"
-		is_export = is_export or (annotation.begins_with("export") and annotation not in ["export_category", "export_group", "export_subgroup"])
+		is_export = (
+			is_export
+			or (
+				annotation.begins_with("export")
+				and annotation not in [
+					"export_category",
+					"export_group",
+					"export_subgroup",
+				]
+			)
+		)
 		remaining = remaining.substr(offset).strip_edges()
 		if remaining.begins_with("("):
 			var depth: int = 0
@@ -400,7 +617,11 @@ func _normalize_annotated_declaration(structure: String) -> String:
 func _collect_gdscript_files(root_path: String) -> Array[String]:
 	var issues: Array[String] = []
 	var paths: Array[String] = CONTRACT_SOURCES.collect_files(root_path, issues)
-	assert_eq(issues, [], "完整扫描必须能枚举每个目录：%s" % _join_lines(issues))
+	assert_eq(
+		issues,
+		[],
+		"完整扫描必须能枚举每个目录：%s" % _join_lines(issues)
+	)
 	return paths
 
 
@@ -432,63 +653,98 @@ func _collect_underscore_method_section_issues_from_source(source: String, path:
 		if _underscore_method_section_is_valid(function_name, current_section):
 			continue
 
-		issues.append("%s:%d %s 位于不匹配的 section：%s" % [
-			path,
-			line_index + 1,
-			function_name,
-			_get_section_label(current_section),
-		])
+		issues.append(
+			"%s:%d %s 位于不匹配的 section：%s"
+			% [
+				path,
+				line_index + 1,
+				function_name,
+				_get_section_label(current_section),
+			]
+		)
 	return issues
 
 
 func _collect_private_variable_section_issues(path: String) -> Array[String]:
 	var issues: Array[String] = []
-	_scan_top_level_source(path, func(line: String, line_number: int, section_name: String) -> void:
-		if _line_starts_private_variable(line) and not _private_variable_section_is_valid(line, section_name):
-			issues.append("%s:%d 私有变量位于不匹配的 section：%s" % [
-				path,
-				line_number,
-				_get_section_label(section_name),
-			])
+	_scan_top_level_source(
+		path,
+		func(
+			line: String,
+			line_number: int,
+			section_name: String
+		) -> void:
+			if _line_starts_private_variable(line) and not _private_variable_section_is_valid(line, section_name):
+				issues.append(
+					"%s:%d 私有变量位于不匹配的 section：%s"
+					% [
+						path,
+						line_number,
+						_get_section_label(section_name),
+					]
+				)
 	)
 	return issues
 
 
 func _collect_public_method_in_private_section_issues(path: String) -> Array[String]:
 	var issues: Array[String] = []
-	_scan_top_level_source(path, func(line: String, line_number: int, section_name: String) -> void:
-		var function_name: String = _parse_top_level_function_name(line)
-		if function_name.is_empty() or function_name.begins_with("_"):
-			return
-		if _section_is_private_helper_section(section_name):
-			issues.append("%s:%d %s 位于私有/辅助 section：%s" % [
-				path,
-				line_number,
-				function_name,
-				_get_section_label(section_name),
-			])
+	_scan_top_level_source(
+		path,
+		func(
+			line: String,
+			line_number: int,
+			section_name: String
+		) -> void:
+			var function_name: String = _parse_top_level_function_name(line)
+			if function_name.is_empty() or function_name.begins_with("_"):
+				return
+			if _section_is_private_helper_section(section_name):
+				issues.append(
+					"%s:%d %s 位于私有/辅助 section：%s"
+					% [
+						path,
+						line_number,
+						function_name,
+						_get_section_label(section_name),
+					]
+				)
 	)
 	return issues
 
 
 func _collect_section_regression_issues(path: String) -> Array[String]:
 	var issues: Array[String] = []
-	var state: Dictionary = {
-		"private_helper_section_seen": false,
-	}
-	_scan_top_level_source(path, func(line: String, line_number: int, _section_name: String) -> void:
-		var parsed_section: String = _parse_section_name(line)
-		if parsed_section.is_empty():
-			return
+	var state: Dictionary = { "private_helper_section_seen": false, }
+	_scan_top_level_source(
+		path,
+		func(
+			line: String,
+			line_number: int,
+			_section_name: String
+		) -> void:
+			var parsed_section: String = _parse_section_name(line)
+			if parsed_section.is_empty():
+				return
 
-		if GF_VARIANT_ACCESS.get_option_bool(state, "private_helper_section_seen", false) and not _section_is_allowed_after_private_helper_section(parsed_section):
-			issues.append("%s:%d section 不应出现在私有/辅助方法 section 之后：%s" % [
-				path,
-				line_number,
-				_get_section_label(parsed_section),
-			])
-		if _section_is_private_helper_section(parsed_section):
-			state["private_helper_section_seen"] = true
+			if (
+				GF_VARIANT_ACCESS.get_option_bool(
+					state,
+					"private_helper_section_seen",
+					false
+				)
+				and not _section_is_allowed_after_private_helper_section(parsed_section)
+			):
+				issues.append(
+					"%s:%d section 不应出现在私有/辅助方法 section 之后：%s"
+					% [
+						path,
+						line_number,
+						_get_section_label(parsed_section),
+					]
+				)
+			if _section_is_private_helper_section(parsed_section):
+				state["private_helper_section_seen"] = true
 	)
 	return issues
 
@@ -498,7 +754,12 @@ func _collect_class_doc_order_issues(path: String) -> Array[String]:
 	if file == null:
 		return ["%s: cannot open file" % path]
 
-	var lines: PackedStringArray = _structure_lines(CONTRACT_SOURCES.render_source(file.get_as_text(), path))
+	var lines: PackedStringArray = _structure_lines(
+		CONTRACT_SOURCES.render_source(
+			file.get_as_text(),
+			path
+		)
+	)
 	file.close()
 	var first_doc_line: int = -1
 	var class_name_line: int = -1
@@ -514,52 +775,74 @@ func _collect_class_doc_order_issues(path: String) -> Array[String]:
 		return []
 	if first_doc_line != -1 and first_doc_line < class_name_line:
 		return []
-	return ["%s:%d class_name 出现在文件级说明之前" % [path, class_name_line]]
+	return [
+		"%s:%d class_name 出现在文件级说明之前"
+		% [path, class_name_line],
+	]
 
 
 func _collect_inner_class_section_issues(path: String) -> Array[String]:
 	var issues: Array[String] = []
-	_scan_top_level_source(path, func(line: String, line_number: int, section_name: String) -> void:
-		var inner_class_name: String = _parse_top_level_inner_class_name(line)
-		if inner_class_name.is_empty():
-			return
-		if _section_is_inner_class_section(section_name):
-			return
-		issues.append("%s:%d %s 位于非内部类 section：%s" % [
-			path,
-			line_number,
-			inner_class_name,
-			_get_section_label(section_name),
-		])
+	_scan_top_level_source(
+		path,
+		func(
+			line: String,
+			line_number: int,
+			section_name: String
+		) -> void:
+			var inner_class_name: String = _parse_top_level_inner_class_name(line)
+			if inner_class_name.is_empty():
+				return
+			if _section_is_inner_class_section(section_name):
+				return
+			issues.append(
+				"%s:%d %s 位于非内部类 section：%s"
+				% [
+					path,
+					line_number,
+					inner_class_name,
+					_get_section_label(section_name),
+				]
+			)
 	)
 	return issues
 
 
 func _collect_section_order_issues(path: String) -> Array[String]:
 	var issues: Array[String] = []
-	var state: Dictionary = {
-		"last_rank": -1,
-		"last_section": "",
-	}
-	_scan_top_level_source(path, func(line: String, line_number: int, _section_name: String) -> void:
-		var parsed_section: String = _parse_section_name(line)
-		if parsed_section.is_empty():
-			return
+	var state: Dictionary = { "last_rank": -1, "last_section": "", }
+	_scan_top_level_source(
+		path,
+		func(
+			line: String,
+			line_number: int,
+			_section_name: String
+		) -> void:
+			var parsed_section: String = _parse_section_name(line)
+			if parsed_section.is_empty():
+				return
 
-		var rank: int = _get_section_order_rank(parsed_section)
-		if rank == -1:
-			return
+			var rank: int = _get_section_order_rank(parsed_section)
+			if rank == -1:
+				return
 
-		var last_rank: int = GF_VARIANT_ACCESS.get_option_int(state, "last_rank", -1)
-		if last_rank != -1 and rank < last_rank:
-			issues.append("%s:%d section 顺序倒退：%s 出现在 %s 之后" % [
-				path,
-				line_number,
-				_get_section_label(parsed_section),
-				_get_section_label(GF_VARIANT_ACCESS.get_option_string(state, "last_section")),
-			])
-		state["last_rank"] = rank
-		state["last_section"] = parsed_section
+			var last_rank: int = GF_VARIANT_ACCESS.get_option_int(
+				state,
+				"last_rank",
+				-1
+			)
+			if last_rank != -1 and rank < last_rank:
+				issues.append(
+					"%s:%d section 顺序倒退：%s 出现在 %s 之后"
+					% [
+						path,
+						line_number,
+						_get_section_label(parsed_section),
+						_get_section_label(GF_VARIANT_ACCESS.get_option_string(state, "last_section")),
+					]
+				)
+			state["last_rank"] = rank
+			state["last_section"] = parsed_section
 	)
 	return issues
 
@@ -569,7 +852,12 @@ func _collect_local_name_shadow_issues(path: String) -> Array[String]:
 	if file == null:
 		return ["%s: cannot open file" % path]
 
-	var lines: PackedStringArray = _structure_lines(CONTRACT_SOURCES.render_source(file.get_as_text(), path))
+	var lines: PackedStringArray = _structure_lines(
+		CONTRACT_SOURCES.render_source(
+			file.get_as_text(),
+			path
+		)
+	)
 	file.close()
 	var issues: Array[String] = []
 	var function_indent: int = -1
@@ -591,17 +879,29 @@ func _collect_local_name_shadow_issues(path: String) -> Array[String]:
 		if not _declares_reserved_local_name(trimmed):
 			continue
 
-		issues.append("%s:%d local variable 'name' shadows Node.name; use a semantic name" % [path, line_index + 1])
+		issues.append(
+			"%s:%d local variable 'name' shadows Node.name; use a semantic name"
+			% [path, line_index + 1]
+		)
 	return issues
 
 
 func _scan_top_level_source(path: String, callback: Callable) -> void:
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
-		callback.call("cannot open file", 0, "")
+		callback.call(
+			"cannot open file",
+			0,
+			""
+		)
 		return
 
-	var lines: PackedStringArray = _structure_lines(CONTRACT_SOURCES.render_source(file.get_as_text(), path))
+	var lines: PackedStringArray = _structure_lines(
+		CONTRACT_SOURCES.render_source(
+			file.get_as_text(),
+			path
+		)
+	)
 	file.close()
 	var current_section: String = ""
 	for line_index: int in range(lines.size()):
@@ -610,7 +910,11 @@ func _scan_top_level_source(path: String, callback: Callable) -> void:
 		var section_name: String = _parse_section_name(raw_line)
 		if not section_name.is_empty():
 			current_section = section_name
-		callback.call(raw_line, line_index + 1, current_section)
+		callback.call(
+			raw_line,
+			line_index + 1,
+			current_section
+		)
 
 
 func _parse_section_name(line: String) -> String:
@@ -653,7 +957,13 @@ func _parse_top_level_inner_class_name(line: String) -> String:
 
 	var end_index: int = signature.find(" ")
 	var colon_index: int = signature.find(":")
-	if end_index == -1 or (colon_index != -1 and colon_index < end_index):
+	if (
+		end_index == -1
+		or (
+			colon_index != -1
+			and colon_index < end_index
+		)
+	):
 		end_index = colon_index
 	if end_index == -1:
 		return signature
@@ -663,7 +973,13 @@ func _parse_top_level_inner_class_name(line: String) -> String:
 func _line_starts_private_variable(line: String) -> bool:
 	if line.begins_with("var _") or line.begins_with("static var _"):
 		return true
-	return (line.begins_with("@export") or line.begins_with("@onready ")) and line.contains(" var _")
+	return (
+		(
+			line.begins_with("@export")
+			or line.begins_with("@onready ")
+		)
+		and line.contains(" var _")
+	)
 
 
 func _private_variable_section_is_valid(line: String, section_name: String) -> bool:
@@ -675,18 +991,42 @@ func _private_variable_section_is_valid(line: String, section_name: String) -> b
 
 
 func _declares_reserved_local_name(trimmed_line: String) -> bool:
-	return _starts_with_keyword_identifier(trimmed_line, "var", "name") or _starts_with_keyword_identifier(trimmed_line, "for", "name")
+	return (
+		_starts_with_keyword_identifier(
+			trimmed_line,
+			"var",
+			"name"
+		)
+		or _starts_with_keyword_identifier(
+			trimmed_line,
+			"for",
+			"name"
+		)
+	)
 
 
-func _starts_with_keyword_identifier(trimmed_line: String, keyword: String, identifier: String) -> bool:
-	var prefix: String = "%s %s" % [keyword, identifier]
+func _starts_with_keyword_identifier(
+	trimmed_line: String,
+	keyword: String,
+	identifier: String
+) -> bool:
+	var prefix: String = (
+		"%s %s"
+		% [keyword, identifier]
+	)
 	if not trimmed_line.begins_with(prefix):
 		return false
 	if trimmed_line.length() == prefix.length():
 		return true
 
 	var next_character: String = trimmed_line[prefix.length()]
-	return [" ", "\t", ":", "=", ","].has(next_character)
+	return [
+		" ",
+		"\t",
+		":",
+		"=",
+		",",
+	].has(next_character)
 
 
 func _underscore_method_section_is_valid(function_name: String, section_name: String) -> bool:
@@ -701,18 +1041,12 @@ func _underscore_method_section_is_valid(function_name: String, section_name: St
 			)
 		)
 	if function_name.begins_with("_on_"):
-		return (
-			_section_has_marker(section_name, SIGNAL_CALLBACK_SECTION_MARKERS)
-			or _section_has_marker(section_name, VIRTUAL_SECTION_MARKERS)
-		)
+		return (_section_has_marker(section_name, SIGNAL_CALLBACK_SECTION_MARKERS) or _section_has_marker(section_name, VIRTUAL_SECTION_MARKERS))
 	return _section_has_marker(section_name, VIRTUAL_SECTION_MARKERS)
 
 
 func _section_is_private_variable_section(section_name: String) -> bool:
-	return (
-		_section_has_marker(section_name, PRIVATE_SECTION_MARKERS)
-		and _section_has_marker(section_name, VARIABLE_SECTION_MARKERS)
-	)
+	return (_section_has_marker(section_name, PRIVATE_SECTION_MARKERS) and _section_has_marker(section_name, VARIABLE_SECTION_MARKERS))
 
 
 func _section_is_private_helper_section(section_name: String) -> bool:
@@ -755,10 +1089,18 @@ func _get_section_order_rank(section_name: String) -> int:
 		return 120
 
 	for rule: Dictionary in SECTION_ORDER_RULES:
-		var markers: Array = GF_VARIANT_ACCESS.get_option_array(rule, "markers", [])
+		var markers: Array = GF_VARIANT_ACCESS.get_option_array(
+			rule,
+			"markers",
+			[]
+		)
 		for marker: String in markers:
 			if section_name.to_lower().contains(marker.to_lower()):
-				return GF_VARIANT_ACCESS.get_option_int(rule, "rank", -1)
+				return GF_VARIANT_ACCESS.get_option_int(
+					rule,
+					"rank",
+					-1
+				)
 	return -1
 
 
@@ -778,7 +1120,10 @@ func _section_has_marker(section_name: String, markers: Array[String]) -> bool:
 
 func _trim_cr(text: String) -> String:
 	if text.ends_with("\r"):
-		return text.substr(0, text.length() - 1)
+		return text.substr(
+			0,
+			text.length() - 1
+		)
 	return text
 
 

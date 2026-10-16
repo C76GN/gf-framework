@@ -4,54 +4,123 @@ extends GutTest
 
 func test_projection_rejects_object_keys_at_root_after_rename_and_in_defaults() -> void:
 	var object_key: Resource = Resource.new()
-	var projected: Dictionary = GFDataProjection.project_dictionary({object_key: 1, "safe": 2}, {
-		"rename_fields": {"safe": object_key},
-		"defaults": {object_key: 3, "default_owner": object_key, "keep": 4},
-	})
-	assert_false(projected.has(object_key), "最终输出不得保留根键、rename键或默认值中的对象。")
+	var projected: Dictionary = GFDataProjection.project_dictionary(
+		{ object_key: 1, "safe": 2 },
+		{
+			"rename_fields": { "safe": object_key },
+			"defaults": {
+				object_key: 3,
+				"default_owner": object_key,
+				"keep": 4,
+			},
+		}
+	)
+	assert_false(
+		projected.has(object_key),
+		"最终输出不得保留根键、rename键或默认值中的对象。"
+	)
 	assert_false(projected.has("default_owner"))
-	assert_eq(GFVariantData.get_option_int(projected, "keep"), 4)
-	assert_false(GFDataProjection.project_object(null, PackedStringArray(), {"defaults": {object_key: 1}}).has(object_key))
+	assert_eq(
+		GFVariantData.get_option_int(projected, "keep"),
+		4
+	)
+	assert_false(
+		GFDataProjection.project_object(
+			null,
+			PackedStringArray(),
+			{
+				"defaults": { object_key: 1 },
+			}
+		).has(object_key)
+	)
 
 
 func test_projection_can_explicitly_return_json_safe_values() -> void:
 	var native: Variant = GFDataProjection.project_value(Vector2(NAN, INF))
-	var encoded: Variant = GFDataProjection.project_value(Vector2(NAN, INF), { "json_safe": true })
+	var encoded: Variant = GFDataProjection.project_value(
+		Vector2(NAN, INF),
+		{ "json_safe": true }
+	)
 
-	assert_true(native is Vector2, "默认投影应保留原生 Variant 语义。")
-	assert_true(encoded is Dictionary, "json_safe 投影应使用 typed marker 编码非有限向量。")
-	assert_false(JSON.stringify(encoded).contains(":null"), "json_safe 投影不应让非有限数退化为 JSON null。")
+	assert_true(
+		native is Vector2,
+		"默认投影应保留原生 Variant 语义。"
+	)
+	assert_true(
+		encoded is Dictionary,
+		"json_safe 投影应使用 typed marker 编码非有限向量。"
+	)
+	assert_false(
+		JSON.stringify(encoded).contains(":null"),
+		"json_safe 投影不应让非有限数退化为 JSON null。"
+	)
 
 
 func test_dictionary_projection_filters_and_sanitizes_values() -> void:
 	var node: Node = Node.new()
 	node.name = "UnsafeNode"
 
-	var projected: Dictionary = GFDataProjection.project_dictionary({
-		"id": 7,
-		"title": "Potion",
-		"node": node,
-		"nested": {
-			"enabled": true,
-			"owner": node,
+	var projected: Dictionary = GFDataProjection.project_dictionary(
+		{
+			"id": 7,
+			"title": "Potion",
+			"node": node,
+			"nested": { "enabled": true, "owner": node, },
+			"array": [
+				1,
+				node,
+				"tail",
+			],
 		},
-		"array": [1, node, "tail"],
-	}, {
-		"allowed_fields": PackedStringArray(["id", "nested", "array"]),
-		"unsupported": "null",
-	})
+		{
+			"allowed_fields": PackedStringArray(
+				[
+					"id",
+					"nested",
+					"array",
+				]
+			),
+			"unsupported": "null",
+		}
+	)
 
 	var nested: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(projected, "nested"))
 	var array: Array = GFVariantData.as_array(GFVariantData.get_option_value(projected, "array"))
 
-	assert_true(projected.has("id"), "允许字段应保留。")
-	assert_false(projected.has("title"), "未在 allowlist 中的字段应剔除。")
-	assert_false(projected.has("node"), "未允许的 Object 字段不应暴露。")
-	assert_eq(GFVariantData.get_option_int(projected, "id"), 7, "标量字段应保留。")
-	assert_true(GFVariantData.get_option_bool(nested, "enabled"), "嵌套纯数据应保留。")
-	assert_true(GFVariantData.get_option_value(nested, "owner") == null, "嵌套 Object 应按 unsupported=null 处理。")
-	assert_eq(array.size(), 3, "数组默认应保留形状。")
-	assert_true(array[1] == null, "数组中的 Object 应替换为 null。")
+	assert_true(
+		projected.has("id"),
+		"允许字段应保留。"
+	)
+	assert_false(
+		projected.has("title"),
+		"未在 allowlist 中的字段应剔除。"
+	)
+	assert_false(
+		projected.has("node"),
+		"未允许的 Object 字段不应暴露。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(projected, "id"),
+		7,
+		"标量字段应保留。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(nested, "enabled"),
+		"嵌套纯数据应保留。"
+	)
+	assert_true(
+		GFVariantData.get_option_value(nested, "owner") == null,
+		"嵌套 Object 应按 unsupported=null 处理。"
+	)
+	assert_eq(
+		array.size(),
+		3,
+		"数组默认应保留形状。"
+	)
+	assert_true(
+		array[1] == null,
+		"数组中的 Object 应替换为 null。"
+	)
 
 	node.free()
 
@@ -60,52 +129,81 @@ func test_projection_with_report_records_dropped_paths() -> void:
 	var node: Node = Node.new()
 	node.name = "DroppedNode"
 
-	var result: Dictionary = GFDataProjection.project_with_report({
-		"safe": 1,
-		"node": node,
-		"nested": {
-			"owner": node,
+	var result: Dictionary = GFDataProjection.project_with_report(
+		{
+			"safe": 1,
+			"node": node,
+			"nested": { "owner": node, },
+			"array": [node],
 		},
-		"array": [node],
-	}, {
-		"unsupported": "drop",
-	})
+		{ "unsupported": "drop", }
+	)
 	var report: GFValidationReport = _as_report(GFVariantData.get_option_value(result, "report"))
 
-	assert_true(GFVariantData.get_option_bool(result, "ok"), "投影 drop unsupported 时数据结果可继续使用。")
+	assert_true(
+		GFVariantData.get_option_bool(result, "ok"),
+		"投影 drop unsupported 时数据结果可继续使用。"
+	)
 	assert_not_null(report, "project_with_report 应返回诊断报告。")
-	assert_true(report != null and report.get_warning_count() >= 3, "被 drop 的字段应进入 warning 诊断。")
-	assert_true(report != null and _has_issue_path(report, "node"), "顶层被 drop 字段应记录路径。")
-	assert_true(report != null and _has_issue_path(report, "nested.owner"), "嵌套被 drop 字段应记录路径。")
-	assert_true(report != null and _has_issue_path(report, "array[0]"), "数组中被 drop 项应记录路径。")
+	assert_true(
+		report != null and report.get_warning_count() >= 3,
+		"被 drop 的字段应进入 warning 诊断。"
+	)
+	assert_true(
+		report != null and _has_issue_path(report, "node"),
+		"顶层被 drop 字段应记录路径。"
+	)
+	assert_true(
+		report != null and _has_issue_path(report, "nested.owner"),
+		"嵌套被 drop 字段应记录路径。"
+	)
+	assert_true(
+		report != null and _has_issue_path(report, "array[0]"),
+		"数组中被 drop 项应记录路径。"
+	)
 
 	node.free()
 
 
 func test_projection_schema_reports_invalid_coercion_without_fallback() -> void:
 	var id_field: GFSchemaField = GFSchemaField.new()
-	var _configured_field: GFSchemaField = id_field.configure(&"id", GFSchemaField.ValueType.INT, {
-		"required": true,
-	})
+	var _configured_field: GFSchemaField = id_field.configure(
+		&"id",
+		GFSchemaField.ValueType.INT,
+		{ "required": true, }
+	)
 	var schema: GFDictionarySchema = GFDictionarySchema.new()
-	var _configured_schema: GFDictionarySchema = schema.configure(&"projection", [id_field], {
-		"coerce_values": true,
-		"fail_on_coerce_error": true,
-	})
+	var _configured_schema: GFDictionarySchema = schema.configure(
+		&"projection",
+		[id_field],
+		{ "coerce_values": true, "fail_on_coerce_error": true, }
+	)
 
-	var result: Dictionary = GFDataProjection.project_with_report({
-		"id": "bad",
-	}, {
-		"schema": schema,
-		"schema_fields_only": true,
-	})
+	var result: Dictionary = GFDataProjection.project_with_report(
+		{ "id": "bad", },
+		{ "schema": schema, "schema_fields_only": true, }
+	)
 	var data: Dictionary = GFVariantData.get_option_dictionary(result, "data")
 	var report: GFValidationReport = _as_report(GFVariantData.get_option_value(result, "report"))
 
-	assert_false(GFVariantData.get_option_bool(result, "ok", true), "schema 转换失败应反映到投影结果。")
-	assert_eq(GFVariantData.get_option_string(data, "id"), "bad", "失败转换不应把坏输入降级成 0。")
+	assert_false(
+		GFVariantData.get_option_bool(
+			result,
+			"ok",
+			true
+		),
+		"schema 转换失败应反映到投影结果。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(data, "id"),
+		"bad",
+		"失败转换不应把坏输入降级成 0。"
+	)
 	assert_not_null(report, "schema 转换失败应写入投影报告。")
-	assert_true(report != null and _has_issue_kind(report, "coerce_failed"), "投影报告应保留 coerce_failed。")
+	assert_true(
+		report != null and _has_issue_kind(report, "coerce_failed"),
+		"投影报告应保留 coerce_failed。"
+	)
 
 
 func test_object_projection_requires_explicit_fields() -> void:
@@ -113,13 +211,18 @@ func test_object_projection_requires_explicit_fields() -> void:
 	node.name = "ProjectedNode"
 
 	var empty_projection: Dictionary = GFDataProjection.project_object(node)
-	var projected: Dictionary = GFDataProjection.project_object(node, PackedStringArray(["name"]), {
-		"rename_fields": {
-			"name": "node_name",
-		},
-	})
+	var projected: Dictionary = GFDataProjection.project_object(
+		node,
+		PackedStringArray(["name"]),
+		{
+			"rename_fields": { "name": "node_name", },
+		}
+	)
 
-	assert_true(empty_projection.is_empty(), "没有显式字段时不应暴露 Object 属性。")
+	assert_true(
+		empty_projection.is_empty(),
+		"没有显式字段时不应暴露 Object 属性。"
+	)
 	assert_eq(
 		GFVariantData.get_option_string(projected, "node_name"),
 		"ProjectedNode",
@@ -134,14 +237,23 @@ func test_projection_reports_freed_object_without_property_access() -> void:
 	node.name = "FreedNode"
 	node.free()
 
-	var result: Dictionary = GFDataProjection.project_with_report(node, {
-		"fields": PackedStringArray(["name"]),
-	})
+	var result: Dictionary = GFDataProjection.project_with_report(
+		node,
+		{
+			"fields": PackedStringArray(["name"]),
+		}
+	)
 	var report: GFValidationReport = _as_report(GFVariantData.get_option_value(result, "report"))
 
-	assert_true(GFVariantData.get_option_bool(result, "ok"), "释放后的对象应降级为空数据而不是让投影失败。")
+	assert_true(
+		GFVariantData.get_option_bool(result, "ok"),
+		"释放后的对象应降级为空数据而不是让投影失败。"
+	)
 	assert_not_null(report, "释放对象诊断应写入报告。")
-	assert_true(report != null and _has_issue_kind(report, "invalid_object"), "释放后的对象应产生稳定诊断类别。")
+	assert_true(
+		report != null and _has_issue_kind(report, "invalid_object"),
+		"释放后的对象应产生稳定诊断类别。"
+	)
 
 
 func test_projection_reports_circular_dictionary_and_array() -> void:
@@ -150,12 +262,10 @@ func test_projection_reports_circular_dictionary_and_array() -> void:
 	var circular_array: Array = []
 	circular_array.append(circular_array)
 
-	var result: Dictionary = GFDataProjection.project_with_report({
-		"dictionary": circular_dictionary,
-		"array": circular_array,
-	}, {
-		"unsupported": "metadata",
-	})
+	var result: Dictionary = GFDataProjection.project_with_report(
+		{ "dictionary": circular_dictionary, "array": circular_array, },
+		{ "unsupported": "metadata", }
+	)
 	var data: Dictionary = GFVariantData.get_option_dictionary(result, "data")
 	var projected_dictionary: Dictionary = GFVariantData.get_option_dictionary(data, "dictionary")
 	var projected_array: Array = GFVariantData.get_option_array(data, "array")
@@ -163,11 +273,25 @@ func test_projection_reports_circular_dictionary_and_array() -> void:
 	var array_marker: Dictionary = GFVariantData.as_dictionary(projected_array[0])
 	var report: GFValidationReport = _as_report(GFVariantData.get_option_value(result, "report"))
 
-	assert_true(GFVariantData.get_option_bool(result, "ok"), "循环结构应降级为可消费数据。")
-	assert_eq(GFVariantData.get_option_string(dictionary_marker, "unsupported"), "circular_reference", "循环字典应写入元数据标记。")
-	assert_eq(GFVariantData.get_option_string(array_marker, "unsupported"), "circular_reference", "循环数组应写入元数据标记。")
+	assert_true(
+		GFVariantData.get_option_bool(result, "ok"),
+		"循环结构应降级为可消费数据。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(dictionary_marker, "unsupported"),
+		"circular_reference",
+		"循环字典应写入元数据标记。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(array_marker, "unsupported"),
+		"circular_reference",
+		"循环数组应写入元数据标记。"
+	)
 	assert_not_null(report, "循环结构应写入诊断报告。")
-	assert_true(report != null and _has_issue_kind(report, "circular_reference"), "循环结构应产生稳定诊断类别。")
+	assert_true(
+		report != null and _has_issue_kind(report, "circular_reference"),
+		"循环结构应产生稳定诊断类别。"
+	)
 
 
 func _has_issue_path(report: GFValidationReport, path: String) -> bool:

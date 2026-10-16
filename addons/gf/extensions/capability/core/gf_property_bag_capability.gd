@@ -18,6 +18,8 @@ extends GFCapability
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param key: 属性键。
 ## [br]
 ## @param old_value: 旧属性值。
@@ -27,7 +29,11 @@ extends GFCapability
 ## @param new_value: 新属性值。
 ## [br]
 ## @schema new_value: 属性表中的任意项目值。
-signal property_changed(key: StringName, old_value: Variant, new_value: Variant)
+signal property_changed(
+	key: StringName,
+	old_value: Variant,
+	new_value: Variant
+)
 
 ## 当属性被移除时发出。
 ## [br]
@@ -84,12 +90,24 @@ func set_property_value(key: StringName, value: Variant) -> void:
 	if _values.has(key) and old_value == value:
 		return
 
-	var copied_value: Variant = GFVariantData.duplicate_variant(value, true, false)
+	var copied_value: Variant = GFVariantData.duplicate_variant(
+		value,
+		true,
+		false
+	)
 	_values[key] = copied_value
 	property_changed.emit(
 		key,
-		GFVariantData.duplicate_variant(old_value, true, false),
-		GFVariantData.duplicate_variant(copied_value, true, false)
+		GFVariantData.duplicate_variant(
+			old_value,
+			true,
+			false
+		),
+		GFVariantData.duplicate_variant(
+			copied_value,
+			true,
+			false
+		)
 	)
 
 
@@ -132,7 +150,11 @@ func remove_property_value(key: StringName) -> bool:
 	if not _values.has(key):
 		return false
 
-	var old_value: Variant = GFVariantData.duplicate_variant(_values[key], true, false)
+	var old_value: Variant = GFVariantData.duplicate_variant(
+		_values[key],
+		true,
+		false
+	)
 	var _erased: bool = _values.erase(key)
 	property_removed.emit(key, old_value)
 	return true
@@ -252,8 +274,16 @@ func get_color(key: StringName, default_value: Color = Color.WHITE) -> Color:
 ## @api private
 func _get_value(key: StringName, default_value: Variant = null) -> Variant:
 	if not _values.has(key):
-		return GFVariantData.duplicate_variant(default_value, true, false)
-	return GFVariantData.duplicate_variant(_values[key], true, false)
+		return GFVariantData.duplicate_variant(
+			default_value,
+			true,
+			false
+		)
+	return GFVariantData.duplicate_variant(
+		_values[key],
+		true,
+		false
+	)
 
 
 ## 规范化新属性表并发出对应的移除和变更信号。
@@ -268,7 +298,11 @@ func _replace_values(source: Dictionary) -> void:
 		var key: StringName = GFVariantData.to_string_name(raw_key)
 		if key == &"":
 			continue
-		normalized[key] = GFVariantData.duplicate_variant(source[raw_key], true, false)
+		normalized[key] = GFVariantData.duplicate_variant(
+			source[raw_key],
+			true,
+			false
+		)
 
 	for existing_key: StringName in _get_sorted_keys():
 		if not normalized.has(existing_key):
@@ -279,14 +313,23 @@ func _replace_values(source: Dictionary) -> void:
 		incoming_keys.append(GFVariantData.to_string_name(raw_key))
 	incoming_keys.sort()
 	for key: StringName in incoming_keys:
-		set_property_value(key, normalized[key])
+		set_property_value(
+			key,
+			normalized[key]
+		)
 
 
 ## 返回属性表的深拷贝。
 ## [br]
 ## @api private
 func _duplicate_values() -> Dictionary:
-	return GFVariantData.as_dictionary(GFVariantData.duplicate_variant(_values, true, false))
+	return GFVariantData.as_dictionary(
+		GFVariantData.duplicate_variant(
+			_values,
+			true,
+			false
+		)
+	)
 
 
 ## 返回按名称排序的有效 StringName 属性键。

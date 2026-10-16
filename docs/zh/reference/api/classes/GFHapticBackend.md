@@ -16,9 +16,9 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 方法 | [`start_output`](#member-gfhapticbackend-methods-start_output) | `func start_output( target_type: int, target_id: int, weak_magnitude: float, strong_magnitude: float, duration_seconds: float, metadata: Dictionary = {} ) -> bool:` |
-| 方法 | [`stop_output`](#member-gfhapticbackend-methods-stop_output) | `func stop_output(target_type: int, target_id: int, metadata: Dictionary = {}) -> bool:` |
+| 方法 | [`stop_output`](#member-gfhapticbackend-methods-stop_output) | `func stop_output( target_type: int, target_id: int, metadata: Dictionary = {} ) -> bool:` |
 | 方法 | [`_start_output`](#member-gfhapticbackend-methods-_start_output) | `func _start_output( _target_type: int, _target_id: int, _weak_magnitude: float, _strong_magnitude: float, _duration_seconds: float, _metadata: Dictionary = {} ) -> bool:` |
-| 方法 | [`_stop_output`](#member-gfhapticbackend-methods-_stop_output) | `func _stop_output(_target_type: int, _target_id: int, _metadata: Dictionary = {}) -> bool:` |
+| 方法 | [`_stop_output`](#member-gfhapticbackend-methods-_stop_output) | `func _stop_output( _target_type: int, _target_id: int, _metadata: Dictionary = {} ) -> bool:` |
 
 ## 方法
 
@@ -60,7 +60,7 @@ func start_output( target_type: int, target_id: int, weak_magnitude: float, stro
 - 首次版本：`8.0.0`
 
 ```gdscript
-func stop_output(target_type: int, target_id: int, metadata: Dictionary = {}) -> bool:
+func stop_output( target_type: int, target_id: int, metadata: Dictionary = {} ) -> bool:
 ```
 
 停止指定目标的震动输出。
@@ -117,7 +117,7 @@ func _start_output( _target_type: int, _target_id: int, _weak_magnitude: float, 
 - 首次版本：`8.0.0`
 
 ```gdscript
-func _stop_output(_target_type: int, _target_id: int, _metadata: Dictionary = {}) -> bool:
+func _stop_output( _target_type: int, _target_id: int, _metadata: Dictionary = {} ) -> bool:
 ```
 
 子类实现停止震动输出。

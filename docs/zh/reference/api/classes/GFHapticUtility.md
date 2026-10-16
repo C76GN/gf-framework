@@ -15,9 +15,9 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 信号 | [`haptic_started`](#member-gfhapticutility-signals-haptic_started) | `signal haptic_started(haptic_id: int, channel: StringName, target_type: int, target_id: int)` |
-| 信号 | [`haptic_finished`](#member-gfhapticutility-signals-haptic_finished) | `signal haptic_finished(haptic_id: int, channel: StringName, target_type: int, target_id: int)` |
-| 信号 | [`haptic_stopped`](#member-gfhapticutility-signals-haptic_stopped) | `signal haptic_stopped(haptic_id: int, channel: StringName, target_type: int, target_id: int)` |
+| 信号 | [`haptic_started`](#member-gfhapticutility-signals-haptic_started) | `signal haptic_started( haptic_id: int, channel: StringName, target_type: int, target_id: int )` |
+| 信号 | [`haptic_finished`](#member-gfhapticutility-signals-haptic_finished) | `signal haptic_finished( haptic_id: int, channel: StringName, target_type: int, target_id: int )` |
+| 信号 | [`haptic_stopped`](#member-gfhapticutility-signals-haptic_stopped) | `signal haptic_stopped( haptic_id: int, channel: StringName, target_type: int, target_id: int )` |
 | 枚举 | [`TargetType`](#member-gfhapticutility-enums-targettype) | `enum TargetType` |
 | 枚举 | [`OverflowPolicy`](#member-gfhapticutility-enums-overflowpolicy) | `enum OverflowPolicy` |
 | 常量 | [`DEFAULT_OUTPUT_REFRESH_SECONDS`](#member-gfhapticutility-constants-default_output_refresh_seconds) | `const DEFAULT_OUTPUT_REFRESH_SECONDS: float = 0.05` |
@@ -66,7 +66,7 @@
 - 首次版本：`7.0.0`
 
 ```gdscript
-signal haptic_started(haptic_id: int, channel: StringName, target_type: int, target_id: int)
+signal haptic_started( haptic_id: int, channel: StringName, target_type: int, target_id: int )
 ```
 
 震动播放开始时发出。
@@ -88,7 +88,7 @@ signal haptic_started(haptic_id: int, channel: StringName, target_type: int, tar
 - 首次版本：`7.0.0`
 
 ```gdscript
-signal haptic_finished(haptic_id: int, channel: StringName, target_type: int, target_id: int)
+signal haptic_finished( haptic_id: int, channel: StringName, target_type: int, target_id: int )
 ```
 
 震动播放结束时发出。
@@ -110,7 +110,7 @@ signal haptic_finished(haptic_id: int, channel: StringName, target_type: int, ta
 - 首次版本：`7.0.0`
 
 ```gdscript
-signal haptic_stopped(haptic_id: int, channel: StringName, target_type: int, target_id: int)
+signal haptic_stopped( haptic_id: int, channel: StringName, target_type: int, target_id: int )
 ```
 
 震动播放被停止时发出。

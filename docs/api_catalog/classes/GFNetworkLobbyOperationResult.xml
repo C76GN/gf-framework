@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkLobbyOperationResult" path="addons/gf/extensions/network/session/gf_network_lobby_operation_result.gd" module="extensions/network" extends="RefCounted" classDigest="d4f0d7f08b73aa45c0a9edb1bc76cae0f181075e1dc719463b028e8c154b28f3">
+<class name="GFNetworkLobbyOperationResult" path="addons/gf/extensions/network/session/gf_network_lobby_operation_result.gd" module="extensions/network" extends="RefCounted" classDigest="1a1e4743a6bca2f68df2769ff0afcd89fa5c1ddec55f5893a9420743d4299579">
 	<description>GFNetworkLobbyOperationResult: Lobby 操作终态结果。
 通过 request_id 和 operation 将 SDK 回调关联到唯一请求，并统一承载单个 Lobby、
 查询列表、失败状态与耗时。结果是不可回写到 Handle 的深拷贝快照。</description>
@@ -113,7 +113,7 @@
 	</properties>
 	<methods>
 		<member kind="method" name="configure_success">
-			<signature>func configure_success( request: GFNetworkLobbyOperationRequest, options: Dictionary = {} ) -&gt; GFNetworkLobbyOperationResult:</signature>
+			<signature>func configure_success(request: GFNetworkLobbyOperationRequest, options: Dictionary = {}) -&gt; GFNetworkLobbyOperationResult:</signature>
 			<description>配置成功结果。</description>
 			<tags>
 				<tag name="api">public</tag>

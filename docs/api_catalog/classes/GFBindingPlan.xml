@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBindingPlan" path="addons/gf/kernel/core/gf_binding_plan.gd" module="kernel" extends="RefCounted" classDigest="8d5646197559597803394bc697da866b886485eaf6fcd5841f8d647e33eb2a38">
+<class name="GFBindingPlan" path="addons/gf/kernel/core/gf_binding_plan.gd" module="kernel" extends="RefCounted" classDigest="d80f707e042f1ddc3cb76d45a83bc9cd49eca7112b4e3af529f4bb62a0dafa7e">
 	<description>GFBindingPlan: Installer 使用的显式、顺序、fail-fast required binding 计划。
 声明时冻结每个 Builder 的配置；execute() 仅接纳尚未进入 init/READY 的候选
 Architecture。首个失败会冻结类型化结果、使候选初始化失败并结算 Installer
@@ -16,7 +16,7 @@ scope；成功不会替调用方 complete scope。READY 架构继续使用既有
 	<properties />
 	<methods>
 		<member kind="method" name="require_singleton">
-			<signature>func require_singleton( binding_id: StringName, builder: GFBindBuilder ) -&gt; GFBindingPlan:</signature>
+			<signature>func require_singleton(binding_id: StringName, builder: GFBindBuilder) -&gt; GFBindingPlan:</signature>
 			<description>追加一个 required singleton entry，并立即冻结 Builder 配置。
 Plan 开始执行后调用保持 no-op；不会修改已经冻结的 entry。</description>
 			<tags>
@@ -28,7 +28,7 @@ Plan 开始执行后调用保持 no-op；不会修改已经冻结的 entry。</d
 			</tags>
 		</member>
 		<member kind="method" name="require_transient">
-			<signature>func require_transient( binding_id: StringName, builder: GFBindBuilder ) -&gt; GFBindingPlan:</signature>
+			<signature>func require_transient(binding_id: StringName, builder: GFBindBuilder) -&gt; GFBindingPlan:</signature>
 			<description>追加一个 required transient factory entry，并立即冻结 Builder 配置。
 只有 bind_factory() 的 SELF 或 from_factory() 来源支持 transient。
 Plan 开始执行后调用保持 no-op；不会修改已经冻结的 entry。</description>

@@ -20,7 +20,7 @@
 | 常量 | [`STATUS_UNREACHABLE`](#member-gfgraphpathsearchstate-constants-status_unreachable) | `const STATUS_UNREACHABLE: StringName = &"unreachable"` |
 | 常量 | [`STATUS_INVALID`](#member-gfgraphpathsearchstate-constants-status_invalid) | `const STATUS_INVALID: StringName = &"invalid"` |
 | 方法 | [`create`](#member-gfgraphpathsearchstate-methods-create) | `static func create( start: Variant, goal: Variant, get_neighbors: Callable, get_step_cost: Callable = Callable(), heuristic: Callable = Callable() ) -> GFGraphPathSearchState:` |
-| 方法 | [`make_invalid`](#member-gfgraphpathsearchstate-methods-make_invalid) | `static func make_invalid(start: Variant, goal: Variant, reason: StringName) -> GFGraphPathSearchState:` |
+| 方法 | [`make_invalid`](#member-gfgraphpathsearchstate-methods-make_invalid) | `static func make_invalid( start: Variant, goal: Variant, reason: StringName ) -> GFGraphPathSearchState:` |
 | 方法 | [`advance`](#member-gfgraphpathsearchstate-methods-advance) | `func advance(max_iterations: int = 64) -> Dictionary:` |
 | 方法 | [`make_report`](#member-gfgraphpathsearchstate-methods-make_report) | `func make_report(iterations: int = 0) -> Dictionary:` |
 | 方法 | [`is_valid`](#member-gfgraphpathsearchstate-methods-is_valid) | `func is_valid() -> bool:` |
@@ -124,7 +124,7 @@ static func create( start: Variant, goal: Variant, get_neighbors: Callable, get_
 - 首次版本：`5.0.0`
 
 ```gdscript
-static func make_invalid(start: Variant, goal: Variant, reason: StringName) -> GFGraphPathSearchState:
+static func make_invalid( start: Variant, goal: Variant, reason: StringName ) -> GFGraphPathSearchState:
 ```
 
 创建已结束的无效搜索状态。

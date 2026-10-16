@@ -18,15 +18,15 @@
 | 属性 | [`high_priority_first`](#member-gfpriorityqueue-properties-high_priority_first) | `var high_priority_first: bool = true:` |
 | 方法 | [`_init`](#member-gfpriorityqueue-methods-_init) | `func _init(p_high_priority_first: bool = true) -> void:` |
 | 方法 | [`from_array`](#member-gfpriorityqueue-methods-from_array) | `static func from_array( values: Array, priority: float = 0.0, p_high_priority_first: bool = true ) -> RefCounted:` |
-| 方法 | [`push`](#member-gfpriorityqueue-methods-push) | `func push(value: Variant, priority: float = 0.0, front: bool = false) -> bool:` |
-| 方法 | [`push_with_order`](#member-gfpriorityqueue-methods-push_with_order) | `func push_with_order(value: Variant, priority: float = 0.0, order: int = 0) -> bool:` |
+| 方法 | [`push`](#member-gfpriorityqueue-methods-push) | `func push( value: Variant, priority: float = 0.0, front: bool = false ) -> bool:` |
+| 方法 | [`push_with_order`](#member-gfpriorityqueue-methods-push_with_order) | `func push_with_order( value: Variant, priority: float = 0.0, order: int = 0 ) -> bool:` |
 | 方法 | [`pop`](#member-gfpriorityqueue-methods-pop) | `func pop(default_value: Variant = null) -> Variant:` |
 | 方法 | [`peek`](#member-gfpriorityqueue-methods-peek) | `func peek(default_value: Variant = null) -> Variant:` |
 | 方法 | [`peek_priority`](#member-gfpriorityqueue-methods-peek_priority) | `func peek_priority(default_value: float = 0.0) -> float:` |
 | 方法 | [`remove_value`](#member-gfpriorityqueue-methods-remove_value) | `func remove_value(value: Variant) -> bool:` |
 | 方法 | [`remove_all`](#member-gfpriorityqueue-methods-remove_all) | `func remove_all(value: Variant) -> int:` |
 | 方法 | [`has_value`](#member-gfpriorityqueue-methods-has_value) | `func has_value(value: Variant) -> bool:` |
-| 方法 | [`set_priority`](#member-gfpriorityqueue-methods-set_priority) | `func set_priority(value: Variant, priority: float, front: bool = false) -> bool:` |
+| 方法 | [`set_priority`](#member-gfpriorityqueue-methods-set_priority) | `func set_priority( value: Variant, priority: float, front: bool = false ) -> bool:` |
 | 方法 | [`clear`](#member-gfpriorityqueue-methods-clear) | `func clear() -> void:` |
 | 方法 | [`is_empty`](#member-gfpriorityqueue-methods-is_empty) | `func is_empty() -> bool:` |
 | 方法 | [`size`](#member-gfpriorityqueue-methods-size) | `func size() -> int:` |
@@ -106,7 +106,7 @@ static func from_array( values: Array, priority: float = 0.0, p_high_priority_fi
 - 首次版本：`7.0.0`
 
 ```gdscript
-func push(value: Variant, priority: float = 0.0, front: bool = false) -> bool:
+func push( value: Variant, priority: float = 0.0, front: bool = false ) -> bool:
 ```
 
 推入一个值。 显式负 order 和 int 下界也遵守该规则；多次 front 操作以后执行者优先。
@@ -133,7 +133,7 @@ func push(value: Variant, priority: float = 0.0, front: bool = false) -> bool:
 - 首次版本：`8.0.0`
 
 ```gdscript
-func push_with_order(value: Variant, priority: float = 0.0, order: int = 0) -> bool:
+func push_with_order( value: Variant, priority: float = 0.0, order: int = 0 ) -> bool:
 ```
 
 按显式稳定顺序推入一个值。 相同 priority 和 order 的显式条目按本次队列实例中的入队先后保持稳定；front 操作优先于既有条目。
@@ -308,7 +308,7 @@ func has_value(value: Variant) -> bool:
 - 首次版本：`7.0.0`
 
 ```gdscript
-func set_priority(value: Variant, priority: float, front: bool = false) -> bool:
+func set_priority( value: Variant, priority: float, front: bool = false ) -> bool:
 ```
 
 更新第一个等于 value 的队列值优先级。

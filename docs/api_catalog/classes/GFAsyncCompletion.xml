@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAsyncCompletion" path="addons/gf/kernel/core/gf_async_completion.gd" module="kernel" extends="RefCounted" classDigest="5d2f0d82e62babf53909d584d0adf0c726161013e9138dfb6c98f440f8a058a2">
+<class name="GFAsyncCompletion" path="addons/gf/kernel/core/gf_async_completion.gd" module="kernel" extends="RefCounted" classDigest="a768e016115065269e2365ff135f568398f5c6d3754da781f119472bb017cb07">
 	<description>GFAsyncCompletion: 一次性异步完成源。
 用于把回调、Signal 或项目侧异步流程归一为 succeeded / failed / cancelled 终态。
 状态访问、终态提交和取消 token 绑定都只允许在主线程执行；后台生产者应先把
@@ -106,7 +106,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="cancel">
-			<signature>func cancel(reason: StringName = &amp;"cancelled", metadata: Dictionary = {}, result: Variant = null) -&gt; bool:</signature>
+			<signature>func cancel( reason: StringName = &amp;"cancelled", metadata: Dictionary = {}, result: Variant = null ) -&gt; bool:</signature>
 			<description>标记取消完成。</description>
 			<tags>
 				<tag name="api">public</tag>

@@ -41,15 +41,14 @@ func _init(p_priority: int = 0, p_enabled: bool = true) -> void:
 ## [br]
 ## @api protected
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param _action: 即将执行的动作。
 ## [br]
 ## @param _queue: 当前动作队列。
 ## [br]
 ## @return 拦截结果；返回 null 等价于继续。
-func _before_execute(
-	_action: Object,
-	_queue: GFActionQueueSystem
-) -> GFActionInterceptionResult:
+func _before_execute(_action: Object, _queue: GFActionQueueSystem) -> GFActionInterceptionResult:
 	return GFActionInterceptionResult.continue_action()
 
 

@@ -34,12 +34,22 @@ const _ROW_INDEX_MIN_WIDTH: float = 34.0
 ## 有效路径摘要和状态文本使用的颜色。
 ## [br]
 ## @api private
-const _INFO_TEXT_COLOR: Color = Color(0.62, 0.66, 0.72, 1.0)
+const _INFO_TEXT_COLOR: Color = Color(
+	0.62,
+	0.66,
+	0.72,
+	1.0
+)
 
 ## 无效资源路径状态文本使用的颜色。
 ## [br]
 ## @api private
-const _WARNING_TEXT_COLOR: Color = Color(1.0, 0.58, 0.30, 1.0)
+const _WARNING_TEXT_COLOR: Color = Color(
+	1.0,
+	0.58,
+	0.30,
+	1.0
+)
 
 
 # --- 私有变量 ---
@@ -170,7 +180,7 @@ func setup(
 	property_type: Variant.Type = TYPE_ARRAY,
 	prefer_uid: bool = true
 ) -> void:
-	_base_type = base_type if not base_type.strip_edges().is_empty() else _GF_RESOURCE_PATH_EDITOR_PROPERTY.DEFAULT_BASE_TYPE
+	_base_type = (base_type if not base_type.strip_edges().is_empty() else _GF_RESOURCE_PATH_EDITOR_PROPERTY.DEFAULT_BASE_TYPE)
 	_property_type = property_type
 	_prefer_uid = prefer_uid
 
@@ -188,7 +198,11 @@ func setup(
 ## @param hint_string: Godot 属性 hint 字符串。
 ## [br]
 ## @return 适合接管时返回 true。
-static func should_handle_property(type: Variant.Type, hint_type: int, hint_string: String) -> bool:
+static func should_handle_property(
+	type: Variant.Type,
+	hint_type: int,
+	hint_string: String
+) -> bool:
 	if type != TYPE_ARRAY and type != TYPE_PACKED_STRING_ARRAY:
 		return false
 	if hint_type != _GF_RESOURCE_PATH_HINT_SCRIPT.RESOURCE_PATH_ARRAY:
@@ -340,9 +354,15 @@ func _create_row(index: int) -> Control:
 		&"setup",
 		_GF_RESOURCE_PATH_EDITOR_PROPERTY.get_resource_file_filters(_base_type)
 	)
-	picker.call(&"set_path", _paths[index])
+	picker.call(
+		&"set_path",
+		_paths[index]
+	)
 	picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var status: Dictionary = _GF_RESOURCE_PATH_EDITOR_PROPERTY.get_resource_path_status(_paths[index], _base_type)
+	var status: Dictionary = _GF_RESOURCE_PATH_EDITOR_PROPERTY.get_resource_path_status(
+		_paths[index],
+		_base_type
+	)
 	var message: String = _get_string_option(status, "message")
 	picker.tooltip_text = message if not message.is_empty() else _paths[index]
 	var _path_changed_connected: Error = picker.connect(
@@ -389,7 +409,10 @@ func _create_row(index: int) -> Control:
 func _apply_summary() -> void:
 	var invalid_count: int = _count_invalid_paths()
 	if invalid_count > 0:
-		_summary_label.text = "%d 个资源路径，%d 个无效" % [_paths.size(), invalid_count]
+		_summary_label.text = (
+			"%d 个资源路径，%d 个无效"
+			% [_paths.size(), invalid_count]
+		)
 		_summary_label.modulate = _WARNING_TEXT_COLOR
 	else:
 		_summary_label.text = "%d 个资源路径" % _paths.size()
@@ -416,7 +439,10 @@ func _emit_paths_changed() -> void:
 	_is_updating = true
 	_rebuild_rows()
 	_is_updating = false
-	emit_changed(property_name, make_property_value(_paths, _property_type))
+	emit_changed(
+		property_name,
+		make_property_value(_paths, _property_type)
+	)
 
 
 # --- 信号处理函数 ---
@@ -435,19 +461,17 @@ func _on_add_pressed() -> void:
 ## [br]
 ## @api private
 func _on_row_path_changed(path: String, index: int) -> void:
-	if _is_updating or index < 0 or index >= _paths.size():
+	if (
+		_is_updating
+		or index < 0
+		or index >= _paths.size()
+	):
 		return
 
 	var next_path: String = path.strip_edges()
-	var resource: Resource = _GF_RESOURCE_PATH_EDITOR_PROPERTY.load_resource_from_path(
-		next_path,
-		_base_type
-	)
+	var resource: Resource = _GF_RESOURCE_PATH_EDITOR_PROPERTY.load_resource_from_path(next_path, _base_type)
 	if resource != null:
-		next_path = _GF_RESOURCE_PATH_EDITOR_PROPERTY.get_stable_resource_path(
-			resource,
-			_prefer_uid
-		)
+		next_path = _GF_RESOURCE_PATH_EDITOR_PROPERTY.get_stable_resource_path(resource, _prefer_uid)
 	_paths[index] = next_path
 	_emit_paths_changed()
 
@@ -456,7 +480,11 @@ func _on_row_path_changed(path: String, index: int) -> void:
 ## [br]
 ## @api private
 func _on_remove_pressed(index: int) -> void:
-	if _is_updating or index < 0 or index >= _paths.size():
+	if (
+		_is_updating
+		or index < 0
+		or index >= _paths.size()
+	):
 		return
 
 	_paths.remove_at(index)
@@ -471,7 +499,12 @@ func _on_move_pressed(index: int, delta: int) -> void:
 		return
 
 	var next_index: int = index + delta
-	if index < 0 or index >= _paths.size() or next_index < 0 or next_index >= _paths.size():
+	if (
+		index < 0
+		or index >= _paths.size()
+		or next_index < 0
+		or next_index >= _paths.size()
+	):
 		return
 
 	var path: String = _paths[index]

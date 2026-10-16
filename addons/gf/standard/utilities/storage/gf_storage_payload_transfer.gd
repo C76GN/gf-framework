@@ -209,8 +209,12 @@ func begin_attempt_for_framework(
 	target_file_key: String,
 	codec_options: Dictionary
 ) -> Dictionary:
-	if storage_id == 0 or file_name.is_empty() or target_file_key.is_empty():
-		return {"ok": false}
+	if (
+		storage_id == 0
+		or file_name.is_empty()
+		or target_file_key.is_empty()
+	):
+		return { "ok": false }
 	if _state == State.READY:
 		_bound_storage_id = storage_id
 		_bound_file_name = file_name
@@ -224,7 +228,7 @@ func begin_attempt_for_framework(
 		or _bound_target_file_key != target_file_key
 		or _bound_codec_options != codec_options
 	):
-		return {"ok": false}
+		return { "ok": false }
 
 	var attempt_id: int = _next_attempt_id
 	_next_attempt_id += 1

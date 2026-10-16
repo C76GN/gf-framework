@@ -56,8 +56,17 @@ func _init(
 	p_world_min: Vector2 = Vector2.ZERO,
 	p_world_max: Vector2 = Vector2.ONE
 ) -> void:
-	if p_grid_size.x > 0 or p_grid_size.y > 0 or not p_height_samples.is_empty():
-		var _configured: bool = configure(p_grid_size, p_height_samples, p_world_min, p_world_max)
+	if (
+		p_grid_size.x > 0
+		or p_grid_size.y > 0
+		or not p_height_samples.is_empty()
+	):
+		var _configured: bool = configure(
+			p_grid_size,
+			p_height_samples,
+			p_world_min,
+			p_world_max
+		)
 
 
 # --- 公共方法 ---
@@ -84,7 +93,12 @@ static func from_samples(
 	world_max: Vector2 = Vector2.ONE
 ) -> GFHeightfield3D:
 	var heightfield: GFHeightfield3D = GFHeightfield3D.new()
-	var _configured: bool = heightfield.configure(grid_size, height_samples, world_min, world_max)
+	var _configured: bool = heightfield.configure(
+		grid_size,
+		height_samples,
+		world_min,
+		world_max
+	)
 	return heightfield
 
 
@@ -115,7 +129,12 @@ static func from_terrain_rgb_image(
 	options: Dictionary = {}
 ) -> GFHeightfield3D:
 	var heightfield: GFHeightfield3D = GFHeightfield3D.new()
-	var _configured: bool = heightfield.configure_from_terrain_rgb_image(image, world_min, world_max, options)
+	var _configured: bool = heightfield.configure_from_terrain_rgb_image(
+		image,
+		world_min,
+		world_max,
+		options
+	)
 	return heightfield
 
 
@@ -150,8 +169,16 @@ static func normal_to_slope(normal: Vector3) -> float:
 	if not _is_finite_vector3(normal) or normal.length_squared() <= _MIN_WORLD_SPAN:
 		return 1.0
 
-	var up_dot: float = clampf(normal.normalized().dot(Vector3.UP), -1.0, 1.0)
-	return clampf(1.0 - up_dot, 0.0, 1.0)
+	var up_dot: float = clampf(
+		normal.normalized().dot(Vector3.UP),
+		-1.0,
+		1.0
+	)
+	return clampf(
+		1.0 - up_dot,
+		0.0,
+		1.0
+	)
 
 
 ## 从 Terrain-RGB 图像生成行优先高度样本报告。
@@ -173,16 +200,40 @@ static func normal_to_slope(normal: Vector3) -> float:
 ## @schema return: Dictionary，包含 ok、grid_size、samples、sample_count、min_height、max_height、issues、counts 与 summary 字段。
 static func samples_from_terrain_rgb_image(image: Image, options: Dictionary = {}) -> Dictionary:
 	var report: Dictionary = _make_terrain_rgb_samples_report()
-	if image == null or image.get_width() <= 0 or image.get_height() <= 0:
-		_append_terrain_rgb_issue(report, "invalid_image", "image must have positive width and height.")
+	if (
+		image == null
+		or image.get_width() <= 0
+		or image.get_height() <= 0
+	):
+		_append_terrain_rgb_issue(
+			report,
+			"invalid_image",
+			"image must have positive width and height."
+		)
 		return _finalize_terrain_rgb_samples_report(report)
 
-	var height_scale: float = GFVariantData.get_option_float(options, "height_scale", 1.0)
-	var height_offset: float = GFVariantData.get_option_float(options, "height_offset", 0.0)
+	var height_scale: float = GFVariantData.get_option_float(
+		options,
+		"height_scale",
+		1.0
+	)
+	var height_offset: float = GFVariantData.get_option_float(
+		options,
+		"height_offset",
+		0.0
+	)
 	if not _is_finite_float(height_scale):
-		_append_terrain_rgb_issue(report, "invalid_height_scale", "height_scale must be finite.")
+		_append_terrain_rgb_issue(
+			report,
+			"invalid_height_scale",
+			"height_scale must be finite."
+		)
 	if not _is_finite_float(height_offset):
-		_append_terrain_rgb_issue(report, "invalid_height_offset", "height_offset must be finite.")
+		_append_terrain_rgb_issue(
+			report,
+			"invalid_height_offset",
+			"height_offset must be finite."
+		)
 	if not GFVariantData.get_option_array(report, "issues").is_empty():
 		return _finalize_terrain_rgb_samples_report(report)
 
@@ -251,7 +302,12 @@ func configure(
 	world_min: Vector2 = Vector2.ZERO,
 	world_max: Vector2 = Vector2.ONE
 ) -> bool:
-	if not _can_configure(grid_size, height_samples, world_min, world_max):
+	if not _can_configure(
+		grid_size,
+		height_samples,
+		world_min,
+		world_max
+	):
 		return false
 
 	_grid_size = grid_size
@@ -290,14 +346,27 @@ func configure_from_terrain_rgb_image(
 	if not GFVariantData.get_option_bool(report, "ok"):
 		return false
 
-	var grid_size_value: Variant = GFVariantData.get_option_value(report, "grid_size", Vector2i.ZERO)
-	var samples_value: Variant = GFVariantData.get_option_value(report, "samples", PackedFloat32Array())
+	var grid_size_value: Variant = GFVariantData.get_option_value(
+		report,
+		"grid_size",
+		Vector2i.ZERO
+	)
+	var samples_value: Variant = GFVariantData.get_option_value(
+		report,
+		"samples",
+		PackedFloat32Array()
+	)
 	if not (grid_size_value is Vector2i) or not (samples_value is PackedFloat32Array):
 		return false
 
 	var grid_size: Vector2i = grid_size_value
 	var samples: PackedFloat32Array = samples_value
-	return configure(grid_size, samples, world_min, world_max)
+	return configure(
+		grid_size,
+		samples,
+		world_min,
+		world_max
+	)
 
 
 ## 清空高度场数据。
@@ -320,7 +389,12 @@ func clear() -> void:
 ## [br]
 ## @return 高度场尺寸、范围和样本数量有效时返回 true。
 func is_valid() -> bool:
-	return _can_configure(_grid_size, _height_samples, _world_min, _world_max)
+	return _can_configure(
+		_grid_size,
+		_height_samples,
+		_world_min,
+		_world_max
+	)
 
 
 ## 获取高度网格尺寸。
@@ -364,7 +438,10 @@ func get_world_max() -> Vector2:
 ## [br]
 ## @return 世界矩形。
 func get_world_rect() -> Rect2:
-	return Rect2(_world_min, _world_max - _world_min)
+	return Rect2(
+		_world_min,
+		_world_max - _world_min
+	)
 
 
 ## 获取高度样本副本。
@@ -401,7 +478,11 @@ func get_sample_count() -> int:
 ## [br]
 ## @return 坐标位于高度场范围内时返回 true。
 func contains_world_xz(world_x: float, world_z: float) -> bool:
-	if not is_valid() or not _is_finite_float(world_x) or not _is_finite_float(world_z):
+	if (
+		not is_valid()
+		or not _is_finite_float(world_x)
+		or not _is_finite_float(world_z)
+	):
 		return false
 	return (
 		world_x >= _world_min.x
@@ -526,11 +607,18 @@ func sample_grid_bilinear(grid_position: Vector2, fallback: Variant = null) -> f
 ## @return 双线性高度或 fallback。
 ## [br]
 ## @schema fallback: Variant，null 或数字高度。
-func sample_world(world_x: float, world_z: float, fallback: Variant = null) -> float:
+func sample_world(
+	world_x: float,
+	world_z: float,
+	fallback: Variant = null
+) -> float:
 	var fallback_height: float = _sample_fallback_to_float(fallback)
 	if not contains_world_xz(world_x, world_z):
 		return fallback_height
-	return sample_grid_bilinear(world_to_grid(world_x, world_z), fallback_height)
+	return sample_grid_bilinear(
+		world_to_grid(world_x, world_z),
+		fallback_height
+	)
 
 
 ## 按 3D 世界坐标的 X/Z 采样高度。
@@ -547,7 +635,11 @@ func sample_world(world_x: float, world_z: float, fallback: Variant = null) -> f
 ## [br]
 ## @schema fallback: Variant，null 或数字高度。
 func sample_world_position(position: Vector3, fallback: Variant = null) -> float:
-	return sample_world(position.x, position.z, fallback)
+	return sample_world(
+		position.x,
+		position.z,
+		fallback
+	)
 
 
 ## 按连续网格坐标估算表面法线。
@@ -565,17 +657,35 @@ func sample_normal_grid(grid_position: Vector2, vertical_scale: float = 1.0) -> 
 	if not is_valid() or not _grid_position_is_inside(grid_position):
 		return Vector3.UP
 
-	var left_x: float = maxf(grid_position.x - 1.0, 0.0)
-	var right_x: float = minf(grid_position.x + 1.0, float(_grid_size.x - 1))
-	var down_z: float = maxf(grid_position.y - 1.0, 0.0)
-	var up_z: float = minf(grid_position.y + 1.0, float(_grid_size.y - 1))
+	var left_x: float = maxf(
+		grid_position.x - 1.0,
+		0.0
+	)
+	var right_x: float = minf(
+		grid_position.x + 1.0,
+		float(_grid_size.x - 1)
+	)
+	var down_z: float = maxf(
+		grid_position.y - 1.0,
+		0.0
+	)
+	var up_z: float = minf(
+		grid_position.y + 1.0,
+		float(_grid_size.y - 1)
+	)
 	var left_height: float = _sample_grid_bilinear_clamped(Vector2(left_x, grid_position.y))
 	var right_height: float = _sample_grid_bilinear_clamped(Vector2(right_x, grid_position.y))
 	var down_height: float = _sample_grid_bilinear_clamped(Vector2(grid_position.x, down_z))
 	var up_height: float = _sample_grid_bilinear_clamped(Vector2(grid_position.x, up_z))
 	var cell_world_size: Vector2 = _get_cell_world_size()
-	var x_distance: float = maxf((right_x - left_x) * cell_world_size.x, _MIN_WORLD_SPAN)
-	var z_distance: float = maxf((up_z - down_z) * cell_world_size.y, _MIN_WORLD_SPAN)
+	var x_distance: float = maxf(
+		(right_x - left_x) * cell_world_size.x,
+		_MIN_WORLD_SPAN
+	)
+	var z_distance: float = maxf(
+		(up_z - down_z) * cell_world_size.y,
+		_MIN_WORLD_SPAN
+	)
 	var safe_vertical_scale: float = 1.0 if not _is_finite_float(vertical_scale) else vertical_scale
 	var tangent_x: Vector3 = Vector3(
 		x_distance,
@@ -625,10 +735,17 @@ func sample_slope_grid(grid_position: Vector2, vertical_scale: float = 1.0) -> f
 ## @param vertical_scale: 高度差缩放，用于匹配项目世界单位。
 ## [br]
 ## @return 归一化法线；无效坐标返回 Vector3.UP。
-func sample_normal_world(world_x: float, world_z: float, vertical_scale: float = 1.0) -> Vector3:
+func sample_normal_world(
+	world_x: float,
+	world_z: float,
+	vertical_scale: float = 1.0
+) -> Vector3:
 	if not contains_world_xz(world_x, world_z):
 		return Vector3.UP
-	return sample_normal_grid(world_to_grid(world_x, world_z), vertical_scale)
+	return sample_normal_grid(
+		world_to_grid(world_x, world_z),
+		vertical_scale
+	)
 
 
 ## 按 X/Z 世界坐标估算归一化坡度。
@@ -646,10 +763,17 @@ func sample_normal_world(world_x: float, world_z: float, vertical_scale: float =
 ## @param vertical_scale: 高度差缩放，用于匹配项目世界单位。
 ## [br]
 ## @return 归一化坡度。
-func sample_slope_world(world_x: float, world_z: float, vertical_scale: float = 1.0) -> float:
+func sample_slope_world(
+	world_x: float,
+	world_z: float,
+	vertical_scale: float = 1.0
+) -> float:
 	if not contains_world_xz(world_x, world_z):
 		return 1.0
-	return sample_slope_grid(world_to_grid(world_x, world_z), vertical_scale)
+	return sample_slope_grid(
+		world_to_grid(world_x, world_z),
+		vertical_scale
+	)
 
 
 ## 获取最小高度。
@@ -666,8 +790,14 @@ func get_min_height(fallback: float = 0.0) -> float:
 		return fallback
 
 	var result: float = _height_samples[0]
-	for index: int in range(1, _height_samples.size()):
-		result = minf(result, _height_samples[index])
+	for index: int in range(
+		1,
+		_height_samples.size()
+	):
+		result = minf(
+			result,
+			_height_samples[index]
+		)
 	return result
 
 
@@ -685,8 +815,14 @@ func get_max_height(fallback: float = 0.0) -> float:
 		return fallback
 
 	var result: float = _height_samples[0]
-	for index: int in range(1, _height_samples.size()):
-		result = maxf(result, _height_samples[index])
+	for index: int in range(
+		1,
+		_height_samples.size()
+	):
+		result = maxf(
+			result,
+			_height_samples[index]
+		)
 	return result
 
 
@@ -732,7 +868,17 @@ static func _copy_float_samples(samples: PackedFloat32Array) -> PackedFloat32Arr
 static func _color_channel_to_byte(channel: float) -> int:
 	if not _is_finite_float(channel):
 		return 0
-	return clampi(roundi(clampf(channel, 0.0, 1.0) * 255.0), 0, 255)
+	return clampi(
+		roundi(
+			clampf(
+				channel,
+				0.0,
+				1.0
+			) * 255.0
+		),
+		0,
+		255
+	)
 
 
 ## 创建字段完整且初始成功的 Terrain-RGB 样本报告。
@@ -757,12 +903,13 @@ static func _make_terrain_rgb_samples_report() -> Dictionary:
 ## [br]
 ## @api private
 ## [br]
-static func _append_terrain_rgb_issue(report: Dictionary, kind: String, message: String) -> void:
+static func _append_terrain_rgb_issue(
+	report: Dictionary,
+	kind: String,
+	message: String
+) -> void:
 	var issues: Array = GFVariantData.get_option_array(report, "issues")
-	issues.append({
-		"kind": kind,
-		"message": message,
-	})
+	issues.append({ "kind": kind, "message": message, })
 	report["issues"] = issues
 
 
@@ -818,7 +965,11 @@ static func _is_finite_vector2(value: Vector2) -> bool:
 ## @api private
 ## [br]
 static func _is_finite_vector3(value: Vector3) -> bool:
-	return _is_finite_float(value.x) and _is_finite_float(value.y) and _is_finite_float(value.z)
+	return (
+		_is_finite_float(value.x)
+		and _is_finite_float(value.y)
+		and _is_finite_float(value.z)
+	)
 
 
 ## 检查打包高度样本中的每个值是否均可作为有限高度使用。
@@ -858,7 +1009,12 @@ static func _can_configure(
 ## @api private
 ## [br]
 func _cell_is_inside(cell: Vector2i) -> bool:
-	return cell.x >= 0 and cell.x < _grid_size.x and cell.y >= 0 and cell.y < _grid_size.y
+	return (
+		cell.x >= 0
+		and cell.x < _grid_size.x
+		and cell.y >= 0
+		and cell.y < _grid_size.y
+	)
 
 
 ## 判断连续网格坐标有限且落在首末样本坐标闭区间内。
@@ -889,21 +1045,47 @@ func _cell_to_index(cell: Vector2i) -> int:
 ## @api private
 ## [br]
 func _sample_grid_bilinear_clamped(grid_position: Vector2) -> float:
-	var clamped_x: float = clampf(grid_position.x, 0.0, float(_grid_size.x - 1))
-	var clamped_z: float = clampf(grid_position.y, 0.0, float(_grid_size.y - 1))
+	var clamped_x: float = clampf(
+		grid_position.x,
+		0.0,
+		float(_grid_size.x - 1)
+	)
+	var clamped_z: float = clampf(
+		grid_position.y,
+		0.0,
+		float(_grid_size.y - 1)
+	)
 	var x0: int = floori(clamped_x)
 	var z0: int = floori(clamped_z)
-	var x1: int = mini(x0 + 1, _grid_size.x - 1)
-	var z1: int = mini(z0 + 1, _grid_size.y - 1)
+	var x1: int = mini(
+		x0 + 1,
+		_grid_size.x - 1
+	)
+	var z1: int = mini(
+		z0 + 1,
+		_grid_size.y - 1
+	)
 	var tx: float = clamped_x - float(x0)
 	var tz: float = clamped_z - float(z0)
 	var h00: float = _height_samples[_cell_to_index(Vector2i(x0, z0))]
 	var h10: float = _height_samples[_cell_to_index(Vector2i(x1, z0))]
 	var h01: float = _height_samples[_cell_to_index(Vector2i(x0, z1))]
 	var h11: float = _height_samples[_cell_to_index(Vector2i(x1, z1))]
-	var h0: float = lerpf(h00, h10, tx)
-	var h1: float = lerpf(h01, h11, tx)
-	return lerpf(h0, h1, tz)
+	var h0: float = lerpf(
+		h00,
+		h10,
+		tx
+	)
+	var h1: float = lerpf(
+		h01,
+		h11,
+		tx
+	)
+	return lerpf(
+		h0,
+		h1,
+		tz
+	)
 
 
 ## 计算相邻样本的 X/Z 世界间距；单样本网格对应轴使用完整世界跨度。
@@ -913,6 +1095,12 @@ func _sample_grid_bilinear_clamped(grid_position: Vector2) -> float:
 func _get_cell_world_size() -> Vector2:
 	var world_span: Vector2 = _world_max - _world_min
 	return Vector2(
-		world_span.x / maxf(float(_grid_size.x - 1), 1.0),
-		world_span.y / maxf(float(_grid_size.y - 1), 1.0)
+		world_span.x / maxf(
+			float(_grid_size.x - 1),
+			1.0
+		),
+		world_span.y / maxf(
+			float(_grid_size.y - 1),
+			1.0
+		)
 	)

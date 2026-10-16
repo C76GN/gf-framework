@@ -21,7 +21,6 @@ extends Resource
 ## @since 6.0.0
 const DEFAULT_MATERIALIZE_DIR: String = "user://gf/artifacts"
 
-
 ## 目标路径为空时使用的失败原因码。
 ## [br]
 ## @api private
@@ -68,9 +67,7 @@ const _MAX_GENERATED_EXTENSION_BYTES: int = 32
 ## [br]
 ## @api private
 ## [br]
-const _GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT = preload(
-	"res://addons/gf/kernel/editor/gf_artifact_write_transaction.gd"
-)
+const _GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT = preload("res://addons/gf/kernel/editor/gf_artifact_write_transaction.gd")
 
 
 # --- 导出变量 ---
@@ -180,39 +177,49 @@ func get_size_bytes() -> int:
 func materialize_to_path(target_path: String, options: Dictionary = {}) -> Dictionary:
 	var normalized_path: String = GFPathTools.normalize_resource_path(target_path)
 	if normalized_path.is_empty():
-		return _make_report(false, normalized_path, _REASON_EMPTY_TARGET_PATH)
+		return _make_report(
+			false,
+			normalized_path,
+			_REASON_EMPTY_TARGET_PATH
+		)
 	if not has_data():
-		return _make_report(false, normalized_path, _REASON_EMPTY_DATA)
+		return _make_report(
+			false,
+			normalized_path,
+			_REASON_EMPTY_DATA
+		)
 	if not _path_is_allowed(normalized_path, options):
-		return _make_report(false, normalized_path, _REASON_PATH_NOT_ALLOWED)
+		return _make_report(
+			false,
+			normalized_path,
+			_REASON_PATH_NOT_ALLOWED
+		)
 	var create_directories: bool = GFVariantData.get_option_bool(
 		options,
 		"create_directories",
 		true
 	)
-	if (
-		not create_directories
-		and not DirAccess.dir_exists_absolute(
-			ProjectSettings.globalize_path(normalized_path.get_base_dir())
+	if (not create_directories and not (DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(normalized_path.get_base_dir())))):
+		return _make_report(
+			false,
+			normalized_path,
+			_REASON_WRITE_FAILED
 		)
-	):
-		return _make_report(false, normalized_path, _REASON_WRITE_FAILED)
 
 	var entry: Dictionary = _GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.make_bytes_entry(
 		normalized_path,
 		data,
 		{
-			"overwrite": GFVariantData.get_option_bool(options, "overwrite", true),
-			"metadata": {
-				"source_path": source_path,
-				"type_hint": type_hint,
-			},
+			"overwrite": GFVariantData.get_option_bool(
+				options,
+				"overwrite",
+				true
+			),
+			"metadata": { "source_path": source_path, "type_hint": type_hint, },
 		}
 	)
 	var transaction_options: Dictionary = {
-		"allowed_roots": PackedStringArray([
-			normalized_path.get_base_dir(),
-		]),
+		"allowed_roots": PackedStringArray([normalized_path.get_base_dir(),]),
 		"max_file_count": 1,
 		"max_file_bytes": GFVariantData.get_option_int(
 			options,
@@ -236,26 +243,14 @@ func materialize_to_path(target_path: String, options: Dictionary = {}) -> Dicti
 		),
 	}
 	var transaction_entries: Array[Dictionary] = [entry]
-	var transaction_report: Dictionary = _commit_materialization(
-		transaction_entries,
-		transaction_options
-	)
+	var transaction_report: Dictionary = _commit_materialization(transaction_entries, transaction_options)
 	if not GFVariantData.get_option_bool(transaction_report, "ok"):
-		var recovery_required: bool = GFVariantData.get_option_bool(
-			transaction_report,
-			"recovery_required"
-		)
+		var recovery_required: bool = GFVariantData.get_option_bool(transaction_report, "recovery_required")
 		var recovery_action: StringName = &""
 		var recovery_transaction: Dictionary = {}
 		if recovery_required:
-			recovery_action = GFVariantData.get_option_string_name(
-				transaction_report,
-				"recovery_action"
-			)
-			recovery_transaction = GFVariantData.get_option_dictionary(
-				transaction_report,
-				"recovery_transaction"
-			)
+			recovery_action = GFVariantData.get_option_string_name(transaction_report, "recovery_action")
+			recovery_transaction = GFVariantData.get_option_dictionary(transaction_report, "recovery_transaction")
 		return _make_report(
 			false,
 			normalized_path,
@@ -264,7 +259,11 @@ func materialize_to_path(target_path: String, options: Dictionary = {}) -> Dicti
 			recovery_action,
 			recovery_transaction
 		)
-	return _make_report(true, normalized_path, "")
+	return _make_report(
+		true,
+		normalized_path,
+		""
+	)
 
 
 ## 物化到临时 artifact 目录。
@@ -281,16 +280,34 @@ func materialize_to_path(target_path: String, options: Dictionary = {}) -> Dicti
 ## [br]
 ## @schema return: Dictionary with ok, path, reason, size_bytes, metadata, recovery_required, recovery_action, and recovery_transaction.
 func materialize_temp(options: Dictionary = {}) -> Dictionary:
-	var directory_path: String = GFVariantData.get_option_string(options, "directory_path", DEFAULT_MATERIALIZE_DIR)
-	var file_name: String = GFVariantData.get_option_string(options, "file_name", _make_default_file_name(options))
-	if not _is_portable_file_name(file_name):
-		return _make_report(false, "", _REASON_INVALID_FILE_NAME)
-	var target_path: String = (
-		directory_path.strip_edges().replace("\\", "/").path_join(file_name)
+	var directory_path: String = GFVariantData.get_option_string(
+		options,
+		"directory_path",
+		DEFAULT_MATERIALIZE_DIR
 	)
+	var file_name: String = GFVariantData.get_option_string(
+		options,
+		"file_name",
+		_make_default_file_name(options)
+	)
+	if not _is_portable_file_name(file_name):
+		return _make_report(
+			false,
+			"",
+			_REASON_INVALID_FILE_NAME
+		)
+	var target_path: String = directory_path.strip_edges().replace("\\", "/").path_join(file_name)
 	var materialize_options: Dictionary = options.duplicate(true)
-	materialize_options["allow_user_path"] = GFVariantData.get_option_bool(options, "allow_user_path", true)
-	materialize_options["allow_res_path"] = GFVariantData.get_option_bool(options, "allow_res_path", false)
+	materialize_options["allow_user_path"] = GFVariantData.get_option_bool(
+		options,
+		"allow_user_path",
+		true
+	)
+	materialize_options["allow_res_path"] = GFVariantData.get_option_bool(
+		options,
+		"allow_res_path",
+		false
+	)
 	return materialize_to_path(target_path, materialize_options)
 
 
@@ -320,9 +337,17 @@ func to_summary_dictionary() -> Dictionary:
 ## [br]
 func _path_is_allowed(path: String, options: Dictionary) -> bool:
 	if path.begins_with("user://"):
-		return GFVariantData.get_option_bool(options, "allow_user_path", true)
+		return GFVariantData.get_option_bool(
+			options,
+			"allow_user_path",
+			true
+		)
 	if path.begins_with("res://"):
-		return GFVariantData.get_option_bool(options, "allow_res_path", false)
+		return GFVariantData.get_option_bool(
+			options,
+			"allow_res_path",
+			false
+		)
 	return false
 
 
@@ -330,10 +355,7 @@ func _path_is_allowed(path: String, options: Dictionary) -> bool:
 ## [br]
 ## @api private
 ## [br]
-func _commit_materialization(
-	entries: Array[Dictionary],
-	options: Dictionary
-) -> Dictionary:
+func _commit_materialization(entries: Array[Dictionary], options: Dictionary) -> Dictionary:
 	return _GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.commit(entries, options)
 
 
@@ -357,10 +379,7 @@ func _make_report(
 		"recovery_required": recovery_required,
 		"recovery_action": recovery_action if recovery_required else &"",
 		"recovery_transaction": recovery_transaction.duplicate(true),
-		"metadata": {
-			"source_path": source_path,
-			"type_hint": type_hint,
-		},
+		"metadata": { "source_path": source_path, "type_hint": type_hint, },
 	}
 
 
@@ -380,7 +399,10 @@ func _make_default_file_name(options: Dictionary) -> String:
 	var hash_text: String = str(var_to_str(data).hash()).replace("-", "n")
 	var basename: String = base_name.get_basename()
 	var file_extension: String = base_name.get_extension()
-	var default_file_name: String = "%s_%s" % [basename, hash_text]
+	var default_file_name: String = (
+		"%s_%s"
+		% [basename, hash_text]
+	)
 	if not file_extension.is_empty():
 		default_file_name += "." + file_extension
 	if _is_portable_file_name(default_file_name):
@@ -389,28 +411,14 @@ func _make_default_file_name(options: Dictionary) -> String:
 	basename = _make_portable_ascii_component(basename)
 	if basename.is_empty():
 		basename = "artifact"
-	file_extension = _make_portable_ascii_component(file_extension).left(
-		_MAX_GENERATED_EXTENSION_BYTES
-	)
+	file_extension = (_make_portable_ascii_component(file_extension).left(_MAX_GENERATED_EXTENSION_BYTES))
 	var hash_suffix: String = "_%s" % hash_text
-	var extension_suffix: String = (
-		".%s" % file_extension
-		if not file_extension.is_empty()
-		else ""
-	)
-	var basename_budget: int = (
-		_MAX_PORTABLE_FILE_NAME_BYTES
-		- hash_suffix.length()
-		- extension_suffix.length()
-	)
+	var extension_suffix: String = (".%s" % file_extension if not file_extension.is_empty() else "")
+	var basename_budget: int = _MAX_PORTABLE_FILE_NAME_BYTES - hash_suffix.length() - extension_suffix.length()
 	basename = basename.left(maxi(basename_budget, 0))
 	if basename.is_empty():
 		basename = "artifact"
-	var portable_name: String = (
-		basename
-		+ hash_suffix
-		+ extension_suffix
-	)
+	var portable_name: String = basename + hash_suffix + extension_suffix
 	if _is_portable_file_name(portable_name):
 		return portable_name
 	return "artifact%s" % hash_suffix
@@ -425,9 +433,18 @@ func _make_portable_ascii_component(value: String) -> String:
 	for index: int in range(value.length()):
 		var codepoint: int = value.unicode_at(index)
 		if (
-			(codepoint >= 48 and codepoint <= 57)
-			or (codepoint >= 65 and codepoint <= 90)
-			or (codepoint >= 97 and codepoint <= 122)
+			(
+				codepoint >= 48
+				and codepoint <= 57
+			)
+			or (
+				codepoint >= 65
+				and codepoint <= 90
+			)
+			or (
+				codepoint >= 97
+				and codepoint <= 122
+			)
 			or codepoint == 45
 			or codepoint == 95
 		):
@@ -447,8 +464,7 @@ func _is_portable_file_name(file_name: String) -> bool:
 		or file_name == ".."
 		or file_name != file_name.rstrip(" .")
 		or not _string_is_ascii(file_name)
-		or file_name.to_utf8_buffer().size()
-		> _MAX_PORTABLE_FILE_NAME_BYTES
+		or file_name.to_utf8_buffer().size() > _MAX_PORTABLE_FILE_NAME_BYTES
 		or _string_has_control_character(file_name)
 	):
 		return false
@@ -466,13 +482,21 @@ func _is_portable_file_name(file_name: String) -> bool:
 		if file_name.contains(invalid_character):
 			return false
 	var device_stem: String = file_name.split(".", true)[0].to_upper()
-	if ["CON", "PRN", "AUX", "NUL"].has(device_stem):
+	if [
+		"CON",
+		"PRN",
+		"AUX",
+		"NUL",
+	].has(device_stem):
 		return false
 	if device_stem.length() == 4:
 		var device_prefix: String = device_stem.substr(0, 3)
 		var device_number: String = device_stem.substr(3, 1)
 		if (
-			(device_prefix == "COM" or device_prefix == "LPT")
+			(
+				device_prefix == "COM"
+				or device_prefix == "LPT"
+			)
 			and "123456789".contains(device_number)
 		):
 			return false

@@ -320,8 +320,16 @@ func get_request_state_for_framework() -> GFStorageAsyncRequestState:
 ## @param file_name: 当前 Storage root 内的规范相对文件名；校验前初始化请求身份时允许为空。
 ## [br]
 ## @return 首次配置成功返回 true。
-func configure_for_framework(request_id: int, operation: StringName, file_name: String) -> bool:
-	return _state.configure_for_framework(request_id, operation, file_name)
+func configure_for_framework(
+	request_id: int,
+	operation: StringName,
+	file_name: String
+) -> bool:
+	return _state.configure_for_framework(
+		request_id,
+		operation,
+		file_name
+	)
 
 
 ## 配置当前 consumer 的生命周期观察与弱取消委托。
@@ -351,7 +359,11 @@ func configure_consumer_for_framework(
 	cancel_delegate: Callable
 ) -> bool:
 	return _state.configure_consumer_for_framework(
-		consumer_id, options, clock, cancel_delegate, self
+		consumer_id,
+		options,
+		clock,
+		cancel_delegate,
+		self
 	)
 
 
@@ -419,16 +431,24 @@ func complete_caller_for_framework(
 ) -> bool:
 	if not Thread.is_main_thread() or not is_caller_pending():
 		return false
-	var error_code: Error = (
-		ERR_BUSY if status == GFStorageAsyncCallerResult.Status.OUTCOME_UNKNOWN else ERR_SKIP
-	)
+	var error_code: Error = ERR_BUSY if status == GFStorageAsyncCallerResult.Status.OUTCOME_UNKNOWN else ERR_SKIP
 	var completed_at_msec: int = _state.get_monotonic_msec_for_framework()
 	var caller_result_value: GFStorageAsyncCallerResult = _make_caller_result(
-		status, end_kind, reason, error_code, null, completed_at_msec
+		status,
+		end_kind,
+		reason,
+		error_code,
+		null,
+		completed_at_msec
 	)
 	if caller_result_value == null:
 		return false
-	if not _state.commit_caller_for_framework(status, end_kind, reason, completed_at_msec):
+	if not _state.commit_caller_for_framework(
+		status,
+		end_kind,
+		reason,
+		completed_at_msec
+	):
 		return false
 	_caller_result = caller_result_value
 	if emit_caller_signal and _state.can_emit_caller_signal_for_framework():
@@ -465,10 +485,7 @@ func set_file_name_for_framework(file_name: String) -> bool:
 ## @param attempt_id: transfer 分配的活动 attempt ID。
 ## [br]
 ## @return save 请求首次关联合法 attempt 时返回 true。
-func configure_payload_attempt_for_framework(
-	transfer: GFStoragePayloadTransfer,
-	attempt_id: int
-) -> bool:
+func configure_payload_attempt_for_framework(transfer: GFStoragePayloadTransfer, attempt_id: int) -> bool:
 	if (
 		not is_pending()
 		or get_operation() != OPERATION_SAVE
@@ -539,9 +556,7 @@ func is_payload_attempt_ready_for_settlement_for_framework() -> bool:
 ## @return 首次完成成功返回 true。
 func complete_for_framework(
 	result: GFStorageAsyncResult,
-	end_kind: GFStorageAsyncCallerResult.EndKind = (
-		GFStorageAsyncCallerResult.EndKind.PHYSICAL_SETTLEMENT
-	),
+	end_kind: GFStorageAsyncCallerResult.EndKind = GFStorageAsyncCallerResult.EndKind.PHYSICAL_SETTLEMENT,
 	reason: StringName = &"",
 	emit_caller_signal: bool = true
 ) -> bool:
@@ -555,7 +570,10 @@ func complete_for_framework(
 		return false
 	if not is_payload_attempt_ready_for_settlement_for_framework():
 		return false
-	if not _state.can_commit_physical_for_framework(result.get_settlement_kind(), end_kind):
+	if not _state.can_commit_physical_for_framework(
+		result.get_settlement_kind(),
+		end_kind
+	):
 		return false
 	var caller_was_completed: bool = is_caller_completed()
 	var completed_at_msec: int = _state.get_monotonic_msec_for_framework()
@@ -564,14 +582,24 @@ func complete_for_framework(
 	if not caller_was_completed:
 		physical_caller_result = _make_caller_result(
 			GFStorageAsyncCallerResult.Status.PHYSICAL_SETTLED,
-			end_kind, reason, physical_copy.get_error_code(), physical_copy, completed_at_msec
+			end_kind,
+			reason,
+			physical_copy.get_error_code(),
+			physical_copy,
+			completed_at_msec
 		)
 		if physical_caller_result == null:
 			return false
-	if not _state.commit_physical_for_framework(
-		physical_copy.get_settlement_kind(), physical_copy.is_successful(),
-		physical_copy.get_error_code(), end_kind, reason, completed_at_msec,
-		physical_copy.get_read_failure_kind_for_framework()
+	if not (
+		_state.commit_physical_for_framework(
+			physical_copy.get_settlement_kind(),
+			physical_copy.is_successful(),
+			physical_copy.get_error_code(),
+			end_kind,
+			reason,
+			completed_at_msec,
+			physical_copy.get_read_failure_kind_for_framework()
+		)
 	):
 		return false
 	_result = physical_copy
@@ -580,7 +608,11 @@ func complete_for_framework(
 	else:
 		_late_settlement_diagnostic = _make_late_settlement_diagnostic()
 	completed.emit(_result.duplicate_result())
-	if not caller_was_completed and emit_caller_signal and _state.can_emit_caller_signal_for_framework():
+	if (
+		not caller_was_completed
+		and emit_caller_signal
+		and _state.can_emit_caller_signal_for_framework()
+	):
 		caller_completed.emit(_caller_result.duplicate_result())
 	if not caller_was_completed:
 		_state.finish_caller_notification_for_framework()
@@ -680,20 +712,23 @@ func _make_late_settlement_diagnostic() -> Dictionary:
 					reset_failed_member = int(reset_result.get_failed_member())
 
 	var diagnostic: Dictionary = _state.take_late_settlement_diagnostic_for_framework()
-	diagnostic.merge({
-		"read_failure_kind": read_failure_kind,
-		"write_failure_kind": write_failure_kind,
-		"delete_failure_kind": delete_failure_kind,
-		"delete_existing_member_count": delete_existing_member_count,
-		"delete_removed_member_count": delete_removed_member_count,
-		"delete_remaining_member_count": delete_remaining_member_count,
-		"delete_failed_member": delete_failed_member,
-		"reset_failure_kind": reset_failure_kind,
-		"reset_source_kind": reset_source_kind,
-		"reset_failed_phase": reset_failed_phase,
-		"reset_retired_member_count": reset_retired_member_count,
-		"reset_recreated_member_count": reset_recreated_member_count,
-		"reset_remaining_evidence_count": reset_remaining_evidence_count,
-		"reset_failed_member": reset_failed_member,
-	}, true)
+	diagnostic.merge(
+		{
+			"read_failure_kind": read_failure_kind,
+			"write_failure_kind": write_failure_kind,
+			"delete_failure_kind": delete_failure_kind,
+			"delete_existing_member_count": delete_existing_member_count,
+			"delete_removed_member_count": delete_removed_member_count,
+			"delete_remaining_member_count": delete_remaining_member_count,
+			"delete_failed_member": delete_failed_member,
+			"reset_failure_kind": reset_failure_kind,
+			"reset_source_kind": reset_source_kind,
+			"reset_failed_phase": reset_failed_phase,
+			"reset_retired_member_count": reset_retired_member_count,
+			"reset_recreated_member_count": reset_recreated_member_count,
+			"reset_remaining_evidence_count": reset_remaining_evidence_count,
+			"reset_failed_member": reset_failed_member,
+		},
+		true
+	)
 	return diagnostic

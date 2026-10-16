@@ -32,9 +32,9 @@
 | 方法 | [`make_text_entry`](#member-gfartifactwritetransaction-methods-make_text_entry) | `static func make_text_entry( target_path: String, text: String, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`make_bytes_entry`](#member-gfartifactwritetransaction-methods-make_bytes_entry) | `static func make_bytes_entry( target_path: String, bytes: PackedByteArray, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`make_file_entry`](#member-gfartifactwritetransaction-methods-make_file_entry) | `static func make_file_entry( target_path: String, source_path: String, options: Dictionary = {} ) -> Dictionary:` |
-| 方法 | [`get_preflight_report`](#member-gfartifactwritetransaction-methods-get_preflight_report) | `static func get_preflight_report( entries: Array[Dictionary], options: Dictionary = {} ) -> Dictionary:` |
-| 方法 | [`commit`](#member-gfartifactwritetransaction-methods-commit) | `static func commit( entries: Array[Dictionary], options: Dictionary = {} ) -> Dictionary:` |
-| 方法 | [`begin`](#member-gfartifactwritetransaction-methods-begin) | `static func begin( paths: PackedStringArray, options: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`get_preflight_report`](#member-gfartifactwritetransaction-methods-get_preflight_report) | `static func get_preflight_report(entries: Array[Dictionary], options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`commit`](#member-gfartifactwritetransaction-methods-commit) | `static func commit(entries: Array[Dictionary], options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`begin`](#member-gfartifactwritetransaction-methods-begin) | `static func begin(paths: PackedStringArray, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`rollback`](#member-gfartifactwritetransaction-methods-rollback) | `static func rollback(transaction: Dictionary) -> Dictionary:` |
 | 方法 | [`complete`](#member-gfartifactwritetransaction-methods-complete) | `static func complete(transaction: Dictionary) -> Dictionary:` |
 
@@ -316,7 +316,7 @@ static func make_file_entry( target_path: String, source_path: String, options: 
 - 首次版本：`10.0.0`
 
 ```gdscript
-static func get_preflight_report( entries: Array[Dictionary], options: Dictionary = {} ) -> Dictionary:
+static func get_preflight_report(entries: Array[Dictionary], options: Dictionary = {}) -> Dictionary:
 ```
 
 预检一组产物 entry，不创建目录或写入文件。
@@ -344,7 +344,7 @@ static func get_preflight_report( entries: Array[Dictionary], options: Dictionar
 - 首次版本：`10.0.0`
 
 ```gdscript
-static func commit( entries: Array[Dictionary], options: Dictionary = {} ) -> Dictionary:
+static func commit(entries: Array[Dictionary], options: Dictionary = {}) -> Dictionary:
 ```
 
 以运行期补偿事务提交一组产物。 dry_run 为 true 时只执行完整预检。成功写入时全部 staging 文件均已校验， 目标替换失败会触发逆序回滚；回滚不完整会在报告中显式标记。 每个同目录 rename 是独立文件替换，多目标整体不提供 crash atomicity。 提交入口只允许在主线程调用，错误线程会在任何目录或文件写入前失败。
@@ -372,7 +372,7 @@ static func commit( entries: Array[Dictionary], options: Dictionary = {} ) -> Di
 - 首次版本：`10.0.0`
 
 ```gdscript
-static func begin( paths: PackedStringArray, options: Dictionary = {} ) -> Dictionary:
+static func begin(paths: PackedStringArray, options: Dictionary = {}) -> Dictionary:
 ```
 
 捕获一组外部写入目标的事务前状态。 适合调用方必须使用 ResourceSaver 或其他专用 materializer 写最终目标的场景。 begin() 成功后，调用方必须且只能调用 complete() 或 rollback() 之一。

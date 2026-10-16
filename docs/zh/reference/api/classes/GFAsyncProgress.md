@@ -15,15 +15,15 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 信号 | [`progressed`](#member-gfasyncprogress-signals-progressed) | `signal progressed(value: float, message: String, metadata: Dictionary)` |
+| 信号 | [`progressed`](#member-gfasyncprogress-signals-progressed) | `signal progressed( value: float, message: String, metadata: Dictionary )` |
 | 属性 | [`min_delta`](#member-gfasyncprogress-properties-min_delta) | `var min_delta: float = 0.0:` |
 | 属性 | [`min_interval_msec`](#member-gfasyncprogress-properties-min_interval_msec) | `var min_interval_msec: int = 0:` |
 | 属性 | [`emit_on_message_change`](#member-gfasyncprogress-properties-emit_on_message_change) | `var emit_on_message_change: bool = true` |
-| 方法 | [`_init`](#member-gfasyncprogress-methods-_init) | `func _init(initial_value: float = 0.0, initial_message: String = "", initial_metadata: Dictionary = {}) -> void:` |
-| 方法 | [`update`](#member-gfasyncprogress-methods-update) | `func update(value: float, message: String = "", metadata: Dictionary = {}) -> bool:` |
+| 方法 | [`_init`](#member-gfasyncprogress-methods-_init) | `func _init( initial_value: float = 0.0, initial_message: String = "", initial_metadata: Dictionary = {} ) -> void:` |
+| 方法 | [`update`](#member-gfasyncprogress-methods-update) | `func update( value: float, message: String = "", metadata: Dictionary = {} ) -> bool:` |
 | 方法 | [`force_emit`](#member-gfasyncprogress-methods-force_emit) | `func force_emit() -> bool:` |
 | 方法 | [`complete`](#member-gfasyncprogress-methods-complete) | `func complete(message: String = "", metadata: Dictionary = {}) -> bool:` |
-| 方法 | [`reset`](#member-gfasyncprogress-methods-reset) | `func reset(value: float = 0.0, message: String = "", metadata: Dictionary = {}) -> void:` |
+| 方法 | [`reset`](#member-gfasyncprogress-methods-reset) | `func reset( value: float = 0.0, message: String = "", metadata: Dictionary = {} ) -> void:` |
 | 方法 | [`get_value`](#member-gfasyncprogress-methods-get_value) | `func get_value() -> float:` |
 | 方法 | [`get_message`](#member-gfasyncprogress-methods-get_message) | `func get_message() -> String:` |
 | 方法 | [`get_metadata`](#member-gfasyncprogress-methods-get_metadata) | `func get_metadata() -> Dictionary:` |
@@ -39,7 +39,7 @@
 - 首次版本：`7.0.0`
 
 ```gdscript
-signal progressed(value: float, message: String, metadata: Dictionary)
+signal progressed( value: float, message: String, metadata: Dictionary )
 ```
 
 进度通过节流条件并对外发布时发出。
@@ -107,7 +107,7 @@ var emit_on_message_change: bool = true
 - 首次版本：`7.0.0`
 
 ```gdscript
-func _init(initial_value: float = 0.0, initial_message: String = "", initial_metadata: Dictionary = {}) -> void:
+func _init( initial_value: float = 0.0, initial_message: String = "", initial_metadata: Dictionary = {} ) -> void:
 ```
 
 创建进度句柄。
@@ -132,7 +132,7 @@ func _init(initial_value: float = 0.0, initial_message: String = "", initial_met
 - 首次版本：`7.0.0`
 
 ```gdscript
-func update(value: float, message: String = "", metadata: Dictionary = {}) -> bool:
+func update( value: float, message: String = "", metadata: Dictionary = {} ) -> bool:
 ```
 
 更新进度，并在满足节流条件时发出 progressed。
@@ -200,7 +200,7 @@ func complete(message: String = "", metadata: Dictionary = {}) -> bool:
 - 首次版本：`7.0.0`
 
 ```gdscript
-func reset(value: float = 0.0, message: String = "", metadata: Dictionary = {}) -> void:
+func reset( value: float = 0.0, message: String = "", metadata: Dictionary = {} ) -> void:
 ```
 
 重置进度状态，不发出信号。

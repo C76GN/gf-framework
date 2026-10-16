@@ -25,7 +25,7 @@
 | 方法 | [`is_stop_queue`](#member-gfactioninterceptionresult-methods-is_stop_queue) | `func is_stop_queue() -> bool:` |
 | 方法 | [`continue_action`](#member-gfactioninterceptionresult-methods-continue_action) | `static func continue_action(p_metadata: Dictionary = {}) -> GFActionInterceptionResult:` |
 | 方法 | [`skip_action`](#member-gfactioninterceptionresult-methods-skip_action) | `static func skip_action(p_metadata: Dictionary = {}) -> GFActionInterceptionResult:` |
-| 方法 | [`replace_with`](#member-gfactioninterceptionresult-methods-replace_with) | `static func replace_with( action: Object, p_metadata: Dictionary = {} ) -> GFActionInterceptionResult:` |
+| 方法 | [`replace_with`](#member-gfactioninterceptionresult-methods-replace_with) | `static func replace_with(action: Object, p_metadata: Dictionary = {}) -> GFActionInterceptionResult:` |
 | 方法 | [`stop_queue`](#member-gfactioninterceptionresult-methods-stop_queue) | `static func stop_queue(p_metadata: Dictionary = {}) -> GFActionInterceptionResult:` |
 
 ## 枚举
@@ -204,9 +204,10 @@ static func skip_action(p_metadata: Dictionary = {}) -> GFActionInterceptionResu
 ### `replace_with`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-static func replace_with( action: Object, p_metadata: Dictionary = {} ) -> GFActionInterceptionResult:
+static func replace_with(action: Object, p_metadata: Dictionary = {}) -> GFActionInterceptionResult:
 ```
 
 创建替换结果。

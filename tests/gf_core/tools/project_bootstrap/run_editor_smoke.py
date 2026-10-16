@@ -20,6 +20,7 @@ ROOT = next(
 )
 sys.path.insert(0, str(ROOT / "tools"))
 import gf_maintenance as maintenance
+import gf_gdscript_readability as readability
 import gf_path_security as path_security
 import gf_process_supervisor as supervisor
 
@@ -39,6 +40,38 @@ EXPECTED_BOOT_FAILURE = (
 	"GF initialization did not complete; startup was stopped."
 )
 LOG_LIMIT = 4 * 1024 * 1024
+GENERATED_SCRIPTS = (
+	"app/boot.gd",
+	"app/project_installer.gd",
+	"integration/project_installer.gd",
+)
+
+
+def audit_generated_scripts(project: Path) -> dict[str, object]:
+	"""Check actual initializer output before the owned project is removed."""
+	issues: list[dict[str, object]] = []
+	for relative in GENERATED_SCRIPTS:
+		try:
+			payload = path_security.read_pinned_regular_file(
+				project, relative, max_bytes=readability.MAX_SOURCE_BYTES,
+			)
+			issues.extend(readability.audit_source(relative, payload.decode("utf-8", errors="strict")))
+		except (OSError, RuntimeError, ValueError, UnicodeError):
+			issues.append({
+				"rule": "generated_source_unreadable",
+				"kind": "generated_source_unreadable",
+				"path": relative,
+				"line": 1,
+				"column": 1,
+				"message": "A required generated script could not be checked.",
+				"suggestion": "Restore the generated script and rerun the owned smoke.",
+			})
+	return {
+		"ok": not issues,
+		"paths": list(GENERATED_SCRIPTS),
+		"policy_version": readability.POLICY_VERSION,
+		"issues": issues,
+	}
 
 
 def run_phase(
@@ -262,8 +295,10 @@ def main() -> int:
 				write_project(project, True)
 				phases.append(run_phase("editor", common, project, environment, logs, EDITOR_SUCCESS))
 			if phases[-1]["ok"]:
+				report["generated_readability"] = audit_generated_scripts(project)
+			if phases[-1]["ok"] and report.get("generated_readability", {}).get("ok"):
 				phases.append(run_phase("generated_import", [*common, "--import", "--quit"], project, environment, logs))
-			if phases[-1]["ok"]:
+			if phases[-1]["ok"] and report.get("generated_readability", {}).get("ok"):
 				configure_runtime_observer(project, empty=False)
 				runtime = [godot, "--headless", "--path", str(project), "--audio-driver", "Dummy"]
 				phases.append(run_phase("runtime", runtime, project, environment, logs, RUNTIME_SUCCESS))
@@ -279,7 +314,14 @@ def main() -> int:
 				for directory, hashes in ((Path("addons/gf"), gf_hashes), (FIXTURES, fixture_hashes))
 				for name, digest in hashes.items()
 			)
-			report["ok"] = len(phases) == 5 and all(phase["ok"] for phase in phases) and all(report[key] for key in ("source_fixtures_unchanged", "gf_sources_unchanged", "copied_sources_unchanged"))
+			report["ok"] = (
+				len(phases) == 5
+				and all(phase["ok"] for phase in phases)
+				and report.get("generated_readability", {}).get("ok") is True
+				and all(report[key] for key in (
+					"source_fixtures_unchanged", "gf_sources_unchanged", "copied_sources_unchanged",
+				))
+			)
 	except Exception as error:
 		report["error"] = f"{type(error).__name__}: {error}"
 		report["exception_notes"] = list(getattr(error, "__notes__", ()))

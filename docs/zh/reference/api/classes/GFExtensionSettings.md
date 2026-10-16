@@ -31,7 +31,7 @@ GF 扩展启用状态与 ProjectSettings 桥接。 负责读取启用扩展 ID�
 | 常量 | [`EXTENSION_PRESET_PATHS_DEFAULT`](#member-gfextensionsettings-constants-extension_preset_paths_default) | `const EXTENSION_PRESET_PATHS_DEFAULT: Array[String] = []` |
 | 常量 | [`EXPORT_EXCLUDE_DISABLED_DEFAULT`](#member-gfextensionsettings-constants-export_exclude_disabled_default) | `const EXPORT_EXCLUDE_DISABLED_DEFAULT: bool = true` |
 | 常量 | [`EXPORT_FAIL_ON_DISABLED_REFERENCES_DEFAULT`](#member-gfextensionsettings-constants-export_fail_on_disabled_references_default) | `const EXPORT_FAIL_ON_DISABLED_REFERENCES_DEFAULT: bool = true` |
-| 常量 | [`BUILT_IN_EXTENSION_IDS`](#member-gfextensionsettings-constants-built_in_extension_ids) | `const BUILT_IN_EXTENSION_IDS: Array[String] = [ 	"gf.kernel", 	"gf.standard", ]` |
+| 常量 | [`BUILT_IN_EXTENSION_IDS`](#member-gfextensionsettings-constants-built_in_extension_ids) | `const BUILT_IN_EXTENSION_IDS: Array[String] = ["gf.kernel", "gf.standard",]` |
 | 方法 | [`ensure_defaults`](#member-gfextensionsettings-methods-ensure_defaults) | `static func ensure_defaults() -> bool:` |
 | 方法 | [`register_property_info`](#member-gfextensionsettings-methods-register_property_info) | `static func register_property_info() -> void:` |
 | 方法 | [`get_default_enabled_extension_ids`](#member-gfextensionsettings-methods-get_default_enabled_extension_ids) | `static func get_default_enabled_extension_ids() -> Array[String]:` |
@@ -56,12 +56,12 @@ GF 扩展启用状态与 ProjectSettings 桥接。 负责读取启用扩展 ID�
 | 方法 | [`get_extension_presets`](#member-gfextensionsettings-methods-get_extension_presets) | `static func get_extension_presets() -> Array[GFExtensionPreset]:` |
 | 方法 | [`get_extension_preset_report`](#member-gfextensionsettings-methods-get_extension_preset_report) | `static func get_extension_preset_report() -> Dictionary:` |
 | 方法 | [`get_extension_preset_by_id`](#member-gfextensionsettings-methods-get_extension_preset_by_id) | `static func get_extension_preset_by_id(preset_id: StringName) -> GFExtensionPreset:` |
-| 方法 | [`apply_extension_preset`](#member-gfextensionsettings-methods-apply_extension_preset) | `static func apply_extension_preset( preset_id: StringName, include_dependencies: bool = true ) -> bool:` |
+| 方法 | [`apply_extension_preset`](#member-gfextensionsettings-methods-apply_extension_preset) | `static func apply_extension_preset(preset_id: StringName, include_dependencies: bool = true) -> bool:` |
 | 方法 | [`clear_manifest_cache`](#member-gfextensionsettings-methods-clear_manifest_cache) | `static func clear_manifest_cache() -> void:` |
 | 方法 | [`get_manifest_by_id`](#member-gfextensionsettings-methods-get_manifest_by_id) | `static func get_manifest_by_id(extension_id: String) -> GFExtensionManifest:` |
 | 方法 | [`has_extension`](#member-gfextensionsettings-methods-has_extension) | `static func has_extension(extension_id: String) -> bool:` |
-| 方法 | [`get_extension_resource_path`](#member-gfextensionsettings-methods-get_extension_resource_path) | `static func get_extension_resource_path( extension_id: String, relative_path: String = "" ) -> String:` |
-| 方法 | [`is_extension_enabled`](#member-gfextensionsettings-methods-is_extension_enabled) | `static func is_extension_enabled( extension_id: String, include_dependencies: bool = true ) -> bool:` |
+| 方法 | [`get_extension_resource_path`](#member-gfextensionsettings-methods-get_extension_resource_path) | `static func get_extension_resource_path(extension_id: String, relative_path: String = "") -> String:` |
+| 方法 | [`is_extension_enabled`](#member-gfextensionsettings-methods-is_extension_enabled) | `static func is_extension_enabled(extension_id: String, include_dependencies: bool = true) -> bool:` |
 | 方法 | [`load_enabled_extension_script`](#member-gfextensionsettings-methods-load_enabled_extension_script) | `static func load_enabled_extension_script( extension_id: String, relative_path: String, include_dependencies: bool = true ) -> Script:` |
 | 方法 | [`get_enabled_manifests`](#member-gfextensionsettings-methods-get_enabled_manifests) | `static func get_enabled_manifests() -> Array[GFExtensionManifest]:` |
 | 方法 | [`get_disabled_manifests`](#member-gfextensionsettings-methods-get_disabled_manifests) | `static func get_disabled_manifests() -> Array[GFExtensionManifest]:` |
@@ -74,8 +74,8 @@ GF 扩展启用状态与 ProjectSettings 桥接。 负责读取启用扩展 ID�
 | 方法 | [`get_enabled_export_plugin_paths`](#member-gfextensionsettings-methods-get_enabled_export_plugin_paths) | `static func get_enabled_export_plugin_paths() -> Array[String]:` |
 | 方法 | [`get_enabled_gltf_document_extension_paths`](#member-gfextensionsettings-methods-get_enabled_gltf_document_extension_paths) | `static func get_enabled_gltf_document_extension_paths() -> Array[String]:` |
 | 方法 | [`get_enabled_access_generator_extension_paths`](#member-gfextensionsettings-methods-get_enabled_access_generator_extension_paths) | `static func get_enabled_access_generator_extension_paths() -> Array[String]:` |
-| 方法 | [`resolve_extension_dependencies`](#member-gfextensionsettings-methods-resolve_extension_dependencies) | `static func resolve_extension_dependencies( extension_ids: Array[String], manifests: Array[GFExtensionManifest] = [] ) -> Array[String]:` |
-| 方法 | [`get_manifest_graph_report`](#member-gfextensionsettings-methods-get_manifest_graph_report) | `static func get_manifest_graph_report( manifests: Array[GFExtensionManifest] = [], include_cached_load_errors: bool = false ) -> Dictionary:` |
+| 方法 | [`resolve_extension_dependencies`](#member-gfextensionsettings-methods-resolve_extension_dependencies) | `static func resolve_extension_dependencies(extension_ids: Array[String], manifests: Array[GFExtensionManifest] = []) -> Array[String]:` |
+| 方法 | [`get_manifest_graph_report`](#member-gfextensionsettings-methods-get_manifest_graph_report) | `static func get_manifest_graph_report(manifests: Array[GFExtensionManifest] = [], include_cached_load_errors: bool = false) -> Dictionary:` |
 | 方法 | [`get_extension_selection_report`](#member-gfextensionsettings-methods-get_extension_selection_report) | `static func get_extension_selection_report() -> Dictionary:` |
 
 ## 常量
@@ -286,12 +286,10 @@ const EXPORT_FAIL_ON_DISABLED_REFERENCES_DEFAULT: bool = true
 ### `BUILT_IN_EXTENSION_IDS`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-const BUILT_IN_EXTENSION_IDS: Array[String] = [
-	"gf.kernel",
-	"gf.standard",
-]
+const BUILT_IN_EXTENSION_IDS: Array[String] = ["gf.kernel", "gf.standard",]
 ```
 
 内置依赖 ID。这些不是可启停扩展 manifest，但允许被扩展声明为基础依赖。
@@ -705,7 +703,7 @@ static func get_extension_preset_by_id(preset_id: StringName) -> GFExtensionPres
 - 首次版本：`5.0.0`
 
 ```gdscript
-static func apply_extension_preset( preset_id: StringName, include_dependencies: bool = true ) -> bool:
+static func apply_extension_preset(preset_id: StringName, include_dependencies: bool = true) -> bool:
 ```
 
 应用扩展 preset 到显式启用列表。 该方法会切换到 `explicit` 选择模式；保存 project.godot 由调用方决定。
@@ -776,9 +774,10 @@ static func has_extension(extension_id: String) -> bool:
 ### `get_extension_resource_path`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-static func get_extension_resource_path( extension_id: String, relative_path: String = "" ) -> String:
+static func get_extension_resource_path(extension_id: String, relative_path: String = "") -> String:
 ```
 
 获取扩展内资源路径。
@@ -797,9 +796,10 @@ static func get_extension_resource_path( extension_id: String, relative_path: St
 ### `is_extension_enabled`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-static func is_extension_enabled( extension_id: String, include_dependencies: bool = true ) -> bool:
+static func is_extension_enabled(extension_id: String, include_dependencies: bool = true) -> bool:
 ```
 
 判断扩展当前是否启用。
@@ -1002,9 +1002,10 @@ static func get_enabled_access_generator_extension_paths() -> Array[String]:
 ### `resolve_extension_dependencies`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-static func resolve_extension_dependencies( extension_ids: Array[String], manifests: Array[GFExtensionManifest] = [] ) -> Array[String]:
+static func resolve_extension_dependencies(extension_ids: Array[String], manifests: Array[GFExtensionManifest] = []) -> Array[String]:
 ```
 
 根据 manifest 依赖关系补齐启用扩展。
@@ -1026,7 +1027,7 @@ static func resolve_extension_dependencies( extension_ids: Array[String], manife
 - 首次版本：`5.0.0`
 
 ```gdscript
-static func get_manifest_graph_report( manifests: Array[GFExtensionManifest] = [], include_cached_load_errors: bool = false ) -> Dictionary:
+static func get_manifest_graph_report(manifests: Array[GFExtensionManifest] = [], include_cached_load_errors: bool = false) -> Dictionary:
 ```
 
 获取 manifest 依赖图诊断。

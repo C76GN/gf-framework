@@ -45,9 +45,7 @@ const _TOOL_CONTRIBUTION_FILE_NAME: String = "gf_tool_contribution.json"
 ## 从 manifest 汇总的路径字段名称。
 ## [br]
 ## @api private
-const _MANIFEST_PATH_FIELDS: Array[String] = [
-	"installer_paths",
-]
+const _MANIFEST_PATH_FIELDS: Array[String] = ["installer_paths",]
 
 ## 快照内部贡献归属记录字典使用的键名。
 ## [br]
@@ -137,17 +135,27 @@ static func get_snapshot(
 		options,
 		budget_state
 	)
-	var force_refresh: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "force_refresh", false)
-	if not force_refresh and _has_snapshot_cache and _snapshot_matches_signature(signature):
+	var force_refresh: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		options,
+		"force_refresh",
+		false
+	)
+	if (
+		not force_refresh
+		and _has_snapshot_cache
+		and _snapshot_matches_signature(signature)
+	):
 		return _duplicate_snapshot(_snapshot_cache)
 
-	_store_snapshot(_make_snapshot(
-		manifests,
-		configured_ids,
-		options,
-		signature,
-		budget_state
-	))
+	_store_snapshot(
+		_make_snapshot(
+			manifests,
+			configured_ids,
+			options,
+			signature,
+			budget_state
+		)
+	)
 	return _duplicate_snapshot(_snapshot_cache)
 
 
@@ -191,7 +199,11 @@ static func get_tool_contribution_records(
 ) -> Array[Dictionary]:
 	if not _GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.PATH_FIELDS.has(property_name):
 		return []
-	var _snapshot: Dictionary = get_snapshot(manifests, configured_ids, options)
+	var _snapshot: Dictionary = get_snapshot(
+		manifests,
+		configured_ids,
+		options
+	)
 	return _get_tool_contribution_record_array(
 		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(
 			_tool_contribution_records_cache,
@@ -221,7 +233,12 @@ static func resolve_extension_dependencies(
 	manifests: Array[GFExtensionManifest] = [],
 	options: Dictionary = {}
 ) -> Array[String]:
-	return _resolve_extension_dependencies(extension_ids, manifests, options, true)
+	return _resolve_extension_dependencies(
+		extension_ids,
+		manifests,
+		options,
+		true
+	)
 
 
 ## 获取启用 ID 中无法匹配当前 manifest 的项目扩展 ID。
@@ -266,10 +283,7 @@ static func get_unknown_enabled_ids(
 ## @return manifest 图诊断报告。
 ## [br]
 ## @schema return: Dictionary containing ok, extension_count, issue_count, duplicate_ids, invalid_manifests, manifest_load_errors, missing_dependencies, and dependency_cycles.
-static func make_manifest_graph_report(
-	manifests: Array[GFExtensionManifest] = [],
-	options: Dictionary = {}
-) -> Dictionary:
+static func make_manifest_graph_report(manifests: Array[GFExtensionManifest] = [], options: Dictionary = {}) -> Dictionary:
 	var source_manifests: Array[GFExtensionManifest] = _duplicate_manifest_array(manifests)
 	var builtin_ids: Array[String] = _get_builtin_extension_ids(options)
 	var manifest_by_id: Dictionary = {}
@@ -277,7 +291,11 @@ static func make_manifest_graph_report(
 	var duplicate_ids: PackedStringArray = PackedStringArray()
 	var invalid_manifests: Array[Dictionary] = []
 	var manifest_load_errors: Array[Dictionary] = _get_issue_records_from_value(
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(options, "manifest_load_errors", [])
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+			options,
+			"manifest_load_errors",
+			[]
+		)
 	)
 	var missing_dependencies: Array[Dictionary] = []
 	var dependency_cycles: Array[PackedStringArray] = []
@@ -290,12 +308,14 @@ static func make_manifest_graph_report(
 
 		var errors: Array[String] = manifest.get_validation_errors()
 		if not errors.is_empty():
-			invalid_manifests.append({
-				"stage": "validation",
-				"extension_id": manifest.id,
-				"source_path": manifest.source_path,
-				"errors": errors,
-			})
+			invalid_manifests.append(
+				{
+					"stage": "validation",
+					"extension_id": manifest.id,
+					"source_path": manifest.source_path,
+					"errors": errors,
+				}
+			)
 
 		if manifest.id.strip_edges().is_empty():
 			continue
@@ -316,10 +336,7 @@ static func make_manifest_graph_report(
 			if builtin_ids.has(dependency_id):
 				continue
 			if not manifest_by_id.has(dependency_id):
-				missing_dependencies.append({
-					"extension_id": manifest.id,
-					"dependency_id": dependency_id,
-				})
+				missing_dependencies.append({ "extension_id": manifest.id, "dependency_id": dependency_id, })
 
 	var dependency_graph_report: Dictionary = _GF_DEPENDENCY_GRAPH_TOOLS.sort_dependency_first(
 		_dictionary_keys_to_packed_string_array(manifest_by_id),
@@ -327,12 +344,7 @@ static func make_manifest_graph_report(
 	)
 	dependency_cycles = _get_graph_cycles(dependency_graph_report)
 
-	var issue_count: int = (
-		duplicate_ids.size()
-		+ invalid_manifests.size()
-		+ missing_dependencies.size()
-		+ dependency_cycles.size()
-	)
+	var issue_count: int = (duplicate_ids.size() + invalid_manifests.size() + missing_dependencies.size() + dependency_cycles.size())
 	return {
 		"ok": issue_count == 0,
 		"extension_count": manifest_by_id.size(),
@@ -394,7 +406,11 @@ static func make_discovery_signature(
 		budget_state
 	)
 	var manifest_load_errors: Array[Dictionary] = _get_issue_records_from_value(
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(options, "manifest_load_errors", [])
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+			options,
+			"manifest_load_errors",
+			[]
+		)
 	)
 	var json_limits: Dictionary = _GF_EXTENSION_JSON_FILE_READER_SCRIPT.get_limit_policy(options)
 	var signature_payload: Dictionary = {
@@ -439,10 +455,7 @@ static func _resolve_extension_dependencies(
 	var cycles: Array[PackedStringArray] = _get_graph_cycles(graph_report)
 	if report_cycle_warnings:
 		for cycle: PackedStringArray in cycles:
-			push_warning(
-				"[GFExtensionSelectionDiscovery][extension_selection_discovery.dependency_cycle] An extension dependency cycle was detected: %s."
-				% " -> ".join(Array(cycle))
-			)
+			push_warning("[GFExtensionSelectionDiscovery][extension_selection_discovery.dependency_cycle] An extension dependency cycle was detected: %s." % " -> ".join(Array(cycle)))
 
 	var ordered: Array[String] = []
 	if cycles.is_empty():
@@ -470,23 +483,33 @@ static func _make_snapshot(
 	var source_manifests: Array[GFExtensionManifest] = _duplicate_manifest_array(manifests)
 	var builtin_ids: Array[String] = _get_builtin_extension_ids(options)
 	var manifest_load_errors: Array[Dictionary] = _get_issue_records_from_value(
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(options, "manifest_load_errors", [])
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+			options,
+			"manifest_load_errors",
+			[]
+		)
 	)
-	var graph_report: Dictionary = make_manifest_graph_report(source_manifests, {
-		"builtin_extension_ids": builtin_ids,
-		"manifest_load_errors": manifest_load_errors,
-	})
+	var graph_report: Dictionary = make_manifest_graph_report(
+		source_manifests,
+		{ "builtin_extension_ids": builtin_ids, "manifest_load_errors": manifest_load_errors, }
+	)
 	var manifest_by_id: Dictionary = _build_manifest_map(source_manifests)
 	var normalized_configured_ids: Array[String] = _sorted_unique(configured_ids)
-	var resolved_ids: Array[String] = resolve_extension_dependencies(normalized_configured_ids, source_manifests, {
-		"builtin_extension_ids": builtin_ids,
-	})
+	var resolved_ids: Array[String] = resolve_extension_dependencies(
+		normalized_configured_ids,
+		source_manifests,
+		{ "builtin_extension_ids": builtin_ids, }
+	)
 	var unknown_enabled_ids: Array[String] = _get_unknown_enabled_ids(
 		normalized_configured_ids,
 		manifest_by_id,
 		builtin_ids
 	)
-	var graph_ok: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(graph_report, "ok", true)
+	var graph_ok: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		graph_report,
+		"ok",
+		true
+	)
 	var enabled_manifests: Array[GFExtensionManifest] = []
 	var disabled_manifests: Array[GFExtensionManifest] = []
 	if graph_ok:
@@ -495,9 +518,7 @@ static func _make_snapshot(
 
 	var tool_contribution_errors: Array[Dictionary] = []
 	var manifest_paths: Dictionary = _collect_manifest_path_dictionary(enabled_manifests)
-	var tool_contribution_records: Dictionary = _make_empty_path_dictionary(
-		_GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.PATH_FIELDS
-	)
+	var tool_contribution_records: Dictionary = _make_empty_path_dictionary(_GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.PATH_FIELDS)
 	var contribution_paths: Dictionary = _collect_tool_contribution_path_dictionary(
 		enabled_manifests,
 		tool_contribution_errors,
@@ -566,30 +587,56 @@ static func _snapshot_matches_signature(signature: Dictionary) -> bool:
 ## @api private
 static func _duplicate_snapshot(snapshot: Dictionary) -> Dictionary:
 	var result: Dictionary = snapshot.duplicate(true)
-	var _internal_records_removed: bool = result.erase(
-		_INTERNAL_TOOL_CONTRIBUTION_RECORDS_KEY
-	)
+	var _internal_records_removed: bool = result.erase(_INTERNAL_TOOL_CONTRIBUTION_RECORDS_KEY)
 	result["configured_ids"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(snapshot, "configured_ids")
 	result["resolved_ids"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(snapshot, "resolved_ids")
 	result["unknown_enabled_ids"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(snapshot, "unknown_enabled_ids")
-	result["enabled_manifests"] = _duplicate_manifest_array(_get_manifest_array_from_value(
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(snapshot, "enabled_manifests", [])
-	))
-	result["disabled_manifests"] = _duplicate_manifest_array(_get_manifest_array_from_value(
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(snapshot, "disabled_manifests", [])
-	))
+	result["enabled_manifests"] = _duplicate_manifest_array(
+		_get_manifest_array_from_value(
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+				snapshot,
+				"enabled_manifests",
+				[]
+			)
+		)
+	)
+	result["disabled_manifests"] = _duplicate_manifest_array(
+		_get_manifest_array_from_value(
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+				snapshot,
+				"disabled_manifests",
+				[]
+			)
+		)
+	)
 	result["graph_report"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(snapshot, "graph_report")
 	result["manifest_paths"] = _get_path_dictionary_from_value(
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(snapshot, "manifest_paths", {})
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+			snapshot,
+			"manifest_paths",
+			{}
+		)
 	)
 	result["contribution_paths"] = _get_path_dictionary_from_value(
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(snapshot, "contribution_paths", {})
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+			snapshot,
+			"contribution_paths",
+			{}
+		)
 	)
 	result["paths"] = _get_path_dictionary_from_value(
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(snapshot, "paths", {})
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+			snapshot,
+			"paths",
+			{}
+		)
 	)
 	result["tool_contribution_errors"] = _get_issue_records_from_value(
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(snapshot, "tool_contribution_errors", [])
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+			snapshot,
+			"tool_contribution_errors",
+			[]
+		)
 	)
 	result["signature"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(snapshot, "signature")
 	return result
@@ -604,7 +651,10 @@ static func _collect_manifest_path_dictionary(manifests: Array[GFExtensionManife
 		for property_name: String in _MANIFEST_PATH_FIELDS:
 			var raw_paths: Variant = _get_manifest_property(manifest, property_name)
 			var target_paths: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(result, property_name)
-			_append_unique_paths(target_paths, _GF_VARIANT_ACCESS_SCRIPT.to_string_array(raw_paths))
+			_append_unique_paths(
+				target_paths,
+				_GF_VARIANT_ACCESS_SCRIPT.to_string_array(raw_paths)
+			)
 			result[property_name] = target_paths
 	return result
 
@@ -630,25 +680,34 @@ static func _collect_tool_contribution_path_dictionary(
 			_make_tool_contribution_json_reader_options(options),
 			budget_state
 		)
-		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(json_report, "ok", false):
-			errors.append(_make_tool_contribution_error_record(
-				manifest.id,
-				contribution_path,
-				_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(json_report, "errors")
-			))
+		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			json_report,
+			"ok",
+			false
+		):
+			errors.append(
+				_make_tool_contribution_error_record(
+					manifest.id,
+					contribution_path,
+					_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(json_report, "errors")
+				)
+			)
 			continue
 
 		var raw_data: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(json_report, "data")
-		var schema_report: Dictionary = _GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.parse_dictionary(
-			raw_data,
-			manifest.id
-		)
-		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(schema_report, "ok", false):
-			errors.append(_make_tool_contribution_error_record(
-				manifest.id,
-				contribution_path,
-				_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(schema_report, "errors")
-			))
+		var schema_report: Dictionary = _GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.parse_dictionary(raw_data, manifest.id)
+		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			schema_report,
+			"ok",
+			false
+		):
+			errors.append(
+				_make_tool_contribution_error_record(
+					manifest.id,
+					contribution_path,
+					_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(schema_report, "errors")
+				)
+			)
 			continue
 		var data: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(schema_report, "data")
 
@@ -668,14 +727,8 @@ static func _collect_tool_contribution_path_dictionary(
 					continue
 				target_paths.append(normalized_path)
 				result[property_name] = target_paths
-				var target_records: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(
-					records,
-					property_name
-				)
-				target_records.append({
-					"path": normalized_path,
-					"extension_id": manifest.id,
-				})
+				var target_records: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(records, property_name)
+				target_records.append({ "path": normalized_path, "extension_id": manifest.id, })
 				records[property_name] = target_records
 	return result
 
@@ -688,8 +741,14 @@ static func _merge_path_dictionaries(first_paths: Dictionary, second_paths: Dict
 	var result: Dictionary = _make_empty_path_dictionary(field_names)
 	for property_name: String in field_names:
 		var target_paths: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(result, property_name)
-		_append_unique_paths(target_paths, _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(first_paths, property_name))
-		_append_unique_paths(target_paths, _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(second_paths, property_name))
+		_append_unique_paths(
+			target_paths,
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(first_paths, property_name)
+		)
+		_append_unique_paths(
+			target_paths,
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(second_paths, property_name)
+		)
 		result[property_name] = target_paths
 	return result
 
@@ -720,12 +779,14 @@ static func _make_empty_path_dictionary(field_names: Array[String]) -> Dictionar
 ## @api private
 static func _get_tool_contribution_record_dictionary(value: Variant) -> Dictionary:
 	var source: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(value)
-	var result: Dictionary = _make_empty_path_dictionary(
-		_GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.PATH_FIELDS
-	)
+	var result: Dictionary = _make_empty_path_dictionary(_GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.PATH_FIELDS)
 	for property_name: String in _GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.PATH_FIELDS:
 		result[property_name] = _get_tool_contribution_record_array(
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_value(source, property_name, [])
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+				source,
+				property_name,
+				[]
+			)
 		)
 	return result
 
@@ -743,16 +804,10 @@ static func _get_tool_contribution_record_array(value: Variant) -> Array[Diction
 			continue
 		var record: Dictionary = record_value
 		var path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "path")
-		var extension_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			record,
-			"extension_id"
-		)
+		var extension_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "extension_id")
 		if path.is_empty() or extension_id.is_empty():
 			continue
-		result.append({
-			"path": path,
-			"extension_id": extension_id,
-		})
+		result.append({ "path": path, "extension_id": extension_id, })
 	return result
 
 
@@ -777,10 +832,7 @@ static func _append_unique_path(target_paths: Array, raw_path: String) -> void:
 ## 按 ID 顺序从映射中取回有效 manifest，跳过未找到的 ID。
 ## [br]
 ## @api private
-static func _get_manifests_for_ids(
-	extension_ids: Array[String],
-	manifest_by_id: Dictionary
-) -> Array[GFExtensionManifest]:
+static func _get_manifests_for_ids(extension_ids: Array[String], manifest_by_id: Dictionary) -> Array[GFExtensionManifest]:
 	var result: Array[GFExtensionManifest] = []
 	for extension_id: String in extension_ids:
 		var manifest: GFExtensionManifest = _get_manifest_from_map_or_null(manifest_by_id, extension_id)
@@ -792,10 +844,7 @@ static func _get_manifests_for_ids(
 ## 返回 ID 不在启用列表中的非 null manifest。
 ## [br]
 ## @api private
-static func _get_disabled_manifests(
-	manifests: Array[GFExtensionManifest],
-	enabled_ids: Array[String]
-) -> Array[GFExtensionManifest]:
+static func _get_disabled_manifests(manifests: Array[GFExtensionManifest], enabled_ids: Array[String]) -> Array[GFExtensionManifest]:
 	var result: Array[GFExtensionManifest] = []
 	for manifest: GFExtensionManifest in manifests:
 		if manifest == null:
@@ -811,9 +860,7 @@ static func _get_disabled_manifests(
 static func _get_tool_contribution_path(manifest: GFExtensionManifest) -> String:
 	if manifest == null or manifest.root_path.is_empty():
 		return ""
-	return _GF_PATH_TOOLS.normalize_resource_path(
-		manifest.root_path.path_join("editor").path_join(_TOOL_CONTRIBUTION_FILE_NAME)
-	)
+	return _GF_PATH_TOOLS.normalize_resource_path(manifest.root_path.path_join("editor").path_join(_TOOL_CONTRIBUTION_FILE_NAME))
 
 
 ## 将相对路径锚定扩展根，拒绝越出根、非 gd 或不可加载的脚本路径并追加来源错误；空路径直接忽略。
@@ -831,26 +878,37 @@ static func _normalize_tool_contribution_resource_path(
 		return ""
 	if not normalized_path.begins_with("res://"):
 		normalized_path = _GF_PATH_TOOLS.normalize_resource_path(root_path.path_join(normalized_path.trim_prefix("/")))
-	if not _GF_PATH_TOOLS.is_path_under_root(normalized_path, root_path, true, false):
-		errors.append(_make_tool_contribution_error_record(
-			extension_id,
-			source_path,
-			["tool contribution path escaped extension root: %s" % normalized_path]
-		))
+	if not _GF_PATH_TOOLS.is_path_under_root(
+		normalized_path,
+		root_path,
+		true,
+		false
+	):
+		errors.append(
+			_make_tool_contribution_error_record(
+				extension_id,
+				source_path,
+				["tool contribution path escaped extension root: %s" % normalized_path]
+			)
+		)
 		return ""
 	if normalized_path.get_extension().to_lower() != "gd":
-		errors.append(_make_tool_contribution_error_record(
-			extension_id,
-			source_path,
-			["tool contribution path must point to a GDScript resource: %s" % normalized_path]
-		))
+		errors.append(
+			_make_tool_contribution_error_record(
+				extension_id,
+				source_path,
+				["tool contribution path must point to a GDScript resource: %s" % normalized_path]
+			)
+		)
 		return ""
 	if not ResourceLoader.exists(normalized_path, "Script"):
-		errors.append(_make_tool_contribution_error_record(
-			extension_id,
-			source_path,
-			["tool contribution path does not exist: %s" % normalized_path]
-		))
+		errors.append(
+			_make_tool_contribution_error_record(
+				extension_id,
+				source_path,
+				["tool contribution path does not exist: %s" % normalized_path]
+			)
+		)
 		return ""
 	return normalized_path
 
@@ -876,13 +934,16 @@ static func _make_tool_contribution_error_record(
 ## @api private
 static func _make_tool_contribution_json_reader_options(options: Dictionary = {}) -> Dictionary:
 	var reader_options: Dictionary = options.duplicate(true)
-	reader_options.merge({
-		"empty_path_error": "tool contribution path is empty",
-		"open_error_prefix": "could not open tool contribution",
-		"read_error_prefix": "could not read tool contribution",
-		"parse_error_prefix": "could not parse tool contribution",
-		"root_type_error": "tool contribution must be a JSON object",
-	}, true)
+	reader_options.merge(
+		{
+			"empty_path_error": "tool contribution path is empty",
+			"open_error_prefix": "could not open tool contribution",
+			"read_error_prefix": "could not read tool contribution",
+			"parse_error_prefix": "could not parse tool contribution",
+			"root_type_error": "tool contribution must be a JSON object",
+		},
+		true
+	)
 	return reader_options
 
 
@@ -903,11 +964,13 @@ static func _make_tool_contribution_file_signatures(
 		paths.append(contribution_path)
 	paths.sort()
 	for contribution_path: String in paths:
-		result.append(_GF_EXTENSION_JSON_FILE_READER_SCRIPT.make_file_signature(
-			contribution_path,
-			options,
-			budget_state
-		))
+		result.append(
+			_GF_EXTENSION_JSON_FILE_READER_SCRIPT.make_file_signature(
+				contribution_path,
+				options,
+				budget_state
+			)
+		)
 	return result
 
 
@@ -919,12 +982,16 @@ static func _make_manifest_tokens(manifests: Array[GFExtensionManifest]) -> Arra
 	for manifest: GFExtensionManifest in manifests:
 		if manifest == null:
 			continue
-		tokens.append(JSON.stringify({
-			"data": manifest.to_dictionary(),
-			"root_path": manifest.root_path,
-			"source_path": manifest.source_path,
-			"validation_errors": manifest.get_validation_errors(),
-		}))
+		tokens.append(
+			JSON.stringify(
+				{
+					"data": manifest.to_dictionary(),
+					"root_path": manifest.root_path,
+					"source_path": manifest.source_path,
+					"validation_errors": manifest.get_validation_errors(),
+				}
+			)
+		)
 	tokens.sort()
 	return tokens
 
@@ -933,11 +1000,13 @@ static func _make_manifest_tokens(manifests: Array[GFExtensionManifest]) -> Arra
 ## [br]
 ## @api private
 static func _get_builtin_extension_ids(options: Dictionary) -> Array[String]:
-	return _sorted_unique(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(
-		options,
-		"builtin_extension_ids",
-		["gf.kernel", "gf.standard"]
-	))
+	return _sorted_unique(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(
+			options,
+			"builtin_extension_ids",
+			["gf.kernel", "gf.standard"]
+		)
+	)
 
 
 ## 去空格后排除内置 ID 与 manifest 映射已知 ID，排序返回其余唯一 ID。
@@ -964,7 +1033,11 @@ static func _get_unknown_enabled_ids(
 ## @api private
 static func _manifest_load_error_to_invalid_manifest(load_error: Dictionary) -> Dictionary:
 	return {
-		"stage": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(load_error, "stage", "load"),
+		"stage": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			load_error,
+			"stage",
+			"load"
+		),
 		"extension_id": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(load_error, "extension_id"),
 		"source_path": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(load_error, "source_path"),
 		"errors": _GF_VARIANT_ACCESS_SCRIPT.get_option_array(load_error, "errors"),
@@ -983,12 +1056,14 @@ static func _get_issue_records_from_value(value: Variant) -> Array[Dictionary]:
 	for item: Variant in values:
 		if item is Dictionary:
 			var issue: Dictionary = item
-			result.append(_make_issue_record(
-				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(issue, "stage"),
-				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(issue, "extension_id"),
-				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(issue, "source_path"),
-				_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(issue, "errors")
-			))
+			result.append(
+				_make_issue_record(
+					_GF_VARIANT_ACCESS_SCRIPT.get_option_string(issue, "stage"),
+					_GF_VARIANT_ACCESS_SCRIPT.get_option_string(issue, "extension_id"),
+					_GF_VARIANT_ACCESS_SCRIPT.get_option_string(issue, "source_path"),
+					_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(issue, "errors")
+				)
+			)
 	return result
 
 
@@ -1060,7 +1135,11 @@ static func _get_manifest_array_from_value(value: Variant) -> Array[GFExtensionM
 static func _build_manifest_map(manifests: Array[GFExtensionManifest]) -> Dictionary:
 	var result: Dictionary = {}
 	for manifest: GFExtensionManifest in manifests:
-		if manifest == null or manifest.id.strip_edges().is_empty() or result.has(manifest.id):
+		if (
+			manifest == null
+			or manifest.id.strip_edges().is_empty()
+			or result.has(manifest.id)
+		):
 			continue
 		result[manifest.id] = manifest
 	return result
@@ -1069,10 +1148,7 @@ static func _build_manifest_map(manifests: Array[GFExtensionManifest]) -> Dictio
 ## 从映射中读取值，仅当值为 GFExtensionManifest 时返回该实例。
 ## [br]
 ## @api private
-static func _get_manifest_from_map_or_null(
-	manifest_by_id: Dictionary,
-	extension_id: String
-) -> GFExtensionManifest:
+static func _get_manifest_from_map_or_null(manifest_by_id: Dictionary, extension_id: String) -> GFExtensionManifest:
 	var raw_manifest: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(manifest_by_id, extension_id)
 	if raw_manifest is GFExtensionManifest:
 		return raw_manifest
@@ -1146,7 +1222,11 @@ static func _make_lookup_from_packed_string_array(values: PackedStringArray) -> 
 ## [br]
 ## @api private
 static func _get_graph_ordered_ids(report: Dictionary) -> PackedStringArray:
-	return _GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(report, "ordered_ids", PackedStringArray())
+	return _GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(
+		report,
+		"ordered_ids",
+		PackedStringArray()
+	)
 
 
 ## 将图报告中的依赖环转换为 PackedStringArray 列表。
@@ -1154,14 +1234,24 @@ static func _get_graph_ordered_ids(report: Dictionary) -> PackedStringArray:
 ## @api private
 static func _get_graph_cycles(report: Dictionary) -> Array[PackedStringArray]:
 	var result: Array[PackedStringArray] = []
-	var cycles: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(report, "dependency_cycles", [])
+	var cycles: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(
+		report,
+		"dependency_cycles",
+		[]
+	)
 	for cycle_variant: Variant in cycles:
 		if cycle_variant is PackedStringArray:
 			var packed_cycle: PackedStringArray = cycle_variant
 			result.append(packed_cycle.duplicate())
 		elif cycle_variant is Array:
 			var cycle_items: Array = cycle_variant
-			result.append(_GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array({ "cycle": cycle_items }, "cycle", PackedStringArray()))
+			result.append(
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(
+					{ "cycle": cycle_items },
+					"cycle",
+					PackedStringArray()
+				)
+			)
 	return result
 
 

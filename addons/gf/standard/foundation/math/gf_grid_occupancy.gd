@@ -221,7 +221,11 @@ func is_in_bounds(cell: Vector2i) -> bool:
 ## @return 可占用时返回 true。
 func can_occupy(receiver: Variant, cell: Vector2i) -> bool:
 	var receiver_key: String = _make_receiver_key(receiver)
-	return _can_occupy_key_current(receiver_key, cell, true)
+	return _can_occupy_key_current(
+		receiver_key,
+		cell,
+		true
+	)
 
 
 ## 获取当前被占用的格子快照。
@@ -268,7 +272,11 @@ func get_occupiable_cells(receiver: Variant) -> Array[Vector2i]:
 	for y: int in range(grid_size.y):
 		for x: int in range(grid_size.x):
 			var cell: Vector2i = Vector2i(x, y)
-			if _can_occupy_key_current(receiver_key, cell, true):
+			if _can_occupy_key_current(
+				receiver_key,
+				cell,
+				true
+			):
 				result.append(cell)
 	return result
 
@@ -293,7 +301,11 @@ func occupy(receiver: Variant, cell: Vector2i) -> bool:
 	var notifications: Array[Dictionary] = []
 	_prune_invalid_records(notifications)
 	var receiver_key: String = _make_receiver_key(receiver)
-	if not _can_occupy_key_current(receiver_key, cell, true):
+	if not _can_occupy_key_current(
+		receiver_key,
+		cell,
+		true
+	):
 		_finish_mutation(notifications)
 		return false
 
@@ -303,14 +315,23 @@ func occupy(receiver: Variant, cell: Vector2i) -> bool:
 		_finish_mutation(notifications)
 		return true
 	if current_cell != _INVALID_CELL:
-		_remove_occupancy_by_key(receiver_key, notifications, true)
+		_remove_occupancy_by_key(
+			receiver_key,
+			notifications,
+			true
+		)
 
 	var occupants: Array = _get_or_create_occupant_keys(cell)
 	if not occupants.has(receiver_key):
 		occupants.append(receiver_key)
 
 	_receiver_records[receiver_key] = _make_receiver_record(receiver, cell)
-	_append_notification(notifications, _NOTIFICATION_CELL_OCCUPIED, receiver, cell)
+	_append_notification(
+		notifications,
+		_NOTIFICATION_CELL_OCCUPIED,
+		receiver,
+		cell
+	)
 	_finish_mutation(notifications)
 	return true
 
@@ -330,7 +351,11 @@ func release(receiver: Variant) -> void:
 
 	var notifications: Array[Dictionary] = []
 	var receiver_key: String = _make_receiver_key(receiver)
-	_remove_occupancy_by_key(receiver_key, notifications, true)
+	_remove_occupancy_by_key(
+		receiver_key,
+		notifications,
+		true
+	)
 	_finish_mutation(notifications)
 
 
@@ -346,7 +371,11 @@ func release_cell(cell: Vector2i) -> void:
 	var notifications: Array[Dictionary] = []
 	var occupants: Array = _get_occupant_keys(cell).duplicate()
 	for receiver_key: String in occupants:
-		_remove_occupancy_by_key(receiver_key, notifications, true)
+		_remove_occupancy_by_key(
+			receiver_key,
+			notifications,
+			true
+		)
 	_finish_mutation(notifications)
 
 
@@ -383,12 +412,21 @@ func reserve_cell(receiver: Variant, cell: Vector2i) -> bool:
 		_finish_mutation(notifications)
 		return true
 	if current_cell != _INVALID_CELL:
-		_remove_reservation_by_key(receiver_key, notifications, true)
+		_remove_reservation_by_key(
+			receiver_key,
+			notifications,
+			true
+		)
 
 	_cell_reservations[cell] = receiver_key
 	_receiver_reservations[receiver_key] = cell
 	_reservation_records[receiver_key] = _make_receiver_record(receiver, cell)
-	_append_notification(notifications, _NOTIFICATION_CELL_RESERVED, receiver, cell)
+	_append_notification(
+		notifications,
+		_NOTIFICATION_CELL_RESERVED,
+		receiver,
+		cell
+	)
 	_finish_mutation(notifications)
 	return true
 
@@ -424,20 +462,33 @@ func confirm_reservation(receiver: Variant) -> bool:
 		_finish_mutation(notifications)
 		return false
 
-	_remove_reservation_by_key(receiver_key, notifications, true)
+	_remove_reservation_by_key(
+		receiver_key,
+		notifications,
+		true
+	)
 	var current_record: Dictionary = _get_record(_receiver_records, receiver_key)
 	var current_cell: Vector2i = _get_record_cell(current_record)
 	if current_cell == cell:
 		_finish_mutation(notifications)
 		return true
 	if current_cell != _INVALID_CELL:
-		_remove_occupancy_by_key(receiver_key, notifications, true)
+		_remove_occupancy_by_key(
+			receiver_key,
+			notifications,
+			true
+		)
 
 	var occupants: Array = _get_or_create_occupant_keys(cell)
 	if not occupants.has(receiver_key):
 		occupants.append(receiver_key)
 	_receiver_records[receiver_key] = _make_receiver_record(receiver, cell)
-	_append_notification(notifications, _NOTIFICATION_CELL_OCCUPIED, receiver, cell)
+	_append_notification(
+		notifications,
+		_NOTIFICATION_CELL_OCCUPIED,
+		receiver,
+		cell
+	)
 	_finish_mutation(notifications)
 	return true
 
@@ -457,7 +508,11 @@ func release_reservation(receiver: Variant) -> void:
 
 	var notifications: Array[Dictionary] = []
 	var receiver_key: String = _make_receiver_key(receiver)
-	_remove_reservation_by_key(receiver_key, notifications, true)
+	_remove_reservation_by_key(
+		receiver_key,
+		notifications,
+		true
+	)
 	_finish_mutation(notifications)
 
 
@@ -566,10 +621,7 @@ func clear() -> void:
 ## @api private
 func _begin_mutation(operation_name: StringName) -> bool:
 	if _mutation_in_progress:
-		push_error(
-			"[GFGridOccupancy][grid_occupancy.reentrant_mutation] Rejected %s: reentrant mutation is not allowed during occupancy transaction notifications."
-			% operation_name
-		)
+		push_error("[GFGridOccupancy][grid_occupancy.reentrant_mutation] Rejected %s: reentrant mutation is not allowed during occupancy transaction notifications." % operation_name)
 		return false
 
 	_mutation_in_progress = true
@@ -608,10 +660,7 @@ func _set_max_occupants_per_cell(value: int) -> void:
 ## @api private
 func _finish_mutation(notifications: Array[Dictionary]) -> void:
 	for notification_data: Dictionary in notifications:
-		var notification_name: StringName = GFVariantData.get_option_string_name(
-			notification_data,
-			"name"
-		)
+		var notification_name: StringName = GFVariantData.get_option_string_name(notification_data, "name")
 		var receiver: Variant = GFVariantData.get_option_value(notification_data, "receiver")
 		var cell: Vector2i = _get_dictionary_vector2i(
 			notification_data,
@@ -640,11 +689,13 @@ func _append_notification(
 	receiver: Variant,
 	cell: Vector2i
 ) -> void:
-	notifications.append({
-		"name": notification_name,
-		"receiver": receiver,
-		"cell": cell,
-	})
+	notifications.append(
+		{
+			"name": notification_name,
+			"receiver": receiver,
+			"cell": cell,
+		}
+	)
 
 
 ## 清空占用、预约及其正反向索引记录。
@@ -662,7 +713,13 @@ func _clear_records() -> void:
 ## [br]
 ## @api private
 func _get_occupant_keys(cell: Vector2i) -> Array:
-	return GFVariantData.as_array(GFVariantData.get_option_value(_cell_occupants, cell, []))
+	return GFVariantData.as_array(
+		GFVariantData.get_option_value(
+			_cell_occupants,
+			cell,
+			[]
+		)
+	)
 
 
 ## 返回格子的现有占用键数组，或创建并存入新的空数组。
@@ -706,7 +763,11 @@ func _can_occupy_key_current(
 	if allow_idempotent_occupant and receiver_already_occupies:
 		return true
 
-	var reserved_by: String = GFVariantData.get_option_string(_cell_reservations, cell, "")
+	var reserved_by: String = GFVariantData.get_option_string(
+		_cell_reservations,
+		cell,
+		""
+	)
 	if (
 		not reserved_by.is_empty()
 		and _reservation_is_valid_for_cell(reserved_by, cell)
@@ -783,10 +844,11 @@ func _reservation_is_valid_for_cell(receiver_key: String, cell: Vector2i) -> boo
 	var record: Dictionary = _get_record(_reservation_records, receiver_key)
 	if not _record_is_valid(record) or _get_record_cell(record) != cell:
 		return false
-	return (
-		_get_dictionary_vector2i(_receiver_reservations, receiver_key, _INVALID_CELL)
-		== cell
-	)
+	return _get_dictionary_vector2i(
+		_receiver_reservations,
+		receiver_key,
+		_INVALID_CELL
+	) == cell
 
 
 ## 委托空间查询身份工具为接收者生成索引键。
@@ -850,8 +912,16 @@ func _prune_invalid_records(notifications: Array[Dictionary]) -> void:
 			occupancy_keys.append(receiver_key)
 
 	for receiver_key: String in occupancy_keys:
-		_remove_reservation_by_key(receiver_key, notifications, true)
-		_remove_occupancy_by_key(receiver_key, notifications, true)
+		_remove_reservation_by_key(
+			receiver_key,
+			notifications,
+			true
+		)
+		_remove_occupancy_by_key(
+			receiver_key,
+			notifications,
+			true
+		)
 
 	var reservation_keys: Array[String] = []
 	for receiver_key: String in _reservation_records.keys():
@@ -860,7 +930,11 @@ func _prune_invalid_records(notifications: Array[Dictionary]) -> void:
 			reservation_keys.append(receiver_key)
 
 	for receiver_key: String in reservation_keys:
-		_remove_reservation_by_key(receiver_key, notifications, true)
+		_remove_reservation_by_key(
+			receiver_key,
+			notifications,
+			true
+		)
 
 
 ## 按接收者键移除占用索引和记录，并可排队占用释放通知。
@@ -911,7 +985,11 @@ func _remove_reservation_by_key(
 	if not record.is_empty():
 		receiver = _record_to_receiver(record)
 	_erase_dictionary_key(_receiver_reservations, receiver_key)
-	if GFVariantData.get_option_string(_cell_reservations, cell, "") == receiver_key:
+	if GFVariantData.get_option_string(
+		_cell_reservations,
+		cell,
+		""
+	) == receiver_key:
 		_erase_dictionary_key(_cell_reservations, cell)
 	_erase_dictionary_key(_reservation_records, receiver_key)
 	if emit_notification:
@@ -927,14 +1005,24 @@ func _remove_reservation_by_key(
 ## [br]
 ## @api private
 func _get_record(records: Dictionary, receiver_key: String) -> Dictionary:
-	return GFVariantData.as_dictionary(GFVariantData.get_option_value(records, receiver_key, {}))
+	return GFVariantData.as_dictionary(
+		GFVariantData.get_option_value(
+			records,
+			receiver_key,
+			{}
+		)
+	)
 
 
 ## 从接收者记录读取格子坐标，缺失或类型不符时返回哨兵值。
 ## [br]
 ## @api private
 func _get_record_cell(record: Dictionary) -> Vector2i:
-	return _get_dictionary_vector2i(record, "cell", _INVALID_CELL)
+	return _get_dictionary_vector2i(
+		record,
+		"cell",
+		_INVALID_CELL
+	)
 
 
 ## 从格子的占用键数组移除指定键，数组清空时删除该格子索引。
@@ -952,8 +1040,16 @@ func _release_cell_occupant_key(cell: Vector2i, receiver_key: String) -> void:
 ## 从字典读取 Vector2i；缺失或类型不符时返回 fallback。
 ## [br]
 ## @api private
-func _get_dictionary_vector2i(source: Dictionary, key: Variant, fallback: Vector2i) -> Vector2i:
-	var value: Variant = GFVariantData.get_option_value(source, key, fallback)
+func _get_dictionary_vector2i(
+	source: Dictionary,
+	key: Variant,
+	fallback: Vector2i
+) -> Vector2i:
+	var value: Variant = GFVariantData.get_option_value(
+		source,
+		key,
+		fallback
+	)
 	if value is Vector2i:
 		var vector: Vector2i = value
 		return vector

@@ -38,15 +38,26 @@ enum FailureKind {
 ## @api private
 ## [br]
 const _INTEGER_FIELDS: PackedStringArray = [
-	"request_id", "consumer_id", "status", "end_kind", "error_code",
-	"failure_kind", "read_failure_kind", "source_version", "target_version",
+	"request_id",
+	"consumer_id",
+	"status",
+	"end_kind",
+	"error_code",
+	"failure_kind",
+	"read_failure_kind",
+	"source_version",
+	"target_version",
 ]
 
 ## receipt 配置白名单中必须为 bool 的字段名。
 ## [br]
 ## @api private
 ## [br]
-const _BOOLEAN_FIELDS: PackedStringArray = ["migrated", "integrity_checked", "integrity_ok"]
+const _BOOLEAN_FIELDS: PackedStringArray = [
+	"migrated",
+	"integrity_checked",
+	"integrity_ok",
+]
 
 
 # --- 私有变量 ---
@@ -354,22 +365,60 @@ func to_dict() -> Dictionary:
 func configure_for_framework(info: Dictionary) -> bool:
 	if _request_id != 0 or not _has_valid_shape(info):
 		return false
-	var request_id: int = GFVariantData.get_option_int(info, "request_id", 0)
-	var consumer_id: int = GFVariantData.get_option_int(info, "consumer_id", 0)
-	var status: int = GFVariantData.get_option_int(info, "status", -1)
-	var end_kind: int = GFVariantData.get_option_int(info, "end_kind", -1)
-	var error_code: int = GFVariantData.get_option_int(info, "error_code", -1)
-	var failure_kind: int = GFVariantData.get_option_int(info, "failure_kind", -1)
-	var read_failure_kind: int = GFVariantData.get_option_int(info, "read_failure_kind", -1)
-	var source_version: int = GFVariantData.get_option_int(info, "source_version", -1)
-	var target_version: int = GFVariantData.get_option_int(info, "target_version", -1)
-	if request_id <= 0 or consumer_id <= 0 or source_version < 0 or target_version < 0:
+	var request_id: int = GFVariantData.get_option_int(
+		info,
+		"request_id",
+		0
+	)
+	var consumer_id: int = GFVariantData.get_option_int(
+		info,
+		"consumer_id",
+		0
+	)
+	var status: int = GFVariantData.get_option_int(
+		info,
+		"status",
+		-1
+	)
+	var end_kind: int = GFVariantData.get_option_int(
+		info,
+		"end_kind",
+		-1
+	)
+	var error_code: int = GFVariantData.get_option_int(
+		info,
+		"error_code",
+		-1
+	)
+	var failure_kind: int = GFVariantData.get_option_int(
+		info,
+		"failure_kind",
+		-1
+	)
+	var read_failure_kind: int = GFVariantData.get_option_int(
+		info,
+		"read_failure_kind",
+		-1
+	)
+	var source_version: int = GFVariantData.get_option_int(
+		info,
+		"source_version",
+		-1
+	)
+	var target_version: int = GFVariantData.get_option_int(
+		info,
+		"target_version",
+		-1
+	)
+	if (
+		request_id <= 0
+		or consumer_id <= 0
+		or source_version < 0
+		or target_version < 0
+	):
 		return false
 	if (
-		status not in [
-			GFStorageAsyncCallerResult.Status.PHYSICAL_SETTLED,
-			GFStorageAsyncCallerResult.Status.CANCELLED,
-		]
+		(status not in [GFStorageAsyncCallerResult.Status.PHYSICAL_SETTLED, GFStorageAsyncCallerResult.Status.CANCELLED,])
 		or not GFStorageAsyncCallerResult.EndKind.values().has(end_kind)
 		or not FailureKind.values().has(failure_kind)
 		or not GFStorageReadResult.FailureKind.values().has(read_failure_kind)
@@ -377,10 +426,7 @@ func configure_for_framework(info: Dictionary) -> bool:
 	):
 		return false
 	if failure_kind == FailureKind.CANCELLED:
-		if (
-			end_kind == GFStorageAsyncCallerResult.EndKind.PHYSICAL_SETTLEMENT
-			or error_code != ERR_SKIP
-		):
+		if (end_kind == GFStorageAsyncCallerResult.EndKind.PHYSICAL_SETTLEMENT or error_code != ERR_SKIP):
 			return false
 	elif (
 		status != GFStorageAsyncCallerResult.Status.PHYSICAL_SETTLED
@@ -392,7 +438,11 @@ func configure_for_framework(info: Dictionary) -> bool:
 		return false
 	_request_id = request_id
 	_consumer_id = consumer_id
-	_file_name = GFVariantData.get_option_string(info, "file_name", "")
+	_file_name = GFVariantData.get_option_string(
+		info,
+		"file_name",
+		""
+	)
 	_status = status as GFStorageAsyncCallerResult.Status
 	_end_kind = end_kind as GFStorageAsyncCallerResult.EndKind
 	_error_code = error_code as Error
@@ -400,9 +450,21 @@ func configure_for_framework(info: Dictionary) -> bool:
 	_read_failure_kind = read_failure_kind as GFStorageReadResult.FailureKind
 	_source_version = source_version
 	_target_version = target_version
-	_migrated = GFVariantData.get_option_bool(info, "migrated", false)
-	_integrity_checked = GFVariantData.get_option_bool(info, "integrity_checked", false)
-	_integrity_ok = GFVariantData.get_option_bool(info, "integrity_ok", false)
+	_migrated = GFVariantData.get_option_bool(
+		info,
+		"migrated",
+		false
+	)
+	_integrity_checked = GFVariantData.get_option_bool(
+		info,
+		"integrity_checked",
+		false
+	)
+	_integrity_ok = GFVariantData.get_option_bool(
+		info,
+		"integrity_ok",
+		false
+	)
 	var revision_value: Variant = info.get("committed_revision")
 	if revision_value is GFStorageRevisionResult:
 		_committed_revision = revision_value

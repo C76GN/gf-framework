@@ -23,12 +23,12 @@ class GFBuffAppliedPayload extends GFPayload:
 	## [br]
 	## @api public
 	var target: Object
-	
+
 	## 已应用的 Buff 实例。
 	## [br]
 	## @api public
 	var buff: GFBuff
-	
+
 	func _init(p_target: Object, p_buff: GFBuff) -> void:
 		target = p_target
 		buff = p_buff
@@ -46,12 +46,12 @@ class GFBuffRefreshedPayload extends GFPayload:
 	## [br]
 	## @api public
 	var target: Object
-	
+
 	## 已刷新的 Buff 实例。
 	## [br]
 	## @api public
 	var buff: GFBuff
-	
+
 	func _init(p_target: Object, p_buff: GFBuff) -> void:
 		target = p_target
 		buff = p_buff
@@ -69,7 +69,7 @@ class GFBuffRemovedPayload extends GFPayload:
 	## [br]
 	## @api public
 	var target: Object
-	
+
 	## 被移除的 Buff ID。
 	## [br]
 	## @api public
@@ -90,7 +90,7 @@ class GFBuffRemovedPayload extends GFPayload:
 	## [br]
 	## @schema lifecycle_report: Dictionary，GFBuff.on_remove() 返回报告的深副本。
 	var lifecycle_report: Dictionary
-	
+
 	func _init(
 		p_target: Object,
 		p_buff_id: StringName,

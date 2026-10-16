@@ -112,7 +112,10 @@ func execute() -> Variant:
 	_remaining_seconds = seconds
 	_paused = false
 	_connect_host_guard()
-	_GF_ASYNC_CALL_SCRIPT.run_detached(Callable(self, &"_complete_after_delay_async"), [tree, _execution_serial])
+	_GF_ASYNC_CALL_SCRIPT.run_detached(
+		Callable(self, &"_complete_after_delay_async"),
+		[tree, _execution_serial]
+	)
 	return wait_completed
 
 
@@ -191,7 +194,10 @@ func _complete_after_delay_async(tree: SceneTree, serial: int) -> void:
 			continue
 		if not ignore_time_scale:
 			delta_seconds *= Engine.time_scale
-		_remaining_seconds = maxf(_remaining_seconds - delta_seconds, 0.0)
+		_remaining_seconds = maxf(
+			_remaining_seconds - delta_seconds,
+			0.0
+		)
 
 	if serial != _execution_serial:
 		return

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAssetBrowserModel" path="addons/gf/tools/asset_browser/gf_asset_browser_model.gd" module="tools" extends="RefCounted" classDigest="909ba0ed3a29d083ec6244e7895018e007d4e91ca203cb4b4f2517caad4fb748">
+<class name="GFAssetBrowserModel" path="addons/gf/tools/asset_browser/gf_asset_browser_model.gd" module="tools" extends="RefCounted" classDigest="818df597f70ec834a47a915b03988f1ebd91cabc749345e2c90012a089011e6a">
 	<description>GFAssetBrowserModel: 资产浏览器的无界面状态模型。
 持有隔离的 GFAssetCatalog 快照、查询代际和稳定 ID 选择，供项目编辑器
 页面自行决定布局、来源注入和资源物化策略。本模型不扫描目录、不下载、
@@ -116,7 +116,7 @@ listener 按只读引用使用。</description>
 			</tags>
 		</member>
 		<member kind="method" name="set_query">
-			<signature>func set_query( query_text: String, asset_ids: PackedStringArray = PackedStringArray() ) -&gt; Dictionary:</signature>
+			<signature>func set_query(query_text: String, asset_ids: PackedStringArray = PackedStringArray()) -&gt; Dictionary:</signature>
 			<description>设置浏览查询和可选资产 ID 闭集。
 资产 ID 会去重并排序。超长查询、超量过滤 ID 或超长 ID 会整体拒绝，
 被拒绝的输入不会推进 generation。</description>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFVariantData" path="addons/gf/standard/foundation/variant/gf_variant_data.gd" module="standard" extends="RefCounted" classDigest="12ed107c108b934365f0451232a87f8041f41edbddd434164a15e222aeb8af1c">
+<class name="GFVariantData" path="addons/gf/standard/foundation/variant/gf_variant_data.gd" module="standard" extends="RefCounted" classDigest="1ac85285d06ec25579b26d0bf93d2002393a23d3ab9420c4114b4621f56abe59">
 	<description>GFVariantData: 通用 Variant 数据复制与默认值合并。
 提供不依赖 GFArchitecture 的集合复制、Resource 可选复制、差异报告和默认值递归补齐。
 JSON 兼容编码由 GFVariantJsonCodec 负责。</description>
@@ -14,7 +14,7 @@ JSON 兼容编码由 GFVariantJsonCodec 负责。</description>
 	<properties />
 	<methods>
 		<member kind="method" name="duplicate_variant">
-			<signature>static func duplicate_variant(value: Variant, deep: bool = true, duplicate_resources: bool = false) -&gt; Variant:</signature>
+			<signature>static func duplicate_variant( value: Variant, deep: bool = true, duplicate_resources: bool = false ) -&gt; Variant:</signature>
 			<description>深拷贝 Dictionary 或 Array；其他 Variant 原样返回。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -24,6 +24,7 @@ JSON 兼容编码由 GFVariantJsonCodec 负责。</description>
 				<tag name="return">复制后的值。</tag>
 				<tag name="schema">value: 待复制的 Variant 值。</tag>
 				<tag name="schema">return: 复制后的 Variant 值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_collection">
@@ -39,7 +40,7 @@ JSON 兼容编码由 GFVariantJsonCodec 负责。</description>
 			</tags>
 		</member>
 		<member kind="method" name="to_dictionary">
-			<signature>static func to_dictionary(value: Variant, default_value: Dictionary = {}, deep: bool = true) -&gt; Dictionary:</signature>
+			<signature>static func to_dictionary( value: Variant, default_value: Dictionary = {}, deep: bool = true ) -&gt; Dictionary:</signature>
 			<description>将 Variant 归一为 Dictionary 副本。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -50,6 +51,7 @@ JSON 兼容编码由 GFVariantJsonCodec 负责。</description>
 				<tag name="schema">value: 期望为 Dictionary 的 Variant 值。</tag>
 				<tag name="schema">default_value: value 不是 Dictionary 时复制的默认 Dictionary。</tag>
 				<tag name="schema">return: 复制后的 Dictionary 结果。</tag>
+				<tag name="since">3.22.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="as_dictionary">
@@ -66,7 +68,7 @@ JSON 兼容编码由 GFVariantJsonCodec 负责。</description>
 			</tags>
 		</member>
 		<member kind="method" name="to_array">
-			<signature>static func to_array(value: Variant, default_value: Array = [], deep: bool = true) -&gt; Array:</signature>
+			<signature>static func to_array( value: Variant, default_value: Array = [], deep: bool = true ) -&gt; Array:</signature>
 			<description>将 Variant 归一为 Array 副本。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -77,6 +79,7 @@ JSON 兼容编码由 GFVariantJsonCodec 负责。</description>
 				<tag name="schema">value: 期望为 Array 的 Variant 值。</tag>
 				<tag name="schema">default_value: value 不是 Array 时复制的默认 Array。</tag>
 				<tag name="schema">return: 复制后的 Array 结果。</tag>
+				<tag name="since">4.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="as_array">
@@ -246,7 +249,7 @@ JSON 兼容编码由 GFVariantJsonCodec 负责。</description>
 			</tags>
 		</member>
 		<member kind="method" name="values_equal">
-			<signature>static func values_equal(left: Variant, right: Variant, options: Dictionary = {}) -&gt; bool:</signature>
+			<signature>static func values_equal( left: Variant, right: Variant, options: Dictionary = {} ) -&gt; bool:</signature>
 			<description>安全比较两个 Variant 值是否等价。
 int/int 始终精确比较；int/float 仅在 float 有限、为整数且双向转换安全时等价。
 需要容忍两个 float 之间的误差时可传入 numeric_epsilon。</description>
@@ -309,7 +312,7 @@ int/int 始终精确比较；int/float 仅在 float 有限、为整数且双向�
 			</tags>
 		</member>
 		<member kind="method" name="diff_variant">
-			<signature>static func diff_variant(before: Variant, after: Variant, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>static func diff_variant( before: Variant, after: Variant, options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>对比两个 Variant 并返回结构化差异报告。
 该方法只比较纯 Variant 数据形状，不读取文件、不实例化脚本，也不解释业务字段。
 Array/Dictionary 按展开后的数据内容比较，不比较共享引用拓扑；活动引用 pair 重入只记录为 traversal diagnostic。</description>
@@ -327,7 +330,7 @@ Array/Dictionary 按展开后的数据内容比较，不比较共享引用拓扑
 			</tags>
 		</member>
 		<member kind="method" name="get_option_value">
-			<signature>static func get_option_value(options: Dictionary, key: Variant, default_value: Variant = null) -&gt; Variant:</signature>
+			<signature>static func get_option_value( options: Dictionary, key: Variant, default_value: Variant = null ) -&gt; Variant:</signature>
 			<description>读取 options 字典中的原始值，支持 String 与 StringName 键互查。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -339,10 +342,11 @@ Array/Dictionary 按展开后的数据内容比较，不比较共享引用拓扑
 				<tag name="schema">key: Variant 选项键。</tag>
 				<tag name="schema">default_value: Variant 默认值。</tag>
 				<tag name="schema">return: Variant 选项值或默认值。</tag>
+				<tag name="since">3.22.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_option_bool">
-			<signature>static func get_option_bool(options: Dictionary, key: Variant, default_value: bool = false) -&gt; bool:</signature>
+			<signature>static func get_option_bool( options: Dictionary, key: Variant, default_value: bool = false ) -&gt; bool:</signature>
 			<description>读取 bool 选项。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -352,10 +356,11 @@ Array/Dictionary 按展开后的数据内容比较，不比较共享引用拓扑
 				<tag name="return">bool 值。</tag>
 				<tag name="schema">options: 选项载荷 Dictionary。</tag>
 				<tag name="schema">key: Variant 选项键。</tag>
+				<tag name="since">3.22.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_option_int">
-			<signature>static func get_option_int(options: Dictionary, key: Variant, default_value: int = 0) -&gt; int:</signature>
+			<signature>static func get_option_int( options: Dictionary, key: Variant, default_value: int = 0 ) -&gt; int:</signature>
 			<description>读取 int 选项。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -365,10 +370,11 @@ Array/Dictionary 按展开后的数据内容比较，不比较共享引用拓扑
 				<tag name="return">int 值。</tag>
 				<tag name="schema">options: 选项载荷 Dictionary。</tag>
 				<tag name="schema">key: Variant 选项键。</tag>
+				<tag name="since">3.22.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_option_float">
-			<signature>static func get_option_float(options: Dictionary, key: Variant, default_value: float = 0.0) -&gt; float:</signature>
+			<signature>static func get_option_float( options: Dictionary, key: Variant, default_value: float = 0.0 ) -&gt; float:</signature>
 			<description>读取 float 选项。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -378,10 +384,11 @@ Array/Dictionary 按展开后的数据内容比较，不比较共享引用拓扑
 				<tag name="return">float 值。</tag>
 				<tag name="schema">options: 选项载荷 Dictionary。</tag>
 				<tag name="schema">key: Variant 选项键。</tag>
+				<tag name="since">3.22.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_option_string">
-			<signature>static func get_option_string(options: Dictionary, key: Variant, default_value: String = "") -&gt; String:</signature>
+			<signature>static func get_option_string( options: Dictionary, key: Variant, default_value: String = "" ) -&gt; String:</signature>
 			<description>读取 String 选项。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -391,10 +398,11 @@ Array/Dictionary 按展开后的数据内容比较，不比较共享引用拓扑
 				<tag name="return">String 值。</tag>
 				<tag name="schema">options: 选项载荷 Dictionary。</tag>
 				<tag name="schema">key: Variant 选项键。</tag>
+				<tag name="since">3.22.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_option_string_name">
-			<signature>static func get_option_string_name(options: Dictionary, key: Variant, default_value: StringName = &amp;"") -&gt; StringName:</signature>
+			<signature>static func get_option_string_name( options: Dictionary, key: Variant, default_value: StringName = &amp;"" ) -&gt; StringName:</signature>
 			<description>读取 StringName 选项。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -404,10 +412,11 @@ Array/Dictionary 按展开后的数据内容比较，不比较共享引用拓扑
 				<tag name="return">StringName 值。</tag>
 				<tag name="schema">options: 选项载荷 Dictionary。</tag>
 				<tag name="schema">key: Variant 选项键。</tag>
+				<tag name="since">3.22.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_option_vector2">
-			<signature>static func get_option_vector2(options: Dictionary, key: Variant, default_value: Vector2 = Vector2.ZERO) -&gt; Vector2:</signature>
+			<signature>static func get_option_vector2( options: Dictionary, key: Variant, default_value: Vector2 = Vector2.ZERO ) -&gt; Vector2:</signature>
 			<description>读取 Vector2 选项。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -417,10 +426,11 @@ Array/Dictionary 按展开后的数据内容比较，不比较共享引用拓扑
 				<tag name="return">Vector2 值。</tag>
 				<tag name="schema">options: 选项载荷 Dictionary。</tag>
 				<tag name="schema">key: Variant 选项键。</tag>
+				<tag name="since">4.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_option_vector3">
-			<signature>static func get_option_vector3(options: Dictionary, key: Variant, default_value: Vector3 = Vector3.ZERO) -&gt; Vector3:</signature>
+			<signature>static func get_option_vector3( options: Dictionary, key: Variant, default_value: Vector3 = Vector3.ZERO ) -&gt; Vector3:</signature>
 			<description>读取 Vector3 选项。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -430,10 +440,11 @@ Array/Dictionary 按展开后的数据内容比较，不比较共享引用拓扑
 				<tag name="return">Vector3 值。</tag>
 				<tag name="schema">options: 选项载荷 Dictionary。</tag>
 				<tag name="schema">key: Variant 选项键。</tag>
+				<tag name="since">4.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_option_dictionary">
-			<signature>static func get_option_dictionary(options: Dictionary, key: Variant, default_value: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>static func get_option_dictionary( options: Dictionary, key: Variant, default_value: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>读取 Dictionary 选项副本。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -445,10 +456,11 @@ Array/Dictionary 按展开后的数据内容比较，不比较共享引用拓扑
 				<tag name="schema">key: Variant 选项键。</tag>
 				<tag name="schema">default_value: 选项不是 Dictionary 时复制的默认 Dictionary。</tag>
 				<tag name="schema">return: Dictionary 选项值。</tag>
+				<tag name="since">3.22.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_option_array">
-			<signature>static func get_option_array(options: Dictionary, key: Variant, default_value: Array = []) -&gt; Array:</signature>
+			<signature>static func get_option_array( options: Dictionary, key: Variant, default_value: Array = [] ) -&gt; Array:</signature>
 			<description>读取 Array 选项副本。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -460,6 +472,7 @@ Array/Dictionary 按展开后的数据内容比较，不比较共享引用拓扑
 				<tag name="schema">key: Variant 选项键。</tag>
 				<tag name="schema">default_value: 选项不是 Array 时复制的默认 Array。</tag>
 				<tag name="schema">return: Array 选项值。</tag>
+				<tag name="since">3.22.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_option_string_array">

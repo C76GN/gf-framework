@@ -41,7 +41,11 @@ func _parse_property(
 	if (usage_flags & PROPERTY_USAGE_EDITOR) == 0:
 		return false
 
-	var editor_property: EditorProperty = create_editor_property(type, hint_type, hint_string)
+	var editor_property: EditorProperty = create_editor_property(
+		type,
+		hint_type,
+		hint_string
+	)
 	if editor_property == null:
 		return false
 	add_property_editor(name, editor_property)
@@ -70,7 +74,11 @@ static func create_editor_property(
 	hint_type: int,
 	hint_string: String
 ) -> EditorProperty:
-	if _GF_RESOURCE_PATH_EDITOR_PROPERTY.should_handle_property(type, hint_type, hint_string):
+	if _GF_RESOURCE_PATH_EDITOR_PROPERTY.should_handle_property(
+		type,
+		hint_type,
+		hint_string
+	):
 		var editor_property: EditorProperty = _GF_RESOURCE_PATH_EDITOR_PROPERTY.new()
 		editor_property.call(
 			&"setup",
@@ -79,7 +87,11 @@ static func create_editor_property(
 		)
 		return editor_property
 
-	if _GF_RESOURCE_PATH_ARRAY_EDITOR_PROPERTY.should_handle_property(type, hint_type, hint_string):
+	if _GF_RESOURCE_PATH_ARRAY_EDITOR_PROPERTY.should_handle_property(
+		type,
+		hint_type,
+		hint_string
+	):
 		var array_editor_property: EditorProperty = _GF_RESOURCE_PATH_ARRAY_EDITOR_PROPERTY.new()
 		array_editor_property.call(
 			&"setup",

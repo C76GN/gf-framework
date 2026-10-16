@@ -78,10 +78,8 @@ func read_settings(file_name: String) -> GFStorageReadResult:
 	var parse_error: Error = parser.parse(content)
 	if parse_error != OK:
 		return _make_read_failure(
-			"Settings JSON parse failed at line %d: %s" % [
-				parser.get_error_line(),
-				parser.get_error_message(),
-			],
+			"Settings JSON parse failed at line %d: %s"
+			% [parser.get_error_line(), parser.get_error_message(),],
 			ERR_PARSE_ERROR,
 			GFStorageReadResult.FailureKind.CORRUPT
 		)
@@ -125,7 +123,10 @@ func write_settings(file_name: String, data: Dictionary) -> Error:
 	if file == null:
 		return FileAccess.get_open_error()
 
-	var store_error: Error = _store_string_checked(file, JSON.stringify(data, "\t"))
+	var store_error: Error = _store_string_checked(
+		file,
+		JSON.stringify(data, "\t")
+	)
 	file.close()
 	return store_error
 
@@ -141,13 +142,15 @@ func _make_read_failure(
 	error_code: Error,
 	failure_kind: GFStorageReadResult.FailureKind
 ) -> GFStorageReadResult:
-	return GFStorageReadResult.new().configure_failure(
-		error_message,
-		error_code,
-		{},
-		GFStorageReadResult.IntegrityStatus.NOT_CHECKED,
-		0,
-		failure_kind
+	return (
+		GFStorageReadResult.new().configure_failure(
+			error_message,
+			error_code,
+			{},
+			GFStorageReadResult.IntegrityStatus.NOT_CHECKED,
+			0,
+			failure_kind
+		)
 	)
 
 

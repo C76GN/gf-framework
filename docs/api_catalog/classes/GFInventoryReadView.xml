@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInventoryReadView" path="addons/gf/extensions/domain/inventory/gf_inventory_read_view.gd" module="extensions/domain" extends="RefCounted" classDigest="0a5e673465ae9c40da48b95b879865794ad33d773adbb1318535cbab006e70d1">
+<class name="GFInventoryReadView" path="addons/gf/extensions/domain/inventory/gf_inventory_read_view.gd" module="extensions/domain" extends="RefCounted" classDigest="bcf20a2f42cc533aaeefabf0ba30e35ada558ca6954dfc8aca869cb5b0743f1e">
 	<description>GFInventoryReadView: 槽位接收回调的临时只读库存投影。
 库存模型与原子转移规划器会为每次槽位接收检查创建此视图。查询反映
 当前逐步候选，因而后续槽位可观察此前写入；视图不暴露可变库存引用。
@@ -117,7 +117,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="get_slots_for_item">
-			<signature>func get_slots_for_item( item_id: StringName, instance_data: Dictionary = {} ) -&gt; PackedInt32Array:</signature>
+			<signature>func get_slots_for_item(item_id: StringName, instance_data: Dictionary = {}) -&gt; PackedInt32Array:</signature>
 			<description>获取候选中指定物品所在槽位。</description>
 			<tags>
 				<tag name="api">public</tag>

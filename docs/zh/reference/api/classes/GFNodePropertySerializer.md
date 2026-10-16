@@ -20,7 +20,7 @@
 | 属性 | [`allowed_resource_roots`](#member-gfnodepropertyserializer-properties-allowed_resource_roots) | `var allowed_resource_roots: PackedStringArray = PackedStringArray()` |
 | 属性 | [`allowed_resource_patterns`](#member-gfnodepropertyserializer-properties-allowed_resource_patterns) | `var allowed_resource_patterns: PackedStringArray = PackedStringArray()` |
 | 方法 | [`gather`](#member-gfnodepropertyserializer-methods-gather) | `func gather(node: Node, context: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`apply`](#member-gfnodepropertyserializer-methods-apply) | `func apply(node: Node, payload: Dictionary, context: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`apply`](#member-gfnodepropertyserializer-methods-apply) | `func apply( node: Node, payload: Dictionary, context: Dictionary = {} ) -> Dictionary:` |
 
 ## 属性
 
@@ -110,7 +110,7 @@ func gather(node: Node, context: Dictionary = {}) -> Dictionary:
 - 首次版本：`3.17.0`
 
 ```gdscript
-func apply(node: Node, payload: Dictionary, context: Dictionary = {}) -> Dictionary:
+func apply( node: Node, payload: Dictionary, context: Dictionary = {} ) -> Dictionary:
 ```
 
 将序列化数据应用到节点。

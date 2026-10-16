@@ -163,7 +163,11 @@ func clear() -> void:
 ## @schema packet_id: Non-empty String/StringName or int stable protocol packet id.
 ## [br]
 ## @schema entry_metadata: Dictionary copied into the ledger entry.
-func register_packet(packet_id: Variant, entry_metadata: Dictionary = {}, now_msec: int = -1) -> bool:
+func register_packet(
+	packet_id: Variant,
+	entry_metadata: Dictionary = {},
+	now_msec: int = -1
+) -> bool:
 	if not _is_valid_packet_id(packet_id):
 		return false
 	if _records.has(packet_id):
@@ -206,8 +210,18 @@ func register_packet(packet_id: Variant, entry_metadata: Dictionary = {}, now_ms
 ## @return 状态成功变更时返回 true。
 ## [br]
 ## @schema result: Variant copied into the ledger entry.
-func acknowledge_packet(packet_id: Variant, result: Variant = null, now_msec: int = -1) -> bool:
-	return _mark_terminal(packet_id, STATE_ACKED, result, "", now_msec)
+func acknowledge_packet(
+	packet_id: Variant,
+	result: Variant = null,
+	now_msec: int = -1
+) -> bool:
+	return _mark_terminal(
+		packet_id,
+		STATE_ACKED,
+		result,
+		"",
+		now_msec
+	)
 
 
 ## 标记条目失败。
@@ -229,8 +243,19 @@ func acknowledge_packet(packet_id: Variant, result: Variant = null, now_msec: in
 ## @return 状态成功变更时返回 true。
 ## [br]
 ## @schema result: Variant copied into the ledger entry.
-func fail_packet(packet_id: Variant, error: String = "", result: Variant = null, now_msec: int = -1) -> bool:
-	return _mark_terminal(packet_id, STATE_FAILED, result, error, now_msec)
+func fail_packet(
+	packet_id: Variant,
+	error: String = "",
+	result: Variant = null,
+	now_msec: int = -1
+) -> bool:
+	return _mark_terminal(
+		packet_id,
+		STATE_FAILED,
+		result,
+		error,
+		now_msec
+	)
 
 
 ## 让超过 deadline 的待确认条目进入 expired 状态。
@@ -251,7 +276,11 @@ func expire_pending(now_msec: int = -1) -> Dictionary:
 		var record: Dictionary = _get_record(packet_id)
 		if _get_record_state(record) != STATE_PENDING:
 			continue
-		var deadline_msec: int = GFVariantData.get_option_int(record, "deadline_msec", -1)
+		var deadline_msec: int = GFVariantData.get_option_int(
+			record,
+			"deadline_msec",
+			-1
+		)
 		if deadline_msec < 0 or timestamp_msec < deadline_msec:
 			continue
 		record["state"] = STATE_EXPIRED
@@ -293,7 +322,11 @@ func record_packet_attempt(
 	if _get_record_state(record) != STATE_PENDING:
 		return false
 
-	var attempt_count: int = GFVariantData.get_option_int(record, "attempt_count", 0)
+	var attempt_count: int = GFVariantData.get_option_int(
+		record,
+		"attempt_count",
+		0
+	)
 	var timestamp_msec: int = _normalize_time_msec(now_msec)
 	if max_attempts > 0 and attempt_count >= max_attempts:
 		record["state"] = STATE_FAILED
@@ -354,7 +387,11 @@ func get_retry_ready_ids(now_msec: int = -1, limit: int = 0) -> Array:
 func get_attempt_count(packet_id: Variant) -> int:
 	if not _records.has(packet_id):
 		return 0
-	return GFVariantData.get_option_int(_get_record(packet_id), "attempt_count", 0)
+	return GFVariantData.get_option_int(
+		_get_record(packet_id),
+		"attempt_count",
+		0
+	)
 
 
 ## 接收入站包并执行去重与可选顺序检查。
@@ -383,18 +420,71 @@ func accept_incoming_packet(
 	now_msec: int = -1
 ) -> Dictionary:
 	if not _is_valid_packet_id(packet_id):
-		return _make_incoming_report(false, false, false, false, "invalid_id", packet_id, sequence, channel, -1)
+		return _make_incoming_report(
+			false,
+			false,
+			false,
+			false,
+			"invalid_id",
+			packet_id,
+			sequence,
+			channel,
+			-1
+		)
 
-	var last_sequence: int = GFVariantData.get_option_int(_last_sequence_by_channel, channel, -1)
+	var last_sequence: int = GFVariantData.get_option_int(
+		_last_sequence_by_channel,
+		channel,
+		-1
+	)
 	if _incoming_records.has(packet_id):
-		return _make_incoming_report(true, false, true, false, "duplicate", packet_id, sequence, channel, last_sequence)
-	if sequence >= 0 and last_sequence >= 0 and sequence <= last_sequence:
-		return _make_incoming_report(true, false, false, true, "out_of_order", packet_id, sequence, channel, last_sequence)
+		return _make_incoming_report(
+			true,
+			false,
+			true,
+			false,
+			"duplicate",
+			packet_id,
+			sequence,
+			channel,
+			last_sequence
+		)
+	if (
+		sequence >= 0
+		and last_sequence >= 0
+		and sequence <= last_sequence
+	):
+		return _make_incoming_report(
+			true,
+			false,
+			false,
+			true,
+			"out_of_order",
+			packet_id,
+			sequence,
+			channel,
+			last_sequence
+		)
 
-	_remember_incoming_packet(packet_id, sequence, channel, now_msec)
+	_remember_incoming_packet(
+		packet_id,
+		sequence,
+		channel,
+		now_msec
+	)
 	if sequence >= 0:
 		_last_sequence_by_channel[channel] = sequence
-	return _make_incoming_report(true, true, false, false, "", packet_id, sequence, channel, sequence)
+	return _make_incoming_report(
+		true,
+		true,
+		false,
+		false,
+		"",
+		packet_id,
+		sequence,
+		channel,
+		sequence
+	)
 
 
 ## 判断入站包 ID 是否已经在去重窗口中出现。
@@ -634,9 +724,17 @@ func _find_first_terminal_order_index() -> int:
 func _record_is_retry_ready(record: Dictionary, timestamp_msec: int) -> bool:
 	if _get_record_state(record) != STATE_PENDING:
 		return false
-	if max_attempts > 0 and GFVariantData.get_option_int(record, "attempt_count", 0) >= max_attempts:
+	if max_attempts > 0 and GFVariantData.get_option_int(
+		record,
+		"attempt_count",
+		0
+	) >= max_attempts:
 		return false
-	var next_retry_msec: int = GFVariantData.get_option_int(record, "next_retry_msec", -1)
+	var next_retry_msec: int = GFVariantData.get_option_int(
+		record,
+		"next_retry_msec",
+		-1
+	)
 	return next_retry_msec >= 0 and timestamp_msec >= next_retry_msec
 
 
@@ -710,8 +808,15 @@ func _make_incoming_report(
 ## @api private
 ## [br]
 func _remove_from_order(packet_id: Variant) -> void:
-	for index: int in range(_order.size() - 1, -1, -1):
-		if GFVariantData.values_equal(_order[index], packet_id):
+	for index: int in range(
+		_order.size() - 1,
+		-1,
+		-1
+	):
+		if GFVariantData.values_equal(
+			_order[index],
+			packet_id
+		):
 			_order.remove_at(index)
 
 
@@ -720,7 +825,13 @@ func _remove_from_order(packet_id: Variant) -> void:
 ## @api private
 ## [br]
 func _get_record(packet_id: Variant) -> Dictionary:
-	return GFVariantData.as_dictionary(GFVariantData.get_option_value(_records, packet_id, {}))
+	return GFVariantData.as_dictionary(
+		GFVariantData.get_option_value(
+			_records,
+			packet_id,
+			{}
+		)
+	)
 
 
 ## 读取记录状态；缺失时按 pending 处理。
@@ -728,7 +839,11 @@ func _get_record(packet_id: Variant) -> Dictionary:
 ## @api private
 ## [br]
 func _get_record_state(record: Dictionary) -> StringName:
-	return GFVariantData.get_option_string_name(record, "state", STATE_PENDING)
+	return GFVariantData.get_option_string_name(
+		record,
+		"state",
+		STATE_PENDING
+	)
 
 
 ## 统计 outgoing 记录中状态等于指定值的数量。

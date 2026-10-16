@@ -118,6 +118,8 @@ var _delay: float = 0.0
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param tween: 目标 Tween。
 ## [br]
 ## @param target: 目标对象。
@@ -127,8 +129,18 @@ var _delay: float = 0.0
 ## @return 创建的 Tweener。
 ## [br]
 ## @schema return: Variant，成功时为 PropertyTweener；无效时为 null。
-func append_to_tween(tween: Tween, target: Object, duration_scale: float = 1.0) -> Variant:
-	return _append_validated(tween, target, duration_scale, target, property_name)
+func append_to_tween(
+	tween: Tween,
+	target: Object,
+	duration_scale: float = 1.0
+) -> Variant:
+	return _append_validated(
+		tween,
+		target,
+		duration_scale,
+		target,
+		property_name
+	)
 
 
 ## 立即应用步骤目标值；仅校验属性，不采样或校验 easing_curve。
@@ -144,7 +156,10 @@ func apply_instant(target: Object) -> void:
 		push_warning("[GFTweenActionStep][tween_action_step.invalid_immediate_step] Skipped an invalid immediate step: %s." % validation_error)
 		return
 	if as_relative:
-		target.set_indexed(property_name, _resolve_relative_value(target))
+		target.set_indexed(
+			property_name,
+			_resolve_relative_value(target)
+		)
 	else:
 		target.set_indexed(property_name, target_value)
 
@@ -240,8 +255,19 @@ func capture_initial_value(target: Object) -> Variant:
 ## @return: 成功时为 PropertyTweener，否则为 null。
 ## [br]
 ## @schema return: Variant，PropertyTweener 或 null。
-func append_for_action(tween: Tween, target: Object, duration_scale: float, binding: GFTweenPropertyBinding) -> Variant:
-	return _append_validated(tween, target, duration_scale, binding, ^"value")
+func append_for_action(
+	tween: Tween,
+	target: Object,
+	duration_scale: float,
+	binding: GFTweenPropertyBinding
+) -> Variant:
+	return _append_validated(
+		tween,
+		target,
+		duration_scale,
+		binding,
+		^"value"
+	)
 
 
 ## 校验可读写属性和值，供即时终点应用和初值恢复使用，不要求插值曲线有效。
@@ -265,8 +291,12 @@ func get_property_validation_error(target: Object) -> String:
 		return "Property not found: %s" % root_property
 	if as_relative and not _can_resolve_relative_value(target):
 		return "Relative value type mismatch for property: %s" % String(property_name)
-	if not as_relative and not _are_tween_values_compatible(
-		target.get_indexed(property_name), target_value
+	if (
+		not as_relative
+		and not _are_tween_values_compatible(
+			target.get_indexed(property_name),
+			target_value
+		)
 	):
 		return "Tween value type mismatch for property: %s" % String(property_name)
 	return ""
@@ -324,7 +354,10 @@ static func append_property_tweener(
 	if p_parallel:
 		var _parallel_result: Tween = tween.parallel()
 	var tweener: PropertyTweener = tween.tween_property(
-		target, p_property_name, p_target_value, effective_duration
+		target,
+		p_property_name,
+		p_target_value,
+		effective_duration
 	)
 	if tweener == null:
 		return null
@@ -344,7 +377,13 @@ static func append_property_tweener(
 ## 校验步骤与曲线、规范化缩放时长，再委托构建原生属性 Tweener。
 ## [br]
 ## @api private
-func _append_validated(tween: Tween, target: Object, duration_scale: float, write_target: Object, write_property: NodePath) -> Variant:
+func _append_validated(
+	tween: Tween,
+	target: Object,
+	duration_scale: float,
+	write_target: Object,
+	write_property: NodePath
+) -> Variant:
 	if tween == null:
 		return null
 	var validation_error: String = get_property_validation_error(target)
@@ -359,15 +398,20 @@ func _append_validated(tween: Tween, target: Object, duration_scale: float, writ
 	var curve_data: Dictionary = GFVariantData.get_option_dictionary(captured_curve, "data")
 
 	var effective_scale: float = _ACTION_TIME_POLICY.sanitize_non_negative_seconds(duration_scale)
-	var effective_duration: float = _ACTION_TIME_POLICY.sanitize_non_negative_seconds(
-		duration * effective_scale
-	)
-	var effective_delay: float = _ACTION_TIME_POLICY.sanitize_non_negative_seconds(
-		delay * effective_scale
-	)
+	var effective_duration: float = _ACTION_TIME_POLICY.sanitize_non_negative_seconds(duration * effective_scale)
+	var effective_delay: float = _ACTION_TIME_POLICY.sanitize_non_negative_seconds(delay * effective_scale)
 	return append_property_tweener(
-		tween, write_target, write_property, target_value, effective_duration, effective_delay,
-		as_relative, parallel, transition_type, ease_type, curve_data
+		tween,
+		write_target,
+		write_property,
+		target_value,
+		effective_duration,
+		effective_delay,
+		as_relative,
+		parallel,
+		transition_type,
+		ease_type,
+		curve_data
 	)
 
 
@@ -393,17 +437,28 @@ func _resolve_relative_value(target: Object) -> Variant:
 func _can_resolve_relative_value(target: Object) -> bool:
 	var current_value: Variant = target.get_indexed(property_name)
 	return (
-		(current_value is float or current_value is int)
-		and (target_value is float or target_value is int)
-	) or (
-		current_value is Vector2
-		and target_value is Vector2
-	) or (
-		current_value is Vector3
-		and target_value is Vector3
-	) or (
-		current_value is Color
-		and target_value is Color
+		(
+			(
+				current_value is float
+				or current_value is int
+			)
+			and (
+				target_value is float
+				or target_value is int
+			)
+		)
+		or (
+			current_value is Vector2
+			and target_value is Vector2
+		)
+		or (
+			current_value is Vector3
+			and target_value is Vector3
+		)
+		or (
+			current_value is Color
+			and target_value is Color
+		)
 	)
 
 
@@ -412,8 +467,14 @@ func _can_resolve_relative_value(target: Object) -> bool:
 ## @api private
 func _are_tween_values_compatible(current_value: Variant, next_value: Variant) -> bool:
 	if (
-		(current_value is float or current_value is int)
-		and (next_value is float or next_value is int)
+		(
+			current_value is float
+			or current_value is int
+		)
+		and (
+			next_value is float
+			or next_value is int
+		)
 	):
 		return true
 	return typeof(current_value) == typeof(next_value)

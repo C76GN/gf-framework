@@ -15,26 +15,18 @@ func install(architecture: GFArchitecture, scope: GFAsyncScope) -> void:
 	if _should_stop_installation(architecture, scope):
 		return
 	if architecture.get_local_utility(GFShakeUtility) == null:
-		var registered_shake: bool = await architecture.register_utility_instance(
-			GFShakeUtility.new()
-		)
+		var registered_shake: bool = await (architecture.register_utility_instance(GFShakeUtility.new()))
 		if _should_stop_installation(architecture, scope):
 			return
 		if not registered_shake:
-			architecture.fail_initialization(
-				"[GFFeedbackExtension][feedback_extension.shake_registration_failed] GFShakeUtility registration failed."
-			)
+			architecture.fail_initialization("[GFFeedbackExtension][feedback_extension.shake_registration_failed] GFShakeUtility registration failed.")
 			return
 	if architecture.get_local_utility(GFHapticUtility) == null:
-		var registered_haptic: bool = await architecture.register_utility_instance(
-			GFHapticUtility.new()
-		)
+		var registered_haptic: bool = await (architecture.register_utility_instance(GFHapticUtility.new()))
 		if _should_stop_installation(architecture, scope):
 			return
 		if not registered_haptic:
-			architecture.fail_initialization(
-				"[GFFeedbackExtension][feedback_extension.haptic_registration_failed] GFHapticUtility registration failed."
-			)
+			architecture.fail_initialization("[GFFeedbackExtension][feedback_extension.haptic_registration_failed] GFHapticUtility registration failed.")
 
 
 # --- 私有/辅助方法 ---
@@ -42,10 +34,7 @@ func install(architecture: GFArchitecture, scope: GFAsyncScope) -> void:
 ## 检查架构与安装作用域仍可用；作用域失活、初始化失败或架构已释放时停止继续安装。
 ## [br]
 ## @api private
-func _should_stop_installation(
-	architecture: GFArchitecture,
-	scope: GFAsyncScope
-) -> bool:
+func _should_stop_installation(architecture: GFArchitecture, scope: GFAsyncScope) -> bool:
 	return (
 		architecture == null
 		or scope == null

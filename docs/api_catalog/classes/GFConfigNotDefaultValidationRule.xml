@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigNotDefaultValidationRule" path="addons/gf/standard/utilities/config/validation/gf_config_not_default_validation_rule.gd" module="standard" extends="GFConfigValidationRule" classDigest="42914d448925e9410857eb0dcc710227d5c1f0c8c15ccfd94da80d8f0b25c35d">
+<class name="GFConfigNotDefaultValidationRule" path="addons/gf/standard/utilities/config/validation/gf_config_not_default_validation_rule.gd" module="standard" extends="GFConfigValidationRule" classDigest="445909a7989555a6e80ba2cf78ea4ce51910293f325bf0a5dc914dae8a54aea5">
 	<description>GFConfigNotDefaultValidationRule: 非默认值校验规则。
 用于要求字段显式填写有效值。默认值可以按类型推导，也可以由项目指定。</description>
 	<tags>
@@ -46,7 +46,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="_validate_value">
-			<signature>func _validate_value(value: Variant, context: Dictionary, report: Dictionary) -&gt; void:</signature>
+			<signature>func _validate_value( value: Variant, context: Dictionary, report: Dictionary ) -&gt; void:</signature>
 			<description>校验单个字段值是否不同于推导或显式默认值。</description>
 			<tags>
 				<tag name="api">protected</tag>
@@ -56,6 +56,7 @@
 				<tag name="schema">value: Variant，与推导默认值或显式默认值比较的字段值。</tag>
 				<tag name="schema">context: Dictionary，可包含 table_name、row_key、field、source、line 和 column 字段。</tag>
 				<tag name="schema">report: GFConfigValidationReport 兼容 Dictionary，会被当前规则修改。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

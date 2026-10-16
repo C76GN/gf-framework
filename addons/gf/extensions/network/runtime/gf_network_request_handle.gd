@@ -201,7 +201,11 @@ func configure_from_network_layer(
 ## [br]
 ## @return: 主线程首次提交匹配结果时返回 true。
 func commit_from_network_layer(result: GFNetworkRequestResult) -> bool:
-	if not Thread.is_main_thread() or not is_pending() or result == null:
+	if (
+		not Thread.is_main_thread()
+		or not is_pending()
+		or result == null
+	):
 		return false
 	if result.get_request_id() != _request_id or result.get_peer_id() != _peer_id:
 		return false
@@ -220,7 +224,11 @@ func commit_from_network_layer(result: GFNetworkRequestResult) -> bool:
 ## [br]
 ## @since unreleased
 func publish_from_network_layer() -> void:
-	if not Thread.is_main_thread() or _result == null or _published:
+	if (
+		not Thread.is_main_thread()
+		or _result == null
+		or _published
+	):
 		return
 	_published = true
 	completed.emit(_result)

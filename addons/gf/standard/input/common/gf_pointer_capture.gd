@@ -120,7 +120,4 @@ func reset() -> bool:
 ## [br]
 ## @schema return: Dictionary，包含 active_pointer_id 和 active。
 func to_dictionary() -> Dictionary:
-	return {
-		"active_pointer_id": active_pointer_id,
-		"active": is_active(),
-	}
+	return { "active_pointer_id": active_pointer_id, "active": is_active(), }

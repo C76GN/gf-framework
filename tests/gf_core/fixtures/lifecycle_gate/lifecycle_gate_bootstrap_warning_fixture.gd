@@ -1,6 +1,5 @@
 extends RefCounted
 
-
 const WARNING_CODE: String = "GF lifecycle bootstrap fixture warning"
 
 

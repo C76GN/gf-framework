@@ -97,11 +97,7 @@ func set_table_resources(table_resources: Array[GFConfigTableResource], duplicat
 	clear_tables()
 	var count: int = 0
 	for table_resource: GFConfigTableResource in table_resources:
-		var registered_table: GFConfigTableResource = (
-			table_resource.duplicate_table()
-			if duplicate_tables and table_resource != null
-			else table_resource
-		)
+		var registered_table: GFConfigTableResource = (table_resource.duplicate_table() if duplicate_tables and table_resource != null else table_resource)
 		if register_table(registered_table):
 			count += 1
 	return count
@@ -142,7 +138,10 @@ static func from_database(database: GFConfigDatabaseResource, duplicate_tables: 
 		return null
 
 	var provider: GFResourceConfigProvider = GFResourceConfigProvider.new()
-	var _registered_count: int = provider.set_table_resources(database.get_table_resources(duplicate_tables), false)
+	var _registered_count: int = provider.set_table_resources(
+		database.get_table_resources(duplicate_tables),
+		false
+	)
 	return provider
 
 
@@ -277,7 +276,11 @@ func get_record(table_name: StringName, record_id: Variant) -> Variant:
 ## @schema record: Dictionary，键为索引字段名，值为字段数据。
 ## [br]
 ## @return: 索引键；表、索引或字段无效时返回空字符串。
-func make_index_key(table_name: StringName, index_id: StringName, record: Dictionary) -> String:
+func make_index_key(
+	table_name: StringName,
+	index_id: StringName,
+	record: Dictionary
+) -> String:
 	var table_resource: GFConfigTableResource = _get_table_reference(table_name)
 	if table_resource == null:
 		return ""
@@ -297,7 +300,11 @@ func make_index_key(table_name: StringName, index_id: StringName, record: Dictio
 ## @param index_key: 由 make_index_key() 或同等规则生成的索引键。
 ## [br]
 ## @return: 存在返回 true。
-func has_index_key(table_name: StringName, index_id: StringName, index_key: String) -> bool:
+func has_index_key(
+	table_name: StringName,
+	index_id: StringName,
+	index_key: String
+) -> bool:
 	var table_resource: GFConfigTableResource = _get_table_reference(table_name)
 	if table_resource == null:
 		return false
@@ -319,11 +326,19 @@ func has_index_key(table_name: StringName, index_id: StringName, index_key: Stri
 ## @return: 命中的记录列表；未命中时返回空数组。
 ## [br]
 ## @schema return: Array[Dictionary]，每个 Dictionary 是一条配置记录。
-func get_index_records(table_name: StringName, index_id: StringName, index_key: String) -> Array[Dictionary]:
+func get_index_records(
+	table_name: StringName,
+	index_id: StringName,
+	index_key: String
+) -> Array[Dictionary]:
 	var table_resource: GFConfigTableResource = _get_table_reference(table_name)
 	if table_resource == null:
 		return []
-	return table_resource.get_index_records(index_id, index_key, true)
+	return table_resource.get_index_records(
+		index_id,
+		index_key,
+		true
+	)
 
 
 ## 根据表名和命名索引获取第一条记录。
@@ -341,11 +356,19 @@ func get_index_records(table_name: StringName, index_id: StringName, index_key: 
 ## @return: 找到时返回第一条记录 Dictionary，否则返回 null。
 ## [br]
 ## @schema return: Variant，找到时为 Dictionary，未命中时为 null。
-func get_index_record(table_name: StringName, index_id: StringName, index_key: String) -> Variant:
+func get_index_record(
+	table_name: StringName,
+	index_id: StringName,
+	index_key: String
+) -> Variant:
 	var table_resource: GFConfigTableResource = _get_table_reference(table_name)
 	if table_resource == null:
 		return null
-	return table_resource.get_index_record(index_id, index_key, true)
+	return table_resource.get_index_record(
+		index_id,
+		index_key,
+		true
+	)
 
 
 ## 根据表名获取整张表的数据。
@@ -373,7 +396,11 @@ func get_table(table_name: StringName) -> Variant:
 ## @api private
 ## [br]
 func _get_table_reference(table_name: StringName) -> GFConfigTableResource:
-	var cached: Variant = GFVariantData.get_option_value(_tables_by_name, table_name, null)
+	var cached: Variant = GFVariantData.get_option_value(
+		_tables_by_name,
+		table_name,
+		null
+	)
 	if cached is GFConfigTableResource:
 		var cached_table: GFConfigTableResource = cached
 		if cached_table.get_table_key() == table_name:
@@ -393,7 +420,11 @@ func _get_table_reference(table_name: StringName) -> GFConfigTableResource:
 ## @api private
 ## [br]
 func _get_cached_table_reference(table_name: StringName) -> GFConfigTableResource:
-	var cached: Variant = GFVariantData.get_option_value(_tables_by_name, table_name, null)
+	var cached: Variant = GFVariantData.get_option_value(
+		_tables_by_name,
+		table_name,
+		null
+	)
 	if cached is GFConfigTableResource:
 		var cached_table: GFConfigTableResource = cached
 		if cached_table.get_table_key() == table_name:

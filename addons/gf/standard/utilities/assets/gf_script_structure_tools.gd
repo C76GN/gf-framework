@@ -72,19 +72,63 @@ static func scan_script_paths(root_path: String = "res://", options: Dictionary 
 static func describe_script(target_script: Script, options: Dictionary = {}) -> Dictionary:
 	var report: Dictionary = _make_description_report(target_script)
 	if target_script == null:
-		_append_issue(report, "error", "invalid_script", "", "", "Script is null.")
+		_append_issue(
+			report,
+			"error",
+			"invalid_script",
+			"",
+			"",
+			"Script is null."
+		)
 		return _finalize_report(report)
 
-	var include_private_members: bool = GFVariantData.get_option_bool(options, "include_private_members", false)
-	if GFVariantData.get_option_bool(options, "include_constants", true):
-		report["constants"] = _describe_constants(target_script, options, include_private_members)
-	if GFVariantData.get_option_bool(options, "include_methods", true):
-		report["methods"] = _describe_method_records(target_script.get_script_method_list(), include_private_members)
-	if GFVariantData.get_option_bool(options, "include_properties", true):
-		report["properties"] = _describe_property_records(target_script.get_script_property_list(), include_private_members)
-	if GFVariantData.get_option_bool(options, "include_signals", true):
-		report["signals"] = _describe_signal_records(target_script.get_script_signal_list(), include_private_members)
-	if GFVariantData.get_option_bool(options, "include_base_chain", true):
+	var include_private_members: bool = GFVariantData.get_option_bool(
+		options,
+		"include_private_members",
+		false
+	)
+	if GFVariantData.get_option_bool(
+		options,
+		"include_constants",
+		true
+	):
+		report["constants"] = _describe_constants(
+			target_script,
+			options,
+			include_private_members
+		)
+	if GFVariantData.get_option_bool(
+		options,
+		"include_methods",
+		true
+	):
+		report["methods"] = _describe_method_records(
+			target_script.get_script_method_list(),
+			include_private_members
+		)
+	if GFVariantData.get_option_bool(
+		options,
+		"include_properties",
+		true
+	):
+		report["properties"] = _describe_property_records(
+			target_script.get_script_property_list(),
+			include_private_members
+		)
+	if GFVariantData.get_option_bool(
+		options,
+		"include_signals",
+		true
+	):
+		report["signals"] = _describe_signal_records(
+			target_script.get_script_signal_list(),
+			include_private_members
+		)
+	if GFVariantData.get_option_bool(
+		options,
+		"include_base_chain",
+		true
+	):
 		report["base_chain"] = _describe_base_chain(target_script, options)
 
 	return _finalize_report(report)
@@ -114,7 +158,14 @@ static func format_method_signature(method: Dictionary, options: Dictionary = {}
 	var report: Dictionary = _make_method_format_report(method)
 	var method_name: String = GFVariantData.get_option_string(method, "name").strip_edges()
 	if method_name.is_empty():
-		_append_issue(report, "error", "missing_method_name", "name", "", "Method metadata is missing a name.")
+		_append_issue(
+			report,
+			"error",
+			"missing_method_name",
+			"name",
+			"",
+			"Method metadata is missing a name."
+		)
 		return _finalize_report(report)
 
 	var normalized_method_name: String = _normalize_identifier(method_name, "method")
@@ -134,15 +185,40 @@ static func format_method_signature(method: Dictionary, options: Dictionary = {}
 	for index: int in range(args.size()):
 		var argument: Dictionary = GFVariantData.as_dictionary(args[index])
 		var _argument_appended: bool = argument_signatures.append(
-			_format_argument_signature(argument, index, args.size(), default_args, options)
+			_format_argument_signature(
+				argument,
+				index,
+				args.size(),
+				default_args,
+				options
+			)
 		)
 
-	var include_func_keyword: bool = GFVariantData.get_option_bool(options, "include_func_keyword", true)
-	var include_return_type: bool = GFVariantData.get_option_bool(options, "include_return_type", true)
+	var include_func_keyword: bool = GFVariantData.get_option_bool(
+		options,
+		"include_func_keyword",
+		true
+	)
+	var include_return_type: bool = GFVariantData.get_option_bool(
+		options,
+		"include_return_type",
+		true
+	)
 	var prefix: String = "func " if include_func_keyword else ""
-	var signature: String = "%s%s(%s)" % [prefix, normalized_method_name, ", ".join(argument_signatures)]
+	var signature: String = (
+		"%s%s(%s)"
+		% [
+			prefix,
+			normalized_method_name,
+			", ".join(argument_signatures),
+		]
+	)
 	var return_info: Dictionary = _get_method_return_info(method)
-	var return_type: int = GFVariantData.get_option_int(return_info, "type", TYPE_NIL)
+	var return_type: int = GFVariantData.get_option_int(
+		return_info,
+		"type",
+		TYPE_NIL
+	)
 	var return_type_name: String = _format_return_type_name(return_info, options)
 	if include_return_type and not return_type_name.is_empty():
 		signature += " -> %s" % return_type_name
@@ -182,10 +258,21 @@ static func format_method_stub(method: Dictionary, options: Dictionary = {}) -> 
 
 	var signature: String = GFVariantData.get_option_string(report, "signature")
 	if signature.is_empty():
-		_append_issue(report, "error", "missing_method_signature", "signature", "", "Method signature is empty.")
+		_append_issue(
+			report,
+			"error",
+			"missing_method_signature",
+			"signature",
+			"",
+			"Method signature is empty."
+		)
 		return _finalize_report(report)
 
-	var indent_text: String = GFVariantData.get_option_string(options, "indent", "\t")
+	var indent_text: String = GFVariantData.get_option_string(
+		options,
+		"indent",
+		"\t"
+	)
 	if indent_text.is_empty():
 		indent_text = "\t"
 
@@ -196,10 +283,17 @@ static func format_method_stub(method: Dictionary, options: Dictionary = {}) -> 
 		if body_line.is_empty():
 			var _empty_appended: bool = lines.append("")
 		else:
-			var _body_appended: bool = lines.append("%s%s" % [indent_text, body_line])
+			var _body_appended: bool = lines.append(
+				"%s%s"
+				% [indent_text, body_line]
+			)
 
 	var stub: String = "\n".join(lines)
-	if GFVariantData.get_option_bool(options, "include_trailing_newline", true):
+	if GFVariantData.get_option_bool(
+		options,
+		"include_trailing_newline",
+		true
+	):
 		stub += "\n"
 	report["stub"] = stub
 	return _finalize_report(report)
@@ -242,16 +336,59 @@ static func check_script_structure(
 	var description: Dictionary = describe_script(target_script, description_options)
 	var report: Dictionary = _make_check_report(target_script, description)
 	if target_script == null:
-		_append_issue(report, "error", "invalid_script", "", "", "Script is null.")
+		_append_issue(
+			report,
+			"error",
+			"invalid_script",
+			"",
+			"",
+			"Script is null."
+		)
 		return _finalize_report(report)
 
-	_check_base_script(report, target_script, structure)
-	_check_base_class(report, target_script, structure)
-	_check_can_instantiate(report, target_script, structure)
-	_check_required_records(report, "constant", "required_constants", GFVariantData.get_option_array(description, "constants"), structure)
-	_check_required_records(report, "method", "required_methods", GFVariantData.get_option_array(description, "methods"), structure)
-	_check_required_records(report, "property", "required_properties", GFVariantData.get_option_array(description, "properties"), structure)
-	_check_required_records(report, "signal", "required_signals", GFVariantData.get_option_array(description, "signals"), structure)
+	_check_base_script(
+		report,
+		target_script,
+		structure
+	)
+	_check_base_class(
+		report,
+		target_script,
+		structure
+	)
+	_check_can_instantiate(
+		report,
+		target_script,
+		structure
+	)
+	_check_required_records(
+		report,
+		"constant",
+		"required_constants",
+		GFVariantData.get_option_array(description, "constants"),
+		structure
+	)
+	_check_required_records(
+		report,
+		"method",
+		"required_methods",
+		GFVariantData.get_option_array(description, "methods"),
+		structure
+	)
+	_check_required_records(
+		report,
+		"property",
+		"required_properties",
+		GFVariantData.get_option_array(description, "properties"),
+		structure
+	)
+	_check_required_records(
+		report,
+		"signal",
+		"required_signals",
+		GFVariantData.get_option_array(description, "signals"),
+		structure
+	)
 	return _finalize_report(report)
 
 
@@ -285,7 +422,11 @@ static func _make_description_report(target_script: Script) -> Dictionary:
 ## [br]
 static func _make_check_report(target_script: Script, description: Dictionary) -> Dictionary:
 	return {
-		"ok": GFVariantData.get_option_bool(description, "ok", true),
+		"ok": GFVariantData.get_option_bool(
+			description,
+			"ok",
+			true
+		),
 		"script_path": _get_script_path(target_script),
 		"description": description,
 		"counts": {},
@@ -306,7 +447,11 @@ static func _make_method_format_report(method: Dictionary) -> Dictionary:
 		"signature": "",
 		"stub": "",
 		"argument_count": _get_method_arguments(method).size(),
-		"return_type": GFVariantData.get_option_int(return_info, "type", TYPE_NIL),
+		"return_type": GFVariantData.get_option_int(
+			return_info,
+			"type",
+			TYPE_NIL
+		),
 		"return_type_name": "",
 		"counts": {},
 		"issues": [],
@@ -334,7 +479,11 @@ static func _get_method_return_info(method: Dictionary) -> Dictionary:
 	if not return_info.is_empty():
 		return return_info
 	return {
-		"type": GFVariantData.get_option_int(method, "return_type", TYPE_NIL),
+		"type": GFVariantData.get_option_int(
+			method,
+			"return_type",
+			TYPE_NIL
+		),
 		"class_name": GFVariantData.get_option_string(method, "return_class_name"),
 		"hint": GFVariantData.get_option_int(method, "return_hint"),
 		"hint_string": GFVariantData.get_option_string(method, "return_hint_string"),
@@ -359,7 +508,11 @@ static func _format_argument_signature(
 	var result: String = argument_name
 	var type_name: String = _format_type_name(
 		argument,
-		GFVariantData.get_option_bool(options, "include_variant_type_for_untyped", false)
+		GFVariantData.get_option_bool(
+			options,
+			"include_variant_type_for_untyped",
+			false
+		)
 	)
 	if not type_name.is_empty():
 		result += ": %s" % type_name
@@ -376,11 +529,23 @@ static func _format_argument_signature(
 ## @api private
 ## [br]
 static func _format_return_type_name(return_info: Dictionary, options: Dictionary) -> String:
-	var return_type: int = GFVariantData.get_option_int(return_info, "type", TYPE_NIL)
+	var return_type: int = GFVariantData.get_option_int(
+		return_info,
+		"type",
+		TYPE_NIL
+	)
 	if return_type == TYPE_NIL:
-		if GFVariantData.get_option_bool(options, "include_void_return", false):
+		if GFVariantData.get_option_bool(
+			options,
+			"include_void_return",
+			false
+		):
 			return "void"
-		if GFVariantData.get_option_bool(options, "include_variant_return", false):
+		if GFVariantData.get_option_bool(
+			options,
+			"include_variant_return",
+			false
+		):
 			return "Variant"
 		return ""
 	return _format_type_name(return_info, false)
@@ -391,7 +556,11 @@ static func _format_return_type_name(return_info: Dictionary, options: Dictionar
 ## @api private
 ## [br]
 static func _format_type_name(type_info: Dictionary, include_variant_for_nil: bool) -> String:
-	var type_index: int = GFVariantData.get_option_int(type_info, "type", TYPE_NIL)
+	var type_index: int = GFVariantData.get_option_int(
+		type_info,
+		"type",
+		TYPE_NIL
+	)
 	if type_index == TYPE_NIL:
 		return "Variant" if include_variant_for_nil else ""
 	if type_index == TYPE_OBJECT:
@@ -414,7 +583,11 @@ static func _get_method_stub_body_lines(report: Dictionary, options: Dictionary)
 	if not explicit_body_lines.is_empty():
 		return explicit_body_lines
 
-	var return_type: int = GFVariantData.get_option_int(report, "return_type", TYPE_NIL)
+	var return_type: int = GFVariantData.get_option_int(
+		report,
+		"return_type",
+		TYPE_NIL
+	)
 	var return_type_name: String = GFVariantData.get_option_string(report, "return_type_name")
 	var return_literal: String = _default_return_literal(return_type, return_type_name)
 	if not return_literal.is_empty():
@@ -526,29 +699,41 @@ static func _variant_literal(value: Variant) -> String:
 			return "&\"%s\"" % GFVariantData.to_text(value).c_escape()
 		TYPE_VECTOR2:
 			var vector2: Vector2 = GFVariantData.to_vector2(value)
-			return "Vector2(%s, %s)" % [_float_literal(vector2.x), _float_literal(vector2.y)]
+			return (
+				"Vector2(%s, %s)"
+				% [_float_literal(vector2.x), _float_literal(vector2.y)]
+			)
 		TYPE_VECTOR3:
 			var vector3: Vector3 = GFVariantData.to_vector3(value)
-			return "Vector3(%s, %s, %s)" % [
-				_float_literal(vector3.x),
-				_float_literal(vector3.y),
-				_float_literal(vector3.z),
-			]
+			return (
+				"Vector3(%s, %s, %s)"
+				% [
+					_float_literal(vector3.x),
+					_float_literal(vector3.y),
+					_float_literal(vector3.z),
+				]
+			)
 		TYPE_VECTOR2I:
 			var vector2i: Vector2i = Vector2i.ZERO
 			if value is Vector2i:
 				vector2i = value
-			return "Vector2i(%d, %d)" % [vector2i.x, vector2i.y]
+			return (
+				"Vector2i(%d, %d)"
+				% [vector2i.x, vector2i.y]
+			)
 		TYPE_COLOR:
 			var color: Color = Color.WHITE
 			if value is Color:
 				color = value
-			return "Color(%s, %s, %s, %s)" % [
-				_float_literal(color.r),
-				_float_literal(color.g),
-				_float_literal(color.b),
-				_float_literal(color.a),
-			]
+			return (
+				"Color(%s, %s, %s, %s)"
+				% [
+					_float_literal(color.r),
+					_float_literal(color.g),
+					_float_literal(color.b),
+					_float_literal(color.a),
+				]
+			)
 		TYPE_NODE_PATH:
 			return "NodePath(\"%s\")" % GFVariantData.to_text(value).c_escape()
 		_:
@@ -601,7 +786,11 @@ static func _normalize_identifier(value: String, fallback: String) -> String:
 		var is_letter: bool = code >= 97 and code <= 122
 		var is_digit: bool = code >= 48 and code <= 57
 		var is_underscore: bool = code == 95
-		if is_letter or is_digit or is_underscore:
+		if (
+			is_letter
+			or is_digit
+			or is_underscore
+		):
 			result += character
 			previous_was_separator = is_underscore
 		elif not previous_was_separator:
@@ -609,7 +798,11 @@ static func _normalize_identifier(value: String, fallback: String) -> String:
 			previous_was_separator = true
 
 	result = result.trim_prefix("_").trim_suffix("_")
-	if result.is_empty() or result.substr(0, 1).is_valid_int() or _is_gdscript_reserved_word(result):
+	if (
+		result.is_empty()
+		or result.substr(0, 1).is_valid_int()
+		or _is_gdscript_reserved_word(result)
+	):
 		return fallback
 	return result
 
@@ -630,7 +823,11 @@ static func _is_valid_identifier(value: String) -> bool:
 		if index == 0:
 			if not (is_letter or is_underscore):
 				return false
-		elif not (is_letter or is_digit or is_underscore):
+		elif not (
+			is_letter
+			or is_digit
+			or is_underscore
+		):
 			return false
 	return true
 
@@ -641,7 +838,42 @@ static func _is_valid_identifier(value: String) -> bool:
 ## [br]
 static func _is_gdscript_reserved_word(value: String) -> bool:
 	match value.to_lower():
-		"and", "as", "assert", "await", "break", "breakpoint", "class", "class_name", "const", "continue", "elif", "else", "enum", "extends", "false", "for", "func", "if", "in", "is", "match", "not", "null", "or", "pass", "preload", "return", "self", "signal", "static", "super", "true", "var", "void", "while", "yield":
+		"and", \
+		"as", \
+		"assert", \
+		"await", \
+		"break", \
+		"breakpoint", \
+		"class", \
+		"class_name", \
+		"const", \
+		"continue", \
+		"elif", \
+		"else", \
+		"enum", \
+		"extends", \
+		"false", \
+		"for", \
+		"func", \
+		"if", \
+		"in", \
+		"is", \
+		"match", \
+		"not", \
+		"null", \
+		"or", \
+		"pass", \
+		"preload", \
+		"return", \
+		"self", \
+		"signal", \
+		"static", \
+		"super", \
+		"true", \
+		"var", \
+		"void", \
+		"while", \
+		"yield":
 			return true
 		_:
 			return false
@@ -651,9 +883,17 @@ static func _is_gdscript_reserved_word(value: String) -> bool:
 ## [br]
 ## @api private
 ## [br]
-static func _describe_constants(target_script: Script, options: Dictionary, include_private_members: bool) -> Array[Dictionary]:
+static func _describe_constants(
+	target_script: Script,
+	options: Dictionary,
+	include_private_members: bool
+) -> Array[Dictionary]:
 	var records: Array[Dictionary] = []
-	var include_constant_values: bool = GFVariantData.get_option_bool(options, "include_constant_values", false)
+	var include_constant_values: bool = GFVariantData.get_option_bool(
+		options,
+		"include_constant_values",
+		false
+	)
 	var constant_map: Dictionary = target_script.get_script_constant_map()
 	for constant_key: Variant in constant_map.keys():
 		var constant_name: String = GFVariantData.to_text(constant_key)
@@ -685,16 +925,22 @@ static func _describe_method_records(method_list: Array, include_private_members
 			continue
 		var args: Array = GFVariantData.get_option_array(method, "args")
 		var return_info: Dictionary = GFVariantData.get_option_dictionary(method, "return")
-		records.append({
-			"name": method_name,
-			"argument_count": args.size(),
-			"arguments": _describe_argument_records(args),
-			"flags": GFVariantData.get_option_int(method, "flags"),
-			"return_type": GFVariantData.get_option_int(return_info, "type", TYPE_NIL),
-			"return_class_name": GFVariantData.get_option_string(return_info, "class_name"),
-			"return_hint": GFVariantData.get_option_int(return_info, "hint"),
-			"return_hint_string": GFVariantData.get_option_string(return_info, "hint_string"),
-		})
+		records.append(
+			{
+				"name": method_name,
+				"argument_count": args.size(),
+				"arguments": _describe_argument_records(args),
+				"flags": GFVariantData.get_option_int(method, "flags"),
+				"return_type": GFVariantData.get_option_int(
+					return_info,
+					"type",
+					TYPE_NIL
+				),
+				"return_class_name": GFVariantData.get_option_string(return_info, "class_name"),
+				"return_hint": GFVariantData.get_option_int(return_info, "hint"),
+				"return_hint_string": GFVariantData.get_option_string(return_info, "hint_string"),
+			}
+		)
 	records.sort_custom(Callable(GFScriptStructureTools, "_compare_named_records"))
 	return records
 
@@ -710,14 +956,20 @@ static func _describe_property_records(property_list: Array, include_private_mem
 		var property_name: String = GFVariantData.get_option_string(property, "name")
 		if property_name.is_empty() or _should_skip_private_name(property_name, include_private_members):
 			continue
-		records.append({
-			"name": property_name,
-			"type": GFVariantData.get_option_int(property, "type", TYPE_NIL),
-			"class_name": GFVariantData.get_option_string(property, "class_name"),
-			"hint": GFVariantData.get_option_int(property, "hint"),
-			"hint_string": GFVariantData.get_option_string(property, "hint_string"),
-			"usage": GFVariantData.get_option_int(property, "usage"),
-		})
+		records.append(
+			{
+				"name": property_name,
+				"type": GFVariantData.get_option_int(
+					property,
+					"type",
+					TYPE_NIL
+				),
+				"class_name": GFVariantData.get_option_string(property, "class_name"),
+				"hint": GFVariantData.get_option_int(property, "hint"),
+				"hint_string": GFVariantData.get_option_string(property, "hint_string"),
+				"usage": GFVariantData.get_option_int(property, "usage"),
+			}
+		)
 	records.sort_custom(Callable(GFScriptStructureTools, "_compare_named_records"))
 	return records
 
@@ -734,12 +986,14 @@ static func _describe_signal_records(signal_list: Array, include_private_members
 		if signal_name.is_empty() or _should_skip_private_name(signal_name, include_private_members):
 			continue
 		var args: Array = GFVariantData.get_option_array(signal_record, "args")
-		records.append({
-			"name": signal_name,
-			"argument_count": args.size(),
-			"arguments": _describe_argument_records(args),
-			"flags": GFVariantData.get_option_int(signal_record, "flags"),
-		})
+		records.append(
+			{
+				"name": signal_name,
+				"argument_count": args.size(),
+				"arguments": _describe_argument_records(args),
+				"flags": GFVariantData.get_option_int(signal_record, "flags"),
+			}
+		)
 	records.sort_custom(Callable(GFScriptStructureTools, "_compare_named_records"))
 	return records
 
@@ -752,15 +1006,21 @@ static func _describe_argument_records(args: Array) -> Array[Dictionary]:
 	var records: Array[Dictionary] = []
 	for index: int in range(args.size()):
 		var argument: Dictionary = GFVariantData.as_dictionary(args[index])
-		records.append({
-			"name": GFVariantData.get_option_string(argument, "name"),
-			"index": index,
-			"type": GFVariantData.get_option_int(argument, "type", TYPE_NIL),
-			"class_name": GFVariantData.get_option_string(argument, "class_name"),
-			"hint": GFVariantData.get_option_int(argument, "hint"),
-			"hint_string": GFVariantData.get_option_string(argument, "hint_string"),
-			"usage": GFVariantData.get_option_int(argument, "usage"),
-		})
+		records.append(
+			{
+				"name": GFVariantData.get_option_string(argument, "name"),
+				"index": index,
+				"type": GFVariantData.get_option_int(
+					argument,
+					"type",
+					TYPE_NIL
+				),
+				"class_name": GFVariantData.get_option_string(argument, "class_name"),
+				"hint": GFVariantData.get_option_int(argument, "hint"),
+				"hint_string": GFVariantData.get_option_string(argument, "hint_string"),
+				"usage": GFVariantData.get_option_int(argument, "usage"),
+			}
+		)
 	return records
 
 
@@ -771,18 +1031,30 @@ static func _describe_argument_records(args: Array) -> Array[Dictionary]:
 static func _describe_base_chain(target_script: Script, options: Dictionary) -> Array[Dictionary]:
 	var records: Array[Dictionary] = []
 	var max_depth: int = maxi(
-		GFVariantData.get_option_int(options, "max_base_chain_depth", DEFAULT_MAX_BASE_CHAIN_DEPTH),
+		GFVariantData.get_option_int(
+			options,
+			"max_base_chain_depth",
+			DEFAULT_MAX_BASE_CHAIN_DEPTH
+		),
 		0
 	)
 	var current: Script = target_script
 	var depth: int = 0
-	while current != null and (max_depth <= 0 or depth < max_depth):
-		records.append({
-			"path": _get_script_path(current),
-			"global_name": _get_script_global_name(current),
-			"instance_base_type": _get_script_instance_base_type(current),
-			"depth": depth,
-		})
+	while (
+		current != null
+		and (
+			max_depth <= 0
+			or depth < max_depth
+		)
+	):
+		records.append(
+			{
+				"path": _get_script_path(current),
+				"global_name": _get_script_global_name(current),
+				"instance_base_type": _get_script_instance_base_type(current),
+				"depth": depth,
+			}
+		)
 		current = current.get_base_script()
 		depth += 1
 	return records
@@ -792,7 +1064,11 @@ static func _describe_base_chain(target_script: Script, options: Dictionary) -> 
 ## [br]
 ## @api private
 ## [br]
-static func _check_base_script(report: Dictionary, target_script: Script, structure: Dictionary) -> void:
+static func _check_base_script(
+	report: Dictionary,
+	target_script: Script,
+	structure: Dictionary
+) -> void:
 	var expected_value: Variant = GFVariantData.get_option_value(structure, "base_script")
 	if not (expected_value is Script):
 		return
@@ -812,7 +1088,11 @@ static func _check_base_script(report: Dictionary, target_script: Script, struct
 ## [br]
 ## @api private
 ## [br]
-static func _check_base_class(report: Dictionary, target_script: Script, structure: Dictionary) -> void:
+static func _check_base_class(
+	report: Dictionary,
+	target_script: Script,
+	structure: Dictionary
+) -> void:
 	if not structure.has("base_class") and not structure.has(&"base_class"):
 		return
 	var expected_base_class: String = GFVariantData.get_option_string(structure, "base_class")
@@ -826,7 +1106,8 @@ static func _check_base_class(report: Dictionary, target_script: Script, structu
 			"base_class_mismatch",
 			"base_class",
 			expected_base_class,
-			"Script instance base type is %s, expected %s." % [actual_base_class, expected_base_class]
+			"Script instance base type is %s, expected %s."
+			% [actual_base_class, expected_base_class]
 		)
 
 
@@ -834,7 +1115,11 @@ static func _check_base_class(report: Dictionary, target_script: Script, structu
 ## [br]
 ## @api private
 ## [br]
-static func _check_can_instantiate(report: Dictionary, target_script: Script, structure: Dictionary) -> void:
+static func _check_can_instantiate(
+	report: Dictionary,
+	target_script: Script,
+	structure: Dictionary
+) -> void:
 	if not structure.has("can_instantiate") and not structure.has(&"can_instantiate"):
 		return
 	var expected_can_instantiate: bool = GFVariantData.get_option_bool(structure, "can_instantiate")
@@ -883,10 +1168,17 @@ static func _check_required_records(
 				"missing_%s" % record_kind,
 				structure_key,
 				required_name,
-				"Required %s '%s' is missing." % [record_kind, required_name]
+				"Required %s '%s' is missing."
+				% [record_kind, required_name]
 			)
 			continue
-		_check_record_constraints(report, record_kind, structure_key, record, requirement)
+		_check_record_constraints(
+			report,
+			record_kind,
+			structure_key,
+			record,
+			requirement
+		)
 
 
 ## 对成员记录核对指定类型、类名和 usage，并继续核验参数数量。
@@ -901,8 +1193,16 @@ static func _check_record_constraints(
 	requirement: Dictionary
 ) -> void:
 	if requirement.has("type") or requirement.has(&"type"):
-		var expected_type: int = GFVariantData.get_option_int(requirement, "type", TYPE_NIL)
-		var actual_type: int = GFVariantData.get_option_int(record, "type", TYPE_NIL)
+		var expected_type: int = GFVariantData.get_option_int(
+			requirement,
+			"type",
+			TYPE_NIL
+		)
+		var actual_type: int = GFVariantData.get_option_int(
+			record,
+			"type",
+			TYPE_NIL
+		)
 		if actual_type != expected_type:
 			_append_issue(
 				report,
@@ -910,7 +1210,12 @@ static func _check_record_constraints(
 				"%s_type_mismatch" % record_kind,
 				structure_key,
 				GFVariantData.get_option_string(record, "name"),
-				"%s type is %s, expected %s." % [record_kind.capitalize(), actual_type, expected_type]
+				"%s type is %s, expected %s."
+				% [
+					record_kind.capitalize(),
+					actual_type,
+					expected_type,
+				]
 			)
 	if requirement.has("class_name") or requirement.has(&"class_name"):
 		var expected_class_name: String = GFVariantData.get_option_string(requirement, "class_name")
@@ -922,7 +1227,12 @@ static func _check_record_constraints(
 				"%s_class_name_mismatch" % record_kind,
 				structure_key,
 				GFVariantData.get_option_string(record, "name"),
-				"%s class_name is '%s', expected '%s'." % [record_kind.capitalize(), actual_class_name, expected_class_name]
+				"%s class_name is '%s', expected '%s'."
+				% [
+					record_kind.capitalize(),
+					actual_class_name,
+					expected_class_name,
+				]
 			)
 	if requirement.has("usage") or requirement.has(&"usage"):
 		var expected_usage: int = GFVariantData.get_option_int(requirement, "usage")
@@ -934,9 +1244,20 @@ static func _check_record_constraints(
 				"%s_usage_mismatch" % record_kind,
 				structure_key,
 				GFVariantData.get_option_string(record, "name"),
-				"%s usage is %s, expected %s." % [record_kind.capitalize(), actual_usage, expected_usage]
+				"%s usage is %s, expected %s."
+				% [
+					record_kind.capitalize(),
+					actual_usage,
+					expected_usage,
+				]
 			)
-	_check_argument_constraints(report, record_kind, structure_key, record, requirement)
+	_check_argument_constraints(
+		report,
+		record_kind,
+		structure_key,
+		record,
+		requirement
+	)
 
 
 ## 核验要求中给出的精确参数数或最小参数数。
@@ -960,7 +1281,12 @@ static func _check_argument_constraints(
 				"%s_argument_count_mismatch" % record_kind,
 				structure_key,
 				GFVariantData.get_option_string(record, "name"),
-				"%s argument count is %s, expected %s." % [record_kind.capitalize(), actual_count, expected_count]
+				"%s argument count is %s, expected %s."
+				% [
+					record_kind.capitalize(),
+					actual_count,
+					expected_count,
+				]
 			)
 	if requirement.has("min_argument_count") or requirement.has(&"min_argument_count"):
 		var expected_min_count: int = GFVariantData.get_option_int(requirement, "min_argument_count")
@@ -972,7 +1298,12 @@ static func _check_argument_constraints(
 				"%s_min_argument_count_mismatch" % record_kind,
 				structure_key,
 				GFVariantData.get_option_string(record, "name"),
-				"%s argument count is %s, expected at least %s." % [record_kind.capitalize(), actual_min_count, expected_min_count]
+				"%s argument count is %s, expected at least %s."
+				% [
+					record_kind.capitalize(),
+					actual_min_count,
+					expected_min_count,
+				]
 			)
 
 
@@ -981,7 +1312,11 @@ static func _check_argument_constraints(
 ## @api private
 ## [br]
 static func _get_requirement_list(structure: Dictionary, key: String) -> Array:
-	var value: Variant = GFVariantData.get_option_value(structure, key, [])
+	var value: Variant = GFVariantData.get_option_value(
+		structure,
+		key,
+		[]
+	)
 	if value is PackedStringArray:
 		var names: Array = []
 		for item: String in value:
@@ -1003,9 +1338,7 @@ static func _normalize_requirement(value: Variant) -> Dictionary:
 	if value is Dictionary:
 		var requirement: Dictionary = value
 		return requirement
-	return {
-		"name": GFVariantData.to_text(value),
-	}
+	return { "name": GFVariantData.to_text(value), }
 
 
 ## 在记录数组中返回首个名称匹配项；未找到时返回空字典。
@@ -1033,13 +1366,15 @@ static func _append_issue(
 	message: String
 ) -> void:
 	var issues: Array = GFVariantData.get_option_array(report, "issues")
-	issues.append({
-		"severity": severity,
-		"kind": kind,
-		"field": field,
-		"member_name": member_name,
-		"message": message,
-	})
+	issues.append(
+		{
+			"severity": severity,
+			"kind": kind,
+			"field": field,
+			"member_name": member_name,
+			"message": message,
+		}
+	)
 	report["issues"] = issues
 
 
@@ -1070,12 +1405,23 @@ static func _finalize_report(report: Dictionary) -> Dictionary:
 	if report.has("signals"):
 		counts["signal_count"] = GFVariantData.get_option_array(report, "signals").size()
 	report["counts"] = counts
-	report["ok"] = GFVariantData.get_option_bool(report, "ok", true) and error_count == 0
-	report["summary"] = "ok" if GFVariantData.get_option_bool(report, "ok") else "issues=%s errors=%s warnings=%s" % [
-		issues.size(),
-		error_count,
-		warning_count,
-	]
+	report["ok"] = GFVariantData.get_option_bool(
+		report,
+		"ok",
+		true
+	) and error_count == 0
+	report["summary"] = (
+		"ok"
+		if GFVariantData.get_option_bool(report, "ok")
+		else (
+			"issues=%s errors=%s warnings=%s"
+			% [
+				issues.size(),
+				error_count,
+				warning_count,
+			]
+		)
+	)
 	return report
 
 

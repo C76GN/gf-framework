@@ -136,11 +136,19 @@ func configure(
 ## @return 条件快照；predicate 无效时为空字典。
 ## [br]
 ## @schema return: Dictionary，包含 condition_id、kind、mode、label、negate、metadata 和 has_predicate。
-func add_predicate(condition_id: StringName, predicate: Callable, options: Dictionary = {}) -> Dictionary:
+func add_predicate(
+	condition_id: StringName,
+	predicate: Callable,
+	options: Dictionary = {}
+) -> Dictionary:
 	if condition_id == &"" or not predicate.is_valid():
 		return {}
 
-	var condition: Dictionary = _make_condition(condition_id, KIND_PREDICATE, options)
+	var condition: Dictionary = _make_condition(
+		condition_id,
+		KIND_PREDICATE,
+		options
+	)
 	condition["predicate"] = predicate
 	_conditions.append(condition)
 	return _condition_to_snapshot(condition)
@@ -178,7 +186,11 @@ func add_value(
 	if condition_id == &"":
 		return {}
 
-	var condition: Dictionary = _make_condition(condition_id, KIND_VALUE, options)
+	var condition: Dictionary = _make_condition(
+		condition_id,
+		KIND_VALUE,
+		options
+	)
 	condition["key"] = GFVariantData.duplicate_variant(key, true)
 	condition["expected"] = GFVariantData.duplicate_variant(expected_value, true)
 	condition["equals_options"] = GFVariantData.get_option_dictionary(options, "equals_options").duplicate(true)
@@ -205,11 +217,19 @@ func add_value(
 ## @return 条件快照。
 ## [br]
 ## @schema return: Dictionary，包含 condition_id、kind、mode、label、key、negate 和 metadata。
-func add_presence(condition_id: StringName, key: Variant, options: Dictionary = {}) -> Dictionary:
+func add_presence(
+	condition_id: StringName,
+	key: Variant,
+	options: Dictionary = {}
+) -> Dictionary:
 	if condition_id == &"":
 		return {}
 
-	var condition: Dictionary = _make_condition(condition_id, KIND_PRESENT, options)
+	var condition: Dictionary = _make_condition(
+		condition_id,
+		KIND_PRESENT,
+		options
+	)
 	condition["key"] = GFVariantData.duplicate_variant(key, true)
 	_conditions.append(condition)
 	return _condition_to_snapshot(condition)
@@ -241,8 +261,16 @@ func evaluate(context: Dictionary = {}) -> Dictionary:
 
 	for condition: Dictionary in _conditions:
 		var condition_report: Dictionary = _evaluate_condition(condition, context)
-		var condition_ok: bool = GFVariantData.get_option_bool(condition_report, "ok", false)
-		var mode: StringName = GFVariantData.get_option_string_name(condition_report, "mode", MODE_ALL)
+		var condition_ok: bool = GFVariantData.get_option_bool(
+			condition_report,
+			"ok",
+			false
+		)
+		var mode: StringName = GFVariantData.get_option_string_name(
+			condition_report,
+			"mode",
+			MODE_ALL
+		)
 
 		match mode:
 			MODE_ANY:
@@ -268,7 +296,11 @@ func evaluate(context: Dictionary = {}) -> Dictionary:
 	var effective_any_satisfied: bool = any_satisfied if has_any else true
 	if has_any and not any_satisfied:
 		blocking_count += 1
-	var ok: bool = all_satisfied and effective_any_satisfied and none_clear
+	var ok: bool = (
+		all_satisfied
+		and effective_any_satisfied
+		and none_clear
+	)
 	return {
 		"ok": ok,
 		"requirement_id": requirement_id,
@@ -298,7 +330,11 @@ func evaluate(context: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @return 满足时返回 true。
 func is_satisfied(context: Dictionary = {}) -> bool:
-	return GFVariantData.get_option_bool(evaluate(context), "ok", false)
+	return GFVariantData.get_option_bool(
+		evaluate(context),
+		"ok",
+		false
+	)
 
 
 ## 获取条件快照数组。
@@ -350,13 +386,31 @@ func get_debug_snapshot() -> Dictionary:
 ## 按统一结构创建条件，并整理 mode、label、negate 和 metadata 选项。
 ## [br]
 ## @api private
-func _make_condition(condition_id: StringName, kind: StringName, options: Dictionary) -> Dictionary:
+func _make_condition(
+	condition_id: StringName,
+	kind: StringName,
+	options: Dictionary
+) -> Dictionary:
 	return {
 		"condition_id": condition_id,
 		"kind": kind,
-		"mode": _normalize_mode(GFVariantData.get_option_string_name(options, "mode", MODE_ALL)),
-		"label": GFVariantData.get_option_string(options, "label", String(condition_id)),
-		"negate": GFVariantData.get_option_bool(options, "negate", false),
+		"mode": _normalize_mode(
+			GFVariantData.get_option_string_name(
+				options,
+				"mode",
+				MODE_ALL
+			)
+		),
+		"label": GFVariantData.get_option_string(
+			options,
+			"label",
+			String(condition_id)
+		),
+		"negate": GFVariantData.get_option_bool(
+			options,
+			"negate",
+			false
+		),
 		"metadata": GFVariantData.get_option_dictionary(options, "metadata").duplicate(true),
 	}
 
@@ -368,12 +422,20 @@ func _evaluate_condition(condition: Dictionary, context: Dictionary) -> Dictiona
 	var report: Dictionary = _condition_to_snapshot(condition)
 	var passed: bool = false
 	var error: String = ""
-	var kind: StringName = GFVariantData.get_option_string_name(condition, "kind", KIND_VALUE)
+	var kind: StringName = GFVariantData.get_option_string_name(
+		condition,
+		"kind",
+		KIND_VALUE
+	)
 
 	match kind:
 		KIND_PREDICATE:
 			var predicate_result: Dictionary = _evaluate_predicate(condition, context)
-			passed = GFVariantData.get_option_bool(predicate_result, "ok", false)
+			passed = GFVariantData.get_option_bool(
+				predicate_result,
+				"ok",
+				false
+			)
 			error = GFVariantData.get_option_string(predicate_result, "error")
 			report["result"] = GFVariantData.get_option_value(predicate_result, "result")
 		KIND_PRESENT:
@@ -385,11 +447,22 @@ func _evaluate_condition(condition: Dictionary, context: Dictionary) -> Dictiona
 			var actual_value: Variant = _get_context_value(context, value_key)
 			var expected_value: Variant = GFVariantData.get_option_value(condition, "expected")
 			var equals_options: Dictionary = GFVariantData.get_option_dictionary(condition, "equals_options")
-			passed = _context_has_key(context, value_key) and GFVariantData.values_equal(actual_value, expected_value, equals_options)
+			passed = (
+				_context_has_key(context, value_key)
+				and GFVariantData.values_equal(
+					actual_value,
+					expected_value,
+					equals_options
+				)
+			)
 			report["present"] = _context_has_key(context, value_key)
 			report["actual"] = GFVariantData.duplicate_variant(actual_value, true)
 
-	if GFVariantData.get_option_bool(condition, "negate", false):
+	if GFVariantData.get_option_bool(
+		condition,
+		"negate",
+		false
+	):
 		passed = not passed
 	report["ok"] = passed
 	report["error"] = error
@@ -408,7 +481,11 @@ func _evaluate_predicate(condition: Dictionary, context: Dictionary) -> Dictiona
 	if result is Dictionary:
 		var result_dictionary: Dictionary = result
 		return {
-			"ok": GFVariantData.get_option_bool(result_dictionary, "ok", false),
+			"ok": GFVariantData.get_option_bool(
+				result_dictionary,
+				"ok",
+				false
+			),
 			"error": GFVariantData.get_option_string(result_dictionary, "error"),
 			"result": result_dictionary.duplicate(true),
 		}
@@ -426,17 +503,35 @@ func _evaluate_predicate(condition: Dictionary, context: Dictionary) -> Dictiona
 func _condition_to_snapshot(condition: Dictionary) -> Dictionary:
 	var snapshot: Dictionary = {
 		"condition_id": GFVariantData.get_option_string_name(condition, "condition_id"),
-		"kind": GFVariantData.get_option_string_name(condition, "kind", KIND_VALUE),
-		"mode": GFVariantData.get_option_string_name(condition, "mode", MODE_ALL),
+		"kind": GFVariantData.get_option_string_name(
+			condition,
+			"kind",
+			KIND_VALUE
+		),
+		"mode": GFVariantData.get_option_string_name(
+			condition,
+			"mode",
+			MODE_ALL
+		),
 		"label": GFVariantData.get_option_string(condition, "label"),
-		"negate": GFVariantData.get_option_bool(condition, "negate", false),
+		"negate": GFVariantData.get_option_bool(
+			condition,
+			"negate",
+			false
+		),
 		"metadata": GFVariantData.get_option_dictionary(condition, "metadata").duplicate(true),
 		"has_predicate": _get_condition_predicate(condition).is_valid(),
 	}
 	if condition.has("key"):
-		snapshot["key"] = GFVariantData.duplicate_variant(GFVariantData.get_option_value(condition, "key"), true)
+		snapshot["key"] = GFVariantData.duplicate_variant(
+			GFVariantData.get_option_value(condition, "key"),
+			true
+		)
 	if condition.has("expected"):
-		snapshot["expected"] = GFVariantData.duplicate_variant(GFVariantData.get_option_value(condition, "expected"), true)
+		snapshot["expected"] = GFVariantData.duplicate_variant(
+			GFVariantData.get_option_value(condition, "expected"),
+			true
+		)
 	return snapshot
 
 
@@ -460,15 +555,24 @@ func _context_has_key(context: Dictionary, key: Variant) -> bool:
 ## @api private
 func _get_context_value(context: Dictionary, key: Variant) -> Variant:
 	if context.has(key):
-		return GFVariantData.duplicate_variant(context[key], true)
+		return GFVariantData.duplicate_variant(
+			context[key],
+			true
+		)
 
 	var text_key: String = GFVariantData.to_text(key)
 	if not text_key.is_empty() and context.has(text_key):
-		return GFVariantData.duplicate_variant(context[text_key], true)
+		return GFVariantData.duplicate_variant(
+			context[text_key],
+			true
+		)
 
 	var string_name_key: StringName = GFVariantData.to_string_name(key)
 	if string_name_key != &"" and context.has(string_name_key):
-		return GFVariantData.duplicate_variant(context[string_name_key], true)
+		return GFVariantData.duplicate_variant(
+			context[string_name_key],
+			true
+		)
 
 	return null
 
@@ -488,7 +592,11 @@ func _normalize_mode(mode: StringName) -> StringName:
 ## [br]
 ## @api private
 func _get_condition_predicate(condition: Dictionary) -> Callable:
-	var value: Variant = GFVariantData.get_option_value(condition, "predicate", Callable())
+	var value: Variant = GFVariantData.get_option_value(
+		condition,
+		"predicate",
+		Callable()
+	)
 	if value is Callable:
 		var predicate: Callable = value
 		return predicate

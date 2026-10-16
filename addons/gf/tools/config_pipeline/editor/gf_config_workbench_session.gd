@@ -109,7 +109,13 @@ func get_profile() -> GFConfigPipelineProfile:
 ## [br]
 ## @schema return: Dictionary，包含 profile_path、dirty、stale、result、recovery_required。
 func get_state() -> Dictionary:
-	return { "profile_path": _profile_path, "dirty": _dirty, "stale": _stale, "result": _result, "recovery_required": GFVariantData.get_option_bool(_recovery_result, "recovery_required") }
+	return {
+		"profile_path": _profile_path,
+		"dirty": _dirty,
+		"stale": _stale,
+		"result": _result,
+		"recovery_required": GFVariantData.get_option_bool(_recovery_result, "recovery_required"),
+	}
 
 
 ## 采用新建预设；不保存任何文件。
@@ -121,8 +127,16 @@ func get_state() -> Dictionary:
 ## @param database_name: 任务名称。
 ## [br]
 ## @param output_root: 输出根。
-func create_profile(source_path: String, database_name: String, output_root: String) -> void:
-	_profile = _PRESET_SCRIPT.make_profile(source_path, database_name, output_root)
+func create_profile(
+	source_path: String,
+	database_name: String,
+	output_root: String
+) -> void:
+	_profile = _PRESET_SCRIPT.make_profile(
+		source_path,
+		database_name,
+		output_root
+	)
 	_profile_path = ""
 	_saved_digest = ""
 	_result = {}
@@ -197,9 +211,17 @@ func clear_profile() -> void:
 ## @schema return: Dictionary，包含 success、error 和 transaction_result。
 func save_profile(path: String = "") -> Dictionary:
 	var target: String = path if not path.is_empty() else _profile_path
-	if _profile == null or target.is_empty() or not target.ends_with(".tres"):
+	if (
+		_profile == null
+		or target.is_empty()
+		or not target.ends_with(".tres")
+	):
 		return { "success": false, "error": "Select a .tres Profile path." }
-	var resolved: Dictionary = _OUTPUT_PATH_POLICY_SCRIPT.resolve_output_path(target, {}, "Profile ")
+	var resolved: Dictionary = _OUTPUT_PATH_POLICY_SCRIPT.resolve_output_path(
+		target,
+		{},
+		"Profile "
+	)
 	if not GFVariantData.get_option_bool(resolved, "success"):
 		return { "success": false, "error": GFVariantData.get_option_string(resolved, "error") }
 	target = GFVariantData.get_option_string(resolved, "path")
@@ -207,23 +229,47 @@ func save_profile(path: String = "") -> Dictionary:
 		return { "success": false, "error": "Save the Profile in a user-owned project directory." }
 	if get_state()["recovery_required"]:
 		return { "success": false, "error": "Resolve the pending file transaction first." }
-	if FileAccess.file_exists(target) and (target != _profile_path or FileAccess.get_sha256(target) != _saved_digest):
-		return { "success": false, "error": "The Profile changed on disk or the destination already exists. Reload or save to a new path." }
-	var transaction: Dictionary = GFArtifactWriteTransaction.begin(PackedStringArray([target]), { "allowed_roots": ["res://", "user://"] })
+	if (
+		FileAccess.file_exists(target)
+		and (
+			target != _profile_path
+			or FileAccess.get_sha256(target) != _saved_digest
+		)
+	):
+		return { "success": false, "error": "The Profile changed on disk or the destination already exists. Reload or save to a new path.", }
+	var transaction: Dictionary = GFArtifactWriteTransaction.begin(
+		PackedStringArray([target]),
+		{
+			"allowed_roots": ["res://", "user://"],
+		}
+	)
 	if not GFVariantData.get_option_bool(transaction, "ok"):
 		adopt_recovery_report(transaction)
-		return { "success": false, "error": "Profile transaction could not begin.", "transaction_result": transaction }
+		return {
+			"success": false,
+			"error": "Profile transaction could not begin.",
+			"transaction_result": transaction,
+		}
 	var mkdir_error: Error = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(target.get_base_dir()))
 	var saved_profile: GFConfigPipelineProfile = _profile
 	var saved_revision: int = _edit_revision
 	var save_error: Error = mkdir_error if mkdir_error != OK else ResourceSaver.save(saved_profile, target)
 	var written_digest: String = FileAccess.get_sha256(target) if save_error == OK else ""
-	var final_result: Dictionary = GFArtifactWriteTransaction.complete(transaction) if save_error == OK else GFArtifactWriteTransaction.rollback(transaction)
+	var final_result: Dictionary = (GFArtifactWriteTransaction.complete(transaction) if save_error == OK else GFArtifactWriteTransaction.rollback(transaction))
 	_recovery_result = final_result
 	var success: bool = save_error == OK and GFVariantData.get_option_bool(final_result, "ok")
 	if success:
-		_finalize_profile_save(saved_profile, target, written_digest, saved_revision)
-	elif save_error == OK and GFVariantData.get_option_bool(final_result, "recovery_required") and GFVariantData.get_option_string(final_result, "recovery_action") == "complete":
+		_finalize_profile_save(
+			saved_profile,
+			target,
+			written_digest,
+			saved_revision
+		)
+	elif (
+		save_error == OK
+		and GFVariantData.get_option_bool(final_result, "recovery_required")
+		and GFVariantData.get_option_string(final_result, "recovery_action") == "complete"
+	):
 		_pending_profile_save = {
 			"profile": saved_profile,
 			"path": target,
@@ -231,7 +277,19 @@ func save_profile(path: String = "") -> Dictionary:
 			"revision": saved_revision,
 			"transaction_id": GFVariantData.get_option_string(transaction, "transaction_id"),
 		}
-	return { "success": success, "error": "" if success else (error_string(save_error) if save_error != OK else "Profile transaction cleanup requires recovery."), "transaction_result": final_result }
+	return {
+		"success": success,
+		"error": (
+			""
+			if success
+			else (
+				error_string(save_error)
+				if save_error != OK
+				else "Profile transaction cleanup requires recovery."
+			)
+		),
+		"transaction_result": final_result,
+	}
 
 
 ## 使用保存的 Profile 与显式执行参数调用既有 Command；严格失败可发生在文件提交之后。
@@ -282,8 +340,23 @@ func run_operation(operation: String, options: Dictionary) -> Dictionary:
 ## [br]
 ## @return: 不包含 shell 语法的参数数组。
 func make_arguments(operation: String, options: Dictionary) -> PackedStringArray:
-	var arguments: PackedStringArray = ["--profile", _profile_path, "--operation", operation, "--json", "--max-validation-cells", "4000", "--max-source-bytes", str(_MAX_SOURCE_BYTES)]
-	for option: String in ["dry_run", "changed_only", "write_manifest", "strict"]:
+	var arguments: PackedStringArray = [
+		"--profile",
+		_profile_path,
+		"--operation",
+		operation,
+		"--json",
+		"--max-validation-cells",
+		"4000",
+		"--max-source-bytes",
+		str(_MAX_SOURCE_BYTES),
+	]
+	for option: String in [
+		"dry_run",
+		"changed_only",
+		"write_manifest",
+		"strict",
+	]:
 		if GFVariantData.get_option_bool(options, option):
 			var _appended: bool = arguments.append("--" + option.replace("_", "-"))
 	return arguments
@@ -297,7 +370,11 @@ func make_arguments(operation: String, options: Dictionary) -> PackedStringArray
 ## [br]
 ## @schema return: Dictionary，包含 success、error、source_count、total_bytes。
 func get_admission_report() -> Dictionary:
-	if _profile == null or _profile.sources.is_empty() or _profile.sources.size() > _MAX_SOURCES:
+	if (
+		_profile == null
+		or _profile.sources.is_empty()
+		or _profile.sources.size() > _MAX_SOURCES
+	):
 		return { "success": false, "error": "The workbench supports 1–16 sources. Use the CLI for larger batches." }
 	if GFVariantData.get_option_bool(_recovery_result, "recovery_required"):
 		return { "success": false, "error": "A file transaction requires recovery before another operation." }
@@ -312,8 +389,12 @@ func get_admission_report() -> Dictionary:
 		file.close()
 		total += size
 		if size > _MAX_SOURCE_BYTES or total > _MAX_TOTAL_BYTES:
-			return { "success": false, "error": "Workbench limit: 2 MiB per file, 8 MiB total. Use the CLI for larger inputs." }
-	return { "success": true, "source_count": _profile.sources.size(), "total_bytes": total }
+			return { "success": false, "error": "Workbench limit: 2 MiB per file, 8 MiB total. Use the CLI for larger inputs.", }
+	return {
+		"success": true,
+		"source_count": _profile.sources.size(),
+		"total_bytes": total,
+	}
 
 
 ## 重新核对有界输入摘要；只将旧结果变为过期，不自动执行。
@@ -322,7 +403,10 @@ func get_admission_report() -> Dictionary:
 func refresh_freshness() -> void:
 	if _stale or _input_digests.is_empty():
 		return
-	if not GFVariantData.get_option_bool(get_admission_report(), "success") or _capture_inputs() != _input_digests:
+	if not GFVariantData.get_option_bool(
+		get_admission_report(),
+		"success"
+	) or _capture_inputs() != _input_digests:
 		_stale = true
 
 
@@ -350,11 +434,20 @@ func recover() -> Dictionary:
 	var action: String = GFVariantData.get_option_string(_recovery_result, "recovery_action")
 	if transaction.is_empty() or action not in ["complete", "rollback"]:
 		return { "ok": false, "error": "No pending recovery." }
-	_recovery_result = GFArtifactWriteTransaction.complete(transaction) if action == "complete" else GFArtifactWriteTransaction.rollback(transaction)
+	_recovery_result = (GFArtifactWriteTransaction.complete(transaction) if action == "complete" else GFArtifactWriteTransaction.rollback(transaction))
 	if GFVariantData.get_option_bool(_recovery_result, "ok"):
-		if action == "complete" and not _pending_profile_save.is_empty() and GFVariantData.get_option_string(transaction, "transaction_id") == GFVariantData.get_option_string(_pending_profile_save, "transaction_id"):
+		if (
+			action == "complete"
+			and not _pending_profile_save.is_empty()
+			and (GFVariantData.get_option_string(transaction, "transaction_id") == GFVariantData.get_option_string(_pending_profile_save, "transaction_id"))
+		):
 			var saved_profile: GFConfigPipelineProfile = _pending_profile_save.get("profile")
-			_finalize_profile_save(saved_profile, GFVariantData.get_option_string(_pending_profile_save, "path"), GFVariantData.get_option_string(_pending_profile_save, "digest"), GFVariantData.get_option_int(_pending_profile_save, "revision"))
+			_finalize_profile_save(
+				saved_profile,
+				GFVariantData.get_option_string(_pending_profile_save, "path"),
+				GFVariantData.get_option_string(_pending_profile_save, "digest"),
+				GFVariantData.get_option_int(_pending_profile_save, "revision")
+			)
 		_pending_profile_save.clear()
 	_stale = true
 	return _recovery_result
@@ -365,13 +458,23 @@ func recover() -> Dictionary:
 ## 仅确认仍属于当前草稿的写入；编辑版本或磁盘内容已改变时保留脏状态，避免恢复旧事务覆盖新草稿状态。
 ## [br]
 ## @api private
-func _finalize_profile_save(saved_profile: GFConfigPipelineProfile, path: String, digest: String, revision: int) -> void:
+func _finalize_profile_save(
+	saved_profile: GFConfigPipelineProfile,
+	path: String,
+	digest: String,
+	revision: int
+) -> void:
 	# 清理完成只确认实际写入的草稿与摘要；稍后编辑和外部磁盘修改仍需用户处理。
 	if _profile != saved_profile:
 		return
 	_profile_path = path
 	_saved_digest = digest
-	_dirty = _edit_revision != revision or digest.is_empty() or not FileAccess.file_exists(path) or FileAccess.get_sha256(path) != digest
+	_dirty = (
+		_edit_revision != revision
+		or digest.is_empty()
+		or not FileAccess.file_exists(path)
+		or FileAccess.get_sha256(path) != digest
+	)
 	_stale = true
 
 
@@ -406,7 +509,7 @@ func _check_editor_resources(profile: GFConfigPipelineProfile) -> String:
 		if script_value is Script:
 			var script: Script = script_value
 			if not script.is_tool():
-				return "Editor execution requires @tool on configuration Resources and custom rules. Use the CLI for: " + script.resource_path
+				return ("Editor execution requires @tool on configuration Resources and custom rules. Use the CLI for: " + script.resource_path)
 	return ""
 
 
@@ -426,8 +529,15 @@ func _capture_inputs() -> Dictionary:
 ## @api private
 func _capture_resource_dependencies(path: String, result: Dictionary) -> void:
 	for dependency: String in ResourceLoader.get_dependencies(path):
-		var dependency_path: String = dependency.get_slice("::", dependency.get_slice_count("::") - 1)
-		if result.has(dependency_path) or dependency_path.get_extension() not in ["tres", "res", "gd"]:
+		var dependency_path: String = dependency.get_slice(
+			"::",
+			dependency.get_slice_count("::") - 1
+		)
+		if result.has(dependency_path) or dependency_path.get_extension() not in [
+			"tres",
+			"res",
+			"gd",
+		]:
 			continue
 		result[dependency_path] = FileAccess.get_sha256(dependency_path)
 		if dependency_path.get_extension() != "gd":

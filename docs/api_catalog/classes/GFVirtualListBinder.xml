@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFVirtualListBinder" path="addons/gf/standard/utilities/ui/gf_virtual_list_binder.gd" module="standard" extends="RefCounted" classDigest="d289a4bdf6e74d5fec0b0d73c8860e287f09d58bd59a83f7f2c2a485646117cb">
+<class name="GFVirtualListBinder" path="addons/gf/standard/utilities/ui/gf_virtual_list_binder.gd" module="standard" extends="RefCounted" classDigest="64ec6c1cfacb3d6346e9da681aecfac18251aa86f3e9648704da278061f5ed76">
 	<description>GFVirtualListBinder: owner-bound 虚拟列表 Control 物化与回收协调器。
 连接项目提供的 `ScrollContainer`、绝对布局 content root、`GFVirtualListModel`
 与行回调，只物化真实视口及 overscan 范围。项目继续拥有条目数据、稳定 ID、
@@ -245,7 +245,7 @@ key 在本轮 identity 预检中冻结；失败不会改变已提交的活动行
 			</tags>
 		</member>
 		<member kind="method" name="scroll_to_item">
-			<signature>func scroll_to_item( item_index: int, alignment: ScrollAlignment = ScrollAlignment.NEAREST ) -&gt; bool:</signature>
+			<signature>func scroll_to_item(item_index: int, alignment: ScrollAlignment = ScrollAlignment.NEAREST) -&gt; bool:</signature>
 			<description>把指定条目滚入视口。
 同步 callback 内不允许直接改变当前轮滚动；先保存项目意图并请求下一轮。
 模型、视口、主轴与 Control 所有权快照保持有效并接受最终整数偏移时返回 true；

@@ -276,7 +276,11 @@ func configure_for_framework(
 func update_progress_for_framework(progress_ratio: float) -> bool:
 	if not Thread.is_main_thread() or not is_pending():
 		return false
-	var next_ratio: float = clampf(progress_ratio, 0.0, 1.0)
+	var next_ratio: float = clampf(
+		progress_ratio,
+		0.0,
+		1.0
+	)
 	if is_equal_approx(next_ratio, _progress_ratio):
 		return false
 	_progress_ratio = next_ratio
@@ -300,10 +304,7 @@ func update_progress_for_framework(progress_ratio: float) -> bool:
 ## @param should_emit_signal: false 时只冻结终态，稍后显式通知。
 ## [br]
 ## @return 首次完成成功返回 true。
-func complete_for_framework(
-	result: GFSceneOperationResult,
-	should_emit_signal: bool = true
-) -> bool:
+func complete_for_framework(result: GFSceneOperationResult, should_emit_signal: bool = true) -> bool:
 	if (
 		not Thread.is_main_thread()
 		or not is_pending()
@@ -316,10 +317,7 @@ func complete_for_framework(
 	var result_copy: GFSceneOperationResult = result.duplicate_result()
 	if not result_copy.is_configured_for_framework():
 		return false
-	var should_emit_final_progress: bool = (
-		result_copy.is_successful()
-		and _progress_ratio < 1.0
-	)
+	var should_emit_final_progress: bool = (result_copy.is_successful() and _progress_ratio < 1.0)
 	_result = result_copy
 	_cancel_delegate = null
 	if result_copy.is_successful():
@@ -375,10 +373,7 @@ func is_configured_for_framework() -> bool:
 ## @api private
 ## [br]
 static func _make_weak_invocation(method_delegate: Callable) -> GFWeakMethodInvocation:
-	if (
-		not method_delegate.is_valid()
-		or method_delegate.get_bound_arguments_count() != 0
-	):
+	if (not method_delegate.is_valid() or method_delegate.get_bound_arguments_count() != 0):
 		return null
 	var delegate_owner: Object = method_delegate.get_object()
 	var delegate_method: StringName = method_delegate.get_method()

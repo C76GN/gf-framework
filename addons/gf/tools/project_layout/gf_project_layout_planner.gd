@@ -21,23 +21,19 @@ extends RefCounted
 ## @api public
 ## [br]
 ## @since 11.0.0
-const EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH: String = "res://addons/gf/tools/project_layout/profiles/feature_cohesive_v2.json"
+const EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH: String = ("res://addons/gf/tools/project_layout/profiles/feature_cohesive_v2.json")
 
 ## 用于读取有界 JSON 对象的解析器脚本。
 ## [br]
 ## @api private
 ## [br]
-const _BOUNDED_JSON_OBJECT_READER_SCRIPT = preload(
-	"res://addons/gf/tools/project_layout/gf_project_layout_profile_reader.gd"
-)
+const _BOUNDED_JSON_OBJECT_READER_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_profile_reader.gd")
 
 ## Project Layout analysis 与库存契约实现脚本。
 ## [br]
 ## @api private
 ## [br]
-const _ANALYSIS_CONTRACT_SCRIPT = preload(
-	"res://addons/gf/tools/project_layout/gf_project_layout_analysis_contract.gd"
-)
+const _ANALYSIS_CONTRACT_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_analysis_contract.gd")
 
 ## Project Layout profile 编译器实现脚本。
 ## [br]
@@ -88,10 +84,7 @@ const _OPTION_FIELDS: PackedStringArray = [
 ## [br]
 ## @api private
 ## [br]
-const _BOOL_OPTION_FIELDS: PackedStringArray = [
-	"include_optional_zones",
-	"include_optional_feature_subdirs",
-]
+const _BOOL_OPTION_FIELDS: PackedStringArray = ["include_optional_zones", "include_optional_feature_subdirs",]
 
 ## options 中会影响 Feature 目标路径的字段名集合。
 ## [br]
@@ -278,11 +271,31 @@ const _COMPILED_RULE_COMMON_FIELDS: PackedStringArray = [
 ## [br]
 const _COMPILED_RULE_FIELDS_BY_KIND: Dictionary = {
 	"path_exists": ["paths", "any"],
-	"files_under_roots": ["roots", "include", "exclude", "extensions"],
-	"extension_allowlist": ["roots", "include", "exclude", "extensions"],
-	"extension_denylist": ["roots", "include", "exclude", "extensions"],
+	"files_under_roots": [
+		"roots",
+		"include",
+		"exclude",
+		"extensions",
+	],
+	"extension_allowlist": [
+		"roots",
+		"include",
+		"exclude",
+		"extensions",
+	],
+	"extension_denylist": [
+		"roots",
+		"include",
+		"exclude",
+		"extensions",
+	],
 	"forbid_root_files": ["allowed_files"],
-	"naming_convention": ["roots", "exclude", "pattern", "target"],
+	"naming_convention": [
+		"roots",
+		"exclude",
+		"pattern",
+		"target",
+	],
 	"feature_module_contract": [
 		"roots",
 		"feature_id_pattern",
@@ -308,10 +321,7 @@ const _RUNTIME_FIELDS: PackedStringArray = ["cancel_check", "max_work_units"]
 ## @api framework_internal
 ## [br]
 ## @since 11.0.0
-const MAX_WORK_UNITS: int = (
-	_ANALYSIS_CONTRACT_SCRIPT.MAX_VALIDATION_WORK_UNITS
-	+ _MAX_PLANNER_OWN_WORK_UNITS
-)
+const MAX_WORK_UNITS: int = _ANALYSIS_CONTRACT_SCRIPT.MAX_VALIDATION_WORK_UNITS + _MAX_PLANNER_OWN_WORK_UNITS
 
 
 # --- 私有变量 ---
@@ -391,7 +401,11 @@ var _active_feature_ids: PackedStringArray = PackedStringArray()
 ## [br]
 ## @schema return: Dictionary，精确包含 schema_version、kind、complete、profile_id、source_analysis_digest、contract_digest、project_root、capabilities、steps、blockers 和 issues；capabilities 精确包含 writes_project、planning_scope、supported_rule_kinds 和 ignored_rule_kinds；每个 step 精确包含 step_id、kind、relative_path、requires、evidence_ids、preconditions 和 risk。
 func plan_example_profile(source_analysis: Dictionary, options: Dictionary = {}) -> Dictionary:
-	return plan_profile_path(EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH, source_analysis, options)
+	return plan_profile_path(
+		EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH,
+		source_analysis,
+		options
+	)
 
 
 ## 从项目结构 profile 文件生成只读改进计划。
@@ -434,17 +448,35 @@ func plan_profile_path(
 		_fail_planner_resource_limit()
 		return _finalize_plan(plan, false)
 	if not _is_canonical_resource_path(profile_path):
-		_add_issue(plan, "error", "invalid_profile_path", "", "项目结构 profile 路径必须是规范 res:// 文件路径。")
-		return _finalize_plan(plan, false)
-	var load_result: Dictionary = _load_profile(profile_path)
-	if not _get_bool(load_result, "success"):
-		var loaded_profile_path: String = _get_string(load_result, "source_path", profile_path)
 		_add_issue(
 			plan,
 			"error",
-			_get_string(load_result, "kind", "profile_load_failed"),
+			"invalid_profile_path",
+			"",
+			"项目结构 profile 路径必须是规范 res:// 文件路径。"
+		)
+		return _finalize_plan(plan, false)
+	var load_result: Dictionary = _load_profile(profile_path)
+	if not _get_bool(load_result, "success"):
+		var loaded_profile_path: String = _get_string(
+			load_result,
+			"source_path",
+			profile_path
+		)
+		_add_issue(
+			plan,
+			"error",
+			_get_string(
+				load_result,
+				"kind",
+				"profile_load_failed"
+			),
 			loaded_profile_path,
-			_get_string(load_result, "error", "项目结构 profile 读取失败。"),
+			_get_string(
+				load_result,
+				"error",
+				"项目结构 profile 读取失败。"
+			),
 			{ "profile_path": loaded_profile_path }
 		)
 		return _finalize_plan(plan, false)
@@ -452,9 +484,19 @@ func plan_profile_path(
 	var profile_value: Variant = load_result.get("profile", {})
 	if profile_value is Dictionary:
 		var profile: Dictionary = profile_value
-		return plan_profile(profile, source_analysis, options)
+		return plan_profile(
+			profile,
+			source_analysis,
+			options
+		)
 
-	_add_issue(plan, "error", "invalid_profile", profile_path, "项目结构 profile 必须是 Dictionary。")
+	_add_issue(
+		plan,
+		"error",
+		"invalid_profile",
+		profile_path,
+		"项目结构 profile 必须是 Dictionary。"
+	)
 	return _finalize_plan(plan, false)
 
 
@@ -590,7 +632,11 @@ func plan_compiled_profile_analysis(
 	_validate_source_analysis(source_analysis, plan)
 	if _planner_terminal or _has_error_issue(plan):
 		return _finalize_plan(plan, false)
-	return _build_compiled_plan(compilation, options, plan)
+	return _build_compiled_plan(
+		compilation,
+		options,
+		plan
+	)
 
 
 ## 会话已拥有 compilation 与 validation 时复用，不再次编译或遍历完整分析图。
@@ -622,7 +668,13 @@ func plan_compiled_profile_analysis(
 ## @return 闭合只读 plan。
 ## [br]
 ## @schema return: Dictionary，schema_version、kind、complete、profile_id、source_analysis_digest、contract_digest、project_root、capabilities、steps、blockers、issues。
-func plan_owned_policy(compilation: Dictionary, source_analysis: Dictionary, validation: Dictionary, options: Dictionary = {}, runtime: Dictionary = {}) -> Dictionary:
+func plan_owned_policy(
+	compilation: Dictionary,
+	source_analysis: Dictionary,
+	validation: Dictionary,
+	options: Dictionary = {},
+	runtime: Dictionary = {}
+) -> Dictionary:
 	_begin_planner_operation()
 	var plan: Dictionary = _make_plan()
 	_active_plan = plan
@@ -634,14 +686,28 @@ func plan_owned_policy(compilation: Dictionary, source_analysis: Dictionary, val
 	_validate_options(options, plan)
 	if _planner_terminal or _has_error_issue(plan):
 		return _finalize_plan(plan, false)
-	if not _get_bool(compilation, "success") or not _get_bool(validation, "valid") or not _get_bool(validation, "complete"):
-		_add_issue(plan, "error", "incomplete_source_analysis", "", "会话没有完整已验证策略与库存。")
+	if (
+		not _get_bool(compilation, "success")
+		or not _get_bool(validation, "valid")
+		or not _get_bool(validation, "complete")
+	):
+		_add_issue(
+			plan,
+			"error",
+			"incomplete_source_analysis",
+			"",
+			"会话没有完整已验证策略与库存。"
+		)
 		return _finalize_plan(plan, false)
 	plan["source_analysis_digest"] = _get_string(source_analysis, "input_digest")
 	plan["project_root"] = _get_string(source_analysis, "root_path")
 	plan["_source_analysis_index"] = _get_dictionary(validation, "index")
 	_append_compiler_result(compilation, plan)
-	return _build_compiled_plan(compilation, options, plan)
+	return _build_compiled_plan(
+		compilation,
+		options,
+		plan
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -649,23 +715,43 @@ func plan_owned_policy(compilation: Dictionary, source_analysis: Dictionary, val
 ## 对当前已准入策略生成目录候选；入口决定一次性完整验证或会话索引复用。
 ## [br]
 ## @api private
-func _build_compiled_plan(compilation: Dictionary, options: Dictionary, plan: Dictionary) -> Dictionary:
+func _build_compiled_plan(
+	compilation: Dictionary,
+	options: Dictionary,
+	plan: Dictionary
+) -> Dictionary:
 	var planner_registry: Dictionary = _make_planner_registry()
 
 	var compiled_profile: Dictionary = _get_dictionary(compilation, "profile")
 	plan["profile_id"] = _get_string(compiled_profile, "id")
-	_validate_feature_planning_inputs(compiled_profile, options, plan)
+	_validate_feature_planning_inputs(
+		compiled_profile,
+		options,
+		plan
+	)
 	if _has_error_issue(plan):
 		return _finalize_plan(plan, false)
 
 	var candidate_paths: PackedStringArray = PackedStringArray()
-	_queue_zone_paths(compiled_profile, options, candidate_paths)
-	_queue_feature_paths(compiled_profile, options, planner_registry, candidate_paths, plan)
+	_queue_zone_paths(
+		compiled_profile,
+		options,
+		candidate_paths
+	)
+	_queue_feature_paths(
+		compiled_profile,
+		options,
+		planner_registry,
+		candidate_paths,
+		plan
+	)
 	if _has_error_issue(plan):
 		return _finalize_plan(plan, false)
 
 	_plan_candidate_paths(candidate_paths, plan)
 	return _finalize_plan(plan, true)
+
+
 ## 创建默认不完整的只读目录候选计划，并预留仅供规划过程使用的来源索引；导出前须移除该索引。
 ## [br]
 ## @api private
@@ -698,12 +784,14 @@ func _make_planner_registry() -> Dictionary:
 	return {
 		_RULE_FEATURE_MODULE_CONTRACT: {
 			"handler": Callable(self, "_queue_feature_contract"),
-			"executed_fields": PackedStringArray([
-				"roots",
-				"feature_id_pattern",
-				"required_subdirs",
-				"allowed_subdirs",
-			]),
+			"executed_fields": PackedStringArray(
+				[
+					"roots",
+					"feature_id_pattern",
+					"required_subdirs",
+					"allowed_subdirs",
+				]
+			),
 		},
 	}
 
@@ -755,10 +843,22 @@ func _append_compiler_result(compile_result: Dictionary, plan: Dictionary) -> vo
 		var issue: Dictionary = issue_value
 		_add_issue(
 			plan,
-			_get_string(issue, "severity", "error"),
-			_get_string(issue, "kind", "profile_contract_invalid"),
+			_get_string(
+				issue,
+				"severity",
+				"error"
+			),
+			_get_string(
+				issue,
+				"kind",
+				"profile_contract_invalid"
+			),
 			_get_string(issue, "path"),
-			_get_string(issue, "message", "项目结构 profile 编译失败。"),
+			_get_string(
+				issue,
+				"message",
+				"项目结构 profile 编译失败。"
+			),
 			_get_dictionary(issue, "context"),
 			_get_string(issue, "reason_code")
 		)
@@ -767,10 +867,7 @@ func _append_compiler_result(compile_result: Dictionary, plan: Dictionary) -> vo
 ## 验证有界编译信封、诊断计数和受支持执行器能力；成功结果还必须绑定当前框架契约及有效规范 profile。
 ## [br]
 ## @api private
-func _planning_compilation_is_valid(
-	compilation: Dictionary,
-	plan: Dictionary
-) -> bool:
+func _planning_compilation_is_valid(compilation: Dictionary, plan: Dictionary) -> bool:
 	if not _compilation_envelope_is_admissible(compilation):
 		if not _planner_terminal:
 			_add_invalid_compilation_issue(plan, "compilation 不是有界 data-only 值。")
@@ -819,8 +916,16 @@ func _planning_compilation_is_valid(
 			_add_invalid_compilation_issue(plan, "compilation issue severity 无效。")
 			return false
 	if (
-		_get_int(compilation, "error_count", -1) != expected_error_count
-		or _get_int(compilation, "warning_count", -1) != expected_warning_count
+		_get_int(
+			compilation,
+			"error_count",
+			-1
+		) != expected_error_count
+		or _get_int(
+			compilation,
+			"warning_count",
+			-1
+		) != expected_warning_count
 		or _get_bool(compilation, "success") != (expected_error_count == 0)
 	):
 		_add_invalid_compilation_issue(plan, "compilation success 与诊断计数不一致。")
@@ -830,12 +935,7 @@ func _planning_compilation_is_valid(
 	if not contract_id.is_empty() and contract_id != _PROFILE_CONTRACT_ID:
 		_add_invalid_compilation_issue(plan, "compilation contract identity 无效。")
 		return false
-	if (
-		not contract_digest.is_empty()
-		and not _PROFILE_COMPILER_SCRIPT.contract_digest_is_canonical_for_framework(
-			contract_digest
-		)
-	):
+	if (not contract_digest.is_empty() and not (_PROFILE_COMPILER_SCRIPT.contract_digest_is_canonical_for_framework(contract_digest))):
 		_add_invalid_compilation_issue(plan, "compilation contract digest 无效。")
 		return false
 	var capabilities: Dictionary = _get_dictionary(compilation, "capabilities")
@@ -843,10 +943,7 @@ func _planning_compilation_is_valid(
 		not capabilities.is_empty()
 		and (
 			capabilities.size() != _COMPILATION_CAPABILITY_FIELDS.size()
-			or not _dictionary_has_only_fields(
-				capabilities,
-				_COMPILATION_CAPABILITY_FIELDS
-			)
+			or not _dictionary_has_only_fields(capabilities, _COMPILATION_CAPABILITY_FIELDS)
 			or capabilities != _expected_analyzer_compilation_capabilities()
 		)
 	):
@@ -856,9 +953,7 @@ func _planning_compilation_is_valid(
 		return true
 	if (
 		contract_id != _PROFILE_CONTRACT_ID
-		or not _PROFILE_COMPILER_SCRIPT.contract_digest_is_canonical_for_framework(
-			contract_digest
-		)
+		or not (_PROFILE_COMPILER_SCRIPT.contract_digest_is_canonical_for_framework(contract_digest))
 		or capabilities.is_empty()
 		or not _compiled_profile_is_valid_for_planning(
 			_get_dictionary(compilation, "profile"),
@@ -874,7 +969,13 @@ func _planning_compilation_is_valid(
 ## [br]
 ## @api private
 func _compilation_envelope_is_admissible(compilation: Dictionary) -> bool:
-	var stack: Array = [{ "value": compilation, "depth": 0, "exit": false }]
+	var stack: Array = [
+		{
+			"value": compilation,
+			"depth": 0,
+			"exit": false,
+		},
+	]
 	var active_containers: Array = []
 	var structure_value_count: int = 0
 	while not stack.is_empty():
@@ -895,7 +996,11 @@ func _compilation_envelope_is_admissible(compilation: Dictionary) -> bool:
 		var depth: int = _get_int(frame, "depth")
 		if depth > _MAX_COMPILATION_DEPTH:
 			return false
-		if value == null or value is bool or value is int:
+		if (
+			value == null
+			or value is bool
+			or value is int
+		):
 			continue
 		if value is float:
 			var float_value: float = value
@@ -918,40 +1023,70 @@ func _compilation_envelope_is_admissible(compilation: Dictionary) -> bool:
 				if (
 					structure_value_count > _MAX_COMPILATION_STRUCTURE_VALUES
 					or text.length() > _MAX_COMPILATION_STRING_LENGTH
-					or not _consume_planner_work(
-						1 + ceili(float(text.to_utf8_buffer().size()) / 256.0)
-					)
+					or not _consume_planner_work(1 + ceili(float(text.to_utf8_buffer().size()) / 256.0))
 				):
 					return false
 			continue
 		if value is Dictionary:
 			var dictionary_value: Dictionary = value
-			if (
-				dictionary_value.size() > _MAX_COMPILATION_COLLECTION_ITEMS
-				or _active_container_exists(active_containers, dictionary_value)
-			):
+			if (dictionary_value.size() > _MAX_COMPILATION_COLLECTION_ITEMS or _active_container_exists(active_containers, dictionary_value)):
 				return false
 			active_containers.append(dictionary_value)
-			stack.append({ "value": dictionary_value, "depth": depth, "exit": true })
+			stack.append(
+				{
+					"value": dictionary_value,
+					"depth": depth,
+					"exit": true,
+				}
+			)
 			var keys: Array = dictionary_value.keys()
-			for key_index: int in range(keys.size() - 1, -1, -1):
+			for key_index: int in range(
+				keys.size() - 1,
+				-1,
+				-1
+			):
 				var key: Variant = keys[key_index]
 				if not key is String:
 					return false
-				stack.append({ "value": dictionary_value[key], "depth": depth + 1, "exit": false })
-				stack.append({ "value": key, "depth": depth + 1, "exit": false })
+				stack.append(
+					{
+						"value": dictionary_value[key],
+						"depth": depth + 1,
+						"exit": false,
+					}
+				)
+				stack.append(
+					{
+						"value": key,
+						"depth": depth + 1,
+						"exit": false,
+					}
+				)
 			continue
 		if value is Array:
 			var array_value: Array = value
-			if (
-				array_value.size() > _MAX_COMPILATION_COLLECTION_ITEMS
-				or _active_container_exists(active_containers, array_value)
-			):
+			if (array_value.size() > _MAX_COMPILATION_COLLECTION_ITEMS or _active_container_exists(active_containers, array_value)):
 				return false
 			active_containers.append(array_value)
-			stack.append({ "value": array_value, "depth": depth, "exit": true })
-			for item_index: int in range(array_value.size() - 1, -1, -1):
-				stack.append({ "value": array_value[item_index], "depth": depth + 1, "exit": false })
+			stack.append(
+				{
+					"value": array_value,
+					"depth": depth,
+					"exit": true,
+				}
+			)
+			for item_index: int in range(
+				array_value.size() - 1,
+				-1,
+				-1
+			):
+				stack.append(
+					{
+						"value": array_value[item_index],
+						"depth": depth + 1,
+						"exit": false,
+					}
+				)
 			continue
 		return false
 	return true
@@ -970,10 +1105,7 @@ func _active_container_exists(active_containers: Array, value: Variant) -> bool:
 ## 检查规范 profile、zone 和规则的允许字段及类型；分析器结果还须满足其能力列表，功能模块规则另作路径字段校验。
 ## [br]
 ## @api private
-func _compiled_profile_is_valid_for_planning(
-	profile: Dictionary,
-	capabilities: Dictionary
-) -> bool:
+func _compiled_profile_is_valid_for_planning(profile: Dictionary, capabilities: Dictionary) -> bool:
 	if (
 		not _dictionary_has_only_fields(profile, _COMPILED_PROFILE_FIELDS)
 		or profile.get("schema_version") != 2
@@ -995,17 +1127,18 @@ func _compiled_profile_is_valid_for_planning(
 			not _dictionary_has_only_fields(zone, _COMPILED_ZONE_FIELDS)
 			or not _is_non_empty_string_value(zone.get("id"))
 			or not zone.get("required") is bool
-			or not _compiled_string_collection_is_valid(zone.get("roots"), false, true)
+			or not _compiled_string_collection_is_valid(
+				zone.get("roots"),
+				false,
+				true
+			)
 		):
 			return false
 		if zone.has("severity") and not _valid_severity_value(zone["severity"]):
 			return false
 		if zone.has("metadata") and not zone["metadata"] is Dictionary:
 			return false
-	var allowed_capability_rule_kinds: PackedStringArray = _get_string_list(
-		capabilities,
-		"rule_kinds"
-	)
+	var allowed_capability_rule_kinds: PackedStringArray = _get_string_list(capabilities, "rule_kinds")
 	var analyzer_compilation: bool = capabilities == _expected_analyzer_compilation_capabilities()
 	for rule_value: Variant in _get_array(profile, "rules"):
 		if not _consume_planner_work() or not rule_value is Dictionary:
@@ -1015,7 +1148,10 @@ func _compiled_profile_is_valid_for_planning(
 		if (
 			not _is_non_empty_string_value(rule.get("id"))
 			or not _COMPILED_RULE_FIELDS_BY_KIND.has(kind)
-			or (analyzer_compilation and not allowed_capability_rule_kinds.has(kind))
+			or (
+				analyzer_compilation
+				and not allowed_capability_rule_kinds.has(kind)
+			)
 		):
 			return false
 		var allowed_fields: PackedStringArray = _COMPILED_RULE_COMMON_FIELDS.duplicate()
@@ -1039,7 +1175,11 @@ func _compiled_profile_is_valid_for_planning(
 ## @api private
 func _feature_contract_is_valid(rule: Dictionary) -> bool:
 	return (
-		_compiled_string_collection_is_valid(rule.get("roots"), false, true)
+		_compiled_string_collection_is_valid(
+			rule.get("roots"),
+			false,
+			true
+		)
 		and rule.get("feature_id_pattern") is String
 		and not _get_string(rule, "feature_id_pattern").is_empty()
 		and (
@@ -1134,9 +1274,21 @@ func _load_profile(profile_path: String) -> Dictionary:
 	var reader: _BOUNDED_JSON_OBJECT_READER_SCRIPT = _BOUNDED_JSON_OBJECT_READER_SCRIPT.new()
 	var read_result: Dictionary = reader.read_path(profile_path)
 	if not _get_bool(read_result, "success"):
-		var kind: String = "profile_json_parse_failed" if FileAccess.file_exists(profile_path) else "profile_path_not_found"
-		return _make_load_result(false, {}, kind, _get_string(read_result, "error"), profile_path)
-	return _make_load_result(true, _get_dictionary(read_result, "profile"), "", "", profile_path)
+		var kind: String = ("profile_json_parse_failed" if FileAccess.file_exists(profile_path) else "profile_path_not_found")
+		return _make_load_result(
+			false,
+			{},
+			kind,
+			_get_string(read_result, "error"),
+			profile_path
+		)
+	return _make_load_result(
+		true,
+		_get_dictionary(read_result, "profile"),
+		"",
+		"",
+		profile_path
+	)
 
 
 ## 包装 profile 读取结果和来源路径，借用 profile 引用，不在此复制或校验内容。
@@ -1163,7 +1315,13 @@ func _make_load_result(
 ## @api private
 func _validate_source_analysis(source_analysis: Dictionary, plan: Dictionary) -> void:
 	if not _get_bool(source_analysis, "evaluation_complete") or not _get_bool(source_analysis, "input_complete"):
-		_add_issue(plan, "error", "incomplete_source_analysis", "", "分析快照不完整，不能生成可信计划。")
+		_add_issue(
+			plan,
+			"error",
+			"incomplete_source_analysis",
+			"",
+			"分析快照不完整，不能生成可信计划。"
+		)
 		return
 	var contract: _ANALYSIS_CONTRACT_SCRIPT = _ANALYSIS_CONTRACT_SCRIPT.new()
 	var validation: Dictionary = contract.validate_and_index(
@@ -1173,12 +1331,16 @@ func _validate_source_analysis(source_analysis: Dictionary, plan: Dictionary) ->
 	if _planner_terminal:
 		return
 	if not _get_bool(validation, "valid"):
-		_add_issue(plan, "error", "invalid_source_analysis", "", "分析快照不符合闭合 Project Layout analysis/graph 契约。")
+		_add_issue(
+			plan,
+			"error",
+			"invalid_source_analysis",
+			"",
+			"分析快照不符合闭合 Project Layout analysis/graph 契约。"
+		)
 		return
 	plan["source_analysis_digest"] = _get_string(source_analysis, "input_digest")
-	plan["project_root"] = _normalize_project_root(
-		_get_string(source_analysis, "root_path")
-	)
+	plan["project_root"] = _normalize_project_root(_get_string(source_analysis, "root_path"))
 	plan["_source_analysis_index"] = _get_dictionary(validation, "index")
 
 
@@ -1230,16 +1392,11 @@ func _configure_planner_runtime(runtime: Dictionary) -> bool:
 ## 先约束选项数量、键长度和 feature ID 集合资源量；未知字段及部分错误类型留给后续语义校验报告。
 ## [br]
 ## @api private
-func _options_are_intrinsically_admissible(
-	options: Dictionary,
-	feature_path_only: bool
-) -> bool:
+func _options_are_intrinsically_admissible(options: Dictionary, feature_path_only: bool) -> bool:
 	var maximum_fields: int = 1 if feature_path_only else _MAX_OPTION_FIELDS
 	if options.size() > maximum_fields:
 		return false
-	var allowed_fields: PackedStringArray = (
-		_FEATURE_PATH_OPTION_FIELDS if feature_path_only else _OPTION_FIELDS
-	)
+	var allowed_fields: PackedStringArray = _FEATURE_PATH_OPTION_FIELDS if feature_path_only else _OPTION_FIELDS
 	for key_value: Variant in options.keys():
 		if not _consume_planner_work():
 			return false
@@ -1277,10 +1434,7 @@ func _options_are_intrinsically_admissible(
 		else:
 			var packed_feature_values: PackedStringArray = option_value
 			for feature_id: String in packed_feature_values:
-				if (
-					not _consume_planner_work()
-					or feature_id.length() > _MAX_FEATURE_ID_LENGTH
-				):
+				if (not _consume_planner_work() or feature_id.length() > _MAX_FEATURE_ID_LENGTH):
 					return false
 	return true
 
@@ -1392,13 +1546,15 @@ func _set_planner_terminal(
 	_get_array(_active_plan, "blockers").clear()
 	var issues: Array = _get_array(_active_plan, "issues")
 	issues.clear()
-	issues.append({
-		"severity": severity,
-		"kind": kind,
-		"path": "",
-		"message": message,
-		"context": {},
-	})
+	issues.append(
+		{
+			"severity": severity,
+			"kind": kind,
+			"path": "",
+			"message": message,
+			"context": {},
+		}
+	)
 
 
 ## 在预算内报告未知选项及布尔类型错误，再读取并去重 feature ID；诊断写入共享计划。
@@ -1423,7 +1579,14 @@ func _validate_options(options: Dictionary, plan: Dictionary) -> void:
 		if not _consume_planner_work():
 			return
 		if options.has(field_name) and not options[field_name] is bool:
-			_add_issue(plan, "error", "invalid_option_type", field_name, "%s 必须是 bool。" % field_name, { "actual": _describe_value(options[field_name]) })
+			_add_issue(
+				plan,
+				"error",
+				"invalid_option_type",
+				field_name,
+				"%s 必须是 bool。" % field_name,
+				{ "actual": _describe_value(options[field_name]) }
+			)
 	_validate_feature_ids_option(options, plan)
 
 
@@ -1436,7 +1599,14 @@ func _validate_feature_ids_option(options: Dictionary, plan: Dictionary) -> void
 		return
 	var feature_ids_value: Variant = options["feature_ids"]
 	if not (feature_ids_value is Array or feature_ids_value is PackedStringArray):
-		_add_issue(plan, "error", "invalid_option_type", "feature_ids", "feature_ids 必须是字符串数组。", { "actual": _describe_value(feature_ids_value) })
+		_add_issue(
+			plan,
+			"error",
+			"invalid_option_type",
+			"feature_ids",
+			"feature_ids 必须是字符串数组。",
+			{ "actual": _describe_value(feature_ids_value) }
+		)
 		return
 	var feature_ids: Array = []
 	if feature_ids_value is Array:
@@ -1452,7 +1622,14 @@ func _validate_feature_ids_option(options: Dictionary, plan: Dictionary) -> void
 		if not _consume_planner_work():
 			return
 		if not _is_non_empty_string_value(feature_id_value):
-			_add_issue(plan, "error", "invalid_option_type", "feature_ids", "feature_ids 只能包含非空字符串。", { "actual": _describe_value(feature_id_value) })
+			_add_issue(
+				plan,
+				"error",
+				"invalid_option_type",
+				"feature_ids",
+				"feature_ids 只能包含非空字符串。",
+				{ "actual": _describe_value(feature_id_value) }
+			)
 			continue
 		var feature_id: String = _string_value(feature_id_value)
 		if seen_feature_ids.has(feature_id):
@@ -1531,11 +1708,21 @@ func _queue_feature_paths(
 			continue
 		matched_planner = true
 		var handler: Callable = handler_value
-		var _handler_result: Variant = handler.call(rule, options, candidate_paths)
+		var _handler_result: Variant = handler.call(
+			rule,
+			options,
+			candidate_paths
+		)
 		if _planner_terminal:
 			return
 	if not matched_planner:
-		_add_issue(plan, "error", "missing_feature_module_contract", "", "项目结构 profile 没有 feature_module_contract 规则。")
+		_add_issue(
+			plan,
+			"error",
+			"missing_feature_module_contract",
+			"",
+			"项目结构 profile 没有 feature_module_contract 规则。"
+		)
 
 
 ## 为已验证的活动 ID 生成契约目录路径，按是否包含可选子目录的开关加入全局候选集。
@@ -1546,13 +1733,15 @@ func _queue_feature_contract(
 	options: Dictionary,
 	candidate_paths: PackedStringArray
 ) -> void:
-	var feature_path_options: Dictionary = {
-		"include_optional_feature_subdirs": _get_bool(options, "include_optional_feature_subdirs"),
-	}
+	var feature_path_options: Dictionary = { "include_optional_feature_subdirs": _get_bool(options, "include_optional_feature_subdirs"), }
 	for feature_id: String in _active_feature_ids:
 		if not _consume_planner_work():
 			return
-		for relative_path: String in _make_feature_module_paths_from_contract(rule, feature_id, feature_path_options):
+		for relative_path: String in _make_feature_module_paths_from_contract(
+			rule,
+			feature_id,
+			feature_path_options
+		):
 			if not _append_candidate_path(candidate_paths, relative_path):
 				return
 
@@ -1570,16 +1759,20 @@ func _validate_feature_planning_inputs(
 		return
 	var contracts: Array[Dictionary] = _find_feature_contracts(profile)
 	if contracts.is_empty():
-		_add_issue(plan, "error", "missing_feature_module_contract", "", "项目结构 profile 没有 feature_module_contract 规则。")
+		_add_issue(
+			plan,
+			"error",
+			"missing_feature_module_contract",
+			"",
+			"项目结构 profile 没有 feature_module_contract 规则。"
+		)
 		return
 	for contract: Dictionary in contracts:
 		if not _consume_planner_work():
 			return
 		var feature_id_pattern: String = _get_string(contract, "feature_id_pattern")
 		for feature_id: String in feature_ids:
-			if not _consume_planner_work(
-				1 + feature_id.length() + feature_id_pattern.length()
-			):
+			if not _consume_planner_work(1 + feature_id.length() + feature_id_pattern.length()):
 				return
 			if _is_valid_feature_id(feature_id, feature_id_pattern):
 				continue
@@ -1604,20 +1797,33 @@ func _make_feature_module_paths_from_compiled_profile(
 	var result: PackedStringArray = PackedStringArray()
 	var result_seen: Dictionary = {}
 	var contracts: Array[Dictionary] = _find_feature_contracts(profile)
-	if _planner_terminal or contracts.is_empty() or feature_id.is_empty():
+	if (
+		_planner_terminal
+		or contracts.is_empty()
+		or feature_id.is_empty()
+	):
 		return result
 	for contract: Dictionary in contracts:
-		if not _consume_planner_work(
-			1 + feature_id.length() + _get_string(contract, "feature_id_pattern").length()
-		):
+		if not _consume_planner_work(1 + feature_id.length() + _get_string(contract, "feature_id_pattern").length()):
 			return PackedStringArray()
-		if not _is_valid_feature_id(feature_id, _get_string(contract, "feature_id_pattern")):
+		if not _is_valid_feature_id(
+			feature_id,
+			_get_string(contract, "feature_id_pattern")
+		):
 			return PackedStringArray()
 	for contract: Dictionary in contracts:
 		if not _consume_planner_work():
 			return PackedStringArray()
-		for relative_path: String in _make_feature_module_paths_from_contract(contract, feature_id, options):
-			if not _append_unique_path(result, result_seen, relative_path):
+		for relative_path: String in _make_feature_module_paths_from_contract(
+			contract,
+			feature_id,
+			options
+		):
+			if not _append_unique_path(
+				result,
+				result_seen,
+				relative_path
+			):
 				return PackedStringArray()
 	return result
 
@@ -1632,7 +1838,11 @@ func _make_feature_module_paths_from_contract(
 ) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	var result_seen: Dictionary = {}
-	for collection_field: String in ["roots", "required_subdirs", "allowed_subdirs"]:
+	for collection_field: String in [
+		"roots",
+		"required_subdirs",
+		"allowed_subdirs",
+	]:
 		if _collection_size(contract.get(collection_field)) > _MAX_CANDIDATE_PATHS:
 			_fail_planner_resource_limit()
 			return PackedStringArray()
@@ -1658,17 +1868,18 @@ func _make_feature_module_paths_from_contract(
 			):
 				return PackedStringArray()
 	var roots: PackedStringArray = _get_string_list(contract, "roots")
-	if (
-		roots.size() > _MAX_CANDIDATE_PATHS
-		or roots.size() * (subdirectories.size() + 1) > _MAX_CANDIDATE_PATHS
-	):
+	if (roots.size() > _MAX_CANDIDATE_PATHS or roots.size() * (subdirectories.size() + 1) > _MAX_CANDIDATE_PATHS):
 		_fail_planner_resource_limit()
 		return PackedStringArray()
 	for root: String in roots:
 		if not _consume_planner_work():
 			return PackedStringArray()
 		var feature_root: String = root.path_join(feature_id)
-		if not _append_unique_path(result, result_seen, feature_root):
+		if not _append_unique_path(
+			result,
+			result_seen,
+			feature_root
+		):
 			return PackedStringArray()
 		for subdirectory: String in subdirectories:
 			if not _append_unique_path(
@@ -1683,10 +1894,7 @@ func _make_feature_module_paths_from_contract(
 ## 去重并按父路径优先排序候选，跳过已有目录，以源分析中的文件阻挡生成 blocker，其余生成目录步骤并连接依赖。
 ## [br]
 ## @api private
-func _plan_candidate_paths(
-	candidate_paths: PackedStringArray,
-	plan: Dictionary
-) -> void:
+func _plan_candidate_paths(candidate_paths: PackedStringArray, plan: Dictionary) -> void:
 	if candidate_paths.size() > _MAX_CANDIDATE_PATHS:
 		_fail_planner_resource_limit()
 		return
@@ -1705,32 +1913,33 @@ func _plan_candidate_paths(
 	for relative_path: String in sorted_paths:
 		if not _consume_planner_work(1 + relative_path.length()):
 			return
-		var analysis_kind: String = _analysis_node_kind(
-			source_index,
-			relative_path
-		)
+		var analysis_kind: String = _analysis_node_kind(source_index, relative_path)
 		if analysis_kind == "directory":
 			continue
-		var blocking_relative_path: String = _find_non_directory_ancestor_in_analysis(
-			source_index,
-			relative_path
-		)
+		var blocking_relative_path: String = _find_non_directory_ancestor_in_analysis(source_index, relative_path)
 		if _planner_terminal:
 			return
 		if not blocking_relative_path.is_empty():
-			_add_blocker(plan, "path_blocked_by_file", relative_path, _analysis_evidence_ids_for_path(source_index, blocking_relative_path), "目标或祖先路径是文件，不能形成目录步骤。")
+			_add_blocker(
+				plan,
+				"path_blocked_by_file",
+				relative_path,
+				_analysis_evidence_ids_for_path(source_index, blocking_relative_path),
+				"目标或祖先路径是文件，不能形成目录步骤。"
+			)
 			continue
-		_append_plan_step(plan, relative_path, source_index)
+		_append_plan_step(
+			plan,
+			relative_path,
+			source_index
+		)
 	_attach_step_dependencies(plan)
 
 
 ## 从候选自身向父级查找文件阻挡，遇已有目录即停止；空返回也可能来自终态，调用者须同时检查规划状态。
 ## [br]
 ## @api private
-func _find_non_directory_ancestor_in_analysis(
-	source_index: Dictionary,
-	relative_path: String
-) -> String:
+func _find_non_directory_ancestor_in_analysis(source_index: Dictionary, relative_path: String) -> String:
 	var probe_path: String = relative_path
 	while not probe_path.is_empty():
 		if not _consume_planner_work(1 + probe_path.length()):
@@ -1758,19 +1967,21 @@ func _append_plan_step(
 		return
 	if not _consume_planner_work(1 + relative_path.length()):
 		return
-	steps.append({
-		"step_id": _step_id(relative_path),
-		"kind": "ensure_directory",
-		"relative_path": relative_path,
-		"requires": [],
-		"evidence_ids": _analysis_evidence_ids_for_path(source_index, relative_path),
-		"preconditions": [
-			"source_analysis_digest_matches",
-			"path_absent_in_source_analysis",
-			"ancestor_chain_contains_no_files_in_source_analysis",
-		],
-		"risk": "low",
-	})
+	steps.append(
+		{
+			"step_id": _step_id(relative_path),
+			"kind": "ensure_directory",
+			"relative_path": relative_path,
+			"requires": [],
+			"evidence_ids": _analysis_evidence_ids_for_path(source_index, relative_path),
+			"preconditions": [
+				"source_analysis_digest_matches",
+				"path_absent_in_source_analysis",
+				"ancestor_chain_contains_no_files_in_source_analysis",
+			],
+			"risk": "low",
+		}
+	)
 
 
 ## 为每个步骤寻找最近的已规划祖先，并将其 step ID 设为唯一依赖；修改现有步骤字典。
@@ -1808,10 +2019,7 @@ func _attach_step_dependencies(plan: Dictionary) -> void:
 ## 向上查找最近已观察节点的证据，最后回退项目根；工作终止时返回空数组。
 ## [br]
 ## @api private
-func _analysis_evidence_ids_for_path(
-	source_index: Dictionary,
-	relative_path: String
-) -> Array[String]:
+func _analysis_evidence_ids_for_path(source_index: Dictionary, relative_path: String) -> Array[String]:
 	var probe_path: String = relative_path
 	while not probe_path.is_empty():
 		if not _consume_planner_work():
@@ -1828,7 +2036,10 @@ func _analysis_evidence_ids_for_path(
 ## [br]
 ## @api private
 func _analysis_node_kind(source_index: Dictionary, relative_path: String) -> String:
-	return _get_string(_analysis_node(source_index, relative_path), "node_kind")
+	return _get_string(
+		_analysis_node(source_index, relative_path),
+		"node_kind"
+	)
 
 
 ## 由相对路径取得节点 ID，再返回索引中的节点字典引用；索引缺失或类型不符返回空字典。
@@ -1864,13 +2075,18 @@ func _add_blocker(
 		return
 	if not _consume_planner_work(1 + relative_path.length()):
 		return
-	blockers.append({
-		"blocker_id": "blocker:%s" % ("%s\n%s" % [kind, relative_path]).sha256_text().substr(0, 16),
-		"kind": kind,
-		"relative_path": relative_path,
-		"evidence_ids": evidence_ids.duplicate(),
-		"message": message,
-	})
+	blockers.append(
+		{
+			"blocker_id": "blocker:%s" % (
+				"%s\n%s"
+				% [kind, relative_path]
+			).sha256_text().substr(0, 16),
+			"kind": kind,
+			"relative_path": relative_path,
+			"evidence_ids": evidence_ids.duplicate(),
+			"message": message,
+		}
+	)
 
 
 ## 结合调用结果、终态及错误诊断设置 complete，移除内部来源索引并释放活动计划引用，返回同一计划字典。
@@ -1955,10 +2171,7 @@ func _find_feature_contracts(profile: Dictionary) -> Array[Dictionary]:
 ## 使用本次规划共享的候选集合去重并追加路径，转交统一数量及工作预算检查。
 ## [br]
 ## @api private
-func _append_candidate_path(
-	paths: PackedStringArray,
-	relative_path: String
-) -> bool:
+func _append_candidate_path(paths: PackedStringArray, relative_path: String) -> bool:
 	return _append_unique_path(
 		paths,
 		_candidate_path_set,
@@ -1975,10 +2188,7 @@ func _append_unique_path(
 	relative_path: String,
 	append_to_paths: bool = true
 ) -> bool:
-	if (
-		not _consume_planner_work(1 + relative_path.length())
-		or relative_path.length() > _MAX_PLANNER_PATH_LENGTH
-	):
+	if (not _consume_planner_work(1 + relative_path.length()) or relative_path.length() > _MAX_PLANNER_PATH_LENGTH):
 		_fail_planner_resource_limit()
 		return false
 	if relative_path.is_empty() or seen_paths.has(relative_path):
@@ -2050,7 +2260,11 @@ func _is_canonical_resource_path(path: String) -> bool:
 	if relative_path.is_empty() or relative_path.contains(":"):
 		return false
 	for part: String in relative_path.split("/", true):
-		if part.is_empty() or part == "." or part == "..":
+		if (
+			part.is_empty()
+			or part == "."
+			or part == ".."
+		):
 			return false
 	return true
 
@@ -2092,11 +2306,27 @@ func _is_valid_feature_id(feature_id: String, pattern: String) -> bool:
 func _is_portable_feature_id_segment(feature_id: String) -> bool:
 	if feature_id.is_empty() or feature_id != feature_id.strip_edges():
 		return false
-	if feature_id == "." or feature_id == ".." or feature_id.ends_with("."):
+	if (
+		feature_id == "."
+		or feature_id == ".."
+		or feature_id.ends_with(".")
+	):
 		return false
 	if _is_windows_reserved_device_stem(feature_id.get_slice(".", 0).to_lower()):
 		return false
-	for forbidden_character: String in ["/", "\\", ":", "*", "?", "[", "]", "<", ">", "\"", "|"]:
+	for forbidden_character: String in [
+		"/",
+		"\\",
+		":",
+		"*",
+		"?",
+		"[",
+		"]",
+		"<",
+		">",
+		"\"",
+		"|",
+	]:
 		if feature_id.contains(forbidden_character):
 			return false
 	for character_index: int in feature_id.length():
@@ -2110,14 +2340,22 @@ func _is_portable_feature_id_segment(feature_id: String) -> bool:
 ## [br]
 ## @api private
 func _is_windows_reserved_device_stem(stem: String) -> bool:
-	if stem == "con" or stem == "prn" or stem == "aux" or stem == "nul":
+	if (
+		stem == "con"
+		or stem == "prn"
+		or stem == "aux"
+		or stem == "nul"
+	):
 		return true
 	if stem.length() != 4:
 		return false
 	var prefix: String = stem.substr(0, 3)
 	var suffix_codepoint: int = stem.unicode_at(3)
 	return (
-		(prefix == "com" or prefix == "lpt")
+		(
+			prefix == "com"
+			or prefix == "lpt"
+		)
 		and suffix_codepoint >= 49
 		and suffix_codepoint <= 57
 	)
@@ -2157,7 +2395,10 @@ func _sanitize_issue_context(context: Dictionary) -> Dictionary:
 		var key: String = _string_value(key_value)
 		if key.is_empty():
 			key = "entry_%d" % entry_index
-		result[key] = _sanitize_report_value(context[key_value], 0)
+		result[key] = _sanitize_report_value(
+			context[key_value],
+			0
+		)
 		entry_index += 1
 	return result
 
@@ -2168,7 +2409,12 @@ func _sanitize_issue_context(context: Dictionary) -> Dictionary:
 func _sanitize_report_value(value: Variant, depth: int) -> Variant:
 	if depth >= 8:
 		return _describe_value(value)
-	if value == null or value is bool or value is int or value is String:
+	if (
+		value == null
+		or value is bool
+		or value is int
+		or value is String
+	):
 		return value
 	if value is StringName:
 		var string_name_value: StringName = value
@@ -2177,15 +2423,31 @@ func _sanitize_report_value(value: Variant, depth: int) -> Variant:
 		var float_value: float = value
 		if is_finite(float_value):
 			return float_value
-		return "NaN" if is_nan(float_value) else ("+Inf" if float_value > 0.0 else "-Inf")
+		return (
+			"NaN"
+			if is_nan(float_value)
+			else (
+				"+Inf"
+				if float_value > 0.0
+				else "-Inf"
+			)
+		)
 	if value is PackedStringArray:
 		var packed_value: PackedStringArray = value
 		return packed_value.duplicate()
 	if value is Array:
 		var array_result: Array = []
 		var array_value: Array = value
-		for index: int in mini(array_value.size(), 128):
-			array_result.append(_sanitize_report_value(array_value[index], depth + 1))
+		for index: int in mini(
+			array_value.size(),
+			128
+		):
+			array_result.append(
+				_sanitize_report_value(
+					array_value[index],
+					depth + 1
+				)
+			)
 		return array_result
 	if value is Dictionary:
 		var dictionary_result: Dictionary = {}
@@ -2197,7 +2459,10 @@ func _sanitize_report_value(value: Variant, depth: int) -> Variant:
 			var key: String = _string_value(key_value)
 			if key.is_empty():
 				key = "entry_%d" % entry_index
-			dictionary_result[key] = _sanitize_report_value(dictionary_value[key_value], depth + 1)
+			dictionary_result[key] = _sanitize_report_value(
+				dictionary_value[key_value],
+				depth + 1
+			)
 			entry_index += 1
 		return dictionary_result
 	return _describe_value(value)
@@ -2208,11 +2473,13 @@ func _sanitize_report_value(value: Variant, depth: int) -> Variant:
 ## @api private
 func _describe_value(value: Variant) -> Dictionary:
 	var value_type: int = typeof(value)
-	var result: Dictionary = {
-		"type": value_type,
-		"type_name": type_string(value_type),
-	}
-	if value == null or value is bool or value is int or value is String:
+	var result: Dictionary = { "type": value_type, "type_name": type_string(value_type), }
+	if (
+		value == null
+		or value is bool
+		or value is int
+		or value is String
+	):
 		result["value"] = value
 	elif value is StringName:
 		result["value"] = _string_value(value)
@@ -2240,10 +2507,7 @@ func _describe_value(value: Variant) -> Dictionary:
 ## [br]
 ## @api private
 ## [br]
-func _dictionary_has_only_fields(
-	value: Dictionary,
-	allowed_fields: PackedStringArray
-) -> bool:
+func _dictionary_has_only_fields(value: Dictionary, allowed_fields: PackedStringArray) -> bool:
 	for key_value: Variant in value.keys():
 		if not key_value is String:
 			return false
@@ -2258,7 +2522,11 @@ func _dictionary_has_only_fields(
 ## @api private
 ## [br]
 func _valid_severity_value(value: Variant) -> bool:
-	return value is String and ["error", "warning", "info"].has(value)
+	return value is String and [
+		"error",
+		"warning",
+		"info",
+	].has(value)
 
 
 ## 复制数组中的 String 与 StringName 项为类型化 String 数组，跳过其他类型。
@@ -2299,7 +2567,11 @@ func _is_non_empty_string_value(value: Variant) -> bool:
 ## [br]
 ## @api private
 ## [br]
-func _get_string(source: Dictionary, key: String, default_value: String = "") -> String:
+func _get_string(
+	source: Dictionary,
+	key: String,
+	default_value: String = ""
+) -> String:
 	if not source.has(key):
 		return default_value
 	var value: Variant = source[key]
@@ -2312,7 +2584,11 @@ func _get_string(source: Dictionary, key: String, default_value: String = "") ->
 ## [br]
 ## @api private
 ## [br]
-func _get_bool(source: Dictionary, key: String, default_value: bool = false) -> bool:
+func _get_bool(
+	source: Dictionary,
+	key: String,
+	default_value: bool = false
+) -> bool:
 	if not source.has(key) or not source[key] is bool:
 		return default_value
 	var value: bool = source[key]
@@ -2323,7 +2599,11 @@ func _get_bool(source: Dictionary, key: String, default_value: bool = false) -> 
 ## [br]
 ## @api private
 ## [br]
-func _get_int(source: Dictionary, key: String, default_value: int = 0) -> int:
+func _get_int(
+	source: Dictionary,
+	key: String,
+	default_value: int = 0
+) -> int:
 	if not source.has(key):
 		return default_value
 	var value: Variant = source[key]

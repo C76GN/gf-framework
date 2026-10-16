@@ -6,7 +6,7 @@ extends GutTest
 
 const _PRESENTATION_CATALOG_SCRIPT = preload("res://addons/gf/kernel/editor/gf_project_setting_presentation_catalog.gd")
 const _EXTENSION_SETTINGS_SCRIPT = preload("res://addons/gf/kernel/extension/gf_extension_settings.gd")
-const _FRAMEWORK_DIAGNOSTIC: String = "[GFProjectSettingsTools][project_settings_tools.setting_name_empty] setting_name must not be empty."
+const _FRAMEWORK_DIAGNOSTIC: String = ("[GFProjectSettingsTools][project_settings_tools.setting_name_empty] setting_name must not be empty.")
 const _TRANSLATED_DIAGNOSTIC: String = "测试翻译：设置名不能为空。"
 const _PROJECT_MESSAGE: String = "任务资源尚未准备好。"
 const _TRANSLATED_PROJECT_MESSAGE: String = "Rewritten project message."
@@ -27,8 +27,16 @@ func before_each() -> void:
 	_original_locale = TranslationServer.get_locale()
 	_original_pseudolocalization_enabled = TranslationServer.pseudolocalization_enabled
 	TranslationServer.pseudolocalization_enabled = false
-	_add_test_translation("en", _FRAMEWORK_DIAGNOSTIC, _TRANSLATED_PROJECT_MESSAGE)
-	_add_test_translation("zh_CN", _TRANSLATED_DIAGNOSTIC, _PROJECT_MESSAGE)
+	_add_test_translation(
+		"en",
+		_FRAMEWORK_DIAGNOSTIC,
+		_TRANSLATED_PROJECT_MESSAGE
+	)
+	_add_test_translation(
+		"zh_CN",
+		_TRANSLATED_DIAGNOSTIC,
+		_PROJECT_MESSAGE
+	)
 
 
 func after_each() -> void:
@@ -59,7 +67,11 @@ func test_framework_diagnostic_ignores_project_translation_while_tool_labels_loc
 
 		assert_false(wrote_setting, "空设置名必须被拒绝，不应写入 ProjectSettings。")
 		assert_push_error(_FRAMEWORK_DIAGNOSTIC)
-		for tool_locale: String in ["en", "zh_CN", "fr_FR"]:
+		for tool_locale: String in [
+			"en",
+			"zh_CN",
+			"fr_FR",
+		]:
 			var presentation: Dictionary = _get_setting_presentation(catalog, tool_locale)
 			assert_eq(
 				GFVariantData.get_option_string(presentation, "name"),
@@ -84,19 +96,43 @@ func test_project_log_preserves_chinese_message_and_path_in_native_warning() -> 
 		"项目消息的测试翻译必须生效，才能证明日志转发保留调用方原文。"
 	)
 	_log_utility = GFLogUtility.new()
-	_log_utility.warn("项目任务", _PROJECT_MESSAGE, { "path": _PROJECT_PATH })
+	_log_utility.warn(
+		"项目任务",
+		_PROJECT_MESSAGE,
+		{ "path": _PROJECT_PATH }
+	)
 
 	var entries: Array[Dictionary] = _log_utility.get_recent_entries()
-	assert_eq(entries.size(), 1, "原生警告应同时产生一条内存日志。")
+	assert_eq(
+		entries.size(),
+		1,
+		"原生警告应同时产生一条内存日志。"
+	)
 	if entries.size() != 1:
 		return
 	var entry: Dictionary = entries[0]
 	var context: Dictionary = GFVariantData.get_option_dictionary(entry, "context")
 	var output_text: String = GFVariantData.get_option_string(entry, "text")
-	assert_eq(GFVariantData.get_option_string(entry, "tag"), "项目任务")
-	assert_eq(GFVariantData.get_option_string(entry, "message"), _PROJECT_MESSAGE)
-	assert_eq(GFVariantData.get_option_int(entry, "level", -1), GFLogUtility.LogLevel.WARN)
-	assert_eq(GFVariantData.get_option_string(context, "path"), _PROJECT_PATH)
+	assert_eq(
+		GFVariantData.get_option_string(entry, "tag"),
+		"项目任务"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(entry, "message"),
+		_PROJECT_MESSAGE
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			entry,
+			"level",
+			-1
+		),
+		GFLogUtility.LogLevel.WARN
+	)
+	assert_eq(
+		GFVariantData.get_option_string(context, "path"),
+		_PROJECT_PATH
+	)
 	assert_true(output_text.contains(_PROJECT_MESSAGE))
 	assert_true(output_text.contains(_PROJECT_PATH))
 	assert_push_warning(output_text, "GUT 必须捕获包含中文原文与路径的真实 push_warning。")
@@ -106,11 +142,21 @@ func test_project_log_preserves_chinese_message_and_path_in_native_warning() -> 
 
 # --- 私有/辅助方法 ---
 
-func _add_test_translation(locale: String, diagnostic: String, project_message: String) -> void:
+func _add_test_translation(
+	locale: String,
+	diagnostic: String,
+	project_message: String
+) -> void:
 	var translation: Translation = Translation.new()
 	translation.set_locale(locale)
-	translation.add_message(StringName(_FRAMEWORK_DIAGNOSTIC), StringName(diagnostic))
-	translation.add_message(StringName(_PROJECT_MESSAGE), StringName(project_message))
+	translation.add_message(
+		StringName(_FRAMEWORK_DIAGNOSTIC),
+		StringName(diagnostic)
+	)
+	translation.add_message(
+		StringName(_PROJECT_MESSAGE),
+		StringName(project_message)
+	)
 	TranslationServer.add_translation(translation)
 	_test_translations.append(translation)
 

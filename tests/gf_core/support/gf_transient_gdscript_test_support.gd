@@ -20,11 +20,7 @@ static func compile_and_release(source: String) -> Dictionary:
 	runtime_script.source_code = source
 	var compile_error: Error = runtime_script.reload(false)
 	var cleanup_errors: Array[int] = []
-	var configuration_error: String = (
-		""
-		if runtime_script.get_global_name().is_empty()
-		else "transient_script_root_declares_global_name"
-	)
+	var configuration_error: String = ("" if runtime_script.get_global_name().is_empty() else "transient_script_root_declares_global_name")
 	cleanup_errors = release(runtime_script)
 	return {
 		"ok": (
@@ -75,7 +71,12 @@ static func _release_script_graph(
 			or not inner_script.get_global_name().is_empty()
 		):
 			continue
-		_release_script_graph(inner_script, root_resource_path, visited, cleanup_errors)
+		_release_script_graph(
+			inner_script,
+			root_resource_path,
+			visited,
+			cleanup_errors
+		)
 
 	runtime_script.source_code = "extends RefCounted\n"
 	var cleanup_error: Error = runtime_script.reload(false)

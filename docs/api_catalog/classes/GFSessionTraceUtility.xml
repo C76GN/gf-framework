@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSessionTraceUtility" path="addons/gf/standard/utilities/debug/gf_session_trace_utility.gd" module="standard" extends="GFUtility" classDigest="0861e573f1b0d6a2b5149e4c5d0ff6ece9c802c4e4b0a03f64e4194092252a87">
+<class name="GFSessionTraceUtility" path="addons/gf/standard/utilities/debug/gf_session_trace_utility.gd" module="standard" extends="GFUtility" classDigest="a58735f556876a3da1105d74f9b3b78e664a06033a9571ed1429ec37a9e7e4dd">
 	<description>GFSessionTraceUtility: 有界的运行时会话轨迹记录器。
 项目必须先显式注册通道，才能记录输入、路由、存档、网络或其他语义事件。
 轨迹只保存经过技术脱敏和字节预算约束的结构化数据，不扫描场景树、节点属性或业务状态。
@@ -43,7 +43,7 @@
 			</tags>
 		</member>
 		<member kind="signal" name="event_rejected">
-			<signature>signal event_rejected(channel_id: StringName, event_id: StringName, reason: StringName)</signature>
+			<signature>signal event_rejected( channel_id: StringName, event_id: StringName, reason: StringName )</signature>
 			<description>事件被明确拒绝后发出。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -264,7 +264,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="apply_recipe">
-			<signature>func apply_recipe( recipe: GFSessionTraceRecipe, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<signature>func apply_recipe(recipe: GFSessionTraceRecipe, options: Dictionary = {}) -&gt; Dictionary:</signature>
 			<description>原子应用一份 Session Trace 配方。
 默认拒绝覆盖既有同名通道，也拒绝配方未声明的既有通道或在活动会话中改写容量。
 一个 Utility 生命周期内只接受一份稳定配方；首次应用必须发生在任何会话开始之前，
@@ -296,7 +296,7 @@ Provider 按声明顺序逐个采集，单个失败不会中断后续项；只�
 			</tags>
 		</member>
 		<member kind="method" name="build_recipe_snapshot">
-			<signature>func build_recipe_snapshot( recipe: GFSessionTraceRecipe, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<signature>func build_recipe_snapshot(recipe: GFSessionTraceRecipe, options: Dictionary = {}) -&gt; Dictionary:</signature>
 			<description>使用配方默认值构建轨迹快照。</description>
 			<tags>
 				<tag name="api">public</tag>

@@ -89,17 +89,27 @@ static func get_snapshot(
 		options,
 		budget_state
 	)
-	var force_refresh: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "force_refresh", false)
-	if not force_refresh and _has_snapshot_cache and _snapshot_matches_signature(signature):
+	var force_refresh: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		options,
+		"force_refresh",
+		false
+	)
+	if (
+		not force_refresh
+		and _has_snapshot_cache
+		and _snapshot_matches_signature(signature)
+	):
 		return _duplicate_snapshot(_snapshot_cache)
 
-	_store_snapshot(_make_snapshot(
-		manifests,
-		configured_paths,
-		signature,
-		options,
-		budget_state
-	))
+	_store_snapshot(
+		_make_snapshot(
+			manifests,
+			configured_paths,
+			signature,
+			options,
+			budget_state
+		)
+	)
 	return _duplicate_snapshot(_snapshot_cache)
 
 
@@ -150,11 +160,13 @@ static func make_discovery_signature(
 	var signature_paths: Array[String] = _normalize_extension_preset_paths(configured_paths)
 	var preset_files: Array[Dictionary] = []
 	for preset_path: String in signature_paths:
-		preset_files.append(_GF_EXTENSION_JSON_FILE_READER_SCRIPT.make_file_signature(
-			preset_path,
-			options,
-			budget_state
-		))
+		preset_files.append(
+			_GF_EXTENSION_JSON_FILE_READER_SCRIPT.make_file_signature(
+				preset_path,
+				options,
+				budget_state
+			)
+		)
 
 	var json_limits: Dictionary = _GF_EXTENSION_JSON_FILE_READER_SCRIPT.get_limit_policy(options)
 	var signature_payload: Dictionary = {
@@ -201,11 +213,26 @@ static func _make_snapshot(
 		var normalized_path: String = _GF_PATH_TOOLS.normalize_resource_path(raw_path)
 		if not _extension_preset_path_is_supported(normalized_path):
 			var path_errors: Array[String] = ["preset path must be a res:// JSON file"]
-			invalid_presets.append(_make_preset_issue_record(raw_path, &"", path_errors))
-			var _append_path_issue: bool = issues.append("%s: %s" % [raw_path, path_errors[0]])
+			invalid_presets.append(
+				_make_preset_issue_record(
+					raw_path,
+					&"",
+					path_errors
+				)
+			)
+			var _append_path_issue: bool = issues.append(
+				"%s: %s"
+				% [raw_path, path_errors[0]]
+			)
 			continue
 		if seen_paths.has(normalized_path):
-			skipped_presets.append(_make_preset_skip_record(normalized_path, &"", "duplicate_path"))
+			skipped_presets.append(
+				_make_preset_skip_record(
+					normalized_path,
+					&"",
+					"duplicate_path"
+				)
+			)
 			continue
 
 		seen_paths[normalized_path] = true
@@ -216,29 +243,61 @@ static func _make_snapshot(
 		)
 		var report_errors: Array[String] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(json_report, "errors")
 		var preset_data: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(json_report, "data")
-		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(json_report, "ok", false):
+		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			json_report,
+			"ok",
+			false
+		):
 			var preset_id: StringName = StringName(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(preset_data, "id"))
 			if report_errors.is_empty():
 				report_errors.append("could not read preset JSON")
-			invalid_presets.append(_make_preset_issue_record(normalized_path, preset_id, report_errors))
-			var _append_report_issue: bool = issues.append("%s: %s" % [normalized_path, report_errors[0]])
+			invalid_presets.append(
+				_make_preset_issue_record(
+					normalized_path,
+					preset_id,
+					report_errors
+				)
+			)
+			var _append_report_issue: bool = issues.append(
+				"%s: %s"
+				% [normalized_path, report_errors[0]]
+			)
 			continue
 
 		var preset: GFExtensionPreset = _GF_EXTENSION_PRESET_SCRIPT.from_dictionary(preset_data, normalized_path)
 		var validation_errors: Array[String] = preset.get_validation_errors()
-		_append_unknown_preset_extension_id_errors(validation_errors, preset.extension_ids, manifest_by_id)
+		_append_unknown_preset_extension_id_errors(
+			validation_errors,
+			preset.extension_ids,
+			manifest_by_id
+		)
 		if not validation_errors.is_empty():
-			invalid_presets.append(_make_preset_issue_record(normalized_path, preset.id, validation_errors))
-			var _append_validation_issue: bool = issues.append("%s: %s" % [normalized_path, validation_errors[0]])
+			invalid_presets.append(
+				_make_preset_issue_record(
+					normalized_path,
+					preset.id,
+					validation_errors
+				)
+			)
+			var _append_validation_issue: bool = issues.append(
+				"%s: %s"
+				% [normalized_path, validation_errors[0]]
+			)
 			continue
 		if seen_ids.has(preset.id):
 			if not duplicate_ids.has(String(preset.id)):
 				var _append_duplicate_id: bool = duplicate_ids.append(String(preset.id))
-			skipped_presets.append(_make_preset_skip_record(normalized_path, preset.id, "duplicate_id"))
-			var _append_duplicate_issue: bool = issues.append("%s: duplicate preset id %s" % [
-				normalized_path,
-				String(preset.id),
-			])
+			skipped_presets.append(
+				_make_preset_skip_record(
+					normalized_path,
+					preset.id,
+					"duplicate_id"
+				)
+			)
+			var _append_duplicate_issue: bool = issues.append(
+				"%s: duplicate preset id %s"
+				% [normalized_path, String(preset.id),]
+			)
 			continue
 
 		presets.append(preset)
@@ -258,7 +317,11 @@ static func _make_snapshot(
 		"configured_paths": _normalize_extension_preset_paths(configured_paths),
 	}
 	return {
-		"ok": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "ok", false),
+		"ok": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			report,
+			"ok",
+			false
+		),
 		"presets": _duplicate_preset_array(presets),
 		"report": report,
 		"configured_paths": _normalize_extension_preset_paths(configured_paths),
@@ -295,9 +358,15 @@ static func _snapshot_matches_signature(signature: Dictionary) -> bool:
 ## @api private
 static func _duplicate_snapshot(snapshot: Dictionary) -> Dictionary:
 	var result: Dictionary = snapshot.duplicate(true)
-	result["presets"] = _duplicate_preset_array(_get_preset_array_from_value(
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(snapshot, "presets", [])
-	))
+	result["presets"] = _duplicate_preset_array(
+		_get_preset_array_from_value(
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+				snapshot,
+				"presets",
+				[]
+			)
+		)
+	)
 	result["report"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(snapshot, "report")
 	result["configured_paths"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(snapshot, "configured_paths")
 	result["signature"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(snapshot, "signature")
@@ -306,38 +375,52 @@ static func _duplicate_snapshot(snapshot: Dictionary) -> Dictionary:
 		"preset_count",
 		_get_preset_array_from_value(result["presets"]).size()
 	)
-	result["issue_count"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(snapshot, "issue_count", 0)
+	result["issue_count"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+		snapshot,
+		"issue_count",
+		0
+	)
 	return result
 
 
 ## 构造默认选择、全部关闭和全部扩展三个内置 preset。
 ## [br]
 ## @api private
-static func _get_builtin_extension_presets(
-	manifests: Array[GFExtensionManifest]
-) -> Array[GFExtensionPreset]:
+static func _get_builtin_extension_presets(manifests: Array[GFExtensionManifest]) -> Array[GFExtensionPreset]:
 	var presets: Array[GFExtensionPreset] = []
-	presets.append(_make_extension_preset({
-		"id": "gf.default",
-		"display_name": "默认选择",
-		"description": "恢复 GF 当前默认扩展选择。",
-		"extension_ids": _get_default_enabled_extension_ids_from_manifests(manifests),
-		"tags": ["builtin"],
-	}))
-	presets.append(_make_extension_preset({
-		"id": "gf.none",
-		"display_name": "全部关闭",
-		"description": "关闭所有可选 GF 扩展，只保留 kernel 与 standard 基础能力。",
-		"extension_ids": [],
-		"tags": ["builtin"],
-	}))
-	presets.append(_make_extension_preset({
-		"id": "gf.all",
-		"display_name": "全部扩展",
-		"description": "启用当前可发现的全部 GF 扩展，适合本地评估而非默认发行策略。",
-		"extension_ids": _get_all_extension_ids_from_manifests(manifests),
-		"tags": ["builtin"],
-	}))
+	presets.append(
+		_make_extension_preset(
+			{
+				"id": "gf.default",
+				"display_name": "默认选择",
+				"description": "恢复 GF 当前默认扩展选择。",
+				"extension_ids": _get_default_enabled_extension_ids_from_manifests(manifests),
+				"tags": ["builtin"],
+			}
+		)
+	)
+	presets.append(
+		_make_extension_preset(
+			{
+				"id": "gf.none",
+				"display_name": "全部关闭",
+				"description": "关闭所有可选 GF 扩展，只保留 kernel 与 standard 基础能力。",
+				"extension_ids": [],
+				"tags": ["builtin"],
+			}
+		)
+	)
+	presets.append(
+		_make_extension_preset(
+			{
+				"id": "gf.all",
+				"display_name": "全部扩展",
+				"description": "启用当前可发现的全部 GF 扩展，适合本地评估而非默认发行策略。",
+				"extension_ids": _get_all_extension_ids_from_manifests(manifests),
+				"tags": ["builtin"],
+			}
+		)
+	)
 	return presets
 
 
@@ -364,7 +447,10 @@ static func _duplicate_preset_array(presets: Array[GFExtensionPreset]) -> Array[
 ## [br]
 ## @api private
 static func _duplicate_preset(preset: GFExtensionPreset) -> GFExtensionPreset:
-	return _GF_EXTENSION_PRESET_SCRIPT.from_dictionary(preset.to_dictionary(), preset.source_path)
+	return _GF_EXTENSION_PRESET_SCRIPT.from_dictionary(
+		preset.to_dictionary(),
+		preset.source_path
+	)
 
 
 ## 跳过 null 项，并为其余 manifest 调用 duplicate_manifest() 后返回新数组。
@@ -398,9 +484,7 @@ static func _get_preset_array_from_value(value: Variant) -> Array[GFExtensionPre
 ## 收集 enabled_by_default 为 true 的 manifest ID 并返回排序去重结果。
 ## [br]
 ## @api private
-static func _get_default_enabled_extension_ids_from_manifests(
-	manifests: Array[GFExtensionManifest]
-) -> Array[String]:
+static func _get_default_enabled_extension_ids_from_manifests(manifests: Array[GFExtensionManifest]) -> Array[String]:
 	var ids: Array[String] = []
 	for manifest: GFExtensionManifest in manifests:
 		if manifest.enabled_by_default:
@@ -453,7 +537,11 @@ static func _get_unknown_enabled_ids(extension_ids: Array[String], manifest_by_i
 static func _build_manifest_map(manifests: Array[GFExtensionManifest]) -> Dictionary:
 	var result: Dictionary = {}
 	for manifest: GFExtensionManifest in manifests:
-		if manifest == null or manifest.id.strip_edges().is_empty() or result.has(manifest.id):
+		if (
+			manifest == null
+			or manifest.id.strip_edges().is_empty()
+			or result.has(manifest.id)
+		):
 			continue
 		result[manifest.id] = manifest
 	return result
@@ -545,13 +633,16 @@ static func _extension_preset_path_is_supported(path: String) -> bool:
 ## @api private
 static func _make_preset_json_reader_options(options: Dictionary = {}) -> Dictionary:
 	var reader_options: Dictionary = options.duplicate(true)
-	reader_options.merge({
-		"empty_path_error": "preset path is empty",
-		"open_error_prefix": "could not open preset",
-		"read_error_prefix": "could not read preset",
-		"parse_error_prefix": "could not parse preset JSON",
-		"root_type_error": "preset JSON root must be an object",
-	}, true)
+	reader_options.merge(
+		{
+			"empty_path_error": "preset path is empty",
+			"open_error_prefix": "could not open preset",
+			"read_error_prefix": "could not read preset",
+			"parse_error_prefix": "could not parse preset JSON",
+			"root_type_error": "preset JSON root must be an object",
+		},
+		true
+	)
 	return reader_options
 
 
@@ -563,11 +654,14 @@ static func _make_manifest_tokens(manifests: Array[GFExtensionManifest]) -> Arra
 	for manifest: GFExtensionManifest in manifests:
 		if manifest == null:
 			continue
-		tokens.append("%s|%s|%s" % [
-			manifest.id,
-			str(manifest.enabled_by_default),
-			manifest.source_path,
-		])
+		tokens.append(
+			"%s|%s|%s"
+			% [
+				manifest.id,
+				str(manifest.enabled_by_default),
+				manifest.source_path,
+			]
+		)
 	tokens.sort()
 	return tokens
 

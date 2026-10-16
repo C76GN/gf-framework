@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDragDropController" path="addons/gf/standard/input/drag_drop/gf_drag_drop_controller.gd" module="standard" extends="Node" classDigest="fffe414f2c4dbd5d98206e34b3a0f8cccbfa740d07ac4ad2621bfdbab33f16fb">
+<class name="GFDragDropController" path="addons/gf/standard/input/drag_drop/gf_drag_drop_controller.gd" module="standard" extends="Node" classDigest="8fc366c0acecb0bb67921839a57cc51c34307dbf72cfc366b7f9495ccc39dbf6">
 	<description>GFDragDropController: 可选拖放 Node 控制器。
 在 `GFDragDropUtility` 的纯数据会话与落点规则之上，补充单指针捕获、source 生命周期、
 可选拖拽层 reparent、取消和落点剪枝。它不解释 payload，不规定背包、棋盘、
@@ -21,7 +21,7 @@
 			</tags>
 		</member>
 		<member kind="signal" name="drag_moved">
-			<signature>signal drag_moved(session_id: int, position: Vector2, delta: Vector2, zone_id: StringName)</signature>
+			<signature>signal drag_moved( session_id: int, position: Vector2, delta: Vector2, zone_id: StringName )</signature>
 			<description>拖拽位置更新时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -33,7 +33,7 @@
 			</tags>
 		</member>
 		<member kind="signal" name="drag_dropped">
-			<signature>signal drag_dropped(session_id: int, zone_id: StringName, result: Dictionary)</signature>
+			<signature>signal drag_dropped( session_id: int, zone_id: StringName, result: Dictionary )</signature>
 			<description>旧会话的 pointer/source/reparent lease 已清理后同步发出。</description>
 			<tags>
 				<tag name="api">public</tag>

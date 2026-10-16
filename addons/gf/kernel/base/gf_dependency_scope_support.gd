@@ -42,7 +42,11 @@ static func _make_scope() -> Dictionary:
 ## @param lifecycle_serial: 非负值限定生命周期代次，-1 保留或清除已有代次。
 ## [br]
 ## @schema scope: {"type":"Dictionary","description":"由 _make_scope 创建，包含 architecture_ref、was_bound、released、lifecycle_serial。"}
-static func _bind_scope(scope: Dictionary, architecture: GFArchitecture, lifecycle_serial: int = -1) -> void:
+static func _bind_scope(
+	scope: Dictionary,
+	architecture: GFArchitecture,
+	lifecycle_serial: int = -1
+) -> void:
 	if architecture == null:
 		_release_scope(scope)
 		return
@@ -115,10 +119,7 @@ static func _get_architecture_or_global(scope: Dictionary, owner_label: String) 
 	var architecture: GFArchitecture = _get_architecture_or_null(scope, owner_label)
 	if architecture != null:
 		return architecture
-	if (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scope, "was_bound")
-		or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scope, "released")
-	):
+	if (_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scope, "was_bound") or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scope, "released")):
 		return null
 	return GFAutoload.get_architecture()
 
@@ -161,7 +162,11 @@ static func _is_lifecycle_active(scope: Dictionary, owner_label: String) -> bool
 ## [br]
 ## @api private
 static func _is_scope_lifecycle_current(scope: Dictionary, architecture: GFArchitecture) -> bool:
-	var lifecycle_serial: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(scope, "lifecycle_serial", -1)
+	var lifecycle_serial: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+		scope,
+		"lifecycle_serial",
+		-1
+	)
 	if lifecycle_serial < 0:
 		return true
 	return architecture.is_lifecycle_generation_active(lifecycle_serial)

@@ -26,6 +26,7 @@ enum Kind {
 	RESOURCE,
 }
 
+
 ## 后台工作生命周期状态。
 ## [br]
 ## @api public
@@ -186,7 +187,11 @@ var _worker_receives_cancellation_context: bool = false
 ## [br]
 ## @return 已完成、失败或取消时返回 true。
 func is_finished() -> bool:
-	return status == Status.COMPLETED or status == Status.FAILED or status == Status.CANCELLED
+	return (
+		status == Status.COMPLETED
+		or status == Status.FAILED
+		or status == Status.CANCELLED
+	)
 
 
 ## 获取框架拥有的只读协作取消上下文。
@@ -315,10 +320,7 @@ func get_apply_callback() -> Callable:
 ## @param context: CPU/IO 工作独占的取消上下文。
 ## [br]
 ## @param worker_receives_context: worker 是否接收 context 作为第二个参数。
-func set_cancellation_context_for_framework(
-	context: GFBackgroundWorkContext,
-	worker_receives_context: bool
-) -> void:
+func set_cancellation_context_for_framework(context: GFBackgroundWorkContext, worker_receives_context: bool) -> void:
 	_cancellation_context = context
 	_worker_receives_cancellation_context = worker_receives_context
 

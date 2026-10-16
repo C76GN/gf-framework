@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTileMetadataLayer" path="addons/gf/standard/foundation/math/gf_tile_metadata_layer.gd" module="standard" extends="GFTileMapCache" classDigest="b644b6b1a71fc51dd95772dc2ebe843ee0ab6d0902bf3d7f4f1184f5c3b52157">
+<class name="GFTileMetadataLayer" path="addons/gf/standard/foundation/math/gf_tile_metadata_layer.gd" module="standard" extends="GFTileMapCache" classDigest="1b2d3b411171b252a61cae729b7e72ca671bda44042f1bae09b5b26083efde17">
 	<description>GFTileMetadataLayer: 通用格子元数据层。
 在 Vector2i 格坐标上维护任意键值元数据，可服务于编辑器画刷、运行时标记、
 规则查询或导出流程。它只管理数据结构，不绑定 TileSet、TileMapLayer 或项目业务语义。</description>
@@ -23,7 +23,7 @@
 	</properties>
 	<methods>
 		<member kind="method" name="set_cell_value">
-			<signature>func set_cell_value(cell: Vector2i, key: StringName, value: Variant) -&gt; void:</signature>
+			<signature>func set_cell_value( cell: Vector2i, key: StringName, value: Variant ) -&gt; void:</signature>
 			<description>设置格子字段值。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -31,6 +31,7 @@
 				<tag name="param">key: 字段名。</tag>
 				<tag name="param">value: 字段值。</tag>
 				<tag name="schema">value: Variant metadata field value.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_cell_data">
@@ -44,7 +45,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="get_cell_value">
-			<signature>func get_cell_value(cell: Vector2i, key: StringName, default_value: Variant = null) -&gt; Variant:</signature>
+			<signature>func get_cell_value( cell: Vector2i, key: StringName, default_value: Variant = null ) -&gt; Variant:</signature>
 			<description>获取格子字段值。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -54,10 +55,11 @@
 				<tag name="return">字段值。</tag>
 				<tag name="schema">default_value: Variant fallback value returned when the field is missing.</tag>
 				<tag name="schema">return: Variant metadata field value or default_value.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="merge_cell_data">
-			<signature>func merge_cell_data(cell: Vector2i, data: Dictionary, overwrite: bool = true) -&gt; void:</signature>
+			<signature>func merge_cell_data( cell: Vector2i, data: Dictionary, overwrite: bool = true ) -&gt; void:</signature>
 			<description>合并格子数据。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -65,6 +67,7 @@
 				<tag name="param">data: 要合并的数据。</tag>
 				<tag name="param">overwrite: 为 false 时不覆盖已有字段。</tag>
 				<tag name="schema">data: Dictionary metadata fields merged into the cell.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="erase_cell_key">
@@ -88,7 +91,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="paint_cells">
-			<signature>func paint_cells(target_cells: Array[Vector2i], key: StringName, value: Variant) -&gt; int:</signature>
+			<signature>func paint_cells( target_cells: Array[Vector2i], key: StringName, value: Variant ) -&gt; int:</signature>
 			<description>批量为格子绘制同一个字段值。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -97,6 +100,7 @@
 				<tag name="param">value: 字段值。</tag>
 				<tag name="return">实际写入的格子数量。</tag>
 				<tag name="schema">value: Variant metadata field value painted into target cells.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="erase_cells_key">

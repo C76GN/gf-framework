@@ -97,12 +97,14 @@ static func make_limits(
 ## @schema return: Dictionary，精确包含 ok:bool、error_code:int、size_bytes:int、node_count:int；预算非法为 ERR_INVALID_PARAMETER，超限为 ERR_OUT_OF_MEMORY，值类型或循环非法为 ERR_INVALID_DATA。
 static func validate_plain_value(value: Variant, limits: Dictionary) -> Dictionary:
 	if not _limits_are_valid(limits):
-		return _make_result(false, ERR_INVALID_PARAMETER, 0, 0)
+		return _make_result(
+			false,
+			ERR_INVALID_PARAMETER,
+			0,
+			0
+		)
 
-	var state: Dictionary = {
-		"bytes": 0,
-		"nodes": 0,
-	}
+	var state: Dictionary = { "bytes": 0, "nodes": 0, }
 	var ancestors: Array[Variant] = []
 	var validation_error: Error = _inspect_value(
 		value,
@@ -143,10 +145,7 @@ static func validate_payload(
 	metadata: Dictionary,
 	limits: Dictionary
 ) -> Dictionary:
-	var payload: Dictionary = {
-		"data": data,
-		"metadata": metadata,
-	}
+	var payload: Dictionary = { "data": data, "metadata": metadata, }
 	return validate_plain_value(payload, limits)
 
 
@@ -212,22 +211,48 @@ static func _inspect_value(
 		return node_error
 
 	if value == null:
-		return _add_bytes(state, 4, _get_int(limits, "max_bytes"))
+		return _add_bytes(
+			state,
+			4,
+			_get_int(limits, "max_bytes")
+		)
 	if value is bool:
-		return _add_bytes(state, 5, _get_int(limits, "max_bytes"))
+		return _add_bytes(
+			state,
+			5,
+			_get_int(limits, "max_bytes")
+		)
 	if value is int:
-		return _add_bytes(state, 32, _get_int(limits, "max_bytes"))
+		return _add_bytes(
+			state,
+			32,
+			_get_int(limits, "max_bytes")
+		)
 	if value is float:
 		var float_value: float = value
 		if not is_finite(float_value):
 			return ERR_INVALID_DATA
-		return _add_bytes(state, 64, _get_int(limits, "max_bytes"))
+		return _add_bytes(
+			state,
+			64,
+			_get_int(limits, "max_bytes")
+		)
 	if value is String:
 		var text: String = value
-		return _add_string_bytes(text, limits, state)
+		return _add_string_bytes(
+			text,
+			limits,
+			state
+		)
 	if value is Array:
 		var array_value: Array = value
-		return _inspect_array(array_value, depth, limits, state, ancestors)
+		return _inspect_array(
+			array_value,
+			depth,
+			limits,
+			state,
+			ancestors
+		)
 	if value is Dictionary:
 		var dictionary_value: Dictionary = value
 		return _inspect_dictionary(
@@ -320,7 +345,11 @@ static func _inspect_dictionary(
 		if separator_error != OK:
 			var _discarded_separator_ancestor: Variant = ancestors.pop_back()
 			return separator_error
-		var key_error: Error = _add_string_bytes(key, limits, state)
+		var key_error: Error = _add_string_bytes(
+			key,
+			limits,
+			state
+		)
 		if key_error != OK:
 			var _discarded_string_ancestor: Variant = ancestors.pop_back()
 			return key_error
@@ -341,10 +370,7 @@ static func _inspect_dictionary(
 ## 按引用身份检查当前祖先链，只拒绝循环，其他分支复用容器不受影响。
 ## [br]
 ## @api private
-static func _contains_same_container(
-	ancestors: Array[Variant],
-	candidate: Variant
-) -> bool:
+static func _contains_same_container(ancestors: Array[Variant], candidate: Variant) -> bool:
 	for ancestor: Variant in ancestors:
 		if is_same(ancestor, candidate):
 			return true
@@ -359,10 +385,7 @@ static func _add_string_bytes(
 	limits: Dictionary,
 	state: Dictionary
 ) -> Error:
-	var maximum_string_bytes: int = _get_int(
-		limits,
-		"max_string_bytes"
-	)
+	var maximum_string_bytes: int = _get_int(limits, "max_string_bytes")
 	if value.length() > maximum_string_bytes:
 		return ERR_OUT_OF_MEMORY
 	var utf8_size: int = value.to_utf8_buffer().size()
@@ -396,10 +419,7 @@ static func _add_bytes(
 	additional_bytes: int,
 	maximum: int
 ) -> Error:
-	if (
-		additional_bytes < 0
-		or _get_int(state, "bytes") > maximum - additional_bytes
-	):
+	if (additional_bytes < 0 or _get_int(state, "bytes") > maximum - additional_bytes):
 		return ERR_OUT_OF_MEMORY
 	state["bytes"] = _get_int(state, "bytes") + additional_bytes
 	return OK
@@ -408,10 +428,7 @@ static func _add_bytes(
 ## 要求字典字段数量匹配且所有键为允许的精确 String。
 ## [br]
 ## @api private
-static func _has_exact_keys(
-	values: Dictionary,
-	expected_keys: PackedStringArray
-) -> bool:
+static func _has_exact_keys(values: Dictionary, expected_keys: PackedStringArray) -> bool:
 	if values.size() != expected_keys.size():
 		return false
 	for key_value: Variant in values.keys():

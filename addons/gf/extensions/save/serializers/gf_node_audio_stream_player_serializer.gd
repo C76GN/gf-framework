@@ -59,7 +59,11 @@ func _init() -> void:
 ## [br]
 ## @return 节点是否为 AudioStreamPlayer、AudioStreamPlayer2D 或 AudioStreamPlayer3D。
 func supports_node(node: Node) -> bool:
-	return node is AudioStreamPlayer or node is AudioStreamPlayer2D or node is AudioStreamPlayer3D
+	return (
+		node is AudioStreamPlayer
+		or node is AudioStreamPlayer2D
+		or node is AudioStreamPlayer3D
+	)
 
 
 ## 采集节点的可保存状态。
@@ -79,17 +83,20 @@ func gather(node: Node, _context: Dictionary = {}) -> Dictionary:
 	if not supports_node(node):
 		return {}
 
-	var result: Dictionary = {
-		"playing": GFVariantData.to_bool(node.call("is_playing")) if node.has_method("is_playing") else false,
-		"playback_position": GFVariantData.to_float(node.call("get_playback_position")) if node.has_method("get_playback_position") else 0.0,
-	}
-	_copy_properties_to_payload(node, result, _OPTIONAL_PROPERTIES)
+	var result: Dictionary = { "playing": GFVariantData.to_bool(node.call("is_playing")) if node.has_method("is_playing") else false, "playback_position": GFVariantData.to_float(node.call("get_playback_position")) if node.has_method("get_playback_position") else 0.0, }
+	_copy_properties_to_payload(
+		node,
+		result,
+		_OPTIONAL_PROPERTIES
+	)
 	return result
 
 
 ## 将序列化数据应用到节点。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param node: 目标节点。
 ## [br]
@@ -104,30 +111,64 @@ func gather(node: Node, _context: Dictionary = {}) -> Dictionary:
 ## @schema _context: Dictionary，调用方附加上下文；当前实现不读取。
 ## [br]
 ## @schema return: Dictionary，包含 ok: bool 与 error: String。
-func apply(node: Node, payload: Dictionary, _context: Dictionary = {}) -> Dictionary:
+func apply(
+	node: Node,
+	payload: Dictionary,
+	_context: Dictionary = {}
+) -> Dictionary:
 	if not supports_node(node):
 		return make_result(false, "Node is not AudioStreamPlayer.")
 
 	var errors: Array[String] = _validate_property_specs_payload(payload, _APPLY_PROPERTY_SPECS)
 	if not errors.is_empty():
-		return make_result(false, "; ".join(errors))
+		return make_result(
+			false,
+			"; ".join(errors)
+		)
 
-	_apply_properties_from_payload(node, payload, PackedStringArray([
-		"volume_db",
-		"pitch_scale",
-		"bus",
-		"max_distance",
-		"attenuation",
-	]))
+	_apply_properties_from_payload(
+		node,
+		payload,
+		PackedStringArray(
+			[
+				"volume_db",
+				"pitch_scale",
+				"bus",
+				"max_distance",
+				"attenuation",
+			]
+		)
+	)
 
 	var should_play: bool = GFVariantData.get_option_bool(payload, "playing")
 	var should_pause: bool = GFVariantData.get_option_bool(payload, "stream_paused")
-	if (should_play or should_pause) and node.has_method("play") and _can_start_playback(node):
-		node.call("play", maxf(GFVariantData.get_option_float(payload, "playback_position"), 0.0))
-	elif not should_play and not should_pause and node.has_method("stop"):
+	if (
+		(
+			should_play
+			or should_pause
+		)
+		and node.has_method("play")
+		and _can_start_playback(node)
+	):
+		node.call(
+			"play",
+			maxf(
+				GFVariantData.get_option_float(payload, "playback_position"),
+				0.0
+			)
+		)
+	elif (
+		not should_play
+		and not should_pause
+		and node.has_method("stop")
+	):
 		node.call("stop")
 
-	_apply_property_from_payload(node, payload, "stream_paused")
+	_apply_property_from_payload(
+		node,
+		payload,
+		"stream_paused"
+	)
 	return make_result(true)
 
 
@@ -140,4 +181,7 @@ func apply(node: Node, payload: Dictionary, _context: Dictionary = {}) -> Dictio
 func _can_start_playback(node: Object) -> bool:
 	if not _has_property(node, "stream"):
 		return true
-	return GFObjectPropertyTools.read_property(node, NodePath("stream")) != null
+	return GFObjectPropertyTools.read_property(
+		node,
+		NodePath("stream")
+	) != null

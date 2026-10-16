@@ -15,7 +15,7 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 信号 | [`marker_reached`](#member-gfconfiguredtweenaction-signals-marker_reached) | `signal marker_reached(marker_id: StringName, step_index: int, target: Object)` |
+| 信号 | [`marker_reached`](#member-gfconfiguredtweenaction-signals-marker_reached) | `signal marker_reached( marker_id: StringName, step_index: int, target: Object )` |
 | 属性 | [`target`](#member-gfconfiguredtweenaction-properties-target) | `var target: Object` |
 | 属性 | [`config`](#member-gfconfiguredtweenaction-properties-config) | `var config: GFTweenActionConfig` |
 | 属性 | [`host_node`](#member-gfconfiguredtweenaction-properties-host_node) | `var host_node: Node` |
@@ -43,7 +43,7 @@
 - 首次版本：`3.9.0`
 
 ```gdscript
-signal marker_reached(marker_id: StringName, step_index: int, target: Object)
+signal marker_reached( marker_id: StringName, step_index: int, target: Object )
 ```
 
 正向到达标记时发出；定位、倒放和立即完成不补发标记。

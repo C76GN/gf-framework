@@ -28,7 +28,11 @@ const _PREVIEW_SIZE: Vector2i = Vector2i(480, 320)
 ## 二维和三维样机共用的显示颜色。
 ## [br]
 ## @api private
-const _SAMPLE_COLOR: Color = Color(0.35, 0.72, 1.0)
+const _SAMPLE_COLOR: Color = Color(
+	0.35,
+	0.72,
+	1.0
+)
 
 ## 读取冻结步骤字典中的可选字段。
 ## [br]
@@ -221,7 +225,11 @@ func configure(config: Resource, kind: int = 0) -> void:
 ## @param registry: 样机目录；null 使用共享目录，租约绑定此次实际目录。
 ## [br]
 ## @return: 成功建立隔离样机时为 true。
-func configure_adapter(config: Resource, adapter_id: StringName, registry: GFTweenPreviewRegistry = null) -> bool:
+func configure_adapter(
+	config: Resource,
+	adapter_id: StringName,
+	registry: GFTweenPreviewRegistry = null
+) -> bool:
 	_generation += 1
 	var generation: int = _generation
 	_clear_session()
@@ -230,7 +238,7 @@ func configure_adapter(config: Resource, adapter_id: StringName, registry: GFTwe
 	_initial_values.clear()
 	_config = config
 	_error = ""
-	var selected_registry: GFTweenPreviewRegistry = registry if registry != null else GFTweenPreviewRegistry.get_shared()
+	var selected_registry: GFTweenPreviewRegistry = (registry if registry != null else GFTweenPreviewRegistry.get_shared())
 	var entry: Dictionary = selected_registry._get_entry(adapter_id)
 	if generation != _generation:
 		return false
@@ -249,11 +257,25 @@ func configure_adapter(config: Resource, adapter_id: StringName, registry: GFTwe
 	_adapter = entry["adapter"]
 	var created: Control = _adapter._create_sample()
 	if not _has_adapter_lease(generation):
-		if is_instance_valid(created) and created.get_parent() == null and not created.is_inside_tree():
+		if (
+			is_instance_valid(created)
+			and created.get_parent() == null
+			and not created.is_inside_tree()
+		):
 			created.queue_free()
 		return false
-	if not is_instance_valid(created) or created.get_parent() != null or created.is_inside_tree() or created.is_queued_for_deletion() or not _is_bounded_sample(created):
-		if is_instance_valid(created) and created.get_parent() == null and not created.is_inside_tree():
+	if (
+		not is_instance_valid(created)
+		or created.get_parent() != null
+		or created.is_inside_tree()
+		or created.is_queued_for_deletion()
+		or not _is_bounded_sample(created)
+	):
+		if (
+			is_instance_valid(created)
+			and created.get_parent() == null
+			and not created.is_inside_tree()
+		):
 			created.queue_free()
 		_fail_custom("Adapters must return a new unparented Control with at most 128 nodes and 8 levels.")
 		return false
@@ -263,7 +285,11 @@ func configure_adapter(config: Resource, adapter_id: StringName, registry: GFTwe
 	_sample_root = root
 	_adapter_sample = created
 	add_child(root)
-	if not _has_adapter_lease(generation) or not is_instance_valid(root) or root.is_queued_for_deletion():
+	if (
+		not _has_adapter_lease(generation)
+		or not is_instance_valid(root)
+		or root.is_queued_for_deletion()
+	):
 		return false
 	root.add_child(created)
 	if not _apply_numeric_values(_initial_values, generation):
@@ -299,7 +325,13 @@ func prepare() -> bool:
 	var controlled: GFTweenPlaybackPlan = null
 	if captured.controlled:
 		var baseline: Dictionary = GFTweenPreviewPlan.build_controlled_baseline(captured.steps, _initial_values)
-		controlled = GFTweenPlaybackPlan.capture_data(captured.steps, baseline, captured.loop_count, 1.0, captured.ping_pong)
+		controlled = GFTweenPlaybackPlan.capture_data(
+			captured.steps,
+			baseline,
+			captured.loop_count,
+			1.0,
+			captured.ping_pong
+		)
 		if not controlled.error.is_empty():
 			_fail(controlled.error)
 			return false
@@ -319,10 +351,19 @@ func prepare() -> bool:
 		if not _build_session_tween():
 			return false
 		var _still_playing: bool = _tween.custom_step(0.0)
-	if generation != _generation or _plan != captured or not _is_sample_available():
+	if (
+		generation != _generation
+		or _plan != captured
+		or not _is_sample_available()
+	):
 		return false
 	_set_state(&"ready")
-	return generation == _generation and _plan == captured and _state == &"ready" and _is_sample_available()
+	return (
+		generation == _generation
+		and _plan == captured
+		and _state == &"ready"
+		and _is_sample_available()
+	)
 
 
 ## 从准备或暂停继续同一冻结会话；定位到末端后继续会执行完成恢复策略。
@@ -342,7 +383,16 @@ func play() -> bool:
 		_generation += 1
 		var paused_generation: int = _generation
 		_error = ""
-		if (_direction > 0.0 and _elapsed_seconds >= _plan.duration_seconds) or (_direction < 0.0 and _elapsed_seconds <= 0.0):
+		if (
+			(
+				_direction > 0.0
+				and _elapsed_seconds >= _plan.duration_seconds
+			)
+			or (
+				_direction < 0.0
+				and _elapsed_seconds <= 0.0
+			)
+		):
 			_finish_playback()
 			return paused_generation == _generation
 		if _controlled_plan == null and not is_instance_valid(_tween):
@@ -426,23 +476,45 @@ func advance(delta: float) -> void:
 	if not is_finite(delta) or delta < 0.0:
 		_fail("Preview time delta must be finite and non-negative.")
 		return
-	if not _is_sample_available() or (_controlled_plan == null and not is_instance_valid(_tween)):
+	if (
+		not _is_sample_available()
+		or (
+			_controlled_plan == null
+			and not is_instance_valid(_tween)
+		)
+	):
 		_fail("Preview sample or playback session is no longer available.")
 		return
 	var generation: int = _generation
 	if _controlled_plan != null:
-		_elapsed_seconds = clampf(_elapsed_seconds + delta * _direction, 0.0, get_duration_seconds())
+		_elapsed_seconds = clampf(
+			_elapsed_seconds + delta * _direction,
+			0.0,
+			get_duration_seconds()
+		)
 		_apply_controlled_sample(_elapsed_seconds)
 		if generation != _generation:
 			return
-		if (_direction > 0.0 and _elapsed_seconds >= get_duration_seconds()) or (_direction < 0.0 and _elapsed_seconds <= 0.0):
+		if (
+			(
+				_direction > 0.0
+				and _elapsed_seconds >= get_duration_seconds()
+			)
+			or (
+				_direction < 0.0
+				and _elapsed_seconds <= 0.0
+			)
+		):
 			_finish_playback()
 		return
 	var tween: Tween = _tween
 	var still_playing: bool = tween.custom_step(delta)
 	if generation != _generation or _tween != tween:
 		return
-	_elapsed_seconds = minf(_elapsed_seconds + delta, get_duration_seconds())
+	_elapsed_seconds = minf(
+		_elapsed_seconds + delta,
+		get_duration_seconds()
+	)
 	_request_render()
 	if not still_playing or tween.get_loops_left() == 0:
 		_finish_playback()
@@ -463,7 +535,9 @@ func set_initial_value(property_name: StringName, value: Variant) -> bool:
 	if _adapter_id != &"":
 		return _set_numeric_initial(property_name, value)
 	var validation_error: String = GFTweenPreviewPlan.validate_initial_value(
-		property_name, value, _target_kind
+		property_name,
+		value,
+		_target_kind
 	)
 	if not validation_error.is_empty():
 		_fail(validation_error)
@@ -562,11 +636,18 @@ func seek(time_seconds: float) -> bool:
 			return false
 		if _numeric_timeline == null:
 			return _reject_seek("Prepare numeric preview before inspecting its captured session.")
-		if not is_finite(time_seconds) or time_seconds < 0.0 or time_seconds > get_duration_seconds():
+		if (
+			not is_finite(time_seconds)
+			or time_seconds < 0.0
+			or time_seconds > get_duration_seconds()
+		):
 			return _reject_seek("Inspection time must be finite and within the captured timeline.")
 		_generation += 1
 		var numeric_generation: int = _generation
-		if not _apply_numeric_values(_numeric_timeline.sample(time_seconds), numeric_generation):
+		if not _apply_numeric_values(
+			_numeric_timeline.sample(time_seconds),
+			numeric_generation
+		):
 			return false
 		_elapsed_seconds = time_seconds
 		_error = ""
@@ -574,7 +655,11 @@ func seek(time_seconds: float) -> bool:
 		return _accept_numeric_notification(numeric_generation)
 	if _plan == null or not _is_sample_available():
 		return _reject_seek("Prepare preview before inspecting a time in its captured session.")
-	if not is_finite(time_seconds) or time_seconds < 0.0 or time_seconds > _plan.duration_seconds:
+	if (
+		not is_finite(time_seconds)
+		or time_seconds < 0.0
+		or time_seconds > _plan.duration_seconds
+	):
 		return _reject_seek("Inspection time must be finite and within the captured timeline.")
 	_generation += 1
 	var generation: int = _generation
@@ -728,10 +813,19 @@ func _clear_adapter() -> void:
 ## [br]
 ## @api private
 func _has_adapter_lease(generation: int) -> bool:
-	if generation != _generation or _adapter_id == &"" or _adapter == null or _adapter_registry == null:
+	if (
+		generation != _generation
+		or _adapter_id == &""
+		or _adapter == null
+		or _adapter_registry == null
+	):
 		return false
 	var valid: bool = _adapter_registry._has_lease(_adapter_id, _adapter_lease)
-	return valid and generation == _generation and _adapter != null
+	return (
+		valid
+		and generation == _generation
+		and _adapter != null
+	)
 
 
 ## 数值提交要求视口和样机仍处于当前工具子树，且均未排队释放。
@@ -739,8 +833,11 @@ func _has_adapter_lease(generation: int) -> bool:
 ## @api private
 func _is_numeric_available(generation: int) -> bool:
 	return (
-		_has_adapter_lease(generation) and is_inside_tree() and not is_queued_for_deletion()
-		and is_instance_valid(_adapter_sample) and _adapter_sample.is_inside_tree()
+		_has_adapter_lease(generation)
+		and is_inside_tree()
+		and not is_queued_for_deletion()
+		and is_instance_valid(_adapter_sample)
+		and _adapter_sample.is_inside_tree()
 		and not _adapter_sample.is_queued_for_deletion()
 		and _adapter_sample.get_parent() == _sample_root
 	)
@@ -770,7 +867,12 @@ func _is_bounded_sample(sample: Control) -> bool:
 		var node: Node = pending.pop_back()
 		var depth: int = depths.pop_back()
 		count += 1
-		if count > 128 or depth > 8 or not is_instance_valid(node) or node.is_queued_for_deletion():
+		if (
+			count > 128
+			or depth > 8
+			or not is_instance_valid(node)
+			or node.is_queued_for_deletion()
+		):
 			return false
 		if node.get_child_count() > 128 - count - pending.size():
 			return false
@@ -795,7 +897,10 @@ func _apply_numeric_values(values: Dictionary, generation: int) -> bool:
 	var sample: Control = _adapter_sample
 	var adapter: GFTweenPreviewAdapter = _adapter
 	_numeric_values = values.duplicate()
-	adapter._apply_sample(sample, values.duplicate())
+	adapter._apply_sample(
+		sample,
+		values.duplicate()
+	)
 	if generation != _generation:
 		return false
 	if not _is_numeric_available(generation) or _adapter_sample != sample:
@@ -822,7 +927,10 @@ func _prepare_numeric() -> bool:
 	if not captured.error.is_empty():
 		_fail_custom(captured.error, captured.diagnostic)
 		return false
-	var timeline: GFTweenNumericTimeline = GFTweenNumericTimeline.capture(captured.get_numeric_definition(), _numeric_records)
+	var timeline: GFTweenNumericTimeline = GFTweenNumericTimeline.capture(
+		captured.get_numeric_definition(),
+		_numeric_records
+	)
 	if not timeline.get_error().is_empty():
 		_fail_custom(timeline.get_error())
 		return false
@@ -830,10 +938,17 @@ func _prepare_numeric() -> bool:
 	_numeric_timeline = timeline
 	_restore_on_finish = captured.restore_on_finish
 	_error = ""
-	if not _apply_numeric_values(timeline.sample(0.0), generation):
+	if not _apply_numeric_values(
+		timeline.sample(0.0),
+		generation
+	):
 		return false
 	_set_state(&"ready")
-	if generation != _generation or _plan != captured or _state != &"ready":
+	if (
+		generation != _generation
+		or _plan != captured
+		or _state != &"ready"
+	):
 		return false
 	if not _is_numeric_available(generation):
 		if generation == _generation:
@@ -855,7 +970,16 @@ func _play_numeric() -> bool:
 		_generation += 1
 		var paused_generation: int = _generation
 		_error = ""
-		if (_direction > 0.0 and _elapsed_seconds >= get_duration_seconds()) or (_direction < 0.0 and _elapsed_seconds <= 0.0):
+		if (
+			(
+				_direction > 0.0
+				and _elapsed_seconds >= get_duration_seconds()
+			)
+			or (
+				_direction < 0.0
+				and _elapsed_seconds <= 0.0
+			)
+		):
 			return _finish_numeric(paused_generation)
 		_set_state(&"playing")
 		return _accept_numeric_notification(paused_generation)
@@ -865,7 +989,10 @@ func _play_numeric() -> bool:
 	_generation += 1
 	var generation: int = _generation
 	var captured: GFTweenPreviewPlan = _plan
-	if not _apply_numeric_values(_numeric_timeline.sample(0.0), generation):
+	if not _apply_numeric_values(
+		_numeric_timeline.sample(0.0),
+		generation
+	):
 		return false
 	_set_state(&"playing")
 	return _accept_numeric_notification(generation) and _plan == captured
@@ -882,14 +1009,34 @@ func _advance_numeric(delta: float) -> void:
 		return
 	if _state != &"playing":
 		return
-	if not is_finite(delta) or delta < 0.0 or _numeric_timeline == null:
+	if (
+		not is_finite(delta)
+		or delta < 0.0
+		or _numeric_timeline == null
+	):
 		_fail_custom("Numeric preview requires finite nonnegative time and a captured timeline.")
 		return
-	var next_time: float = clampf(_elapsed_seconds + delta * _direction, 0.0, get_duration_seconds())
-	if not _apply_numeric_values(_numeric_timeline.sample(next_time), generation):
+	var next_time: float = clampf(
+		_elapsed_seconds + delta * _direction,
+		0.0,
+		get_duration_seconds()
+	)
+	if not _apply_numeric_values(
+		_numeric_timeline.sample(next_time),
+		generation
+	):
 		return
 	_elapsed_seconds = next_time
-	if (_direction > 0.0 and next_time >= get_duration_seconds()) or (_direction < 0.0 and next_time <= 0.0):
+	if (
+		(
+			_direction > 0.0
+			and next_time >= get_duration_seconds()
+		)
+		or (
+			_direction < 0.0
+			and next_time <= 0.0
+		)
+	):
 		var _finished: bool = _finish_numeric(generation)
 
 
@@ -954,6 +1101,7 @@ func _invalidate_numeric(message: String) -> void:
 	_error = message
 	_set_state(&"error")
 
+
 ## 按当前目标类型创建隔离的二维、UI 或三维样机。
 ## [br]
 ## @api private
@@ -963,9 +1111,13 @@ func _build_sample() -> void:
 	add_child(_sample_root)
 	if _target_kind == 0:
 		var polygon: Polygon2D = Polygon2D.new()
-		polygon.polygon = PackedVector2Array([
-			Vector2(-24.0, -20.0), Vector2(32.0, 0.0), Vector2(-24.0, 20.0),
-		])
+		polygon.polygon = PackedVector2Array(
+			[
+				Vector2(-24.0, -20.0),
+				Vector2(32.0, 0.0),
+				Vector2(-24.0, 20.0),
+			]
+		)
 		polygon.color = _SAMPLE_COLOR
 		_target = polygon
 	elif _target_kind == 1:
@@ -984,12 +1136,23 @@ func _build_sample() -> void:
 		mesh_instance.material_override = material
 		spatial.add_child(mesh_instance)
 		var camera: Camera3D = Camera3D.new()
-		var camera_position: Vector3 = Vector3(3.5, 2.5, 5.0)
-		camera.transform = Transform3D(Basis.looking_at(-camera_position), camera_position)
+		var camera_position: Vector3 = Vector3(
+			3.5,
+			2.5,
+			5.0
+		)
+		camera.transform = Transform3D(
+			Basis.looking_at(-camera_position),
+			camera_position
+		)
 		camera.current = true
 		_sample_root.add_child(camera)
 		var light: DirectionalLight3D = DirectionalLight3D.new()
-		light.rotation_degrees = Vector3(-35.0, -30.0, 0.0)
+		light.rotation_degrees = Vector3(
+			-35.0,
+			-30.0,
+			0.0
+		)
 		_sample_root.add_child(light)
 	_target.name = "PreviewTarget"
 	_sample_root.add_child(_target)
@@ -1032,8 +1195,11 @@ func _clear_session() -> void:
 ## @api private
 func _is_sample_available() -> bool:
 	return (
-		is_inside_tree() and not is_queued_for_deletion()
-		and is_instance_valid(_target) and _target.is_inside_tree() and not _target.is_queued_for_deletion()
+		is_inside_tree()
+		and not is_queued_for_deletion()
+		and is_instance_valid(_target)
+		and _target.is_inside_tree()
+		and not _target.is_queued_for_deletion()
 	)
 
 
@@ -1087,8 +1253,15 @@ func _restore_initial_values() -> void:
 	for key: Variant in initial_values:
 		if key is String:
 			var property_name: String = key
-			target.set(property_name, initial_values[property_name])
-			if generation != _generation or not is_instance_valid(target) or target != _target:
+			target.set(
+				property_name,
+				initial_values[property_name]
+			)
+			if (
+				generation != _generation
+				or not is_instance_valid(target)
+				or target != _target
+			):
 				return
 	_request_render()
 
@@ -1100,7 +1273,10 @@ func _apply_instant_step(step: Dictionary) -> void:
 	var property_path: NodePath = _step_path(step)
 	var value: Variant = step.get("target_value")
 	if _step_bool(step, "as_relative"):
-		value = _relative_value(_target.get_indexed(property_path), value)
+		value = _relative_value(
+			_target.get_indexed(property_path),
+			value
+		)
 	_target.set_indexed(property_path, value)
 
 
@@ -1108,7 +1284,16 @@ func _apply_instant_step(step: Dictionary) -> void:
 ## [br]
 ## @api private
 func _relative_value(current: Variant, next: Variant) -> Variant:
-	if (current is int or current is float) and (next is int or next is float):
+	if (
+		(
+			current is int
+			or current is float
+		)
+		and (
+			next is int
+			or next is float
+		)
+	):
 		return _number_value(current) + _number_value(next)
 	if current is Vector2 and next is Vector2:
 		var current_vector: Vector2 = current
@@ -1150,8 +1335,15 @@ func _apply_controlled_sample(time_seconds: float) -> void:
 	for key: Variant in values:
 		if key is String:
 			var property_name: String = key
-			target.set(property_name, values[key])
-			if generation != _generation or not is_instance_valid(target) or target != _target:
+			target.set(
+				property_name,
+				values[key]
+			)
+			if (
+				generation != _generation
+				or not is_instance_valid(target)
+				or target != _target
+			):
 				return
 	_request_render()
 
@@ -1249,7 +1441,10 @@ func _number_value(value: Variant) -> float:
 func _on_size_changed() -> void:
 	if not is_inside_tree():
 		return
-	canvas_transform = Transform2D(0.0, Vector2(size) * 0.5)
+	canvas_transform = Transform2D(
+		0.0,
+		Vector2(size) * 0.5
+	)
 	if _adapter_id != &"" and _sample_root is Control:
 		var root: Control = _sample_root
 		root.position = -Vector2(size) * 0.5

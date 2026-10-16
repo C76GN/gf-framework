@@ -21,7 +21,7 @@
 | 方法 | [`get_serializer`](#member-gfnodeserializerregistry-methods-get_serializer) | `func get_serializer(serializer_id: StringName) -> GFNodeSerializer:` |
 | 方法 | [`get_serializers_for_node`](#member-gfnodeserializerregistry-methods-get_serializers_for_node) | `func get_serializers_for_node(node: Node) -> Array[GFNodeSerializer]:` |
 | 方法 | [`gather_node`](#member-gfnodeserializerregistry-methods-gather_node) | `func gather_node(node: Node, context: Dictionary = {}) -> Array[Dictionary]:` |
-| 方法 | [`apply_node`](#member-gfnodeserializerregistry-methods-apply_node) | `func apply_node(node: Node, serializer_payloads: Array, context: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`apply_node`](#member-gfnodeserializerregistry-methods-apply_node) | `func apply_node( node: Node, serializer_payloads: Array, context: Dictionary = {} ) -> Dictionary:` |
 
 ## 方法
 
@@ -144,9 +144,10 @@ func gather_node(node: Node, context: Dictionary = {}) -> Array[Dictionary]:
 ### `apply_node`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func apply_node(node: Node, serializer_payloads: Array, context: Dictionary = {}) -> Dictionary:
+func apply_node( node: Node, serializer_payloads: Array, context: Dictionary = {} ) -> Dictionary:
 ```
 
 应用节点序列化片段。

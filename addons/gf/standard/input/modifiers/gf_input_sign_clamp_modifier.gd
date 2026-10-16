@@ -58,6 +58,8 @@ enum AllowedSign {
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param value: 要写入或修改的值。
 ## [br]
 ## @param _event: 原始输入事件，默认实现不直接使用。
@@ -65,7 +67,11 @@ enum AllowedSign {
 ## @param _action: 当前输入动作配置，默认实现不直接使用。
 ## [br]
 ## @return 符号过滤后的二维输入值。
-func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = null) -> Vector2:
+func modify(
+	value: Vector2,
+	_event: InputEvent = null,
+	_action: GFInputAction = null
+) -> Vector2:
 	return Vector2(
 		_apply_sign(value.x) if apply_x else value.x,
 		_apply_sign(value.y) if apply_y else value.y
@@ -76,6 +82,8 @@ func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = 
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param value: 要写入或修改的值。
 ## [br]
 ## @param _event: 原始输入事件，默认实现不直接使用。
@@ -83,7 +91,11 @@ func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = 
 ## @param _action: 当前输入动作配置，默认实现不直接使用。
 ## [br]
 ## @return 符号过滤后的三维输入值。
-func modify_3d(value: Vector3, _event: InputEvent = null, _action: GFInputAction = null) -> Vector3:
+func modify_3d(
+	value: Vector3,
+	_event: InputEvent = null,
+	_action: GFInputAction = null
+) -> Vector3:
 	return Vector3(
 		_apply_sign(value.x) if apply_x else value.x,
 		_apply_sign(value.y) if apply_y else value.y,

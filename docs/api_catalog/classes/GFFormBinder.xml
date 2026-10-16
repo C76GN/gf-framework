@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFFormBinder" path="addons/gf/standard/utilities/ui/gf_form_binder.gd" module="standard" extends="RefCounted" classDigest="1940865ba2009f2cab7edf4591f7de84c5853ecc3af5e0ae50e7b9465d8c878c">
+<class name="GFFormBinder" path="addons/gf/standard/utilities/ui/gf_form_binder.gd" module="standard" extends="RefCounted" classDigest="03616ac2c299bd0b86020c008e2d03f7e5d4ad698b4fda829bc4cc967e3f9bc7">
 	<description>GFFormBinder: 轻量 Control 表单读写绑定器。
 将 StringName 字段映射到 Control 节点，提供批量 read/write 和变化信号。</description>
 	<tags>
@@ -24,7 +24,7 @@
 	<properties />
 	<methods>
 		<member kind="method" name="bind_field">
-			<signature>func bind_field(key: StringName, control: Control, default_value: Variant = null) -&gt; void:</signature>
+			<signature>func bind_field( key: StringName, control: Control, default_value: Variant = null ) -&gt; void:</signature>
 			<description>绑定字段到控件。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -32,6 +32,7 @@
 				<tag name="param">control: 控件节点。</tag>
 				<tag name="param">default_value: 控件失效或读取失败时的默认值。</tag>
 				<tag name="schema">default_value: Variant，控件失效或读取失败时返回的默认值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unbind_field">

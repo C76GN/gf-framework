@@ -39,7 +39,7 @@
 | 方法 | [`duplicate_rule`](#member-gfvalidationconstraintrule-methods-duplicate_rule) | `func duplicate_rule() -> GFValidationRule:` |
 | 方法 | [`describe`](#member-gfvalidationconstraintrule-methods-describe) | `func describe() -> Dictionary:` |
 | 方法 | [`constraint_kind_to_name`](#member-gfvalidationconstraintrule-methods-constraint_kind_to_name) | `static func constraint_kind_to_name(value: ConstraintKind) -> String:` |
-| 方法 | [`_validate`](#member-gfvalidationconstraintrule-methods-_validate) | `func _validate(_target: Variant, _report: GFValidationReport, _context: Dictionary) -> Variant:` |
+| 方法 | [`_validate`](#member-gfvalidationconstraintrule-methods-_validate) | `func _validate( _target: Variant, _report: GFValidationReport, _context: Dictionary ) -> Variant:` |
 
 ## 枚举
 
@@ -451,7 +451,7 @@ static func constraint_kind_to_name(value: ConstraintKind) -> String:
 - 首次版本：`6.0.0`
 
 ```gdscript
-func _validate(_target: Variant, _report: GFValidationReport, _context: Dictionary) -> Variant:
+func _validate( _target: Variant, _report: GFValidationReport, _context: Dictionary ) -> Variant:
 ```
 
 执行约束校验逻辑。

@@ -32,12 +32,18 @@ signal work_started(task: GFBackgroundWorkTask)
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param task: 工作记录。
 ## [br]
 ## @param progress: 当前进度。
 ## [br]
 ## @param message: 进度说明。
-signal work_progressed(task: GFBackgroundWorkTask, progress: float, message: String)
+signal work_progressed(
+	task: GFBackgroundWorkTask,
+	progress: float,
+	message: String
+)
 
 ## 工作完成时发出。
 ## [br]
@@ -320,10 +326,7 @@ func set_resource_broker(broker: GFResourceBroker) -> Error:
 ## @param max_pending_requests: Broker 等待 admission 的不同请求上限。
 ## [br]
 ## @return 创建的 Broker；存在活动资源请求时返回 null。
-func setup_standalone_resource_broker(
-	max_active_requests: int = 4,
-	max_pending_requests: int = 256
-) -> GFResourceBroker:
+func setup_standalone_resource_broker(max_active_requests: int = 4, max_pending_requests: int = 256) -> GFResourceBroker:
 	if not _resource_requests.is_empty():
 		return null
 	var broker: GFResourceBroker = _RESOURCE_BROKER_SCRIPT.new()
@@ -346,6 +349,7 @@ func setup_standalone_resource_broker(
 ## @return 已绑定的 Broker；未配置时返回 null。
 func get_resource_broker() -> GFResourceBroker:
 	return _resource_broker
+
 
 ## 提交 CPU 纯数据后台工作。
 ## [br]
@@ -372,7 +376,13 @@ func submit_cpu_work(
 	apply_callback: Callable = Callable(),
 	options: Dictionary = {}
 ) -> GFBackgroundWorkTask:
-	return _submit_threaded_work(GFBackgroundWorkTask.Kind.CPU, worker, input_data, apply_callback, options)
+	return _submit_threaded_work(
+		GFBackgroundWorkTask.Kind.CPU,
+		worker,
+		input_data,
+		apply_callback,
+		options
+	)
 
 
 ## 提交 IO 纯数据后台工作。
@@ -400,7 +410,13 @@ func submit_io_work(
 	apply_callback: Callable = Callable(),
 	options: Dictionary = {}
 ) -> GFBackgroundWorkTask:
-	return _submit_threaded_work(GFBackgroundWorkTask.Kind.IO, worker, input_data, apply_callback, options)
+	return _submit_threaded_work(
+		GFBackgroundWorkTask.Kind.IO,
+		worker,
+		input_data,
+		apply_callback,
+		options
+	)
 
 
 ## 提交 ResourceLoader 后台资源加载。
@@ -424,7 +440,12 @@ func submit_resource_load(
 	apply_callback: Callable = Callable(),
 	options: Dictionary = {}
 ) -> GFBackgroundWorkTask:
-	var task: GFBackgroundWorkTask = _create_task(GFBackgroundWorkTask.Kind.RESOURCE, Callable(), apply_callback, options)
+	var task: GFBackgroundWorkTask = _create_task(
+		GFBackgroundWorkTask.Kind.RESOURCE,
+		Callable(),
+		apply_callback,
+		options
+	)
 	task.resource_path = path
 	task.resource_type_hint = type_hint
 
@@ -451,10 +472,7 @@ func submit_resource_load(
 ## [br]
 ## @return 取消成功返回 true。
 func cancel_work(work_id: StringName) -> bool:
-	return _cancel_work_with_reason(
-		work_id,
-		GFBackgroundWorkContext.CancellationReason.CANCEL_WORK
-	)
+	return _cancel_work_with_reason(work_id, GFBackgroundWorkContext.CancellationReason.CANCEL_WORK)
 
 
 ## 取消全部未完成工作。
@@ -492,6 +510,8 @@ func is_paused() -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param work_id: 工作 ID。
 ## [br]
 ## @param progress: 当前进度。
@@ -499,12 +519,24 @@ func is_paused() -> bool:
 ## @param message: 进度说明。
 ## [br]
 ## @return 更新成功返回 true。
-func update_work_progress(work_id: StringName, progress: float, message: String = "") -> bool:
+func update_work_progress(
+	work_id: StringName,
+	progress: float,
+	message: String = ""
+) -> bool:
 	var task: GFBackgroundWorkTask = get_task(work_id)
 	if task == null or task.is_finished():
 		return false
-	task.progress = clampf(progress, 0.0, 1.0)
-	work_progressed.emit(task, task.progress, message)
+	task.progress = clampf(
+		progress,
+		0.0,
+		1.0
+	)
+	work_progressed.emit(
+		task,
+		task.progress,
+		message
+	)
 	return true
 
 
@@ -540,10 +572,7 @@ func clear_all() -> void:
 	for task_variant: Variant in _tasks.values():
 		var task: GFBackgroundWorkTask = _as_task(task_variant)
 		if task != null and not task.is_finished():
-			_request_task_cancellation(
-				task,
-				GFBackgroundWorkContext.CancellationReason.CLEAR_ALL
-			)
+			_request_task_cancellation(task, GFBackgroundWorkContext.CancellationReason.CLEAR_ALL)
 			task.cancel_requested = true
 			if task.kind == GFBackgroundWorkTask.Kind.RESOURCE:
 				_release_resource_operation_for_task(task, &"background_work_clear_all")
@@ -576,7 +605,11 @@ func get_debug_snapshot() -> Dictionary:
 		"queued_count": _queued_thread_tasks.size(),
 		"running_thread_count": _active_thread_tasks.size(),
 		"resource_request_count": _resource_requests.size(),
-		"resource_draining_count": GFVariantData.get_option_int(broker_snapshot, "draining_count", 0),
+		"resource_draining_count": GFVariantData.get_option_int(
+			broker_snapshot,
+			"draining_count",
+			0
+		),
 		"apply_count": _apply_queue.size(),
 		"finished_count": _finished_tasks.size(),
 		"is_paused": _paused,
@@ -607,12 +640,24 @@ func _submit_threaded_work(
 	apply_callback: Callable,
 	options: Dictionary
 ) -> GFBackgroundWorkTask:
-	var task: GFBackgroundWorkTask = _create_task(kind, worker, apply_callback, options)
+	var task: GFBackgroundWorkTask = _create_task(
+		kind,
+		worker,
+		apply_callback,
+		options
+	)
 	if not worker.is_valid():
 		_fail_task(task, "[GFBackgroundWorkUtility][background_work_utility.worker_invalid] Cannot submit background work: worker is invalid.")
 		return task
 
-	var allow_payload_objects: bool = allow_object_payloads or GFVariantData.get_option_bool(options, "allow_object_payloads", false)
+	var allow_payload_objects: bool = (
+		allow_object_payloads
+		or GFVariantData.get_option_bool(
+			options,
+			"allow_object_payloads",
+			false
+		)
+	)
 	if not allow_payload_objects and not _is_thread_payload_safe(input_data):
 		_fail_task(task, "[GFBackgroundWorkUtility][background_work_utility.payload_not_plain] Cannot submit background work: payload must contain only plain Variant data.")
 		return task
@@ -622,26 +667,30 @@ func _submit_threaded_work(
 		false
 	)
 	if pass_cancellation_context and worker.get_argument_count() != 2:
-		_fail_task(
-			task,
-			"[GFBackgroundWorkUtility][background_work_utility.cancellation_worker_arity] Cannot submit background work: worker must accept two arguments when cancellation context is enabled."
-		)
+		_fail_task(task, "[GFBackgroundWorkUtility][background_work_utility.cancellation_worker_arity] Cannot submit background work: worker must accept two arguments when cancellation context is enabled.")
 		return task
 	var cancellation_context: GFBackgroundWorkContext = GFBackgroundWorkContext.new()
 	var context_error: Error = cancellation_context.configure_for_framework(task.work_id)
 	if context_error != OK:
-		_fail_task(task, "[GFBackgroundWorkUtility][background_work_utility.cancellation_context_creation_failed] Cannot create cancellation context: %d." % context_error)
+		_fail_task(
+			task,
+			"[GFBackgroundWorkUtility][background_work_utility.cancellation_context_creation_failed] Cannot create cancellation context: %d." % context_error
+		)
 		return task
 	task.input_data = GFVariantData.duplicate_variant(input_data)
 	if not _register_task(task):
 		_fail_task(task, "[GFBackgroundWorkUtility][background_work_utility.work_id_duplicate] Cannot submit background work: work ID already exists.")
 		return task
-	task.set_cancellation_context_for_framework(
-		cancellation_context,
-		pass_cancellation_context
-	)
+	task.set_cancellation_context_for_framework(cancellation_context, pass_cancellation_context)
 
-	_insert_queued_thread_task(task, GFVariantData.get_option_bool(options, "front", false))
+	_insert_queued_thread_task(
+		task,
+		GFVariantData.get_option_bool(
+			options,
+			"front",
+			false
+		)
+	)
 	work_queued.emit(task)
 	_start_queued_thread_tasks()
 	return task
@@ -662,8 +711,15 @@ func _create_task(
 	task.kind = kind
 	task.work_id = GFVariantData.get_option_string_name(options, "id")
 	if task.work_id == &"":
-		task.work_id = StringName("%s:%d" % [GFBackgroundWorkTask.kind_name(kind), _work_serial])
-	task.priority = GFVariantData.get_option_int(options, "priority", 0)
+		task.work_id = StringName(
+			"%s:%d"
+			% [GFBackgroundWorkTask.kind_name(kind), _work_serial]
+		)
+	task.priority = GFVariantData.get_option_int(
+		options,
+		"priority",
+		0
+	)
 	task.metadata = GFVariantData.get_option_dictionary(options, "metadata")
 	task.created_msec = _get_now_msec()
 	task.set_internal_callbacks(worker, apply_callback)
@@ -675,7 +731,11 @@ func _create_task(
 ## @api private
 ## [br]
 func _register_task(task: GFBackgroundWorkTask) -> bool:
-	if task == null or task.work_id == &"" or _tasks.has(task.work_id):
+	if (
+		task == null
+		or task.work_id == &""
+		or _tasks.has(task.work_id)
+	):
 		return false
 	_tasks[task.work_id] = task
 	return true
@@ -733,7 +793,10 @@ func _queued_task_ids(entries: Array[Dictionary]) -> PackedStringArray:
 	for entry: Dictionary in entries:
 		var task: GFBackgroundWorkTask = _as_task(GFVariantData.get_option_value(entry, "value"))
 		if task != null:
-			_append_packed_string(result, String(task.work_id))
+			_append_packed_string(
+				result,
+				String(task.work_id)
+			)
 	return result
 
 
@@ -747,13 +810,15 @@ func _queued_priority_summaries(entries: Array[Dictionary]) -> Array[Dictionary]
 		var task: GFBackgroundWorkTask = _as_task(GFVariantData.get_option_value(entry, "value"))
 		if task == null:
 			continue
-		summaries.append({
-			"work_id": String(task.work_id),
-			"priority": GFVariantData.get_option_float(entry, "priority"),
-			"effective_priority": GFVariantData.get_option_float(entry, "effective_priority"),
-			"waited_msec": GFVariantData.get_option_int(entry, "waited_msec"),
-			"order": GFVariantData.get_option_int(entry, "order"),
-		})
+		summaries.append(
+			{
+				"work_id": String(task.work_id),
+				"priority": GFVariantData.get_option_float(entry, "priority"),
+				"effective_priority": GFVariantData.get_option_float(entry, "effective_priority"),
+				"waited_msec": GFVariantData.get_option_int(entry, "waited_msec"),
+				"order": GFVariantData.get_option_int(entry, "order"),
+			}
+		)
 	return summaries
 
 
@@ -772,22 +837,24 @@ func _get_now_msec() -> int:
 ## [br]
 func _start_thread_task(task: GFBackgroundWorkTask) -> void:
 	var thread: Thread = Thread.new()
-	var error: Error = thread.start(Callable(self, "_run_threaded_task").bind(
-		task.get_worker_callback(),
-		task.input_data,
-		task.get_cancellation_context(),
-		task.worker_receives_cancellation_context_for_framework()
-	))
+	var error: Error = thread.start(
+		Callable(self, "_run_threaded_task").bind(
+			task.get_worker_callback(),
+			task.input_data,
+			task.get_cancellation_context(),
+			task.worker_receives_cancellation_context_for_framework()
+		)
+	)
 	if error != OK:
-		_fail_task(task, "[GFBackgroundWorkUtility][background_work_utility.thread_start_failed] Cannot start thread: %d." % error)
+		_fail_task(
+			task,
+			"[GFBackgroundWorkUtility][background_work_utility.thread_start_failed] Cannot start thread: %d." % error
+		)
 		return
 
 	task.status = GFBackgroundWorkTask.Status.RUNNING
 	task.started_msec = Time.get_ticks_msec()
-	_active_thread_tasks[task.work_id] = {
-		"task": task,
-		"thread": thread,
-	}
+	_active_thread_tasks[task.work_id] = { "task": task, "thread": thread, }
 	work_started.emit(task)
 
 
@@ -824,12 +891,20 @@ func _finish_thread_task(task: GFBackgroundWorkTask, result_variant: Variant) ->
 		return
 
 	if not result_variant is Dictionary:
-		_fail_task(task, "[GFBackgroundWorkUtility][background_work_utility.work_result_invalid] Background work returned an invalid result.", result_variant)
+		_fail_task(
+			task,
+			"[GFBackgroundWorkUtility][background_work_utility.work_result_invalid] Background work returned an invalid result.",
+			result_variant
+		)
 		return
 	var result: Dictionary = GFVariantData.as_dictionary(result_variant)
 	var normalized_result: Dictionary = GFResultDictionary.normalize(result, false)
 	if not GFResultDictionary.is_ok(normalized_result):
-		_fail_task(task, _get_result_error_text(normalized_result, "background work failed"), _get_failure_result_payload(normalized_result))
+		_fail_task(
+			task,
+			_get_result_error_text(normalized_result, "background work failed"),
+			_get_failure_result_payload(normalized_result)
+		)
 		return
 
 	task.result = _get_result_payload(normalized_result)
@@ -847,27 +922,27 @@ func _run_threaded_task(
 	cancellation_context: GFBackgroundWorkContext,
 	worker_receives_context: bool
 ) -> Dictionary:
-	var value: Variant = (
-		worker.call(input_data, cancellation_context)
-		if worker_receives_context
-		else worker.call(input_data)
-	)
+	var value: Variant = (worker.call(input_data, cancellation_context) if worker_receives_context else worker.call(input_data))
 	if value is Dictionary:
 		var value_dictionary: Dictionary = value
-		if not GFVariantData.get_option_bool(value_dictionary, GFResultDictionary.KEY_OK, true):
+		if not GFVariantData.get_option_bool(
+			value_dictionary,
+			GFResultDictionary.KEY_OK,
+			true
+		):
 			var result: Dictionary = GFResultDictionary.normalize(value_dictionary, false)
-			return GFResultDictionary.make_failure(_get_result_error_text(result), {
-				"result": value,
-			})
+			return GFResultDictionary.make_failure(
+				_get_result_error_text(result),
+				{ "result": value, }
+			)
 	if value is bool:
 		var bool_value: bool = value
 		if not bool_value:
-			return GFResultDictionary.make_failure("", {
-				"result": value,
-			})
-	return GFResultDictionary.make_success({
-		"result": value,
-	})
+			return GFResultDictionary.make_failure(
+				"",
+				{ "result": value, }
+			)
+	return GFResultDictionary.make_success({ "result": value, })
 
 
 ## 按资源路径合并消费者；类型提示冲突时失败，否则向 Broker 获取新的 Lease。
@@ -879,21 +954,23 @@ func _start_resource_task(task: GFBackgroundWorkTask) -> void:
 	var path: String = task.resource_path
 	if _resource_requests.has(path):
 		var request: Dictionary = _get_resource_request(path)
-		var existing_operation: _RESOURCE_LEASE_SCRIPT = _get_resource_request_operation(
-			request
-		)
+		var existing_operation: _RESOURCE_LEASE_SCRIPT = _get_resource_request_operation(request)
 		# 已取消的 Lease 不会向后来消费者交付结果；先退役本地记录，再重新取得 Lease。
-		if (
-			existing_operation != null
-			and existing_operation.get_status() == _RESOURCE_LEASE_SCRIPT.STATUS_CANCELLED
-		):
-			_retire_cancelled_resource_request(path, request, existing_operation)
+		if (existing_operation != null and existing_operation.get_status() == _RESOURCE_LEASE_SCRIPT.STATUS_CANCELLED):
+			_retire_cancelled_resource_request(
+				path,
+				request,
+				existing_operation
+			)
 			if not task.is_finished():
 				_start_resource_task(task)
 			return
 		var pending_type_hint: String = GFVariantData.get_option_string(request, "type_hint")
 		if not _type_hints_are_compatible(pending_type_hint, task.resource_type_hint):
-			_fail_task(task, "[GFBackgroundWorkUtility][background_work_utility.resource_type_hint_conflict] A load request with a different type_hint already exists for this resource path: %s." % path)
+			_fail_task(
+				task,
+				"[GFBackgroundWorkUtility][background_work_utility.resource_type_hint_conflict] A load request with a different type_hint already exists for this resource path: %s." % path
+			)
 			return
 
 		var tasks: Array = _get_resource_request_tasks(request)
@@ -912,15 +989,9 @@ func _start_resource_task(task: GFBackgroundWorkTask) -> void:
 	if error != OK:
 		_fail_task(
 			task,
-			"[GFBackgroundWorkUtility][background_work_utility.resource_load_request_failed] Cannot start threaded resource loading: %s (%d)." % [path, error],
-			{
-				"request_error": error,
-				"reason": (
-					"resource_broker_not_configured"
-					if error == ERR_UNCONFIGURED
-					else "resource_request_rejected"
-				),
-			}
+			"[GFBackgroundWorkUtility][background_work_utility.resource_load_request_failed] Cannot start threaded resource loading: %s (%d)."
+			% [path, error],
+			{ "request_error": error, "reason": ("resource_broker_not_configured" if error == ERR_UNCONFIGURED else "resource_request_rejected"), }
 		)
 		return
 
@@ -957,22 +1028,26 @@ func _poll_resource_requests() -> void:
 
 		var request: Dictionary = _get_resource_request(path)
 		var operation: _RESOURCE_LEASE_SCRIPT = _get_resource_request_operation(request)
-		var load_result: Dictionary = (
-			_resource_broker.poll_lease(operation)
-			if _resource_broker != null
-			else _make_missing_resource_broker_result()
-		)
+		var load_result: Dictionary = (_resource_broker.poll_lease(operation) if _resource_broker != null else _make_missing_resource_broker_result())
 		var status: StringName = GFVariantData.get_option_string_name(
 			load_result,
 			"status",
 			_RESOURCE_LEASE_SCRIPT.STATUS_FAILED
 		)
-		var ratio: float = GFVariantData.get_option_float(load_result, "progress", 0.0)
+		var ratio: float = GFVariantData.get_option_float(
+			load_result,
+			"progress",
+			0.0
+		)
 		request["progress"] = ratio
 		var tasks: Array = _get_resource_request_tasks(request)
 		for task_variant: Variant in tasks:
 			var task: GFBackgroundWorkTask = _as_task(task_variant)
-			if task != null and not task.cancel_requested and not task.is_finished():
+			if (
+				task != null
+				and not task.cancel_requested
+				and not task.is_finished()
+			):
 				var _progress_updated: bool = update_work_progress(task.work_id, ratio)
 
 		match status:
@@ -994,7 +1069,10 @@ func _poll_resource_requests() -> void:
 					if task != null and task.cancel_requested:
 						_cancel_task(task)
 					else:
-						_fail_task(task, "[GFBackgroundWorkUtility][background_work_utility.resource_load_failed] Threaded resource loading failed: %s." % path)
+						_fail_task(
+							task,
+							"[GFBackgroundWorkUtility][background_work_utility.resource_load_failed] Threaded resource loading failed: %s." % path
+						)
 				operation.release()
 
 			_RESOURCE_LEASE_SCRIPT.STATUS_CANCELLED:
@@ -1017,7 +1095,10 @@ func _finish_resource_task(task: GFBackgroundWorkTask, resource: Resource) -> vo
 		_cancel_task(task)
 		return
 	if resource == null:
-		_fail_task(task, "[GFBackgroundWorkUtility][background_work_utility.resource_load_result_null] Threaded resource loading completed with a null result: %s." % task.resource_path)
+		_fail_task(
+			task,
+			"[GFBackgroundWorkUtility][background_work_utility.resource_load_result_null] Threaded resource loading completed with a null result: %s." % task.resource_path
+		)
 		return
 
 	task.result = resource
@@ -1067,14 +1148,26 @@ func _process_apply_queue() -> void:
 		task.apply_result = value
 		if value is Dictionary:
 			var value_dictionary: Dictionary = value
-			if not GFVariantData.get_option_bool(value_dictionary, GFResultDictionary.KEY_OK, true):
+			if not GFVariantData.get_option_bool(
+				value_dictionary,
+				GFResultDictionary.KEY_OK,
+				true
+			):
 				var normalized_result: Dictionary = GFResultDictionary.normalize(value_dictionary, false)
-				_fail_task(task, _get_result_error_text(normalized_result), normalized_result)
+				_fail_task(
+					task,
+					_get_result_error_text(normalized_result),
+					normalized_result
+				)
 				continue
 		if value is bool:
 			var bool_value: bool = value
 			if not bool_value:
-				_fail_task(task, "", value)
+				_fail_task(
+					task,
+					"",
+					value
+				)
 				continue
 
 		work_applied.emit(task)
@@ -1101,7 +1194,11 @@ func _complete_task(task: GFBackgroundWorkTask) -> void:
 ## [br]
 ## @api private
 ## [br]
-func _fail_task(task: GFBackgroundWorkTask, error_message: String = "", result: Variant = null) -> void:
+func _fail_task(
+	task: GFBackgroundWorkTask,
+	error_message: String = "",
+	result: Variant = null
+) -> void:
 	if task == null or task.is_finished():
 		return
 	var _removed_queued_task: bool = _queued_thread_tasks.remove_value(task)
@@ -1154,10 +1251,7 @@ func _cancel_task(task: GFBackgroundWorkTask) -> void:
 ## [br]
 ## @api private
 ## [br]
-func _cancel_work_with_reason(
-	work_id: StringName,
-	reason: GFBackgroundWorkContext.CancellationReason
-) -> bool:
+func _cancel_work_with_reason(work_id: StringName, reason: GFBackgroundWorkContext.CancellationReason) -> bool:
 	var task: GFBackgroundWorkTask = get_task(work_id)
 	if task == null or task.is_finished():
 		return false
@@ -1184,9 +1278,7 @@ func _cancel_work_with_reason(
 ## [br]
 ## @api private
 ## [br]
-func _cancel_all_with_reason(
-	reason: GFBackgroundWorkContext.CancellationReason
-) -> void:
+func _cancel_all_with_reason(reason: GFBackgroundWorkContext.CancellationReason) -> void:
 	var task_values: Array = _tasks.values()
 	for task_variant: Variant in task_values:
 		var task: GFBackgroundWorkTask = _as_task(task_variant)
@@ -1198,10 +1290,7 @@ func _cancel_all_with_reason(
 ## [br]
 ## @api private
 ## [br]
-func _request_task_cancellation(
-	task: GFBackgroundWorkTask,
-	reason: GFBackgroundWorkContext.CancellationReason
-) -> void:
+func _request_task_cancellation(task: GFBackgroundWorkTask, reason: GFBackgroundWorkContext.CancellationReason) -> void:
 	if task == null:
 		return
 	var context: GFBackgroundWorkContext = task.get_cancellation_context()
@@ -1235,7 +1324,10 @@ func _wait_for_active_thread_tasks() -> void:
 func _release_worker_callback_after_join(task: GFBackgroundWorkTask) -> void:
 	if task == null:
 		return
-	task.set_internal_callbacks(Callable(), task.get_apply_callback())
+	task.set_internal_callbacks(
+		Callable(),
+		task.get_apply_callback()
+	)
 
 
 ## 任务进入终态时清除 worker 与 apply 回调及其目标引用。
@@ -1245,7 +1337,10 @@ func _release_worker_callback_after_join(task: GFBackgroundWorkTask) -> void:
 func _release_task_callbacks_at_terminal(task: GFBackgroundWorkTask) -> void:
 	if task == null:
 		return
-	task.set_internal_callbacks(Callable(), Callable())
+	task.set_internal_callbacks(
+		Callable(),
+		Callable()
+	)
 
 
 ## 按 max_finished_tasks 移除最旧终态记录，并同步删除任务索引。
@@ -1300,15 +1395,24 @@ func _is_thread_payload_safe(value: Variant, depth: int = 0) -> bool:
 		TYPE_ARRAY:
 			var array: Array = GFVariantData.as_array(value)
 			for item: Variant in array:
-				if not _is_thread_payload_safe(item, depth + 1):
+				if not _is_thread_payload_safe(
+					item,
+					depth + 1
+				):
 					return false
 			return true
 		TYPE_DICTIONARY:
 			var dictionary: Dictionary = GFVariantData.as_dictionary(value)
 			for key: Variant in dictionary.keys():
-				if not _is_thread_payload_safe(key, depth + 1):
+				if not _is_thread_payload_safe(
+					key,
+					depth + 1
+				):
 					return false
-				if not _is_thread_payload_safe(dictionary[key], depth + 1):
+				if not _is_thread_payload_safe(
+					dictionary[key],
+					depth + 1
+				):
 					return false
 			return true
 	return false
@@ -1364,7 +1468,11 @@ func _resource_request_has_live_consumers(request: Dictionary) -> bool:
 	var tasks: Array = _get_resource_request_tasks(request)
 	for task_variant: Variant in tasks:
 		var task: GFBackgroundWorkTask = _as_task(task_variant)
-		if task != null and not task.cancel_requested and not task.is_finished():
+		if (
+			task != null
+			and not task.cancel_requested
+			and not task.is_finished()
+		):
 			return true
 	return false
 
@@ -1417,7 +1525,11 @@ func _get_resource_broker_debug_snapshot() -> Dictionary:
 ## @api private
 ## [br]
 func _type_hints_are_compatible(left: String, right: String) -> bool:
-	return left.is_empty() or right.is_empty() or left == right
+	return (
+		left.is_empty()
+		or right.is_empty()
+		or left == right
+	)
 
 
 ## 从活动线程表中读取指定 ID 对应的字典条目。
@@ -1457,7 +1569,13 @@ func _get_resource_request(path: String) -> Dictionary:
 ## @api private
 ## [br]
 func _get_resource_request_tasks(request: Dictionary) -> Array:
-	return GFVariantData.as_array(GFVariantData.get_option_value(request, "tasks", []))
+	return GFVariantData.as_array(
+		GFVariantData.get_option_value(
+			request,
+			"tasks",
+			[]
+		)
+	)
 
 
 ## 将请求记录的 operation 字段收窄为 Resource Lease；类型不符时返回 null。
@@ -1485,7 +1603,11 @@ func _get_result_payload(result: Dictionary) -> Variant:
 ## @api private
 ## [br]
 func _get_failure_result_payload(result: Dictionary) -> Variant:
-	return GFVariantData.get_option_value(result, "result", result)
+	return GFVariantData.get_option_value(
+		result,
+		"result",
+		result
+	)
 
 
 ## 按输入顺序收集数组中有效任务的工作 ID。
@@ -1497,7 +1619,10 @@ func _task_ids(tasks: Array) -> PackedStringArray:
 	for task_variant: Variant in tasks:
 		var task: GFBackgroundWorkTask = _as_task(task_variant)
 		if task != null:
-			_append_packed_string(result, String(task.work_id))
+			_append_packed_string(
+				result,
+				String(task.work_id)
+			)
 	return result
 
 
@@ -1510,7 +1635,10 @@ func _active_thread_task_ids() -> PackedStringArray:
 	for work_id: Variant in _active_thread_tasks.keys():
 		var normalized_work_id: StringName = GFVariantData.to_string_name(work_id)
 		if normalized_work_id != &"":
-			_append_packed_string(result, String(normalized_work_id))
+			_append_packed_string(
+				result,
+				String(normalized_work_id)
+			)
 	return result
 
 

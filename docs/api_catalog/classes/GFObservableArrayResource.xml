@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFObservableArrayResource" path="addons/gf/standard/foundation/collections/gf_observable_array_resource.gd" module="standard" extends="Resource" classDigest="9969d1797543b0cbb5de1328f3447c1cafd0a60e99666a2635405ab566ef9815">
+<class name="GFObservableArrayResource" path="addons/gf/standard/foundation/collections/gf_observable_array_resource.gd" module="standard" extends="Resource" classDigest="3c0b16b098106787e4c089c89b47b481167ca46190c8d50b01592f1246bc3a99">
 	<description>GFObservableArrayResource: 可观察数组资源。
 保存一份 Array 数据，并通过显式方法发出单项变更和批量变更信号。
 它不是 Array 的替身，不拦截直接字段修改；调用方应通过方法提交变更，
@@ -11,7 +11,7 @@
 	</tags>
 	<signals>
 		<member kind="signal" name="item_changed">
-			<signature>signal item_changed(operation: StringName, index: int, old_value: Variant, new_value: Variant, metadata: Dictionary)</signature>
+			<signature>signal item_changed( operation: StringName, index: int, old_value: Variant, new_value: Variant, metadata: Dictionary )</signature>
 			<description>非 batch 模式下单项变更后发出。batch 内变更只在 end_batch() 时汇总到 items_changed。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -104,7 +104,7 @@
 	</properties>
 	<methods>
 		<member kind="method" name="set_items">
-			<signature>func set_items(values: Array, emit_change: bool = true, change_metadata: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>func set_items( values: Array, emit_change: bool = true, change_metadata: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>替换全部数组内容。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -143,7 +143,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="set_item">
-			<signature>func set_item(index: int, value: Variant, change_metadata: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>func set_item( index: int, value: Variant, change_metadata: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>设置指定索引的元素。</description>
 			<tags>
 				<tag name="api">public</tag>

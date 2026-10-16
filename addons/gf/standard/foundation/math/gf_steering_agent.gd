@@ -78,8 +78,16 @@ func _init(p_position: Vector3 = Vector3.ZERO, p_velocity: Vector3 = Vector3.ZER
 func set_from_node_2d(node: Node2D, linear_velocity: Vector2 = Vector2.ZERO) -> void:
 	if not is_instance_valid(node):
 		return
-	position = Vector3(node.global_position.x, node.global_position.y, 0.0)
-	velocity = Vector3(linear_velocity.x, linear_velocity.y, 0.0)
+	position = Vector3(
+		node.global_position.x,
+		node.global_position.y,
+		0.0
+	)
+	velocity = Vector3(
+		linear_velocity.x,
+		linear_velocity.y,
+		0.0
+	)
 	orientation = node.global_rotation
 
 

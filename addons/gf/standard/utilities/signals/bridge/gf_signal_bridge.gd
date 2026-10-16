@@ -100,9 +100,21 @@ func connect_bridge(
 	var callback: Callable = Callable(binding, "_invoke_from_signal")
 	var connection: GFSignalConnection = null
 	if signal_utility != null:
-		connection = signal_utility.connect_signal(source_signal, callback, owner, [], connect_flags)
+		connection = signal_utility.connect_signal(
+			source_signal,
+			callback,
+			owner,
+			[],
+			connect_flags
+		)
 	else:
-		connection = GFSignalConnection.new(source_signal, callback, owner, [], connect_flags)
+		connection = GFSignalConnection.new(
+			source_signal,
+			callback,
+			owner,
+			[],
+			connect_flags
+		)
 		var _started: GFSignalConnection = connection.start()
 
 	if connection == null or not connection.is_active():
@@ -110,7 +122,11 @@ func connect_bridge(
 	if one_shot:
 		var _once_result_111: Variant = connection.once()
 
-	binding.setup(self, root, connection)
+	binding.setup(
+		self,
+		root,
+		connection
+	)
 	return binding
 
 
@@ -129,15 +145,27 @@ func connect_bridge(
 ## @schema return: Dictionary，包含 ok、reason、value、bridge_id 和 args。
 func invoke(root: Node, signal_args: Array = []) -> Dictionary:
 	if not enabled:
-		return _make_result(false, &"disabled", null)
+		return _make_result(
+			false,
+			&"disabled",
+			null
+		)
 	if target == null:
-		return _make_result(false, &"missing_target", null)
+		return _make_result(
+			false,
+			&"missing_target",
+			null
+		)
 
 	var args: Array = build_callable_args(signal_args)
 	var call_result: Dictionary = target.call_with_args(root, args)
 	return {
 		"ok": GFVariantData.get_option_bool(call_result, "ok"),
-		"reason": GFVariantData.get_option_string_name(call_result, "reason", &"ok"),
+		"reason": GFVariantData.get_option_string_name(
+			call_result,
+			"reason",
+			&"ok"
+		),
 		"value": GFVariantData.get_option_value(call_result, "value"),
 		"bridge_id": bridge_id,
 		"args": args,
@@ -185,29 +213,54 @@ func get_validation_report(root: Node) -> Dictionary:
 	}
 	var source_is_valid: bool = false
 	if source == null:
-		_append_validation_issue(report, &"missing_source", "source", "Signal bridge source is missing.")
+		_append_validation_issue(
+			report,
+			&"missing_source",
+			"source",
+			"Signal bridge source is missing."
+		)
 	elif not source.is_valid_for(root):
-		_append_validation_issue(report, &"invalid_source_signal", "source", "Signal bridge source signal is invalid.")
+		_append_validation_issue(
+			report,
+			&"invalid_source_signal",
+			"source",
+			"Signal bridge source signal is invalid."
+		)
 	else:
 		source_is_valid = true
 
 	var target_is_valid: bool = false
 	if target == null:
-		_append_validation_issue(report, &"missing_target", "target", "Signal bridge target is missing.")
+		_append_validation_issue(
+			report,
+			&"missing_target",
+			"target",
+			"Signal bridge target is missing."
+		)
 	elif not target.is_valid_for(root):
-		_append_validation_issue(report, &"invalid_callable_target", "target", "Signal bridge target callable is invalid.")
+		_append_validation_issue(
+			report,
+			&"invalid_callable_target",
+			"target",
+			"Signal bridge target callable is invalid."
+		)
 	else:
 		target_is_valid = true
 
 	var signal_argument_count: int = source.get_signal_argument_count(root) if source_is_valid else -1
 	_validate_argument_indices(report, signal_argument_count)
 	if target_is_valid:
-		_validate_callable_argument_count(report, root, signal_argument_count)
+		_validate_callable_argument_count(
+			report,
+			root,
+			signal_argument_count
+		)
 
-	return GFValidationReportDictionary.finalize_report(report, "Signal bridge", {
-		"include_issue_count": true,
-		"next_actions": _get_validation_next_actions(),
-	})
+	return GFValidationReportDictionary.finalize_report(
+		report,
+		"Signal bridge",
+		{ "include_issue_count": true, "next_actions": _get_validation_next_actions(), }
+	)
 
 
 ## 转换为调试字典。
@@ -251,7 +304,11 @@ func _make_context(signal_args: Array) -> Dictionary:
 ## [br]
 ## @api private
 ## [br]
-func _make_result(ok: bool, reason: StringName, value: Variant) -> Dictionary:
+func _make_result(
+	ok: bool,
+	reason: StringName,
+	value: Variant
+) -> Dictionary:
 	return {
 		"ok": ok,
 		"reason": reason,
@@ -279,14 +336,9 @@ func _validate_argument_indices(report: Dictionary, signal_argument_count: int) 
 				report,
 				&"argument_index_out_of_range",
 				"argument_indices",
-				"Signal bridge argument index %d is outside the source signal argument count %d." % [
-					argument_index,
-					signal_argument_count,
-				],
-				{
-					"argument_index": argument_index,
-					"signal_argument_count": signal_argument_count,
-				}
+				"Signal bridge argument index %d is outside the source signal argument count %d."
+				% [argument_index, signal_argument_count,],
+				{ "argument_index": argument_index, "signal_argument_count": signal_argument_count, }
 			)
 
 
@@ -294,7 +346,11 @@ func _validate_argument_indices(report: Dictionary, signal_argument_count: int) 
 ## [br]
 ## @api private
 ## [br]
-func _validate_callable_argument_count(report: Dictionary, root: Node, signal_argument_count: int) -> void:
+func _validate_callable_argument_count(
+	report: Dictionary,
+	root: Node,
+	signal_argument_count: int
+) -> void:
 	var provided_argument_count: int = _get_provided_callable_argument_count(signal_argument_count)
 	if provided_argument_count < 0:
 		return
@@ -309,17 +365,27 @@ func _validate_callable_argument_count(report: Dictionary, root: Node, signal_ar
 
 		var method_args: Array = GFVariantData.get_option_array(method_info, "args")
 		var default_args: Array = GFVariantData.get_option_array(method_info, "default_args")
-		var required_argument_count: int = maxi(method_args.size() - default_args.size(), 0)
+		var required_argument_count: int = maxi(
+			method_args.size() - default_args.size(),
+			0
+		)
 		var maximum_argument_count: int = method_args.size()
 		var accepts_extra_args: bool = (GFVariantData.get_option_int(method_info, "flags") & METHOD_FLAG_VARARG) != 0
-		if provided_argument_count >= required_argument_count and (accepts_extra_args or provided_argument_count <= maximum_argument_count):
+		if (
+			provided_argument_count >= required_argument_count
+			and (
+				accepts_extra_args
+				or provided_argument_count <= maximum_argument_count
+			)
+		):
 			return
 
 		_append_validation_issue(
 			report,
 			&"callable_argument_mismatch",
 			"target",
-			"Signal bridge provides %d argument(s), but target method expects %d-%s." % [
+			"Signal bridge provides %d argument(s), but target method expects %d-%s."
+			% [
 				provided_argument_count,
 				required_argument_count,
 				"*" if accepts_extra_args else str(maximum_argument_count),
@@ -365,12 +431,15 @@ func _append_validation_issue(
 	message: String,
 	fields: Dictionary = {}
 ) -> void:
-	var issue_fields: Dictionary = {
-		"bridge_id": bridge_id,
-		"path": path,
-	}
+	var issue_fields: Dictionary = { "bridge_id": bridge_id, "path": path, }
 	issue_fields.merge(fields, true)
-	var _append_issue_result_349: Variant = GFValidationReportDictionary.append_issue(report, "error", kind, message, issue_fields)
+	var _append_issue_result_349: Variant = GFValidationReportDictionary.append_issue(
+		report,
+		"error",
+		kind,
+		message,
+		issue_fields
+	)
 
 
 ## 返回信号桥接校验问题类型到建议操作的映射。

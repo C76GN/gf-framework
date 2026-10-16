@@ -139,12 +139,14 @@ var _framework_raw_dispatch_tokens: Array[Dictionary] = []
 ## [br]
 ## @return: 可接受时返回 true。
 func can_receive_interaction(interaction_id: StringName = &"") -> bool:
-	if not bool(_MESSAGE_RECEIVER_SUPPORT._can_receive(
-		enabled,
-		accepted_interaction_ids,
-		rejected_interaction_ids,
-		interaction_id
-	)):
+	if not bool(
+		_MESSAGE_RECEIVER_SUPPORT._can_receive(
+			enabled,
+			accepted_interaction_ids,
+			rejected_interaction_ids,
+			interaction_id
+		)
+	):
 		return false
 	if not validation_callback.is_null() and not validation_callback.is_valid():
 		return false
@@ -196,17 +198,16 @@ func receive_interaction(context: GFInteractionContext, interaction_id: StringNa
 ## @return: 只供 Interaction 框架最外层发布边界完成单次报告编码的原始报告。
 ## [br]
 ## @schema return: Raw interaction report Dictionary; callers must encode it exactly once before publication.
-func receive_interaction_raw_for_framework(
-	context: GFInteractionContext,
-	interaction_id: StringName = &""
-) -> Dictionary:
+func receive_interaction_raw_for_framework(context: GFInteractionContext, interaction_id: StringName = &"") -> Dictionary:
 	_framework_raw_dispatch_serial += 1
 	var dispatch_serial: int = _framework_raw_dispatch_serial
-	_framework_raw_dispatch_tokens.append({
-		"serial": dispatch_serial,
-		"context": context,
-		"interaction_id": interaction_id,
-	})
+	_framework_raw_dispatch_tokens.append(
+		{
+			"serial": dispatch_serial,
+			"context": context,
+			"interaction_id": interaction_id,
+		}
+	)
 	var report: Dictionary = receive_interaction(context, interaction_id)
 	_discard_framework_raw_dispatch_token(dispatch_serial)
 	return report
@@ -217,10 +218,7 @@ func receive_interaction_raw_for_framework(
 ## 仅当栈顶令牌的上下文和交互 ID 匹配时将其消费。
 ## [br]
 ## @api private
-func _consume_framework_raw_dispatch_token(
-	context: GFInteractionContext,
-	interaction_id: StringName
-) -> bool:
+func _consume_framework_raw_dispatch_token(context: GFInteractionContext, interaction_id: StringName) -> bool:
 	if _framework_raw_dispatch_tokens.is_empty():
 		return false
 	var top_index: int = _framework_raw_dispatch_tokens.size() - 1
@@ -237,7 +235,11 @@ func _consume_framework_raw_dispatch_token(
 ## [br]
 ## @api private
 func _discard_framework_raw_dispatch_token(dispatch_serial: int) -> void:
-	for index: int in range(_framework_raw_dispatch_tokens.size() - 1, -1, -1):
+	for index: int in range(
+		_framework_raw_dispatch_tokens.size() - 1,
+		-1,
+		-1
+	):
 		var token: Dictionary = _framework_raw_dispatch_tokens[index]
 		if GFVariantData.to_int(token.get("serial", -1)) != dispatch_serial:
 			continue
@@ -255,21 +257,19 @@ func _receive_interaction_for_framework(
 ) -> Dictionary:
 	var receiver: Object = _resolve_receiver()
 	var has_receiver_path: bool = receiver_path != NodePath("")
-	var delegate_method: StringName = (
-		&"receive_interaction_raw_for_framework"
-		if receiver is GFInteractionReceiver
-		else &"receive_interaction"
-	)
+	var delegate_method: StringName = (&"receive_interaction_raw_for_framework" if receiver is GFInteractionReceiver else &"receive_interaction")
 	var effective_validation_callback: Callable = validation_callback
 	if not validation_callback.is_null() and not validation_callback.is_valid():
 		effective_validation_callback = Callable(self, "_reject_invalid_validator")
 	elif (
 		receiver != null
 		and receiver.has_method(delegate_method)
-		and not GFInteractions.is_method_call_compatible_for_framework(
-			receiver,
-			delegate_method,
-			[context, interaction_id]
+		and not (
+			GFInteractions.is_method_call_compatible_for_framework(
+				receiver,
+				delegate_method,
+				[context, interaction_id]
+			)
 		)
 	):
 		effective_validation_callback = Callable(self, "_reject_invalid_delegate")
@@ -305,10 +305,7 @@ func _receive_interaction_for_framework(
 ## 为失效的校验回调生成拒绝报告。
 ## [br]
 ## @api private
-func _reject_invalid_validator(
-	_context: GFInteractionContext,
-	_report: Dictionary
-) -> Dictionary:
+func _reject_invalid_validator(_context: GFInteractionContext, _report: Dictionary) -> Dictionary:
 	return {
 		"ok": false,
 		"reason": "invalid_validator",
@@ -319,10 +316,7 @@ func _reject_invalid_validator(
 ## 为签名不兼容的接收委托生成拒绝报告。
 ## [br]
 ## @api private
-func _reject_invalid_delegate(
-	_context: GFInteractionContext,
-	_report: Dictionary
-) -> Dictionary:
+func _reject_invalid_delegate(_context: GFInteractionContext, _report: Dictionary) -> Dictionary:
 	return {
 		"ok": false,
 		"reason": "invalid_receiver",

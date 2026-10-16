@@ -28,7 +28,7 @@
 | 属性 | [`sample_seed`](#member-gfshakepreset-properties-sample_seed) | `var sample_seed: int = 1` |
 | 属性 | [`tracks`](#member-gfshakepreset-properties-tracks) | `var tracks: Array[GFShakeTrack] = []` |
 | 方法 | [`get_duration_seconds`](#member-gfshakepreset-methods-get_duration_seconds) | `func get_duration_seconds() -> float:` |
-| 方法 | [`sample`](#member-gfshakepreset-methods-sample) | `func sample(elapsed_seconds: float, strength: float = 1.0, phase_offset: float = 0.0) -> Dictionary:` |
+| 方法 | [`sample`](#member-gfshakepreset-methods-sample) | `func sample( elapsed_seconds: float, strength: float = 1.0, phase_offset: float = 0.0 ) -> Dictionary:` |
 | 方法 | [`sample_at_progress`](#member-gfshakepreset-methods-sample_at_progress) | `func sample_at_progress( progress: float, elapsed_seconds: float, strength: float = 1.0, phase_offset: float = 0.0 ) -> Dictionary:` |
 | 方法 | [`add_track`](#member-gfshakepreset-methods-add_track) | `func add_track(track: GFShakeTrack) -> bool:` |
 | 方法 | [`clear_tracks`](#member-gfshakepreset-methods-clear_tracks) | `func clear_tracks() -> void:` |
@@ -234,7 +234,7 @@ func get_duration_seconds() -> float:
 - 首次版本：`3.17.0`
 
 ```gdscript
-func sample(elapsed_seconds: float, strength: float = 1.0, phase_offset: float = 0.0) -> Dictionary:
+func sample( elapsed_seconds: float, strength: float = 1.0, phase_offset: float = 0.0 ) -> Dictionary:
 ```
 
 按时间采样反馈偏移。

@@ -15,12 +15,12 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 信号 | [`ticks_advanced`](#member-gffixedtickclock-signals-ticks_advanced) | `signal ticks_advanced(previous_tick: int, current_tick: int, step_count: int)` |
-| 信号 | [`tick_loop_started`](#member-gffixedtickclock-signals-tick_loop_started) | `signal tick_loop_started(previous_tick: int, target_tick: int, step_count: int)` |
+| 信号 | [`ticks_advanced`](#member-gffixedtickclock-signals-ticks_advanced) | `signal ticks_advanced( previous_tick: int, current_tick: int, step_count: int )` |
+| 信号 | [`tick_loop_started`](#member-gffixedtickclock-signals-tick_loop_started) | `signal tick_loop_started( previous_tick: int, target_tick: int, step_count: int )` |
 | 信号 | [`tick_started`](#member-gffixedtickclock-signals-tick_started) | `signal tick_started(tick: int, tick_seconds: float)` |
 | 信号 | [`tick_finished`](#member-gffixedtickclock-signals-tick_finished) | `signal tick_finished(tick: int, tick_seconds: float)` |
-| 信号 | [`tick_loop_finished`](#member-gffixedtickclock-signals-tick_loop_finished) | `signal tick_loop_finished(previous_tick: int, current_tick: int, step_count: int)` |
-| 信号 | [`tick_budget_exhausted`](#member-gffixedtickclock-signals-tick_budget_exhausted) | `signal tick_budget_exhausted(available_steps: int, processed_steps: int, remaining_seconds: float)` |
+| 信号 | [`tick_loop_finished`](#member-gffixedtickclock-signals-tick_loop_finished) | `signal tick_loop_finished( previous_tick: int, current_tick: int, step_count: int )` |
+| 信号 | [`tick_budget_exhausted`](#member-gffixedtickclock-signals-tick_budget_exhausted) | `signal tick_budget_exhausted( available_steps: int, processed_steps: int, remaining_seconds: float )` |
 | 属性 | [`tick_rate`](#member-gffixedtickclock-properties-tick_rate) | `var tick_rate: float = 30.0:` |
 | 属性 | [`current_tick`](#member-gffixedtickclock-properties-current_tick) | `var current_tick: int = 0` |
 | 属性 | [`accumulator_seconds`](#member-gffixedtickclock-properties-accumulator_seconds) | `var accumulator_seconds: float = 0.0:` |
@@ -45,9 +45,10 @@
 ### `ticks_advanced`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal ticks_advanced(previous_tick: int, current_tick: int, step_count: int)
+signal ticks_advanced( previous_tick: int, current_tick: int, step_count: int )
 ```
 
 tick 推进后发出。
@@ -65,9 +66,10 @@ tick 推进后发出。
 ### `tick_loop_started`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal tick_loop_started(previous_tick: int, target_tick: int, step_count: int)
+signal tick_loop_started( previous_tick: int, target_tick: int, step_count: int )
 ```
 
 固定 tick 循环开始时发出。
@@ -123,9 +125,10 @@ signal tick_finished(tick: int, tick_seconds: float)
 ### `tick_loop_finished`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal tick_loop_finished(previous_tick: int, current_tick: int, step_count: int)
+signal tick_loop_finished( previous_tick: int, current_tick: int, step_count: int )
 ```
 
 固定 tick 循环结束时发出。
@@ -143,9 +146,10 @@ signal tick_loop_finished(previous_tick: int, current_tick: int, step_count: int
 ### `tick_budget_exhausted`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal tick_budget_exhausted(available_steps: int, processed_steps: int, remaining_seconds: float)
+signal tick_budget_exhausted( available_steps: int, processed_steps: int, remaining_seconds: float )
 ```
 
 由于单次预算限制而未处理所有可用 tick 时发出。

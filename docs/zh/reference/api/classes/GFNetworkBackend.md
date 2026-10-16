@@ -24,13 +24,13 @@
 | 方法 | [`host`](#member-gfnetworkbackend-methods-host) | `func host(_options: Dictionary = {}) -> Error:` |
 | 方法 | [`connect_to_endpoint`](#member-gfnetworkbackend-methods-connect_to_endpoint) | `func connect_to_endpoint(_endpoint: String, _options: Dictionary = {}) -> Error:` |
 | 方法 | [`disconnect_backend`](#member-gfnetworkbackend-methods-disconnect_backend) | `func disconnect_backend() -> void:` |
-| 方法 | [`send_bytes`](#member-gfnetworkbackend-methods-send_bytes) | `func send_bytes(_peer_id: int, _bytes: PackedByteArray, _options: Dictionary = {}) -> Error:` |
+| 方法 | [`send_bytes`](#member-gfnetworkbackend-methods-send_bytes) | `func send_bytes( _peer_id: int, _bytes: PackedByteArray, _options: Dictionary = {} ) -> Error:` |
 | 方法 | [`poll`](#member-gfnetworkbackend-methods-poll) | `func poll(_delta: float) -> void:` |
 | 方法 | [`is_backend_connected`](#member-gfnetworkbackend-methods-is_backend_connected) | `func is_backend_connected() -> bool:` |
 | 方法 | [`get_session_bootstrap`](#member-gfnetworkbackend-methods-get_session_bootstrap) | `func get_session_bootstrap() -> Dictionary:` |
 | 方法 | [`get_debug_snapshot`](#member-gfnetworkbackend-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
 | 方法 | [`get_transport_metrics`](#member-gfnetworkbackend-methods-get_transport_metrics) | `func get_transport_metrics() -> GFNetworkTransportMetrics:` |
-| 方法 | [`_enrich_transport_metrics`](#member-gfnetworkbackend-methods-_enrich_transport_metrics) | `func _enrich_transport_metrics( _metrics: GFNetworkTransportMetrics, _budget: GFExecutionBudget ) -> void:` |
+| 方法 | [`_enrich_transport_metrics`](#member-gfnetworkbackend-methods-_enrich_transport_metrics) | `func _enrich_transport_metrics(_metrics: GFNetworkTransportMetrics, _budget: GFExecutionBudget) -> void:` |
 | 方法 | [`_record_transport_packet_sent`](#member-gfnetworkbackend-methods-_record_transport_packet_sent) | `func _record_transport_packet_sent(byte_count: int) -> void:` |
 | 方法 | [`_reset_transport_metrics`](#member-gfnetworkbackend-methods-_reset_transport_metrics) | `func _reset_transport_metrics() -> void:` |
 | 方法 | [`_reset_transport_connection`](#member-gfnetworkbackend-methods-_reset_transport_connection) | `func _reset_transport_connection() -> void:` |
@@ -205,9 +205,10 @@ func disconnect_backend() -> void:
 ### `send_bytes`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func send_bytes(_peer_id: int, _bytes: PackedByteArray, _options: Dictionary = {}) -> Error:
+func send_bytes( _peer_id: int, _bytes: PackedByteArray, _options: Dictionary = {} ) -> Error:
 ```
 
 发送 bytes。
@@ -319,7 +320,7 @@ func get_transport_metrics() -> GFNetworkTransportMetrics:
 - 首次版本：`10.0.0`
 
 ```gdscript
-func _enrich_transport_metrics( _metrics: GFNetworkTransportMetrics, _budget: GFExecutionBudget ) -> void:
+func _enrich_transport_metrics(_metrics: GFNetworkTransportMetrics, _budget: GFExecutionBudget) -> void:
 ```
 
 向基础指标快照写入后端特有指标。 实现必须保持同步、无副作用、有限时间和有限工作量，只读取已经在内存中的 传输状态；不得发起网络、磁盘、锁等待或项目业务调用。每次尝试写入一个可选 指标前必须消耗一步预算，并在预算或 `set_metric()` 拒绝时立即停止。预算只能 协作式终止循环，不能中断阻塞调用，因此不可中断 I/O 从契约上禁止进入此钩子。

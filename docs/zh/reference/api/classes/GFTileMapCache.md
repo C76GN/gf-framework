@@ -22,13 +22,13 @@
 | 方法 | [`translated`](#member-gftilemapcache-methods-translated) | `func translated(offset: Vector2i) -> GFTileMapCache:` |
 | 方法 | [`transformed`](#member-gftilemapcache-methods-transformed) | `func transformed(transform: int, options: Dictionary = {}) -> GFTileMapCache:` |
 | 方法 | [`remapped_tiles`](#member-gftilemapcache-methods-remapped_tiles) | `func remapped_tiles(remaps: Dictionary, options: Dictionary = {}) -> GFTileMapCache:` |
-| 方法 | [`transformed_and_remapped`](#member-gftilemapcache-methods-transformed_and_remapped) | `func transformed_and_remapped(transform: int, remaps: Dictionary, options: Dictionary = {}) -> GFTileMapCache:` |
+| 方法 | [`transformed_and_remapped`](#member-gftilemapcache-methods-transformed_and_remapped) | `func transformed_and_remapped( transform: int, remaps: Dictionary, options: Dictionary = {} ) -> GFTileMapCache:` |
 | 方法 | [`get_used_rect`](#member-gftilemapcache-methods-get_used_rect) | `func get_used_rect() -> Rect2i:` |
 | 方法 | [`set_cell_data`](#member-gftilemapcache-methods-set_cell_data) | `func set_cell_data(cell: Vector2i, data: Dictionary) -> void:` |
 | 方法 | [`erase_cell`](#member-gftilemapcache-methods-erase_cell) | `func erase_cell(cell: Vector2i) -> void:` |
 | 方法 | [`has_cell`](#member-gftilemapcache-methods-has_cell) | `func has_cell(cell: Vector2i) -> bool:` |
 | 方法 | [`get_cell_data`](#member-gftilemapcache-methods-get_cell_data) | `func get_cell_data(cell: Vector2i) -> Dictionary:` |
-| 方法 | [`get_value`](#member-gftilemapcache-methods-get_value) | `func get_value(cell: Vector2i, key: StringName, default_value: Variant = null) -> Variant:` |
+| 方法 | [`get_value`](#member-gftilemapcache-methods-get_value) | `func get_value( cell: Vector2i, key: StringName, default_value: Variant = null ) -> Variant:` |
 | 方法 | [`clear`](#member-gftilemapcache-methods-clear) | `func clear() -> void:` |
 | 方法 | [`diff_cells`](#member-gftilemapcache-methods-diff_cells) | `func diff_cells(other: GFTileMapCache, compare_key: StringName = &"") -> Array[Vector2i]:` |
 | 方法 | [`to_dict`](#member-gftilemapcache-methods-to_dict) | `func to_dict() -> Dictionary:` |
@@ -205,7 +205,7 @@ func remapped_tiles(remaps: Dictionary, options: Dictionary = {}) -> GFTileMapCa
 - 首次版本：`6.0.0`
 
 ```gdscript
-func transformed_and_remapped(transform: int, remaps: Dictionary, options: Dictionary = {}) -> GFTileMapCache:
+func transformed_and_remapped( transform: int, remaps: Dictionary, options: Dictionary = {} ) -> GFTileMapCache:
 ```
 
 创建坐标变换并重映射 tile identity 后的缓存副本。
@@ -330,9 +330,10 @@ func get_cell_data(cell: Vector2i) -> Dictionary:
 ### `get_value`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func get_value(cell: Vector2i, key: StringName, default_value: Variant = null) -> Variant:
+func get_value( cell: Vector2i, key: StringName, default_value: Variant = null ) -> Variant:
 ```
 
 获取格子字段值。

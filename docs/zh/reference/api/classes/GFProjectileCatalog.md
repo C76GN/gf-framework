@@ -16,7 +16,7 @@ typed projectile definition 目录。
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 属性 | [`entries`](#member-gfprojectilecatalog-properties-entries) | `var entries: Array[GFProjectileCatalogEntry] = []` |
-| 方法 | [`set_definition`](#member-gfprojectilecatalog-methods-set_definition) | `func set_definition( projectile_id: StringName, definition: GFProjectileDefinition ) -> void:` |
+| 方法 | [`set_definition`](#member-gfprojectilecatalog-methods-set_definition) | `func set_definition(projectile_id: StringName, definition: GFProjectileDefinition) -> void:` |
 | 方法 | [`get_definition`](#member-gfprojectilecatalog-methods-get_definition) | `func get_definition(projectile_id: StringName) -> GFProjectileDefinition:` |
 | 方法 | [`has_definition`](#member-gfprojectilecatalog-methods-has_definition) | `func has_definition(projectile_id: StringName) -> bool:` |
 | 方法 | [`remove_definition`](#member-gfprojectilecatalog-methods-remove_definition) | `func remove_definition(projectile_id: StringName) -> bool:` |
@@ -52,7 +52,7 @@ var entries: Array[GFProjectileCatalogEntry] = []
 - 首次版本：`11.0.0`
 
 ```gdscript
-func set_definition( projectile_id: StringName, definition: GFProjectileDefinition ) -> void:
+func set_definition(projectile_id: StringName, definition: GFProjectileDefinition) -> void:
 ```
 
 设置或替换一个 typed definition。

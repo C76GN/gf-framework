@@ -19,7 +19,7 @@
 | 属性 | [`skip_missing_properties`](#member-gfpersistpropertiessource-properties-skip_missing_properties) | `var skip_missing_properties: bool = true` |
 | 属性 | [`allowed_resource_roots`](#member-gfpersistpropertiessource-properties-allowed_resource_roots) | `var allowed_resource_roots: PackedStringArray = PackedStringArray()` |
 | 属性 | [`allowed_resource_patterns`](#member-gfpersistpropertiessource-properties-allowed_resource_patterns) | `var allowed_resource_patterns: PackedStringArray = PackedStringArray()` |
-| 方法 | [`_gather_save_data`](#member-gfpersistpropertiessource-methods-_gather_save_data) | `func _gather_save_data( context: Dictionary = {}, serializer_registry: GFNodeSerializerRegistry = null ) -> Variant:` |
+| 方法 | [`_gather_save_data`](#member-gfpersistpropertiessource-methods-_gather_save_data) | `func _gather_save_data(context: Dictionary = {}, serializer_registry: GFNodeSerializerRegistry = null) -> Variant:` |
 | 方法 | [`_apply_save_data`](#member-gfpersistpropertiessource-methods-_apply_save_data) | `func _apply_save_data( data: Variant, context: Dictionary = {}, serializer_registry: GFNodeSerializerRegistry = null ) -> Dictionary:` |
 
 ## 属性
@@ -81,9 +81,10 @@ Resource 引用恢复时允许加载的资源路径通配模式。为空时使�
 ### `_gather_save_data`
 
 - API：`protected`
+- 首次版本：`3.23.0`
 
 ```gdscript
-func _gather_save_data( context: Dictionary = {}, serializer_registry: GFNodeSerializerRegistry = null ) -> Variant:
+func _gather_save_data(context: Dictionary = {}, serializer_registry: GFNodeSerializerRegistry = null) -> Variant:
 ```
 
 采集属性白名单保存数据。

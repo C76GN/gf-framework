@@ -202,16 +202,17 @@ func configure_from_network_layer(
 	clock: GFClock,
 	started_at_msec: int = -1
 ) -> bool:
-	if _initialized or request == null or not request.is_valid() or clock == null:
+	if (
+		_initialized
+		or request == null
+		or not request.is_valid()
+		or clock == null
+	):
 		return false
 	_request = request.duplicate_request()
 	_clock = clock
 	_started_at_msec = started_at_msec if started_at_msec >= 0 else _clock.get_monotonic_msec()
-	_deadline_msec = (
-		_started_at_msec + _request.timeout_msec
-		if _request.timeout_msec > 0
-		else -1
-	)
+	_deadline_msec = (_started_at_msec + _request.timeout_msec if _request.timeout_msec > 0 else -1)
 	_initialized = true
 	return true
 
@@ -239,16 +240,17 @@ func reject_from_network_layer(
 ) -> bool:
 	if _initialized or clock == null:
 		return false
-	_request = (
-		request.duplicate_request()
-		if request != null
-		else GFNetworkLobbyOperationRequest.new()
-	)
+	_request = (request.duplicate_request() if request != null else GFNetworkLobbyOperationRequest.new())
 	_clock = clock
 	_started_at_msec = _clock.get_monotonic_msec()
 	_deadline_msec = -1
 	_initialized = true
-	return _finish_failure(status, message, {}, false)
+	return _finish_failure(
+		status,
+		message,
+		{},
+		false
+	)
 
 
 ## 提交并校验成功终态。
@@ -270,9 +272,7 @@ func succeed_from_network_layer(options: Dictionary = {}) -> bool:
 	var result_options: Dictionary = options.duplicate(true)
 	result_options["started_at_msec"] = _started_at_msec
 	result_options["completed_at_msec"] = _clock.get_monotonic_msec()
-	var result: GFNetworkLobbyOperationResult = (
-		GFNetworkLobbyOperationResult.new().configure_success(_request, result_options)
-	)
+	var result: GFNetworkLobbyOperationResult = (GFNetworkLobbyOperationResult.new().configure_success(_request, result_options))
 	if not result.is_valid():
 		return _finish_failure(
 			&"invalid_backend_result",
@@ -305,7 +305,12 @@ func fail_from_network_layer(
 ) -> bool:
 	if status != &"timed_out" and _has_expired():
 		return timeout_from_network_layer()
-	return _finish_failure(status, message, metadata, false)
+	return _finish_failure(
+		status,
+		message,
+		metadata,
+		false
+	)
 
 
 ## 提交超时终态并通知 Backend 取消。
@@ -316,7 +321,12 @@ func fail_from_network_layer(
 ## [br]
 ## @return 首次超时成功返回 true。
 func timeout_from_network_layer() -> bool:
-	return _finish_failure(&"timed_out", "Lobby operation timed out.", {}, true)
+	return _finish_failure(
+		&"timed_out",
+		"Lobby operation timed out.",
+		{},
+		true
+	)
 
 
 ## 提交已经构造的终态结果。
@@ -329,7 +339,11 @@ func timeout_from_network_layer() -> bool:
 ## [br]
 ## @return 首次完成成功返回 true。
 func resolve_from_network_layer(result: GFNetworkLobbyOperationResult) -> bool:
-	if not is_pending() or result == null or not result.matches_request(_request):
+	if (
+		not is_pending()
+		or result == null
+		or not result.matches_request(_request)
+	):
 		return false
 	_result = result.duplicate_result()
 	completed.emit(_result.duplicate_result())
@@ -351,16 +365,18 @@ func _finish_failure(
 	if not is_pending():
 		return false
 	var normalized_status: StringName = status if status != &"" else &"failed"
-	_result = GFNetworkLobbyOperationResult.new().configure_failure(
-		_request,
-		normalized_status,
-		message,
-		{
-			"status": normalized_status,
-			"started_at_msec": _started_at_msec,
-			"completed_at_msec": _clock.get_monotonic_msec(),
-			"metadata": metadata,
-		}
+	_result = (
+		GFNetworkLobbyOperationResult.new().configure_failure(
+			_request,
+			normalized_status,
+			message,
+			{
+				"status": normalized_status,
+				"started_at_msec": _started_at_msec,
+				"completed_at_msec": _clock.get_monotonic_msec(),
+				"metadata": metadata,
+			}
+		)
 	)
 	if emit_cancellation:
 		cancel_requested.emit(normalized_status)

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectileCharacterBodyAdapter2D" path="addons/gf/extensions/combat/projectiles/gf_projectile_character_body_adapter_2d.gd" module="extensions/combat" extends="GFProjectileBodyAdapter2D" classDigest="9aa2388f7ee5595ed9070f7297f64ec0311769ac036c967e48c7149d118d3014">
+<class name="GFProjectileCharacterBodyAdapter2D" path="addons/gf/extensions/combat/projectiles/gf_projectile_character_body_adapter_2d.gd" module="extensions/combat" extends="GFProjectileBodyAdapter2D" classDigest="a3716d42ec9258bb79dd7634442b61469ebd7cbdf7bc04e5ae91fc36fd9512ef">
 	<description>GFProjectileCharacterBodyAdapter2D: CharacterBody2D 运动适配器。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -32,7 +32,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="_apply_intent">
-			<signature>func _apply_intent( root: Node, intent: GFProjectileMotionIntent2D ) -&gt; GFProjectileBodyResult2D:</signature>
+			<signature>func _apply_intent(root: Node, intent: GFProjectileMotionIntent2D) -&gt; GFProjectileBodyResult2D:</signature>
 			<description>将 MOVE 速度写入 CharacterBody2D 后调用 move_and_slide，返回实际产生的全局位移。
 intent 时长用于候选位移的有限性预检，实际移动由 move_and_slide 执行；其他有效种类使用零速度。
 若移动后位置或位移非有限，只还原本节点先前的变换与速度，不承诺撤销物理查询或其他外部影响。</description>

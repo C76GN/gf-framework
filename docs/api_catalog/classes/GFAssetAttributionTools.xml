@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAssetAttributionTools" path="addons/gf/extensions/asset_metadata/runtime/gf_asset_attribution_tools.gd" module="extensions/asset_metadata" extends="RefCounted" classDigest="1622aa8b8bd0f4e3b02b1d73df1abd4842a30fe1ffbffb480fef340593244c81">
+<class name="GFAssetAttributionTools" path="addons/gf/extensions/asset_metadata/runtime/gf_asset_attribution_tools.gd" module="extensions/asset_metadata" extends="RefCounted" classDigest="5aefd9e128310247dafcd260df54380d884e7de4f0e0941087c41b842d5daecf">
 	<description>GFAssetAttributionTools: 资产授权与署名元数据工具。
 提供纯数据归一、路径覆盖检查和通知文本格式化，便于项目导入管线、CI
 或 Credits 页面复用同一套资产归因字段约定。它不内置许可证模板、不下载外部数据，
@@ -29,7 +29,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="resolve_attribution">
-			<signature>static func resolve_attribution(path: String, entries: Array, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>static func resolve_attribution( path: String, entries: Array, options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>按资源路径解析最匹配的归因条目。
 精确路径优先；inherit_from_parent 为 true 时，父目录归因可覆盖其子资源。</description>
 			<tags>

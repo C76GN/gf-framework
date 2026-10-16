@@ -88,7 +88,14 @@ func add_entry(
 	operation: StringName = OPERATION_COPY,
 	options: Dictionary = {}
 ) -> GFImportPlan:
-	entries.append(_make_entry(source_path, target_path, operation, options))
+	entries.append(
+		_make_entry(
+			source_path,
+			target_path,
+			operation,
+			options
+		)
+	)
 	return self
 
 
@@ -158,13 +165,23 @@ func get_validation_report(options: Dictionary = {}) -> Dictionary:
 		"issues": [],
 	}
 	for index: int in range(entries.size()):
-		_validate_entry(entries[index], index, options, report)
-	if GFVariantData.get_option_bool(options, "check_duplicate_targets", true):
+		_validate_entry(
+			entries[index],
+			index,
+			options,
+			report
+		)
+	if GFVariantData.get_option_bool(
+		options,
+		"check_duplicate_targets",
+		true
+	):
 		_validate_duplicate_targets(options, report)
-	return GFValidationReportDictionary.finalize_report(report, _REPORT_SUBJECT, {
-		"fallback_action": "Review the first import plan issue.",
-		"no_action": "Import plan is valid.",
-	})
+	return GFValidationReportDictionary.finalize_report(
+		report,
+		_REPORT_SUBJECT,
+		{ "fallback_action": "Review the first import plan issue.", "no_action": "Import plan is valid.", }
+	)
 
 
 ## 生成导入计划摘要。
@@ -188,7 +205,11 @@ func get_operation_summary(options: Dictionary = {}) -> Dictionary:
 	var actionable_entry_count: int = 0
 	var skipped_entry_count: int = 0
 	var missing_target_count: int = 0
-	var include_skip_targets: bool = GFVariantData.get_option_bool(options, "include_skip_targets", false)
+	var include_skip_targets: bool = GFVariantData.get_option_bool(
+		options,
+		"include_skip_targets",
+		false
+	)
 
 	for index: int in range(entries.size()):
 		var entry: Dictionary = entries[index]
@@ -206,9 +227,19 @@ func get_operation_summary(options: Dictionary = {}) -> Dictionary:
 			actionable_entry_count += 1
 		if target_path.is_empty():
 			missing_target_count += 1
-		if target_path.is_empty() or (operation == OPERATION_SKIP and not include_skip_targets):
+		if (
+			target_path.is_empty()
+			or (
+				operation == OPERATION_SKIP
+				and not include_skip_targets
+			)
+		):
 			continue
-		_add_target_entry_index(target_entries, target_path, index)
+		_add_target_entry_index(
+			target_entries,
+			target_path,
+			index
+		)
 
 	return {
 		"entry_count": entries.size(),
@@ -260,10 +291,7 @@ func get_repair_report() -> Dictionary:
 ## [br]
 ## @schema return: Dictionary with entries and metadata.
 func to_dict() -> Dictionary:
-	return {
-		"entries": _copy_entries(entries),
-		"metadata": metadata.duplicate(true),
-	}
+	return { "entries": _copy_entries(entries), "metadata": metadata.duplicate(true), }
 
 
 ## 应用字典数据。
@@ -328,33 +356,89 @@ static func _make_entry(
 ## [br]
 ## @api private
 ## [br]
-func _validate_entry(entry: Dictionary, index: int, options: Dictionary, report: Dictionary) -> void:
+func _validate_entry(
+	entry: Dictionary,
+	index: int,
+	options: Dictionary,
+	report: Dictionary
+) -> void:
 	var source_path: String = GFVariantData.get_option_string(entry, "source_path")
 	var target_path: String = GFVariantData.get_option_string(entry, "target_path")
 	var operation: StringName = GFVariantData.get_option_string_name(entry, "operation")
 	if source_path.is_empty():
-		_append_entry_issue(report, index, &"missing_source_path", "source_path is required", &"source_path")
-	if target_path.is_empty() and not GFVariantData.get_option_bool(options, "allow_empty_target", false):
-		_append_entry_issue(report, index, &"missing_target_path", "target_path is required", &"target_path")
+		_append_entry_issue(
+			report,
+			index,
+			&"missing_source_path",
+			"source_path is required",
+			&"source_path"
+		)
+	if target_path.is_empty() and not GFVariantData.get_option_bool(
+		options,
+		"allow_empty_target",
+		false
+	):
+		_append_entry_issue(
+			report,
+			index,
+			&"missing_target_path",
+			"target_path is required",
+			&"target_path"
+		)
 	if not _is_supported_operation(operation):
-		_append_entry_issue(report, index, &"unsupported_operation", "operation is not supported", &"operation", {
-			"actual_value": operation,
-			"expected_value": PackedStringArray([String(OPERATION_COPY), String(OPERATION_CONVERT), String(OPERATION_SKIP)]),
-		})
+		_append_entry_issue(
+			report,
+			index,
+			&"unsupported_operation",
+			"operation is not supported",
+			&"operation",
+			{
+				"actual_value": operation,
+				"expected_value": PackedStringArray(
+					[
+						String(OPERATION_COPY),
+						String(OPERATION_CONVERT),
+						String(OPERATION_SKIP),
+					]
+				),
+			}
+		)
 	if (
-		GFVariantData.get_option_bool(options, "check_source_exists", false)
+		GFVariantData.get_option_bool(
+			options,
+			"check_source_exists",
+			false
+		)
 		and not source_path.is_empty()
 		and not FileAccess.file_exists(source_path)
 	):
-		_append_entry_issue(report, index, &"missing_source_file", "source file does not exist", &"source_path", {
-			"actual_value": source_path,
-		})
+		_append_entry_issue(
+			report,
+			index,
+			&"missing_source_file",
+			"source file does not exist",
+			&"source_path",
+			{ "actual_value": source_path, }
+		)
 	var target_root: String = GFVariantData.get_option_string(options, "target_root")
-	if not target_root.is_empty() and not target_path.is_empty() and not GFPathTools.is_path_under_root(target_path, target_root, true, false):
-		_append_entry_issue(report, index, &"target_outside_root", "target_path must stay inside target_root", &"target_path", {
-			"actual_value": target_path,
-			"expected_value": target_root,
-		})
+	if (
+		not target_root.is_empty()
+		and not target_path.is_empty()
+		and not GFPathTools.is_path_under_root(
+			target_path,
+			target_root,
+			true,
+			false
+		)
+	):
+		_append_entry_issue(
+			report,
+			index,
+			&"target_outside_root",
+			"target_path must stay inside target_root",
+			&"target_path",
+			{ "actual_value": target_path, "expected_value": target_root, }
+		)
 
 
 ## 查找重复目标路径并为涉及的每一条目追加错误。
@@ -362,15 +446,29 @@ func _validate_entry(entry: Dictionary, index: int, options: Dictionary, report:
 ## @api private
 ## [br]
 func _validate_duplicate_targets(options: Dictionary, report: Dictionary) -> void:
-	var include_skip_targets: bool = GFVariantData.get_option_bool(options, "include_skip_targets", false)
+	var include_skip_targets: bool = GFVariantData.get_option_bool(
+		options,
+		"include_skip_targets",
+		false
+	)
 	var target_entries: Dictionary = {}
 	for index: int in range(entries.size()):
 		var entry: Dictionary = entries[index]
 		var target_path: String = GFVariantData.get_option_string(entry, "target_path")
 		var operation: StringName = GFVariantData.get_option_string_name(entry, "operation")
-		if target_path.is_empty() or (operation == OPERATION_SKIP and not include_skip_targets):
+		if (
+			target_path.is_empty()
+			or (
+				operation == OPERATION_SKIP
+				and not include_skip_targets
+			)
+		):
 			continue
-		_add_target_entry_index(target_entries, target_path, index)
+		_add_target_entry_index(
+			target_entries,
+			target_path,
+			index
+		)
 
 	for duplicate_target_value: Variant in _collect_duplicate_targets(target_entries):
 		var duplicate_target: Dictionary = GFVariantData.as_dictionary(duplicate_target_value)
@@ -380,10 +478,14 @@ func _validate_duplicate_targets(options: Dictionary, report: Dictionary) -> voi
 			var entry_index: int = GFVariantData.to_int(entry_index_value, -1)
 			if entry_index < 0:
 				continue
-			_append_entry_issue(report, entry_index, &"duplicate_target_path", "target_path is used by multiple import entries", &"target_path", {
-				"actual_value": target_path,
-				"entry_indexes": entry_indexes.duplicate(true),
-			})
+			_append_entry_issue(
+				report,
+				entry_index,
+				&"duplicate_target_path",
+				"target_path is used by multiple import entries",
+				&"target_path",
+				{ "actual_value": target_path, "entry_indexes": entry_indexes.duplicate(true), }
+			)
 
 
 ## 合并条目行号、字段路径和上下文后追加 error 级别校验问题。
@@ -401,9 +503,14 @@ func _append_entry_issue(
 	var issue_context: Dictionary = {
 		"row_index": index,
 		"field": field_name,
-		"path": "entries[%d].%s" % [index, String(field_name)],
+		"path": "entries[%d].%s"
+		% [index, String(field_name)],
 	}
-	var merged_context: Dictionary = GFVariantData.merge_dictionary(issue_context, context, true)
+	var merged_context: Dictionary = GFVariantData.merge_dictionary(
+		issue_context,
+		context,
+		true
+	)
 	var _issue: Dictionary = GFValidationReportDictionary.append_issue(
 		report,
 		"error",
@@ -418,7 +525,11 @@ func _append_entry_issue(
 ## @api private
 ## [br]
 static func _is_supported_operation(operation: StringName) -> bool:
-	return operation == OPERATION_COPY or operation == OPERATION_CONVERT or operation == OPERATION_SKIP
+	return (
+		operation == OPERATION_COPY
+		or operation == OPERATION_CONVERT
+		or operation == OPERATION_SKIP
+	)
 
 
 ## 将指定汇总键的整数计数加一。
@@ -426,7 +537,11 @@ static func _is_supported_operation(operation: StringName) -> bool:
 ## @api private
 ## [br]
 static func _increment_count(counts: Dictionary, key: String) -> void:
-	counts[key] = GFVariantData.get_option_int(counts, key, 0) + 1
+	counts[key] = GFVariantData.get_option_int(
+		counts,
+		key,
+		0
+	) + 1
 
 
 ## 将空汇总值规整为 unknown。
@@ -441,7 +556,11 @@ static func _summary_key(value: String) -> String:
 ## [br]
 ## @api private
 ## [br]
-static func _add_target_entry_index(target_entries: Dictionary, target_path: String, entry_index: int) -> void:
+static func _add_target_entry_index(
+	target_entries: Dictionary,
+	target_path: String,
+	entry_index: int
+) -> void:
 	if not target_entries.has(target_path):
 		target_entries[target_path] = []
 	var indexes: Array = GFVariantData.get_option_array(target_entries, target_path)
@@ -460,11 +579,13 @@ static func _collect_duplicate_targets(target_entries: Dictionary) -> Array[Dict
 		var indexes: Array = GFVariantData.get_option_array(target_entries, target_path)
 		if indexes.size() < 2:
 			continue
-		result.append({
-			"target_path": target_path,
-			"entry_count": indexes.size(),
-			"entry_indexes": indexes.duplicate(true),
-		})
+		result.append(
+			{
+				"target_path": target_path,
+				"entry_count": indexes.size(),
+				"entry_indexes": indexes.duplicate(true),
+			}
+		)
 	return result
 
 

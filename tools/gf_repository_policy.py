@@ -481,22 +481,6 @@ def audit_maintenance_skill_contracts(sources: dict[str, str]) -> list[str]:
 		"Historical retention and legacy top-level `.gf/*.log` cleanup occur only through an explicit",
 		"explicit historical log cleanup",
 	)
-	require(
-		framework_checks,
-		"`framework-gut` 60 minutes, `framework-lsp` 15 minutes, "
-		"`framework-static` 20 minutes, and `framework-integration` 90 minutes",
-		"Ready/main workflow deadline contract",
-	)
-	require(
-		framework_checks,
-		"Ready/main and tag release use the same exact per-shard limits",
-		"release workflow deadline contract",
-	)
-	require(
-		framework_checks,
-		"manual `main` Full remains exactly 90 minutes",
-		"manual workflow deadline contract",
-	)
 	return issues
 
 
@@ -2145,26 +2129,6 @@ def run_maintenance_skill_contract_mutation_self_tests() -> list[str]:
 			"remove only logs created or rewritten by that invocation",
 			"remove all managed logs after every invocation",
 			"session-owned automatic log cleanup",
-		),
-		(
-			".codex/skills/gf-framework-maintenance/references/checks.md",
-			"`framework-gut` 60 minutes, `framework-lsp` 15 minutes, "
-			"`framework-static` 20 minutes, and `framework-integration` 90 minutes",
-			"`framework-gut` 59 minutes, `framework-lsp` 15 minutes, "
-			"`framework-static` 20 minutes, and `framework-integration` 90 minutes",
-			"Ready/main workflow deadline contract",
-		),
-		(
-			".codex/skills/gf-framework-maintenance/references/checks.md",
-			"Ready/main and tag release use the same exact per-shard limits",
-			"Ready/main uses exact per-shard limits",
-			"release workflow deadline contract",
-		),
-		(
-			".codex/skills/gf-framework-maintenance/references/checks.md",
-			"manual `main` Full remains exactly 90 minutes",
-			"manual `main` Full remains exactly 80 minutes",
-			"manual workflow deadline contract",
 		),
 	)
 	issues: list[str] = []

@@ -23,8 +23,8 @@
 | 方法 | [`is_document_step`](#member-gfsavemigrationstep-methods-is_document_step) | `func is_document_step() -> bool:` |
 | 方法 | [`validate_step`](#member-gfsavemigrationstep-methods-validate_step) | `func validate_step() -> Dictionary:` |
 | 方法 | [`describe_step`](#member-gfsavemigrationstep-methods-describe_step) | `func describe_step() -> Dictionary:` |
-| 方法 | [`_migrate_document`](#member-gfsavemigrationstep-methods-_migrate_document) | `func _migrate_document( document: GFSaveDocument, _context: Dictionary = {} ) -> GFSaveDocument:` |
-| 方法 | [`_migrate_section`](#member-gfsavemigrationstep-methods-_migrate_section) | `func _migrate_section( section: GFSaveSection, _context: Dictionary = {} ) -> GFSaveSection:` |
+| 方法 | [`_migrate_document`](#member-gfsavemigrationstep-methods-_migrate_document) | `func _migrate_document(document: GFSaveDocument, _context: Dictionary = {}) -> GFSaveDocument:` |
+| 方法 | [`_migrate_section`](#member-gfsavemigrationstep-methods-_migrate_section) | `func _migrate_section(section: GFSaveSection, _context: Dictionary = {}) -> GFSaveSection:` |
 
 ## 属性
 
@@ -156,7 +156,7 @@ func describe_step() -> Dictionary:
 - 首次版本：`9.0.0`
 
 ```gdscript
-func _migrate_document( document: GFSaveDocument, _context: Dictionary = {} ) -> GFSaveDocument:
+func _migrate_document(document: GFSaveDocument, _context: Dictionary = {}) -> GFSaveDocument:
 ```
 
 执行文档级迁移。 输入是隔离副本；返回 null 表示失败。Registry 会强制保持 schema_id， 并在步骤成功后写入声明的目标版本。
@@ -182,7 +182,7 @@ func _migrate_document( document: GFSaveDocument, _context: Dictionary = {} ) ->
 - 首次版本：`9.0.0`
 
 ```gdscript
-func _migrate_section( section: GFSaveSection, _context: Dictionary = {} ) -> GFSaveSection:
+func _migrate_section(section: GFSaveSection, _context: Dictionary = {}) -> GFSaveSection:
 ```
 
 执行分区级迁移。 输入是隔离副本；返回 null 表示失败。Registry 会强制保持 section_id， 并在步骤成功后写入声明的目标版本。

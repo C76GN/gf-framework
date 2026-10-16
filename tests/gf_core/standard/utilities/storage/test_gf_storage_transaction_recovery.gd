@@ -1,12 +1,7 @@
 ## 测试 Storage v2 transaction marker 的崩溃恢复、失败关闭与 committed-view 语义。
 extends GutTest
 
-
-const _GF_STORAGE_FAMILY_STORE_SCRIPT = preload(
-	"res://addons/gf/standard/utilities/storage/gf_storage_family_store.gd"
-)
-
-
+const _GF_STORAGE_FAMILY_STORE_SCRIPT = preload("res://addons/gf/standard/utilities/storage/gf_storage_family_store.gd")
 var _save_dir_name: String = ""
 var _storage_root_path: String = ""
 var _storage: GFStorageUtility
@@ -24,7 +19,10 @@ class DrainMutationStorageUtility extends GFStorageUtility:
 		if not inject_during_next_drain:
 			return
 		inject_during_next_drain = false
-		injection_error = _write_transaction_markers([injection_file_name], false)
+		injection_error = _write_transaction_markers(
+			[injection_file_name],
+			false
+		)
 		if injection_error != OK:
 			return
 		injection_error = _write_json(
@@ -43,26 +41,22 @@ class CommitInvariantSabotageStorageUtility extends GFStorageUtility:
 	var sabotage_next_committed_validation: bool = false
 	var sabotage_error: Error = OK
 
-	func _validate_single_committed_absolute_transaction(
-		final_path: String,
-		temp_path: String
-	) -> Error:
+	func _validate_single_committed_absolute_transaction(final_path: String, temp_path: String) -> Error:
 		if sabotage_next_committed_validation:
 			sabotage_next_committed_validation = false
 			sabotage_error = DirAccess.rename_absolute(final_path, temp_path)
 			if sabotage_error != OK:
 				return sabotage_error
-		return OK if FileAccess.file_exists(final_path) and not FileAccess.file_exists(
-			temp_path
-		) else ERR_FILE_CORRUPT
+		return (OK if (FileAccess.file_exists(final_path) and not (FileAccess.file_exists(temp_path))) else ERR_FILE_CORRUPT)
 
 
 func before_each() -> void:
 	_save_dir_name = "gf-tx-recovery-" + GFUuid.generate_v4()
-	_storage_root_path = _GF_STORAGE_FAMILY_STORE_SCRIPT.make_storage_root_path_for_framework(
-		_save_dir_name
+	_storage_root_path = _GF_STORAGE_FAMILY_STORE_SCRIPT.make_storage_root_path_for_framework(_save_dir_name)
+	_storage = _configure_storage(
+		GFStorageUtility.new(),
+		true
 	)
-	_storage = _configure_storage(GFStorageUtility.new(), true)
 
 
 func after_each() -> void:
@@ -71,7 +65,11 @@ func after_each() -> void:
 			storage.dispose()
 	_storage_instances.clear()
 	var cleanup_error: Error = _remove_test_root()
-	assert_eq(cleanup_error, OK, "测试结束后应完整删除本测唯一 Storage root。")
+	assert_eq(
+		cleanup_error,
+		OK,
+		"测试结束后应完整删除本测唯一 Storage root。"
+	)
 	_storage = null
 	_storage_root_path = ""
 	_save_dir_name = ""
@@ -79,7 +77,13 @@ func after_each() -> void:
 
 func test_corrupt_final_prepare_record_is_distinct_from_absence_and_fails_closed() -> void:
 	var file_name: String = "tri-state/prepare.json"
-	assert_eq(_storage.save_data(file_name, {"value": 1}), OK)
+	assert_eq(
+		_storage.save_data(
+			file_name,
+			{ "value": 1 }
+		),
+		OK
+	)
 	assert_eq(
 		_recover_transaction_files([file_name]),
 		OK,
@@ -87,37 +91,68 @@ func test_corrupt_final_prepare_record_is_distinct_from_absence_and_fails_closed
 	)
 	var descriptor: Dictionary = _descriptor(file_name)
 	var prepare_path: String = GFVariantData.get_option_string(descriptor, "transaction_path")
-	assert_eq(_write_text(prepare_path, "{}"), OK)
+	assert_eq(
+		_write_text(prepare_path, "{}"),
+		OK
+	)
 	var evidence_before: PackedByteArray = FileAccess.get_file_as_bytes(prepare_path)
 
 	var recovery_error: Error = _recover_transaction_files([file_name])
 
-	assert_eq(recovery_error, ERR_FILE_CORRUPT, "存在但损坏的 final prepare 必须失败关闭。")
-	assert_true(FileAccess.file_exists(prepare_path), "损坏 prepare 必须保留为诊断证据。")
-	assert_eq(FileAccess.get_file_as_bytes(prepare_path), evidence_before, "失败关闭不得改写损坏证据。")
+	assert_eq(
+		recovery_error,
+		ERR_FILE_CORRUPT,
+		"存在但损坏的 final prepare 必须失败关闭。"
+	)
+	assert_true(
+		FileAccess.file_exists(prepare_path),
+		"损坏 prepare 必须保留为诊断证据。"
+	)
+	assert_eq(
+		FileAccess.get_file_as_bytes(prepare_path),
+		evidence_before,
+		"失败关闭不得改写损坏证据。"
+	)
 
 
 func test_corrupt_final_commit_record_is_distinct_from_absence_and_fails_closed() -> void:
 	var file_name: String = "tri-state/commit.json"
-	assert_eq(_storage.save_data(file_name, {"value": 1}), OK)
+	assert_eq(
+		_storage.save_data(
+			file_name,
+			{ "value": 1 }
+		),
+		OK
+	)
 	assert_eq(
 		_recover_transaction_files([file_name]),
 		OK,
 		"没有 marker 的稳定 family 应是合法 absent 状态。"
 	)
 	var descriptor: Dictionary = _descriptor(file_name)
-	var commit_path: String = GFVariantData.get_option_string(
-		descriptor,
-		"transaction_commit_path"
+	var commit_path: String = GFVariantData.get_option_string(descriptor, "transaction_commit_path")
+	assert_eq(
+		_write_text(commit_path, "{}"),
+		OK
 	)
-	assert_eq(_write_text(commit_path, "{}"), OK)
 	var evidence_before: PackedByteArray = FileAccess.get_file_as_bytes(commit_path)
 
 	var recovery_error: Error = _recover_transaction_files([file_name])
 
-	assert_eq(recovery_error, ERR_FILE_CORRUPT, "存在但损坏的 final commit 必须失败关闭。")
-	assert_true(FileAccess.file_exists(commit_path), "损坏 commit 必须保留为诊断证据。")
-	assert_eq(FileAccess.get_file_as_bytes(commit_path), evidence_before, "失败关闭不得改写损坏证据。")
+	assert_eq(
+		recovery_error,
+		ERR_FILE_CORRUPT,
+		"存在但损坏的 final commit 必须失败关闭。"
+	)
+	assert_true(
+		FileAccess.file_exists(commit_path),
+		"损坏 commit 必须保留为诊断证据。"
+	)
+	assert_eq(
+		FileAccess.get_file_as_bytes(commit_path),
+		evidence_before,
+		"失败关闭不得改写损坏证据。"
+	)
 
 
 func test_final_markers_reject_non_string_identity_fields_and_preserve_evidence() -> void:
@@ -125,20 +160,32 @@ func test_final_markers_reject_non_string_identity_fields_and_preserve_evidence(
 		var file_name: String = GFVariantData.get_option_string(test_case, "file_name")
 		var field_path: String = GFVariantData.get_option_string(test_case, "field_path")
 		var field_value: Variant = test_case.get("field_value")
-		assert_eq(_storage.save_data(file_name, { "value": 1 }), OK)
-		assert_eq(_storage._write_transaction_markers([file_name], false), OK)
-		var descriptor: Dictionary = _descriptor(file_name)
-		var marker_path: String = GFVariantData.get_option_string(
-			descriptor,
-			"transaction_path"
+		assert_eq(
+			_storage.save_data(
+				file_name,
+				{ "value": 1 }
+			),
+			OK
 		)
+		assert_eq(
+			_storage._write_transaction_markers(
+				[file_name],
+				false
+			),
+			OK
+		)
+		var descriptor: Dictionary = _descriptor(file_name)
+		var marker_path: String = GFVariantData.get_option_string(descriptor, "transaction_path")
 		var marker: Dictionary = _storage._read_transaction_marker(file_name)
 		var corrupt_marker: Dictionary = _mutate_marker_field(
 			marker,
 			field_path,
 			field_value
 		)
-		assert_eq(_write_json_record(marker_path, corrupt_marker), OK)
+		assert_eq(
+			_write_json_record(marker_path, corrupt_marker),
+			OK
+		)
 		var evidence_before: PackedByteArray = FileAccess.get_file_as_bytes(marker_path)
 
 		var recovery_error: Error = _recover_transaction_files([file_name])
@@ -148,7 +195,10 @@ func test_final_markers_reject_non_string_identity_fields_and_preserve_evidence(
 			ERR_FILE_CORRUPT,
 			"final marker 的非 String 字段必须失败关闭：%s" % field_path
 		)
-		assert_true(FileAccess.file_exists(marker_path), "损坏 final marker 必须保留。")
+		assert_true(
+			FileAccess.file_exists(marker_path),
+			"损坏 final marker 必须保留。"
+		)
 		assert_eq(
 			FileAccess.get_file_as_bytes(marker_path),
 			evidence_before,
@@ -161,22 +211,37 @@ func test_pending_markers_reject_non_string_identity_fields_and_preserve_evidenc
 		var file_name: String = GFVariantData.get_option_string(test_case, "file_name")
 		var field_path: String = GFVariantData.get_option_string(test_case, "field_path")
 		var field_value: Variant = test_case.get("field_value")
-		assert_eq(_storage.save_data(file_name, { "value": 1 }), OK)
-		assert_eq(_storage._write_transaction_markers([file_name], false), OK)
+		assert_eq(
+			_storage.save_data(
+				file_name,
+				{ "value": 1 }
+			),
+			OK
+		)
+		assert_eq(
+			_storage._write_transaction_markers(
+				[file_name],
+				false
+			),
+			OK
+		)
 		var descriptor: Dictionary = _descriptor(file_name)
 		var final_path: String = GFVariantData.get_option_string(descriptor, "transaction_path")
-		var pending_path: String = GFVariantData.get_option_string(
-			descriptor,
-			"transaction_pending_path"
-		)
+		var pending_path: String = GFVariantData.get_option_string(descriptor, "transaction_pending_path")
 		var marker: Dictionary = _storage._read_transaction_marker(file_name)
 		var corrupt_marker: Dictionary = _mutate_marker_field(
 			marker,
 			field_path,
 			field_value
 		)
-		assert_eq(_write_json_record(pending_path, corrupt_marker), OK)
-		assert_eq(DirAccess.remove_absolute(final_path), OK)
+		assert_eq(
+			_write_json_record(pending_path, corrupt_marker),
+			OK
+		)
+		assert_eq(
+			DirAccess.remove_absolute(final_path),
+			OK
+		)
 		var evidence_before: PackedByteArray = FileAccess.get_file_as_bytes(pending_path)
 
 		var recovery_error: Error = _recover_transaction_files([file_name])
@@ -186,7 +251,10 @@ func test_pending_markers_reject_non_string_identity_fields_and_preserve_evidenc
 			ERR_FILE_CORRUPT,
 			"pending marker 的非 String 字段必须失败关闭：%s" % field_path
 		)
-		assert_true(FileAccess.file_exists(pending_path), "损坏 pending marker 必须保留。")
+		assert_true(
+			FileAccess.file_exists(pending_path),
+			"损坏 pending marker 必须保留。"
+		)
 		assert_eq(
 			FileAccess.get_file_as_bytes(pending_path),
 			evidence_before,
@@ -196,17 +264,23 @@ func test_pending_markers_reject_non_string_identity_fields_and_preserve_evidenc
 
 func test_valid_prepare_pending_is_promoted_then_rolls_back_to_old_generation() -> void:
 	var file_name: String = "pending-prepare/data.json"
-	assert_eq(_storage.save_data(file_name, {"value": 11}), OK)
-	assert_eq(_storage._write_transaction_markers([file_name], false), OK)
+	assert_eq(
+		_storage.save_data(
+			file_name,
+			{ "value": 11 }
+		),
+		OK
+	)
+	assert_eq(
+		_storage._write_transaction_markers(
+			[file_name],
+			false
+		),
+		OK
+	)
 	var descriptor: Dictionary = _descriptor(file_name)
-	var prepare_path: String = GFVariantData.get_option_string(
-		descriptor,
-		"transaction_path"
-	)
-	var prepare_pending_path: String = GFVariantData.get_option_string(
-		descriptor,
-		"transaction_pending_path"
-	)
+	var prepare_path: String = GFVariantData.get_option_string(descriptor, "transaction_path")
+	var prepare_pending_path: String = GFVariantData.get_option_string(descriptor, "transaction_pending_path")
 	assert_eq(
 		DirAccess.rename_absolute(prepare_path, prepare_pending_path),
 		OK,
@@ -215,32 +289,41 @@ func test_valid_prepare_pending_is_promoted_then_rolls_back_to_old_generation() 
 
 	var recovery_error: Error = _recover_transaction_files([file_name])
 
-	assert_eq(recovery_error, OK, "有效 prepare pending 必须先提升，再按未提交事务回滚。")
+	assert_eq(
+		recovery_error,
+		OK,
+		"有效 prepare pending 必须先提升，再按未提交事务回滚。"
+	)
 	_assert_group_evidence_absent([file_name])
-	assert_eq(GFVariantData.get_option_int(_load_payload(file_name), "value"), 11)
+	assert_eq(
+		GFVariantData.get_option_int(
+			_load_payload(file_name),
+			"value"
+		),
+		11
+	)
 
 
 func test_valid_commit_pending_in_reciprocal_group_keeps_new_generation() -> void:
 	var data_file_name: String = "pending-commit/data.json"
 	var meta_file_name: String = "pending-commit/meta.json"
 	var file_names: Array[String] = [data_file_name, meta_file_name]
-	_seed_group({
-		data_file_name: {"value": 1},
-		meta_file_name: {"value": 2},
-	})
-	_stage_fully_committed_group(file_names, {
-		data_file_name: {"value": 101},
-		meta_file_name: {"value": 202},
-	})
+	_seed_group(
+		{
+			data_file_name: { "value": 1 },
+			meta_file_name: { "value": 2 },
+		}
+	)
+	_stage_fully_committed_group(
+		file_names,
+		{
+			data_file_name: { "value": 101 },
+			meta_file_name: { "value": 202 },
+		}
+	)
 	var meta_descriptor: Dictionary = _descriptor(meta_file_name)
-	var commit_path: String = GFVariantData.get_option_string(
-		meta_descriptor,
-		"transaction_commit_path"
-	)
-	var commit_pending_path: String = GFVariantData.get_option_string(
-		meta_descriptor,
-		"transaction_commit_pending_path"
-	)
+	var commit_path: String = GFVariantData.get_option_string(meta_descriptor, "transaction_commit_path")
+	var commit_pending_path: String = GFVariantData.get_option_string(meta_descriptor, "transaction_commit_pending_path")
 	assert_eq(
 		DirAccess.rename_absolute(commit_path, commit_pending_path),
 		OK,
@@ -249,10 +332,26 @@ func test_valid_commit_pending_in_reciprocal_group_keeps_new_generation() -> voi
 
 	var recovery_error: Error = _recover_transaction_files([data_file_name])
 
-	assert_eq(recovery_error, OK, "有效 commit pending 必须提升并完成 committed group 收敛。")
+	assert_eq(
+		recovery_error,
+		OK,
+		"有效 commit pending 必须提升并完成 committed group 收敛。"
+	)
 	_assert_group_evidence_absent(file_names)
-	assert_eq(GFVariantData.get_option_int(_load_payload(data_file_name), "value"), 101)
-	assert_eq(GFVariantData.get_option_int(_load_payload(meta_file_name), "value"), 202)
+	assert_eq(
+		GFVariantData.get_option_int(
+			_load_payload(data_file_name),
+			"value"
+		),
+		101
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			_load_payload(meta_file_name),
+			"value"
+		),
+		202
+	)
 
 
 func test_group_transaction_id_rejects_number_and_bool_and_preserves_all_records() -> void:
@@ -261,27 +360,32 @@ func test_group_transaction_id_rejects_number_and_bool_and_preserves_all_records
 		var data_file_name: String = "typed-group-%d/data.json" % case_index
 		var meta_file_name: String = "typed-group-%d/meta.json" % case_index
 		var file_names: Array[String] = [data_file_name, meta_file_name]
-		_seed_group({
-			data_file_name: { "value": 1 },
-			meta_file_name: { "value": 2 },
-		})
-		assert_eq(_storage._write_transaction_markers(file_names, false), OK)
+		_seed_group(
+			{
+				data_file_name: { "value": 1 },
+				meta_file_name: { "value": 2 },
+			}
+		)
+		assert_eq(
+			_storage._write_transaction_markers(file_names, false),
+			OK
+		)
 		var evidence_paths: Array[String] = []
 		var evidence_bytes: Array[PackedByteArray] = []
 		for file_name: String in file_names:
 			var descriptor: Dictionary = _descriptor(file_name)
-			var final_path: String = GFVariantData.get_option_string(
-				descriptor,
-				"transaction_path"
-			)
-			var pending_path: String = GFVariantData.get_option_string(
-				descriptor,
-				"transaction_pending_path"
-			)
+			var final_path: String = GFVariantData.get_option_string(descriptor, "transaction_path")
+			var pending_path: String = GFVariantData.get_option_string(descriptor, "transaction_pending_path")
 			var marker: Dictionary = _storage._read_transaction_marker(file_name)
 			marker["transaction_id"] = transaction_id_values[case_index]
-			assert_eq(_write_json_record(final_path, marker), OK)
-			assert_eq(_write_json_record(pending_path, marker), OK)
+			assert_eq(
+				_write_json_record(final_path, marker),
+				OK
+			)
+			assert_eq(
+				_write_json_record(pending_path, marker),
+				OK
+			)
 			evidence_paths.append(final_path)
 			evidence_bytes.append(FileAccess.get_file_as_bytes(final_path))
 			evidence_paths.append(pending_path)
@@ -289,10 +393,17 @@ func test_group_transaction_id_rejects_number_and_bool_and_preserves_all_records
 
 		var recovery_error: Error = _recover_transaction_files([data_file_name])
 
-		assert_eq(recovery_error, ERR_FILE_CORRUPT, "group transaction_id 必须是 String。")
+		assert_eq(
+			recovery_error,
+			ERR_FILE_CORRUPT,
+			"group transaction_id 必须是 String。"
+		)
 		for evidence_index: int in evidence_paths.size():
 			var evidence_path: String = evidence_paths[evidence_index]
-			assert_true(FileAccess.file_exists(evidence_path), "损坏 group record 必须保留。")
+			assert_true(
+				FileAccess.file_exists(evidence_path),
+				"损坏 group record 必须保留。"
+			)
 			assert_eq(
 				FileAccess.get_file_as_bytes(evidence_path),
 				evidence_bytes[evidence_index],
@@ -304,11 +415,16 @@ func test_partial_initial_prepare_without_physical_mutation_aborts_cleanly() -> 
 	var data_file_name: String = "partial-prepare/data.json"
 	var meta_file_name: String = "partial-prepare/meta.json"
 	var file_names: Array[String] = [data_file_name, meta_file_name]
-	_seed_group({
-		data_file_name: {"value": 10},
-		meta_file_name: {"value": 20},
-	})
-	assert_eq(_storage._write_transaction_markers(file_names, false), OK)
+	_seed_group(
+		{
+			data_file_name: { "value": 10 },
+			meta_file_name: { "value": 20 },
+		}
+	)
+	assert_eq(
+		_storage._write_transaction_markers(file_names, false),
+		OK
+	)
 	assert_eq(
 		DirAccess.remove_absolute(
 			GFVariantData.get_option_string(
@@ -322,24 +438,45 @@ func test_partial_initial_prepare_without_physical_mutation_aborts_cleanly() -> 
 
 	var recovery_error: Error = _recover_transaction_files([data_file_name])
 
-	assert_eq(recovery_error, OK, "物理 payload 未变化时，partial initial prepare 应可安全 abort。")
+	assert_eq(
+		recovery_error,
+		OK,
+		"物理 payload 未变化时，partial initial prepare 应可安全 abort。"
+	)
 	_assert_group_evidence_absent(file_names)
-	assert_eq(GFVariantData.get_option_int(_load_payload(data_file_name), "value"), 10)
-	assert_eq(GFVariantData.get_option_int(_load_payload(meta_file_name), "value"), 20)
+	assert_eq(
+		GFVariantData.get_option_int(
+			_load_payload(data_file_name),
+			"value"
+		),
+		10
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			_load_payload(meta_file_name),
+			"value"
+		),
+		20
+	)
 
 
 func test_full_commit_with_partial_prepare_cleanup_converges() -> void:
 	var data_file_name: String = "commit-prepare-cleanup/data.json"
 	var meta_file_name: String = "commit-prepare-cleanup/meta.json"
 	var file_names: Array[String] = [data_file_name, meta_file_name]
-	_seed_group({
-		data_file_name: {"value": 1},
-		meta_file_name: {"value": 2},
-	})
-	_stage_fully_committed_group(file_names, {
-		data_file_name: {"value": 101},
-		meta_file_name: {"value": 202},
-	})
+	_seed_group(
+		{
+			data_file_name: { "value": 1 },
+			meta_file_name: { "value": 2 },
+		}
+	)
+	_stage_fully_committed_group(
+		file_names,
+		{
+			data_file_name: { "value": 101 },
+			meta_file_name: { "value": 202 },
+		}
+	)
 	assert_eq(
 		DirAccess.remove_absolute(
 			GFVariantData.get_option_string(
@@ -353,24 +490,45 @@ func test_full_commit_with_partial_prepare_cleanup_converges() -> void:
 
 	var recovery_error: Error = _recover_transaction_files([data_file_name])
 
-	assert_eq(recovery_error, OK, "完整 reciprocal commit set 应支配 partial prepare cleanup。")
+	assert_eq(
+		recovery_error,
+		OK,
+		"完整 reciprocal commit set 应支配 partial prepare cleanup。"
+	)
 	_assert_group_evidence_absent(file_names)
-	assert_eq(GFVariantData.get_option_int(_load_payload(data_file_name), "value"), 101)
-	assert_eq(GFVariantData.get_option_int(_load_payload(meta_file_name), "value"), 202)
+	assert_eq(
+		GFVariantData.get_option_int(
+			_load_payload(data_file_name),
+			"value"
+		),
+		101
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			_load_payload(meta_file_name),
+			"value"
+		),
+		202
+	)
 
 
 func test_partial_commit_cleanup_after_prepare_cleanup_converges() -> void:
 	var data_file_name: String = "commit-terminal-cleanup/data.json"
 	var meta_file_name: String = "commit-terminal-cleanup/meta.json"
 	var file_names: Array[String] = [data_file_name, meta_file_name]
-	_seed_group({
-		data_file_name: {"value": 3},
-		meta_file_name: {"value": 4},
-	})
-	_stage_fully_committed_group(file_names, {
-		data_file_name: {"value": 303},
-		meta_file_name: {"value": 404},
-	})
+	_seed_group(
+		{
+			data_file_name: { "value": 3 },
+			meta_file_name: { "value": 4 },
+		}
+	)
+	_stage_fully_committed_group(
+		file_names,
+		{
+			data_file_name: { "value": 303 },
+			meta_file_name: { "value": 404 },
+		}
+	)
 	for file_name: String in file_names:
 		var descriptor: Dictionary = _descriptor(file_name)
 		assert_eq(
@@ -378,9 +536,7 @@ func test_partial_commit_cleanup_after_prepare_cleanup_converges() -> void:
 			OK
 		)
 		assert_eq(
-			DirAccess.remove_absolute(
-				GFVariantData.get_option_string(descriptor, "transaction_path")
-			),
+			DirAccess.remove_absolute(GFVariantData.get_option_string(descriptor, "transaction_path")),
 			OK
 		)
 	assert_eq(
@@ -396,24 +552,45 @@ func test_partial_commit_cleanup_after_prepare_cleanup_converges() -> void:
 
 	var recovery_error: Error = _recover_transaction_files([data_file_name])
 
-	assert_eq(recovery_error, OK, "terminal committed physical state 应允许 partial commit cleanup 收敛。")
+	assert_eq(
+		recovery_error,
+		OK,
+		"terminal committed physical state 应允许 partial commit cleanup 收敛。"
+	)
 	_assert_group_evidence_absent(file_names)
-	assert_eq(GFVariantData.get_option_int(_load_payload(data_file_name), "value"), 303)
-	assert_eq(GFVariantData.get_option_int(_load_payload(meta_file_name), "value"), 404)
+	assert_eq(
+		GFVariantData.get_option_int(
+			_load_payload(data_file_name),
+			"value"
+		),
+		303
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			_load_payload(meta_file_name),
+			"value"
+		),
+		404
+	)
 
 
 func test_full_prepare_with_partial_commit_rolls_back() -> void:
 	var data_file_name: String = "partial-commit/data.json"
 	var meta_file_name: String = "partial-commit/meta.json"
 	var file_names: Array[String] = [data_file_name, meta_file_name]
-	_seed_group({
-		data_file_name: {"value": 5},
-		meta_file_name: {"value": 6},
-	})
-	_stage_fully_committed_group(file_names, {
-		data_file_name: {"value": 505},
-		meta_file_name: {"value": 606},
-	})
+	_seed_group(
+		{
+			data_file_name: { "value": 5 },
+			meta_file_name: { "value": 6 },
+		}
+	)
+	_stage_fully_committed_group(
+		file_names,
+		{
+			data_file_name: { "value": 505 },
+			meta_file_name: { "value": 606 },
+		}
+	)
 	assert_eq(
 		DirAccess.remove_absolute(
 			GFVariantData.get_option_string(
@@ -427,18 +604,49 @@ func test_full_prepare_with_partial_commit_rolls_back() -> void:
 
 	var recovery_error: Error = _recover_transaction_files([data_file_name])
 
-	assert_eq(recovery_error, OK, "full prepare + partial commit 不足以证明提交，必须回滚。")
+	assert_eq(
+		recovery_error,
+		OK,
+		"full prepare + partial commit 不足以证明提交，必须回滚。"
+	)
 	_assert_group_evidence_absent(file_names)
-	assert_eq(GFVariantData.get_option_int(_load_payload(data_file_name), "value"), 5)
-	assert_eq(GFVariantData.get_option_int(_load_payload(meta_file_name), "value"), 6)
+	assert_eq(
+		GFVariantData.get_option_int(
+			_load_payload(data_file_name),
+			"value"
+		),
+		5
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			_load_payload(meta_file_name),
+			"value"
+		),
+		6
+	)
 
 
 func test_rollback_restore_failure_preserves_evidence_and_retry_succeeds() -> void:
 	var file_name: String = "retry/restore.json"
-	assert_eq(_storage.save_data(file_name, {"value": 7}), OK)
-	assert_eq(_storage._write_transaction_markers([file_name], false), OK)
 	assert_eq(
-		_storage._write_json(_storage._get_temp_filename(file_name), {"value": 707}),
+		_storage.save_data(
+			file_name,
+			{ "value": 7 }
+		),
+		OK
+	)
+	assert_eq(
+		_storage._write_transaction_markers(
+			[file_name],
+			false
+		),
+		OK
+	)
+	assert_eq(
+		_storage._write_json(
+			_storage._get_temp_filename(file_name),
+			{ "value": 707 }
+		),
 		OK
 	)
 	var descriptor: Dictionary = _descriptor(file_name)
@@ -446,7 +654,10 @@ func test_rollback_restore_failure_preserves_evidence_and_retry_succeeds() -> vo
 	var backup_path: String = GFVariantData.get_option_string(descriptor, "backup_path")
 	var candidate_path: String = GFVariantData.get_option_string(descriptor, "candidate_path")
 	var prepare_path: String = GFVariantData.get_option_string(descriptor, "transaction_path")
-	assert_eq(DirAccess.rename_absolute(final_path, backup_path), OK)
+	assert_eq(
+		DirAccess.rename_absolute(final_path, backup_path),
+		OK
+	)
 	assert_eq(
 		DirAccess.make_dir_absolute(final_path),
 		OK,
@@ -464,23 +675,53 @@ func test_rollback_restore_failure_preserves_evidence_and_retry_succeeds() -> vo
 		ERR_BUG
 	) as Error
 
-	assert_ne(rollback_error, OK, "restore 被阻断时 rollback 必须报告失败。")
-	assert_true(FileAccess.file_exists(prepare_path), "rollback 失败后必须保留 prepare evidence。")
-	assert_true(FileAccess.file_exists(backup_path), "rollback 失败后必须保留 backup evidence。")
-	assert_true(FileAccess.file_exists(candidate_path), "rollback 失败后必须保留 candidate evidence。")
-	assert_eq(DirAccess.remove_absolute(final_path), OK, "解除 restore 阻断应成功。")
+	assert_ne(
+		rollback_error,
+		OK,
+		"restore 被阻断时 rollback 必须报告失败。"
+	)
+	assert_true(
+		FileAccess.file_exists(prepare_path),
+		"rollback 失败后必须保留 prepare evidence。"
+	)
+	assert_true(
+		FileAccess.file_exists(backup_path),
+		"rollback 失败后必须保留 backup evidence。"
+	)
+	assert_true(
+		FileAccess.file_exists(candidate_path),
+		"rollback 失败后必须保留 candidate evidence。"
+	)
+	assert_eq(
+		DirAccess.remove_absolute(final_path),
+		OK,
+		"解除 restore 阻断应成功。"
+	)
 
 	var retry_error: Error = _recover_transaction_files([file_name])
 
-	assert_eq(retry_error, OK, "解除物理故障后必须能凭保留证据幂等重试。")
+	assert_eq(
+		retry_error,
+		OK,
+		"解除物理故障后必须能凭保留证据幂等重试。"
+	)
 	_assert_group_evidence_absent([file_name])
-	assert_eq(GFVariantData.get_option_int(_load_payload(file_name), "value"), 7)
+	assert_eq(
+		GFVariantData.get_option_int(
+			_load_payload(file_name),
+			"value"
+		),
+		7
+	)
 
 
 func test_activation_fails_and_closes_admission_on_corrupt_layout() -> void:
 	var layout_path: String = _storage_root_path.path_join(".gf-storage/v1/layout.json")
 	assert_true(FileAccess.file_exists(layout_path))
-	assert_eq(_write_text(layout_path, "{}"), OK)
+	assert_eq(
+		_write_text(layout_path, "{}"),
+		OK
+	)
 	_storage.dispose()
 	var activating_storage: GFStorageUtility = _configure_storage(
 		GFStorageUtility.new(),
@@ -489,13 +730,23 @@ func test_activation_fails_and_closes_admission_on_corrupt_layout() -> void:
 
 	var completion: GFAsyncCompletion = activating_storage.begin_activation(null)
 
-	assert_true(completion.is_failed(), "corrupt layout 必须让 activation 进入失败终态。")
+	assert_true(
+		completion.is_failed(),
+		"corrupt layout 必须让 activation 进入失败终态。"
+	)
 	assert_eq(
-		GFVariantData.get_option_int(completion.get_metadata(), "error_code", OK),
+		GFVariantData.get_option_int(
+			completion.get_metadata(),
+			"error_code",
+			OK
+		),
 		ERR_FILE_CORRUPT
 	)
 	assert_eq(
-		activating_storage.save_data("probe.json", {"value": 1}),
+		activating_storage.save_data(
+			"probe.json",
+			{ "value": 1 }
+		),
 		ERR_UNAVAILABLE,
 		"activation readiness 失败后必须关闭新的 I/O admission。"
 	)
@@ -505,101 +756,210 @@ func test_list_recovers_committed_view_after_drain() -> void:
 	var drain_storage: DrainMutationStorageUtility = DrainMutationStorageUtility.new()
 	_replace_primary_storage(drain_storage)
 	var file_name: String = "list/committed.json"
-	assert_eq(drain_storage.save_data(file_name, {"value": 8}), OK)
+	assert_eq(
+		drain_storage.save_data(
+			file_name,
+			{ "value": 8 }
+		),
+		OK
+	)
 	drain_storage.injection_file_name = file_name
-	drain_storage.injection_payload = {"value": 808}
+	drain_storage.injection_payload = { "value": 808 }
 	drain_storage.inject_during_next_drain = true
 
-	var files: PackedStringArray = drain_storage.list_files("", "json", true)
+	var files: PackedStringArray = drain_storage.list_files(
+		"",
+		"json",
+		true
+	)
 
-	assert_eq(drain_storage.injection_error, OK, "drain fault fixture 应构造完整 prepare 与未完成物理提交。")
-	assert_true(files.has(file_name), "list 必须在 drain 后恢复并投影旧 committed payload。")
+	assert_eq(
+		drain_storage.injection_error,
+		OK,
+		"drain fault fixture 应构造完整 prepare 与未完成物理提交。"
+	)
+	assert_true(
+		files.has(file_name),
+		"list 必须在 drain 后恢复并投影旧 committed payload。"
+	)
 	_assert_group_evidence_absent([file_name])
-	assert_eq(GFVariantData.get_option_int(_load_payload(file_name), "value"), 8)
+	assert_eq(
+		GFVariantData.get_option_int(
+			_load_payload(file_name),
+			"value"
+		),
+		8
+	)
 
 
 func test_catalog_query_recovers_committed_view_after_drain() -> void:
 	var drain_storage: DrainMutationStorageUtility = DrainMutationStorageUtility.new()
 	_replace_primary_storage(drain_storage)
 	var file_name: String = "catalog/committed.json"
-	assert_eq(drain_storage.save_data(file_name, {"value": 8}), OK)
+	assert_eq(
+		drain_storage.save_data(
+			file_name,
+			{ "value": 8 }
+		),
+		OK
+	)
 	drain_storage.injection_file_name = file_name
-	drain_storage.injection_payload = {"value": 808}
+	drain_storage.injection_payload = { "value": 808 }
 	drain_storage.inject_during_next_drain = true
 
-	var result: GFStorageCatalogResult = drain_storage.query_catalog("catalog", "json", true)
+	var result: GFStorageCatalogResult = drain_storage.query_catalog(
+		"catalog",
+		"json",
+		true
+	)
 
 	assert_eq(drain_storage.injection_error, OK)
 	assert_true(result.is_successful())
 	assert_true(result.is_complete())
-	assert_eq(result.get_files(), PackedStringArray([file_name]))
+	assert_eq(
+		result.get_files(),
+		PackedStringArray([file_name])
+	)
 	_assert_group_evidence_absent([file_name])
-	assert_eq(GFVariantData.get_option_int(_load_payload(file_name), "value"), 8)
+	assert_eq(
+		GFVariantData.get_option_int(
+			_load_payload(file_name),
+			"value"
+		),
+		8
+	)
 
 
 func test_catalog_query_recovery_failure_does_not_publish_a_partial_empty_view() -> void:
-	assert_eq(_storage.save_data("catalog/valid.json", {"value": 1}), OK)
+	assert_eq(
+		_storage.save_data(
+			"catalog/valid.json",
+			{ "value": 1 }
+		),
+		OK
+	)
 	var file_name: String = "outside/corrupt.json"
-	assert_eq(_storage.save_data(file_name, {"value": 2}), OK)
+	assert_eq(
+		_storage.save_data(
+			file_name,
+			{ "value": 2 }
+		),
+		OK
+	)
 	var descriptor: Dictionary = _descriptor(file_name)
 	var marker_path: String = GFVariantData.get_option_string(descriptor, "transaction_path")
-	assert_eq(_write_text(marker_path, "{}"), OK)
+	assert_eq(
+		_write_text(marker_path, "{}"),
+		OK
+	)
 	var evidence_before: PackedByteArray = FileAccess.get_file_as_bytes(marker_path)
 
-	var result: GFStorageCatalogResult = _storage.query_catalog("catalog", "json", true)
+	var result: GFStorageCatalogResult = _storage.query_catalog(
+		"catalog",
+		"json",
+		true
+	)
 
 	assert_false(result.is_successful())
 	assert_false(result.is_complete())
-	assert_eq(result.get_error_code(), ERR_FILE_CORRUPT)
-	assert_eq(result.get_failure_kind(), GFStorageCatalogResult.FailureKind.RECOVERY_FAILED)
-	assert_true(result.get_files().is_empty(), "selector 外的恢复失败也不能返回误导性的部分 catalog。")
-	assert_eq(FileAccess.get_file_as_bytes(marker_path), evidence_before)
+	assert_eq(
+		result.get_error_code(),
+		ERR_FILE_CORRUPT
+	)
+	assert_eq(
+		result.get_failure_kind(),
+		GFStorageCatalogResult.FailureKind.RECOVERY_FAILED
+	)
+	assert_true(
+		result.get_files().is_empty(),
+		"selector 外的恢复失败也不能返回误导性的部分 catalog。"
+	)
+	assert_eq(
+		FileAccess.get_file_as_bytes(marker_path),
+		evidence_before
+	)
 
 
 func test_catalog_query_reports_preparation_failure_for_corrupt_layout() -> void:
 	var layout_path: String = _storage_root_path.path_join(".gf-storage/v1/layout.json")
-	assert_eq(_write_text(layout_path, "{}"), OK)
+	assert_eq(
+		_write_text(layout_path, "{}"),
+		OK
+	)
 	var result: GFStorageCatalogResult = _storage.query_catalog()
 	assert_false(result.is_successful())
 	assert_false(result.is_complete())
 	assert_true(result.get_files().is_empty())
-	assert_eq(result.get_error_code(), ERR_FILE_CORRUPT)
-	assert_eq(result.get_failure_kind(), GFStorageCatalogResult.FailureKind.PREPARATION_FAILED)
+	assert_eq(
+		result.get_error_code(),
+		ERR_FILE_CORRUPT
+	)
+	assert_eq(
+		result.get_failure_kind(),
+		GFStorageCatalogResult.FailureKind.PREPARATION_FAILED
+	)
 
 
 func test_catalog_query_does_not_claim_payload_integrity() -> void:
 	var file_name: String = "catalog/invalid-payload.json"
-	assert_eq(_storage.save_data(file_name, {"value": 1}), OK)
+	assert_eq(
+		_storage.save_data(
+			file_name,
+			{ "value": 1 }
+		),
+		OK
+	)
 	var descriptor: Dictionary = _descriptor(file_name)
 	var payload_path: String = GFVariantData.get_option_string(descriptor, "payload_path")
-	assert_eq(_write_text(payload_path, ""), OK)
-	var result: GFStorageCatalogResult = _storage.query_catalog("catalog", "json", true)
-	assert_true(result.is_complete(), "catalog 完整不要求对 payload 做全量解码。")
-	assert_eq(result.get_files(), PackedStringArray([file_name]))
+	assert_eq(
+		_write_text(payload_path, ""),
+		OK
+	)
+	var result: GFStorageCatalogResult = _storage.query_catalog(
+		"catalog",
+		"json",
+		true
+	)
+	assert_true(
+		result.is_complete(),
+		"catalog 完整不要求对 payload 做全量解码。"
+	)
+	assert_eq(
+		result.get_files(),
+		PackedStringArray([file_name])
+	)
 	var read_result: GFStorageReadResult = _storage.load_data(file_name)
 	assert_false(read_result.ok, "显式读取仍须独立报告损坏。")
 	assert_eq(read_result.error_code, ERR_FILE_CORRUPT)
 
 
 func test_durable_commit_with_invalid_final_candidate_invariant_reports_failure() -> void:
-	var sabotage_storage: CommitInvariantSabotageStorageUtility = (
-		CommitInvariantSabotageStorageUtility.new()
-	)
+	var sabotage_storage: CommitInvariantSabotageStorageUtility = CommitInvariantSabotageStorageUtility.new()
 	_replace_primary_storage(sabotage_storage)
 	var file_name: String = "async/invariant.json"
 	sabotage_storage.sabotage_next_committed_validation = true
 
 	var operation: GFStorageAsyncOperation = sabotage_storage.save_data_request_async(
 		file_name,
-		{"value": 9}
+		{ "value": 9 }
 	)
 	sabotage_storage.wait_for_async_tasks()
 	var result: GFStorageAsyncResult = operation.get_result()
 	var descriptor: Dictionary = _descriptor(file_name)
 
-	assert_eq(sabotage_storage.sabotage_error, OK, "故障夹具应在 durable commit 后破坏 final/candidate invariant。")
-	assert_false(result.is_successful(), "durable commit 后的终态 invariant 失败不得报告成功。")
-	assert_eq(result.get_error_code(), ERR_FILE_CORRUPT)
+	assert_eq(
+		sabotage_storage.sabotage_error,
+		OK,
+		"故障夹具应在 durable commit 后破坏 final/candidate invariant。"
+	)
+	assert_false(
+		result.is_successful(),
+		"durable commit 后的终态 invariant 失败不得报告成功。"
+	)
+	assert_eq(
+		result.get_error_code(),
+		ERR_FILE_CORRUPT
+	)
 	assert_false(
 		FileAccess.file_exists(GFVariantData.get_option_string(descriptor, "payload_path")),
 		"故障夹具应留下 missing final。"
@@ -609,9 +969,7 @@ func test_durable_commit_with_invalid_final_candidate_invariant_reports_failure(
 		"故障夹具应留下 candidate 作为冲突证据。"
 	)
 	assert_true(
-		FileAccess.file_exists(
-			GFVariantData.get_option_string(descriptor, "transaction_commit_path")
-		),
+		FileAccess.file_exists(GFVariantData.get_option_string(descriptor, "transaction_commit_path")),
 		"调用方失败终态前 commit record 应已 durable。"
 	)
 
@@ -661,7 +1019,10 @@ func _mutate_marker_field(
 
 
 func _write_json_record(path: String, record: Dictionary) -> Error:
-	return _write_text(path, JSON.stringify(record))
+	return _write_text(
+		path,
+		JSON.stringify(record)
+	)
 
 
 func _configure_storage(storage: GFStorageUtility, initialize: bool) -> GFStorageUtility:
@@ -680,10 +1041,7 @@ func _replace_primary_storage(storage: GFStorageUtility) -> void:
 
 
 func _descriptor(file_name: String) -> Dictionary:
-	return _GF_STORAGE_FAMILY_STORE_SCRIPT.make_family_descriptor_for_framework(
-		_storage_root_path,
-		file_name
-	)
+	return _GF_STORAGE_FAMILY_STORE_SCRIPT.make_family_descriptor_for_framework(_storage_root_path, file_name)
 
 
 func _recover_transaction_files(file_names: Array[String]) -> Error:
@@ -694,14 +1052,18 @@ func _recover_transaction_files(file_names: Array[String]) -> Error:
 
 
 func _seed_group(payloads_by_file: Dictionary) -> void:
-	assert_eq(_storage.save_data_group(payloads_by_file), OK, "测试夹具应写入旧 committed generation。")
+	assert_eq(
+		_storage.save_data_group(payloads_by_file),
+		OK,
+		"测试夹具应写入旧 committed generation。"
+	)
 
 
-func _stage_fully_committed_group(
-	file_names: Array[String],
-	payloads_by_file: Dictionary
-) -> void:
-	assert_eq(_storage._write_transaction_markers(file_names, false), OK)
+func _stage_fully_committed_group(file_names: Array[String], payloads_by_file: Dictionary) -> void:
+	assert_eq(
+		_storage._write_transaction_markers(file_names, false),
+		OK
+	)
 	for file_name: String in file_names:
 		assert_eq(
 			_storage._write_json(
@@ -724,12 +1086,19 @@ func _stage_fully_committed_group(
 			),
 			OK
 		)
-	assert_eq(_storage._write_transaction_markers(file_names, true), OK)
+	assert_eq(
+		_storage._write_transaction_markers(file_names, true),
+		OK
+	)
 
 
 func _load_payload(file_name: String) -> Dictionary:
 	var result: GFStorageReadResult = _storage.load_data(file_name)
-	assert_true(result.ok, "测试辅助读取应成功：%s；%s" % [file_name, result.error])
+	assert_true(
+		result.ok,
+		"测试辅助读取应成功：%s；%s"
+		% [file_name, result.error]
+	)
 	return result.payload.duplicate(true) if result.ok else {}
 
 
@@ -747,7 +1116,8 @@ func _assert_group_evidence_absent(file_names: Array[String]) -> void:
 		]:
 			assert_false(
 				FileAccess.file_exists(GFVariantData.get_option_string(descriptor, path_key)),
-				"事务收敛后不应残留 %s：%s" % [path_key, file_name]
+				"事务收敛后不应残留 %s：%s"
+				% [path_key, file_name]
 			)
 
 

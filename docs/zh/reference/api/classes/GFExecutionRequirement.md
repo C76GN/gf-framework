@@ -25,9 +25,9 @@
 | 属性 | [`label`](#member-gfexecutionrequirement-properties-label) | `var label: String = ""` |
 | 属性 | [`metadata`](#member-gfexecutionrequirement-properties-metadata) | `var metadata: Dictionary = {}` |
 | 方法 | [`configure`](#member-gfexecutionrequirement-methods-configure) | `func configure( p_requirement_id: StringName, p_label: String = "", p_metadata: Dictionary = {} ) -> GFExecutionRequirement:` |
-| 方法 | [`add_predicate`](#member-gfexecutionrequirement-methods-add_predicate) | `func add_predicate(condition_id: StringName, predicate: Callable, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`add_predicate`](#member-gfexecutionrequirement-methods-add_predicate) | `func add_predicate( condition_id: StringName, predicate: Callable, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`add_value`](#member-gfexecutionrequirement-methods-add_value) | `func add_value( condition_id: StringName, key: Variant, expected_value: Variant, options: Dictionary = {} ) -> Dictionary:` |
-| 方法 | [`add_presence`](#member-gfexecutionrequirement-methods-add_presence) | `func add_presence(condition_id: StringName, key: Variant, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`add_presence`](#member-gfexecutionrequirement-methods-add_presence) | `func add_presence( condition_id: StringName, key: Variant, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`evaluate`](#member-gfexecutionrequirement-methods-evaluate) | `func evaluate(context: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`is_satisfied`](#member-gfexecutionrequirement-methods-is_satisfied) | `func is_satisfied(context: Dictionary = {}) -> bool:` |
 | 方法 | [`get_conditions`](#member-gfexecutionrequirement-methods-get_conditions) | `func get_conditions() -> Array[Dictionary]:` |
@@ -196,7 +196,7 @@ func configure( p_requirement_id: StringName, p_label: String = "", p_metadata: 
 - 首次版本：`7.0.0`
 
 ```gdscript
-func add_predicate(condition_id: StringName, predicate: Callable, options: Dictionary = {}) -> Dictionary:
+func add_predicate( condition_id: StringName, predicate: Callable, options: Dictionary = {} ) -> Dictionary:
 ```
 
 添加 Callable 谓词条件。谓词签名为 `(context: Dictionary) -> bool|Dictionary`。
@@ -255,7 +255,7 @@ func add_value( condition_id: StringName, key: Variant, expected_value: Variant,
 - 首次版本：`7.0.0`
 
 ```gdscript
-func add_presence(condition_id: StringName, key: Variant, options: Dictionary = {}) -> Dictionary:
+func add_presence( condition_id: StringName, key: Variant, options: Dictionary = {} ) -> Dictionary:
 ```
 
 添加 context key 存在性条件。

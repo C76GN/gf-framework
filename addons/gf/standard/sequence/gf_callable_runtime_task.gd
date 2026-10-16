@@ -178,7 +178,11 @@ func initialize(scheduler: GFRuntimeTaskScheduler) -> void:
 ## @param delta: 帧间隔秒数。
 func tick(delta: float) -> void:
 	if tick_callable.is_valid():
-		var _call_result: Variant = tick_callable.call(delta, self, _get_scheduler_or_null())
+		var _call_result: Variant = tick_callable.call(
+			delta,
+			self,
+			_get_scheduler_or_null()
+		)
 
 
 ## 按物理帧推进任务。
@@ -193,7 +197,11 @@ func tick(delta: float) -> void:
 ## @param delta: 物理帧间隔秒数。
 func physics_tick(delta: float) -> void:
 	if physics_tick_callable.is_valid():
-		var _call_result: Variant = physics_tick_callable.call(delta, self, _get_scheduler_or_null())
+		var _call_result: Variant = physics_tick_callable.call(
+			delta,
+			self,
+			_get_scheduler_or_null()
+		)
 
 
 ## 判断任务是否已经完成。
@@ -210,16 +218,17 @@ func is_finished() -> bool:
 	if finish_after_initialize and has_initialized():
 		return true
 	if finished_callable.is_valid():
-		var finished_value: Variant = finished_callable.call(self, _get_scheduler_or_null())
+		var finished_value: Variant = finished_callable.call(
+			self,
+			_get_scheduler_or_null()
+		)
 		if finished_value is bool:
 			var finished_bool: bool = finished_value
 			return finished_bool
 		var generation: int = get_schedule_generation()
 		if _invalid_finished_result_generation != generation:
 			_invalid_finished_result_generation = generation
-			push_warning(
-				"[GFCallableRuntimeTask][callable_runtime_task.finished_result_not_bool] finished_callable must return bool; invalid results are treated as false."
-			)
+			push_warning("[GFCallableRuntimeTask][callable_runtime_task.finished_result_not_bool] finished_callable must return bool; invalid results are treated as false.")
 	return false
 
 
@@ -235,7 +244,11 @@ func is_finished() -> bool:
 ## @param interrupted: 为 true 时表示任务被其他任务或调度器取消。
 func end(interrupted: bool) -> void:
 	if end_callable.is_valid():
-		var _call_result: Variant = end_callable.call(interrupted, self, _get_scheduler_or_null())
+		var _call_result: Variant = end_callable.call(
+			interrupted,
+			self,
+			_get_scheduler_or_null()
+		)
 
 
 # --- 私有/辅助方法 ---

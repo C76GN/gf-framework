@@ -89,15 +89,25 @@ func sample_weight(elapsed_seconds: float) -> float:
 	if is_instant():
 		return 1.0
 	var safe_elapsed: float = elapsed_seconds if _is_finite_float(elapsed_seconds) else 0.0
-	var clamped_elapsed: float = clampf(safe_elapsed, 0.0, duration_seconds)
-	return clampf(GFVariantData.to_float(Tween.interpolate_value(
+	var clamped_elapsed: float = clampf(
+		safe_elapsed,
 		0.0,
-		1.0,
-		clamped_elapsed,
-		duration_seconds,
-		transition_type,
-		ease_type
-	)), 0.0, 1.0)
+		duration_seconds
+	)
+	return clampf(
+		GFVariantData.to_float(
+			Tween.interpolate_value(
+				0.0,
+				1.0,
+				clamped_elapsed,
+				duration_seconds,
+				transition_type,
+				ease_type
+			)
+		),
+		0.0,
+		1.0
+	)
 
 
 ## 创建深拷贝。
@@ -126,29 +136,35 @@ func _is_finite_float(value: float) -> bool:
 ## [br]
 ## @api private
 func _is_valid_transition_type(value: int) -> bool:
-	return value in [
-		Tween.TRANS_LINEAR,
-		Tween.TRANS_SINE,
-		Tween.TRANS_QUINT,
-		Tween.TRANS_QUART,
-		Tween.TRANS_QUAD,
-		Tween.TRANS_EXPO,
-		Tween.TRANS_ELASTIC,
-		Tween.TRANS_CUBIC,
-		Tween.TRANS_CIRC,
-		Tween.TRANS_BOUNCE,
-		Tween.TRANS_BACK,
-		Tween.TRANS_SPRING,
-	]
+	return (
+		value
+		in [
+			Tween.TRANS_LINEAR,
+			Tween.TRANS_SINE,
+			Tween.TRANS_QUINT,
+			Tween.TRANS_QUART,
+			Tween.TRANS_QUAD,
+			Tween.TRANS_EXPO,
+			Tween.TRANS_ELASTIC,
+			Tween.TRANS_CUBIC,
+			Tween.TRANS_CIRC,
+			Tween.TRANS_BOUNCE,
+			Tween.TRANS_BACK,
+			Tween.TRANS_SPRING,
+		]
+	)
 
 
 ## 检查整数是否为支持的 Tween 缓动类型。
 ## [br]
 ## @api private
 func _is_valid_ease_type(value: int) -> bool:
-	return value in [
-		Tween.EASE_IN,
-		Tween.EASE_OUT,
-		Tween.EASE_IN_OUT,
-		Tween.EASE_OUT_IN,
-	]
+	return (
+		value
+		in [
+			Tween.EASE_IN,
+			Tween.EASE_OUT,
+			Tween.EASE_IN_OUT,
+			Tween.EASE_OUT_IN,
+		]
+	)

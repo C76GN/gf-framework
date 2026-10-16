@@ -201,10 +201,12 @@ func are_instance_data_compatible(left: Dictionary = {}, right: Dictionary = {})
 			self,
 		]
 		var result_output: Array = []
-		if not GFInventoryRuleCallableSupport.try_call_for_framework(
-			compatibility_checker,
-			arguments,
-			result_output
+		if not (
+			GFInventoryRuleCallableSupport.try_call_for_framework(
+				compatibility_checker,
+				arguments,
+				result_output
+			)
 		):
 			return false
 		return GFVariantData.to_bool(result_output[0])
@@ -212,7 +214,7 @@ func are_instance_data_compatible(left: Dictionary = {}, right: Dictionary = {})
 		return left_data == right_data
 
 	for field_name: String in stack_key_fields:
-		if GFVariantData.get_option_value(left_data, field_name) != GFVariantData.get_option_value(right_data, field_name):
+		if (GFVariantData.get_option_value(left_data, field_name) != GFVariantData.get_option_value(right_data, field_name)):
 			return false
 	return true
 
@@ -251,11 +253,31 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @schema data: Dictionary，可包含 item_id、display_name、description、max_stack_amount、max_stack_count、categories、default_instance_data、stack_key_fields 与 metadata。
 func apply_dict(data: Dictionary) -> void:
-	item_id = GFVariantData.get_option_string_name(data, "item_id", item_id)
-	display_name = GFVariantData.get_option_string(data, "display_name", display_name)
-	description = GFVariantData.get_option_string(data, "description", description)
-	max_stack_amount = GFVariantData.get_option_int(data, "max_stack_amount", max_stack_amount)
-	max_stack_count = GFVariantData.get_option_int(data, "max_stack_count", max_stack_count)
+	item_id = GFVariantData.get_option_string_name(
+		data,
+		"item_id",
+		item_id
+	)
+	display_name = GFVariantData.get_option_string(
+		data,
+		"display_name",
+		display_name
+	)
+	description = GFVariantData.get_option_string(
+		data,
+		"description",
+		description
+	)
+	max_stack_amount = GFVariantData.get_option_int(
+		data,
+		"max_stack_amount",
+		max_stack_amount
+	)
+	max_stack_count = GFVariantData.get_option_int(
+		data,
+		"max_stack_count",
+		max_stack_count
+	)
 	categories.clear()
 	var raw_categories: PackedStringArray = GFVariantData.get_option_packed_string_array(data, "categories")
 	for category: Variant in raw_categories:

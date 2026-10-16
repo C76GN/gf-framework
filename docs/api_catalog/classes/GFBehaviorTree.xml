@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBehaviorTree" path="addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd" module="extensions/behavior_tree" extends="Object" classDigest="7a368d7044d02c650f5b61bd4ce4615a92e1085b28009ee0b10b7ee1eea22d70">
+<class name="GFBehaviorTree" path="addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd" module="extensions/behavior_tree" extends="Object" classDigest="b59efd934e8b9246a9bbd5f906dfd6529ced7fba8addcb7564735aca680fac9a">
 	<description>GFBehaviorTree: 轻量级、纯代码的行为树实现。
 提供无需编辑器的、以代码方式构建 AI 或通用决策逻辑的轻量方案。
 可以在任何 System 中通过 Runner 来驱动 tick()。核心节点包含
@@ -283,7 +283,7 @@ Sequence、Decorator 等具体内置节点的自定义子类。默认实现或�
 					</tags>
 				</member>
 				<member kind="method" name="record_status">
-					<signature>func record_status(status: int, reason: StringName = &amp;"", elapsed_usec: int = 0) -&gt; int:</signature>
+					<signature>func record_status( status: int, reason: StringName = &amp;"", elapsed_usec: int = 0 ) -&gt; int:</signature>
 					<description>记录节点状态。</description>
 					<tags>
 						<tag name="api">public</tag>
@@ -291,6 +291,7 @@ Sequence、Decorator 等具体内置节点的自定义子类。默认实现或�
 						<tag name="param">reason: 可选状态原因。</tag>
 						<tag name="param">elapsed_usec: 可选耗时。</tag>
 						<tag name="return">原状态值，便于子类直接 return。</tag>
+						<tag name="since">3.17.0</tag>
 					</tags>
 				</member>
 				<member kind="method" name="get_debug_snapshot">

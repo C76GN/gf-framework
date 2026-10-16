@@ -36,9 +36,7 @@ const _OPERATION_LOAD: StringName = &"load"
 ## [br]
 ## @api private
 ## [br]
-const _OUTPUT_PATH_POLICY_SCRIPT = preload(
-	"res://addons/gf/tools/config_pipeline/gf_config_pipeline_output_path_policy.gd"
-)
+const _OUTPUT_PATH_POLICY_SCRIPT = preload("res://addons/gf/tools/config_pipeline/gf_config_pipeline_output_path_policy.gd")
 
 
 # --- 公共方法 ---
@@ -60,7 +58,12 @@ const _OUTPUT_PATH_POLICY_SCRIPT = preload(
 ## @schema return: Dictionary，包含 success、operation、profile_path、profile、profile_id、report、error_code 和 error。
 func load_profile(profile_path: String, options: Dictionary = {}) -> Dictionary:
 	if profile_path.is_empty():
-		return _make_load_failure(profile_path, "missing_profile_path", "导表 Profile 路径为空。", ERR_INVALID_PARAMETER)
+		return _make_load_failure(
+			profile_path,
+			"missing_profile_path",
+			"导表 Profile 路径为空。",
+			ERR_INVALID_PARAMETER
+		)
 	if not _is_godot_resource_path(profile_path):
 		return _make_load_failure(
 			profile_path,
@@ -76,10 +79,22 @@ func load_profile(profile_path: String, options: Dictionary = {}) -> Dictionary:
 			ERR_FILE_NOT_FOUND
 		)
 
-	var type_hint: String = GFVariantData.get_option_string(options, "type_hint", "Resource")
-	var raw_cache_mode: int = GFVariantData.get_option_int(options, "cache_mode", ResourceLoader.CACHE_MODE_IGNORE)
+	var type_hint: String = GFVariantData.get_option_string(
+		options,
+		"type_hint",
+		"Resource"
+	)
+	var raw_cache_mode: int = GFVariantData.get_option_int(
+		options,
+		"cache_mode",
+		ResourceLoader.CACHE_MODE_IGNORE
+	)
 	var cache_mode: ResourceLoader.CacheMode = raw_cache_mode as ResourceLoader.CacheMode
-	var resource: Resource = ResourceLoader.load(profile_path, type_hint, cache_mode)
+	var resource: Resource = ResourceLoader.load(
+		profile_path,
+		type_hint,
+		cache_mode
+	)
 	if resource == null:
 		return _make_load_failure(
 			profile_path,
@@ -126,12 +141,20 @@ func load_profile(profile_path: String, options: Dictionary = {}) -> Dictionary:
 func build_profile_path(profile_path: String, options: Dictionary = {}) -> Dictionary:
 	var load_result: Dictionary = load_profile(profile_path, options)
 	if not GFVariantData.get_option_bool(load_result, "success"):
-		return _make_run_failure(_OPERATION_BUILD, profile_path, load_result)
+		return _make_run_failure(
+			_OPERATION_BUILD,
+			profile_path,
+			load_result
+		)
 
 	var profile: GFConfigPipelineProfile = _get_profile_from_load_result(load_result)
 	var pipeline: GFConfigPipeline = GFConfigPipeline.new()
 	var build_result: Dictionary = pipeline.build_profile(profile, options)
-	return _make_build_run_result(profile_path, load_result, build_result)
+	return _make_build_run_result(
+		profile_path,
+		load_result,
+		build_result
+	)
 
 
 ## 从 Profile 路径构建并保存配置数据库资源。
@@ -152,11 +175,19 @@ func build_profile_path(profile_path: String, options: Dictionary = {}) -> Dicti
 func export_profile_path(profile_path: String, options: Dictionary = {}) -> Dictionary:
 	var load_result: Dictionary = load_profile(profile_path, options)
 	if not GFVariantData.get_option_bool(load_result, "success"):
-		return _make_run_failure(_OPERATION_EXPORT, profile_path, load_result)
+		return _make_run_failure(
+			_OPERATION_EXPORT,
+			profile_path,
+			load_result
+		)
 
 	var profile: GFConfigPipelineProfile = _get_profile_from_load_result(load_result)
 	var manifest_helper: GFConfigPipelineArtifactManifest = GFConfigPipelineArtifactManifest.new()
-	var path_plan: Dictionary = _make_export_output_path_plan(profile, options, manifest_helper)
+	var path_plan: Dictionary = _make_export_output_path_plan(
+		profile,
+		options,
+		manifest_helper
+	)
 	if not GFVariantData.get_option_bool(path_plan, "success"):
 		return _make_output_path_failure_run_result(
 			profile_path,
@@ -165,10 +196,7 @@ func export_profile_path(profile_path: String, options: Dictionary = {}) -> Dict
 			options,
 			path_plan
 		)
-	var effective_options: Dictionary = GFVariantData.get_option_dictionary(
-		path_plan,
-		"options"
-	).duplicate(true)
+	var effective_options: Dictionary = (GFVariantData.get_option_dictionary(path_plan, "options").duplicate(true))
 	var manifest_path: String = GFVariantData.get_option_string(path_plan, "manifest_path")
 	var changed_only: bool = GFVariantData.get_option_bool(effective_options, "changed_only")
 	var freshness_report: Dictionary = {}
@@ -180,7 +208,11 @@ func export_profile_path(profile_path: String, options: Dictionary = {}) -> Dict
 			effective_options
 		)
 		var scan_report: Dictionary = GFVariantData.get_option_dictionary(freshness_report, "scan_report")
-		if not GFVariantData.get_option_bool(scan_report, "success", true):
+		if not GFVariantData.get_option_bool(
+			scan_report,
+			"success",
+			true
+		):
 			return _make_freshness_scan_failure_run_result(
 				profile_path,
 				load_result,
@@ -197,9 +229,21 @@ func export_profile_path(profile_path: String, options: Dictionary = {}) -> Dict
 			GFVariantData.get_option_bool(freshness_report, "fresh")
 			and GFVariantData.get_option_bool(run_summary, "success")
 			and GFVariantData.get_option_bool(stored_report, "ok")
-			and GFVariantData.get_option_int(stored_report, "issue_count", -1) == 0
-			and GFVariantData.get_option_int(stored_report, "warning_count", -1) == 0
-			and GFVariantData.get_option_int(stored_report, "error_count", -1) == 0
+			and GFVariantData.get_option_int(
+				stored_report,
+				"issue_count",
+				-1
+			) == 0
+			and GFVariantData.get_option_int(
+				stored_report,
+				"warning_count",
+				-1
+			) == 0
+			and GFVariantData.get_option_int(
+				stored_report,
+				"error_count",
+				-1
+			) == 0
 		):
 			return _make_skipped_export_run_result(
 				profile_path,
@@ -212,17 +256,25 @@ func export_profile_path(profile_path: String, options: Dictionary = {}) -> Dict
 
 	var pipeline: GFConfigPipeline = GFConfigPipeline.new()
 	var export_result: Dictionary = pipeline.export_profile(profile, effective_options)
-	var run_result: Dictionary = _make_export_run_result(profile_path, load_result, export_result)
+	var run_result: Dictionary = _make_export_run_result(
+		profile_path,
+		load_result,
+		export_result
+	)
 	run_result["changed_only"] = changed_only
 	run_result["skipped"] = false
 	run_result["manifest_path"] = manifest_path
-	run_result["manifest_result"] = GFVariantData.get_option_dictionary(export_result, "manifest_result").duplicate(true)
+	run_result["manifest_result"] = (GFVariantData.get_option_dictionary(export_result, "manifest_result").duplicate(true))
 	run_result["manifest"] = GFVariantData.get_option_dictionary(export_result, "manifest").duplicate(true)
 	run_result["freshness_report"] = freshness_report.duplicate(true)
 	if not GFVariantData.get_option_bool(run_result, "success"):
 		var manifest_result: Dictionary = GFVariantData.get_option_dictionary(run_result, "manifest_result")
 		if not manifest_result.is_empty():
-			run_result["error_code"] = GFVariantData.get_option_int(manifest_result, "error_code", ERR_CANT_CREATE)
+			run_result["error_code"] = GFVariantData.get_option_int(
+				manifest_result,
+				"error_code",
+				ERR_CANT_CREATE
+			)
 	return run_result
 
 
@@ -238,11 +290,13 @@ func _make_load_failure(
 	message: String,
 	error_code: Error
 ) -> Dictionary:
-	var report: Dictionary = GFConfigValidationReport.new().make_error_report(
-		_OPERATION_LOAD,
-		kind,
-		message,
-		{ "profile_path": profile_path, "error_code": error_code }
+	var report: Dictionary = (
+		GFConfigValidationReport.new().make_error_report(
+			_OPERATION_LOAD,
+			kind,
+			message,
+			{ "profile_path": profile_path, "error_code": error_code }
+		)
 	)
 	return {
 		"success": false,
@@ -260,7 +314,11 @@ func _make_load_failure(
 ## [br]
 ## @api private
 ## [br]
-func _make_run_failure(operation: StringName, profile_path: String, load_result: Dictionary) -> Dictionary:
+func _make_run_failure(
+	operation: StringName,
+	profile_path: String,
+	load_result: Dictionary
+) -> Dictionary:
 	return {
 		"success": false,
 		"operation": operation,
@@ -281,7 +339,11 @@ func _make_run_failure(operation: StringName, profile_path: String, load_result:
 		"freshness_report": {},
 		"skipped": false,
 		"changed_only": false,
-		"error_code": GFVariantData.get_option_int(load_result, "error_code", ERR_INVALID_PARAMETER),
+		"error_code": GFVariantData.get_option_int(
+			load_result,
+			"error_code",
+			ERR_INVALID_PARAMETER
+		),
 		"error": GFVariantData.get_option_string(load_result, "error"),
 	}
 
@@ -290,7 +352,11 @@ func _make_run_failure(operation: StringName, profile_path: String, load_result:
 ## [br]
 ## @api private
 ## [br]
-func _make_build_run_result(profile_path: String, load_result: Dictionary, build_result: Dictionary) -> Dictionary:
+func _make_build_run_result(
+	profile_path: String,
+	load_result: Dictionary,
+	build_result: Dictionary
+) -> Dictionary:
 	return {
 		"success": GFVariantData.get_option_bool(build_result, "success"),
 		"operation": _OPERATION_BUILD,
@@ -320,7 +386,11 @@ func _make_build_run_result(profile_path: String, load_result: Dictionary, build
 ## [br]
 ## @api private
 ## [br]
-func _make_export_run_result(profile_path: String, load_result: Dictionary, export_result: Dictionary) -> Dictionary:
+func _make_export_run_result(
+	profile_path: String,
+	load_result: Dictionary,
+	export_result: Dictionary
+) -> Dictionary:
 	return {
 		"success": GFVariantData.get_option_bool(export_result, "success"),
 		"operation": _OPERATION_EXPORT,
@@ -415,11 +485,17 @@ func _make_freshness_scan_failure_run_result(
 		"profile_id": profile_id,
 		"output_path": output_path,
 		"database": null,
-		"report": GFConfigValidationReport.new().make_error_report(
-			profile_id,
-			GFVariantData.get_option_string(scan_report, "error_code", "freshness_budget_exceeded"),
-			message,
-			scan_report
+		"report": (
+			GFConfigValidationReport.new().make_error_report(
+				profile_id,
+				GFVariantData.get_option_string(
+					scan_report,
+					"error_code",
+					"freshness_budget_exceeded"
+				),
+				message,
+				scan_report
+			)
 		),
 		"table_results": [],
 		"load_result": _duplicate_load_result(load_result),
@@ -460,22 +536,27 @@ func _make_output_path_failure_run_result(
 	if artifact == "manifest":
 		var manifest_options: Dictionary = _make_manifest_path_options(options)
 		manifest_options["dry_run"] = true
-		manifest_result = GFConfigPipelineArtifactManifest.new().save_manifest(
-			invalid_path,
-			{},
-			manifest_options
+		manifest_result = (
+			GFConfigPipelineArtifactManifest.new().save_manifest(
+				invalid_path,
+				{},
+				manifest_options
+			)
 		)
-	var result: Dictionary = _make_run_failure(_OPERATION_EXPORT, profile_path, load_result)
+	var result: Dictionary = _make_run_failure(
+		_OPERATION_EXPORT,
+		profile_path,
+		load_result
+	)
 	result["profile_id"] = profile_id
 	result["output_path"] = output_path
-	result["report"] = GFConfigValidationReport.new().make_error_report(
-		profile_id,
-		"invalid_output_path",
-		message,
-		{
-			"artifact": artifact,
-			"path": invalid_path,
-		}
+	result["report"] = (
+		GFConfigValidationReport.new().make_error_report(
+			profile_id,
+			"invalid_output_path",
+			message,
+			{ "artifact": artifact, "path": invalid_path, }
+		)
 	)
 	result["manifest_path"] = GFVariantData.get_option_string(path_plan, "manifest_path")
 	result["manifest_result"] = manifest_result
@@ -529,11 +610,7 @@ func _make_export_output_path_plan(
 	output_path = GFVariantData.get_option_string(output_result, "path")
 	effective_options["output_path"] = output_path
 
-	var access_output_path: String = (
-		profile.resolve_access_output_path(options)
-		if profile != null
-		else ""
-	)
+	var access_output_path: String = (profile.resolve_access_output_path(options) if profile != null else "")
 	if not access_output_path.is_empty():
 		var access_options: Dictionary = profile.make_access_options(options)
 		var access_result: Dictionary = _OUTPUT_PATH_POLICY_SCRIPT.resolve_output_path(
@@ -601,14 +678,8 @@ func _make_export_output_path_plan(
 ## @api private
 ## [br]
 func _make_manifest_path_options(options: Dictionary) -> Dictionary:
-	var result: Dictionary = GFVariantData.get_option_dictionary(
-		options,
-		"manifest_options"
-	).duplicate(true)
-	for key: String in PackedStringArray([
-		"allow_gf_source_output",
-		"allow_parent_output_path",
-	]):
+	var result: Dictionary = (GFVariantData.get_option_dictionary(options, "manifest_options").duplicate(true))
+	for key: String in PackedStringArray(["allow_gf_source_output", "allow_parent_output_path",]):
 		if options.has(key) and not result.has(key):
 			result[key] = options[key]
 	return result
@@ -687,7 +758,10 @@ func _is_godot_resource_path(profile_path: String) -> bool:
 ## @api private
 ## [br]
 func _duplicate_load_result(load_result: Dictionary) -> Dictionary:
-	return _duplicate_dictionary_without_keys(load_result, { "profile": true })
+	return _duplicate_dictionary_without_keys(
+		load_result,
+		{ "profile": true }
+	)
 
 
 ## 复制阶段结果字典时排除 database 资源值。
@@ -695,7 +769,10 @@ func _duplicate_load_result(load_result: Dictionary) -> Dictionary:
 ## @api private
 ## [br]
 func _duplicate_database_result(result: Dictionary) -> Dictionary:
-	return _duplicate_dictionary_without_keys(result, { "database": true })
+	return _duplicate_dictionary_without_keys(
+		result,
+		{ "database": true }
+	)
 
 
 ## 新建结果字典，跳过指定键，并通过 GFVariantData.duplicate_variant 复制其余值。

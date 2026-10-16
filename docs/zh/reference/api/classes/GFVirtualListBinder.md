@@ -35,7 +35,7 @@ owner-bound 虚拟列表 Control 物化与回收协调器。 连接项目提供�
 | 方法 | [`sync_now`](#member-gfvirtuallistbinder-methods-sync_now) | `func sync_now() -> GFVirtualListSyncResult:` |
 | 方法 | [`invalidate_items`](#member-gfvirtuallistbinder-methods-invalidate_items) | `func invalidate_items() -> bool:` |
 | 方法 | [`request_measurement`](#member-gfvirtuallistbinder-methods-request_measurement) | `func request_measurement() -> bool:` |
-| 方法 | [`scroll_to_item`](#member-gfvirtuallistbinder-methods-scroll_to_item) | `func scroll_to_item( item_index: int, alignment: ScrollAlignment = ScrollAlignment.NEAREST ) -> bool:` |
+| 方法 | [`scroll_to_item`](#member-gfvirtuallistbinder-methods-scroll_to_item) | `func scroll_to_item(item_index: int, alignment: ScrollAlignment = ScrollAlignment.NEAREST) -> bool:` |
 | 方法 | [`get_materialized_control`](#member-gfvirtuallistbinder-methods-get_materialized_control) | `func get_materialized_control(item_index: int) -> Control:` |
 | 方法 | [`get_materialized_control_by_id`](#member-gfvirtuallistbinder-methods-get_materialized_control_by_id) | `func get_materialized_control_by_id(item_id: Variant) -> Control:` |
 | 方法 | [`get_last_sync_result`](#member-gfvirtuallistbinder-methods-get_last_sync_result) | `func get_last_sync_result() -> GFVirtualListSyncResult:` |
@@ -407,7 +407,7 @@ func request_measurement() -> bool:
 - 首次版本：`11.0.0`
 
 ```gdscript
-func scroll_to_item( item_index: int, alignment: ScrollAlignment = ScrollAlignment.NEAREST ) -> bool:
+func scroll_to_item(item_index: int, alignment: ScrollAlignment = ScrollAlignment.NEAREST) -> bool:
 ```
 
 把指定条目滚入视口。 同步 callback 内不允许直接改变当前轮滚动；先保存项目意图并请求下一轮。 模型、视口、主轴与 Control 所有权快照保持有效并接受最终整数偏移时返回 true； 否则请求下一轮同步并返回 false。

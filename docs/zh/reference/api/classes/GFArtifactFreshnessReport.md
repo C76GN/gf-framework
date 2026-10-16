@@ -20,7 +20,7 @@
 | 属性 | [`metadata`](#member-gfartifactfreshnessreport-properties-metadata) | `var metadata: Dictionary = {}` |
 | 方法 | [`configure`](#member-gfartifactfreshnessreport-methods-configure) | `func configure(p_subject: String = _DEFAULT_SUBJECT, p_metadata: Dictionary = {}) -> GFArtifactFreshnessReport:` |
 | 方法 | [`clear`](#member-gfartifactfreshnessreport-methods-clear) | `func clear() -> void:` |
-| 方法 | [`add_artifact`](#member-gfartifactfreshnessreport-methods-add_artifact) | `func add_artifact(artifact_id: StringName, path: String, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`add_artifact`](#member-gfartifactfreshnessreport-methods-add_artifact) | `func add_artifact( artifact_id: StringName, path: String, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`add_artifacts`](#member-gfartifactfreshnessreport-methods-add_artifacts) | `func add_artifacts(entries: Array[Dictionary]) -> GFArtifactFreshnessReport:` |
 | 方法 | [`get_report`](#member-gfartifactfreshnessreport-methods-get_report) | `func get_report(options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`from_artifacts`](#member-gfartifactfreshnessreport-methods-from_artifacts) | `static func from_artifacts(entries: Array[Dictionary], options: Dictionary = {}) -> GFArtifactFreshnessReport:` |
@@ -123,7 +123,7 @@ func clear() -> void:
 - 首次版本：`7.0.0`
 
 ```gdscript
-func add_artifact(artifact_id: StringName, path: String, options: Dictionary = {}) -> Dictionary:
+func add_artifact( artifact_id: StringName, path: String, options: Dictionary = {} ) -> Dictionary:
 ```
 
 添加 artifact 条目。

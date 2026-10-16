@@ -11,6 +11,7 @@
 class_name GFSourceSpan
 extends RefCounted
 
+
 # --- 公共变量 ---
 
 ## 源文件或资源路径。
@@ -136,14 +137,42 @@ func configure(
 ## @schema data: Dictionary source span fields.
 func apply_dict(data: Dictionary) -> void:
 	source_path = _read_source_path(data, source_path)
-	line = _read_non_negative_int(data, "line", line)
-	column = _read_non_negative_int(data, "column", column)
-	length = _read_non_negative_int(data, "length", length)
-	end_line = _read_non_negative_int(data, "end_line", end_line)
-	end_column = _read_non_negative_int(data, "end_column", end_column)
-	preview = GFVariantData.get_option_string(data, "preview", preview)
+	line = _read_non_negative_int(
+		data,
+		"line",
+		line
+	)
+	column = _read_non_negative_int(
+		data,
+		"column",
+		column
+	)
+	length = _read_non_negative_int(
+		data,
+		"length",
+		length
+	)
+	end_line = _read_non_negative_int(
+		data,
+		"end_line",
+		end_line
+	)
+	end_column = _read_non_negative_int(
+		data,
+		"end_column",
+		end_column
+	)
+	preview = GFVariantData.get_option_string(
+		data,
+		"preview",
+		preview
+	)
 
-	var metadata_value: Variant = GFVariantData.get_option_value(data, "metadata", metadata)
+	var metadata_value: Variant = GFVariantData.get_option_value(
+		data,
+		"metadata",
+		metadata
+	)
 	metadata = GFVariantData.as_dictionary(metadata_value).duplicate(true)
 
 
@@ -198,7 +227,14 @@ func duplicate_span() -> RefCounted:
 ## [br]
 ## @return 没有路径且没有位置时返回 true。
 func is_empty() -> bool:
-	return source_path.is_empty() and line <= 0 and column <= 0 and length <= 0 and end_line <= 0 and end_column <= 0
+	return (
+		source_path.is_empty()
+		and line <= 0
+		and column <= 0
+		and length <= 0
+		and end_line <= 0
+		and end_column <= 0
+	)
 
 
 ## 检查是否有源路径。
@@ -255,9 +291,19 @@ func get_location_text() -> String:
 	if label.is_empty():
 		label = "source"
 	if line > 0 and column > 0:
-		return "%s:%d:%d" % [label, line, column]
+		return (
+			"%s:%d:%d"
+			% [
+				label,
+				line,
+				column,
+			]
+		)
 	if line > 0:
-		return "%s:%d" % [label, line]
+		return (
+			"%s:%d"
+			% [label, line]
+		)
 	return label
 
 
@@ -348,7 +394,12 @@ static func make(
 	p_length: int = 0
 ) -> RefCounted:
 	var span: GFSourceSpan = _new_span()
-	var _configured_span: RefCounted = span.configure(p_source_path, p_line, p_column, p_length)
+	var _configured_span: RefCounted = span.configure(
+		p_source_path,
+		p_line,
+		p_column,
+		p_length
+	)
 	return span
 
 
@@ -378,10 +429,29 @@ static func _read_source_path(data: Dictionary, default_value: String = "") -> S
 ## [br]
 ## @api private
 ## [br]
-static func _read_non_negative_int(data: Dictionary, field_name: String, default_value: int) -> int:
+static func _read_non_negative_int(
+	data: Dictionary,
+	field_name: String,
+	default_value: int
+) -> int:
 	if not data.has(field_name):
 		return default_value
-	var value: Variant = GFVariantData.get_option_value(data, field_name, default_value)
+	var value: Variant = GFVariantData.get_option_value(
+		data,
+		field_name,
+		default_value
+	)
 	if value is float:
-		return maxi(roundi(GFVariantData.to_float(value, float(default_value))), 0)
-	return maxi(GFVariantData.to_int(value, default_value), 0)
+		return maxi(
+			roundi(
+				GFVariantData.to_float(
+					value,
+					float(default_value)
+				)
+			),
+			0
+		)
+	return maxi(
+		GFVariantData.to_int(value, default_value),
+		0
+	)

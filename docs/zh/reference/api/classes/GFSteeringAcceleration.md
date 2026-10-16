@@ -18,7 +18,7 @@ steering 计算输出的线性与角加速度。 作为纯数据对象在多个 
 | 属性 | [`linear`](#member-gfsteeringacceleration-properties-linear) | `var linear: Vector3 = Vector3.ZERO` |
 | 属性 | [`angular`](#member-gfsteeringacceleration-properties-angular) | `var angular: float = 0.0` |
 | 方法 | [`clear`](#member-gfsteeringacceleration-methods-clear) | `func clear() -> GFSteeringAcceleration:` |
-| 方法 | [`set_values`](#member-gfsteeringacceleration-methods-set_values) | `func set_values( linear_acceleration: Vector3, angular_acceleration: float = 0.0 ) -> GFSteeringAcceleration:` |
+| 方法 | [`set_values`](#member-gfsteeringacceleration-methods-set_values) | `func set_values(linear_acceleration: Vector3, angular_acceleration: float = 0.0) -> GFSteeringAcceleration:` |
 | 方法 | [`add_scaled`](#member-gfsteeringacceleration-methods-add_scaled) | `func add_scaled(other: GFSteeringAcceleration, weight: float = 1.0) -> GFSteeringAcceleration:` |
 | 方法 | [`clamp_to`](#member-gfsteeringacceleration-methods-clamp_to) | `func clamp_to(max_linear: float = -1.0, max_angular: float = -1.0) -> GFSteeringAcceleration:` |
 | 方法 | [`is_zero`](#member-gfsteeringacceleration-methods-is_zero) | `func is_zero(threshold: float = 0.001) -> bool:` |
@@ -71,9 +71,10 @@ func clear() -> GFSteeringAcceleration:
 ### `set_values`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func set_values( linear_acceleration: Vector3, angular_acceleration: float = 0.0 ) -> GFSteeringAcceleration:
+func set_values(linear_acceleration: Vector3, angular_acceleration: float = 0.0) -> GFSteeringAcceleration:
 ```
 
 写入加速度值。

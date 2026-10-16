@@ -140,7 +140,11 @@ var duplicate_resources: bool = false
 func set_patch_value(property_path: StringName, value: Variant) -> bool:
 	if not has_definition(property_path):
 		return false
-	values[property_path] = GFVariantData.duplicate_variant(value, true, duplicate_resources)
+	values[property_path] = GFVariantData.duplicate_variant(
+		value,
+		true,
+		duplicate_resources
+	)
 	emit_changed()
 	return true
 
@@ -177,7 +181,11 @@ func get_patch_value(property_path: StringName, default_value: Variant = null) -
 	var key: Variant = _find_dictionary_key(values, property_path)
 	if key == null:
 		return default_value
-	return GFVariantData.duplicate_variant(values[key], true, duplicate_resources)
+	return GFVariantData.duplicate_variant(
+		values[key],
+		true,
+		duplicate_resources
+	)
 
 
 ## 移除一个补丁值。
@@ -228,7 +236,12 @@ func has_definition(property_path: StringName) -> bool:
 ## [br]
 ## @schema return: Dictionary，包含 ok、applied_count、failed_count、skipped_count、unchanged_count、applied_paths、skipped_paths 与 errors。
 func apply(target: Object, options: Dictionary = {}) -> Dictionary:
-	return apply_values(target, definitions, values, _merge_default_options(options))
+	return apply_values(
+		target,
+		definitions,
+		values,
+		_merge_default_options(options)
+	)
 
 
 ## 复制或修改 base Resource，并应用当前补丁。
@@ -250,7 +263,12 @@ func build(base_resource: Resource, options: Dictionary = {}) -> Dictionary:
 	var merged_options: Dictionary = _merge_default_options(options)
 	if not merged_options.has("duplicate_base"):
 		merged_options["duplicate_base"] = duplicate_base_on_build
-	return build_resource(base_resource, definitions, values, merged_options)
+	return build_resource(
+		base_resource,
+		definitions,
+		values,
+		merged_options
+	)
 
 
 ## 收集目标对象上的当前属性值，替换当前补丁值。
@@ -269,7 +287,11 @@ func build(base_resource: Resource, options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @schema return: Dictionary[StringName, Variant]，以声明属性路径为键的值字典。
 func collect_from(target: Object, options: Dictionary = {}) -> Dictionary:
-	var collected: Dictionary = collect_values(target, definitions, _merge_default_options(options))
+	var collected: Dictionary = collect_values(
+		target,
+		definitions,
+		_merge_default_options(options)
+	)
 	values = collected
 	emit_changed()
 	return collected.duplicate(true)
@@ -285,7 +307,11 @@ func collect_from(target: Object, options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @schema return: Dictionary[StringName, Variant]，当前 patch values 的副本。
 func get_patch_values() -> Dictionary:
-	return _normalize_patch_values(values, true, duplicate_resources)
+	return _normalize_patch_values(
+		values,
+		true,
+		duplicate_resources
+	)
 
 
 ## 创建一个属性定义。
@@ -310,10 +336,7 @@ static func make_definition(
 	property_type: int = TYPE_NIL,
 	options: Dictionary = {}
 ) -> Dictionary:
-	var definition: Dictionary = {
-		KEY_PROPERTY_PATH: property_path,
-		KEY_TYPE: property_type,
-	}
+	var definition: Dictionary = { KEY_PROPERTY_PATH: property_path, KEY_TYPE: property_type, }
 	if options.has(KEY_HINT):
 		definition[KEY_HINT] = GFVariantData.get_option_int(options, KEY_HINT)
 	if options.has(KEY_HINT_STRING):
@@ -324,7 +347,11 @@ static func make_definition(
 		definition[KEY_DEFAULT_VALUE] = GFVariantData.duplicate_variant(
 			GFVariantData.get_option_value(options, KEY_DEFAULT_VALUE),
 			true,
-			GFVariantData.get_option_bool(options, "duplicate_resources", false)
+			GFVariantData.get_option_bool(
+				options,
+				"duplicate_resources",
+				false
+			)
 		)
 	if options.has(KEY_ALLOW_NULL):
 		definition[KEY_ALLOW_NULL] = GFVariantData.get_option_bool(options, KEY_ALLOW_NULL)
@@ -359,7 +386,11 @@ static func make_property_list(
 ) -> Array[Dictionary]:
 	var entries: Array[Dictionary] = []
 	var current_group: String = ""
-	var group_prefix: String = GFVariantData.get_option_string(options, "group_prefix", "")
+	var group_prefix: String = GFVariantData.get_option_string(
+		options,
+		"group_prefix",
+		""
+	)
 	var base_usage: int = GFVariantData.get_option_int(
 		options,
 		"usage",
@@ -376,7 +407,12 @@ static func make_property_list(
 			if not current_group.is_empty():
 				entries.append(_make_group_entry(group_prefix, current_group))
 
-		var entry: Dictionary = _make_property_entry(definition, property_path, patch_values, base_usage)
+		var entry: Dictionary = _make_property_entry(
+			definition,
+			property_path,
+			patch_values,
+			base_usage
+		)
 		entries.append(entry)
 	return entries
 
@@ -400,15 +436,35 @@ static func make_property_list(
 ## @schema options: Dictionary，支持 require_existing_property、include_null、copy_values、duplicate_resources。
 ## [br]
 ## @schema return: Dictionary[StringName, Variant] collected values.
-static func collect_values(target: Object, patch_definitions: Array, options: Dictionary = {}) -> Dictionary:
+static func collect_values(
+	target: Object,
+	patch_definitions: Array,
+	options: Dictionary = {}
+) -> Dictionary:
 	var result: Dictionary = {}
 	if target == null:
 		return result
 
-	var require_property: bool = GFVariantData.get_option_bool(options, "require_existing_property", true)
-	var include_null: bool = GFVariantData.get_option_bool(options, "include_null", false)
-	var should_copy_values: bool = GFVariantData.get_option_bool(options, "copy_values", true)
-	var should_duplicate_resources: bool = GFVariantData.get_option_bool(options, "duplicate_resources", false)
+	var require_property: bool = GFVariantData.get_option_bool(
+		options,
+		"require_existing_property",
+		true
+	)
+	var include_null: bool = GFVariantData.get_option_bool(
+		options,
+		"include_null",
+		false
+	)
+	var should_copy_values: bool = GFVariantData.get_option_bool(
+		options,
+		"copy_values",
+		true
+	)
+	var should_duplicate_resources: bool = GFVariantData.get_option_bool(
+		options,
+		"duplicate_resources",
+		false
+	)
 	for definition_variant: Variant in patch_definitions:
 		var definition: Dictionary = GFVariantData.as_dictionary(definition_variant)
 		var property_path: StringName = _get_definition_path(definition)
@@ -419,7 +475,11 @@ static func collect_values(target: Object, patch_definitions: Array, options: Di
 		var value: Variant = target.get(String(property_path))
 		if value == null and not include_null:
 			continue
-		result[property_path] = _copy_value(value, should_copy_values, should_duplicate_resources)
+		result[property_path] = _copy_value(
+			value,
+			should_copy_values,
+			should_duplicate_resources
+		)
 	return result
 
 
@@ -454,38 +514,97 @@ static func apply_values(
 ) -> Dictionary:
 	var report: Dictionary = _make_report()
 	if target == null:
-		_add_report_error(report, &"", "invalid_target", "Target is null.")
+		_add_report_error(
+			report,
+			&"",
+			"invalid_target",
+			"Target is null."
+		)
 		return report
 
-	var require_property: bool = GFVariantData.get_option_bool(options, "require_existing_property", true)
-	var should_copy_values: bool = GFVariantData.get_option_bool(options, "copy_values", true)
-	var should_duplicate_resources: bool = GFVariantData.get_option_bool(options, "duplicate_resources", false)
-	var skip_unchanged: bool = GFVariantData.get_option_bool(options, "skip_unchanged", false)
+	var require_property: bool = GFVariantData.get_option_bool(
+		options,
+		"require_existing_property",
+		true
+	)
+	var should_copy_values: bool = GFVariantData.get_option_bool(
+		options,
+		"copy_values",
+		true
+	)
+	var should_duplicate_resources: bool = GFVariantData.get_option_bool(
+		options,
+		"duplicate_resources",
+		false
+	)
+	var skip_unchanged: bool = GFVariantData.get_option_bool(
+		options,
+		"skip_unchanged",
+		false
+	)
 	var definition_map: Dictionary = _build_definition_map(patch_definitions)
-	var normalized_values: Dictionary = _normalize_patch_values(patch_values, false, false)
+	var normalized_values: Dictionary = _normalize_patch_values(
+		patch_values,
+		false,
+		false
+	)
 	for raw_property_path: Variant in normalized_values.keys():
 		var property_path: StringName = _normalize_property_path(raw_property_path)
 		if property_path == &"":
-			_add_report_error(report, &"", "invalid_property_path", "Property path is empty.")
+			_add_report_error(
+				report,
+				&"",
+				"invalid_property_path",
+				"Property path is empty."
+			)
 			continue
 		if not definition_map.has(property_path):
-			_add_report_error(report, property_path, "undefined_property", "Property is not declared by this patch.")
+			_add_report_error(
+				report,
+				property_path,
+				"undefined_property",
+				"Property is not declared by this patch."
+			)
 			continue
 
 		var definition: Dictionary = GFVariantData.as_dictionary(definition_map[property_path])
 		var value: Variant = normalized_values[property_path]
 		var value_error: String = _validate_value(definition, value)
 		if not value_error.is_empty():
-			_add_report_error(report, property_path, value_error, "Patch value does not match its definition.")
+			_add_report_error(
+				report,
+				property_path,
+				value_error,
+				"Patch value does not match its definition."
+			)
 			continue
 		if require_property and not _object_has_property(target, property_path):
-			_add_report_error(report, property_path, "missing_property", "Target does not declare this property.")
+			_add_report_error(
+				report,
+				property_path,
+				"missing_property",
+				"Target does not declare this property."
+			)
 			continue
-		if skip_unchanged and GFVariantData.values_equal(target.get(String(property_path)), value):
-			_add_report_skip(report, property_path, true)
+		if skip_unchanged and GFVariantData.values_equal(
+			target.get(String(property_path)),
+			value
+		):
+			_add_report_skip(
+				report,
+				property_path,
+				true
+			)
 			continue
 
-		target.set(String(property_path), _copy_value(value, should_copy_values, should_duplicate_resources))
+		target.set(
+			String(property_path),
+			_copy_value(
+				value,
+				should_copy_values,
+				should_duplicate_resources
+			)
+		)
 		_add_report_applied(report, property_path)
 	return report
 
@@ -522,12 +641,26 @@ static func build_resource(
 	if base_resource == null:
 		var failed_report: Dictionary = _make_report()
 		failed_report["resource"] = null
-		_add_report_error(failed_report, &"", "invalid_base_resource", "Base resource is null.")
+		_add_report_error(
+			failed_report,
+			&"",
+			"invalid_base_resource",
+			"Base resource is null."
+		)
 		return failed_report
 
-	var duplicate_base: bool = GFVariantData.get_option_bool(options, "duplicate_base", true)
+	var duplicate_base: bool = GFVariantData.get_option_bool(
+		options,
+		"duplicate_base",
+		true
+	)
 	var result_resource: Resource = base_resource.duplicate(true) if duplicate_base else base_resource
-	var report: Dictionary = apply_values(result_resource, patch_definitions, patch_values, options)
+	var report: Dictionary = apply_values(
+		result_resource,
+		patch_definitions,
+		patch_values,
+		options
+	)
 	report["resource"] = result_resource
 	return report
 
@@ -551,25 +684,58 @@ static func build_resource(
 ## @schema options: Dictionary，支持 require_existing_property、copy_values、duplicate_resources、skip_unchanged、include_patch_reports、stop_on_failure 和 metadata。
 ## [br]
 ## @schema return: Dictionary，包含 ok、patch_count、计数、路径、errors、patch_reports 和 metadata。
-static func apply_patch_chain(target: Object, patch_chain: Array, options: Dictionary = {}) -> Dictionary:
+static func apply_patch_chain(
+	target: Object,
+	patch_chain: Array,
+	options: Dictionary = {}
+) -> Dictionary:
 	var report: Dictionary = _make_chain_report(options)
 	if target == null:
-		_add_report_error(report, &"", "invalid_target", "Target is null.")
+		_add_report_error(
+			report,
+			&"",
+			"invalid_target",
+			"Target is null."
+		)
 		return report
 
-	var include_patch_reports: bool = GFVariantData.get_option_bool(options, "include_patch_reports", true)
-	var stop_on_failure: bool = GFVariantData.get_option_bool(options, "stop_on_failure", false)
+	var include_patch_reports: bool = GFVariantData.get_option_bool(
+		options,
+		"include_patch_reports",
+		true
+	)
+	var stop_on_failure: bool = GFVariantData.get_option_bool(
+		options,
+		"stop_on_failure",
+		false
+	)
 	for patch_index: int in range(patch_chain.size()):
 		var patch: GFResourcePropertyPatch = _variant_to_patch(patch_chain[patch_index])
 		if patch == null:
-			_add_chain_error(report, patch_index, {}, "invalid_patch", "Patch is null or not GFResourcePropertyPatch.")
+			_add_chain_error(
+				report,
+				patch_index,
+				{},
+				"invalid_patch",
+				"Patch is null or not GFResourcePropertyPatch."
+			)
 			if stop_on_failure:
 				break
 			continue
 
 		var patch_report: Dictionary = patch.apply(target, options)
-		_merge_patch_report(report, patch_report, patch_index, patch.metadata, include_patch_reports)
-		if stop_on_failure and not GFVariantData.get_option_bool(patch_report, "ok", false):
+		_merge_patch_report(
+			report,
+			patch_report,
+			patch_index,
+			patch.metadata,
+			include_patch_reports
+		)
+		if stop_on_failure and not GFVariantData.get_option_bool(
+			patch_report,
+			"ok",
+			false
+		):
 			break
 	return report
 
@@ -593,16 +759,33 @@ static func apply_patch_chain(target: Object, patch_chain: Array, options: Dicti
 ## @schema options: Dictionary，支持 duplicate_base、require_existing_property、copy_values、duplicate_resources、skip_unchanged、include_patch_reports、stop_on_failure 和 metadata。
 ## [br]
 ## @schema return: Dictionary，包含 apply_patch_chain() 报告字段和 resource。
-static func build_resource_chain(base_resource: Resource, patch_chain: Array, options: Dictionary = {}) -> Dictionary:
+static func build_resource_chain(
+	base_resource: Resource,
+	patch_chain: Array,
+	options: Dictionary = {}
+) -> Dictionary:
 	if base_resource == null:
 		var failed_report: Dictionary = _make_chain_report(options)
 		failed_report["resource"] = null
-		_add_report_error(failed_report, &"", "invalid_base_resource", "Base resource is null.")
+		_add_report_error(
+			failed_report,
+			&"",
+			"invalid_base_resource",
+			"Base resource is null."
+		)
 		return failed_report
 
-	var duplicate_base: bool = GFVariantData.get_option_bool(options, "duplicate_base", true)
+	var duplicate_base: bool = GFVariantData.get_option_bool(
+		options,
+		"duplicate_base",
+		true
+	)
 	var result_resource: Resource = base_resource.duplicate(true) if duplicate_base else base_resource
-	var report: Dictionary = apply_patch_chain(result_resource, patch_chain, options)
+	var report: Dictionary = apply_patch_chain(
+		result_resource,
+		patch_chain,
+		options
+	)
 	report["resource"] = result_resource
 	return report
 
@@ -650,7 +833,11 @@ static func _get_definition_path(definition: Dictionary) -> StringName:
 		GFVariantData.get_option_value(
 			definition,
 			"path",
-			GFVariantData.get_option_value(definition, "name", &"")
+			GFVariantData.get_option_value(
+				definition,
+				"name",
+				&""
+			)
 		)
 	)
 	return _normalize_property_path(raw_path)
@@ -724,10 +911,18 @@ static func _object_has_property(target: Object, property_path: StringName) -> b
 ## [br]
 ## @api private
 ## [br]
-static func _copy_value(value: Variant, should_copy_values: bool, should_duplicate_resources: bool) -> Variant:
+static func _copy_value(
+	value: Variant,
+	should_copy_values: bool,
+	should_duplicate_resources: bool
+) -> Variant:
 	if not should_copy_values:
 		return value
-	return GFVariantData.duplicate_variant(value, true, should_duplicate_resources)
+	return GFVariantData.duplicate_variant(
+		value,
+		true,
+		should_duplicate_resources
+	)
 
 
 ## 校验 null、Variant 类型及 Object hint，返回空串或稳定错误码。
@@ -736,9 +931,17 @@ static func _copy_value(value: Variant, should_copy_values: bool, should_duplica
 ## [br]
 static func _validate_value(definition: Dictionary, value: Variant) -> String:
 	if value == null:
-		return "" if GFVariantData.get_option_bool(definition, KEY_ALLOW_NULL, true) else "null_not_allowed"
+		return "" if GFVariantData.get_option_bool(
+			definition,
+			KEY_ALLOW_NULL,
+			true
+		) else "null_not_allowed"
 
-	var property_type: int = GFVariantData.get_option_int(definition, KEY_TYPE, TYPE_NIL)
+	var property_type: int = GFVariantData.get_option_int(
+		definition,
+		KEY_TYPE,
+		TYPE_NIL
+	)
 	if property_type == TYPE_NIL:
 		return ""
 	if property_type == TYPE_FLOAT and typeof(value) == TYPE_INT:
@@ -799,7 +1002,11 @@ static func _make_property_entry(
 	return {
 		"name": String(property_path),
 		"type": property_type,
-		"hint": GFVariantData.get_option_int(definition, KEY_HINT, PROPERTY_HINT_NONE),
+		"hint": GFVariantData.get_option_int(
+			definition,
+			KEY_HINT,
+			PROPERTY_HINT_NONE
+		),
 		"hint_string": GFVariantData.get_option_string(definition, KEY_HINT_STRING),
 		"usage": usage,
 	}
@@ -810,7 +1017,11 @@ static func _make_property_entry(
 ## @api private
 ## [br]
 static func _get_property_type(definition: Dictionary) -> int:
-	var property_type: int = GFVariantData.get_option_int(definition, KEY_TYPE, TYPE_NIL)
+	var property_type: int = GFVariantData.get_option_int(
+		definition,
+		KEY_TYPE,
+		TYPE_NIL
+	)
 	if property_type != TYPE_NIL:
 		return property_type
 	var default_value: Variant = GFVariantData.get_option_value(definition, KEY_DEFAULT_VALUE)
@@ -824,7 +1035,10 @@ static func _get_property_type(definition: Dictionary) -> int:
 static func _make_group_entry(group_prefix: String, group_name: String) -> Dictionary:
 	var entry_name: String = group_name
 	if not group_prefix.is_empty():
-		entry_name = "%s/%s" % [group_prefix, group_name]
+		entry_name = (
+			"%s/%s"
+			% [group_prefix, group_name]
+		)
 	return {
 		"name": entry_name,
 		"type": TYPE_NIL,
@@ -884,14 +1098,38 @@ static func _merge_patch_report(
 	include_patch_reports: bool
 ) -> void:
 	target_report["patch_count"] = GFVariantData.get_option_int(target_report, "patch_count") + 1
-	target_report["applied_count"] = GFVariantData.get_option_int(target_report, "applied_count") + GFVariantData.get_option_int(patch_report, "applied_count")
-	target_report["failed_count"] = GFVariantData.get_option_int(target_report, "failed_count") + GFVariantData.get_option_int(patch_report, "failed_count")
-	target_report["skipped_count"] = GFVariantData.get_option_int(target_report, "skipped_count") + GFVariantData.get_option_int(patch_report, "skipped_count")
-	target_report["unchanged_count"] = GFVariantData.get_option_int(target_report, "unchanged_count") + GFVariantData.get_option_int(patch_report, "unchanged_count")
-	target_report["ok"] = GFVariantData.get_option_bool(target_report, "ok", true) and GFVariantData.get_option_bool(patch_report, "ok", false)
-	_append_report_paths(target_report, "applied_paths", _get_report_paths(patch_report, "applied_paths"))
-	_append_report_paths(target_report, "skipped_paths", _get_report_paths(patch_report, "skipped_paths"))
-	_append_patch_errors(target_report, patch_report, patch_index, patch_metadata)
+	target_report["applied_count"] = (GFVariantData.get_option_int(target_report, "applied_count") + GFVariantData.get_option_int(patch_report, "applied_count"))
+	target_report["failed_count"] = (GFVariantData.get_option_int(target_report, "failed_count") + GFVariantData.get_option_int(patch_report, "failed_count"))
+	target_report["skipped_count"] = (GFVariantData.get_option_int(target_report, "skipped_count") + GFVariantData.get_option_int(patch_report, "skipped_count"))
+	target_report["unchanged_count"] = (GFVariantData.get_option_int(target_report, "unchanged_count") + GFVariantData.get_option_int(patch_report, "unchanged_count"))
+	target_report["ok"] = (
+		GFVariantData.get_option_bool(
+			target_report,
+			"ok",
+			true
+		)
+		and GFVariantData.get_option_bool(
+			patch_report,
+			"ok",
+			false
+		)
+	)
+	_append_report_paths(
+		target_report,
+		"applied_paths",
+		_get_report_paths(patch_report, "applied_paths")
+	)
+	_append_report_paths(
+		target_report,
+		"skipped_paths",
+		_get_report_paths(patch_report, "skipped_paths")
+	)
+	_append_patch_errors(
+		target_report,
+		patch_report,
+		patch_index,
+		patch_metadata
+	)
 	if include_patch_reports:
 		var patch_reports: Array = GFVariantData.get_option_array(target_report, "patch_reports")
 		var patch_report_copy: Dictionary = patch_report.duplicate(true)
@@ -905,7 +1143,11 @@ static func _merge_patch_report(
 ## [br]
 ## @api private
 ## [br]
-static func _append_report_paths(target_report: Dictionary, key: String, paths: PackedStringArray) -> void:
+static func _append_report_paths(
+	target_report: Dictionary,
+	key: String,
+	paths: PackedStringArray
+) -> void:
 	var target_paths: PackedStringArray = _get_report_paths(target_report, key)
 	for path: String in paths:
 		var _appended: bool = target_paths.append(path)
@@ -942,7 +1184,12 @@ static func _add_chain_error(
 	kind: String,
 	message: String
 ) -> void:
-	_add_report_error(report, &"", kind, message)
+	_add_report_error(
+		report,
+		&"",
+		kind,
+		message
+	)
 	var errors: Array = GFVariantData.get_option_array(report, "errors")
 	if errors.is_empty():
 		return
@@ -968,7 +1215,11 @@ static func _add_report_applied(report: Dictionary, property_path: StringName) -
 ## [br]
 ## @api private
 ## [br]
-static func _add_report_skip(report: Dictionary, property_path: StringName, unchanged: bool) -> void:
+static func _add_report_skip(
+	report: Dictionary,
+	property_path: StringName,
+	unchanged: bool
+) -> void:
 	report["skipped_count"] = GFVariantData.get_option_int(report, "skipped_count") + 1
 	if unchanged:
 		report["unchanged_count"] = GFVariantData.get_option_int(report, "unchanged_count") + 1
@@ -990,11 +1241,13 @@ static func _add_report_error(
 	report["ok"] = false
 	report["failed_count"] = GFVariantData.get_option_int(report, "failed_count") + 1
 	var errors: Array = GFVariantData.get_option_array(report, "errors")
-	errors.append({
-		"property_path": property_path,
-		"kind": kind,
-		"message": message,
-	})
+	errors.append(
+		{
+			"property_path": property_path,
+			"kind": kind,
+			"message": message,
+		}
+	)
 	report["errors"] = errors
 	var paths: PackedStringArray = _get_report_paths(report, "skipped_paths")
 	var _appended: bool = paths.append(String(property_path))
@@ -1006,7 +1259,11 @@ static func _add_report_error(
 ## @api private
 ## [br]
 static func _get_report_paths(report: Dictionary, key: String) -> PackedStringArray:
-	var value: Variant = GFVariantData.get_option_value(report, key, PackedStringArray())
+	var value: Variant = GFVariantData.get_option_value(
+		report,
+		key,
+		PackedStringArray()
+	)
 	if value is PackedStringArray:
 		var paths: PackedStringArray = value
 		return paths

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFRequestHandlerRegistry" path="addons/gf/standard/common/gf_request_handler_registry.gd" module="standard" extends="RefCounted" classDigest="44b801e4bbc5f599387e7fa48b4f54cebf624741a04483daabc17a1a60854ca2">
+<class name="GFRequestHandlerRegistry" path="addons/gf/standard/common/gf_request_handler_registry.gd" module="standard" extends="RefCounted" classDigest="bec0405fceaff6e8796eb6ef67dedcc4bb9a3a8461e80f5b5523b049c796b193">
 	<description>GFRequestHandlerRegistry: 单处理器请求调用注册表。
 用于表达 “Invoke / TryInvoke” 语义：每个 request_type 至多有一个处理器。
 多订阅广播仍应使用 GFTypeEventSystem；本注册表只负责明确的一对一请求调用契约，
@@ -11,7 +11,7 @@
 	</tags>
 	<signals>
 		<member kind="signal" name="handler_registered">
-			<signature>signal handler_registered(request_type: StringName, replaced: bool, metadata: Dictionary)</signature>
+			<signature>signal handler_registered( request_type: StringName, replaced: bool, metadata: Dictionary )</signature>
 			<description>handler 注册或替换时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -34,7 +34,7 @@
 			</tags>
 		</member>
 		<member kind="signal" name="request_invoked">
-			<signature>signal request_invoked(request_type: StringName, result: Variant, metadata: Dictionary)</signature>
+			<signature>signal request_invoked( request_type: StringName, result: Variant, metadata: Dictionary )</signature>
 			<description>请求成功调用时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -149,7 +149,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="register_handler">
-			<signature>func register_handler(request_type: StringName, handler: Callable, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>func register_handler( request_type: StringName, handler: Callable, options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>注册单处理器请求 handler。
 handler 会收到一个 Dictionary 参数，包含 request_type、payload、context、sequence 和 handler_metadata。</description>
 			<tags>
@@ -178,7 +178,7 @@ handler 会收到一个 Dictionary 参数，包含 request_type、payload、cont
 			</tags>
 		</member>
 		<member kind="method" name="invoke">
-			<signature>func invoke(request_type: StringName, payload: Variant = null, context: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>func invoke( request_type: StringName, payload: Variant = null, context: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>调用请求 handler。
 缺少 handler 会返回 missing 状态；handler 运行时错误由 Godot 按普通 Callable 调用规则报告。</description>
 			<tags>
@@ -194,7 +194,7 @@ handler 会收到一个 Dictionary 参数，包含 request_type、payload、cont
 			</tags>
 		</member>
 		<member kind="method" name="try_invoke">
-			<signature>func try_invoke(request_type: StringName, payload: Variant = null, context: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>func try_invoke( request_type: StringName, payload: Variant = null, context: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>尝试调用请求 handler。
 与 invoke() 相同，但缺少 handler 被视为可预期结果，并在返回值中标记 missing_allowed。</description>
 			<tags>

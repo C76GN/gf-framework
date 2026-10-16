@@ -207,8 +207,14 @@ func to_dict() -> Dictionary:
 func apply_dict(data: Dictionary) -> void:
 	event_type = GFVariantData.get_option_string_name(data, "event_type")
 	platform_id = GFVariantData.get_option_string_name(data, "platform_id")
-	sequence = max(GFVariantData.get_option_int(data, "sequence"), 0)
-	timestamp_msec = max(GFVariantData.get_option_int(data, "timestamp_msec"), 0)
+	sequence = max(
+		GFVariantData.get_option_int(data, "sequence"),
+		0
+	)
+	timestamp_msec = max(
+		GFVariantData.get_option_int(data, "timestamp_msec"),
+		0
+	)
 	payload = GFVariantData.get_option_dictionary(data, "payload")
 	metadata = GFVariantData.get_option_dictionary(data, "metadata")
 

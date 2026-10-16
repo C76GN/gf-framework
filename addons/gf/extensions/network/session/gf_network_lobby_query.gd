@@ -141,9 +141,21 @@ func apply_dict(data: Dictionary) -> void:
 	search_text = GFVariantData.get_option_string(data, "search_text")
 	required_tags = _normalize_string_set(GFVariantData.get_option_packed_string_array(data, "required_tags"))
 	required_metadata = GFVariantData.get_option_dictionary(data, "required_metadata")
-	max_results = GFVariantData.get_option_int(data, "max_results", 0)
-	include_full_lobbies = GFVariantData.get_option_bool(data, "include_full_lobbies", false)
-	include_unjoinable_lobbies = GFVariantData.get_option_bool(data, "include_unjoinable_lobbies", false)
+	max_results = GFVariantData.get_option_int(
+		data,
+		"max_results",
+		0
+	)
+	include_full_lobbies = GFVariantData.get_option_bool(
+		data,
+		"include_full_lobbies",
+		false
+	)
+	include_unjoinable_lobbies = GFVariantData.get_option_bool(
+		data,
+		"include_unjoinable_lobbies",
+		false
+	)
 	metadata = GFVariantData.get_option_dictionary(data, "metadata")
 
 

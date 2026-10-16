@@ -98,7 +98,10 @@ const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
 ## [br]
 ## @return 当前策略。
 func allow_class(class_id: String) -> GFSafeResourceCodecPolicy:
-	_append_unique(allowed_classes, class_id.strip_edges())
+	_append_unique(
+		allowed_classes,
+		class_id.strip_edges()
+	)
 	return self
 
 
@@ -112,7 +115,10 @@ func allow_class(class_id: String) -> GFSafeResourceCodecPolicy:
 ## [br]
 ## @return 当前策略。
 func allow_script_path(script_path: String) -> GFSafeResourceCodecPolicy:
-	_append_unique(allowed_script_paths, _normalize_allowlist_path_pattern(script_path))
+	_append_unique(
+		allowed_script_paths,
+		_normalize_allowlist_path_pattern(script_path)
+	)
 	return self
 
 
@@ -126,7 +132,10 @@ func allow_script_path(script_path: String) -> GFSafeResourceCodecPolicy:
 ## [br]
 ## @return 当前策略。
 func allow_resource_path(path_pattern: String) -> GFSafeResourceCodecPolicy:
-	_append_unique(allowed_resource_paths, _normalize_allowlist_path_pattern(path_pattern))
+	_append_unique(
+		allowed_resource_paths,
+		_normalize_allowlist_path_pattern(path_pattern)
+	)
 	return self
 
 
@@ -146,7 +155,11 @@ func allows_class(class_id: String) -> bool:
 	if _matches_any_pattern(normalized_class, allowed_classes):
 		return true
 	for allowed_class: String in allowed_classes:
-		if allowed_class.is_empty() or allowed_class.contains("*") or allowed_class.contains("?"):
+		if (
+			allowed_class.is_empty()
+			or allowed_class.contains("*")
+			or allowed_class.contains("?")
+		):
 			continue
 		if ClassDB.class_exists(normalized_class) and ClassDB.class_exists(allowed_class):
 			if ClassDB.is_parent_class(normalized_class, allowed_class):
@@ -269,7 +282,11 @@ func _matches_any_path_pattern(value: String, patterns: PackedStringArray) -> bo
 ## @api private
 ## [br]
 func _normalize_candidate_path(path: String) -> String:
-	var normalized_path: String = _GF_PATH_TOOLS.normalize_resource_path(path, "", false)
+	var normalized_path: String = _GF_PATH_TOOLS.normalize_resource_path(
+		path,
+		"",
+		false
+	)
 	if normalized_path.is_empty() or _path_has_parent_segment(normalized_path):
 		return ""
 	return _GF_PATH_TOOLS.normalize_resource_path(normalized_path)
@@ -280,7 +297,11 @@ func _normalize_candidate_path(path: String) -> String:
 ## @api private
 ## [br]
 func _normalize_allowlist_path_pattern(path_pattern: String) -> String:
-	var normalized_pattern: String = _GF_PATH_TOOLS.normalize_resource_path(path_pattern, "", false)
+	var normalized_pattern: String = _GF_PATH_TOOLS.normalize_resource_path(
+		path_pattern,
+		"",
+		false
+	)
 	if normalized_pattern.is_empty() or _path_has_parent_segment(normalized_pattern):
 		return ""
 	return _GF_PATH_TOOLS.normalize_resource_path(normalized_pattern)

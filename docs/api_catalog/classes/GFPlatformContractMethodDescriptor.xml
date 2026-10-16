@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFPlatformContractMethodDescriptor" path="addons/gf/standard/foundation/platform/gf_platform_contract_method_descriptor.gd" module="standard" extends="Resource" classDigest="7136ade3543219529e9bf98097bbbe39ffae1e0b7ab09b60d99020cf51c2fce9">
+<class name="GFPlatformContractMethodDescriptor" path="addons/gf/standard/foundation/platform/gf_platform_contract_method_descriptor.gd" module="standard" extends="Resource" classDigest="e8eda95038cd4a935f1eb20531e51043faae7c2d3bd71575b7088675a06756a4">
 	<description>GFPlatformContractMethodDescriptor: 平台桥接方法契约。
 描述单个 provider-neutral 方法的请求/结果 schema、能力前置条件、载荷预算、
 并发上限与取消语义。具体 SDK 错误码和项目业务规则不得写入该描述符。</description>
@@ -96,7 +96,7 @@
 	</properties>
 	<methods>
 		<member kind="method" name="configure">
-			<signature>func configure( p_method_id: StringName, options: Dictionary = {} ) -&gt; GFPlatformContractMethodDescriptor:</signature>
+			<signature>func configure(p_method_id: StringName, options: Dictionary = {}) -&gt; GFPlatformContractMethodDescriptor:</signature>
 			<description>配置方法契约。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -117,7 +117,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="validate_request">
-			<signature>func validate_request( payload: Dictionary, capabilities: GFPlatformCapabilitySet = null ) -&gt; GFValidationReport:</signature>
+			<signature>func validate_request(payload: Dictionary, capabilities: GFPlatformCapabilitySet = null) -&gt; GFValidationReport:</signature>
 			<description>校验请求载荷和能力前置条件。</description>
 			<tags>
 				<tag name="api">public</tag>

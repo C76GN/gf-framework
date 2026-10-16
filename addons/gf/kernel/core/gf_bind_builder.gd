@@ -21,6 +21,7 @@ enum TargetKind {
 	FACTORY,
 }
 
+
 ## 绑定来源类别。
 ## [br]
 ## @api framework_internal
@@ -87,7 +88,11 @@ var _alias_cls: Script = null
 ## 保存后续绑定所需的 Architecture、目标类别和脚本键。
 ## [br]
 ## @api private
-func _init(architecture: GFArchitecture, target_kind: TargetKind, script_cls: Script) -> void:
+func _init(
+	architecture: GFArchitecture,
+	target_kind: TargetKind,
+	script_cls: Script
+) -> void:
 	_architecture = architecture
 	_target_kind = target_kind
 	_script_cls = script_cls
@@ -190,9 +195,7 @@ func as_transient() -> bool:
 ## @param expected_architecture: Plan 拥有的架构；必须与当前 Builder 精确相同。
 ## [br]
 ## @return 配置隔离的新 Builder；ownership 不匹配时返回 null。
-func duplicate_for_required_plan_for_framework(
-	expected_architecture: GFArchitecture
-) -> GFBindBuilder:
+func duplicate_for_required_plan_for_framework(expected_architecture: GFArchitecture) -> GFBindBuilder:
 	if expected_architecture == null or _architecture != expected_architecture:
 		return null
 	var duplicate: GFBindBuilder = GFBindBuilder.new(
@@ -270,20 +273,14 @@ func execute_required_binding_for_framework(lifetime: int) -> RequiredBindingAtt
 			_GF_BINDING_PLAN_RESULT_SCRIPT.Reason.INVALID_ENTRY,
 			"[GFBindBuilder][bind_builder.required_target_null] Required binding target script is null."
 		)
-	if (
-		lifetime != GFBindingLifetimesBase.Lifetime.SINGLETON
-		and lifetime != GFBindingLifetimesBase.Lifetime.TRANSIENT
-	):
+	if (lifetime != GFBindingLifetimesBase.Lifetime.SINGLETON and lifetime != GFBindingLifetimesBase.Lifetime.TRANSIENT):
 		return _make_required_attempt(
 			false,
 			_GF_BINDING_PLAN_RESULT_SCRIPT.Phase.VALIDATION,
 			_GF_BINDING_PLAN_RESULT_SCRIPT.Reason.INVALID_LIFETIME,
 			"[GFBindBuilder][bind_builder.required_lifetime_invalid] Required binding lifetime is invalid."
 		)
-	if (
-		_target_kind != TargetKind.FACTORY
-		and lifetime != GFBindingLifetimesBase.Lifetime.SINGLETON
-	):
+	if (_target_kind != TargetKind.FACTORY and lifetime != GFBindingLifetimesBase.Lifetime.SINGLETON):
 		return _make_required_attempt(
 			false,
 			_GF_BINDING_PLAN_RESULT_SCRIPT.Phase.VALIDATION,
@@ -304,11 +301,7 @@ func execute_required_binding_for_framework(lifetime: int) -> RequiredBindingAtt
 
 	if _target_kind == TargetKind.FACTORY:
 		return _execute_required_factory_binding(lifetime)
-	var attempt_variant: Variant = (
-		_architecture.run_required_binding_attempt_for_framework(
-			_execute_required_lifecycle_binding
-		)
-	)
+	var attempt_variant: Variant = _architecture.run_required_binding_attempt_for_framework(_execute_required_lifecycle_binding)
 	if attempt_variant is RequiredBindingAttempt:
 		var lifecycle_attempt: RequiredBindingAttempt = attempt_variant
 		return lifecycle_attempt
@@ -321,7 +314,6 @@ func execute_required_binding_for_framework(lifetime: int) -> RequiredBindingAtt
 
 
 # --- 私有/辅助方法 ---
-
 
 ## 创建候选并提交必需生命周期绑定，将创建、注册及别名失败分别包装为尝试结果；别名失败不在本 helper 内回滚已注册实例。
 ## [br]
@@ -338,10 +330,7 @@ func _execute_required_lifecycle_binding() -> RequiredBindingAttempt:
 	var instance: Object = candidate
 	var registration_error: Error = _register_required_lifecycle_instance(instance)
 	if registration_error != OK:
-		if (
-			registration_error == ERR_INVALID_PARAMETER
-			or registration_error == ERR_INVALID_DATA
-		):
+		if (registration_error == ERR_INVALID_PARAMETER or registration_error == ERR_INVALID_DATA):
 			return _make_required_attempt(
 				false,
 				_GF_BINDING_PLAN_RESULT_SCRIPT.Phase.INSTANCE_CREATION,
@@ -422,9 +411,7 @@ func _register_lifecycle_instance(instance: Object) -> bool:
 ## [br]
 ## @api private
 func _register_required_lifecycle_instance(instance: Object) -> Error:
-	var release_owned_candidate_on_rejection: bool = (
-		_source_kind != SourceKind.INSTANCE
-	)
+	var release_owned_candidate_on_rejection: bool = _source_kind != SourceKind.INSTANCE
 	match _target_kind:
 		TargetKind.MODEL:
 			return _architecture.register_model_instance_for_required_plan_for_framework(
@@ -504,10 +491,18 @@ func _bind_factory(lifetime: int) -> bool:
 				return false
 			var self_factory: Callable = func() -> Variant:
 				return _instantiate_script_as_object(_script_cls)
-			return _architecture.register_factory(_script_cls, self_factory, lifetime)
+			return _architecture.register_factory(
+				_script_cls,
+				self_factory,
+				lifetime
+			)
 
 		SourceKind.FACTORY:
-			return _architecture.register_factory(_script_cls, _factory, lifetime)
+			return _architecture.register_factory(
+				_script_cls,
+				_factory,
+				lifetime
+			)
 
 		SourceKind.INSTANCE:
 			if lifetime == GFBindingLifetimesBase.Lifetime.TRANSIENT:
@@ -545,9 +540,18 @@ func _execute_required_factory_binding(lifetime: int) -> RequiredBindingAttempt:
 	var phase: int = _GF_BINDING_PLAN_RESULT_SCRIPT.Phase.REGISTRATION
 	var reason: int = _GF_BINDING_PLAN_RESULT_SCRIPT.Reason.REGISTRATION_REJECTED
 	if (
-		(_source_kind == SourceKind.SELF and not _script_cls.can_instantiate())
-		or (_source_kind == SourceKind.FACTORY and not _factory.is_valid())
-		or (_source_kind == SourceKind.INSTANCE and _instance == null)
+		(
+			_source_kind == SourceKind.SELF
+			and not _script_cls.can_instantiate()
+		)
+		or (
+			_source_kind == SourceKind.FACTORY
+			and not _factory.is_valid()
+		)
+		or (
+			_source_kind == SourceKind.INSTANCE
+			and _instance == null
+		)
 	):
 		phase = _GF_BINDING_PLAN_RESULT_SCRIPT.Phase.INSTANCE_CREATION
 		reason = _GF_BINDING_PLAN_RESULT_SCRIPT.Reason.INSTANCE_CREATION_FAILED
@@ -568,7 +572,12 @@ func _make_required_attempt(
 	reason: int,
 	detail: String
 ) -> RequiredBindingAttempt:
-	return RequiredBindingAttempt.new(ok, phase, reason, detail)
+	return RequiredBindingAttempt.new(
+		ok,
+		phase,
+		reason,
+		detail
+	)
 
 
 ## 候选存活且实际脚本继承或等于声明目标脚本时返回 true。
@@ -580,10 +589,7 @@ func _candidate_matches_declared_target(instance: Object) -> bool:
 	var actual_script: Script = _get_instance_script(instance)
 	if actual_script == null:
 		return false
-	return GFScriptTypeInspector.script_extends_or_equals(
-		actual_script,
-		_script_cls
-	)
+	return GFScriptTypeInspector.script_extends_or_equals(actual_script, _script_cls)
 
 
 ## 候选必须是有效 Object；Node 还必须未 queued for deletion。
@@ -636,7 +642,10 @@ func _instantiate_script_as_object(script_cls: Script) -> Variant:
 ## [br]
 ## @since 11.0.0
 class RequiredBindingAttempt extends RefCounted:
+
+
 	# --- 私有变量 ---
+
 	## 本次必需绑定尝试是否完成登记及要求的别名阶段。
 	## [br]
 	## @api private
@@ -659,6 +668,7 @@ class RequiredBindingAttempt extends RefCounted:
 
 
 	# --- Godot 生命周期方法 ---
+
 	## 保存一次绑定尝试的成功标志、阶段、原因及诊断文本，供外层计划读取。
 	## [br]
 	## @api private
@@ -675,6 +685,7 @@ class RequiredBindingAttempt extends RefCounted:
 
 
 	# --- 框架内部方法 ---
+
 	## 返回 attempt 是否成功。
 	## [br]
 	## @api framework_internal

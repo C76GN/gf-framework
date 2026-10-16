@@ -19,7 +19,7 @@
 | 方法 | [`advance`](#member-gfscenegroupindex-methods-advance) | `func advance(entry_budget: int = 64) -> bool:` |
 | 方法 | [`cancel`](#member-gfscenegroupindex-methods-cancel) | `func cancel() -> void:` |
 | 方法 | [`get_snapshot`](#member-gfscenegroupindex-methods-get_snapshot) | `func get_snapshot() -> Dictionary:` |
-| 方法 | [`query`](#member-gfscenegroupindex-methods-query) | `func query(text: String = "", offset: int = 0, limit: int = 100) -> Dictionary:` |
+| 方法 | [`query`](#member-gfscenegroupindex-methods-query) | `func query( text: String = "", offset: int = 0, limit: int = 100 ) -> Dictionary:` |
 
 ## 方法
 
@@ -110,7 +110,7 @@ func get_snapshot() -> Dictionary:
 - 首次版本：`unreleased`
 
 ```gdscript
-func query(text: String = "", offset: int = 0, limit: int = 100) -> Dictionary:
+func query( text: String = "", offset: int = 0, limit: int = 100 ) -> Dictionary:
 ```
 
 搜索组名、场景路径或节点路径。搜索忽略大小写，但保留不同组名的精确身份。 结果稳定按 group、scene_path、node_path 排序；返回行均为副本。

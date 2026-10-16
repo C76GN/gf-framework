@@ -190,7 +190,12 @@ func select_best_from_scores(scores: Array[GFDecisionScore]) -> GFDecisionScore:
 			best_score = candidate_score
 	if best_score != null:
 		return best_score
-	return GFDecisionScore.new(null, 0.0, [], false)
+	return GFDecisionScore.new(
+		null,
+		0.0,
+		[],
+		false
+	)
 
 
 ## 一次性评价集合并返回评分、最佳候选和调试快照。
@@ -207,7 +212,12 @@ func evaluate(context: GFDecisionContext) -> GFDecisionEvaluation:
 	var best_score: GFDecisionScore = select_best_from_scores(scores)
 	var snapshot: Dictionary = get_debug_snapshot(null, scores)
 	var evaluation: GFDecisionEvaluation = GFDecisionEvaluation.new()
-	return evaluation.configure(decision_set_id, scores, best_score, snapshot)
+	return evaluation.configure(
+		decision_set_id,
+		scores,
+		best_score,
+		snapshot
+	)
 
 
 ## 获取集合调试快照。
@@ -231,13 +241,15 @@ func get_debug_snapshot(context: GFDecisionContext = null, scores: Variant = nul
 	for candidate_score: GFDecisionScore in resolved_scores:
 		if candidate_score != null:
 			score_dictionaries.append(candidate_score.to_dictionary())
-	return GFReportValueCodec.to_report_dictionary({
-		"decision_set_id": decision_set_id,
-		"decision_count": decisions.size(),
-		"minimum_score": _normalized_minimum_score(),
-		"scores": score_dictionaries,
-		"metadata": _copy_dictionary(metadata),
-	})
+	return GFReportValueCodec.to_report_dictionary(
+		{
+			"decision_set_id": decision_set_id,
+			"decision_count": decisions.size(),
+			"minimum_score": _normalized_minimum_score(),
+			"scores": score_dictionaries,
+			"metadata": _copy_dictionary(metadata),
+		}
+	)
 
 
 ## 获取集合资源的 authoring 校验报告。
@@ -256,28 +268,58 @@ func get_validation_report() -> Dictionary:
 		"issues": [],
 	}
 	if decision_set_id == &"":
-		_append_validation_issue(report, &"missing_decision_set_id", "decision_set_id is required", "decision_set_id")
+		_append_validation_issue(
+			report,
+			&"missing_decision_set_id",
+			"decision_set_id is required",
+			"decision_set_id"
+		)
 	if not _GF_DECISION_NUMERIC_POLICY.is_valid_score(minimum_score):
-		_append_validation_issue(report, &"invalid_minimum_score", "minimum_score must be finite and within 0 to 1", "minimum_score")
+		_append_validation_issue(
+			report,
+			&"invalid_minimum_score",
+			"minimum_score must be finite and within 0 to 1",
+			"minimum_score"
+		)
 
 	var seen_ids: Dictionary = {}
 	for index: int in range(decisions.size()):
 		var decision: GFDecisionOption = decisions[index]
 		if decision == null:
-			_append_validation_issue(report, &"missing_decision", "decision is null", "decisions[%d]" % index)
+			_append_validation_issue(
+				report,
+				&"missing_decision",
+				"decision is null",
+				"decisions[%d]" % index
+			)
 			continue
 		if decision.decision_id == &"":
-			_append_validation_issue(report, &"missing_decision_id", "decision_id is required", "decisions[%d].decision_id" % index)
+			_append_validation_issue(
+				report,
+				&"missing_decision_id",
+				"decision_id is required",
+				"decisions[%d].decision_id" % index
+			)
 		elif seen_ids.has(decision.decision_id):
-			_append_validation_issue(report, &"duplicate_decision_id", "decision_id is duplicated", "decisions[%d].decision_id" % index)
+			_append_validation_issue(
+				report,
+				&"duplicate_decision_id",
+				"decision_id is duplicated",
+				"decisions[%d].decision_id" % index
+			)
 		else:
 			seen_ids[decision.decision_id] = true
-		_append_option_validation_issues(report, decision, index)
+		_append_option_validation_issues(
+			report,
+			decision,
+			index
+		)
 
-	return GFValidationReportDictionary.finalize_report(report, "Decision set", {
-		"fallback_action": "Review the first decision set issue.",
-		"no_action": "Decision set is valid.",
-	})
+	return GFValidationReportDictionary.finalize_report(
+		report,
+		"Decision set",
+		{ "fallback_action": "Review the first decision set issue.", "no_action": "Decision set is valid.", }
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -357,13 +399,26 @@ func _append_option_validation_issues(
 		var option_path: String = GFVariantData.get_option_string(issue, "path")
 		var _issue: Dictionary = GFValidationReportDictionary.append_issue(
 			report,
-			GFVariantData.get_option_string(issue, "severity", "error"),
-			GFVariantData.get_option_string_name(issue, "kind", &"invalid_decision"),
-			GFVariantData.get_option_string(issue, "message", "decision is invalid"),
+			GFVariantData.get_option_string(
+				issue,
+				"severity",
+				"error"
+			),
+			GFVariantData.get_option_string_name(
+				issue,
+				"kind",
+				&"invalid_decision"
+			),
+			GFVariantData.get_option_string(
+				issue,
+				"message",
+				"decision is invalid"
+			),
 			{
 				"key": decision.decision_id,
 				"row_index": index,
-				"path": "decisions[%d].%s" % [index, option_path],
+				"path": "decisions[%d].%s"
+				% [index, option_path],
 			}
 		)
 
@@ -382,8 +437,5 @@ func _append_validation_issue(
 		"error",
 		kind,
 		message,
-		{
-			"key": decision_set_id,
-			"path": path,
-		}
+		{ "key": decision_set_id, "path": path, }
 	)

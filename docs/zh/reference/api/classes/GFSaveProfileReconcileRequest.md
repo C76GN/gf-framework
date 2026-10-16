@@ -15,7 +15,7 @@ uncertain 写入对账的一次性请求句柄。 请求只携带调用方纯数
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 方法 | [`take_ownership`](#member-gfsaveprofilereconcilerequest-methods-take_ownership) | `static func take_ownership( context: Dictionary = {}, result_metadata: Dictionary = {} ) -> GFSaveProfileReconcileRequest:` |
+| 方法 | [`take_ownership`](#member-gfsaveprofilereconcilerequest-methods-take_ownership) | `static func take_ownership(context: Dictionary = {}, result_metadata: Dictionary = {}) -> GFSaveProfileReconcileRequest:` |
 | 方法 | [`is_available`](#member-gfsaveprofilereconcilerequest-methods-is_available) | `func is_available() -> bool:` |
 | 方法 | [`is_claimed`](#member-gfsaveprofilereconcilerequest-methods-is_claimed) | `func is_claimed() -> bool:` |
 
@@ -29,7 +29,7 @@ uncertain 写入对账的一次性请求句柄。 请求只携带调用方纯数
 - 首次版本：`11.0.0`
 
 ```gdscript
-static func take_ownership( context: Dictionary = {}, result_metadata: Dictionary = {} ) -> GFSaveProfileReconcileRequest:
+static func take_ownership(context: Dictionary = {}, result_metadata: Dictionary = {}) -> GFSaveProfileReconcileRequest:
 ```
 
 创建请求并接管 context 与 result_metadata 的逻辑唯一所有权。 输入必须是有界纯 Variant 数据，不能包含 Callable、Object、Signal、RID 或 循环集合。该请求不接受可执行恢复策略或 patch；项目策略应在提交前完成决策。

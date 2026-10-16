@@ -8,10 +8,7 @@ extends RefCounted
 
 func get_template_records() -> Array[Dictionary]:
 	return [
-		{
-			"source_id": "gf.test.editor:template.type_missing",
-			"label": "缺少类型模板",
-		},
+		{ "source_id": "gf.test.editor:template.type_missing", "label": "缺少类型模板", },
 		{
 			"source_id": "gf.test.editor:template.type_empty",
 			"type": "",

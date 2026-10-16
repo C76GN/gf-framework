@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFPointerInteraction3D" path="addons/gf/extensions/interaction/nodes/gf_pointer_interaction_3d.gd" module="extensions/interaction" extends="Node" classDigest="a055968af35e54f31c0899f45031f7bede74fb06b19e9b93510977dd28f37215">
+<class name="GFPointerInteraction3D" path="addons/gf/extensions/interaction/nodes/gf_pointer_interaction_3d.gd" module="extensions/interaction" extends="Node" classDigest="b1b4b6bd76b804feefbb9cc027c4e2a901b3deb89b6d52c2849cb6095e98a36b">
 	<description>GFPointerInteraction3D: 将 3D 指针事件桥接为 GFInteractionContext。
 监听 CollisionObject3D 的 hover、鼠标按钮与滚轮事件，构建通用交互上下文。
 节点只传递位置、法线、按钮、标签和元数据，不解释点击对象的业务含义。</description>
@@ -68,7 +68,7 @@
 			</tags>
 		</member>
 		<member kind="signal" name="pointer_interaction_sent">
-			<signature>signal pointer_interaction_sent(context: GFInteractionContext, receiver: Object, report: Dictionary)</signature>
+			<signature>signal pointer_interaction_sent( context: GFInteractionContext, receiver: Object, report: Dictionary )</signature>
 			<description>已向接收器发送交互。</description>
 			<tags>
 				<tag name="api">public</tag>

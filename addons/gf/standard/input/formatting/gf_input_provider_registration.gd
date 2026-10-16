@@ -56,7 +56,11 @@ var _active: bool = false
 ## [br]
 ## @return 活动返回 true。
 func is_active() -> bool:
-	return _active and provider != null and _get_registry() != null
+	return (
+		_active
+		and provider != null
+		and _get_registry() != null
+	)
 
 
 ## 释放注册。

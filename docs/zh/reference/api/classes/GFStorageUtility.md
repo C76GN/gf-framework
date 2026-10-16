@@ -16,7 +16,7 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 信号 | [`data_integrity_failed`](#member-gfstorageutility-signals-data_integrity_failed) | `signal data_integrity_failed(file_name: String, error: String)` |
-| 信号 | [`data_migrated`](#member-gfstorageutility-signals-data_migrated) | `signal data_migrated(file_name: String, from_version: int, to_version: int)` |
+| 信号 | [`data_migrated`](#member-gfstorageutility-signals-data_migrated) | `signal data_migrated( file_name: String, from_version: int, to_version: int )` |
 | 信号 | [`save_completed`](#member-gfstorageutility-signals-save_completed) | `signal save_completed(file_name: String, error: Error)` |
 | 信号 | [`load_completed`](#member-gfstorageutility-signals-load_completed) | `signal load_completed(file_name: String, result: GFStorageReadResult)` |
 | 枚举 | [`AsyncExecutionMode`](#member-gfstorageutility-enums-asyncexecutionmode) | `enum AsyncExecutionMode` |
@@ -57,9 +57,9 @@
 | 方法 | [`query_catalog`](#member-gfstorageutility-methods-query_catalog) | `func query_catalog( directory_name: String = "", extension_filter: String = "", recursive: bool = false, options: Dictionary = {} ) -> GFStorageCatalogResult:` |
 | 方法 | [`has_file`](#member-gfstorageutility-methods-has_file) | `func has_file(file_name: String) -> bool:` |
 | 方法 | [`delete_file`](#member-gfstorageutility-methods-delete_file) | `func delete_file(file_name: String) -> Error:` |
-| 方法 | [`delete_file_request_async`](#member-gfstorageutility-methods-delete_file_request_async) | `func delete_file_request_async( file_name: String, options: GFStorageAsyncRequestOptions = null ) -> GFStorageAsyncOperation:` |
-| 方法 | [`create_family_reset_authorization`](#member-gfstorageutility-methods-create_family_reset_authorization) | `func create_family_reset_authorization( file_name: String, observed_result: GFStorageReadResult ) -> GFStorageFamilyResetAuthorization:` |
-| 方法 | [`reset_file_family`](#member-gfstorageutility-methods-reset_file_family) | `func reset_file_family( file_name: String, authorization: GFStorageFamilyResetAuthorization ) -> GFStorageFamilyResetResult:` |
+| 方法 | [`delete_file_request_async`](#member-gfstorageutility-methods-delete_file_request_async) | `func delete_file_request_async(file_name: String, options: GFStorageAsyncRequestOptions = null) -> GFStorageAsyncOperation:` |
+| 方法 | [`create_family_reset_authorization`](#member-gfstorageutility-methods-create_family_reset_authorization) | `func create_family_reset_authorization(file_name: String, observed_result: GFStorageReadResult) -> GFStorageFamilyResetAuthorization:` |
+| 方法 | [`reset_file_family`](#member-gfstorageutility-methods-reset_file_family) | `func reset_file_family(file_name: String, authorization: GFStorageFamilyResetAuthorization) -> GFStorageFamilyResetResult:` |
 | 方法 | [`reset_file_family_request_async`](#member-gfstorageutility-methods-reset_file_family_request_async) | `func reset_file_family_request_async( file_name: String, authorization: GFStorageFamilyResetAuthorization, options: GFStorageAsyncRequestOptions = null ) -> GFStorageAsyncOperation:` |
 | 方法 | [`save_data`](#member-gfstorageutility-methods-save_data) | `func save_data(file_name: String, data: Dictionary) -> Error:` |
 | 方法 | [`save_data_group`](#member-gfstorageutility-methods-save_data_group) | `func save_data_group(files: Dictionary) -> Error:` |
@@ -69,12 +69,12 @@
 | 方法 | [`save_data_request_async`](#member-gfstorageutility-methods-save_data_request_async) | `func save_data_request_async( file_name: String, data: Dictionary, options: GFStorageAsyncRequestOptions = null ) -> GFStorageAsyncOperation:` |
 | 方法 | [`save_payload_request_async`](#member-gfstorageutility-methods-save_payload_request_async) | `func save_payload_request_async( file_name: String, transfer: GFStoragePayloadTransfer, options: GFStorageAsyncRequestOptions = null ) -> GFStorageAsyncOperation:` |
 | 方法 | [`load_data_async`](#member-gfstorageutility-methods-load_data_async) | `func load_data_async(file_name: String) -> Error:` |
-| 方法 | [`load_data_request_async`](#member-gfstorageutility-methods-load_data_request_async) | `func load_data_request_async( file_name: String, options: GFStorageAsyncRequestOptions = null ) -> GFStorageAsyncOperation:` |
-| 方法 | [`load_data_owned_request_async`](#member-gfstorageutility-methods-load_data_owned_request_async) | `func load_data_owned_request_async( file_name: String, options: GFStorageAsyncRequestOptions = null ) -> GFStorageOwnedRead:` |
+| 方法 | [`load_data_request_async`](#member-gfstorageutility-methods-load_data_request_async) | `func load_data_request_async(file_name: String, options: GFStorageAsyncRequestOptions = null) -> GFStorageAsyncOperation:` |
+| 方法 | [`load_data_owned_request_async`](#member-gfstorageutility-methods-load_data_owned_request_async) | `func load_data_owned_request_async(file_name: String, options: GFStorageAsyncRequestOptions = null) -> GFStorageOwnedRead:` |
 | 方法 | [`get_late_settlement_diagnostics`](#member-gfstorageutility-methods-get_late_settlement_diagnostics) | `func get_late_settlement_diagnostics() -> Array[Dictionary]:` |
 | 方法 | [`wait_for_async_tasks`](#member-gfstorageutility-methods-wait_for_async_tasks) | `func wait_for_async_tasks() -> void:` |
-| 方法 | [`migrate_data`](#member-gfstorageutility-methods-migrate_data) | `func migrate_data(data: Dictionary, _from_version: int, _to_version: int) -> Dictionary:` |
-| 方法 | [`register_migration`](#member-gfstorageutility-methods-register_migration) | `func register_migration(from_version: int, to_version: int, callback: Callable) -> bool:` |
+| 方法 | [`migrate_data`](#member-gfstorageutility-methods-migrate_data) | `func migrate_data( data: Dictionary, _from_version: int, _to_version: int ) -> Dictionary:` |
+| 方法 | [`register_migration`](#member-gfstorageutility-methods-register_migration) | `func register_migration( from_version: int, to_version: int, callback: Callable ) -> bool:` |
 | 方法 | [`unregister_migration`](#member-gfstorageutility-methods-unregister_migration) | `func unregister_migration(from_version: int, to_version: int) -> void:` |
 | 方法 | [`clear_migrations`](#member-gfstorageutility-methods-clear_migrations) | `func clear_migrations() -> void:` |
 | 方法 | [`get_registered_migrations`](#member-gfstorageutility-methods-get_registered_migrations) | `func get_registered_migrations() -> Array[Dictionary]:` |
@@ -105,9 +105,10 @@ signal data_integrity_failed(file_name: String, error: String)
 ### `data_migrated`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal data_migrated(file_name: String, from_version: int, to_version: int)
+signal data_migrated( file_name: String, from_version: int, to_version: int )
 ```
 
 数据版本迁移后发出。
@@ -770,7 +771,7 @@ func delete_file(file_name: String) -> Error:
 - 首次版本：`11.0.0`
 
 ```gdscript
-func delete_file_request_async( file_name: String, options: GFStorageAsyncRequestOptions = null ) -> GFStorageAsyncOperation:
+func delete_file_request_async(file_name: String, options: GFStorageAsyncRequestOptions = null) -> GFStorageAsyncOperation:
 ```
 
 通过当前 Storage executor 删除一个精确 logical family，并返回请求专属句柄。 请求只删除冻结 family 的八个可变物理成员；catalog 与 owner identity 保留。 删除不会隐式恢复事务，也不会扫描或收养 sibling family。
@@ -792,7 +793,7 @@ func delete_file_request_async( file_name: String, options: GFStorageAsyncReques
 - 首次版本：`11.0.0`
 
 ```gdscript
-func create_family_reset_authorization( file_name: String, observed_result: GFStorageReadResult ) -> GFStorageFamilyResetAuthorization:
+func create_family_reset_authorization(file_name: String, observed_result: GFStorageReadResult) -> GFStorageFamilyResetAuthorization:
 ```
 
 为一次显式的破坏性 family reset 创建绑定授权。 只有当前 GFStorageUtility 对同一 logical identity 返回的 CORRUPT 读取结果才可 创建授权。授权冻结 Utility、Storage root、canonical logical identity 与当前 family 观察， 且只能消费一次；签发前或后发生的较新同 family 写入/修复会使旧观察失效。
@@ -814,7 +815,7 @@ func create_family_reset_authorization( file_name: String, observed_result: GFSt
 - 首次版本：`11.0.0`
 
 ```gdscript
-func reset_file_family( file_name: String, authorization: GFStorageFamilyResetAuthorization ) -> GFStorageFamilyResetResult:
+func reset_file_family(file_name: String, authorization: GFStorageFamilyResetAuthorization) -> GFStorageFamilyResetResult:
 ```
 
 同步 retire 并重新 claim 一个显式授权的 logical family。 该入口与同 family 的异步 save/load/delete/reset 串行。missing target 与 future layout 都在零写入前失败；同执行栈仍有该 family 工作时以 ERR_BUSY / UNAVAILABLE 拒绝。 结果不暴露任何 private path 或 retirement staging 名称。
@@ -1049,7 +1050,7 @@ func load_data_async(file_name: String) -> Error:
 - 首次版本：`10.0.0`
 
 ```gdscript
-func load_data_request_async( file_name: String, options: GFStorageAsyncRequestOptions = null ) -> GFStorageAsyncOperation:
+func load_data_request_async(file_name: String, options: GFStorageAsyncRequestOptions = null) -> GFStorageAsyncOperation:
 ```
 
 通过当前 Storage executor 异步读取纯字典数据，并返回请求专属句柄。 读取终态通过句柄携带 `GFStorageReadResult`，调用方无需监听全局文件名信号。
@@ -1071,7 +1072,7 @@ func load_data_request_async( file_name: String, options: GFStorageAsyncRequestO
 - 首次版本：`unreleased`
 
 ```gdscript
-func load_data_owned_request_async( file_name: String, options: GFStorageAsyncRequestOptions = null ) -> GFStorageOwnedRead:
+func load_data_owned_request_async(file_name: String, options: GFStorageAsyncRequestOptions = null) -> GFStorageOwnedRead:
 ```
 
 异步读取纯数据，并通过专用句柄领取一次完整结果。 迁移完成后保留一次隔离复制，通知与领取不再复制载荷。此入口不更新 last_load_result，也不发出 load_completed；使用句柄 completed 与 get_result。 Object、Resource、循环或超出纯数据校验预算的图会明确拒绝独占交付。 owner、token 和 deadline 仅约束等待阶段；成功结果由句柄持有至领取或释放。
@@ -1125,7 +1126,7 @@ func wait_for_async_tasks() -> void:
 - 首次版本：`1.19.0`
 
 ```gdscript
-func migrate_data(data: Dictionary, _from_version: int, _to_version: int) -> Dictionary:
+func migrate_data( data: Dictionary, _from_version: int, _to_version: int ) -> Dictionary:
 ```
 
 使用已注册步骤迁移存档数据。
@@ -1150,9 +1151,10 @@ func migrate_data(data: Dictionary, _from_version: int, _to_version: int) -> Dic
 ### `register_migration`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func register_migration(from_version: int, to_version: int, callback: Callable) -> bool:
+func register_migration( from_version: int, to_version: int, callback: Callable ) -> bool:
 ```
 
 注册一个版本迁移步骤。

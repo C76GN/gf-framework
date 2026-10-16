@@ -231,7 +231,4 @@ func _make_scan_action() -> Dictionary:
 ## [br]
 ## @api private
 func _make_action(kind: StringName, generation: int = 0) -> Dictionary:
-	return {
-		"kind": kind,
-		"generation": generation,
-	}
+	return { "kind": kind, "generation": generation, }

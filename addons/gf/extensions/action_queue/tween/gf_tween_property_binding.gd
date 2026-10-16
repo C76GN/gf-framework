@@ -20,13 +20,21 @@ var value: Variant:
 	get:
 		var owner: GFConfiguredTweenAction = _get_owner()
 		if owner != null:
-			return owner.read_bound_property(_property_name, _generation, _last_value)
+			return owner.read_bound_property(
+				_property_name,
+				_generation,
+				_last_value
+			)
 		return _last_value
 	set(next_value):
 		_last_value = next_value
 		var owner: GFConfiguredTweenAction = _get_owner()
 		if owner != null:
-			owner.write_bound_property(_property_name, next_value, _generation)
+			owner.write_bound_property(
+				_property_name,
+				next_value,
+				_generation
+			)
 
 
 # --- 私有变量 ---
@@ -54,7 +62,12 @@ var _last_value: Variant
 
 # --- Godot 生命周期方法 ---
 
-func _init(owner: GFConfiguredTweenAction, property_name: NodePath, generation: int, initial_value: Variant) -> void:
+func _init(
+	owner: GFConfiguredTweenAction,
+	property_name: NodePath,
+	generation: int,
+	initial_value: Variant
+) -> void:
 	_owner_ref = weakref(owner)
 	_property_name = property_name
 	_generation = generation

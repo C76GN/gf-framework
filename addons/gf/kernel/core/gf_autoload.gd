@@ -48,7 +48,10 @@ static func begin_tree_exit_scope() -> void:
 ## [br]
 ## @api framework_internal
 static func end_tree_exit_scope() -> void:
-	_tree_exit_scope_depth = maxi(_tree_exit_scope_depth - 1, 0)
+	_tree_exit_scope_depth = maxi(
+		_tree_exit_scope_depth - 1,
+		0
+	)
 
 
 ## 重置 Gf AutoLoad 退出状态，供 AutoLoad 再次进入树或隔离测试使用。
@@ -109,10 +112,7 @@ static func get_architecture_or_null() -> GFArchitecture:
 	var silent_architecture: Variant = singleton.get("_architecture")
 	if silent_architecture is GFArchitecture:
 		var typed_silent_architecture: GFArchitecture = silent_architecture
-		if (
-			typed_silent_architecture.is_disposing()
-			or typed_silent_architecture.is_disposed()
-		):
+		if (typed_silent_architecture.is_disposing() or typed_silent_architecture.is_disposed()):
 			return null
 		return typed_silent_architecture
 	if not singleton.has_method("has_architecture") or not singleton.has_method("get_architecture"):

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNodeRangeSerializer" path="addons/gf/extensions/save/serializers/gf_node_range_serializer.gd" module="extensions/save" extends="GFNodeSerializer" classDigest="32005d2876c7c00804e63fdb8ffaf1ff70e36ca178d03ecc5bc5c459c505fa06">
+<class name="GFNodeRangeSerializer" path="addons/gf/extensions/save/serializers/gf_node_range_serializer.gd" module="extensions/save" extends="GFNodeSerializer" classDigest="9eef6090499a986d6e371a506e306a0e83e88d105063b31c5fd6d93d1ab8fcb8">
 	<description>GFNodeRangeSerializer: Range 通用数值状态序列化器。
 保存滑条、进度条等 Range 派生控件的通用数值参数。</description>
 	<tags>
@@ -34,7 +34,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="apply">
-			<signature>func apply(node: Node, payload: Dictionary, _context: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>func apply( node: Node, payload: Dictionary, _context: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>将序列化数据应用到节点。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -45,6 +45,7 @@
 				<tag name="schema">payload: Dictionary，可包含 min_value、max_value、step、page、rounded、allow_greater、allow_lesser 与 value。</tag>
 				<tag name="schema">_context: Dictionary，调用方附加上下文；当前实现不读取。</tag>
 				<tag name="schema">return: Dictionary，包含 ok: bool 与 error: String。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

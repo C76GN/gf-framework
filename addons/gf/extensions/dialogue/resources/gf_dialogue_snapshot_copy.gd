@@ -102,7 +102,12 @@ const _TRUNCATED_KEY: String = "__gf_snapshot_truncated__"
 ## @schema return: 与输入结构对应的深复制 Variant；超限或不安全分支替换为稳定字符串标记。
 static func copy_snapshot(value: Variant, options: Dictionary = {}) -> Variant:
 	var state: _CopyState = _create_state(options, false)
-	return _copy_value_impl(value, 0, "$", state)
+	return _copy_value_impl(
+		value,
+		0,
+		"$",
+		state
+	)
 
 
 ## 在单次操作共享预算内创建字典快照。
@@ -151,7 +156,12 @@ static func copy_snapshot_dictionary(value: Dictionary, options: Dictionary = {}
 ## @schema return: ok 为 true 时 value 是完整副本；失败时 value 为 null，error/path 描述首个失败边界。
 static func copy_complete_report(value: Variant, options: Dictionary = {}) -> Dictionary:
 	var state: _CopyState = _create_state(options, true)
-	var copied: Variant = _copy_value_impl(value, 0, "$", state)
+	var copied: Variant = _copy_value_impl(
+		value,
+		0,
+		"$",
+		state
+	)
 	return {
 		"ok": not state._failed,
 		"value": copied if not state._failed else null,
@@ -197,7 +207,11 @@ static func _create_state(options: Dictionary, complete: bool) -> _CopyState:
 ## 读取正整数预算覆盖值；缺失或无效时使用回退值。
 ## [br]
 ## @api private
-static func _get_positive_option(options: Dictionary, key: String, fallback: int) -> int:
+static func _get_positive_option(
+	options: Dictionary,
+	key: String,
+	fallback: int
+) -> int:
 	var value: Variant = options.get(key, fallback)
 	if value is int:
 		var int_value: int = value
@@ -209,18 +223,35 @@ static func _get_positive_option(options: Dictionary, key: String, fallback: int
 ## 在共享状态中递归复制 Variant，并执行深度、节点及类型检查。
 ## [br]
 ## @api private
-static func _copy_value_impl(value: Variant, depth: int, path: String, state: _CopyState) -> Variant:
+static func _copy_value_impl(
+	value: Variant,
+	depth: int,
+	path: String,
+	state: _CopyState
+) -> Variant:
 	if state._stopped:
 		return _marker_for_error(state._error)
 	if depth > state._max_depth:
-		return _record_issue(state, "max_depth", path, _MAX_DEPTH_MARKER, false)
+		return _record_issue(
+			state,
+			"max_depth",
+			path,
+			_MAX_DEPTH_MARKER,
+			false
+		)
 	if not _reserve_node(state, path):
 		return _NODE_BUDGET_MARKER
 
 	if value is Dictionary:
 		var dictionary: Dictionary = value
 		if _visited_contains(state._visited, dictionary):
-			return _record_issue(state, "circular_reference", path, _CIRCULAR_REFERENCE_MARKER, false)
+			return _record_issue(
+				state,
+				"circular_reference",
+				path,
+				_CIRCULAR_REFERENCE_MARKER,
+				false
+			)
 		state._visited.append(dictionary)
 		var result: Dictionary = {}
 		var dictionary_keys: Array = dictionary.keys()
@@ -228,40 +259,84 @@ static func _copy_value_impl(value: Variant, depth: int, path: String, state: _C
 			if state._stopped:
 				break
 			var key: Variant = dictionary_keys[entry_index]
-			var key_path: String = "%s{entry=%d,key_type=%d}" % [
-				path,
-				entry_index,
-				typeof(key),
-			]
-			var copied_key: Variant = _copy_value_impl(key, depth + 1, key_path + ".<key>", state)
+			var key_path: String = (
+				"%s{entry=%d,key_type=%d}"
+				% [
+					path,
+					entry_index,
+					typeof(key),
+				]
+			)
+			var copied_key: Variant = _copy_value_impl(
+				key,
+				depth + 1,
+				key_path + ".<key>",
+				state
+			)
 			if state._stopped:
 				break
-			result[copied_key] = _copy_value_impl(dictionary[key], depth + 1, key_path, state)
+			result[copied_key] = _copy_value_impl(
+				dictionary[key],
+				depth + 1,
+				key_path,
+				state
+			)
 		var _removed_dictionary: Variant = state._visited.pop_back()
 		if state._stopped:
-			_append_truncation_marker(result, _marker_for_error(state._error))
+			_append_truncation_marker(
+				result,
+				_marker_for_error(state._error)
+			)
 		return result
 
 	if value is Array:
 		var array: Array = value
 		if _visited_contains(state._visited, array):
-			return _record_issue(state, "circular_reference", path, _CIRCULAR_REFERENCE_MARKER, false)
+			return _record_issue(
+				state,
+				"circular_reference",
+				path,
+				_CIRCULAR_REFERENCE_MARKER,
+				false
+			)
 		state._visited.append(array)
 		var result: Array = []
 		for index: int in range(array.size()):
 			if state._stopped:
 				break
-			result.append(_copy_value_impl(array[index], depth + 1, "%s[%d]" % [path, index], state))
+			result.append(
+				_copy_value_impl(
+					array[index],
+					depth + 1,
+					"%s[%d]"
+					% [path, index],
+					state
+				)
+			)
 		var _removed_array: Variant = state._visited.pop_back()
 		if state._stopped:
 			result.append(_marker_for_error(state._error))
 		return result
 
 	if _is_packed_array(value):
-		return _copy_packed_array(value, path, state)
+		return _copy_packed_array(
+			value,
+			path,
+			state
+		)
 	if _is_unstable_variant(value):
-		return _record_issue(state, "unsupported_variant", path, _UNSUPPORTED_VARIANT_MARKER, false)
-	if not _reserve_bytes(state, _estimate_scalar_bytes(value), path):
+		return _record_issue(
+			state,
+			"unsupported_variant",
+			path,
+			_UNSUPPORTED_VARIANT_MARKER,
+			false
+		)
+	if not _reserve_bytes(
+		state,
+		_estimate_scalar_bytes(value),
+		path
+	):
 		return _BYTE_BUDGET_MARKER
 	return value
 
@@ -269,47 +344,100 @@ static func _copy_value_impl(value: Variant, depth: int, path: String, state: _C
 ## 根据 PackedArray 类型预留预算后复制其内容。
 ## [br]
 ## @api private
-static func _copy_packed_array(value: Variant, path: String, state: _CopyState) -> Variant:
+static func _copy_packed_array(
+	value: Variant,
+	path: String,
+	state: _CopyState
+) -> Variant:
 	match typeof(value):
 		TYPE_PACKED_BYTE_ARRAY:
 			var packed: PackedByteArray = value
-			if _reserve_fixed_packed(state, packed.size(), 1, path):
+			if _reserve_fixed_packed(
+				state,
+				packed.size(),
+				1,
+				path
+			):
 				return packed.duplicate()
 		TYPE_PACKED_INT32_ARRAY:
 			var packed: PackedInt32Array = value
-			if _reserve_fixed_packed(state, packed.size(), 4, path):
+			if _reserve_fixed_packed(
+				state,
+				packed.size(),
+				4,
+				path
+			):
 				return packed.duplicate()
 		TYPE_PACKED_INT64_ARRAY:
 			var packed: PackedInt64Array = value
-			if _reserve_fixed_packed(state, packed.size(), 8, path):
+			if _reserve_fixed_packed(
+				state,
+				packed.size(),
+				8,
+				path
+			):
 				return packed.duplicate()
 		TYPE_PACKED_FLOAT32_ARRAY:
 			var packed: PackedFloat32Array = value
-			if _reserve_fixed_packed(state, packed.size(), 4, path):
+			if _reserve_fixed_packed(
+				state,
+				packed.size(),
+				4,
+				path
+			):
 				return packed.duplicate()
 		TYPE_PACKED_FLOAT64_ARRAY:
 			var packed: PackedFloat64Array = value
-			if _reserve_fixed_packed(state, packed.size(), 8, path):
+			if _reserve_fixed_packed(
+				state,
+				packed.size(),
+				8,
+				path
+			):
 				return packed.duplicate()
 		TYPE_PACKED_STRING_ARRAY:
 			var packed: PackedStringArray = value
-			if _reserve_string_packed(state, packed, path):
+			if _reserve_string_packed(
+				state,
+				packed,
+				path
+			):
 				return packed.duplicate()
 		TYPE_PACKED_VECTOR2_ARRAY:
 			var packed: PackedVector2Array = value
-			if _reserve_fixed_packed(state, packed.size(), 8, path):
+			if _reserve_fixed_packed(
+				state,
+				packed.size(),
+				8,
+				path
+			):
 				return packed.duplicate()
 		TYPE_PACKED_VECTOR3_ARRAY:
 			var packed: PackedVector3Array = value
-			if _reserve_fixed_packed(state, packed.size(), 12, path):
+			if _reserve_fixed_packed(
+				state,
+				packed.size(),
+				12,
+				path
+			):
 				return packed.duplicate()
 		TYPE_PACKED_COLOR_ARRAY:
 			var packed: PackedColorArray = value
-			if _reserve_fixed_packed(state, packed.size(), 16, path):
+			if _reserve_fixed_packed(
+				state,
+				packed.size(),
+				16,
+				path
+			):
 				return packed.duplicate()
 		TYPE_PACKED_VECTOR4_ARRAY:
 			var packed: PackedVector4Array = value
-			if _reserve_fixed_packed(state, packed.size(), 16, path):
+			if _reserve_fixed_packed(
+				state,
+				packed.size(),
+				16,
+				path
+			):
 				return packed.duplicate()
 	return _marker_for_error(state._error)
 
@@ -323,14 +451,28 @@ static func _reserve_fixed_packed(
 	element_bytes: int,
 	path: String
 ) -> bool:
-	if not _reserve_packed_length(state, length, path):
+	if not _reserve_packed_length(
+		state,
+		length,
+		path
+	):
 		return false
 	@warning_ignore("integer_division")
 	var max_elements_by_bytes: int = state._max_bytes / element_bytes
 	if length > max_elements_by_bytes:
-		var _issue: Variant = _record_issue(state, "byte_budget", path, _BYTE_BUDGET_MARKER, true)
+		var _issue: Variant = _record_issue(
+			state,
+			"byte_budget",
+			path,
+			_BYTE_BUDGET_MARKER,
+			true
+		)
 		return false
-	return _reserve_bytes(state, length * element_bytes, path)
+	return _reserve_bytes(
+		state,
+		length * element_bytes,
+		path
+	)
 
 
 ## 为 PackedStringArray 检查长度预算及字符串 UTF-8 字节预算。
@@ -341,16 +483,30 @@ static func _reserve_string_packed(
 	packed: PackedStringArray,
 	path: String
 ) -> bool:
-	if not _reserve_packed_length(state, packed.size(), path):
+	if not _reserve_packed_length(
+		state,
+		packed.size(),
+		path
+	):
 		return false
 	var total_bytes: int = 0
 	for item: String in packed:
 		var item_bytes: int = item.to_utf8_buffer().size()
 		if item_bytes > state._max_bytes - total_bytes:
-			var _issue: Variant = _record_issue(state, "byte_budget", path, _BYTE_BUDGET_MARKER, true)
+			var _issue: Variant = _record_issue(
+				state,
+				"byte_budget",
+				path,
+				_BYTE_BUDGET_MARKER,
+				true
+			)
 			return false
 		total_bytes += item_bytes
-	return _reserve_bytes(state, total_bytes, path)
+	return _reserve_bytes(
+		state,
+		total_bytes,
+		path
+	)
 
 
 ## 预留一个节点计数；超出上限时记录节点预算错误。
@@ -358,7 +514,13 @@ static func _reserve_string_packed(
 ## @api private
 static func _reserve_node(state: _CopyState, path: String) -> bool:
 	if state._node_count >= state._max_nodes:
-		var _issue: Variant = _record_issue(state, "node_budget", path, _NODE_BUDGET_MARKER, true)
+		var _issue: Variant = _record_issue(
+			state,
+			"node_budget",
+			path,
+			_NODE_BUDGET_MARKER,
+			true
+		)
 		return false
 	state._node_count += 1
 	return true
@@ -367,9 +529,19 @@ static func _reserve_node(state: _CopyState, path: String) -> bool:
 ## 在累计字节数未超过配置上限时预留指定估算字节数。
 ## [br]
 ## @api private
-static func _reserve_bytes(state: _CopyState, amount: int, path: String) -> bool:
+static func _reserve_bytes(
+	state: _CopyState,
+	amount: int,
+	path: String
+) -> bool:
 	if amount < 0 or amount > state._max_bytes - state._byte_count:
-		var _issue: Variant = _record_issue(state, "byte_budget", path, _BYTE_BUDGET_MARKER, true)
+		var _issue: Variant = _record_issue(
+			state,
+			"byte_budget",
+			path,
+			_BYTE_BUDGET_MARKER,
+			true
+		)
 		return false
 	state._byte_count += amount
 	return true
@@ -378,7 +550,11 @@ static func _reserve_bytes(state: _CopyState, amount: int, path: String) -> bool
 ## 在累计 PackedArray 长度未超限时预留指定长度。
 ## [br]
 ## @api private
-static func _reserve_packed_length(state: _CopyState, amount: int, path: String) -> bool:
+static func _reserve_packed_length(
+	state: _CopyState,
+	amount: int,
+	path: String
+) -> bool:
 	if amount < 0 or amount > state._max_packed_length - state._packed_length:
 		var _issue: Variant = _record_issue(
 			state,
@@ -402,7 +578,13 @@ static func _record_issue(
 	marker: String,
 	stop_operation: bool
 ) -> Variant:
-	if (state._complete or stop_operation) and state._error.is_empty():
+	if (
+		(
+			state._complete
+			or stop_operation
+		)
+		and state._error.is_empty()
+	):
 		state._error = error
 		state._path = path
 	if state._complete:
@@ -420,7 +602,10 @@ static func _append_truncation_marker(dictionary: Dictionary, marker: String) ->
 	var key: String = _TRUNCATED_KEY
 	var suffix: int = 1
 	while dictionary.has(key):
-		key = "%s_%d" % [_TRUNCATED_KEY, suffix]
+		key = (
+			"%s_%d"
+			% [_TRUNCATED_KEY, suffix]
+		)
 		suffix += 1
 	dictionary[key] = marker
 
@@ -480,25 +665,33 @@ static func _estimate_scalar_bytes(value: Variant) -> int:
 ## [br]
 ## @api private
 static func _is_packed_array(value: Variant) -> bool:
-	return typeof(value) in [
-		TYPE_PACKED_BYTE_ARRAY,
-		TYPE_PACKED_INT32_ARRAY,
-		TYPE_PACKED_INT64_ARRAY,
-		TYPE_PACKED_FLOAT32_ARRAY,
-		TYPE_PACKED_FLOAT64_ARRAY,
-		TYPE_PACKED_STRING_ARRAY,
-		TYPE_PACKED_VECTOR2_ARRAY,
-		TYPE_PACKED_VECTOR3_ARRAY,
-		TYPE_PACKED_COLOR_ARRAY,
-		TYPE_PACKED_VECTOR4_ARRAY,
-	]
+	return (
+		typeof(value)
+		in [
+			TYPE_PACKED_BYTE_ARRAY,
+			TYPE_PACKED_INT32_ARRAY,
+			TYPE_PACKED_INT64_ARRAY,
+			TYPE_PACKED_FLOAT32_ARRAY,
+			TYPE_PACKED_FLOAT64_ARRAY,
+			TYPE_PACKED_STRING_ARRAY,
+			TYPE_PACKED_VECTOR2_ARRAY,
+			TYPE_PACKED_VECTOR3_ARRAY,
+			TYPE_PACKED_COLOR_ARRAY,
+			TYPE_PACKED_VECTOR4_ARRAY,
+		]
+	)
 
 
 ## 判断值是否为对象、Callable、Signal 或 RID 等不稳定类型。
 ## [br]
 ## @api private
 static func _is_unstable_variant(value: Variant) -> bool:
-	return typeof(value) in [TYPE_OBJECT, TYPE_CALLABLE, TYPE_SIGNAL, TYPE_RID]
+	return typeof(value) in [
+		TYPE_OBJECT,
+		TYPE_CALLABLE,
+		TYPE_SIGNAL,
+		TYPE_RID,
+	]
 
 
 ## 使用身份比较检查递归路径中是否已有相同容器。
@@ -517,6 +710,8 @@ static func _visited_contains(visited: Array, value: Variant) -> bool:
 ## [br]
 ## @api private
 class _CopyState extends RefCounted:
+
+
 	# --- 私有变量 ---
 
 	## 是否要求完整复制；该模式遇到无法复制的值即标记失败并停止。

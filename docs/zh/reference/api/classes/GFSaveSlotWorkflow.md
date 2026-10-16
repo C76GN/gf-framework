@@ -30,7 +30,7 @@
 | 方法 | [`get_active_storage_slot_id`](#member-gfsaveslotworkflow-methods-get_active_storage_slot_id) | `func get_active_storage_slot_id() -> int:` |
 | 方法 | [`get_slot_id_for_index`](#member-gfsaveslotworkflow-methods-get_slot_id_for_index) | `func get_slot_id_for_index(index: int) -> StringName:` |
 | 方法 | [`get_empty_display_name_for_index`](#member-gfsaveslotworkflow-methods-get_empty_display_name_for_index) | `func get_empty_display_name_for_index(index: int) -> String:` |
-| 方法 | [`build_active_metadata`](#member-gfsaveslotworkflow-methods-build_active_metadata) | `func build_active_metadata( display_name: String = "", custom_metadata: Dictionary = {} ) -> GFSaveSlotMetadata:` |
+| 方法 | [`build_active_metadata`](#member-gfsaveslotworkflow-methods-build_active_metadata) | `func build_active_metadata(display_name: String = "", custom_metadata: Dictionary = {}) -> GFSaveSlotMetadata:` |
 | 方法 | [`build_slot_metadata`](#member-gfsaveslotworkflow-methods-build_slot_metadata) | `func build_slot_metadata( index: int, display_name: String = "", custom_metadata: Dictionary = {} ) -> GFSaveSlotMetadata:` |
 | 方法 | [`build_empty_card`](#member-gfsaveslotworkflow-methods-build_empty_card) | `func build_empty_card(index: int) -> GFSaveSlotCard:` |
 | 方法 | [`build_card_for_index`](#member-gfsaveslotworkflow-methods-build_card_for_index) | `func build_card_for_index( index: int, summary: Dictionary = {}, p_active_slot_index: int = -1 ) -> GFSaveSlotCard:` |
@@ -275,9 +275,10 @@ func get_empty_display_name_for_index(index: int) -> String:
 ### `build_active_metadata`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func build_active_metadata( display_name: String = "", custom_metadata: Dictionary = {} ) -> GFSaveSlotMetadata:
+func build_active_metadata(display_name: String = "", custom_metadata: Dictionary = {}) -> GFSaveSlotMetadata:
 ```
 
 构建当前槽位元数据。

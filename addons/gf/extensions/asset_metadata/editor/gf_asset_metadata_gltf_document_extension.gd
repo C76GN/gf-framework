@@ -56,16 +56,17 @@ func _import_node(
 		_clear_gltf_metadata_if_owned(node)
 		return OK
 
-	var metadata: Dictionary = GFAssetMetadataUtility.normalize_metadata(
-		GFVariantData.get_option_value(json, "extras")
-	)
+	var metadata: Dictionary = GFAssetMetadataUtility.normalize_metadata(GFVariantData.get_option_value(json, "extras"))
 	if metadata.is_empty():
 		_clear_gltf_metadata_if_owned(node)
 		return OK
 
 	node.set_meta(GFAssetMetadataUtility.META_ASSET_METADATA, metadata)
 	node.set_meta(GFAssetMetadataUtility.META_ASSET_METADATA_SOURCE, _GLTF_NODE_EXTRAS_SOURCE)
-	node.set_meta(_GLTF_OWNED_PAYLOAD_HASH_KEY, _make_payload_hash(metadata))
+	node.set_meta(
+		_GLTF_OWNED_PAYLOAD_HASH_KEY,
+		_make_payload_hash(metadata)
+	)
 	return OK
 
 
@@ -78,7 +79,7 @@ func _clear_gltf_metadata_if_owned(node: Node) -> void:
 	if not node.has_meta(GFAssetMetadataUtility.META_ASSET_METADATA_SOURCE):
 		_clear_ownership_marker(node)
 		return
-	if GFVariantData.to_text(node.get_meta(GFAssetMetadataUtility.META_ASSET_METADATA_SOURCE)) != _GLTF_NODE_EXTRAS_SOURCE:
+	if (GFVariantData.to_text(node.get_meta(GFAssetMetadataUtility.META_ASSET_METADATA_SOURCE)) != _GLTF_NODE_EXTRAS_SOURCE):
 		_clear_ownership_marker(node)
 		return
 	if not _has_unchanged_owned_payload(node):
@@ -99,9 +100,7 @@ func _has_unchanged_owned_payload(node: Node) -> bool:
 		return false
 	if not node.has_meta(GFAssetMetadataUtility.META_ASSET_METADATA):
 		return false
-	var metadata: Dictionary = GFAssetMetadataUtility.normalize_metadata(
-		node.get_meta(GFAssetMetadataUtility.META_ASSET_METADATA)
-	)
+	var metadata: Dictionary = GFAssetMetadataUtility.normalize_metadata(node.get_meta(GFAssetMetadataUtility.META_ASSET_METADATA))
 	return GFVariantData.to_text(node.get_meta(_GLTF_OWNED_PAYLOAD_HASH_KEY)) == _make_payload_hash(metadata)
 
 
@@ -109,7 +108,11 @@ func _has_unchanged_owned_payload(node: Node) -> bool:
 ## [br]
 ## @api private
 func _make_payload_hash(metadata: Dictionary) -> String:
-	return JSON.stringify(metadata, "", true).sha256_text()
+	return JSON.stringify(
+		metadata,
+		"",
+		true
+	).sha256_text()
 
 
 ## 若节点带有本插件的载荷哈希键，则移除该所有权标记。

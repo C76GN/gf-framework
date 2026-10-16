@@ -97,7 +97,11 @@ var max_history_size: int = 100:
 ## @api public
 var background_alpha: float = 0.85:
 	set(value):
-		background_alpha = clampf(value, 0.0, 1.0)
+		background_alpha = clampf(
+			value,
+			0.0,
+			1.0
+		)
 		if is_instance_valid(_console_gui):
 			_console_gui.background_alpha = background_alpha
 
@@ -116,8 +120,16 @@ var windowed: bool = false:
 var initial_window_size_ratio: Vector2 = Vector2(0.72, 0.55):
 	set(value):
 		initial_window_size_ratio = Vector2(
-			clampf(value.x, 0.2, 1.0),
-			clampf(value.y, 0.2, 1.0)
+			clampf(
+				value.x,
+				0.2,
+				1.0
+			),
+			clampf(
+				value.y,
+				0.2,
+				1.0
+			)
 		)
 		if is_instance_valid(_console_gui):
 			_console_gui.initial_window_size_ratio = initial_window_size_ratio
@@ -127,7 +139,10 @@ var initial_window_size_ratio: Vector2 = Vector2(0.72, 0.55):
 ## @api public
 var minimum_window_size: Vector2 = Vector2(360.0, 220.0):
 	set(value):
-		minimum_window_size = Vector2(maxf(value.x, 120.0), maxf(value.y, 80.0))
+		minimum_window_size = Vector2(
+			maxf(value.x, 120.0),
+			maxf(value.y, 80.0)
+		)
 		if is_instance_valid(_console_gui):
 			_console_gui.minimum_window_size = minimum_window_size
 
@@ -204,14 +219,40 @@ func init() -> void:
 	if debug_only and not OS.is_debug_build():
 		return
 
-	_remember_builtin_command(register_command(self, "help", _cmd_help, "显示所有可用指令。用法：%s" % _HELP_USAGE))
-	_remember_builtin_command(register_command(self, "clear", _cmd_clear, "清空控制台输出。用法：%s" % _CLEAR_USAGE))
-	_remember_builtin_command(register_command(self, "scene.tree", _cmd_scene_tree, "输出只读场景树摘要。用法：%s" % _SCENE_TREE_USAGE, {
-		"tier": CommandTier.OBSERVE,
-	}))
-	_remember_builtin_command(register_command(self, "scene.node", _cmd_scene_node, "查看节点的只读摘要。用法：%s" % _SCENE_NODE_USAGE, {
-		"tier": CommandTier.OBSERVE,
-	}))
+	_remember_builtin_command(
+		register_command(
+			self,
+			"help",
+			_cmd_help,
+			"显示所有可用指令。用法：%s" % _HELP_USAGE
+		)
+	)
+	_remember_builtin_command(
+		register_command(
+			self,
+			"clear",
+			_cmd_clear,
+			"清空控制台输出。用法：%s" % _CLEAR_USAGE
+		)
+	)
+	_remember_builtin_command(
+		register_command(
+			self,
+			"scene.tree",
+			_cmd_scene_tree,
+			"输出只读场景树摘要。用法：%s" % _SCENE_TREE_USAGE,
+			{ "tier": CommandTier.OBSERVE, }
+		)
+	)
+	_remember_builtin_command(
+		register_command(
+			self,
+			"scene.node",
+			_cmd_scene_node,
+			"查看节点的只读摘要。用法：%s" % _SCENE_NODE_USAGE,
+			{ "tier": CommandTier.OBSERVE, }
+		)
+	)
 
 	_console_gui = _GFConsoleGUI.new()
 	_console_gui.name = "GFConsoleOverlay"
@@ -302,13 +343,24 @@ func register_command(
 	metadata: Dictionary = {}
 ) -> GFLifetimeSubscription:
 	var normalized_name: String = cmd_name.strip_edges()
-	if not _can_register_command_name(owner, normalized_name, callback):
+	if not _can_register_command_name(
+		owner,
+		normalized_name,
+		callback
+	):
 		return GFLifetimeSubscription.new()
 	if not _command_metadata_has_valid_tier(metadata, normalized_name):
 		return GFLifetimeSubscription.new()
 
 	var registration_id: int = _take_registration_id()
-	_register_command_entry(owner, normalized_name, callback, description, metadata, registration_id)
+	_register_command_entry(
+		owner,
+		normalized_name,
+		callback,
+		description,
+		metadata,
+		registration_id
+	)
 	return GFLifetimeSubscription.new(
 		owner,
 		_cancel_registration.bind(registration_id),
@@ -334,11 +386,19 @@ func register_command_definition(
 	definition: GFConsoleCommandDefinition,
 	callback: Callable
 ) -> GFLifetimeSubscription:
-	if owner == null or definition == null or not callback.is_valid():
+	if (
+		owner == null
+		or definition == null
+		or not callback.is_valid()
+	):
 		return GFLifetimeSubscription.new()
 	var command_names: PackedStringArray = definition.get_all_names()
 	for command_name: String in command_names:
-		if not _can_register_command_name(owner, command_name.strip_edges(), callback):
+		if not _can_register_command_name(
+			owner,
+			command_name.strip_edges(),
+			callback
+		):
 			return GFLifetimeSubscription.new()
 	if not _command_metadata_has_valid_tier(
 		definition.metadata,
@@ -353,7 +413,14 @@ func register_command_definition(
 		metadata["primary_command_name"] = definition.command_name
 		if definition.argument_suggester.is_valid():
 			metadata["argument_suggester"] = definition.argument_suggester
-		_register_command_entry(owner, cmd_name, callback, definition.description, metadata, registration_id)
+		_register_command_entry(
+			owner,
+			cmd_name,
+			callback,
+			definition.description,
+			metadata,
+			registration_id
+		)
 	return GFLifetimeSubscription.new(
 		owner,
 		_cancel_registration.bind(registration_id),
@@ -448,8 +515,14 @@ func suggest_command_arguments(raw_input: String) -> PackedStringArray:
 		return PackedStringArray()
 
 	var args: PackedStringArray = PackedStringArray()
-	for index: int in range(1, parts.size()):
-		_append_packed_string(args, parts[index])
+	for index: int in range(
+		1,
+		parts.size()
+	):
+		_append_packed_string(
+			args,
+			parts[index]
+		)
 
 	var prefix: String = ""
 	var argument_index: int = args.size()
@@ -464,12 +537,17 @@ func suggest_command_arguments(raw_input: String) -> PackedStringArray:
 		"prefix": prefix,
 		"raw_input": raw_input,
 	}
-	return _filter_suggestions_by_prefix(_call_argument_suggester(entry, context), prefix)
+	return _filter_suggestions_by_prefix(
+		_call_argument_suggester(entry, context),
+		prefix
+	)
 
 
 ## 根据字符串相似度获取可能的命令名，用于未知命令诊断。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param cmd_name: 用户输入的命令名。
 ## [br]
@@ -478,9 +556,17 @@ func suggest_command_arguments(raw_input: String) -> PackedStringArray:
 ## @param threshold: 最低相似度，范围 0 到 1。
 ## [br]
 ## @return 按相似度降序排列的候选命令名。
-func suggest_similar_commands(cmd_name: String, limit: int = 3, threshold: float = 0.5) -> PackedStringArray:
+func suggest_similar_commands(
+	cmd_name: String,
+	limit: int = 3,
+	threshold: float = 0.5
+) -> PackedStringArray:
 	var registered_names: PackedStringArray = get_command_names()
-	if cmd_name.is_empty() or registered_names.is_empty() or limit <= 0:
+	if (
+		cmd_name.is_empty()
+		or registered_names.is_empty()
+		or limit <= 0
+	):
 		return PackedStringArray()
 
 	var scored: Array[Array] = []
@@ -488,16 +574,23 @@ func suggest_similar_commands(cmd_name: String, limit: int = 3, threshold: float
 		var score: float = cmd_name.similarity(registered_name)
 		if score >= threshold:
 			scored.append([score, registered_name])
-	scored.sort_custom(func(a: Array, b: Array) -> bool:
-		return GFVariantData.to_float(a[0]) > GFVariantData.to_float(b[0])
+	scored.sort_custom(
+		func(a: Array, b: Array) -> bool:
+			return GFVariantData.to_float(a[0]) > GFVariantData.to_float(b[0])
 	)
 
 	var suggestions: PackedStringArray = PackedStringArray()
-	var result_count: int = mini(limit, scored.size())
+	var result_count: int = mini(
+		limit,
+		scored.size()
+	)
 	for index: int in range(result_count):
 		var score_entry: Array = scored[index]
 		if score_entry.size() >= 2:
-			_append_packed_string(suggestions, GFVariantData.to_text(score_entry[1]))
+			_append_packed_string(
+				suggestions,
+				GFVariantData.to_text(score_entry[1])
+			)
 	return suggestions
 
 
@@ -522,8 +615,14 @@ func execute_command(raw_input: String) -> bool:
 
 	var cmd_name: String = parts[0]
 	var args: PackedStringArray = PackedStringArray()
-	for i: int in range(1, parts.size()):
-		_append_packed_string(args, parts[i])
+	for i: int in range(
+		1,
+		parts.size()
+	):
+		_append_packed_string(
+			args,
+			parts[i]
+		)
 
 	var entry: Dictionary = _get_live_command_entry(cmd_name)
 	if entry.is_empty():
@@ -533,17 +632,25 @@ func execute_command(raw_input: String) -> bool:
 				_console_gui.append_text("[color=red]未知指令：%s。输入 'help' 查看帮助。[/color]" % _escape_bbcode_text(cmd_name))
 			else:
 				_console_gui.append_text(
-					"[color=red]未知指令：%s。你是不是想输入：%s？[/color]" % [
-						_escape_bbcode_text(cmd_name),
-						_escape_bbcode_text(", ".join(similar_commands)),
-					]
+					"[color=red]未知指令：%s。你是不是想输入：%s？[/color]"
+					% [_escape_bbcode_text(cmd_name), _escape_bbcode_text(", ".join(similar_commands)),]
 				)
 		return false
 
-	if not _prepare_command_execution(cmd_name, entry, args):
+	if not _prepare_command_execution(
+		cmd_name,
+		entry,
+		args
+	):
 		return false
 
-	var cb: Callable = _get_callable_value(GFVariantData.get_option_value(entry, "callback", Callable()))
+	var cb: Callable = _get_callable_value(
+		GFVariantData.get_option_value(
+			entry,
+			"callback",
+			Callable()
+		)
+	)
 	if not cb.is_valid():
 		if is_instance_valid(_console_gui):
 			_console_gui.append_text("[color=red]指令回调无效：%s。[/color]" % _escape_bbcode_text(cmd_name))
@@ -671,12 +778,19 @@ func _register_command_entry(
 		"registration_id": registration_id,
 	}
 
+
 ## 读取命令登记表中的原始条目，缺失或非字典值时返回空字典。
 ## [br]
 ## @api private
 ## [br]
 func _get_command_entry(cmd_name: String) -> Dictionary:
-	return GFVariantData.as_dictionary(GFVariantData.get_option_value(_commands, cmd_name, {}))
+	return GFVariantData.as_dictionary(
+		GFVariantData.get_option_value(
+			_commands,
+			cmd_name,
+			{}
+		)
+	)
 
 
 ## 取得所有者仍存活的命令条目；所有者失效时撤销其登记并返回空字典。
@@ -689,7 +803,13 @@ func _get_live_command_entry(cmd_name: String) -> Dictionary:
 		return {}
 	if _command_entry_owner_is_live(entry):
 		return entry
-	_cancel_registration(GFVariantData.get_option_int(entry, "registration_id", -1))
+	_cancel_registration(
+		GFVariantData.get_option_int(
+			entry,
+			"registration_id",
+			-1
+		)
+	)
 	return {}
 
 
@@ -697,7 +817,11 @@ func _get_live_command_entry(cmd_name: String) -> Dictionary:
 ## [br]
 ## @api private
 ## [br]
-func _can_register_command_name(owner: Object, cmd_name: String, callback: Callable) -> bool:
+func _can_register_command_name(
+	owner: Object,
+	cmd_name: String,
+	callback: Callable
+) -> bool:
 	if owner == null:
 		return false
 	if cmd_name.is_empty():
@@ -710,7 +834,11 @@ func _can_register_command_name(owner: Object, cmd_name: String, callback: Calla
 	var existing_entry: Dictionary = _get_live_command_entry(cmd_name)
 	return (
 		existing_entry.is_empty()
-		or GFVariantData.get_option_int(existing_entry, "owner_instance_id", 0) == owner.get_instance_id()
+		or GFVariantData.get_option_int(
+			existing_entry,
+			"owner_instance_id",
+			0
+		) == owner.get_instance_id()
 	)
 
 
@@ -729,7 +857,11 @@ func _command_entry_owner_is_live(entry: Dictionary) -> bool:
 	var owner: Object = owner_value
 	return (
 		is_instance_valid(owner)
-		and owner.get_instance_id() == GFVariantData.get_option_int(entry, "owner_instance_id", 0)
+		and owner.get_instance_id() == GFVariantData.get_option_int(
+			entry,
+			"owner_instance_id",
+			0
+		)
 	)
 
 
@@ -743,7 +875,11 @@ func _cancel_registration(registration_id: int) -> void:
 	var names_to_remove: PackedStringArray = PackedStringArray()
 	for cmd_name: String in _commands.keys():
 		var entry: Dictionary = _get_command_entry(cmd_name)
-		if GFVariantData.get_option_int(entry, "registration_id", -1) == registration_id:
+		if GFVariantData.get_option_int(
+			entry,
+			"registration_id",
+			-1
+		) == registration_id:
 			_append_packed_string(names_to_remove, cmd_name)
 	for cmd_name: String in names_to_remove:
 		_erase_dictionary_key(_commands, cmd_name)
@@ -759,7 +895,11 @@ func _prune_released_commands() -> void:
 		var entry: Dictionary = _get_command_entry(cmd_name)
 		if _command_entry_owner_is_live(entry):
 			continue
-		var registration_id: int = GFVariantData.get_option_int(entry, "registration_id", -1)
+		var registration_id: int = GFVariantData.get_option_int(
+			entry,
+			"registration_id",
+			-1
+		)
 		if registration_id > 0 and not stale_registration_ids.has(registration_id):
 			var _appended: bool = stale_registration_ids.append(registration_id)
 	for registration_id: int in stale_registration_ids:
@@ -851,7 +991,13 @@ func _ends_with_argument_separator(text: String) -> bool:
 ## [br]
 func _call_argument_suggester(entry: Dictionary, context: Dictionary) -> PackedStringArray:
 	var metadata: Dictionary = GFVariantData.get_option_dictionary(entry, "metadata")
-	var suggester: Callable = _get_callable_value(GFVariantData.get_option_value(metadata, "argument_suggester", Callable()))
+	var suggester: Callable = _get_callable_value(
+		GFVariantData.get_option_value(
+			metadata,
+			"argument_suggester",
+			Callable()
+		)
+	)
 	if not suggester.is_valid():
 		var definition_value: Variant = GFVariantData.get_option_value(metadata, "definition")
 		if definition_value is GFConsoleCommandDefinition:
@@ -877,7 +1023,10 @@ func _string_suggestions_from_variant(value: Variant) -> PackedStringArray:
 	elif value is Array:
 		var array_values: Array = value
 		for suggestion_value: Variant in array_values:
-			_append_unique_suggestion(suggestions, GFVariantData.to_text(suggestion_value))
+			_append_unique_suggestion(
+				suggestions,
+				GFVariantData.to_text(suggestion_value)
+			)
 	suggestions.sort()
 	return suggestions
 
@@ -964,7 +1113,11 @@ func _parse_command_line(raw_input: String) -> PackedStringArray:
 ## [br]
 ## @api private
 ## [br]
-func _prepare_command_execution(cmd_name: String, entry: Dictionary, args: PackedStringArray) -> bool:
+func _prepare_command_execution(
+	cmd_name: String,
+	entry: Dictionary,
+	args: PackedStringArray
+) -> bool:
 	var tier: CommandTier = _get_command_tier(entry)
 	if tier > max_command_tier:
 		if is_instance_valid(_console_gui):
@@ -988,7 +1141,11 @@ func _prepare_command_execution(cmd_name: String, entry: Dictionary, args: Packe
 ## [br]
 func _get_command_tier(entry: Dictionary) -> CommandTier:
 	var metadata: Dictionary = GFVariantData.get_option_dictionary(entry, "metadata")
-	var tier_value: Variant = GFVariantData.get_option_value(metadata, "tier", CommandTier.OBSERVE)
+	var tier_value: Variant = GFVariantData.get_option_value(
+		metadata,
+		"tier",
+		CommandTier.OBSERVE
+	)
 	return _to_command_tier(GFVariantData.to_int(tier_value, CommandTier.OBSERVE))
 
 
@@ -1006,10 +1163,7 @@ func _command_metadata_has_valid_tier(metadata: Dictionary, cmd_name: String) ->
 		and tier_value <= CommandTier.DANGER
 	):
 		return true
-	push_warning(
-		"[GFConsoleUtility][console_utility.command_tier_invalid] Cannot register command: tier must be an integer from 0 to 3: %s."
-		% cmd_name
-	)
+	push_warning("[GFConsoleUtility][console_utility.command_tier_invalid] Cannot register command: tier must be an integer from 0 to 3: %s." % cmd_name)
 	return false
 
 
@@ -1152,10 +1306,18 @@ static func _escape_bbcode_string(text: String) -> String:
 ## [br]
 ## @api private
 ## [br]
-func _validate_builtin_argument_count(args: PackedStringArray, maximum: int, usage: String) -> bool:
+func _validate_builtin_argument_count(
+	args: PackedStringArray,
+	maximum: int,
+	usage: String
+) -> bool:
 	if args.size() <= maximum:
 		return true
-	_append_builtin_usage_error(usage, "最多接受 %d 个参数，实际收到 %d 个。" % [maximum, args.size()])
+	_append_builtin_usage_error(
+		usage,
+		"最多接受 %d 个参数，实际收到 %d 个。"
+		% [maximum, args.size()]
+	)
 	return false
 
 
@@ -1202,17 +1364,21 @@ func _parse_builtin_limit(value: String, minimum: int) -> int:
 func _cmd_help(args: PackedStringArray) -> void:
 	if not is_instance_valid(_console_gui):
 		return
-	if not _validate_builtin_argument_count(args, 0, _HELP_USAGE):
+	if not _validate_builtin_argument_count(
+		args,
+		0,
+		_HELP_USAGE
+	):
 		return
 
 	_console_gui.append_text("[color=cyan]--- 可用指令 ---[/color]")
 	for cmd_name: String in get_command_names():
 		var entry: Dictionary = _get_command_entry(cmd_name)
 		var desc: String = GFVariantData.get_option_string(entry, "description")
-		_console_gui.append_text("  [color=white]%s[/color] - %s" % [
-			_escape_bbcode_text(cmd_name),
-			_escape_bbcode_text(desc),
-		])
+		_console_gui.append_text(
+			"  [color=white]%s[/color] - %s"
+			% [_escape_bbcode_text(cmd_name), _escape_bbcode_text(desc),]
+		)
 	_console_gui.append_text("[color=cyan]----------------[/color]")
 
 
@@ -1223,7 +1389,11 @@ func _cmd_help(args: PackedStringArray) -> void:
 func _cmd_clear(args: PackedStringArray) -> void:
 	if not is_instance_valid(_console_gui):
 		return
-	if not _validate_builtin_argument_count(args, 0, _CLEAR_USAGE):
+	if not _validate_builtin_argument_count(
+		args,
+		0,
+		_CLEAR_USAGE
+	):
 		return
 	_console_gui.clear_output()
 
@@ -1235,33 +1405,61 @@ func _cmd_clear(args: PackedStringArray) -> void:
 func _cmd_scene_tree(args: PackedStringArray) -> void:
 	if not is_instance_valid(_console_gui):
 		return
-	if not _validate_builtin_argument_count(args, 3, _SCENE_TREE_USAGE):
+	if not _validate_builtin_argument_count(
+		args,
+		3,
+		_SCENE_TREE_USAGE
+	):
 		return
 
 	var max_depth: int = 3
 	var max_nodes: int = 80
 	var root_path: String = ""
 	if args.size() >= 1:
-		max_depth = _parse_builtin_limit(args[0], 0)
+		max_depth = _parse_builtin_limit(
+			args[0],
+			0
+		)
 		if max_depth < 0:
-			_append_builtin_usage_error(_SCENE_TREE_USAGE, "max_depth 必须是 0 到 %s 的十进制整数，收到：\"%s\"。" % [_MAX_LIMIT_DIGITS, args[0]])
+			_append_builtin_usage_error(
+				_SCENE_TREE_USAGE,
+				"max_depth 必须是 0 到 %s 的十进制整数，收到：\"%s\"。"
+				% [_MAX_LIMIT_DIGITS, args[0]]
+			)
 			return
 	if args.size() >= 2:
-		max_nodes = _parse_builtin_limit(args[1], 1)
+		max_nodes = _parse_builtin_limit(
+			args[1],
+			1
+		)
 		if max_nodes < 0:
-			_append_builtin_usage_error(_SCENE_TREE_USAGE, "max_nodes 必须是 1 到 %s 的十进制整数，收到：\"%s\"。" % [_MAX_LIMIT_DIGITS, args[1]])
+			_append_builtin_usage_error(
+				_SCENE_TREE_USAGE,
+				"max_nodes 必须是 1 到 %s 的十进制整数，收到：\"%s\"。"
+				% [_MAX_LIMIT_DIGITS, args[1]]
+			)
 			return
 	if args.size() >= 3:
 		root_path = args[2]
 
 	var root: Node = _resolve_console_node(root_path)
 	if root == null:
-		_append_builtin_usage_error(_SCENE_TREE_USAGE, "没有找到场景树根节点：\"%s\"。" % root_path)
+		_append_builtin_usage_error(
+			_SCENE_TREE_USAGE,
+			"没有找到场景树根节点：\"%s\"。" % root_path
+		)
 		return
 
 	var lines: PackedStringArray = PackedStringArray()
 	var counter: Dictionary = { "count": 0, "truncated": false }
-	_append_scene_tree_lines(root, 0, max_depth, max_nodes, counter, lines)
+	_append_scene_tree_lines(
+		root,
+		0,
+		max_depth,
+		max_nodes,
+		counter,
+		lines
+	)
 	if GFVariantData.get_option_bool(counter, "truncated"):
 		_append_packed_string(lines, "... truncated")
 	_console_gui.append_lines(_escape_plain_lines(lines))
@@ -1274,33 +1472,64 @@ func _cmd_scene_tree(args: PackedStringArray) -> void:
 func _cmd_scene_node(args: PackedStringArray) -> void:
 	if not is_instance_valid(_console_gui):
 		return
-	if not _validate_builtin_argument_count(args, 1, _SCENE_NODE_USAGE):
+	if not _validate_builtin_argument_count(
+		args,
+		1,
+		_SCENE_NODE_USAGE
+	):
 		return
 
 	var path: String = args[0] if args.size() > 0 else ""
 	var node: Node = _resolve_console_node(path)
 	if node == null:
-		_append_builtin_usage_error(_SCENE_NODE_USAGE, "没有找到节点：\"%s\"。" % path)
+		_append_builtin_usage_error(
+			_SCENE_NODE_USAGE,
+			"没有找到节点：\"%s\"。" % path
+		)
 		return
 
 	var lines: PackedStringArray = PackedStringArray()
-	_append_packed_string(lines, "path: %s" % _get_console_node_path(node))
-	_append_packed_string(lines, "type: %s" % node.get_class())
-	_append_packed_string(lines, "children: %d" % node.get_child_count())
+	_append_packed_string(
+		lines,
+		"path: %s" % _get_console_node_path(node)
+	)
+	_append_packed_string(
+		lines,
+		"type: %s" % node.get_class()
+	)
+	_append_packed_string(
+		lines,
+		"children: %d" % node.get_child_count()
+	)
 	var script: Script = null
 	var script_value: Variant = node.get_script()
 	if script_value is Script:
 		script = script_value
 	if script != null:
-		_append_packed_string(lines, "script: %s" % script.resource_path)
+		_append_packed_string(
+			lines,
+			"script: %s" % script.resource_path
+		)
 	var groups: PackedStringArray = PackedStringArray()
 	for group: StringName in node.get_groups():
-		_append_packed_string(groups, String(group))
+		_append_packed_string(
+			groups,
+			String(group)
+		)
 	groups.sort()
 	if not groups.is_empty():
-		_append_packed_string(lines, "groups: %s" % ", ".join(groups))
-	_append_packed_string(lines, "signals: %d" % node.get_signal_list().size())
-	_append_packed_string(lines, "methods: %d" % node.get_method_list().size())
+		_append_packed_string(
+			lines,
+			"groups: %s" % ", ".join(groups)
+		)
+	_append_packed_string(
+		lines,
+		"signals: %d" % node.get_signal_list().size()
+	)
+	_append_packed_string(
+		lines,
+		"methods: %d" % node.get_method_list().size()
+	)
 	_console_gui.append_lines(_escape_plain_lines(lines))
 
 
@@ -1343,18 +1572,29 @@ func _append_scene_tree_lines(
 		return
 
 	counter["count"] = GFVariantData.get_option_int(counter, "count") + 1
-	_append_packed_string(lines, "%s%s [%s]" % [
-		_make_tree_indent(depth),
-		node.name,
-		node.get_class(),
-	])
+	_append_packed_string(
+		lines,
+		"%s%s [%s]"
+		% [
+			_make_tree_indent(depth),
+			node.name,
+			node.get_class(),
+		]
+	)
 	if depth >= max_depth:
 		if node.get_child_count() > 0:
 			counter["truncated"] = true
 		return
 
 	for child: Node in node.get_children():
-		_append_scene_tree_lines(child, depth + 1, max_depth, max_nodes, counter, lines)
+		_append_scene_tree_lines(
+			child,
+			depth + 1,
+			max_depth,
+			max_nodes,
+			counter,
+			lines
+		)
 		if GFVariantData.get_option_bool(counter, "truncated"):
 			return
 
@@ -1366,7 +1606,10 @@ func _append_scene_tree_lines(
 func _escape_plain_lines(lines: PackedStringArray) -> PackedStringArray:
 	var escaped: PackedStringArray = PackedStringArray()
 	for line: String in lines:
-		_append_packed_string(escaped, _escape_bbcode_text(line))
+		_append_packed_string(
+			escaped,
+			_escape_bbcode_text(line)
+		)
 	return escaped
 
 
@@ -1389,12 +1632,6 @@ func _get_console_node_path(node: Node) -> String:
 	return str(node.get_path()) if node.is_inside_tree() else String(node.name)
 
 
-
-
-
-
-
-
 # --- 信号处理函数 ---
 
 ## 先在有效 GUI 中回显转义后的原始输入，再执行命令；命令执行仍可在 GUI 不存在时进行。
@@ -1409,12 +1646,14 @@ func _on_command_submitted(raw_input: String) -> void:
 		return
 
 
-
-
 ## 跳过无 GUI 或被过滤标签的日志，按等级着色并转义标签和正文，避免日志文本被当作 BBCode。
 ## [br]
 ## @api private
-func _on_log_emitted(level: int, tag: String, message: String) -> void:
+func _on_log_emitted(
+	level: int,
+	tag: String,
+	message: String
+) -> void:
 	if not is_instance_valid(_console_gui):
 		return
 
@@ -1432,14 +1671,25 @@ func _on_log_emitted(level: int, tag: String, message: String) -> void:
 		_:
 			color = "white"
 
-	var level_names: PackedStringArray = PackedStringArray(["DEBUG", "INFO", "WARN", "ERROR", "FATAL"])
+	var level_names: PackedStringArray = PackedStringArray(
+		[
+			"DEBUG",
+			"INFO",
+			"WARN",
+			"ERROR",
+			"FATAL",
+		]
+	)
 	var level_str: String = level_names[level] if level >= 0 and level < level_names.size() else "UNKNOWN"
-	_console_gui.append_text("[color=%s][%s][%s] %s[/color]" % [
-		color,
-		level_str,
-		_escape_bbcode_text(tag),
-		_escape_bbcode_text(message),
-	])
+	_console_gui.append_text(
+		"[color=%s][%s][%s] %s[/color]"
+		% [
+			color,
+			level_str,
+			_escape_bbcode_text(tag),
+			_escape_bbcode_text(message),
+		]
+	)
 
 
 # --- 内部类 ---
@@ -1449,6 +1699,8 @@ func _on_log_emitted(level: int, tag: String, message: String) -> void:
 ## @api private
 ## [br]
 class _GFConsoleGUI extends CanvasLayer:
+
+
 	# --- 信号 ---
 
 	## GUI 提交控制台输入时发出。
@@ -1526,7 +1778,11 @@ class _GFConsoleGUI extends CanvasLayer:
 	## @api framework_internal
 	var background_alpha: float = 0.85:
 		set(value):
-			background_alpha = clampf(value, 0.0, 1.0)
+			background_alpha = clampf(
+				value,
+				0.0,
+				1.0
+			)
 			_apply_background_alpha()
 
 	## 是否使用可拖拽、可缩放的窗口模式。
@@ -1543,8 +1799,16 @@ class _GFConsoleGUI extends CanvasLayer:
 	var initial_window_size_ratio: Vector2 = Vector2(0.72, 0.55):
 		set(value):
 			initial_window_size_ratio = Vector2(
-				clampf(value.x, 0.2, 1.0),
-				clampf(value.y, 0.2, 1.0)
+				clampf(
+					value.x,
+					0.2,
+					1.0
+				),
+				clampf(
+					value.y,
+					0.2,
+					1.0
+				)
 			)
 			_window_layout_initialized = false
 			_layout_console()
@@ -1554,7 +1818,10 @@ class _GFConsoleGUI extends CanvasLayer:
 	## @api framework_internal
 	var minimum_window_size: Vector2 = Vector2(360.0, 220.0):
 		set(value):
-			minimum_window_size = Vector2(maxf(value.x, 120.0), maxf(value.y, 80.0))
+			minimum_window_size = Vector2(
+				maxf(value.x, 120.0),
+				maxf(value.y, 80.0)
+			)
 			_layout_console()
 
 	## 是否把控制台放在较高 CanvasLayer 层级。
@@ -1677,9 +1944,6 @@ class _GFConsoleGUI extends CanvasLayer:
 	var _resize_origin_size: Vector2 = Vector2.ZERO
 
 
-
-
-
 	# --- Godot 生命周期方法 ---
 
 	## 创建独立控制台控件树及其输入连接，初始隐藏并使用 ALWAYS 模式；最后按当前设置布局。
@@ -1696,7 +1960,12 @@ class _GFConsoleGUI extends CanvasLayer:
 		add_child(_panel)
 
 		_panel_style = StyleBoxFlat.new()
-		_panel_style.bg_color = Color(0.05, 0.05, 0.1, background_alpha)
+		_panel_style.bg_color = Color(
+			0.05,
+			0.05,
+			0.1,
+			background_alpha
+		)
 		_panel.add_theme_stylebox_override("panel", _panel_style)
 
 		var margin: MarginContainer = MarginContainer.new()
@@ -1714,7 +1983,11 @@ class _GFConsoleGUI extends CanvasLayer:
 
 		var header: Label = Label.new()
 		header.text = "[ GF Developer Console ]"
-		header.modulate = Color(0.4, 0.8, 1.0)
+		header.modulate = Color(
+			0.4,
+			0.8,
+			1.0
+		)
 		header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		header.mouse_filter = Control.MOUSE_FILTER_STOP as Control.MouseFilter
 		_connect_signal(header.gui_input, _on_header_gui_input)
@@ -1722,7 +1995,11 @@ class _GFConsoleGUI extends CanvasLayer:
 
 		var filter_label: Label = Label.new()
 		filter_label.text = "过滤标签: "
-		filter_label.modulate = Color(0.8, 0.8, 0.8)
+		filter_label.modulate = Color(
+			0.8,
+			0.8,
+			0.8
+		)
 		header_hbox.add_child(filter_label)
 
 		_filter_input = LineEdit.new()
@@ -1750,7 +2027,12 @@ class _GFConsoleGUI extends CanvasLayer:
 		_resize_handle.visible = false
 		_connect_signal(_resize_handle.gui_input, _on_resize_handle_gui_input)
 		var resize_style: StyleBoxFlat = StyleBoxFlat.new()
-		resize_style.bg_color = Color(0.4, 0.8, 1.0, 0.45)
+		resize_style.bg_color = Color(
+			0.4,
+			0.8,
+			1.0,
+			0.45
+		)
 		_resize_handle.add_theme_stylebox_override("panel", resize_style)
 		add_child(_resize_handle)
 
@@ -1770,7 +2052,13 @@ class _GFConsoleGUI extends CanvasLayer:
 	## [br]
 	## @api private
 	func _input(event: InputEvent) -> void:
-		if visible and (_dragging or _resizing):
+		if (
+			visible
+			and (
+				_dragging
+				or _resizing
+			)
+		):
 			_update_window_interaction(event)
 			get_viewport().set_input_as_handled()
 			return
@@ -1782,13 +2070,25 @@ class _GFConsoleGUI extends CanvasLayer:
 			if key_event.keycode == toggle_key:
 				_set_console_visible(not visible)
 				get_viewport().set_input_as_handled()
-			elif visible and _input_field.has_focus() and key_event.keycode == KEY_UP:
+			elif (
+				visible
+				and _input_field.has_focus()
+				and key_event.keycode == KEY_UP
+			):
 				_show_previous_history()
 				get_viewport().set_input_as_handled()
-			elif visible and _input_field.has_focus() and key_event.keycode == KEY_DOWN:
+			elif (
+				visible
+				and _input_field.has_focus()
+				and key_event.keycode == KEY_DOWN
+			):
 				_show_next_history()
 				get_viewport().set_input_as_handled()
-			elif visible and _input_field.has_focus() and key_event.keycode == KEY_TAB:
+			elif (
+				visible
+				and _input_field.has_focus()
+				and key_event.keycode == KEY_TAB
+			):
 				_apply_command_completion()
 				get_viewport().set_input_as_handled()
 
@@ -1895,7 +2195,11 @@ class _GFConsoleGUI extends CanvasLayer:
 	## @api private
 	## [br]
 	func _grab_input_focus_if_visible() -> void:
-		if is_queued_for_deletion() or not visible or not is_inside_tree():
+		if (
+			is_queued_for_deletion()
+			or not visible
+			or not is_inside_tree()
+		):
 			return
 		if not is_instance_valid(_input_field) or not _input_field.is_inside_tree():
 			return
@@ -1980,16 +2284,30 @@ class _GFConsoleGUI extends CanvasLayer:
 			return minimum_window_size
 
 		var max_size: Vector2 = Vector2(
-			maxf(1.0, viewport_size.x - _WINDOW_MARGIN * 2.0),
-			maxf(1.0, viewport_size.y - _WINDOW_MARGIN * 2.0)
+			maxf(
+				1.0,
+				viewport_size.x - _WINDOW_MARGIN * 2.0
+			),
+			maxf(
+				1.0,
+				viewport_size.y - _WINDOW_MARGIN * 2.0
+			)
 		)
 		var min_size: Vector2 = Vector2(
 			minf(minimum_window_size.x, max_size.x),
 			minf(minimum_window_size.y, max_size.y)
 		)
 		return Vector2(
-			clampf(requested_size.x, min_size.x, max_size.x),
-			clampf(requested_size.y, min_size.y, max_size.y)
+			clampf(
+				requested_size.x,
+				min_size.x,
+				max_size.x
+			),
+			clampf(
+				requested_size.y,
+				min_size.y,
+				max_size.y
+			)
 		)
 
 
@@ -2009,8 +2327,16 @@ class _GFConsoleGUI extends CanvasLayer:
 			maxf(_WINDOW_MARGIN, max_position.y)
 		)
 		_panel.position = Vector2(
-			clampf(_panel.position.x, _WINDOW_MARGIN, safe_max_position.x),
-			clampf(_panel.position.y, _WINDOW_MARGIN, safe_max_position.y)
+			clampf(
+				_panel.position.x,
+				_WINDOW_MARGIN,
+				safe_max_position.x
+			),
+			clampf(
+				_panel.position.y,
+				_WINDOW_MARGIN,
+				safe_max_position.y
+			)
 		)
 
 
@@ -2113,7 +2439,10 @@ class _GFConsoleGUI extends CanvasLayer:
 		if _history_index < 0:
 			_history_index = _command_history.size() - 1
 		else:
-			_history_index = maxi(_history_index - 1, 0)
+			_history_index = maxi(
+				_history_index - 1,
+				0
+			)
 		_set_input_text(_command_history[_history_index])
 
 
@@ -2151,7 +2480,10 @@ class _GFConsoleGUI extends CanvasLayer:
 			names = names_variant
 		elif names_variant is Array:
 			for name_variant: Variant in names_variant:
-				_append_packed_string(names, GFVariantData.to_text(name_variant))
+				_append_packed_string(
+					names,
+					GFVariantData.to_text(name_variant)
+				)
 
 		var matches: PackedStringArray = PackedStringArray()
 		for cmd_name: String in names:
@@ -2178,10 +2510,18 @@ class _GFConsoleGUI extends CanvasLayer:
 		elif suggestions_variant is Array:
 			var suggestion_array: Array = suggestions_variant
 			for suggestion_value: Variant in suggestion_array:
-				_append_packed_string(suggestions, GFVariantData.to_text(suggestion_value))
+				_append_packed_string(
+					suggestions,
+					GFVariantData.to_text(suggestion_value)
+				)
 
 		if suggestions.size() == 1:
-			_set_input_text(_replace_active_argument(text, suggestions[0]))
+			_set_input_text(
+				_replace_active_argument(
+					text,
+					suggestions[0]
+				)
+			)
 			return true
 		if suggestions.size() > 1:
 			append_text("[color=cyan]%s[/color]" % GFConsoleUtility._escape_bbcode_string(", ".join(suggestions)))
@@ -2204,9 +2544,7 @@ class _GFConsoleGUI extends CanvasLayer:
 	## [br]
 	func _replace_active_argument(text: String, completion: String) -> String:
 		var argument_start: int = GFConsoleUtility._find_active_argument_start(text)
-		var encoded_completion: String = GFConsoleUtility._encode_command_argument(
-			completion
-		)
+		var encoded_completion: String = GFConsoleUtility._encode_command_argument(completion)
 		return text.substr(0, argument_start) + encoded_completion + " "
 
 
@@ -2231,8 +2569,6 @@ class _GFConsoleGUI extends CanvasLayer:
 		_input_field.caret_column = text.length()
 
 
-
-
 	## 原地追加输出或历史字符串并显式消费 append 返回值；调用者负责数量限制。
 	## [br]
 	## @api private
@@ -2240,8 +2576,6 @@ class _GFConsoleGUI extends CanvasLayer:
 		var appended: bool = target.append(value)
 		if appended:
 			return
-
-
 
 
 	## 构造控件时连接内部回调并消费错误码；此包装不重试，也不主动断开既有连接。

@@ -42,7 +42,11 @@ func register_step(step: GFSaveMigrationStep) -> bool:
 	if step == null:
 		return false
 	var validation: Dictionary = step.validate_step()
-	if not GFVariantData.get_option_bool(validation, "ok", false):
+	if not GFVariantData.get_option_bool(
+		validation,
+		"ok",
+		false
+	):
 		return false
 	var duplicated_resource: Resource = step.duplicate(true)
 	if not duplicated_resource is GFSaveMigrationStep:
@@ -78,7 +82,11 @@ func unregister_step(
 	section_id: StringName,
 	from_version: int
 ) -> bool:
-	var edge_key: String = _make_edge_key(schema_id, section_id, from_version)
+	var edge_key: String = _make_edge_key(
+		schema_id,
+		section_id,
+		from_version
+	)
 	var step: GFSaveMigrationStep = _get_step_by_key(edge_key)
 	if step == null:
 		return false
@@ -114,7 +122,13 @@ func has_step(
 	section_id: StringName,
 	from_version: int
 ) -> bool:
-	return _steps.has(_make_edge_key(schema_id, section_id, from_version))
+	return _steps.has(
+		_make_edge_key(
+			schema_id,
+			section_id,
+			from_version
+		)
+	)
 
 
 ## 获取排序后的步骤描述。
@@ -152,10 +166,7 @@ func describe_steps() -> Array[Dictionary]:
 ## @return 静态迁移计划。
 ## [br]
 ## @schema return: Dictionary with ok, migration_required, requires_document_step_evaluation, source_document_version, target_document_version, source_section_versions, target_section_versions, steps, error, and missing_edge.
-func build_plan(
-	document: GFSaveDocument,
-	target_schema: GFSaveDocumentSchema
-) -> Dictionary:
+func build_plan(document: GFSaveDocument, target_schema: GFSaveDocumentSchema) -> Dictionary:
 	var plan: Dictionary = _make_plan_base(document, target_schema)
 	var preflight_error: String = _get_preflight_error(document, target_schema)
 	if not preflight_error.is_empty():
@@ -171,7 +182,10 @@ func build_plan(
 			document_version
 		)
 		if document_step == null:
-			plan["error"] = "Missing document migration edge: %d -> %d" % [document_version, document_version + 1]
+			plan["error"] = (
+				"Missing document migration edge: %d -> %d"
+				% [document_version, document_version + 1]
+			)
 			plan["missing_edge"] = _make_edge_descriptor(
 				target_schema.schema_id,
 				&"",
@@ -195,7 +209,14 @@ func build_plan(
 		var section_version: int = section.get_schema_version()
 		var target_version: int = target_schema.get_section_version(section_id)
 		if section_version > target_version:
-			plan["error"] = "Section is newer than the target schema: %s %d > %d" % [section_id_text, section_version, target_version]
+			plan["error"] = (
+				"Section is newer than the target schema: %s %d > %d"
+				% [
+					section_id_text,
+					section_version,
+					target_version,
+				]
+			)
 			return plan
 		while section_version < target_version:
 			var section_step: GFSaveMigrationStep = _get_step(
@@ -204,7 +225,14 @@ func build_plan(
 				section_version
 			)
 			if section_step == null:
-				plan["error"] = "Missing section migration edge: %s %d -> %d" % [section_id_text, section_version, section_version + 1]
+				plan["error"] = (
+					"Missing section migration edge: %s %d -> %d"
+					% [
+						section_id_text,
+						section_version,
+						section_version + 1,
+					]
+				)
 				plan["missing_edge"] = _make_edge_descriptor(
 					target_schema.schema_id,
 					section_id,
@@ -245,12 +273,20 @@ func migrate(
 ) -> GFSaveMigrationResult:
 	var step_snapshot: Dictionary = _steps.duplicate()
 	var plan: Dictionary = build_plan(document, target_schema)
-	if not GFVariantData.get_option_bool(plan, "ok", false):
+	if not GFVariantData.get_option_bool(
+		plan,
+		"ok",
+		false
+	):
 		return _make_failure(
 			document,
 			target_schema,
 			ERR_DOES_NOT_EXIST,
-			GFVariantData.get_option_string(plan, "error", "Save migration preflight failed."),
+			GFVariantData.get_option_string(
+				plan,
+				"error",
+				"Save migration preflight failed."
+			),
 			&"",
 			[]
 		)
@@ -285,10 +321,7 @@ func migrate(
 				document_step.step_id,
 				trace
 			)
-		var section_version_error: String = _get_document_step_section_version_error(
-			current,
-			document_result
-		)
+		var section_version_error: String = _get_document_step_section_version_error(current, document_result)
 		if not section_version_error.is_empty():
 			return _make_failure(
 				document,
@@ -299,18 +332,33 @@ func migrate(
 				trace
 			)
 		var original_document_validation: Dictionary = document_result.validate_document()
-		if not GFVariantData.get_option_bool(original_document_validation, "ok", false):
-			return _make_failure(document, target_schema, ERR_INVALID_DATA,
+		if not GFVariantData.get_option_bool(
+			original_document_validation,
+			"ok",
+			false
+		):
+			return _make_failure(
+				document,
+				target_schema,
+				ERR_INVALID_DATA,
 				_get_first_validation_message(original_document_validation, "Document migration produced invalid data."),
-				document_step.step_id, trace)
-		var canonical_document: GFSaveDocument = GFSaveDocument.new().configure(
-			target_schema.schema_id,
-			document_step.to_version,
-			document_result.get_sections(),
-			document_result.get_metadata()
+				document_step.step_id,
+				trace
+			)
+		var canonical_document: GFSaveDocument = (
+			GFSaveDocument.new().configure(
+				target_schema.schema_id,
+				document_step.to_version,
+				document_result.get_sections(),
+				document_result.get_metadata()
+			)
 		)
 		var document_validation: Dictionary = canonical_document.validate_document()
-		if not GFVariantData.get_option_bool(document_validation, "ok", false):
+		if not GFVariantData.get_option_bool(
+			document_validation,
+			"ok",
+			false
+		):
 			return _make_failure(
 				document,
 				target_schema,
@@ -375,18 +423,33 @@ func migrate(
 					trace
 				)
 			var original_section_validation: Dictionary = section_result.validate_section()
-			if not GFVariantData.get_option_bool(original_section_validation, "ok", false):
-				return _make_failure(document, target_schema, ERR_INVALID_DATA,
+			if not GFVariantData.get_option_bool(
+				original_section_validation,
+				"ok",
+				false
+			):
+				return _make_failure(
+					document,
+					target_schema,
+					ERR_INVALID_DATA,
 					_get_first_validation_message(original_section_validation, "Section migration produced invalid data."),
-					section_step.step_id, trace)
-			var canonical_section: GFSaveSection = GFSaveSection.new().configure(
-				section_id,
-				section_step.to_version,
-				section_result.get_payload(),
-				section_result.get_metadata()
+					section_step.step_id,
+					trace
+				)
+			var canonical_section: GFSaveSection = (
+				GFSaveSection.new().configure(
+					section_id,
+					section_step.to_version,
+					section_result.get_payload(),
+					section_result.get_metadata()
+				)
 			)
 			var section_validation: Dictionary = canonical_section.validate_section()
-			if not GFVariantData.get_option_bool(section_validation, "ok", false):
+			if not GFVariantData.get_option_bool(
+				section_validation,
+				"ok",
+				false
+			):
 				return _make_failure(
 					document,
 					target_schema,
@@ -407,7 +470,11 @@ func migrate(
 			current_section = canonical_section
 			trace.append(section_step.describe_step())
 	var final_validation: Dictionary = target_schema.validate_document(current, true)
-	if not GFVariantData.get_option_bool(final_validation, "ok", false):
+	if not GFVariantData.get_option_bool(
+		final_validation,
+		"ok",
+		false
+	):
 		return _make_failure(
 			document,
 			target_schema,
@@ -416,7 +483,12 @@ func migrate(
 			&"",
 			trace
 		)
-	return _make_success(document, current, target_schema, trace)
+	return _make_success(
+		document,
+		current,
+		target_schema,
+		trace
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -425,19 +497,24 @@ func migrate(
 ## [br]
 ## @api private
 ## [br]
-func _get_preflight_error(
-	document: GFSaveDocument,
-	target_schema: GFSaveDocumentSchema
-) -> String:
+func _get_preflight_error(document: GFSaveDocument, target_schema: GFSaveDocumentSchema) -> String:
 	if document == null:
 		return "Save document is required."
 	if target_schema == null:
 		return "Target save document schema is required."
 	var schema_validation: Dictionary = target_schema.validate_schema()
-	if not GFVariantData.get_option_bool(schema_validation, "ok", false):
+	if not GFVariantData.get_option_bool(
+		schema_validation,
+		"ok",
+		false
+	):
 		return _get_first_validation_message(schema_validation, "Target schema is invalid.")
 	var document_validation: Dictionary = document.validate_document()
-	if not GFVariantData.get_option_bool(document_validation, "ok", false):
+	if not GFVariantData.get_option_bool(
+		document_validation,
+		"ok",
+		false
+	):
 		return _get_first_validation_message(document_validation, "Save document is invalid.")
 	if document.get_schema_id() != target_schema.schema_id:
 		return "Save document schema_id does not match the target schema."
@@ -450,10 +527,7 @@ func _get_preflight_error(
 ## [br]
 ## @api private
 ## [br]
-func _make_plan_base(
-	document: GFSaveDocument,
-	target_schema: GFSaveDocumentSchema
-) -> Dictionary:
+func _make_plan_base(document: GFSaveDocument, target_schema: GFSaveDocumentSchema) -> Dictionary:
 	return {
 		"ok": false,
 		"migration_required": false,
@@ -531,7 +605,13 @@ func _get_step(
 	section_id: StringName,
 	from_version: int
 ) -> GFSaveMigrationStep:
-	return _get_step_by_key(_make_edge_key(schema_id, section_id, from_version))
+	return _get_step_by_key(
+		_make_edge_key(
+			schema_id,
+			section_id,
+			from_version
+		)
+	)
 
 
 ## 从本次操作的步骤快照中查找指定迁移边。
@@ -544,7 +624,13 @@ func _get_step_from_snapshot(
 	section_id: StringName,
 	from_version: int
 ) -> GFSaveMigrationStep:
-	var value: Variant = step_snapshot.get(_make_edge_key(schema_id, section_id, from_version))
+	var value: Variant = step_snapshot.get(
+		_make_edge_key(
+			schema_id,
+			section_id,
+			from_version
+		)
+	)
 	if value is GFSaveMigrationStep:
 		var step: GFSaveMigrationStep = value
 		return step
@@ -596,10 +682,7 @@ func _get_section_versions(document: GFSaveDocument) -> Dictionary:
 ## [br]
 ## @api private
 ## [br]
-func _get_document_step_section_version_error(
-	before: GFSaveDocument,
-	after: GFSaveDocument
-) -> String:
+func _get_document_step_section_version_error(before: GFSaveDocument, after: GFSaveDocument) -> String:
 	for section_id_text: String in before.get_section_ids():
 		var section_id: StringName = StringName(section_id_text)
 		var before_section: GFSaveSection = before.get_section(section_id)
@@ -620,7 +703,11 @@ func _get_first_validation_message(report: Dictionary, fallback: String) -> Stri
 	if issues.is_empty():
 		return fallback
 	var first_issue: Dictionary = GFVariantData.as_dictionary(issues[0])
-	return GFVariantData.get_option_string(first_issue, "message", fallback)
+	return GFVariantData.get_option_string(
+		first_issue,
+		"message",
+		fallback
+	)
 
 
 ## 序列化 schema、section 和起始版本组成的边键。
@@ -632,7 +719,13 @@ static func _make_edge_key(
 	section_id: StringName,
 	from_version: int
 ) -> String:
-	return JSON.stringify([String(schema_id), String(section_id), from_version])
+	return JSON.stringify(
+		[
+			String(schema_id),
+			String(section_id),
+			from_version,
+		]
+	)
 
 
 ## 构造迁移边的 schema、作用域和版本描述。

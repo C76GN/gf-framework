@@ -20,8 +20,8 @@
 | 属性 | [`output_min`](#member-gfinputmaprangemodifier-properties-output_min) | `var output_min: float = 0.0` |
 | 属性 | [`output_max`](#member-gfinputmaprangemodifier-properties-output_max) | `var output_max: float = 1.0` |
 | 属性 | [`clamp_output`](#member-gfinputmaprangemodifier-properties-clamp_output) | `var clamp_output: bool = true` |
-| 方法 | [`modify`](#member-gfinputmaprangemodifier-methods-modify) | `func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = null) -> Vector2:` |
-| 方法 | [`modify_3d`](#member-gfinputmaprangemodifier-methods-modify_3d) | `func modify_3d(value: Vector3, _event: InputEvent = null, _action: GFInputAction = null) -> Vector3:` |
+| 方法 | [`modify`](#member-gfinputmaprangemodifier-methods-modify) | `func modify( value: Vector2, _event: InputEvent = null, _action: GFInputAction = null ) -> Vector2:` |
+| 方法 | [`modify_3d`](#member-gfinputmaprangemodifier-methods-modify_3d) | `func modify_3d( value: Vector3, _event: InputEvent = null, _action: GFInputAction = null ) -> Vector3:` |
 
 ## 属性
 
@@ -92,9 +92,10 @@ var clamp_output: bool = true
 ### `modify`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = null) -> Vector2:
+func modify( value: Vector2, _event: InputEvent = null, _action: GFInputAction = null ) -> Vector2:
 ```
 
 修改二维输入值。
@@ -114,9 +115,10 @@ func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = 
 ### `modify_3d`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func modify_3d(value: Vector3, _event: InputEvent = null, _action: GFInputAction = null) -> Vector3:
+func modify_3d( value: Vector3, _event: InputEvent = null, _action: GFInputAction = null ) -> Vector3:
 ```
 
 修改三维输入值。

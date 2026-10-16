@@ -110,7 +110,11 @@ var status: StringName = STATUS_UNREQUESTED:
 ## @since 7.0.0
 var progress: float = 0.0:
 	set(value):
-		progress = clampf(value, 0.0, 1.0)
+		progress = clampf(
+			value,
+			0.0,
+			1.0
+		)
 
 ## 最近错误文本。
 ## [br]
@@ -177,10 +181,22 @@ func configure(
 ) -> GFResourceLoadState:
 	resource_key = p_resource_key
 	resource_path = p_resource_path
-	status = GFVariantData.get_option_string_name(options, "status", STATUS_UNREQUESTED)
-	progress = GFVariantData.get_option_float(options, "progress", 0.0)
+	status = GFVariantData.get_option_string_name(
+		options,
+		"status",
+		STATUS_UNREQUESTED
+	)
+	progress = GFVariantData.get_option_float(
+		options,
+		"progress",
+		0.0
+	)
 	error = GFVariantData.get_option_string(options, "error")
-	reference_mode = GFVariantData.get_option_string_name(options, "reference_mode", REFERENCE_WEAK)
+	reference_mode = GFVariantData.get_option_string_name(
+		options,
+		"reference_mode",
+		REFERENCE_WEAK
+	)
 	metadata = GFVariantData.get_option_dictionary(options, "metadata").duplicate(true)
 	return self
 
@@ -201,10 +217,18 @@ func configure(
 func set_status(p_status: StringName, options: Dictionary = {}) -> GFResourceLoadState:
 	status = p_status
 	if options.has("progress"):
-		progress = GFVariantData.get_option_float(options, "progress", progress)
+		progress = GFVariantData.get_option_float(
+			options,
+			"progress",
+			progress
+		)
 	if options.has("error"):
 		error = GFVariantData.get_option_string(options, "error")
-	elif GFVariantData.get_option_bool(options, "clear_error", false):
+	elif GFVariantData.get_option_bool(
+		options,
+		"clear_error",
+		false
+	):
 		error = ""
 	_merge_metadata(GFVariantData.get_option_dictionary(options, "metadata"))
 	return self
@@ -228,7 +252,11 @@ func set_resource(resource: Resource, options: Dictionary = {}) -> GFResourceLoa
 		var _cleared: GFResourceLoadState = clear_resource({ "status": STATUS_RELEASED })
 		return self
 
-	reference_mode = GFVariantData.get_option_string_name(options, "reference_mode", reference_mode)
+	reference_mode = GFVariantData.get_option_string_name(
+		options,
+		"reference_mode",
+		reference_mode
+	)
 	_resource_ref = weakref(resource)
 	_resource_value = resource if reference_mode == REFERENCE_STRONG else null
 	progress = 1.0
@@ -283,7 +311,11 @@ func has_resource() -> bool:
 func clear_resource(options: Dictionary = {}) -> GFResourceLoadState:
 	_resource_ref = null
 	_resource_value = null
-	status = GFVariantData.get_option_string_name(options, "status", STATUS_RELEASED)
+	status = GFVariantData.get_option_string_name(
+		options,
+		"status",
+		STATUS_RELEASED
+	)
 	_merge_metadata(GFVariantData.get_option_dictionary(options, "metadata"))
 	return self
 
@@ -300,11 +332,14 @@ func clear_resource(options: Dictionary = {}) -> GFResourceLoadState:
 ## [br]
 ## @return 当前状态。
 func mark_requested(p_metadata: Dictionary = {}) -> GFResourceLoadState:
-	return set_status(STATUS_REQUESTED, {
-		"progress": 0.0,
-		"clear_error": true,
-		"metadata": p_metadata,
-	})
+	return set_status(
+		STATUS_REQUESTED,
+		{
+			"progress": 0.0,
+			"clear_error": true,
+			"metadata": p_metadata,
+		}
+	)
 
 
 ## 标记资源正在加载。
@@ -321,11 +356,14 @@ func mark_requested(p_metadata: Dictionary = {}) -> GFResourceLoadState:
 ## [br]
 ## @return 当前状态。
 func mark_loading(p_progress: float = 0.0, p_metadata: Dictionary = {}) -> GFResourceLoadState:
-	return set_status(STATUS_LOADING, {
-		"progress": p_progress,
-		"clear_error": true,
-		"metadata": p_metadata,
-	})
+	return set_status(
+		STATUS_LOADING,
+		{
+			"progress": p_progress,
+			"clear_error": true,
+			"metadata": p_metadata,
+		}
+	)
 
 
 ## 标记资源已加载并保存引用。
@@ -342,7 +380,10 @@ func mark_loading(p_progress: float = 0.0, p_metadata: Dictionary = {}) -> GFRes
 ## [br]
 ## @return 当前状态。
 func mark_loaded(resource: Resource, p_metadata: Dictionary = {}) -> GFResourceLoadState:
-	return set_resource(resource, { "metadata": p_metadata })
+	return set_resource(
+		resource,
+		{ "metadata": p_metadata }
+	)
 
 
 ## 标记加载失败。
@@ -359,11 +400,14 @@ func mark_loaded(resource: Resource, p_metadata: Dictionary = {}) -> GFResourceL
 ## [br]
 ## @return 当前状态。
 func mark_failed(error_text: String, p_metadata: Dictionary = {}) -> GFResourceLoadState:
-	return set_status(STATUS_FAILED, {
-		"progress": progress,
-		"error": error_text,
-		"metadata": p_metadata,
-	})
+	return set_status(
+		STATUS_FAILED,
+		{
+			"progress": progress,
+			"error": error_text,
+			"metadata": p_metadata,
+		}
+	)
 
 
 ## 标记资源已释放。
@@ -378,10 +422,7 @@ func mark_failed(error_text: String, p_metadata: Dictionary = {}) -> GFResourceL
 ## [br]
 ## @return 当前状态。
 func mark_released(p_metadata: Dictionary = {}) -> GFResourceLoadState:
-	return clear_resource({
-		"status": STATUS_RELEASED,
-		"metadata": p_metadata,
-	})
+	return clear_resource({ "status": STATUS_RELEASED, "metadata": p_metadata, })
 
 
 ## 标记资源状态已过期。
@@ -401,9 +442,10 @@ func mark_stale(reason: String = "", p_metadata: Dictionary = {}) -> GFResourceL
 	var stale_metadata: Dictionary = p_metadata.duplicate(true)
 	if not reason.is_empty():
 		stale_metadata["stale_reason"] = reason
-	return set_status(STATUS_STALE, {
-		"metadata": stale_metadata,
-	})
+	return set_status(
+		STATUS_STALE,
+		{ "metadata": stale_metadata, }
+	)
 
 
 ## 检查当前状态是否为成功终态。
@@ -425,7 +467,11 @@ func is_success() -> bool:
 ## [br]
 ## @return loaded、failed 或 released 时返回 true。
 func is_terminal() -> bool:
-	return status == STATUS_LOADED or status == STATUS_FAILED or status == STATUS_RELEASED
+	return (
+		status == STATUS_LOADED
+		or status == STATUS_FAILED
+		or status == STATUS_RELEASED
+	)
 
 
 ## 获取当前资源身份快照。
@@ -443,7 +489,12 @@ func get_resource_identity(options: Dictionary = {}) -> GFResourceIdentity:
 	var identity_options: Dictionary = options.duplicate(true)
 	if not identity_options.has("metadata"):
 		identity_options["metadata"] = metadata.duplicate(true)
-	return GFResourceIdentity.from_path(resource_path, resource_key, "", identity_options)
+	return GFResourceIdentity.from_path(
+		resource_path,
+		resource_key,
+		"",
+		identity_options
+	)
 
 
 ## 导出状态字典。
@@ -483,7 +534,10 @@ func duplicate_state() -> GFResourceLoadState:
 	var state: GFResourceLoadState = from_dictionary(to_dictionary())
 	var resource: Resource = get_resource()
 	if resource != null and state != null:
-		var _copied: Variant = state.set_resource(resource, { "reference_mode": reference_mode })
+		var _copied: Variant = state.set_resource(
+			resource,
+			{ "reference_mode": reference_mode }
+		)
 	return state
 
 
@@ -512,10 +566,22 @@ static func from_dictionary(data: Dictionary) -> GFResourceLoadState:
 		GFVariantData.get_option_string_name(data, "resource_key"),
 		restored_path,
 		{
-			"status": GFVariantData.get_option_string_name(data, "status", STATUS_UNREQUESTED),
-			"progress": GFVariantData.get_option_float(data, "progress", 0.0),
+			"status": GFVariantData.get_option_string_name(
+				data,
+				"status",
+				STATUS_UNREQUESTED
+			),
+			"progress": GFVariantData.get_option_float(
+				data,
+				"progress",
+				0.0
+			),
 			"error": GFVariantData.get_option_string(data, "error"),
-			"reference_mode": GFVariantData.get_option_string_name(data, "reference_mode", REFERENCE_WEAK),
+			"reference_mode": GFVariantData.get_option_string_name(
+				data,
+				"reference_mode",
+				REFERENCE_WEAK
+			),
 			"metadata": GFVariantData.get_option_dictionary(data, "metadata"),
 		}
 	)
@@ -529,7 +595,12 @@ static func from_dictionary(data: Dictionary) -> GFResourceLoadState:
 ## @api private
 ## [br]
 func _merge_metadata(extra_metadata: Dictionary) -> void:
-	var _merged_metadata: Dictionary = GFVariantData.merge_dictionary(metadata, extra_metadata, true, true)
+	var _merged_metadata: Dictionary = GFVariantData.merge_dictionary(
+		metadata,
+		extra_metadata,
+		true,
+		true
+	)
 
 
 ## 仅接受已定义状态；未知值归一化为 unrequested。

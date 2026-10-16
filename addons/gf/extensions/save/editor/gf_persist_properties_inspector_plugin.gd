@@ -37,7 +37,10 @@ func _parse_property(
 	if name != "properties":
 		return false
 
-	add_property_editor("properties", _GF_PERSIST_PROPERTIES_EDITOR_PROPERTY.new())
+	add_property_editor(
+		"properties",
+		_GF_PERSIST_PROPERTIES_EDITOR_PROPERTY.new()
+	)
 	return true
 
 

@@ -104,24 +104,55 @@ func _init(owner: Object = null, method_name: StringName = &"") -> void:
 ## @schema return: Dictionary with status, invoked, value, error_code, initial_owner_instance_id, and method_name.
 func invoke(arguments: Array = []) -> Dictionary:
 	if not _has_valid_definition():
-		return _make_result(STATUS_FAILED, null, ERR_INVALID_PARAMETER)
+		return _make_result(
+			STATUS_FAILED,
+			null,
+			ERR_INVALID_PARAMETER
+		)
 
 	var owner_value: Variant = _owner_ref.get_ref()
 	if not (owner_value is Object):
-		return _make_result(STATUS_OWNER_RELEASED, null, ERR_DOES_NOT_EXIST)
+		return _make_result(
+			STATUS_OWNER_RELEASED,
+			null,
+			ERR_DOES_NOT_EXIST
+		)
 	var owner: Object = owner_value
 	if not is_instance_valid(owner):
-		return _make_result(STATUS_OWNER_RELEASED, null, ERR_DOES_NOT_EXIST)
+		return _make_result(
+			STATUS_OWNER_RELEASED,
+			null,
+			ERR_DOES_NOT_EXIST
+		)
 	if owner.get_instance_id() != _initial_owner_instance_id:
-		return _make_result(STATUS_OWNER_RELEASED, null, ERR_DOES_NOT_EXIST)
+		return _make_result(
+			STATUS_OWNER_RELEASED,
+			null,
+			ERR_DOES_NOT_EXIST
+		)
 	if not owner.has_method(_method_name):
-		return _make_result(STATUS_METHOD_MISSING, null, ERR_DOES_NOT_EXIST)
-	var argument_validation_error: Error = _validate_argument_count(owner, arguments.size())
+		return _make_result(
+			STATUS_METHOD_MISSING,
+			null,
+			ERR_DOES_NOT_EXIST
+		)
+	var argument_validation_error: Error = _validate_argument_count(
+		owner,
+		arguments.size()
+	)
 	if argument_validation_error != OK:
-		return _make_result(STATUS_FAILED, null, argument_validation_error)
+		return _make_result(
+			STATUS_FAILED,
+			null,
+			argument_validation_error
+		)
 
 	var value: Variant = owner.callv(_method_name, arguments)
-	return _make_result(STATUS_INVOKED, value, OK)
+	return _make_result(
+		STATUS_INVOKED,
+		value,
+		OK
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -140,7 +171,11 @@ func _has_valid_definition() -> bool:
 ## 按统一字段构造调用状态结果字典。
 ## [br]
 ## @api private
-func _make_result(status: StringName, value: Variant, error_code: Error) -> Dictionary:
+func _make_result(
+	status: StringName,
+	value: Variant,
+	error_code: Error
+) -> Dictionary:
 	return {
 		"status": status,
 		"invoked": status == STATUS_INVOKED,

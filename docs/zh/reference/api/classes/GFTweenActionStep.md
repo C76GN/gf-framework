@@ -25,7 +25,7 @@
 | 属性 | [`ease_type`](#member-gftweenactionstep-properties-ease_type) | `var ease_type: Tween.EaseType = Tween.EASE_OUT` |
 | 属性 | [`easing_curve`](#member-gftweenactionstep-properties-easing_curve) | `var easing_curve: Curve = null` |
 | 属性 | [`marker_id`](#member-gftweenactionstep-properties-marker_id) | `var marker_id: StringName = &""` |
-| 方法 | [`append_to_tween`](#member-gftweenactionstep-methods-append_to_tween) | `func append_to_tween(tween: Tween, target: Object, duration_scale: float = 1.0) -> Variant:` |
+| 方法 | [`append_to_tween`](#member-gftweenactionstep-methods-append_to_tween) | `func append_to_tween( tween: Tween, target: Object, duration_scale: float = 1.0 ) -> Variant:` |
 | 方法 | [`apply_instant`](#member-gftweenactionstep-methods-apply_instant) | `func apply_instant(target: Object) -> void:` |
 | 方法 | [`duplicate_step`](#member-gftweenactionstep-methods-duplicate_step) | `func duplicate_step() -> GFTweenActionStep:` |
 | 方法 | [`can_apply_to`](#member-gftweenactionstep-methods-can_apply_to) | `func can_apply_to(target: Object) -> bool:` |
@@ -169,9 +169,10 @@ var marker_id: StringName = &""
 ### `append_to_tween`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func append_to_tween(tween: Tween, target: Object, duration_scale: float = 1.0) -> Variant:
+func append_to_tween( tween: Tween, target: Object, duration_scale: float = 1.0 ) -> Variant:
 ```
 
 追加到 Tween。

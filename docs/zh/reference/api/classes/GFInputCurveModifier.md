@@ -20,8 +20,8 @@
 | 属性 | [`apply_x`](#member-gfinputcurvemodifier-properties-apply_x) | `var apply_x: bool = true` |
 | 属性 | [`apply_y`](#member-gfinputcurvemodifier-properties-apply_y) | `var apply_y: bool = true` |
 | 属性 | [`apply_z`](#member-gfinputcurvemodifier-properties-apply_z) | `var apply_z: bool = true` |
-| 方法 | [`modify`](#member-gfinputcurvemodifier-methods-modify) | `func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = null) -> Vector2:` |
-| 方法 | [`modify_3d`](#member-gfinputcurvemodifier-methods-modify_3d) | `func modify_3d(value: Vector3, _event: InputEvent = null, _action: GFInputAction = null) -> Vector3:` |
+| 方法 | [`modify`](#member-gfinputcurvemodifier-methods-modify) | `func modify( value: Vector2, _event: InputEvent = null, _action: GFInputAction = null ) -> Vector2:` |
+| 方法 | [`modify_3d`](#member-gfinputcurvemodifier-methods-modify_3d) | `func modify_3d( value: Vector3, _event: InputEvent = null, _action: GFInputAction = null ) -> Vector3:` |
 
 ## 属性
 
@@ -92,9 +92,10 @@ var apply_z: bool = true
 ### `modify`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = null) -> Vector2:
+func modify( value: Vector2, _event: InputEvent = null, _action: GFInputAction = null ) -> Vector2:
 ```
 
 修改二维输入值。
@@ -114,9 +115,10 @@ func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = 
 ### `modify_3d`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func modify_3d(value: Vector3, _event: InputEvent = null, _action: GFInputAction = null) -> Vector3:
+func modify_3d( value: Vector3, _event: InputEvent = null, _action: GFInputAction = null ) -> Vector3:
 ```
 
 修改三维输入值。

@@ -59,19 +59,23 @@ func add_resource_path(
 	if entry_resource_path.is_empty():
 		return -1
 
-	entries.append({
-		"resource_path": entry_resource_path,
-		"resource": null,
-		"kind": kind,
-		"type_hint": type_hint,
-		"metadata": entry_metadata.duplicate(true),
-	})
+	entries.append(
+		{
+			"resource_path": entry_resource_path,
+			"resource": null,
+			"kind": kind,
+			"type_hint": type_hint,
+			"metadata": entry_metadata.duplicate(true),
+		}
+	)
 	return entries.size() - 1
 
 
 ## 添加已持有的资源条目。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param resource: 资源实例。
 ## [br]
@@ -82,17 +86,23 @@ func add_resource_path(
 ## @schema entry_metadata: Dictionary[String, Variant]，会复制到 manifest 条目的 metadata。
 ## [br]
 ## @return 添加后的条目索引；失败返回 -1。
-func add_resource(resource: Resource, kind: StringName = &"", entry_metadata: Dictionary = {}) -> int:
+func add_resource(
+	resource: Resource,
+	kind: StringName = &"",
+	entry_metadata: Dictionary = {}
+) -> int:
 	if resource == null:
 		return -1
 
-	entries.append({
-		"resource_path": resource.resource_path,
-		"resource": resource,
-		"kind": kind,
-		"type_hint": "",
-		"metadata": entry_metadata.duplicate(true),
-	})
+	entries.append(
+		{
+			"resource_path": resource.resource_path,
+			"resource": resource,
+			"kind": kind,
+			"type_hint": "",
+			"metadata": entry_metadata.duplicate(true),
+		}
+	)
 	return entries.size() - 1
 
 
@@ -185,13 +195,15 @@ func describe() -> Dictionary:
 	var described_entries: Array[Dictionary] = []
 	for entry: Dictionary in entries:
 		var normalized: Dictionary = normalize_entry(entry)
-		described_entries.append({
-			"resource_path": GFVariantData.get_option_string(normalized, "resource_path"),
-			"kind": GFVariantData.get_option_string_name(normalized, "kind"),
-			"type_hint": GFVariantData.get_option_string(normalized, "type_hint"),
-			"metadata": GFVariantData.get_option_dictionary(normalized, "metadata").duplicate(true),
-			"has_resource": GFVariantData.get_option_value(normalized, "resource") is Resource,
-		})
+		described_entries.append(
+			{
+				"resource_path": GFVariantData.get_option_string(normalized, "resource_path"),
+				"kind": GFVariantData.get_option_string_name(normalized, "kind"),
+				"type_hint": GFVariantData.get_option_string(normalized, "type_hint"),
+				"metadata": GFVariantData.get_option_dictionary(normalized, "metadata").duplicate(true),
+				"has_resource": GFVariantData.get_option_value(normalized, "resource") is Resource,
+			}
+		)
 	return {
 		"manifest_id": manifest_id,
 		"entry_count": entries.size(),

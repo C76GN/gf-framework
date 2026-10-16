@@ -16,7 +16,7 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 信号 | [`attribute_defined`](#member-gfattributeset-signals-attribute_defined) | `signal attribute_defined(attribute_id: StringName)` |
-| 信号 | [`attribute_changed`](#member-gfattributeset-signals-attribute_changed) | `signal attribute_changed(attribute_id: StringName, current_value: float, previous_value: float)` |
+| 信号 | [`attribute_changed`](#member-gfattributeset-signals-attribute_changed) | `signal attribute_changed( attribute_id: StringName, current_value: float, previous_value: float )` |
 | 常量 | [`DEFAULT_MIN_VALUE`](#member-gfattributeset-constants-default_min_value) | `const DEFAULT_MIN_VALUE: float = -1.0e20` |
 | 常量 | [`DEFAULT_MAX_VALUE`](#member-gfattributeset-constants-default_max_value) | `const DEFAULT_MAX_VALUE: float = 1.0e20` |
 | 属性 | [`attributes`](#member-gfattributeset-properties-attributes) | `var attributes: Dictionary = {}` |
@@ -27,8 +27,8 @@
 | 方法 | [`clear`](#member-gfattributeset-methods-clear) | `func clear() -> void:` |
 | 方法 | [`set_value`](#member-gfattributeset-methods-set_value) | `func set_value(attribute_id: StringName, value: float) -> bool:` |
 | 方法 | [`adjust_value`](#member-gfattributeset-methods-adjust_value) | `func adjust_value(attribute_id: StringName, delta: float) -> bool:` |
-| 方法 | [`set_base_value`](#member-gfattributeset-methods-set_base_value) | `func set_base_value(attribute_id: StringName, value: float, sync_current: bool = false) -> bool:` |
-| 方法 | [`set_limits`](#member-gfattributeset-methods-set_limits) | `func set_limits(attribute_id: StringName, min_value: float, max_value: float) -> bool:` |
+| 方法 | [`set_base_value`](#member-gfattributeset-methods-set_base_value) | `func set_base_value( attribute_id: StringName, value: float, sync_current: bool = false ) -> bool:` |
+| 方法 | [`set_limits`](#member-gfattributeset-methods-set_limits) | `func set_limits( attribute_id: StringName, min_value: float, max_value: float ) -> bool:` |
 | 方法 | [`get_value`](#member-gfattributeset-methods-get_value) | `func get_value(attribute_id: StringName, default_value: float = 0.0) -> float:` |
 | 方法 | [`get_base_value`](#member-gfattributeset-methods-get_base_value) | `func get_base_value(attribute_id: StringName, default_value: float = 0.0) -> float:` |
 | 方法 | [`get_value_with_traits`](#member-gfattributeset-methods-get_value_with_traits) | `func get_value_with_traits(attribute_id: StringName, trait_set: GFTraitSet) -> float:` |
@@ -68,9 +68,10 @@ signal attribute_defined(attribute_id: StringName)
 ### `attribute_changed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal attribute_changed(attribute_id: StringName, current_value: float, previous_value: float)
+signal attribute_changed( attribute_id: StringName, current_value: float, previous_value: float )
 ```
 
 当前值变化时发出。
@@ -270,9 +271,10 @@ func adjust_value(attribute_id: StringName, delta: float) -> bool:
 ### `set_base_value`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func set_base_value(attribute_id: StringName, value: float, sync_current: bool = false) -> bool:
+func set_base_value( attribute_id: StringName, value: float, sync_current: bool = false ) -> bool:
 ```
 
 设置基础值。
@@ -292,9 +294,10 @@ func set_base_value(attribute_id: StringName, value: float, sync_current: bool =
 ### `set_limits`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func set_limits(attribute_id: StringName, min_value: float, max_value: float) -> bool:
+func set_limits( attribute_id: StringName, min_value: float, max_value: float ) -> bool:
 ```
 
 设置属性范围。

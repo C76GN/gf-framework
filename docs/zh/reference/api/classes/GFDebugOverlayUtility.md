@@ -36,18 +36,18 @@
 | 方法 | [`set_overlay_visible`](#member-gfdebugoverlayutility-methods-set_overlay_visible) | `func set_overlay_visible(visible: bool) -> void:` |
 | 方法 | [`is_overlay_visible`](#member-gfdebugoverlayutility-methods-is_overlay_visible) | `func is_overlay_visible() -> bool:` |
 | 方法 | [`refresh_overlay`](#member-gfdebugoverlayutility-methods-refresh_overlay) | `func refresh_overlay() -> void:` |
-| 方法 | [`push_watch_value`](#member-gfdebugoverlayutility-methods-push_watch_value) | `func push_watch_value(id: StringName, value: Variant, options: Dictionary = {}) -> bool:` |
+| 方法 | [`push_watch_value`](#member-gfdebugoverlayutility-methods-push_watch_value) | `func push_watch_value( id: StringName, value: Variant, options: Dictionary = {} ) -> bool:` |
 | 方法 | [`remove_watch`](#member-gfdebugoverlayutility-methods-remove_watch) | `func remove_watch(id: StringName) -> void:` |
 | 方法 | [`clear_watches`](#member-gfdebugoverlayutility-methods-clear_watches) | `func clear_watches() -> void:` |
 | 方法 | [`has_watch`](#member-gfdebugoverlayutility-methods-has_watch) | `func has_watch(id: StringName) -> bool:` |
 | 方法 | [`get_watch_snapshot`](#member-gfdebugoverlayutility-methods-get_watch_snapshot) | `func get_watch_snapshot(include_hidden: bool = false) -> Array[Dictionary]:` |
-| 方法 | [`push_panel_content`](#member-gfdebugoverlayutility-methods-push_panel_content) | `func push_panel_content(panel_id: StringName, content: Variant, options: Dictionary = {}) -> bool:` |
-| 方法 | [`push_panel_text`](#member-gfdebugoverlayutility-methods-push_panel_text) | `func push_panel_text(panel_id: StringName, content: String, options: Dictionary = {}) -> bool:` |
+| 方法 | [`push_panel_content`](#member-gfdebugoverlayutility-methods-push_panel_content) | `func push_panel_content( panel_id: StringName, content: Variant, options: Dictionary = {} ) -> bool:` |
+| 方法 | [`push_panel_text`](#member-gfdebugoverlayutility-methods-push_panel_text) | `func push_panel_text( panel_id: StringName, content: String, options: Dictionary = {} ) -> bool:` |
 | 方法 | [`remove_panel`](#member-gfdebugoverlayutility-methods-remove_panel) | `func remove_panel(panel_id: StringName) -> void:` |
 | 方法 | [`clear_panels`](#member-gfdebugoverlayutility-methods-clear_panels) | `func clear_panels() -> void:` |
 | 方法 | [`has_panel`](#member-gfdebugoverlayutility-methods-has_panel) | `func has_panel(panel_id: StringName) -> bool:` |
 | 方法 | [`get_panel_snapshot`](#member-gfdebugoverlayutility-methods-get_panel_snapshot) | `func get_panel_snapshot(include_hidden: bool = false) -> Array[Dictionary]:` |
-| 方法 | [`record_metric_sample`](#member-gfdebugoverlayutility-methods-record_metric_sample) | `func record_metric_sample(metric_id: StringName, value: float, options: Dictionary = {}) -> bool:` |
+| 方法 | [`record_metric_sample`](#member-gfdebugoverlayutility-methods-record_metric_sample) | `func record_metric_sample( metric_id: StringName, value: float, options: Dictionary = {} ) -> bool:` |
 | 方法 | [`get_or_create_metric_series`](#member-gfdebugoverlayutility-methods-get_or_create_metric_series) | `func get_or_create_metric_series(metric_id: StringName, options: Dictionary = {}) -> GFMetricSeries:` |
 | 方法 | [`register_metric_series`](#member-gfdebugoverlayutility-methods-register_metric_series) | `func register_metric_series(series: GFMetricSeries) -> bool:` |
 | 方法 | [`remove_metric_series`](#member-gfdebugoverlayutility-methods-remove_metric_series) | `func remove_metric_series(metric_id: StringName) -> void:` |
@@ -347,9 +347,10 @@ func refresh_overlay() -> void:
 ### `push_watch_value`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func push_watch_value(id: StringName, value: Variant, options: Dictionary = {}) -> bool:
+func push_watch_value( id: StringName, value: Variant, options: Dictionary = {} ) -> bool:
 ```
 
 推送一个由调用方主动更新的运行时观察值。
@@ -451,7 +452,7 @@ func get_watch_snapshot(include_hidden: bool = false) -> Array[Dictionary]:
 - 首次版本：`8.0.0`
 
 ```gdscript
-func push_panel_content(panel_id: StringName, content: Variant, options: Dictionary = {}) -> bool:
+func push_panel_content( panel_id: StringName, content: Variant, options: Dictionary = {} ) -> bool:
 ```
 
 推送一个由调用方主动更新的 Overlay 面板值。
@@ -476,9 +477,10 @@ func push_panel_content(panel_id: StringName, content: Variant, options: Diction
 ### `push_panel_text`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func push_panel_text(panel_id: StringName, content: String, options: Dictionary = {}) -> bool:
+func push_panel_text( panel_id: StringName, content: String, options: Dictionary = {} ) -> bool:
 ```
 
 推送一个静态 Overlay 面板文本。
@@ -576,9 +578,10 @@ func get_panel_snapshot(include_hidden: bool = false) -> Array[Dictionary]:
 ### `record_metric_sample`
 
 - API：`public`
+- 首次版本：`3.23.0`
 
 ```gdscript
-func record_metric_sample(metric_id: StringName, value: float, options: Dictionary = {}) -> bool:
+func record_metric_sample( metric_id: StringName, value: float, options: Dictionary = {} ) -> bool:
 ```
 
 追加一个短期指标采样。

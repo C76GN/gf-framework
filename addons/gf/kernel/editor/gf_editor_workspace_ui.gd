@@ -32,35 +32,55 @@ const TOOLBAR_SEPARATION: int = 6
 ## @api framework_internal
 ## [br]
 ## @layer kernel/editor
-const EMPTY_TEXT_COLOR: Color = Color(0.72, 0.72, 0.72)
+const EMPTY_TEXT_COLOR: Color = Color(
+	0.72,
+	0.72,
+	0.72
+)
 
 ## 信息文本颜色。
 ## [br]
 ## @api framework_internal
 ## [br]
 ## @layer kernel/editor
-const INFO_TEXT_COLOR: Color = Color(0.72, 0.72, 0.72)
+const INFO_TEXT_COLOR: Color = Color(
+	0.72,
+	0.72,
+	0.72
+)
 
 ## 成功状态文本颜色。
 ## [br]
 ## @api framework_internal
 ## [br]
 ## @layer kernel/editor
-const OK_TEXT_COLOR: Color = Color(0.45, 0.9, 0.55)
+const OK_TEXT_COLOR: Color = Color(
+	0.45,
+	0.9,
+	0.55
+)
 
 ## 警告状态文本颜色。
 ## [br]
 ## @api framework_internal
 ## [br]
 ## @layer kernel/editor
-const WARNING_TEXT_COLOR: Color = Color(1.0, 0.78, 0.35)
+const WARNING_TEXT_COLOR: Color = Color(
+	1.0,
+	0.78,
+	0.35
+)
 
 ## 错误状态文本颜色。
 ## [br]
 ## @api framework_internal
 ## [br]
 ## @layer kernel/editor
-const ERROR_TEXT_COLOR: Color = Color(1.0, 0.45, 0.35)
+const ERROR_TEXT_COLOR: Color = Color(
+	1.0,
+	0.45,
+	0.35
+)
 
 
 # --- 公共方法 ---
@@ -108,7 +128,11 @@ static func make_toolbar() -> HBoxContainer:
 ## @param pressed: 按下回调。
 ## [br]
 ## @return 按钮。
-static func make_button(text: String, tooltip: String = "", pressed: Callable = Callable()) -> Button:
+static func make_button(
+	text: String,
+	tooltip: String = "",
+	pressed: Callable = Callable()
+) -> Button:
 	var button: Button = Button.new()
 	button.text = text
 	button.tooltip_text = tooltip
@@ -166,7 +190,10 @@ static func make_empty_label(text: String = "") -> Label:
 ## [br]
 ## @return: 尚未加入场景树的空状态容器，由调用方接管节点所有权。
 static func make_empty_state(
-	title: String, description: String, action_label: String = "", action: Callable = Callable()
+	title: String,
+	description: String,
+	action_label: String = "",
+	action: Callable = Callable()
 ) -> VBoxContainer:
 	var box: VBoxContainer = VBoxContainer.new()
 	box.add_theme_constant_override("separation", 8)
@@ -178,7 +205,11 @@ static func make_empty_state(
 	details.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(details)
 	if not action_label.is_empty() and action.is_valid():
-		var button: Button = make_button(action_label, description, action)
+		var button: Button = make_button(
+			action_label,
+			description,
+			action
+		)
 		button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 		box.add_child(button)
 	return box
@@ -237,9 +268,17 @@ static func make_details_toggle(details: Control, expanded: bool = false) -> Che
 ## [br]
 ## @return 状态颜色。
 static func get_report_color(report: Dictionary) -> Color:
-	if _GF_VARIANT_ACCESS_SCRIPT.get_option_int(report, "error_count", 0) > 0:
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+		report,
+		"error_count",
+		0
+	) > 0:
 		return ERROR_TEXT_COLOR
-	if _GF_VARIANT_ACCESS_SCRIPT.get_option_int(report, "warning_count", 0) > 0:
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+		report,
+		"warning_count",
+		0
+	) > 0:
 		return WARNING_TEXT_COLOR
 	return OK_TEXT_COLOR
 
@@ -255,7 +294,11 @@ static func get_report_color(report: Dictionary) -> Color:
 ## @param text: 状态文本。
 ## [br]
 ## @param color: 文本颜色。
-static func set_status(label: Label, text: String, color: Color = INFO_TEXT_COLOR) -> void:
+static func set_status(
+	label: Label,
+	text: String,
+	color: Color = INFO_TEXT_COLOR
+) -> void:
 	if label == null:
 		return
 	label.text = text

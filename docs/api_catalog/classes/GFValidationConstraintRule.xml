@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFValidationConstraintRule" path="addons/gf/standard/foundation/validation/gf_validation_constraint_rule.gd" module="standard" extends="GFValidationRule" classDigest="17f3d697c724f0e11a48dfed31d54016d6a669506d7ebacacb9b655ea37d0162">
+<class name="GFValidationConstraintRule" path="addons/gf/standard/foundation/validation/gf_validation_constraint_rule.gd" module="standard" extends="GFValidationRule" classDigest="78d72084bf58946eb6a982d48eeab6607bbe01c1e3c63dfae00192322a0571ad">
 	<description>GFValidationConstraintRule: 通用约束校验规则资源。
 为 `GFValidationRule` 补齐范围、集合、正则和尺寸这类跨模块常用约束。
 规则只检查传入值，不解释字段业务语义；调用方可把它挂到 `GFSchemaField`、
@@ -243,7 +243,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="_validate">
-			<signature>func _validate(_target: Variant, _report: GFValidationReport, _context: Dictionary) -&gt; Variant:</signature>
+			<signature>func _validate( _target: Variant, _report: GFValidationReport, _context: Dictionary ) -&gt; Variant:</signature>
 			<description>执行约束校验逻辑。</description>
 			<tags>
 				<tag name="api">protected</tag>

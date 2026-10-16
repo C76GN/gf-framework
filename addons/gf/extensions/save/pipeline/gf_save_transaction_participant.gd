@@ -158,8 +158,21 @@ func _rollback_transaction(_context: Dictionary = {}) -> Dictionary:
 ## @api private
 ## [br]
 func _normalize_result(result: Dictionary) -> Dictionary:
-	var errors: Array[String] = GFVariantData.to_string_array(GFVariantData.get_option_value(result, "errors", []))
+	var errors: Array[String] = GFVariantData.to_string_array(
+		GFVariantData.get_option_value(
+			result,
+			"errors",
+			[]
+		)
+	)
 	var error_message: String = GFVariantData.get_option_string(result, "error")
 	if not error_message.is_empty():
 		errors.append(error_message)
-	return make_result(GFVariantData.get_option_bool(result, "ok", errors.is_empty()), errors)
+	return make_result(
+		GFVariantData.get_option_bool(
+			result,
+			"ok",
+			errors.is_empty()
+		),
+		errors
+	)

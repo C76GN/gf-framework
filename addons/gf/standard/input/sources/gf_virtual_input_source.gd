@@ -245,9 +245,7 @@ func pulse_action(
 			owner_invalid = true
 	if owner_invalid:
 		owner_object = self
-	var token_for_configuration: GFCancellationToken = (
-		null if owner_invalid else cancellation_token
-	)
+	var token_for_configuration: GFCancellationToken = null if owner_invalid else cancellation_token
 	var configured: bool = operation.configure_for_framework(
 		input_mapping,
 		self,
@@ -263,52 +261,38 @@ func pulse_action(
 		var _removed_unconfigured: bool = _active_pulses.erase(generation)
 		return operation
 	if owner_invalid and operation.is_pending():
-		var _failed_owner: bool = operation.finish_without_lease_for_framework(
-			GFVirtualInputPulseOperation.Status.FAILED,
-			&"invalid_owner_lifecycle"
-		)
+		var _failed_owner: bool = operation.finish_without_lease_for_framework(GFVirtualInputPulseOperation.Status.FAILED, &"invalid_owner_lifecycle")
 	if not operation.is_pending():
 		return operation
 	if _disposed:
-		var _failed_disposed: bool = operation.finish_without_lease_for_framework(
-			GFVirtualInputPulseOperation.Status.FAILED,
-			&"source_disposed"
-		)
+		var _failed_disposed: bool = operation.finish_without_lease_for_framework(GFVirtualInputPulseOperation.Status.FAILED, &"source_disposed")
 		return operation
 	if input_mapping == null:
-		var _failed_mapping: bool = operation.finish_without_lease_for_framework(
-			GFVirtualInputPulseOperation.Status.FAILED,
-			&"mapping_unavailable"
-		)
+		var _failed_mapping: bool = operation.finish_without_lease_for_framework(GFVirtualInputPulseOperation.Status.FAILED, &"mapping_unavailable")
 		return operation
 	if action_id == &"":
-		var _failed_action: bool = operation.finish_without_lease_for_framework(
-			GFVirtualInputPulseOperation.Status.FAILED,
-			&"invalid_action_id"
-		)
+		var _failed_action: bool = operation.finish_without_lease_for_framework(GFVirtualInputPulseOperation.Status.FAILED, &"invalid_action_id")
 		return operation
-	if duration_seconds < 0.0 or is_nan(duration_seconds) or is_inf(duration_seconds):
-		var _failed_duration: bool = operation.finish_without_lease_for_framework(
-			GFVirtualInputPulseOperation.Status.FAILED,
-			&"invalid_duration"
-		)
+	if (
+		duration_seconds < 0.0
+		or is_nan(duration_seconds)
+		or is_inf(duration_seconds)
+	):
+		var _failed_duration: bool = operation.finish_without_lease_for_framework(GFVirtualInputPulseOperation.Status.FAILED, &"invalid_duration")
 		return operation
-	if replacement_policy not in [
-		PulseReplacementPolicy.REPLACE,
-		PulseReplacementPolicy.REJECT_NEW,
-		PulseReplacementPolicy.RETRIGGER,
-	]:
-		var _failed_policy: bool = operation.finish_without_lease_for_framework(
-			GFVirtualInputPulseOperation.Status.FAILED,
-			&"invalid_replacement_policy"
-		)
+	if (
+		replacement_policy
+		not in [
+			PulseReplacementPolicy.REPLACE,
+			PulseReplacementPolicy.REJECT_NEW,
+			PulseReplacementPolicy.RETRIGGER,
+		]
+	):
+		var _failed_policy: bool = operation.finish_without_lease_for_framework(GFVirtualInputPulseOperation.Status.FAILED, &"invalid_replacement_policy")
 		return operation
 	var timer_utility: GFTimerUtility = _get_timer_utility()
 	if timer_utility == null:
-		var _failed_timer: bool = operation.finish_without_lease_for_framework(
-			GFVirtualInputPulseOperation.Status.FAILED,
-			&"timer_unavailable"
-		)
+		var _failed_timer: bool = operation.finish_without_lease_for_framework(GFVirtualInputPulseOperation.Status.FAILED, &"timer_unavailable")
 		return operation
 
 	var lease_acquired: bool = input_mapping.begin_virtual_pulse_lease_for_framework(
@@ -345,7 +329,13 @@ func set_action_value(action_id: StringName, value: Variant) -> bool:
 	if input_mapping == null:
 		return false
 	var written: bool = GFVariantData.to_bool(
-		input_mapping.call("set_virtual_action_value", action_id, value, _source_id, _player_index)
+		input_mapping.call(
+			"set_virtual_action_value",
+			action_id,
+			value,
+			_source_id,
+			_player_index
+		)
 	)
 	if written:
 		_remember_owned_action(action_id, _player_index)
@@ -356,6 +346,8 @@ func set_action_value(action_id: StringName, value: Variant) -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param action_id: 动作标识。
 ## [br]
 ## @param value: 动作值。
@@ -365,12 +357,22 @@ func set_action_value(action_id: StringName, value: Variant) -> bool:
 ## @schema value: Variant，GFInputMappingUtility 接受的动作值，通常为 bool、float、Vector2 或 Vector3。
 ## [br]
 ## @return 写入成功返回 true。
-func set_action_value_for_player(action_id: StringName, value: Variant, next_player_index: int) -> bool:
+func set_action_value_for_player(
+	action_id: StringName,
+	value: Variant,
+	next_player_index: int
+) -> bool:
 	var input_mapping: GFInputMappingUtility = _get_input_mapping()
 	if input_mapping == null:
 		return false
 	var written: bool = GFVariantData.to_bool(
-		input_mapping.call("set_virtual_action_value", action_id, value, _source_id, next_player_index)
+		input_mapping.call(
+			"set_virtual_action_value",
+			action_id,
+			value,
+			_source_id,
+			next_player_index
+		)
 	)
 	if written:
 		_remember_owned_action(action_id, next_player_index)
@@ -387,7 +389,10 @@ func set_action_value_for_player(action_id: StringName, value: Variant, next_pla
 ## [br]
 ## @return 写入成功返回 true。
 func press(action_id: StringName, strength: float = 1.0) -> bool:
-	return set_action_value(action_id, maxf(strength, 0.0))
+	return set_action_value(
+		action_id,
+		maxf(strength, 0.0)
+	)
 
 
 ## 释放动作。
@@ -453,7 +458,12 @@ func clear_action(action_id: StringName) -> bool:
 		_forget_owned_action(action_id, _player_index)
 		return false
 	var changed: bool = GFVariantData.to_bool(
-		input_mapping.call("clear_virtual_action", action_id, _source_id, _player_index)
+		input_mapping.call(
+			"clear_virtual_action",
+			action_id,
+			_source_id,
+			_player_index
+		)
 	)
 	_forget_owned_action(action_id, _player_index)
 	return changed
@@ -474,7 +484,12 @@ func clear_action_for_player(action_id: StringName, next_player_index: int) -> b
 		_forget_owned_action(action_id, next_player_index)
 		return false
 	var changed: bool = GFVariantData.to_bool(
-		input_mapping.call("clear_virtual_action", action_id, _source_id, next_player_index)
+		input_mapping.call(
+			"clear_virtual_action",
+			action_id,
+			_source_id,
+			next_player_index
+		)
 	)
 	_forget_owned_action(action_id, next_player_index)
 	return changed
@@ -546,10 +561,7 @@ func get_snapshot() -> Dictionary:
 ## @param generation: 操作创建时的 Source generation。
 ## [br]
 ## @param operation: 已完成操作。
-func notify_pulse_operation_completed_for_framework(
-	generation: int,
-	operation: GFVirtualInputPulseOperation
-) -> void:
+func notify_pulse_operation_completed_for_framework(generation: int, operation: GFVirtualInputPulseOperation) -> void:
 	var current: GFVirtualInputPulseOperation = _get_pulse_operation(generation)
 	if current == operation:
 		var _removed: bool = _active_pulses.erase(generation)
@@ -658,10 +670,7 @@ func _set_player_index(value: int) -> void:
 ## @api private
 ## [br]
 func _remember_owned_action(action_id: StringName, target_player_index: int) -> void:
-	var actions: Dictionary = GFVariantData.get_option_dictionary(
-		_owned_actions_by_player,
-		target_player_index
-	)
+	var actions: Dictionary = GFVariantData.get_option_dictionary(_owned_actions_by_player, target_player_index)
 	actions[action_id] = true
 	_owned_actions_by_player[target_player_index] = actions
 
@@ -673,10 +682,7 @@ func _remember_owned_action(action_id: StringName, target_player_index: int) -> 
 func _forget_owned_action(action_id: StringName, target_player_index: int) -> void:
 	if not _owned_actions_by_player.has(target_player_index):
 		return
-	var actions: Dictionary = GFVariantData.get_option_dictionary(
-		_owned_actions_by_player,
-		target_player_index
-	)
+	var actions: Dictionary = GFVariantData.get_option_dictionary(_owned_actions_by_player, target_player_index)
 	var _removed_action: bool = actions.erase(action_id)
 	if actions.is_empty():
 		var _removed_player: bool = _owned_actions_by_player.erase(target_player_index)
@@ -693,10 +699,7 @@ func _clear_owned_contributions() -> void:
 	if input_mapping != null:
 		for player_value: Variant in _owned_actions_by_player.keys():
 			var target_player_index: int = GFVariantData.to_int(player_value, -1)
-			var actions: Dictionary = GFVariantData.get_option_dictionary(
-				_owned_actions_by_player,
-				player_value
-			)
+			var actions: Dictionary = GFVariantData.get_option_dictionary(_owned_actions_by_player, player_value)
 			for action_value: Variant in actions.keys():
 				var action_id: StringName = GFVariantData.to_string_name(action_value)
 				var _cleared: Variant = input_mapping.call(

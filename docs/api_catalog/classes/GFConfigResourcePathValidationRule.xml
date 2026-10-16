@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigResourcePathValidationRule" path="addons/gf/standard/utilities/config/validation/gf_config_resource_path_validation_rule.gd" module="standard" extends="GFConfigValidationRule" classDigest="ea4f26020426ebcf05d669db713094025ebca32f157938c5055b76434f3c703f">
+<class name="GFConfigResourcePathValidationRule" path="addons/gf/standard/utilities/config/validation/gf_config_resource_path_validation_rule.gd" module="standard" extends="GFConfigValidationRule" classDigest="5f56c86e3225d4cd4a21d511e47bf7a9b84327d7bc4c579a0d0fb1f87eb926ce">
 	<description>GFConfigResourcePathValidationRule: Godot 资源路径校验规则。
 用于检查配置字段中的 `res://` 或 `uid://` 路径是否存在，并可按扩展名限制资源类型。</description>
 	<tags>
@@ -75,7 +75,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="_validate_value">
-			<signature>func _validate_value(value: Variant, context: Dictionary, report: Dictionary) -&gt; void:</signature>
+			<signature>func _validate_value( value: Variant, context: Dictionary, report: Dictionary ) -&gt; void:</signature>
 			<description>校验单个字段值是否是存在且扩展名允许的资源路径。</description>
 			<tags>
 				<tag name="api">protected</tag>
@@ -85,6 +85,7 @@
 				<tag name="schema">value: Variant，期望为 String 或 StringName 资源路径。</tag>
 				<tag name="schema">context: Dictionary，可包含 table_name、row_key、field、source、line 和 column 字段。</tag>
 				<tag name="schema">report: GFConfigValidationReport 兼容 Dictionary，会被当前规则修改。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

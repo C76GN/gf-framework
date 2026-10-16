@@ -71,10 +71,7 @@ const _DEFAULT_SUMMARY_TITLE_FIELDS: PackedStringArray = [
 ## [br]
 ## @api private
 ## [br]
-const _DEFAULT_SUMMARY_DESCRIPTION_FIELDS: PackedStringArray = [
-	"description",
-	"summary",
-]
+const _DEFAULT_SUMMARY_DESCRIPTION_FIELDS: PackedStringArray = ["description", "summary",]
 
 ## 生成摘要预览路径时依次检查的默认字段名。
 ## [br]
@@ -91,17 +88,13 @@ const _DEFAULT_SUMMARY_PREVIEW_PATH_FIELDS: PackedStringArray = [
 ## [br]
 ## @api private
 ## [br]
-const _DEFAULT_SUMMARY_TAG_FIELDS: PackedStringArray = [
-	"tags",
-]
+const _DEFAULT_SUMMARY_TAG_FIELDS: PackedStringArray = ["tags",]
 
 ## 生成摘要分类时读取的默认字段名。
 ## [br]
 ## @api private
 ## [br]
-const _DEFAULT_SUMMARY_CATEGORY_FIELDS: PackedStringArray = [
-	"category",
-]
+const _DEFAULT_SUMMARY_CATEGORY_FIELDS: PackedStringArray = ["category",]
 
 
 # --- 导出变量 ---
@@ -151,7 +144,11 @@ func set_entry(entry: Resource) -> bool:
 
 	var stored_entry: GFResourceRegistryEntry = _duplicate_registry_entry(source_entry)
 	var stored_entry_id: StringName = _get_entry_id(stored_entry)
-	for index: int in range(entries.size() - 1, -1, -1):
+	for index: int in range(
+		entries.size() - 1,
+		-1,
+		-1
+	):
 		var existing: GFResourceRegistryEntry = entries[index]
 		if _is_valid_registry_entry(existing) and _get_entry_id(existing) == stored_entry_id:
 			entries.remove_at(index)
@@ -169,7 +166,11 @@ func set_entry(entry: Resource) -> bool:
 ## [br]
 ## @return 移除成功返回 true。
 func remove_entry(entry_id: StringName) -> bool:
-	for index: int in range(entries.size() - 1, -1, -1):
+	for index: int in range(
+		entries.size() - 1,
+		-1,
+		-1
+	):
 		var entry: GFResourceRegistryEntry = entries[index]
 		if _is_valid_registry_entry(entry) and _get_entry_id(entry) == entry_id:
 			entries.remove_at(index)
@@ -412,9 +413,7 @@ func make_search_candidates(entry_ids: PackedStringArray = PackedStringArray()) 
 		if not include_all and not entry_ids.has(entry_id_string):
 			continue
 		var entry_id: StringName = StringName(entry_id_string)
-		var entry: GFResourceRegistryEntry = _get_registry_entry_value(
-			GFVariantData.get_option_value(_entry_lookup, entry_id)
-		)
+		var entry: GFResourceRegistryEntry = _get_registry_entry_value(GFVariantData.get_option_value(_entry_lookup, entry_id))
 		if entry == null:
 			continue
 		result.append(_make_search_candidate(entry))
@@ -452,7 +451,11 @@ func search(query_text: String, options: Dictionary = {}) -> Array[Dictionary]:
 			{ "key": "type_hint", "weight": 1.0 },
 			{ "key": "path", "weight": 1.0 },
 		]
-	return GFTextSearchScorer.rank_candidates(query_text, candidates, scorer_options)
+	return GFTextSearchScorer.rank_candidates(
+		query_text,
+		candidates,
+		scorer_options
+	)
 
 
 ## 构建单个条目的工具层摘要。
@@ -482,7 +485,11 @@ func make_entry_summary(entry_id: StringName, options: Dictionary = {}) -> Dicti
 	var id_text: String = String(_get_entry_id(entry))
 	var title: String = _get_first_entry_field_text(
 		fields,
-		_get_summary_field_ids(options, "title_fields", _DEFAULT_SUMMARY_TITLE_FIELDS)
+		_get_summary_field_ids(
+			options,
+			"title_fields",
+			_DEFAULT_SUMMARY_TITLE_FIELDS
+		)
 	)
 	if title.is_empty():
 		title = id_text
@@ -500,22 +507,42 @@ func make_entry_summary(entry_id: StringName, options: Dictionary = {}) -> Dicti
 		"type_hint": _get_entry_type_hint(entry),
 		"description": _get_first_entry_field_text(
 			fields,
-			_get_summary_field_ids(options, "description_fields", _DEFAULT_SUMMARY_DESCRIPTION_FIELDS)
+			_get_summary_field_ids(
+				options,
+				"description_fields",
+				_DEFAULT_SUMMARY_DESCRIPTION_FIELDS
+			)
 		),
 		"preview_path": _get_first_entry_field_text(
 			fields,
-			_get_summary_field_ids(options, "preview_path_fields", _DEFAULT_SUMMARY_PREVIEW_PATH_FIELDS)
+			_get_summary_field_ids(
+				options,
+				"preview_path_fields",
+				_DEFAULT_SUMMARY_PREVIEW_PATH_FIELDS
+			)
 		),
 		"tags": _get_entry_summary_tags(
 			fields,
-			_get_summary_field_ids(options, "tag_fields", _DEFAULT_SUMMARY_TAG_FIELDS)
+			_get_summary_field_ids(
+				options,
+				"tag_fields",
+				_DEFAULT_SUMMARY_TAG_FIELDS
+			)
 		),
 		"category": _get_first_entry_field_text(
 			fields,
-			_get_summary_field_ids(options, "category_fields", _DEFAULT_SUMMARY_CATEGORY_FIELDS)
+			_get_summary_field_ids(
+				options,
+				"category_fields",
+				_DEFAULT_SUMMARY_CATEGORY_FIELDS
+			)
 		),
 	}
-	if GFVariantData.get_option_bool(options, "include_fields", true):
+	if GFVariantData.get_option_bool(
+		options,
+		"include_fields",
+		true
+	):
 		summary["fields"] = fields
 	return summary
 
@@ -548,7 +575,10 @@ func make_entry_summaries(entry_ids: PackedStringArray = PackedStringArray(), op
 		if lookup.has(entry_id_string):
 			continue
 		lookup[entry_id_string] = true
-		var summary: Dictionary = make_entry_summary(StringName(entry_id_string), options)
+		var summary: Dictionary = make_entry_summary(
+			StringName(entry_id_string),
+			options
+		)
 		if not summary.is_empty():
 			result.append(summary)
 	return result
@@ -596,7 +626,10 @@ func search_page(
 	var end_index: int = 0
 	if total_count > 0:
 		start_index = (normalized_page - 1) * normalized_page_size
-		end_index = mini(start_index + normalized_page_size, total_count)
+		end_index = mini(
+			start_index + normalized_page_size,
+			total_count
+		)
 
 	var page_results: Array[Dictionary] = []
 	var page_entry_ids: PackedStringArray = PackedStringArray()
@@ -608,10 +641,18 @@ func search_page(
 			var _append_entry_id: bool = page_entry_ids.append(report_entry_id)
 
 	var summaries: Array[Dictionary] = []
-	if GFVariantData.get_option_bool(options, "include_summaries", true):
+	if GFVariantData.get_option_bool(
+		options,
+		"include_summaries",
+		true
+	):
 		summaries = make_entry_summaries(
 			page_entry_ids,
-			GFVariantData.get_option_dictionary(options, "summary_options", {})
+			GFVariantData.get_option_dictionary(
+				options,
+				"summary_options",
+				{}
+			)
 		)
 
 	return {
@@ -654,7 +695,11 @@ func group_entry_ids(group_source: StringName = GROUP_SOURCE_ID, options: Dictio
 	)
 	var include_all: bool = selected_entry_ids.is_empty()
 	var field_id: StringName = GFVariantData.get_option_string_name(options, "field_id")
-	var include_empty: bool = GFVariantData.get_option_bool(options, "include_empty", false)
+	var include_empty: bool = GFVariantData.get_option_bool(
+		options,
+		"include_empty",
+		false
+	)
 	var empty_key: String = GFVariantData.get_option_string(options, "empty_key")
 	var groups: Dictionary = {}
 
@@ -662,13 +707,17 @@ func group_entry_ids(group_source: StringName = GROUP_SOURCE_ID, options: Dictio
 		if not include_all and not selected_entry_ids.has(entry_id_string):
 			continue
 		var entry_id: StringName = StringName(entry_id_string)
-		var entry: GFResourceRegistryEntry = _get_registry_entry_value(
-			GFVariantData.get_option_value(_entry_lookup, entry_id)
-		)
+		var entry: GFResourceRegistryEntry = _get_registry_entry_value(GFVariantData.get_option_value(_entry_lookup, entry_id))
 		if entry == null:
 			continue
 
-		for group_key: String in _get_entry_group_keys(entry, group_source, field_id, include_empty, empty_key):
+		for group_key: String in _get_entry_group_keys(
+			entry,
+			group_source,
+			field_id,
+			include_empty,
+			empty_key
+		):
 			var group_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(
 				groups,
 				group_key,
@@ -703,7 +752,11 @@ func load_entry(
 	var resolved_type_hint: String = _resolve_type_hint(entry_id, type_hint_override)
 	if not ResourceLoader.exists(path, resolved_type_hint):
 		return null
-	return ResourceLoader.load(path, resolved_type_hint, cache_mode)
+	return ResourceLoader.load(
+		path,
+		resolved_type_hint,
+		cache_mode
+	)
 
 
 ## 通过 GFAssetUtility 异步加载条目资源。
@@ -734,7 +787,11 @@ func request_entry_async(
 		on_loaded.call(null)
 		return
 
-	asset_utility.load_async(path, on_loaded, _resolve_type_hint(entry_id, type_hint_override))
+	asset_utility.load_async(
+		path,
+		on_loaded,
+		_resolve_type_hint(entry_id, type_hint_override)
+	)
 
 
 ## 通过 GFAssetUtility 异步加载条目资源并返回所有权句柄。
@@ -802,12 +859,14 @@ func make_asset_group_entries(entry_ids: PackedStringArray = PackedStringArray()
 			continue
 		var typed_id: StringName = StringName(entry_id)
 		var identity: GFResourceIdentity = get_entry_resource_identity(typed_id)
-		result.append({
-			"path": get_entry_path(typed_id),
-			"type_hint": get_entry_type_hint(typed_id),
-			"cache_key": identity.cache_key if identity != null else "",
-			"resource_identity": identity.to_dictionary() if identity != null else {},
-		})
+		result.append(
+			{
+				"path": get_entry_path(typed_id),
+				"type_hint": get_entry_type_hint(typed_id),
+				"cache_key": identity.cache_key if identity != null else "",
+				"resource_identity": identity.to_dictionary() if identity != null else {},
+			}
+		)
 	return result
 
 
@@ -839,9 +898,7 @@ func to_dict() -> Dictionary:
 	for entry: GFResourceRegistryEntry in entries:
 		if _is_valid_registry_entry(entry):
 			entry_data.append(entry.to_dict())
-	return {
-		"entries": entry_data,
-	}
+	return { "entries": entry_data, }
 
 
 ## 应用字典数据。
@@ -856,9 +913,7 @@ func apply_dict(data: Dictionary) -> void:
 	var raw_entries: Array = GFVariantData.get_option_array(data, "entries")
 	for raw_entry: Variant in raw_entries:
 		if raw_entry is Dictionary:
-			var entry: GFResourceRegistryEntry = _get_registry_entry_value(
-				GFResourceRegistryEntry.from_dict(GFVariantData.as_dictionary(raw_entry))
-			)
+			var entry: GFResourceRegistryEntry = _get_registry_entry_value(GFResourceRegistryEntry.from_dict(GFVariantData.as_dictionary(raw_entry)))
 			if _is_valid_registry_entry(entry):
 				entries.append(entry)
 	mark_index_dirty()
@@ -1015,21 +1070,54 @@ func _get_entry_group_keys(
 	var lookup: Dictionary = {}
 	match group_source:
 		GROUP_SOURCE_ID:
-			_append_entry_group_key(result, lookup, _get_entry_id(entry), include_empty, empty_key)
+			_append_entry_group_key(
+				result,
+				lookup,
+				_get_entry_id(entry),
+				include_empty,
+				empty_key
+			)
 		GROUP_SOURCE_PATH:
-			_append_entry_group_key(result, lookup, _get_entry_path(entry), include_empty, empty_key)
+			_append_entry_group_key(
+				result,
+				lookup,
+				_get_entry_path(entry),
+				include_empty,
+				empty_key
+			)
 		GROUP_SOURCE_CACHE_KEY:
-			_append_entry_group_key(result, lookup, _get_entry_cache_key(entry), include_empty, empty_key)
+			_append_entry_group_key(
+				result,
+				lookup,
+				_get_entry_cache_key(entry),
+				include_empty,
+				empty_key
+			)
 		GROUP_SOURCE_PATH_BASENAME:
-			_append_entry_group_key(result, lookup, _get_entry_path(entry).get_file().get_basename(), include_empty, empty_key)
+			_append_entry_group_key(
+				result,
+				lookup,
+				_get_entry_path(entry).get_file().get_basename(),
+				include_empty,
+				empty_key
+			)
 		GROUP_SOURCE_TYPE_HINT:
-			_append_entry_group_key(result, lookup, _get_entry_type_hint(entry), include_empty, empty_key)
+			_append_entry_group_key(
+				result,
+				lookup,
+				_get_entry_type_hint(entry),
+				include_empty,
+				empty_key
+			)
 		GROUP_SOURCE_FIELD:
 			if field_id != &"":
 				_append_entry_group_key(
 					result,
 					lookup,
-					GFVariantData.get_option_value(_get_entry_fields(entry), field_id),
+					GFVariantData.get_option_value(
+						_get_entry_fields(entry),
+						field_id
+					),
 					include_empty,
 					empty_key
 				)
@@ -1049,17 +1137,41 @@ func _append_entry_group_key(
 	empty_key: String
 ) -> void:
 	if value == null:
-		_append_scalar_entry_group_key(result, lookup, "", include_empty, empty_key)
+		_append_scalar_entry_group_key(
+			result,
+			lookup,
+			"",
+			include_empty,
+			empty_key
+		)
 	elif value is Array:
 		var values: Array = value
 		for item: Variant in values:
-			_append_entry_group_key(result, lookup, item, include_empty, empty_key)
+			_append_entry_group_key(
+				result,
+				lookup,
+				item,
+				include_empty,
+				empty_key
+			)
 	elif value is PackedStringArray:
 		var packed_values: PackedStringArray = value
 		for item: String in packed_values:
-			_append_scalar_entry_group_key(result, lookup, item, include_empty, empty_key)
+			_append_scalar_entry_group_key(
+				result,
+				lookup,
+				item,
+				include_empty,
+				empty_key
+			)
 	else:
-		_append_scalar_entry_group_key(result, lookup, GFVariantData.to_text(value), include_empty, empty_key)
+		_append_scalar_entry_group_key(
+			result,
+			lookup,
+			GFVariantData.to_text(value),
+			include_empty,
+			empty_key
+		)
 
 
 ## 处理单个分组键的空值策略、去空白和去重。
@@ -1096,7 +1208,11 @@ func _sort_entry_id_groups(groups: Dictionary) -> Dictionary:
 
 	var result: Dictionary = {}
 	for key: String in keys:
-		var ids: PackedStringArray = GFVariantData.get_option_packed_string_array(groups, key, PackedStringArray())
+		var ids: PackedStringArray = GFVariantData.get_option_packed_string_array(
+			groups,
+			key,
+			PackedStringArray()
+		)
 		ids.sort()
 		result[key] = ids
 	return result
@@ -1106,8 +1222,16 @@ func _sort_entry_id_groups(groups: Dictionary) -> Dictionary:
 ## [br]
 ## @api private
 ## [br]
-func _get_summary_field_ids(options: Dictionary, key: String, default_value: PackedStringArray) -> PackedStringArray:
-	return GFVariantData.get_option_packed_string_array(options, key, default_value)
+func _get_summary_field_ids(
+	options: Dictionary,
+	key: String,
+	default_value: PackedStringArray
+) -> PackedStringArray:
+	return GFVariantData.get_option_packed_string_array(
+		options,
+		key,
+		default_value
+	)
 
 
 ## 按字段顺序返回第一个非空文本值。
@@ -1116,7 +1240,12 @@ func _get_summary_field_ids(options: Dictionary, key: String, default_value: Pac
 ## [br]
 func _get_first_entry_field_text(fields: Dictionary, field_ids: PackedStringArray) -> String:
 	for field_id: String in field_ids:
-		var text: String = GFVariantData.to_text(_get_entry_field_value(fields, StringName(field_id))).strip_edges()
+		var text: String = GFVariantData.to_text(
+			_get_entry_field_value(
+				fields,
+				StringName(field_id)
+			)
+		).strip_edges()
 		if not text.is_empty():
 			return text
 	return ""
@@ -1130,7 +1259,14 @@ func _get_entry_summary_tags(fields: Dictionary, field_ids: PackedStringArray) -
 	var result: PackedStringArray = PackedStringArray()
 	var lookup: Dictionary = {}
 	for field_id: String in field_ids:
-		_append_entry_summary_tags(result, lookup, _get_entry_field_value(fields, StringName(field_id)))
+		_append_entry_summary_tags(
+			result,
+			lookup,
+			_get_entry_field_value(
+				fields,
+				StringName(field_id)
+			)
+		)
 	result.sort()
 	return result
 
@@ -1139,26 +1275,46 @@ func _get_entry_summary_tags(fields: Dictionary, field_ids: PackedStringArray) -
 ## [br]
 ## @api private
 ## [br]
-func _append_entry_summary_tags(result: PackedStringArray, lookup: Dictionary, value: Variant) -> void:
+func _append_entry_summary_tags(
+	result: PackedStringArray,
+	lookup: Dictionary,
+	value: Variant
+) -> void:
 	if value == null:
 		return
 	if value is PackedStringArray:
 		var packed_values: PackedStringArray = value
 		for item_text: String in packed_values:
-			_append_entry_summary_tag(result, lookup, item_text)
+			_append_entry_summary_tag(
+				result,
+				lookup,
+				item_text
+			)
 	elif value is Array:
 		var values: Array = value
 		for item: Variant in values:
-			_append_entry_summary_tags(result, lookup, item)
+			_append_entry_summary_tags(
+				result,
+				lookup,
+				item
+			)
 	else:
-		_append_entry_summary_tag(result, lookup, GFVariantData.to_text(value))
+		_append_entry_summary_tag(
+			result,
+			lookup,
+			GFVariantData.to_text(value)
+		)
 
 
 ## 去除标签首尾空白并跳过空值和已收录值。
 ## [br]
 ## @api private
 ## [br]
-func _append_entry_summary_tag(result: PackedStringArray, lookup: Dictionary, value: String) -> void:
+func _append_entry_summary_tag(
+	result: PackedStringArray,
+	lookup: Dictionary,
+	value: String
+) -> void:
 	var tag: String = value.strip_edges()
 	if tag.is_empty() or lookup.has(tag):
 		return
@@ -1186,14 +1342,21 @@ func _get_entry_field_value(fields: Dictionary, field_id: StringName) -> Variant
 func _get_search_page_reports(query_text: String, options: Dictionary) -> Array[Dictionary]:
 	if (
 		query_text.strip_edges().is_empty()
-		and GFVariantData.get_option_bool(options, "empty_query_returns_all", true)
+		and GFVariantData.get_option_bool(
+			options,
+			"empty_query_returns_all",
+			true
+		)
 	):
 		var entry_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(
 			options,
 			"entry_ids",
 			PackedStringArray()
 		)
-		return _make_listing_search_reports(make_search_candidates(entry_ids), options)
+		return _make_listing_search_reports(
+			make_search_candidates(entry_ids),
+			options
+		)
 	return search(query_text, options)
 
 
@@ -1203,22 +1366,32 @@ func _get_search_page_reports(query_text: String, options: Dictionary) -> Array[
 ## [br]
 func _make_listing_search_reports(candidates: Array[Dictionary], options: Dictionary) -> Array[Dictionary]:
 	var reports: Array[Dictionary] = []
-	var duplicate_candidate: bool = GFVariantData.get_option_bool(options, "duplicate_candidate", true)
-	var limit: int = GFVariantData.get_option_int(options, "limit", 0)
+	var duplicate_candidate: bool = GFVariantData.get_option_bool(
+		options,
+		"duplicate_candidate",
+		true
+	)
+	var limit: int = GFVariantData.get_option_int(
+		options,
+		"limit",
+		0
+	)
 	var count: int = candidates.size()
 	if limit > 0:
 		count = mini(count, limit)
 
 	for index: int in range(count):
 		var candidate: Dictionary = candidates[index]
-		reports.append({
-			"matched": false,
-			"score": 0.0,
-			"matched_tokens": PackedStringArray(),
-			"field_scores": {},
-			"candidate": candidate.duplicate(true) if duplicate_candidate else candidate,
-			"index": index,
-		})
+		reports.append(
+			{
+				"matched": false,
+				"score": 0.0,
+				"matched_tokens": PackedStringArray(),
+				"field_scores": {},
+				"candidate": candidate.duplicate(true) if duplicate_candidate else candidate,
+				"index": index,
+			}
+		)
 	return reports
 
 
@@ -1227,7 +1400,11 @@ func _make_listing_search_reports(candidates: Array[Dictionary], options: Dictio
 ## @api private
 ## [br]
 func _get_search_report_entry_id(report: Dictionary) -> String:
-	var candidate: Dictionary = GFVariantData.get_option_dictionary(report, "candidate", {})
+	var candidate: Dictionary = GFVariantData.get_option_dictionary(
+		report,
+		"candidate",
+		{}
+	)
 	var entry_id: String = GFVariantData.get_option_string(candidate, "entry_id")
 	if entry_id.is_empty():
 		entry_id = GFVariantData.get_option_string(candidate, "id")
@@ -1262,13 +1439,37 @@ func _make_search_candidate(entry: GFResourceRegistryEntry) -> Dictionary:
 func _make_entry_search_keywords(entry: GFResourceRegistryEntry, fields: Dictionary) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	var lookup: Dictionary = {}
-	_append_search_keyword(result, lookup, String(_get_entry_id(entry)))
+	_append_search_keyword(
+		result,
+		lookup,
+		String(_get_entry_id(entry))
+	)
 	var path: String = _get_entry_path(entry)
-	_append_search_keyword(result, lookup, path)
-	_append_search_keyword(result, lookup, path.get_file())
-	_append_search_keyword(result, lookup, path.get_file().get_basename())
-	_append_search_keyword(result, lookup, _get_entry_type_hint(entry))
-	_append_search_value_keywords(result, lookup, fields)
+	_append_search_keyword(
+		result,
+		lookup,
+		path
+	)
+	_append_search_keyword(
+		result,
+		lookup,
+		path.get_file()
+	)
+	_append_search_keyword(
+		result,
+		lookup,
+		path.get_file().get_basename()
+	)
+	_append_search_keyword(
+		result,
+		lookup,
+		_get_entry_type_hint(entry)
+	)
+	_append_search_value_keywords(
+		result,
+		lookup,
+		fields
+	)
 	return result
 
 
@@ -1286,16 +1487,32 @@ func _append_search_value_keywords(
 	if value is Dictionary:
 		var dictionary: Dictionary = value
 		for key: Variant in dictionary.keys():
-			_append_search_keyword(keywords, lookup, GFVariantData.to_text(key))
-			_append_search_value_keywords(keywords, lookup, dictionary[key])
+			_append_search_keyword(
+				keywords,
+				lookup,
+				GFVariantData.to_text(key)
+			)
+			_append_search_value_keywords(
+				keywords,
+				lookup,
+				dictionary[key]
+			)
 	elif value is Array:
 		var values: Array = value
 		for item: Variant in values:
-			_append_search_value_keywords(keywords, lookup, item)
+			_append_search_value_keywords(
+				keywords,
+				lookup,
+				item
+			)
 	elif value is PackedStringArray:
 		var packed_strings: PackedStringArray = value
 		for item_text: String in packed_strings:
-			_append_search_keyword(keywords, lookup, item_text)
+			_append_search_keyword(
+				keywords,
+				lookup,
+				item_text
+			)
 	elif (
 		value is String
 		or value is StringName
@@ -1304,7 +1521,11 @@ func _append_search_value_keywords(
 		or value is int
 		or value is float
 	):
-		_append_search_keyword(keywords, lookup, GFVariantData.to_text(value))
+		_append_search_keyword(
+			keywords,
+			lookup,
+			GFVariantData.to_text(value)
+		)
 
 
 ## 去除关键词首尾空白，并跳过空值或已收录关键词。

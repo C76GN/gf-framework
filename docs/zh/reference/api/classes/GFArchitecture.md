@@ -52,28 +52,28 @@
 | 方法 | [`finish_project_installers`](#member-gfarchitecture-methods-finish_project_installers) | `func finish_project_installers() -> void:` |
 | 方法 | [`create_binder`](#member-gfarchitecture-methods-create_binder) | `func create_binder() -> GFBinder:` |
 | 方法 | [`init`](#member-gfarchitecture-methods-init) | `func init(cancellation_token: GFCancellationToken = null) -> bool:` |
-| 方法 | [`shutdown_async`](#member-gfarchitecture-methods-shutdown_async) | `func shutdown_async( cancellation_token: GFCancellationToken = null, timeout_seconds: float = -1.0 ) -> GFArchitectureShutdownResult:` |
+| 方法 | [`shutdown_async`](#member-gfarchitecture-methods-shutdown_async) | `func shutdown_async(cancellation_token: GFCancellationToken = null, timeout_seconds: float = -1.0) -> GFArchitectureShutdownResult:` |
 | 方法 | [`dispose`](#member-gfarchitecture-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`tick`](#member-gfarchitecture-methods-tick) | `func tick(delta: float) -> void:` |
 | 方法 | [`physics_tick`](#member-gfarchitecture-methods-physics_tick) | `func physics_tick(delta: float) -> void:` |
 | 方法 | [`send_command`](#member-gfarchitecture-methods-send_command) | `func send_command(command: Object) -> Variant:` |
 | 方法 | [`send_query`](#member-gfarchitecture-methods-send_query) | `func send_query(query: Object) -> Variant:` |
 | 方法 | [`send_event`](#member-gfarchitecture-methods-send_event) | `func send_event(event_instance: Object) -> void:` |
-| 方法 | [`register_event`](#member-gfarchitecture-methods-register_event) | `func register_event(event_type: Script, listener: GFEventListener, priority: int = 0) -> void:` |
-| 方法 | [`register_event_owned`](#member-gfarchitecture-methods-register_event_owned) | `func register_event_owned(owner: Object, event_type: Script, listener: GFEventListener, priority: int = 0) -> void:` |
+| 方法 | [`register_event`](#member-gfarchitecture-methods-register_event) | `func register_event( event_type: Script, listener: GFEventListener, priority: int = 0 ) -> void:` |
+| 方法 | [`register_event_owned`](#member-gfarchitecture-methods-register_event_owned) | `func register_event_owned( owner: Object, event_type: Script, listener: GFEventListener, priority: int = 0 ) -> void:` |
 | 方法 | [`subscribe_event`](#member-gfarchitecture-methods-subscribe_event) | `func subscribe_event( event_type: Script, listener: GFEventListener, priority: int = 0, once: bool = false ) -> GFSubscriptionToken:` |
-| 方法 | [`register_assignable_event`](#member-gfarchitecture-methods-register_assignable_event) | `func register_assignable_event(base_event_type: Script, listener: GFEventListener, priority: int = 0) -> void:` |
+| 方法 | [`register_assignable_event`](#member-gfarchitecture-methods-register_assignable_event) | `func register_assignable_event( base_event_type: Script, listener: GFEventListener, priority: int = 0 ) -> void:` |
 | 方法 | [`register_assignable_event_owned`](#member-gfarchitecture-methods-register_assignable_event_owned) | `func register_assignable_event_owned( owner: Object, base_event_type: Script, listener: GFEventListener, priority: int = 0 ) -> void:` |
 | 方法 | [`subscribe_assignable_event`](#member-gfarchitecture-methods-subscribe_assignable_event) | `func subscribe_assignable_event( base_event_type: Script, listener: GFEventListener, priority: int = 0, once: bool = false ) -> GFSubscriptionToken:` |
 | 方法 | [`unregister_event`](#member-gfarchitecture-methods-unregister_event) | `func unregister_event(event_type: Script, listener: GFEventListener) -> void:` |
-| 方法 | [`unregister_event_owned`](#member-gfarchitecture-methods-unregister_event_owned) | `func unregister_event_owned(owner: Object, event_type: Script, listener: GFEventListener) -> void:` |
+| 方法 | [`unregister_event_owned`](#member-gfarchitecture-methods-unregister_event_owned) | `func unregister_event_owned( owner: Object, event_type: Script, listener: GFEventListener ) -> void:` |
 | 方法 | [`unregister_assignable_event`](#member-gfarchitecture-methods-unregister_assignable_event) | `func unregister_assignable_event(base_event_type: Script, listener: GFEventListener) -> void:` |
-| 方法 | [`unregister_assignable_event_owned`](#member-gfarchitecture-methods-unregister_assignable_event_owned) | `func unregister_assignable_event_owned(owner: Object, base_event_type: Script, listener: GFEventListener) -> void:` |
+| 方法 | [`unregister_assignable_event_owned`](#member-gfarchitecture-methods-unregister_assignable_event_owned) | `func unregister_assignable_event_owned( owner: Object, base_event_type: Script, listener: GFEventListener ) -> void:` |
 | 方法 | [`register_simple_event`](#member-gfarchitecture-methods-register_simple_event) | `func register_simple_event(event_id: StringName, listener: GFEventListener) -> void:` |
-| 方法 | [`register_simple_event_owned`](#member-gfarchitecture-methods-register_simple_event_owned) | `func register_simple_event_owned(owner: Object, event_id: StringName, listener: GFEventListener) -> void:` |
+| 方法 | [`register_simple_event_owned`](#member-gfarchitecture-methods-register_simple_event_owned) | `func register_simple_event_owned( owner: Object, event_id: StringName, listener: GFEventListener ) -> void:` |
 | 方法 | [`subscribe_simple_event`](#member-gfarchitecture-methods-subscribe_simple_event) | `func subscribe_simple_event( event_id: StringName, listener: GFEventListener, once: bool = false ) -> GFSubscriptionToken:` |
 | 方法 | [`unregister_simple_event`](#member-gfarchitecture-methods-unregister_simple_event) | `func unregister_simple_event(event_id: StringName, listener: GFEventListener) -> void:` |
-| 方法 | [`unregister_simple_event_owned`](#member-gfarchitecture-methods-unregister_simple_event_owned) | `func unregister_simple_event_owned(owner: Object, event_id: StringName, listener: GFEventListener) -> void:` |
+| 方法 | [`unregister_simple_event_owned`](#member-gfarchitecture-methods-unregister_simple_event_owned) | `func unregister_simple_event_owned( owner: Object, event_id: StringName, listener: GFEventListener ) -> void:` |
 | 方法 | [`unregister_owner_events`](#member-gfarchitecture-methods-unregister_owner_events) | `func unregister_owner_events(owner: Object) -> void:` |
 | 方法 | [`send_simple_event`](#member-gfarchitecture-methods-send_simple_event) | `func send_simple_event(event_id: StringName, payload: Variant = null) -> void:` |
 | 方法 | [`get_event_debug_stats`](#member-gfarchitecture-methods-get_event_debug_stats) | `func get_event_debug_stats() -> Dictionary:` |
@@ -129,10 +129,10 @@
 | 方法 | [`get_all_models_state`](#member-gfarchitecture-methods-get_all_models_state) | `func get_all_models_state() -> Dictionary:` |
 | 方法 | [`get_all_models_state_async`](#member-gfarchitecture-methods-get_all_models_state_async) | `func get_all_models_state_async(options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`restore_all_models_state`](#member-gfarchitecture-methods-restore_all_models_state) | `func restore_all_models_state(data: Dictionary) -> Dictionary:` |
-| 方法 | [`restore_all_models_state_async`](#member-gfarchitecture-methods-restore_all_models_state_async) | `func restore_all_models_state_async( data: Dictionary, options: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`restore_all_models_state_async`](#member-gfarchitecture-methods-restore_all_models_state_async) | `func restore_all_models_state_async(data: Dictionary, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`get_global_snapshot`](#member-gfarchitecture-methods-get_global_snapshot) | `func get_global_snapshot() -> Dictionary:` |
 | 方法 | [`get_global_snapshot_async`](#member-gfarchitecture-methods-get_global_snapshot_async) | `func get_global_snapshot_async(options: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`restore_global_snapshot`](#member-gfarchitecture-methods-restore_global_snapshot) | `func restore_global_snapshot( data: Dictionary, command_builder: Callable = Callable() ) -> Dictionary:` |
+| 方法 | [`restore_global_snapshot`](#member-gfarchitecture-methods-restore_global_snapshot) | `func restore_global_snapshot(data: Dictionary, command_builder: Callable = Callable()) -> Dictionary:` |
 | 方法 | [`restore_global_snapshot_async`](#member-gfarchitecture-methods-restore_global_snapshot_async) | `func restore_global_snapshot_async( data: Dictionary, command_builder: Callable = Callable(), options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`get_debug_lifecycle_state`](#member-gfarchitecture-methods-get_debug_lifecycle_state) | `func get_debug_lifecycle_state() -> Dictionary:` |
 | 方法 | [`get_binding_diagnostics`](#member-gfarchitecture-methods-get_binding_diagnostics) | `func get_binding_diagnostics(options: Dictionary = {}) -> Dictionary:` |
@@ -736,7 +736,7 @@ func init(cancellation_token: GFCancellationToken = null) -> bool:
 - 首次版本：`11.0.0`
 
 ```gdscript
-func shutdown_async( cancellation_token: GFCancellationToken = null, timeout_seconds: float = -1.0 ) -> GFArchitectureShutdownResult:
+func shutdown_async(cancellation_token: GFCancellationToken = null, timeout_seconds: float = -1.0) -> GFArchitectureShutdownResult:
 ```
 
 异步关闭架构。 若活动子架构仍持有本架构的外部依赖租约，本方法会在改变任何生命周期 状态前返回失败；否则新工作准入会不可逆关闭，已接纳工作按激活计划逆序 quiesce，随后每个模块的同步 dispose/release hook 恰好执行一次。并发调用共享 同一流程；首个调用拥有共享流程的 cancellation token 与 deadline 策略，后续 调用在参数校验通过后只等待并复制同一终态结果。
@@ -873,7 +873,7 @@ func send_event(event_instance: Object) -> void:
 - 首次版本：`8.0.0`
 
 ```gdscript
-func register_event(event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
+func register_event( event_type: Script, listener: GFEventListener, priority: int = 0 ) -> void:
 ```
 
 为脚本类型注册事件监听器。
@@ -894,7 +894,7 @@ func register_event(event_type: Script, listener: GFEventListener, priority: int
 - 首次版本：`8.0.0`
 
 ```gdscript
-func register_event_owned(owner: Object, event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
+func register_event_owned( owner: Object, event_type: Script, listener: GFEventListener, priority: int = 0 ) -> void:
 ```
 
 为脚本类型注册带拥有者的事件监听器。 拥有者注销或释放后，可通过 unregister_owner_events() 一次性清理相关监听。
@@ -940,7 +940,7 @@ func subscribe_event( event_type: Script, listener: GFEventListener, priority: i
 - 首次版本：`8.0.0`
 
 ```gdscript
-func register_assignable_event(base_event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
+func register_assignable_event( base_event_type: Script, listener: GFEventListener, priority: int = 0 ) -> void:
 ```
 
 为脚本类型注册可赋值事件监听器。 监听基类事件时，也会收到继承自该脚本类型的事件实例。
@@ -1027,7 +1027,7 @@ func unregister_event(event_type: Script, listener: GFEventListener) -> void:
 - 首次版本：`5.0.0`
 
 ```gdscript
-func unregister_event_owned(owner: Object, event_type: Script, listener: GFEventListener) -> void:
+func unregister_event_owned( owner: Object, event_type: Script, listener: GFEventListener ) -> void:
 ```
 
 注销带拥有者的脚本类型事件监听器。 只移除 owner 与监听器回调都匹配的监听，不影响其它 owner 使用同一 Callable 注册的监听。
@@ -1068,7 +1068,7 @@ func unregister_assignable_event(base_event_type: Script, listener: GFEventListe
 - 首次版本：`5.0.0`
 
 ```gdscript
-func unregister_assignable_event_owned(owner: Object, base_event_type: Script, listener: GFEventListener) -> void:
+func unregister_assignable_event_owned( owner: Object, base_event_type: Script, listener: GFEventListener ) -> void:
 ```
 
 注销带拥有者的可赋值类型事件监听器。
@@ -1109,7 +1109,7 @@ func register_simple_event(event_id: StringName, listener: GFEventListener) -> v
 - 首次版本：`8.0.0`
 
 ```gdscript
-func register_simple_event_owned(owner: Object, event_id: StringName, listener: GFEventListener) -> void:
+func register_simple_event_owned( owner: Object, event_id: StringName, listener: GFEventListener ) -> void:
 ```
 
 注册带拥有者的轻量级 StringName 事件监听器。
@@ -1173,7 +1173,7 @@ func unregister_simple_event(event_id: StringName, listener: GFEventListener) ->
 - 首次版本：`5.0.0`
 
 ```gdscript
-func unregister_simple_event_owned(owner: Object, event_id: StringName, listener: GFEventListener) -> void:
+func unregister_simple_event_owned( owner: Object, event_id: StringName, listener: GFEventListener ) -> void:
 ```
 
 注销带拥有者的轻量级 StringName 事件监听器。
@@ -2346,7 +2346,7 @@ func restore_all_models_state(data: Dictionary) -> Dictionary:
 - 首次版本：`5.0.0`
 
 ```gdscript
-func restore_all_models_state_async( data: Dictionary, options: Dictionary = {} ) -> Dictionary:
+func restore_all_models_state_async(data: Dictionary, options: Dictionary = {}) -> Dictionary:
 ```
 
 分帧恢复所有已注册 Model 的数据。 与同步版本使用相同的 validate/apply/commit 事务；Model 会按 `max_models_per_frame` 分帧应用和核对，失败时回滚本事务已应用的全部 Model。 快照键集合必须与当前直接注册的 Model 精确匹配。 失败时 `phase` 标记 validate/apply/commit；`rolled_back` 表示失败前的已应用状态 是否全部通过基线核对，validate 零写入失败固定为 false。
@@ -2419,7 +2419,7 @@ func get_global_snapshot_async(options: Dictionary = {}) -> Dictionary:
 - 首次版本：`3.0.0`
 
 ```gdscript
-func restore_global_snapshot( data: Dictionary, command_builder: Callable = Callable() ) -> Dictionary:
+func restore_global_snapshot(data: Dictionary, command_builder: Callable = Callable()) -> Dictionary:
 ```
 
 从全局快照中恢复整个框架的状态，包含 Model 状态以及可选命令历史记录。 `data` 必须是成功捕获 Result 的 `snapshot` 字段。仅接受当前 `format_version`、Dictionary `models` 与可选 Dictionary `command_history`； `models` 键集合必须与当前直接注册的 Model 精确匹配；不兼容旧式无版本快照、 缺项/未知 Model 键或 Array 命令历史。 恢复会先验证全部输入并保存 Model/历史基线，再应用 Model，最后提交并核对历史。 validate 不写入；apply 或 commit 失败时会回滚全部已应用 Model 与命令历史。 恢复命令历史必须传入可实例化具体业务命令的 `command_builder`。 `rolled_back` 表示失败前的已应用状态是否全部通过基线核对； validate 零写入失败固定为 false。

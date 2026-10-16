@@ -21,7 +21,7 @@
 | 方法 | [`to_bbcode`](#member-gfrichtextformatter-methods-to_bbcode) | `static func to_bbcode(text: String, options: Dictionary = {}) -> String:` |
 | 方法 | [`markdown_to_bbcode`](#member-gfrichtextformatter-methods-markdown_to_bbcode) | `static func markdown_to_bbcode(text: String) -> String:` |
 | 方法 | [`replace_variables`](#member-gfrichtextformatter-methods-replace_variables) | `static func replace_variables( text: String, variables: Dictionary = {}, resolver: Callable = Callable(), options: Dictionary = {} ) -> String:` |
-| 方法 | [`replace_tokens`](#member-gfrichtextformatter-methods-replace_tokens) | `static func replace_tokens(text: String, resolver: Callable, options: Dictionary = {}) -> String:` |
+| 方法 | [`replace_tokens`](#member-gfrichtextformatter-methods-replace_tokens) | `static func replace_tokens( text: String, resolver: Callable, options: Dictionary = {} ) -> String:` |
 | 方法 | [`escape_bbcode`](#member-gfrichtextformatter-methods-escape_bbcode) | `static func escape_bbcode(text: String) -> String:` |
 | 方法 | [`strip_bbcode`](#member-gfrichtextformatter-methods-strip_bbcode) | `static func strip_bbcode(text: String) -> String:` |
 
@@ -143,9 +143,10 @@ static func replace_variables( text: String, variables: Dictionary = {}, resolve
 ### `replace_tokens`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-static func replace_tokens(text: String, resolver: Callable, options: Dictionary = {}) -> String:
+static func replace_tokens( text: String, resolver: Callable, options: Dictionary = {} ) -> String:
 ```
 
 替换可配置 token，例如 `:icon_id:`。

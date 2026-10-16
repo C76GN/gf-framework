@@ -152,9 +152,17 @@ func normalize_value(value: Variant) -> Variant:
 		ValueType.BOOL:
 			return _GF_VARIANT_ACCESS_SCRIPT.to_bool(value)
 		ValueType.INT:
-			return clampi(_GF_VARIANT_ACCESS_SCRIPT.to_int(value), roundi(min_value), roundi(max_value))
+			return clampi(
+				_GF_VARIANT_ACCESS_SCRIPT.to_int(value),
+				roundi(min_value),
+				roundi(max_value)
+			)
 		ValueType.FLOAT:
-			return clampf(_GF_VARIANT_ACCESS_SCRIPT.to_float(value), min_value, max_value)
+			return clampf(
+				_GF_VARIANT_ACCESS_SCRIPT.to_float(value),
+				min_value,
+				max_value
+			)
 		ValueType.STRING:
 			return _GF_VARIANT_ACCESS_SCRIPT.to_text(value)
 		ValueType.STRING_NAME:

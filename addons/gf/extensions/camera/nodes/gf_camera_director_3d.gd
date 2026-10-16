@@ -202,7 +202,11 @@ func get_camera() -> Camera3D:
 func get_active_rig() -> GFCameraRig3D:
 	if _selection_mode == _SELECTION_MANUAL_EMPTY:
 		return null
-	if _active_rig != null and is_instance_valid(_active_rig) and _active_rig.is_available():
+	if (
+		_active_rig != null
+		and is_instance_valid(_active_rig)
+		and _active_rig.is_available()
+	):
 		return _active_rig
 	return refresh_active_rig(false)
 
@@ -219,13 +223,25 @@ func collect_candidate_rigs() -> Array[GFCameraRig3D]:
 	var seen: Dictionary = {}
 	for rig_path: NodePath in rig_paths:
 		var rig: GFCameraRig3D = _get_rig_value(get_node_or_null(rig_path))
-		_append_unique_rig(result, seen, rig)
+		_append_unique_rig(
+			result,
+			seen,
+			rig
+		)
 
-	if collect_group_rigs and is_inside_tree() and rig_group_name != &"":
+	if (
+		collect_group_rigs
+		and is_inside_tree()
+		and rig_group_name != &""
+	):
 		for node: Node in get_tree().get_nodes_in_group(rig_group_name):
 			var group_rig: GFCameraRig3D = _get_rig_value(node)
 			if _is_group_rig_in_scope(group_rig):
-				_append_unique_rig(result, seen, group_rig)
+				_append_unique_rig(
+					result,
+					seen,
+					group_rig
+				)
 	result.sort_custom(_sort_rigs)
 	return result
 
@@ -241,7 +257,11 @@ func refresh_active_rig(force_snap: bool = false) -> GFCameraRig3D:
 	if _selection_mode == _SELECTION_MANUAL_EMPTY:
 		return null
 	if _selection_mode == _SELECTION_MANUAL_RIG:
-		if _active_rig != null and is_instance_valid(_active_rig) and _active_rig.is_available():
+		if (
+			_active_rig != null
+			and is_instance_valid(_active_rig)
+			and _active_rig.is_available()
+		):
 			return _active_rig
 		_selection_mode = _SELECTION_AUTO
 
@@ -250,7 +270,11 @@ func refresh_active_rig(force_snap: bool = false) -> GFCameraRig3D:
 		if rig != null and rig.is_available():
 			best_rig = rig
 			break
-	var _set_active_rig_result_166: Variant = _set_active_rig_internal(best_rig, force_snap, false)
+	var _set_active_rig_result_166: Variant = _set_active_rig_internal(
+		best_rig,
+		force_snap,
+		false
+	)
 	return _active_rig
 
 
@@ -268,7 +292,11 @@ func refresh_active_rig(force_snap: bool = false) -> GFCameraRig3D:
 ## [br]
 ## @return 设置成功返回 true。
 func set_active_rig(rig: GFCameraRig3D, force_snap: bool = false) -> bool:
-	return _set_active_rig_internal(rig, force_snap, true)
+	return _set_active_rig_internal(
+		rig,
+		force_snap,
+		true
+	)
 
 
 ## 清除手动 Rig 覆盖，并立即恢复自动选择。
@@ -296,19 +324,22 @@ func clear_active_rig_override(force_snap: bool = false) -> GFCameraRig3D:
 ## @schema return: Dictionary，包含 has_camera、has_active_rig、active_rig_path、active_rig_is_manual_override、is_blending 和 last_process。
 func get_debug_snapshot() -> Dictionary:
 	var active_rig: GFCameraRig3D = get_active_rig()
-	return GFReportValueCodec.to_report_dictionary({
-		"has_camera": get_camera() != null,
-		"has_active_rig": active_rig != null,
-		"active_rig_path": _get_node_debug_path(active_rig),
-		"active_rig_name": _get_node_debug_name(active_rig),
-		"selection_mode": _get_selection_mode_name(),
-		"active_rig_is_manual_override": _selection_mode != _SELECTION_AUTO,
-		"is_blending": _is_blending,
-		"last_process": _last_process_report.duplicate(true),
-	}, GFReportValueCodec.make_redaction_options(
-		GFReportValueCodec.REDACTION_PROFILE_DEBUG,
-		{ "path_redaction": "none" }
-	))
+	return GFReportValueCodec.to_report_dictionary(
+		{
+			"has_camera": get_camera() != null,
+			"has_active_rig": active_rig != null,
+			"active_rig_path": _get_node_debug_path(active_rig),
+			"active_rig_name": _get_node_debug_name(active_rig),
+			"selection_mode": _get_selection_mode_name(),
+			"active_rig_is_manual_override": _selection_mode != _SELECTION_AUTO,
+			"is_blending": _is_blending,
+			"last_process": _last_process_report.duplicate(true),
+		},
+		GFReportValueCodec.make_redaction_options(
+			GFReportValueCodec.REDACTION_PROFILE_DEBUG,
+			{ "path_redaction": "none" }
+		)
+	)
 
 
 ## 推进并应用相机姿态。
@@ -325,23 +356,49 @@ func process_camera(delta: float) -> bool:
 	var camera: Camera3D = get_camera()
 	if camera == null:
 		_cancel_blend()
-		_last_process_report = _make_process_report(false, "missing_camera", camera, _active_rig)
+		_last_process_report = _make_process_report(
+			false,
+			"missing_camera",
+			camera,
+			_active_rig
+		)
 		return false
-	if _active_rig == null or not is_instance_valid(_active_rig) or not _active_rig.is_available():
+	if (
+		_active_rig == null
+		or not is_instance_valid(_active_rig)
+		or not _active_rig.is_available()
+	):
 		_cancel_blend()
-		_last_process_report = _make_process_report(false, "missing_rig", camera, _active_rig)
+		_last_process_report = _make_process_report(
+			false,
+			"missing_rig",
+			camera,
+			_active_rig
+		)
 		return false
 
 	var target_transform: Transform3D = _active_rig.get_camera_transform()
 	if not _GF_CAMERA_FINITE_MATH.is_valid_transform3d(target_transform):
 		_cancel_blend()
-		_last_process_report = _make_process_report(false, "invalid_target_pose", camera, _active_rig)
+		_last_process_report = _make_process_report(
+			false,
+			"invalid_target_pose",
+			camera,
+			_active_rig
+		)
 		return false
 	var transform: Transform3D = target_transform
 	if _is_blending:
-		_blend_elapsed_seconds += maxf(_GF_CAMERA_FINITE_MATH.sanitize_float(delta, 0.0), 0.0)
+		_blend_elapsed_seconds += maxf(
+			_GF_CAMERA_FINITE_MATH.sanitize_float(delta, 0.0),
+			0.0
+		)
 		var weight: float = _blend.sample_weight(_blend_elapsed_seconds) if _blend != null else 1.0
-		transform = _interpolate_transform(_blend_from_transform, target_transform, weight)
+		transform = _interpolate_transform(
+			_blend_from_transform,
+			target_transform,
+			weight
+		)
 		if weight >= 1.0:
 			_is_blending = false
 	if not _GF_CAMERA_FINITE_MATH.is_valid_transform3d(transform):
@@ -350,7 +407,12 @@ func process_camera(delta: float) -> bool:
 
 	var applied_rig: GFCameraRig3D = _active_rig
 	_apply_transform(camera, transform)
-	_last_process_report = _make_process_report(true, "", camera, applied_rig)
+	_last_process_report = _make_process_report(
+		true,
+		"",
+		camera,
+		applied_rig
+	)
 	camera_pose_applied.emit(applied_rig)
 	return true
 
@@ -362,13 +424,15 @@ func process_camera(delta: float) -> bool:
 ## @api private
 func _prepare_blend(force_snap: bool) -> void:
 	var camera: Camera3D = get_camera()
-	_blend = _active_rig.blend if _active_rig != null and is_instance_valid(_active_rig) and _active_rig.blend != null else default_blend
-	_blend_elapsed_seconds = 0.0
-	_blend_from_transform = (
-		_GF_CAMERA_FINITE_MATH.sanitize_transform3d(camera.global_transform, Transform3D.IDENTITY)
-		if camera != null
-		else Transform3D.IDENTITY
+	_blend = (
+		_active_rig.blend
+		if _active_rig != null
+		and is_instance_valid(_active_rig)
+		and _active_rig.blend != null
+		else default_blend
 	)
+	_blend_elapsed_seconds = 0.0
+	_blend_from_transform = (_GF_CAMERA_FINITE_MATH.sanitize_transform3d(camera.global_transform, Transform3D.IDENTITY) if camera != null else Transform3D.IDENTITY)
 	_is_blending = (
 		not force_snap
 		and camera != null
@@ -383,8 +447,18 @@ func _prepare_blend(force_snap: bool) -> void:
 ## 更新当前 Rig 及选择模式，并发出 Rig 变化信号。
 ## [br]
 ## @api private
-func _set_active_rig_internal(rig: GFCameraRig3D, force_snap: bool, manual_override: bool) -> bool:
-	if rig != null and (not is_instance_valid(rig) or not rig.is_available()):
+func _set_active_rig_internal(
+	rig: GFCameraRig3D,
+	force_snap: bool,
+	manual_override: bool
+) -> bool:
+	if (
+		rig != null
+		and (
+			not is_instance_valid(rig)
+			or not rig.is_available()
+		)
+	):
 		return false
 	if manual_override:
 		_selection_mode = _SELECTION_MANUAL_EMPTY if rig == null else _SELECTION_MANUAL_RIG
@@ -404,10 +478,18 @@ func _set_active_rig_internal(rig: GFCameraRig3D, force_snap: bool, manual_overr
 ## 在两个相机变换之间进行有限值保护的插值。
 ## [br]
 ## @api private
-func _interpolate_transform(from_transform: Transform3D, to_transform: Transform3D, weight: float) -> Transform3D:
+func _interpolate_transform(
+	from_transform: Transform3D,
+	to_transform: Transform3D,
+	weight: float
+) -> Transform3D:
 	if not _GF_CAMERA_FINITE_MATH.is_valid_transform3d(from_transform):
 		return to_transform
-	var safe_weight: float = clampf(_GF_CAMERA_FINITE_MATH.sanitize_float(weight, 1.0), 0.0, 1.0)
+	var safe_weight: float = clampf(
+		_GF_CAMERA_FINITE_MATH.sanitize_float(weight, 1.0),
+		0.0,
+		1.0
+	)
 	var origin: Vector3 = from_transform.origin.lerp(to_transform.origin, safe_weight)
 	var from_quaternion: Quaternion = from_transform.basis.get_rotation_quaternion()
 	var to_quaternion: Quaternion = to_transform.basis.get_rotation_quaternion()
@@ -422,10 +504,7 @@ func _interpolate_transform(from_transform: Transform3D, to_transform: Transform
 ## [br]
 ## @api private
 func _apply_transform(camera: Camera3D, transform: Transform3D) -> void:
-	camera.global_transform = _GF_CAMERA_FINITE_MATH.sanitize_transform3d(
-		transform,
-		Transform3D.IDENTITY
-	)
+	camera.global_transform = _GF_CAMERA_FINITE_MATH.sanitize_transform3d(transform, Transform3D.IDENTITY)
 	if make_current_on_apply:
 		camera.make_current()
 
@@ -452,7 +531,11 @@ func _get_camera_scope_node() -> Node:
 ## 将尚未收录的 Rig 追加到候选列表。
 ## [br]
 ## @api private
-func _append_unique_rig(result: Array[GFCameraRig3D], seen: Dictionary, rig: GFCameraRig3D) -> void:
+func _append_unique_rig(
+	result: Array[GFCameraRig3D],
+	seen: Dictionary,
+	rig: GFCameraRig3D
+) -> void:
 	if rig == null:
 		return
 	var instance_id: int = rig.get_instance_id()
@@ -507,7 +590,12 @@ func _get_rig_value(value: Variant) -> GFCameraRig3D:
 ## 汇总本次相机处理结果及当前选择状态。
 ## [br]
 ## @api private
-func _make_process_report(applied: bool, reason: String, camera: Camera3D, rig: GFCameraRig3D) -> Dictionary:
+func _make_process_report(
+	applied: bool,
+	reason: String,
+	camera: Camera3D,
+	rig: GFCameraRig3D
+) -> Dictionary:
 	return {
 		"applied": applied,
 		"reason": reason,
@@ -538,7 +626,11 @@ func _get_selection_mode_name() -> String:
 ## [br]
 ## @api private
 func _get_node_debug_path(node: Node) -> String:
-	if node != null and is_instance_valid(node) and node.is_inside_tree():
+	if (
+		node != null
+		and is_instance_valid(node)
+		and node.is_inside_tree()
+	):
 		return String(node.get_path())
 	return ""
 

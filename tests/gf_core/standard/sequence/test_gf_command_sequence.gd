@@ -12,21 +12,25 @@ class RecordingStep extends GFSequenceStep:
 		order = p_order
 		label = p_label
 
+
 	func execute(context: GFSequenceContext) -> Variant:
 		order.append(label)
-		var _set_value_result_17: Variant = context.set_value(StringName(label), true)
+		var _set_value_result_17: Variant = context.set_value(
+			StringName(label),
+			true
+		)
 		return null
 
 
 class ManualSignalStep extends GFSequenceStep:
 	signal completed
-
 	var order: Array[String] = []
 	var label: String = ""
 
 	func _init(p_order: Array[String], p_label: String) -> void:
 		order = p_order
 		label = p_label
+
 
 	func execute(_context: GFSequenceContext) -> Variant:
 		order.append(label)
@@ -39,6 +43,7 @@ class CancellableSignalStep extends ManualSignalStep:
 	func _init(p_order: Array[String], p_label: String) -> void:
 		super._init(p_order, p_label)
 
+
 	func cancel(context: GFSequenceContext) -> void:
 		cancel_count += 1
 		order.append("cancel_" + label)
@@ -46,7 +51,13 @@ class CancellableSignalStep extends ManualSignalStep:
 
 
 class ManyArgumentSignalStep extends GFSequenceStep:
-	signal completed(a: int, b: int, c: int, d: int, e: int)
+	signal completed(
+		a: int,
+		b: int,
+		c: int,
+		d: int,
+		e: int
+	)
 
 	var order: Array[String] = []
 	var label: String = ""
@@ -54,6 +65,7 @@ class ManyArgumentSignalStep extends GFSequenceStep:
 	func _init(p_order: Array[String], p_label: String) -> void:
 		order = p_order
 		label = p_label
+
 
 	func execute(_context: GFSequenceContext) -> Variant:
 		order.append(label)
@@ -67,6 +79,7 @@ class FailingSignalStep extends GFSequenceStep:
 		call_deferred("_emit_failure")
 		return completed
 
+
 	func _emit_failure() -> void:
 		completed.emit({ "ok": false, "error": "async_broken" })
 
@@ -79,23 +92,21 @@ class UndoableRecordingStep extends RecordingStep:
 class FailingUndoStep extends RecordingStep:
 	func undo() -> Dictionary:
 		order.append("undo_" + label)
-		return {
-			"ok": false,
-			"error": "undo_broken",
-		}
+		return { "ok": false, "error": "undo_broken", }
 
 
 class AsyncUndoStep extends RecordingStep:
 	signal undo_finished(result: Dictionary)
-
 	var cancel_count: int = 0
 
 	func _init(p_order: Array[String], p_label: String) -> void:
 		super._init(p_order, p_label)
 
+
 	func undo() -> Signal:
 		order.append("undo_" + label)
 		return undo_finished
+
 
 	func cancel(_context: GFSequenceContext) -> void:
 		cancel_count += 1
@@ -110,8 +121,10 @@ class NodeUndoStep extends Node:
 		order = p_order
 		label = p_label
 
+
 	func execute() -> void:
 		order.append(label)
+
 
 	func undo() -> void:
 		order.append("undo_" + label)
@@ -122,13 +135,15 @@ class FailingStep extends GFSequenceStep:
 	var label: String = ""
 	var result: Dictionary = {}
 
-	func _init(p_order: Array[String], p_label: String, p_error: String = "failed") -> void:
+	func _init(
+		p_order: Array[String],
+		p_label: String,
+		p_error: String = "failed"
+	) -> void:
 		order = p_order
 		label = p_label
-		result = {
-			"ok": false,
-			"error": p_error,
-		}
+		result = { "ok": false, "error": p_error, }
+
 
 	func execute(_context: GFSequenceContext) -> Variant:
 		order.append(label)
@@ -138,28 +153,28 @@ class FailingStep extends GFSequenceStep:
 class SuccessFlagFailingStep extends FailingStep:
 	func _init(p_order: Array[String], p_label: String) -> void:
 		super._init(p_order, p_label)
-		result = {
-			"success": false,
-		}
+		result = { "success": false, }
 
 
 class StructuredErrorStep extends GFSequenceStep:
 	func execute(_context: GFSequenceContext) -> Variant:
 		return {
 			"ok": false,
-			"error": {
-				"owner": self,
-				"value": NAN,
-			},
+			"error": { "owner": self, "value": NAN, },
 		}
 
 
 class FreeingFailingStep extends FailingStep:
 	var target: Object = null
 
-	func _init(p_order: Array[String], p_label: String, p_target: Object) -> void:
+	func _init(
+		p_order: Array[String],
+		p_label: String,
+		p_target: Object
+	) -> void:
 		super._init(p_order, p_label)
 		target = p_target
+
 
 	func execute(_context: GFSequenceContext) -> Variant:
 		order.append(label)
@@ -174,6 +189,7 @@ class CompensatingFailingStep extends FailingStep:
 	func _init(p_order: Array[String], p_label: String) -> void:
 		super._init(p_order, p_label)
 		result[GFCommandSequence.FAILED_STEP_ROLLBACK_REQUEST_KEY] = true
+
 
 	func undo() -> void:
 		order.append("undo_" + label)
@@ -194,6 +210,7 @@ class StartBoundaryStep extends GFSequenceStep:
 		execute_count += 1
 		return null
 
+
 	func cancel(_context: GFSequenceContext) -> void:
 		cancel_count += 1
 
@@ -205,13 +222,16 @@ class HookFailingUndoCommand extends GFUndoableCommand:
 	func _init(p_order: Array[String]) -> void:
 		order = p_order
 
+
 	func execute() -> Variant:
 		order.append("execute_command")
 		return null
 
+
 	func undo() -> Variant:
 		order.append("undo_command")
 		return false
+
 
 	func is_undo_successful(undo_result: Variant) -> bool:
 		hook_count += 1
@@ -236,15 +256,22 @@ class InspectableWaitSequenceStep extends GFWaitSequenceStep:
 func test_sequence_runs_steps_in_order() -> void:
 	var order: Array[String] = []
 	var context: GFSequenceContext = GFSequenceContext.new()
-	var sequence: GFCommandSequence = GFCommandSequence.new([
-		RecordingStep.new(order, "first"),
-		RecordingStep.new(order, "second"),
-	], context)
+	var sequence: GFCommandSequence = GFCommandSequence.new(
+		[RecordingStep.new(order, "first"), RecordingStep.new(order, "second"),],
+		context
+	)
 
 	await sequence.run()
 
-	assert_eq(order, ["first", "second"], "同步步骤应按声明顺序执行。")
-	assert_true(GFVariantData.to_bool(context.get_value(&"first", false)), "步骤应能写入共享上下文。")
+	assert_eq(
+		order,
+		["first", "second"],
+		"同步步骤应按声明顺序执行。"
+	)
+	assert_true(
+		GFVariantData.to_bool(context.get_value(&"first", false)),
+		"步骤应能写入共享上下文。"
+	)
 	assert_false(sequence.is_running, "同步执行完成后不应保持 running。")
 
 
@@ -252,15 +279,21 @@ func test_sequence_runs_steps_in_order() -> void:
 func test_sequence_waits_for_signal_step() -> void:
 	var order: Array[String] = []
 	var wait_step: ManualSignalStep = ManualSignalStep.new(order, "wait")
-	var sequence: GFCommandSequence = GFCommandSequence.new([
-		RecordingStep.new(order, "before"),
-		wait_step,
-		RecordingStep.new(order, "after"),
-	])
+	var sequence: GFCommandSequence = GFCommandSequence.new(
+		[
+			RecordingStep.new(order, "before"),
+			wait_step,
+			RecordingStep.new(order, "after"),
+		]
+	)
 
 	@warning_ignore("missing_await")
 	sequence.run()
-	assert_eq(order, ["before", "wait"], "Signal 未完成前不应执行后续步骤。")
+	assert_eq(
+		order,
+		["before", "wait"],
+		"Signal 未完成前不应执行后续步骤。"
+	)
 	assert_true(sequence.is_running, "等待 Signal 时序列应保持运行中。")
 
 	var completed: Array[bool] = [false]
@@ -273,77 +306,139 @@ func test_sequence_waits_for_signal_step() -> void:
 	wait_step.completed.emit()
 	await get_tree().process_frame
 
-	assert_eq(order, ["before", "wait", "after"], "Signal 完成后应继续执行后续步骤。")
-	assert_true(completed[0], "序列应发出完成信号。")
+	assert_eq(
+		order,
+		[
+			"before",
+			"wait",
+			"after",
+		],
+		"Signal 完成后应继续执行后续步骤。"
+	)
+	assert_true(
+		completed[0],
+		"序列应发出完成信号。"
+	)
 	assert_false(sequence.is_running, "完成后应清除 running 状态。")
 
 
 func test_sequence_waits_for_signal_with_many_arguments() -> void:
 	var order: Array[String] = []
 	var wait_step: ManyArgumentSignalStep = ManyArgumentSignalStep.new(order, "wait")
-	var sequence: GFCommandSequence = GFCommandSequence.new([
-		wait_step,
-		RecordingStep.new(order, "after"),
-	])
+	var sequence: GFCommandSequence = GFCommandSequence.new([wait_step, RecordingStep.new(order, "after"),])
 
 	@warning_ignore("missing_await")
 	sequence.run()
-	assert_eq(order, ["wait"], "多参数 Signal 未完成前不应执行后续步骤。")
+	assert_eq(
+		order,
+		["wait"],
+		"多参数 Signal 未完成前不应执行后续步骤。"
+	)
 
-	wait_step.completed.emit(1, 2, 3, 4, 5)
+	wait_step.completed.emit(
+		1,
+		2,
+		3,
+		4,
+		5
+	)
 	await get_tree().process_frame
 
-	assert_eq(order, ["wait", "after"], "多参数 Signal 完成后应继续执行后续步骤。")
+	assert_eq(
+		order,
+		["wait", "after"],
+		"多参数 Signal 完成后应继续执行后续步骤。"
+	)
 	assert_false(sequence.is_running, "完成后应清除 running 状态。")
 
 
 func test_sequence_uses_signal_payload_as_step_result() -> void:
-	var sequence: GFCommandSequence = GFCommandSequence.new([
-		FailingSignalStep.new(),
-		RecordingStep.new([], "after"),
-	]).with_failure_policy(true, false)
+	var sequence: GFCommandSequence = (GFCommandSequence.new([FailingSignalStep.new(), RecordingStep.new([], "after"),]).with_failure_policy(true, false))
 	watch_signals(sequence)
 
 	await sequence.run()
 	await get_tree().process_frame
 
-	assert_true(GFVariantData.get_option_bool(sequence.last_run_report, "failed", false), "异步步骤 Signal 发出的失败结果应被识别。")
-	assert_eq(GFVariantData.get_option_string(sequence.last_run_report, "error", ""), "async_broken", "失败原因应来自 Signal payload。")
-	assert_signal_emitted(sequence, "sequence_failed", "异步失败且 stop_on_error 时应发出失败信号。")
+	assert_true(
+		GFVariantData.get_option_bool(
+			sequence.last_run_report,
+			"failed",
+			false
+		),
+		"异步步骤 Signal 发出的失败结果应被识别。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(
+			sequence.last_run_report,
+			"error",
+			""
+		),
+		"async_broken",
+		"失败原因应来自 Signal payload。"
+	)
+	assert_signal_emitted(
+		sequence,
+		"sequence_failed",
+		"异步失败且 stop_on_error 时应发出失败信号。"
+	)
 
 
 func test_step_started_cancel_cuts_before_execute_and_cancel_hook() -> void:
 	var step: StartBoundaryStep = StartBoundaryStep.new()
 	var sequence: GFCommandSequence = GFCommandSequence.new([step])
-	var connect_result: Error = sequence.step_started.connect(
-		func(_index: int, _step: Variant) -> void:
-			sequence.cancel(),
-		CONNECT_ONE_SHOT as Object.ConnectFlags
-	) as Error
-	assert_eq(connect_result, OK, "测试监听器必须成功连接。")
+	var connect_result: Error = (
+		sequence.step_started.connect(
+			func(_index: int, _step: Variant) -> void:
+				sequence.cancel(),
+			CONNECT_ONE_SHOT as Object.ConnectFlags
+		) as Error
+	)
+	assert_eq(
+		connect_result,
+		OK,
+		"测试监听器必须成功连接。"
+	)
 	watch_signals(sequence)
 
 	await sequence.run()
 
-	assert_eq(step.execute_count, 0, "step_started 监听器取消后不得提交 execute 副作用。")
-	assert_eq(step.cancel_count, 0, "尚未 execute 的步骤不应收到 cancel hook。")
+	assert_eq(
+		step.execute_count,
+		0,
+		"step_started 监听器取消后不得提交 execute 副作用。"
+	)
+	assert_eq(
+		step.cancel_count,
+		0,
+		"尚未 execute 的步骤不应收到 cancel hook。"
+	)
 	assert_true(
 		GFVariantData.get_option_bool(sequence.last_run_report, "cancelled"),
 		"运行报告应把 pre-execute cut 标记为 cancelled。"
 	)
-	assert_signal_emitted(sequence, "sequence_cancelled", "pre-execute cut 只能发布取消终态。")
-	assert_signal_not_emitted(sequence, "sequence_completed", "取消终态不能同时发布完成信号。")
+	assert_signal_emitted(
+		sequence,
+		"sequence_cancelled",
+		"pre-execute cut 只能发布取消终态。"
+	)
+	assert_signal_not_emitted(
+		sequence,
+		"sequence_completed",
+		"取消终态不能同时发布完成信号。"
+	)
 
 
 ## 验证可取消正在等待的序列。
 func test_sequence_cancel_stops_following_steps_after_wait() -> void:
 	var order: Array[String] = []
 	var wait_step: ManualSignalStep = ManualSignalStep.new(order, "wait")
-	var sequence: GFCommandSequence = GFCommandSequence.new([
-		RecordingStep.new(order, "before"),
-		wait_step,
-		RecordingStep.new(order, "after"),
-	])
+	var sequence: GFCommandSequence = GFCommandSequence.new(
+		[
+			RecordingStep.new(order, "before"),
+			wait_step,
+			RecordingStep.new(order, "after"),
+		]
+	)
 
 	@warning_ignore("missing_await")
 	sequence.run()
@@ -358,18 +453,22 @@ func test_sequence_cancel_stops_following_steps_after_wait() -> void:
 	wait_step.completed.emit()
 	await get_tree().process_frame
 
-	assert_eq(order, ["before", "wait"], "取消后不应执行后续步骤。")
-	assert_true(cancelled[0], "序列应发出取消信号。")
+	assert_eq(
+		order,
+		["before", "wait"],
+		"取消后不应执行后续步骤。"
+	)
+	assert_true(
+		cancelled[0],
+		"序列应发出取消信号。"
+	)
 
 
 ## 验证取消等待中的序列不需要等外部 Signal 触发。
 func test_sequence_cancel_breaks_wait_without_signal() -> void:
 	var order: Array[String] = []
 	var wait_step: ManualSignalStep = ManualSignalStep.new(order, "wait")
-	var sequence: GFCommandSequence = GFCommandSequence.new([
-		wait_step,
-		RecordingStep.new(order, "after"),
-	])
+	var sequence: GFCommandSequence = GFCommandSequence.new([wait_step, RecordingStep.new(order, "after"),])
 
 	@warning_ignore("missing_await")
 	sequence.run()
@@ -377,7 +476,11 @@ func test_sequence_cancel_breaks_wait_without_signal() -> void:
 	sequence.cancel()
 	await get_tree().process_frame
 
-	assert_eq(order, ["wait"], "取消后不应等待外部 Signal 才停止。")
+	assert_eq(
+		order,
+		["wait"],
+		"取消后不应等待外部 Signal 才停止。"
+	)
 	assert_false(sequence.is_running, "取消检查后序列应停止运行。")
 
 
@@ -385,21 +488,40 @@ func test_sequence_cancel_calls_current_step_cancel() -> void:
 	var order: Array[String] = []
 	var context: GFSequenceContext = GFSequenceContext.new()
 	var wait_step: CancellableSignalStep = CancellableSignalStep.new(order, "wait")
-	var sequence: GFCommandSequence = GFCommandSequence.new([
-		wait_step,
-		RecordingStep.new(order, "after"),
-	], context)
+	var sequence: GFCommandSequence = GFCommandSequence.new(
+		[wait_step, RecordingStep.new(order, "after"),],
+		context
+	)
 
 	@warning_ignore("missing_await")
 	sequence.run()
 	sequence.cancel()
 	await get_tree().process_frame
 
-	assert_eq(order, ["wait", "cancel_wait"], "取消时应通知当前步骤并停止后续步骤。")
-	assert_eq(wait_step.cancel_count, 1, "当前步骤的取消入口应只调用一次。")
-	assert_eq(GFVariantData.to_text(context.get_value(&"cancelled_step", "")), "wait", "取消入口应收到序列上下文。")
+	assert_eq(
+		order,
+		["wait", "cancel_wait"],
+		"取消时应通知当前步骤并停止后续步骤。"
+	)
+	assert_eq(
+		wait_step.cancel_count,
+		1,
+		"当前步骤的取消入口应只调用一次。"
+	)
+	assert_eq(
+		GFVariantData.to_text(context.get_value(&"cancelled_step", "")),
+		"wait",
+		"取消入口应收到序列上下文。"
+	)
 	assert_false(sequence.is_running, "取消检查后序列应停止运行。")
-	assert_true(GFVariantData.get_option_bool(sequence.last_run_report, "cancelled", false), "运行报告应标记取消。")
+	assert_true(
+		GFVariantData.get_option_bool(
+			sequence.last_run_report,
+			"cancelled",
+			false
+		),
+		"运行报告应标记取消。"
+	)
 
 
 func test_wait_sequence_step_cancel_releases_created_timer() -> void:
@@ -436,7 +558,11 @@ func test_wait_and_signal_timeout_reject_non_finite_values() -> void:
 	assert_push_warning("[GFWaitSequenceStep][wait_sequence_step.duration_non_finite] Wait duration must be finite.")
 	wait_step.duration = INF
 	assert_push_warning("[GFWaitSequenceStep][wait_sequence_step.duration_non_finite] Wait duration must be finite.")
-	assert_eq(wait_step.duration, 2.0, "非有限等待时长应保留最近有效值。")
+	assert_eq(
+		wait_step.duration,
+		2.0,
+		"非有限等待时长应保留最近有效值。"
+	)
 
 	var sequence: GFCommandSequence = GFCommandSequence.new()
 	sequence.signal_timeout_seconds = 3.0
@@ -444,17 +570,18 @@ func test_wait_and_signal_timeout_reject_non_finite_values() -> void:
 	assert_push_warning("[GFCommandSequence][command_sequence.signal_timeout_non_finite] Signal timeout must be finite.")
 	sequence.signal_timeout_seconds = INF
 	assert_push_warning("[GFCommandSequence][command_sequence.signal_timeout_non_finite] Signal timeout must be finite.")
-	assert_eq(sequence.signal_timeout_seconds, 3.0, "非有限 Signal timeout 应保留最近有效值。")
+	assert_eq(
+		sequence.signal_timeout_seconds,
+		3.0,
+		"非有限 Signal timeout 应保留最近有效值。"
+	)
 
 
 ## 验证 Signal 超时后序列会继续后续步骤，但报告失败状态。
 func test_sequence_signal_timeout_continues() -> void:
 	var order: Array[String] = []
 	var wait_step: ManualSignalStep = ManualSignalStep.new(order, "wait")
-	var sequence: GFCommandSequence = GFCommandSequence.new([
-		wait_step,
-		RecordingStep.new(order, "after"),
-	]).with_signal_timeout(0.001)
+	var sequence: GFCommandSequence = (GFCommandSequence.new([wait_step, RecordingStep.new(order, "after"),]).with_signal_timeout(0.001))
 
 	@warning_ignore("missing_await")
 	sequence.run()
@@ -462,40 +589,122 @@ func test_sequence_signal_timeout_continues() -> void:
 	await get_tree().process_frame
 
 	assert_push_warning("[GFCommandSequence][command_sequence.signal_wait_timeout] Signal wait timed out; the sequence marked the current step as failed.")
-	assert_eq(order, ["wait", "after"], "Signal 超时后应继续执行后续步骤。")
-	assert_true(GFVariantData.get_option_bool(sequence.last_run_report, "failed", false), "Signal 超时应进入顶层失败状态。")
-	assert_eq(GFVariantData.get_option_string(sequence.last_run_report, "error"), String(GFAsyncWaitUtility.STATUS_TIMEOUT), "顶层错误应保留 timeout 状态。")
+	assert_eq(
+		order,
+		["wait", "after"],
+		"Signal 超时后应继续执行后续步骤。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(
+			sequence.last_run_report,
+			"failed",
+			false
+		),
+		"Signal 超时应进入顶层失败状态。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(sequence.last_run_report, "error"),
+		String(GFAsyncWaitUtility.STATUS_TIMEOUT),
+		"顶层错误应保留 timeout 状态。"
+	)
 	var results: Array = GFVariantData.get_option_array(sequence.last_run_report, "results")
 	var wait_report: Dictionary = GFVariantData.as_dictionary(results[0])
-	assert_false(GFVariantData.get_option_bool(wait_report, "ok", true), "超时步骤报告不应标记为 ok。")
-	assert_eq(GFVariantData.get_option_string_name(wait_report, "wait_status"), GFAsyncWaitUtility.STATUS_TIMEOUT, "步骤报告应保留等待状态。")
-	assert_false(GFVariantData.get_option_bool(wait_report, "wait_completed", true), "步骤报告应标记等待未完成。")
+	assert_false(
+		GFVariantData.get_option_bool(
+			wait_report,
+			"ok",
+			true
+		),
+		"超时步骤报告不应标记为 ok。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(wait_report, "wait_status"),
+		GFAsyncWaitUtility.STATUS_TIMEOUT,
+		"步骤报告应保留等待状态。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(
+			wait_report,
+			"wait_completed",
+			true
+		),
+		"步骤报告应标记等待未完成。"
+	)
 
 
 func test_sequence_stop_on_error_reports_failure() -> void:
 	var order: Array[String] = []
-	var sequence: GFCommandSequence = GFCommandSequence.new([
-		RecordingStep.new(order, "before"),
-		FailingStep.new(order, "fail", "broken"),
-		RecordingStep.new(order, "after"),
-	]).with_failure_policy(true, false)
+	var sequence: GFCommandSequence = (
+		GFCommandSequence.new(
+			[
+				RecordingStep.new(order, "before"),
+				FailingStep.new(
+					order,
+					"fail",
+					"broken"
+				),
+				RecordingStep.new(order, "after"),
+			]
+		).with_failure_policy(true, false)
+	)
 	watch_signals(sequence)
 
 	await sequence.run()
 
-	assert_eq(order, ["before", "fail"], "stop_on_error 时失败后不应继续执行后续步骤。")
-	assert_true(GFVariantData.get_option_bool(sequence.last_run_report, "failed", false), "运行报告应标记失败。")
-	assert_eq(GFVariantData.get_option_int(sequence.last_run_report, "failed_index", -1), 1, "运行报告应记录失败步骤索引。")
-	assert_eq(GFVariantData.get_option_string(sequence.last_run_report, "error", ""), "broken", "运行报告应记录失败原因。")
-	assert_eq(GFVariantData.get_option_int(sequence.last_run_report, "succeeded", -1), 1, "运行报告应只统计失败前已成功步骤。")
-	assert_signal_emitted(sequence, "step_failed", "失败步骤应发出 step_failed。")
-	assert_signal_emitted(sequence, "sequence_failed", "stop_on_error 时序列应发出 sequence_failed。")
+	assert_eq(
+		order,
+		["before", "fail"],
+		"stop_on_error 时失败后不应继续执行后续步骤。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(
+			sequence.last_run_report,
+			"failed",
+			false
+		),
+		"运行报告应标记失败。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			sequence.last_run_report,
+			"failed_index",
+			-1
+		),
+		1,
+		"运行报告应记录失败步骤索引。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(
+			sequence.last_run_report,
+			"error",
+			""
+		),
+		"broken",
+		"运行报告应记录失败原因。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			sequence.last_run_report,
+			"succeeded",
+			-1
+		),
+		1,
+		"运行报告应只统计失败前已成功步骤。"
+	)
+	assert_signal_emitted(
+		sequence,
+		"step_failed",
+		"失败步骤应发出 step_failed。"
+	)
+	assert_signal_emitted(
+		sequence,
+		"sequence_failed",
+		"stop_on_error 时序列应发出 sequence_failed。"
+	)
 
 
 func test_sequence_report_sanitizes_structured_error_values() -> void:
-	var sequence: GFCommandSequence = GFCommandSequence.new([
-		StructuredErrorStep.new(),
-	]).with_failure_policy(true, false)
+	var sequence: GFCommandSequence = (GFCommandSequence.new([StructuredErrorStep.new(),]).with_failure_policy(true, false))
 
 	await sequence.run()
 
@@ -503,9 +712,18 @@ func test_sequence_report_sanitizes_structured_error_values() -> void:
 	var step_report: Dictionary = GFVariantData.as_dictionary(results[0])
 	var json_text: String = JSON.stringify(sequence.last_run_report)
 
-	assert_false(json_text.contains(":null"), "命令序列报告不应把 NaN 直接交给 JSON.stringify。")
-	assert_true(json_text.contains("__gf_report_value__"), "命令序列报告应脱敏运行时对象。")
-	assert_true(GFVariantData.get_option_value(step_report, "result") is Dictionary, "步骤结果应以 JSON-safe 字典记录。")
+	assert_false(
+		json_text.contains(":null"),
+		"命令序列报告不应把 NaN 直接交给 JSON.stringify。"
+	)
+	assert_true(
+		json_text.contains("__gf_report_value__"),
+		"命令序列报告应脱敏运行时对象。"
+	)
+	assert_true(
+		GFVariantData.get_option_value(step_report, "result") is Dictionary,
+		"步骤结果应以 JSON-safe 字典记录。"
+	)
 
 
 func test_sequence_run_report_uses_closed_documented_top_level_schema() -> void:
@@ -534,7 +752,11 @@ func test_sequence_run_report_uses_closed_documented_top_level_schema() -> void:
 	]
 	expected_keys.sort()
 
-	assert_eq(actual_keys, expected_keys, "运行报告顶层字段必须与公开 closed schema 保持一致。")
+	assert_eq(
+		actual_keys,
+		expected_keys,
+		"运行报告顶层字段必须与公开 closed schema 保持一致。"
+	)
 	assert_eq(
 		GFVariantData.get_option_string_name(sequence.last_run_report, "rollback_status"),
 		GFCommandSequence.ROLLBACK_STATUS_NOT_RUN,
@@ -546,80 +768,167 @@ func test_sequence_failure_without_stop_does_not_complete_failed_step() -> void:
 	var order: Array[String] = []
 	var failed_indices: Array[int] = []
 	var completed_indices: Array[int] = []
-	var sequence: GFCommandSequence = GFCommandSequence.new([
-		RecordingStep.new(order, "before"),
-		FailingStep.new(order, "fail", "broken"),
-		RecordingStep.new(order, "after"),
-	]).with_failure_policy(false, false)
-	var _connect_result_326: Variant = sequence.step_failed.connect(func(index: int, _step: Variant, _error: String) -> void:
-		failed_indices.append(index)
+	var sequence: GFCommandSequence = (
+		GFCommandSequence.new(
+			[
+				RecordingStep.new(order, "before"),
+				FailingStep.new(
+					order,
+					"fail",
+					"broken"
+				),
+				RecordingStep.new(order, "after"),
+			]
+		).with_failure_policy(false, false)
 	)
-	var _connect_result_329: Variant = sequence.step_completed.connect(func(index: int, _step: Variant) -> void:
-		completed_indices.append(index)
+	var _connect_result_326: Variant = sequence.step_failed.connect(
+		func(
+			index: int,
+			_step: Variant,
+			_error: String
+		) -> void:
+			failed_indices.append(index)
+	)
+	var _connect_result_329: Variant = sequence.step_completed.connect(
+		func(index: int, _step: Variant) -> void:
+			completed_indices.append(index)
 	)
 
 	await sequence.run()
 
-	assert_eq(order, ["before", "fail", "after"], "stop_on_error=false 时失败后应继续执行后续步骤。")
-	assert_eq(failed_indices, [1], "失败步骤应只发出 step_failed。")
-	assert_eq(completed_indices, [0, 2], "失败步骤不应再发出 step_completed。")
-	assert_true(GFVariantData.get_option_bool(sequence.last_run_report, "failed", false), "运行报告仍应记录曾发生失败。")
+	assert_eq(
+		order,
+		[
+			"before",
+			"fail",
+			"after",
+		],
+		"stop_on_error=false 时失败后应继续执行后续步骤。"
+	)
+	assert_eq(
+		failed_indices,
+		[1],
+		"失败步骤应只发出 step_failed。"
+	)
+	assert_eq(
+		completed_indices,
+		[0, 2],
+		"失败步骤不应再发出 step_completed。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(
+			sequence.last_run_report,
+			"failed",
+			false
+		),
+		"运行报告仍应记录曾发生失败。"
+	)
 
 
 func test_sequence_rollback_on_failure_undoes_completed_steps_reverse_order() -> void:
 	var order: Array[String] = []
-	var sequence: GFCommandSequence = GFCommandSequence.new([
-		UndoableRecordingStep.new(order, "first"),
-		UndoableRecordingStep.new(order, "second"),
-		FailingStep.new(order, "fail"),
-		RecordingStep.new(order, "after"),
-	]).with_failure_policy(true, true)
+	var sequence: GFCommandSequence = (
+		GFCommandSequence.new(
+			[
+				UndoableRecordingStep.new(order, "first"),
+				UndoableRecordingStep.new(order, "second"),
+				FailingStep.new(order, "fail"),
+				RecordingStep.new(order, "after"),
+			]
+		).with_failure_policy(true, true)
+	)
 
 	await sequence.run()
 
-	assert_eq(order, ["first", "second", "fail", "undo_second", "undo_first"], "失败回滚应逆序 undo 已完成步骤。")
-	assert_true(GFVariantData.get_option_bool(sequence.last_run_report, "rolled_back", false), "运行报告应标记已回滚。")
+	assert_eq(
+		order,
+		[
+			"first",
+			"second",
+			"fail",
+			"undo_second",
+			"undo_first",
+		],
+		"失败回滚应逆序 undo 已完成步骤。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(
+			sequence.last_run_report,
+			"rolled_back",
+			false
+		),
+		"运行报告应标记已回滚。"
+	)
 
 
 func test_sequence_rollback_reports_undo_failure() -> void:
 	var order: Array[String] = []
-	var sequence: GFCommandSequence = GFCommandSequence.new([
-		FailingUndoStep.new(order, "first"),
-		FailingStep.new(order, "fail"),
-	]).with_failure_policy(true, true)
+	var sequence: GFCommandSequence = (GFCommandSequence.new([FailingUndoStep.new(order, "first"), FailingStep.new(order, "fail"),]).with_failure_policy(true, true))
 
 	await sequence.run()
 
 	var rollback_errors: Array = GFVariantData.get_option_array(sequence.last_run_report, "rollback_errors")
 	var rollback_error: Dictionary = GFVariantData.as_dictionary(rollback_errors[0])
-	assert_eq(order, ["first", "fail", "undo_first"], "失败回滚仍应尝试 undo 已完成步骤。")
-	assert_true(GFVariantData.get_option_bool(sequence.last_run_report, "rolled_back", false), "运行报告应标记已回滚。")
-	assert_true(GFVariantData.get_option_bool(sequence.last_run_report, "rollback_failed", false), "undo 失败应写入运行报告。")
-	assert_eq(rollback_errors.size(), 1, "运行报告应记录每个 undo 失败。")
-	assert_eq(GFVariantData.get_option_string(rollback_error, "error"), "undo_broken", "undo 失败原因应保留。")
+	assert_eq(
+		order,
+		[
+			"first",
+			"fail",
+			"undo_first",
+		],
+		"失败回滚仍应尝试 undo 已完成步骤。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(
+			sequence.last_run_report,
+			"rolled_back",
+			false
+		),
+		"运行报告应标记已回滚。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(
+			sequence.last_run_report,
+			"rollback_failed",
+			false
+		),
+		"undo 失败应写入运行报告。"
+	)
+	assert_eq(
+		rollback_errors.size(),
+		1,
+		"运行报告应记录每个 undo 失败。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(rollback_error, "error"),
+		"undo_broken",
+		"undo 失败原因应保留。"
+	)
 
 
 func test_sequence_rollback_uses_undoable_command_outcome_hook() -> void:
 	var order: Array[String] = []
 	var command: HookFailingUndoCommand = HookFailingUndoCommand.new(order)
-	var sequence: GFCommandSequence = GFCommandSequence.new([
-		command,
-		FailingStep.new(order, "fail"),
-	]).with_failure_policy(true, true)
+	var sequence: GFCommandSequence = (GFCommandSequence.new([command, FailingStep.new(order, "fail"),]).with_failure_policy(true, true))
 
 	await sequence.run()
 
-	var rollback_errors: Array = GFVariantData.get_option_array(
-		sequence.last_run_report,
-		"rollback_errors"
-	)
+	var rollback_errors: Array = GFVariantData.get_option_array(sequence.last_run_report, "rollback_errors")
 	var rollback_error: Dictionary = GFVariantData.as_dictionary(rollback_errors[0])
 	assert_eq(
 		order,
-		["execute_command", "fail", "undo_command"],
+		[
+			"execute_command",
+			"fail",
+			"undo_command",
+		],
 		"序列应执行并补偿 GFUndoableCommand。"
 	)
-	assert_eq(command.hook_count, 1, "每次完成的 undo 终态必须调用成功判定 hook 恰好一次。")
+	assert_eq(
+		command.hook_count,
+		1,
+		"每次完成的 undo 终态必须调用成功判定 hook 恰好一次。"
+	)
 	assert_true(
 		GFVariantData.get_option_bool(sequence.last_run_report, "rollback_failed"),
 		"hook 返回 false 时 rollback 必须失败。"
@@ -639,34 +948,54 @@ func test_sequence_rollback_uses_undoable_command_outcome_hook() -> void:
 func test_sequence_rollback_reports_async_undo_timeout() -> void:
 	var order: Array[String] = []
 	var undo_step: AsyncUndoStep = AsyncUndoStep.new(order, "first")
-	var sequence: GFCommandSequence = GFCommandSequence.new([
-		undo_step,
-		FailingStep.new(order, "fail"),
-	]).with_failure_policy(true, true).with_signal_timeout(0.001, false)
+	var sequence: GFCommandSequence = (GFCommandSequence.new([undo_step, FailingStep.new(order, "fail"),]).with_failure_policy(true, true).with_signal_timeout(0.001, false))
 
 	await sequence.run()
 
 	var rollback_errors: Array = GFVariantData.get_option_array(sequence.last_run_report, "rollback_errors")
 	var rollback_error: Dictionary = GFVariantData.as_dictionary(rollback_errors[0])
 	assert_push_warning("[GFCommandSequence][command_sequence.signal_wait_timeout] Signal wait timed out; the sequence marked the current step as failed.")
-	assert_eq(order, ["first", "fail", "undo_first"], "异步 undo 超时时应记录已进入 rollback。")
-	assert_true(GFVariantData.get_option_bool(sequence.last_run_report, "rollback_failed", false), "rollback 超时应标记 rollback_failed。")
-	assert_true(GFVariantData.get_option_bool(sequence.last_run_report, "rollback_timeout", false), "rollback 超时应有一等 timeout 字段。")
+	assert_eq(
+		order,
+		[
+			"first",
+			"fail",
+			"undo_first",
+		],
+		"异步 undo 超时时应记录已进入 rollback。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(
+			sequence.last_run_report,
+			"rollback_failed",
+			false
+		),
+		"rollback 超时应标记 rollback_failed。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(
+			sequence.last_run_report,
+			"rollback_timeout",
+			false
+		),
+		"rollback 超时应有一等 timeout 字段。"
+	)
 	assert_eq(
 		GFVariantData.get_option_string_name(sequence.last_run_report, "rollback_status"),
 		GFCommandSequence.ROLLBACK_STATUS_TIMEOUT,
 		"rollback_status 应报告 timeout。"
 	)
-	assert_eq(GFVariantData.get_option_string_name(rollback_error, "wait_status"), GFAsyncWaitUtility.STATUS_TIMEOUT, "rollback error 应保留 wait_status。")
+	assert_eq(
+		GFVariantData.get_option_string_name(rollback_error, "wait_status"),
+		GFAsyncWaitUtility.STATUS_TIMEOUT,
+		"rollback error 应保留 wait_status。"
+	)
 
 
 func test_sequence_cancel_calls_current_rollback_step_cancel() -> void:
 	var order: Array[String] = []
 	var undo_step: AsyncUndoStep = AsyncUndoStep.new(order, "first")
-	var sequence: GFCommandSequence = GFCommandSequence.new([
-		undo_step,
-		FailingStep.new(order, "fail"),
-	]).with_failure_policy(true, true).with_signal_timeout(10.0, false)
+	var sequence: GFCommandSequence = (GFCommandSequence.new([undo_step, FailingStep.new(order, "fail"),]).with_failure_policy(true, true).with_signal_timeout(10.0, false))
 
 	@warning_ignore("missing_await")
 	sequence.run()
@@ -675,9 +1004,29 @@ func test_sequence_cancel_calls_current_rollback_step_cancel() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 
-	assert_eq(order, ["first", "fail", "undo_first", "cancel_undo_first"], "取消 rollback 时应通知当前 undo step。")
-	assert_eq(undo_step.cancel_count, 1, "rollback 当前步骤的 cancel 入口应只调用一次。")
-	assert_true(GFVariantData.get_option_bool(sequence.last_run_report, "rollback_cancelled", false), "rollback 取消应有一等 cancelled 字段。")
+	assert_eq(
+		order,
+		[
+			"first",
+			"fail",
+			"undo_first",
+			"cancel_undo_first",
+		],
+		"取消 rollback 时应通知当前 undo step。"
+	)
+	assert_eq(
+		undo_step.cancel_count,
+		1,
+		"rollback 当前步骤的 cancel 入口应只调用一次。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(
+			sequence.last_run_report,
+			"rollback_cancelled",
+			false
+		),
+		"rollback 取消应有一等 cancelled 字段。"
+	)
 	assert_eq(
 		GFVariantData.get_option_string_name(sequence.last_run_report, "rollback_status"),
 		GFCommandSequence.ROLLBACK_STATUS_CANCELLED,
@@ -688,59 +1037,130 @@ func test_sequence_cancel_calls_current_rollback_step_cancel() -> void:
 func test_sequence_rollback_skips_freed_completed_step_without_cast_error() -> void:
 	var order: Array[String] = []
 	var freed_step: NodeUndoStep = NodeUndoStep.new(order, "first")
-	var sequence: GFCommandSequence = GFCommandSequence.new([
-		freed_step,
-		FreeingFailingStep.new(order, "fail", freed_step),
-	]).with_failure_policy(true, true)
+	var sequence: GFCommandSequence = (
+		GFCommandSequence.new(
+			[
+				freed_step,
+				FreeingFailingStep.new(
+					order,
+					"fail",
+					freed_step
+				),
+			]
+		).with_failure_policy(true, true)
+	)
 
 	await sequence.run()
 
-	assert_eq(order, ["first", "fail"], "已释放完成步骤不应在失败回滚时再次 undo。")
-	assert_true(GFVariantData.get_option_bool(sequence.last_run_report, "rolled_back", false), "运行报告仍应标记已执行回滚流程。")
+	assert_eq(
+		order,
+		["first", "fail"],
+		"已释放完成步骤不应在失败回滚时再次 undo。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(
+			sequence.last_run_report,
+			"rolled_back",
+			false
+		),
+		"运行报告仍应标记已执行回滚流程。"
+	)
 
 
 func test_sequence_success_false_uses_default_error() -> void:
 	var order: Array[String] = []
-	var sequence: GFCommandSequence = GFCommandSequence.new([
-		SuccessFlagFailingStep.new(order, "fail"),
-	]).with_failure_policy(true, false)
+	var sequence: GFCommandSequence = (GFCommandSequence.new([SuccessFlagFailingStep.new(order, "fail"),]).with_failure_policy(true, false))
 
 	await sequence.run()
 
-	assert_true(GFVariantData.get_option_bool(sequence.last_run_report, "failed", false), "success=false 应被识别为失败。")
-	assert_eq(GFVariantData.get_option_string(sequence.last_run_report, "error", ""), "Step failed.", "缺少错误字段时应提供稳定默认错误。")
+	assert_true(
+		GFVariantData.get_option_bool(
+			sequence.last_run_report,
+			"failed",
+			false
+		),
+		"success=false 应被识别为失败。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(
+			sequence.last_run_report,
+			"error",
+			""
+		),
+		"Step failed.",
+		"缺少错误字段时应提供稳定默认错误。"
+	)
 
 
 func test_sequence_rejects_unsupported_non_null_step() -> void:
 	var order: Array[String] = []
 	var unsupported_step: RefCounted = RefCounted.new()
-	var sequence: GFCommandSequence = GFCommandSequence.new([
-		unsupported_step,
-		RecordingStep.new(order, "after"),
-	]).with_failure_policy(true, false)
+	var sequence: GFCommandSequence = (GFCommandSequence.new([unsupported_step, RecordingStep.new(order, "after"),]).with_failure_policy(true, false))
 	watch_signals(sequence)
 
 	await sequence.run()
 
-	assert_true(GFVariantData.get_option_bool(sequence.last_run_report, "failed", false), "非空但不支持的 step 不应静默成功。")
-	assert_eq(GFVariantData.get_option_int(sequence.last_run_report, "failed_index", -1), 0, "不支持的 step 应定位到当前索引。")
-	assert_eq(GFVariantData.get_option_string(sequence.last_run_report, "error", ""), "unsupported_step", "失败原因应稳定。")
-	assert_true(order.is_empty(), "stop_on_error 时不应继续执行后续步骤。")
-	assert_signal_emitted(sequence, "sequence_failed", "不支持 step 应触发失败信号。")
+	assert_true(
+		GFVariantData.get_option_bool(
+			sequence.last_run_report,
+			"failed",
+			false
+		),
+		"非空但不支持的 step 不应静默成功。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			sequence.last_run_report,
+			"failed_index",
+			-1
+		),
+		0,
+		"不支持的 step 应定位到当前索引。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(
+			sequence.last_run_report,
+			"error",
+			""
+		),
+		"unsupported_step",
+		"失败原因应稳定。"
+	)
+	assert_true(
+		order.is_empty(),
+		"stop_on_error 时不应继续执行后续步骤。"
+	)
+	assert_signal_emitted(
+		sequence,
+		"sequence_failed",
+		"不支持 step 应触发失败信号。"
+	)
 
 
 func test_sequence_rejects_null_step_instead_of_skipping_it() -> void:
 	var order: Array[String] = []
-	var sequence: GFCommandSequence = GFCommandSequence.new([
-		null,
-		RecordingStep.new(order, "after"),
-	]).with_failure_policy(true, false)
+	var sequence: GFCommandSequence = (GFCommandSequence.new([null, RecordingStep.new(order, "after"),]).with_failure_policy(true, false))
 
 	await sequence.run()
 
-	assert_eq(GFVariantData.get_option_int(sequence.last_run_report, "failed_index", -1), 0, "空步骤应定位为失败步骤。")
-	assert_eq(GFVariantData.get_option_string(sequence.last_run_report, "error"), "unsupported_step", "空步骤不应被静默跳过。")
-	assert_true(order.is_empty(), "严格失败后不应执行后续步骤。")
+	assert_eq(
+		GFVariantData.get_option_int(
+			sequence.last_run_report,
+			"failed_index",
+			-1
+		),
+		0,
+		"空步骤应定位为失败步骤。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(sequence.last_run_report, "error"),
+		"unsupported_step",
+		"空步骤不应被静默跳过。"
+	)
+	assert_true(
+		order.is_empty(),
+		"严格失败后不应执行后续步骤。"
+	)
 
 
 func test_sequence_uses_immutable_step_snapshot_for_each_run() -> void:
@@ -755,7 +1175,11 @@ func test_sequence_uses_immutable_step_snapshot_for_each_run() -> void:
 	wait_step.completed.emit()
 	await get_tree().process_frame
 
-	assert_eq(order, ["wait", "original"], "运行中的步骤集合应使用 run() 开始时的快照。")
+	assert_eq(
+		order,
+		["wait", "original"],
+		"运行中的步骤集合应使用 run() 开始时的快照。"
+	)
 
 
 func test_sequence_does_not_inject_unsupported_object() -> void:
@@ -765,19 +1189,41 @@ func test_sequence_does_not_inject_unsupported_object() -> void:
 
 	await sequence.run()
 
-	assert_eq(step.injection_count, 0, "不满足执行协议的对象不应收到依赖注入。")
-	assert_eq(GFVariantData.get_option_string(sequence.last_run_report, "error"), "unsupported_step", "对象仍应按不支持步骤失败。")
+	assert_eq(
+		step.injection_count,
+		0,
+		"不满足执行协议的对象不应收到依赖注入。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(sequence.last_run_report, "error"),
+		"unsupported_step",
+		"对象仍应按不支持步骤失败。"
+	)
 
 
 func test_sequence_compensates_failed_step_only_when_explicitly_requested() -> void:
 	var order: Array[String] = []
-	var sequence: GFCommandSequence = GFCommandSequence.new([
-		UndoableRecordingStep.new(order, "completed"),
-		CompensatingFailingStep.new(order, "failed"),
-	]).with_failure_policy(true, true)
+	var sequence: GFCommandSequence = (GFCommandSequence.new([UndoableRecordingStep.new(order, "completed"), CompensatingFailingStep.new(order, "failed"),]).with_failure_policy(true, true))
 
 	await sequence.run()
 
-	assert_eq(order, ["completed", "failed", "undo_failed", "undo_completed"], "显式请求补偿的失败步骤应先于已完成步骤逆序撤销。")
-	assert_eq(GFVariantData.get_option_int(sequence.last_run_report, "succeeded"), 1, "失败步骤补偿不应增加成功计数。")
-	assert_eq(GFVariantData.get_option_int(sequence.last_run_report, "rollback_attempted_count"), 2, "回滚报告应记录实际补偿尝试数。")
+	assert_eq(
+		order,
+		[
+			"completed",
+			"failed",
+			"undo_failed",
+			"undo_completed",
+		],
+		"显式请求补偿的失败步骤应先于已完成步骤逆序撤销。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(sequence.last_run_report, "succeeded"),
+		1,
+		"失败步骤补偿不应增加成功计数。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(sequence.last_run_report, "rollback_attempted_count"),
+		2,
+		"回滚报告应记录实际补偿尝试数。"
+	)

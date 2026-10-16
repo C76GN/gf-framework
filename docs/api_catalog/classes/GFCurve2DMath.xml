@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCurve2DMath" path="addons/gf/standard/foundation/math/gf_curve_2d_math.gd" module="standard" extends="RefCounted" classDigest="60fb11efe3317f463ee9665f059fdb059c901c18bf8d632dd9790a84ee08193c">
+<class name="GFCurve2DMath" path="addons/gf/standard/foundation/math/gf_curve_2d_math.gd" module="standard" extends="RefCounted" classDigest="71b9adb226e9b281705b7a16163e329d9bbc27f7451012b541b69732204d4771">
 	<description>GFCurve2DMath: Curve2D 与折线的纯算法辅助。
 提供路径长度、归一化采样、点距简化、虚线切分和基础闭合形状生成，
 不持有节点状态，也不解释碰撞、渲染或编辑器交互语义。</description>
@@ -71,7 +71,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="sample_curve">
-			<signature>static func sample_curve(curve: Curve2D, ratio: float, cubic: bool = false) -&gt; Vector2:</signature>
+			<signature>static func sample_curve( curve: Curve2D, ratio: float, cubic: bool = false ) -&gt; Vector2:</signature>
 			<description>按 0 到 1 的比例采样 Curve2D 的 baked 路径。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -79,6 +79,7 @@
 				<tag name="param">ratio: 归一化采样位置；会被限制在 0 到 1。</tag>
 				<tag name="param">cubic: 是否使用 Curve2D.sample_baked() 的三次插值。</tag>
 				<tag name="return">采样点；曲线为空或无点时返回 Vector2.ZERO。</tag>
+				<tag name="since">3.19.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="create_smooth_polyline_curve">

@@ -21,7 +21,7 @@
 | 信号 | [`pointer_released`](#member-gfpointerinteraction3d-signals-pointer_released) | `signal pointer_released(context: GFInteractionContext, event: InputEventMouseButton)` |
 | 信号 | [`pointer_clicked`](#member-gfpointerinteraction3d-signals-pointer_clicked) | `signal pointer_clicked(context: GFInteractionContext, event: InputEventMouseButton)` |
 | 信号 | [`pointer_wheel`](#member-gfpointerinteraction3d-signals-pointer_wheel) | `signal pointer_wheel(context: GFInteractionContext, event: InputEventMouseButton)` |
-| 信号 | [`pointer_interaction_sent`](#member-gfpointerinteraction3d-signals-pointer_interaction_sent) | `signal pointer_interaction_sent(context: GFInteractionContext, receiver: Object, report: Dictionary)` |
+| 信号 | [`pointer_interaction_sent`](#member-gfpointerinteraction3d-signals-pointer_interaction_sent) | `signal pointer_interaction_sent( context: GFInteractionContext, receiver: Object, report: Dictionary )` |
 | 属性 | [`enabled`](#member-gfpointerinteraction3d-properties-enabled) | `var enabled: bool = true:` |
 | 属性 | [`interaction_id`](#member-gfpointerinteraction3d-properties-interaction_id) | `var interaction_id: StringName = &""` |
 | 属性 | [`group_name`](#member-gfpointerinteraction3d-properties-group_name) | `var group_name: StringName = &""` |
@@ -172,7 +172,7 @@ signal pointer_wheel(context: GFInteractionContext, event: InputEventMouseButton
 - 首次版本：`3.17.0`
 
 ```gdscript
-signal pointer_interaction_sent(context: GFInteractionContext, receiver: Object, report: Dictionary)
+signal pointer_interaction_sent( context: GFInteractionContext, receiver: Object, report: Dictionary )
 ```
 
 已向接收器发送交互。

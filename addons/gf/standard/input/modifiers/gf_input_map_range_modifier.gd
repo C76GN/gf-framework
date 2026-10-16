@@ -46,6 +46,8 @@ extends GFInputModifier
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param value: 要写入或修改的值。
 ## [br]
 ## @param _event: 原始输入事件，默认实现不直接使用。
@@ -53,13 +55,22 @@ extends GFInputModifier
 ## @param _action: 当前输入动作配置，默认实现不直接使用。
 ## [br]
 ## @return 范围映射后的二维输入值。
-func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = null) -> Vector2:
-	return Vector2(_map_value(value.x), _map_value(value.y))
+func modify(
+	value: Vector2,
+	_event: InputEvent = null,
+	_action: GFInputAction = null
+) -> Vector2:
+	return Vector2(
+		_map_value(value.x),
+		_map_value(value.y)
+	)
 
 
 ## 修改三维输入值。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param value: 要写入或修改的值。
 ## [br]
@@ -68,8 +79,16 @@ func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = 
 ## @param _action: 当前输入动作配置，默认实现不直接使用。
 ## [br]
 ## @return 范围映射后的三维输入值。
-func modify_3d(value: Vector3, _event: InputEvent = null, _action: GFInputAction = null) -> Vector3:
-	return Vector3(_map_value(value.x), _map_value(value.y), _map_value(value.z))
+func modify_3d(
+	value: Vector3,
+	_event: InputEvent = null,
+	_action: GFInputAction = null
+) -> Vector3:
+	return Vector3(
+		_map_value(value.x),
+		_map_value(value.y),
+		_map_value(value.z)
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -84,10 +103,18 @@ func _map_value(value: float) -> float:
 		return output_min
 
 	var t: float = (value - input_min) / input_range
-	var mapped: float = lerpf(output_min, output_max, t)
+	var mapped: float = lerpf(
+		output_min,
+		output_max,
+		t
+	)
 	if not clamp_output:
 		return mapped
 
 	var min_value: float = minf(output_min, output_max)
 	var max_value: float = maxf(output_min, output_max)
-	return clampf(mapped, min_value, max_value)
+	return clampf(
+		mapped,
+		min_value,
+		max_value
+	)

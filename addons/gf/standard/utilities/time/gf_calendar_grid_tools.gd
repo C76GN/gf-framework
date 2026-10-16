@@ -36,12 +36,14 @@ static func build_month_grid(
 		or not month.is_valid()
 		or week_start < GFCivilDate.Weekday.MONDAY
 		or week_start > GFCivilDate.Weekday.SUNDAY
-		or fixed_rows not in [0, 4, 5, 6]
+		or fixed_rows not in [
+			0,
+			4,
+			5,
+			6,
+		]
 	):
-		return _make_failure(
-			GFCalendarGrid.STATUS_INVALID_REQUEST,
-			"月历网格需要有效日期、ISO 周起点与 0/4/5/6 行策略。"
-		)
+		return _make_failure(GFCalendarGrid.STATUS_INVALID_REQUEST, "月历网格需要有效日期、ISO 周起点与 0/4/5/6 行策略。")
 
 	var first_result: GFCivilDateResult = GFCivilDate.create(
 		month.get_year(),
@@ -50,34 +52,30 @@ static func build_month_grid(
 	)
 	var first_date: GFCivilDate = first_result.get_date()
 	var leading_days: int = (first_date.get_weekday() - week_start + 7) % 7
-	var required_cells: int = leading_days + GFCivilDate.get_days_in_month(
-		month.get_year(),
-		month.get_month()
+	var required_cells: int = (
+		leading_days
+		+ (
+			GFCivilDate.get_days_in_month(
+				month.get_year(),
+				month.get_month()
+			)
+		)
 	)
 	var minimum_rows: int = floori(float(required_cells + 6) / 7.0)
 	var row_count: int = minimum_rows if fixed_rows == 0 else fixed_rows
 	if row_count < minimum_rows:
-		return _make_failure(
-			GFCalendarGrid.STATUS_INSUFFICIENT_ROWS,
-			"指定行数无法容纳目标月的全部日期。"
-		)
+		return _make_failure(GFCalendarGrid.STATUS_INSUFFICIENT_ROWS, "指定行数无法容纳目标月的全部日期。")
 
 	var first_cell_result: GFCivilDateResult = first_date.add_days(-leading_days)
 	if not first_cell_result.is_successful():
-		return _make_failure(
-			GFCalendarGrid.STATUS_OUT_OF_RANGE,
-			"完整周所需的前置日期超出支持范围。"
-		)
+		return _make_failure(GFCalendarGrid.STATUS_OUT_OF_RANGE, "完整周所需的前置日期超出支持范围。")
 
 	var first_cell: GFCivilDate = first_cell_result.get_date()
 	var cells: Array[GFCivilDate] = []
 	for index: int in range(row_count * GFCalendarGrid.COLUMN_COUNT):
 		var cell_result: GFCivilDateResult = first_cell.add_days(index)
 		if not cell_result.is_successful():
-			return _make_failure(
-				GFCalendarGrid.STATUS_OUT_OF_RANGE,
-				"完整周所需的后置日期超出支持范围。"
-			)
+			return _make_failure(GFCalendarGrid.STATUS_OUT_OF_RANGE, "完整周所需的后置日期超出支持范围。")
 		cells.append(cell_result.get_date())
 
 	var grid: GFCalendarGrid = GFCalendarGrid.new()
@@ -90,10 +88,7 @@ static func build_month_grid(
 		cells
 	)
 	if not configured:
-		return _make_failure(
-			GFCalendarGrid.STATUS_INVALID_REQUEST,
-			"月历网格内部不变量校验失败。"
-		)
+		return _make_failure(GFCalendarGrid.STATUS_INVALID_REQUEST, "月历网格内部不变量校验失败。")
 	return grid
 
 
@@ -104,5 +99,13 @@ static func build_month_grid(
 ## @api private
 static func _make_failure(status: StringName, error: String) -> GFCalendarGrid:
 	var grid: GFCalendarGrid = GFCalendarGrid.new()
-	var _configured: bool = grid.configure_from_time_layer(status, 0, 0, 0, 0, [], error)
+	var _configured: bool = grid.configure_from_time_layer(
+		status,
+		0,
+		0,
+		0,
+		0,
+		[],
+		error
+	)
 	return grid

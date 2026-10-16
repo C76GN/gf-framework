@@ -1,7 +1,6 @@
 ## 测试 GFPhysicsQueryUtility 的物理查询辅助。
 extends GutTest
 
-
 var _utility: GFPhysicsQueryUtility
 
 
@@ -15,18 +14,34 @@ func after_each() -> void:
 
 
 func test_raycast_all_3d_returns_empty_for_invalid_world() -> void:
-	var results: Array[Dictionary] = _utility.raycast_all_3d(null, Vector3.ZERO, Vector3.FORWARD)
+	var results: Array[Dictionary] = _utility.raycast_all_3d(
+		null,
+		Vector3.ZERO,
+		Vector3.FORWARD
+	)
 
-	assert_eq(results, [], "无 World3D 时应返回空结果。")
+	assert_eq(
+		results,
+		[],
+		"无 World3D 时应返回空结果。"
+	)
 
 
 func test_raycast_all_3d_returns_empty_for_zero_length() -> void:
 	var root: Node3D = Node3D.new()
 	add_child_autofree(root)
 
-	var results: Array[Dictionary] = _utility.raycast_all_3d(root.get_world_3d(), Vector3.ONE, Vector3.ONE)
+	var results: Array[Dictionary] = _utility.raycast_all_3d(
+		root.get_world_3d(),
+		Vector3.ONE,
+		Vector3.ONE
+	)
 
-	assert_eq(results, [], "零长度射线应返回空结果。")
+	assert_eq(
+		results,
+		[],
+		"零长度射线应返回空结果。"
+	)
 
 
 func test_raycast_all_3d_rejects_non_finite_geometry_and_margin() -> void:
@@ -34,10 +49,35 @@ func test_raycast_all_3d_rejects_non_finite_geometry_and_margin() -> void:
 	add_child_autofree(root)
 	var world: World3D = root.get_world_3d()
 
-	assert_true(_utility.raycast_all_3d(world, Vector3(NAN, 0.0, 0.0), Vector3.FORWARD).is_empty())
-	assert_true(_utility.raycast_all_3d(world, Vector3.ZERO, Vector3(0.0, 0.0, INF)).is_empty())
 	assert_true(
-		_utility.raycast_all_3d(world, Vector3.ZERO, Vector3.FORWARD, { "margin": NAN }).is_empty(),
+		_utility.raycast_all_3d(
+			world,
+			Vector3(
+				NAN,
+				0.0,
+				0.0
+			),
+			Vector3.FORWARD
+		).is_empty()
+	)
+	assert_true(
+		_utility.raycast_all_3d(
+			world,
+			Vector3.ZERO,
+			Vector3(
+				0.0,
+				0.0,
+				INF
+			)
+		).is_empty()
+	)
+	assert_true(
+		_utility.raycast_all_3d(
+			world,
+			Vector3.ZERO,
+			Vector3.FORWARD,
+			{ "margin": NAN }
+		).is_empty(),
 		"非法 margin 不得进入射线推进循环。"
 	)
 
@@ -45,8 +85,20 @@ func test_raycast_all_3d_rejects_non_finite_geometry_and_margin() -> void:
 func test_raycast_all_3d_collects_multiple_bodies_in_order() -> void:
 	var root: Node3D = Node3D.new()
 	add_child_autofree(root)
-	var first: StaticBody3D = _make_static_box(Vector3(0.0, 0.0, -2.0))
-	var second: StaticBody3D = _make_static_box(Vector3(0.0, 0.0, -4.0))
+	var first: StaticBody3D = _make_static_box(
+		Vector3(
+			0.0,
+			0.0,
+			-2.0
+		)
+	)
+	var second: StaticBody3D = _make_static_box(
+		Vector3(
+			0.0,
+			0.0,
+			-4.0
+		)
+	)
 	root.add_child(first)
 	root.add_child(second)
 	await get_tree().physics_frame
@@ -55,20 +107,37 @@ func test_raycast_all_3d_collects_multiple_bodies_in_order() -> void:
 	var results: Array[Dictionary] = _utility.raycast_all_3d(
 		root.get_world_3d(),
 		Vector3.ZERO,
-		Vector3(0.0, 0.0, -6.0),
-		{
-			"max_results": 4,
-			"margin": 0.05,
-		}
+		Vector3(
+			0.0,
+			0.0,
+			-6.0
+		),
+		{ "max_results": 4, "margin": 0.05, }
 	)
 	var first_result: Dictionary = results[0]
 	var second_result: Dictionary = results[1]
 
-	assert_eq(results.size(), 2, "穿透射线应按顺序收集两个碰撞体。")
-	assert_same(_object_option(first_result, "collider"), first)
-	assert_same(_object_option(second_result, "collider"), second)
-	assert_eq(GFVariantData.get_option_int(first_result, "index"), 0)
-	assert_eq(GFVariantData.get_option_int(second_result, "index"), 1)
+	assert_eq(
+		results.size(),
+		2,
+		"穿透射线应按顺序收集两个碰撞体。"
+	)
+	assert_same(
+		_object_option(first_result, "collider"),
+		first
+	)
+	assert_same(
+		_object_option(second_result, "collider"),
+		second
+	)
+	assert_eq(
+		GFVariantData.get_option_int(first_result, "index"),
+		0
+	)
+	assert_eq(
+		GFVariantData.get_option_int(second_result, "index"),
+		1
+	)
 	assert_lt(
 		GFVariantData.get_option_float(first_result, "distance"),
 		GFVariantData.get_option_float(second_result, "distance"),
@@ -79,8 +148,20 @@ func test_raycast_all_3d_collects_multiple_bodies_in_order() -> void:
 func test_raycast_all_3d_respects_initial_exclude() -> void:
 	var root: Node3D = Node3D.new()
 	add_child_autofree(root)
-	var first: StaticBody3D = _make_static_box(Vector3(0.0, 0.0, -2.0))
-	var second: StaticBody3D = _make_static_box(Vector3(0.0, 0.0, -4.0))
+	var first: StaticBody3D = _make_static_box(
+		Vector3(
+			0.0,
+			0.0,
+			-2.0
+		)
+	)
+	var second: StaticBody3D = _make_static_box(
+		Vector3(
+			0.0,
+			0.0,
+			-4.0
+		)
+	)
 	root.add_child(first)
 	root.add_child(second)
 	await get_tree().physics_frame
@@ -89,15 +170,29 @@ func test_raycast_all_3d_respects_initial_exclude() -> void:
 	var results: Array[Dictionary] = _utility.raycast_all_3d(
 		root.get_world_3d(),
 		Vector3.ZERO,
-		Vector3(0.0, 0.0, -6.0),
+		Vector3(
+			0.0,
+			0.0,
+			-6.0
+		),
 		{
 			"exclude": [first],
 			"max_results": 4,
 		}
 	)
 
-	assert_eq(results.size(), 1, "初始排除列表中的碰撞体不应出现在结果中。")
-	assert_same(_object_option(results[0], "collider"), second)
+	assert_eq(
+		results.size(),
+		1,
+		"初始排除列表中的碰撞体不应出现在结果中。"
+	)
+	assert_same(
+		_object_option(
+			results[0],
+			"collider"
+		),
+		second
+	)
 
 
 func _make_static_box(position: Vector3) -> StaticBody3D:
@@ -105,7 +200,11 @@ func _make_static_box(position: Vector3) -> StaticBody3D:
 	body.position = position
 	var collision_shape: CollisionShape3D = CollisionShape3D.new()
 	var box: BoxShape3D = BoxShape3D.new()
-	box.size = Vector3(0.5, 0.5, 0.5)
+	box.size = Vector3(
+		0.5,
+		0.5,
+		0.5
+	)
 	collision_shape.shape = box
 	body.add_child(collision_shape)
 	return body

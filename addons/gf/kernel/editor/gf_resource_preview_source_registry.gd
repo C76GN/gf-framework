@@ -154,14 +154,14 @@ static func make_default() -> GFResourcePreviewSourceRegistry:
 func register_default_sources() -> void:
 	if has_source_id("gf.method_preview"):
 		return
-	var _method_registered: bool = register_source(_MethodPreviewSource.new(), {
-		"source_id": "gf.method_preview",
-		"priority": 100,
-	})
-	var _property_registered: bool = register_source(_PropertyPreviewSource.new(), {
-		"source_id": "gf.property_preview",
-		"priority": 10,
-	})
+	var _method_registered: bool = register_source(
+		_MethodPreviewSource.new(),
+		{ "source_id": "gf.method_preview", "priority": 100, }
+	)
+	var _property_registered: bool = register_source(
+		_PropertyPreviewSource.new(),
+		{ "source_id": "gf.property_preview", "priority": 10, }
+	)
 
 
 ## 注册一个 Resource 预览 provider。
@@ -185,12 +185,18 @@ func register_source(preview_source: RefCounted, options: Dictionary = {}) -> bo
 	if source_id.is_empty() or has_source_id(source_id):
 		return false
 
-	_sources.append({
-		"source": preview_source,
-		"source_id": source_id,
-		"priority": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, "priority", 0),
-		"order": _next_order,
-	})
+	_sources.append(
+		{
+			"source": preview_source,
+			"source_id": source_id,
+			"priority": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+				options,
+				"priority",
+				0
+			),
+			"order": _next_order,
+		}
+	)
 	_next_order += 1
 	_sources.sort_custom(_compare_source_records)
 	return true
@@ -206,7 +212,11 @@ func register_source(preview_source: RefCounted, options: Dictionary = {}) -> bo
 ## [br]
 ## @return 是否找到并移除 provider。
 func unregister_source(preview_source: RefCounted) -> bool:
-	for index: int in range(_sources.size() - 1, -1, -1):
+	for index: int in range(
+		_sources.size() - 1,
+		-1,
+		-1
+	):
 		var record: Dictionary = _sources[index]
 		if _GF_VARIANT_ACCESS_SCRIPT.get_option_value(record, "source") == preview_source:
 			_sources.remove_at(index)
@@ -251,10 +261,16 @@ func has_source_id(source_id: String) -> bool:
 func get_source_records() -> Array[Dictionary]:
 	var records: Array[Dictionary] = []
 	for record: Dictionary in _sources:
-		records.append({
-			"source_id": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "source_id"),
-			"priority": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(record, "priority", 0),
-		})
+		records.append(
+			{
+				"source_id": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "source_id"),
+				"priority": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+					record,
+					"priority",
+					0
+				),
+			}
+		)
 	return records
 
 
@@ -271,7 +287,12 @@ func get_source_records() -> Array[Dictionary]:
 ## @schema return: Dictionary，包含 ok、status、source_id 和 texture。
 func resolve_preview_source(resource: Resource) -> Dictionary:
 	if resource == null:
-		return _make_source_result(false, STATUS_NO_RESOURCE, "", null)
+		return _make_source_result(
+			false,
+			STATUS_NO_RESOURCE,
+			"",
+			null
+		)
 
 	for record: Dictionary in _sources:
 		var preview_source: RefCounted = _get_record_source(record)
@@ -289,7 +310,12 @@ func resolve_preview_source(resource: Resource) -> Dictionary:
 			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "source_id"),
 			texture
 		)
-	return _make_source_result(false, STATUS_NO_SOURCE, "", null)
+	return _make_source_result(
+		false,
+		STATUS_NO_SOURCE,
+		"",
+		null
+	)
 
 
 ## 解析 Resource 的源预览纹理。
@@ -323,20 +349,48 @@ func get_resource_preview_texture(resource: Resource) -> Texture2D:
 ## @return 预览生成结果。
 ## [br]
 ## @schema return: Dictionary，包含 ok、status、source_id、texture、source_size、target_size 和 error。
-func build_preview_result(resource: Resource, size: Vector2i, options: Dictionary = {}) -> Dictionary:
+func build_preview_result(
+	resource: Resource,
+	size: Vector2i,
+	options: Dictionary = {}
+) -> Dictionary:
 	var target_size: Vector2i = _normalize_size(size)
 	if not _is_size_within_budget(
 		target_size,
-		_get_budget_int(options, "max_target_dimension", DEFAULT_MAX_TARGET_DIMENSION),
-		_get_budget_int(options, "max_target_pixels", DEFAULT_MAX_TARGET_PIXELS)
+		_get_budget_int(
+			options,
+			"max_target_dimension",
+			DEFAULT_MAX_TARGET_DIMENSION
+		),
+		_get_budget_int(
+			options,
+			"max_target_pixels",
+			DEFAULT_MAX_TARGET_PIXELS
+		)
 	):
-		return _make_preview_result(false, STATUS_TARGET_TOO_LARGE, "", null, Vector2i.ZERO, target_size, "Target preview size exceeds budget.")
-
-	var source_result: Dictionary = resolve_preview_source(resource)
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(source_result, "ok", false):
 		return _make_preview_result(
 			false,
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(source_result, "status", STATUS_NO_SOURCE),
+			STATUS_TARGET_TOO_LARGE,
+			"",
+			null,
+			Vector2i.ZERO,
+			target_size,
+			"Target preview size exceeds budget."
+		)
+
+	var source_result: Dictionary = resolve_preview_source(resource)
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		source_result,
+		"ok",
+		false
+	):
+		return _make_preview_result(
+			false,
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+				source_result,
+				"status",
+				STATUS_NO_SOURCE
+			),
 			"",
 			null,
 			Vector2i.ZERO,
@@ -380,46 +434,151 @@ func make_preview_result(
 ) -> Dictionary:
 	var target_size: Vector2i = _normalize_size(size)
 	if texture == null:
-		return _make_preview_result(false, STATUS_INVALID_TEXTURE, source_id, null, Vector2i.ZERO, target_size, "Preview texture is null.")
+		return _make_preview_result(
+			false,
+			STATUS_INVALID_TEXTURE,
+			source_id,
+			null,
+			Vector2i.ZERO,
+			target_size,
+			"Preview texture is null."
+		)
 
-	var source_size: Vector2i = Vector2i(texture.get_width(), texture.get_height())
+	var source_size: Vector2i = Vector2i(
+		texture.get_width(),
+		texture.get_height()
+	)
 	if source_size.x <= 0 or source_size.y <= 0:
-		return _make_preview_result(false, STATUS_INVALID_TEXTURE, source_id, null, source_size, target_size, "Preview texture size is invalid.")
+		return _make_preview_result(
+			false,
+			STATUS_INVALID_TEXTURE,
+			source_id,
+			null,
+			source_size,
+			target_size,
+			"Preview texture size is invalid."
+		)
 	if not _is_size_within_budget(
 		source_size,
-		_get_budget_int(options, "max_source_dimension", DEFAULT_MAX_SOURCE_DIMENSION),
-		_get_budget_int(options, "max_source_pixels", DEFAULT_MAX_SOURCE_PIXELS)
+		_get_budget_int(
+			options,
+			"max_source_dimension",
+			DEFAULT_MAX_SOURCE_DIMENSION
+		),
+		_get_budget_int(
+			options,
+			"max_source_pixels",
+			DEFAULT_MAX_SOURCE_PIXELS
+		)
 	):
-		return _make_preview_result(false, STATUS_SOURCE_TOO_LARGE, source_id, null, source_size, target_size, "Source preview texture exceeds budget.")
+		return _make_preview_result(
+			false,
+			STATUS_SOURCE_TOO_LARGE,
+			source_id,
+			null,
+			source_size,
+			target_size,
+			"Source preview texture exceeds budget."
+		)
 	if not _is_size_within_budget(
 		target_size,
-		_get_budget_int(options, "max_target_dimension", DEFAULT_MAX_TARGET_DIMENSION),
-		_get_budget_int(options, "max_target_pixels", DEFAULT_MAX_TARGET_PIXELS)
+		_get_budget_int(
+			options,
+			"max_target_dimension",
+			DEFAULT_MAX_TARGET_DIMENSION
+		),
+		_get_budget_int(
+			options,
+			"max_target_pixels",
+			DEFAULT_MAX_TARGET_PIXELS
+		)
 	):
-		return _make_preview_result(false, STATUS_TARGET_TOO_LARGE, source_id, null, source_size, target_size, "Target preview size exceeds budget.")
+		return _make_preview_result(
+			false,
+			STATUS_TARGET_TOO_LARGE,
+			source_id,
+			null,
+			source_size,
+			target_size,
+			"Target preview size exceeds budget."
+		)
 
 	var source_image: Image = texture.get_image()
-	if source_image == null or source_image.get_width() <= 0 or source_image.get_height() <= 0:
-		return _make_preview_result(false, STATUS_DECODE_FAILED, source_id, null, source_size, target_size, "Source preview texture could not be decoded.")
+	if (
+		source_image == null
+		or source_image.get_width() <= 0
+		or source_image.get_height() <= 0
+	):
+		return _make_preview_result(
+			false,
+			STATUS_DECODE_FAILED,
+			source_id,
+			null,
+			source_size,
+			target_size,
+			"Source preview texture could not be decoded."
+		)
 
-	var fitted_size: Vector2i = _fit_size(Vector2i(source_image.get_width(), source_image.get_height()), target_size)
+	var fitted_size: Vector2i = _fit_size(
+		Vector2i(
+			source_image.get_width(),
+			source_image.get_height()
+		),
+		target_size
+	)
 	var image: Image = source_image.duplicate()
 	if image.is_compressed():
 		var decompress_error: Error = image.decompress()
 		if decompress_error != OK:
-			return _make_preview_result(false, STATUS_DECODE_FAILED, source_id, null, source_size, target_size, error_string(decompress_error))
+			return _make_preview_result(
+				false,
+				STATUS_DECODE_FAILED,
+				source_id,
+				null,
+				source_size,
+				target_size,
+				error_string(decompress_error)
+			)
 	if image.get_format() != Image.FORMAT_RGBA8:
 		image.convert(Image.FORMAT_RGBA8)
-	image.resize(fitted_size.x, fitted_size.y, Image.INTERPOLATE_LANCZOS)
+	image.resize(
+		fitted_size.x,
+		fitted_size.y,
+		Image.INTERPOLATE_LANCZOS
+	)
 
-	var canvas: Image = Image.create(target_size.x, target_size.y, false, Image.FORMAT_RGBA8)
-	canvas.fill(Color(0.0, 0.0, 0.0, 0.0))
+	var canvas: Image = Image.create(
+		target_size.x,
+		target_size.y,
+		false,
+		Image.FORMAT_RGBA8
+	)
+	canvas.fill(
+		Color(
+			0.0,
+			0.0,
+			0.0,
+			0.0
+		)
+	)
 	var offset: Vector2i = Vector2i(
 		floori(float(target_size.x - fitted_size.x) / 2.0),
 		floori(float(target_size.y - fitted_size.y) / 2.0)
 	)
-	canvas.blit_rect(image, Rect2i(Vector2i.ZERO, fitted_size), offset)
-	return _make_preview_result(true, STATUS_GENERATED, source_id, ImageTexture.create_from_image(canvas), source_size, target_size, "")
+	canvas.blit_rect(
+		image,
+		Rect2i(Vector2i.ZERO, fitted_size),
+		offset
+	)
+	return _make_preview_result(
+		true,
+		STATUS_GENERATED,
+		source_id,
+		ImageTexture.create_from_image(canvas),
+		source_size,
+		target_size,
+		""
+	)
 
 
 ## 为源纹理生成预览纹理。
@@ -437,8 +596,16 @@ func make_preview_result(
 ## @schema options: Dictionary，可覆盖源纹理和目标预览的尺寸、像素预算。
 ## [br]
 ## @return 预览纹理；生成失败时返回 null。
-func make_preview_texture(texture: Texture2D, size: Vector2i, options: Dictionary = {}) -> Texture2D:
-	var result: Dictionary = make_preview_result(texture, size, options)
+func make_preview_texture(
+	texture: Texture2D,
+	size: Vector2i,
+	options: Dictionary = {}
+) -> Texture2D:
+	var result: Dictionary = make_preview_result(
+		texture,
+		size,
+		options
+	)
 	return _get_result_texture(result)
 
 
@@ -506,7 +673,12 @@ func _get_result_texture(result: Dictionary) -> Texture2D:
 ## 组装 provider 查找结果所用的 ok、status、source_id 和 texture 字段。
 ## [br]
 ## @api private
-func _make_source_result(ok: bool, status: StringName, source_id: String, texture: Texture2D) -> Dictionary:
+func _make_source_result(
+	ok: bool,
+	status: StringName,
+	source_id: String,
+	texture: Texture2D
+) -> Dictionary:
 	return {
 		"ok": ok,
 		"status": status,
@@ -542,15 +714,28 @@ func _make_preview_result(
 ## [br]
 ## @api private
 func _normalize_size(size: Vector2i) -> Vector2i:
-	return Vector2i(maxi(size.x, 1), maxi(size.y, 1))
+	return Vector2i(
+		maxi(size.x, 1),
+		maxi(size.y, 1)
+	)
 
 
 ## 当 max_dimension 大于 0 时检查边长；当 max_pixels 大于 0 时再检查像素数。
 ## 非正限制值不限制对应维度或像素数。
 ## [br]
 ## @api private
-func _is_size_within_budget(size: Vector2i, max_dimension: int, max_pixels: int) -> bool:
-	if max_dimension > 0 and (size.x > max_dimension or size.y > max_dimension):
+func _is_size_within_budget(
+	size: Vector2i,
+	max_dimension: int,
+	max_pixels: int
+) -> bool:
+	if (
+		max_dimension > 0
+		and (
+			size.x > max_dimension
+			or size.y > max_dimension
+		)
+	):
 		return false
 	var pixel_count: int = size.x * size.y
 	return max_pixels <= 0 or pixel_count <= max_pixels
@@ -559,8 +744,16 @@ func _is_size_within_budget(size: Vector2i, max_dimension: int, max_pixels: int)
 ## 读取预算整数，并将负数预算规范为 0（由预算检查解释为不限制）。
 ## [br]
 ## @api private
-func _get_budget_int(options: Dictionary, key: String, default_value: int) -> int:
-	var value: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, key, default_value)
+func _get_budget_int(
+	options: Dictionary,
+	key: String,
+	default_value: int
+) -> int:
+	var value: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+		options,
+		key,
+		default_value
+	)
 	return maxi(value, 0)
 
 
@@ -574,8 +767,14 @@ func _fit_size(source_size: Vector2i, target_size: Vector2i) -> Vector2i:
 	var height_scale: float = float(target_size.y) / float(source_height)
 	var scale: float = minf(width_scale, height_scale)
 	return Vector2i(
-		maxi(1, int(roundf(float(source_width) * scale))),
-		maxi(1, int(roundf(float(source_height) * scale)))
+		maxi(
+			1,
+			int(roundf(float(source_width) * scale))
+		),
+		maxi(
+			1,
+			int(roundf(float(source_height) * scale))
+		)
 	)
 
 
@@ -583,11 +782,30 @@ func _fit_size(source_size: Vector2i, target_size: Vector2i) -> Vector2i:
 ## [br]
 ## @api private
 static func _compare_source_records(left: Dictionary, right: Dictionary) -> bool:
-	var left_priority: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(left, "priority", 0)
-	var right_priority: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(right, "priority", 0)
+	var left_priority: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+		left,
+		"priority",
+		0
+	)
+	var right_priority: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+		right,
+		"priority",
+		0
+	)
 	if left_priority != right_priority:
 		return left_priority > right_priority
-	return _GF_VARIANT_ACCESS_SCRIPT.get_option_int(left, "order", 0) < _GF_VARIANT_ACCESS_SCRIPT.get_option_int(right, "order", 0)
+	return (
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			left,
+			"order",
+			0
+		)
+		< _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			right,
+			"order",
+			0
+		)
+	)
 
 
 # --- 内部类 ---
@@ -597,6 +815,7 @@ static func _compare_source_records(left: Dictionary, right: Dictionary) -> bool
 ## @api private
 class _MethodPreviewSource:
 	extends RefCounted
+
 
 	# --- 常量 ---
 
@@ -644,11 +863,13 @@ class _MethodPreviewSource:
 			return texture
 		return null
 
+
 ## 从 Resource 约定属性读取预览纹理的内置 provider。
 ## [br]
 ## @api private
 class _PropertyPreviewSource:
 	extends RefCounted
+
 
 	# --- 常量 ---
 
@@ -696,6 +917,7 @@ class _PropertyPreviewSource:
 			return texture
 		return null
 
+
 	## 逐项扫描属性列表，按 String/StringName 名称匹配指定属性。
 	## [br]
 	## @api private
@@ -705,6 +927,7 @@ class _PropertyPreviewSource:
 			if _to_string_name(raw_name) == property_name:
 				return true
 		return false
+
 
 	## 将 StringName 或 String 转为 StringName，其他类型返回空名称。
 	## [br]

@@ -35,18 +35,29 @@ const _READER_TEMPLATE: String = "res://addons/gf/tools/config_pipeline/template
 ## @param output_root: 生成目录。
 ## [br]
 ## @return: 新 Profile，不写文件。
-static func make_profile(source_path: String, database_name: String = "main", output_root: String = "res://generated") -> GFConfigPipelineProfile:
+static func make_profile(
+	source_path: String,
+	database_name: String = "main",
+	output_root: String = "res://generated"
+) -> GFConfigPipelineProfile:
 	var profile: GFConfigPipelineProfile = GFConfigPipelineProfile.new()
 	var identifier: String = database_name.validate_node_name().to_snake_case()
 	if identifier.is_empty() or not identifier.is_valid_identifier():
 		identifier = "main"
 	var suffix: int = 1
 	var output_path: String = output_root.path_join("config/%s.tres" % identifier)
-	var access_path: String = _PATHS_SCRIPT.CONFIG_ACCESS_OUTPUT_PATH if identifier == "main" and output_root == _PATHS_SCRIPT.GENERATED_ROOT else output_root.path_join("%s_config_access.gd" % identifier)
-	var access_name: String = "GFConfigAccess" if access_path == _PATHS_SCRIPT.CONFIG_ACCESS_OUTPUT_PATH else identifier.to_pascal_case() + "ConfigAccess"
-	while FileAccess.file_exists(output_path) or FileAccess.file_exists(access_path) or _class_exists(access_name):
+	var access_path: String = (_PATHS_SCRIPT.CONFIG_ACCESS_OUTPUT_PATH if identifier == "main" and output_root == _PATHS_SCRIPT.GENERATED_ROOT else output_root.path_join("%s_config_access.gd" % identifier))
+	var access_name: String = ("GFConfigAccess" if access_path == _PATHS_SCRIPT.CONFIG_ACCESS_OUTPUT_PATH else identifier.to_pascal_case() + "ConfigAccess")
+	while (
+		FileAccess.file_exists(output_path)
+		or FileAccess.file_exists(access_path)
+		or _class_exists(access_name)
+	):
 		suffix += 1
-		var candidate: String = "%s_%d" % [identifier, suffix]
+		var candidate: String = (
+			"%s_%d"
+			% [identifier, suffix]
+		)
 		output_path = output_root.path_join("config/%s.tres" % candidate)
 		access_path = output_root.path_join("%s_config_access.gd" % candidate)
 		access_name = candidate.to_pascal_case() + "ConfigAccess"
@@ -81,13 +92,28 @@ static func describe_changes(profile: GFConfigPipelineProfile) -> PackedStringAr
 			continue
 		for key: String in schema_options:
 			if source.schema_options.get(key) != schema_options[key]:
-				var _appended: bool = changes.append("%s.schema_options.%s: %s → %s" % [source.get_table_key(), key, str(source.schema_options.get(key)), str(schema_options[key])])
+				var _appended: bool = changes.append(
+					"%s.schema_options.%s: %s → %s"
+					% [
+						source.get_table_key(),
+						key,
+						str(source.schema_options.get(key)),
+						str(schema_options[key]),
+					]
+				)
 		if source.schema != null:
 			var _appended: bool = changes.append("%s: 显式 Schema 优先，预设不会修改其字段或 ID 规则。" % source.get_table_key())
 	var access_options: Dictionary = GFVariantData.get_option_dictionary(preset, "access_options")
 	for key: String in access_options:
 		if profile.access_options.get(key) != access_options[key]:
-			var _appended: bool = changes.append("access_options.%s: %s → %s" % [key, str(profile.access_options.get(key)), str(access_options[key])])
+			var _appended: bool = changes.append(
+				"access_options.%s: %s → %s"
+				% [
+					key,
+					str(profile.access_options.get(key)),
+					str(access_options[key]),
+				]
+			)
 	return changes
 
 
@@ -100,8 +126,14 @@ static func apply_managed_values(profile: GFConfigPipelineProfile) -> void:
 	var preset: Dictionary = _read_preset()
 	for source: GFConfigPipelineTableSource in profile.sources:
 		if source != null:
-			source.schema_options.merge(GFVariantData.get_option_dictionary(preset, "schema_options"), true)
-	profile.access_options.merge(GFVariantData.get_option_dictionary(preset, "access_options"), true)
+			source.schema_options.merge(
+				GFVariantData.get_option_dictionary(preset, "schema_options"),
+				true
+			)
+	profile.access_options.merge(
+		GFVariantData.get_option_dictionary(preset, "access_options"),
+		true
+	)
 	profile.metadata["gf_config_preset"] = preset.duplicate(true)
 
 
@@ -113,10 +145,22 @@ static func apply_managed_values(profile: GFConfigPipelineProfile) -> void:
 ## [br]
 ## @return: 可作为 Label 脚本使用的源码。
 static func make_read_example(profile: GFConfigPipelineProfile) -> String:
-	if profile == null or profile.sources.is_empty() or profile.sources[0] == null:
+	if (
+		profile == null
+		or profile.sources.is_empty()
+		or profile.sources[0] == null
+	):
 		return "# Add a valid table source to the Profile, then generate the reading example."
 	var table_name: String = String(profile.sources[0].get_table_key()) if not profile.sources.is_empty() else "items"
-	return FileAccess.get_file_as_string(_READER_TEMPLATE).replace("{DatabasePath}", JSON.stringify(profile.output_path)).replace("{TableName}", JSON.stringify(table_name))
+	return (
+		FileAccess.get_file_as_string(_READER_TEMPLATE).replace(
+			"{DatabasePath}",
+			JSON.stringify(profile.output_path)
+		).replace(
+			"{TableName}",
+			JSON.stringify(table_name)
+		)
+	)
 
 
 ## 在显式选择的项目根创建样例；所有目标均为用户文件，冲突时全批零写入。
@@ -133,26 +177,57 @@ static func create_sample(root_path: String) -> Dictionary:
 	var profile_path: String = root_path.path_join("config/build/main.tres")
 	var script_path: String = root_path.path_join("config/examples/read_config.gd")
 	var scene_path: String = root_path.path_join("config/examples/read_config.tscn")
-	var profile: GFConfigPipelineProfile = make_profile(source_path, "main", root_path.path_join("generated"))
+	var profile: GFConfigPipelineProfile = make_profile(
+		source_path,
+		"main",
+		root_path.path_join("generated")
+	)
 	var temporary_path: String = "user://gf_config_profile_%d.tres" % Time.get_ticks_usec()
 	var save_error: Error = ResourceSaver.save(profile, temporary_path)
 	if save_error != OK:
 		return { "ok": false, "error": error_string(save_error) }
 	var profile_text: String = FileAccess.get_file_as_string(temporary_path)
 	var _remove_result: Error = DirAccess.remove_absolute(ProjectSettings.globalize_path(temporary_path))
-	var scene_text: String = "[gd_scene load_steps=2 format=3]\n\n[ext_resource type=\"Script\" path=%s id=\"1\"]\n\n[node name=\"ReadConfig\" type=\"Label\"]\ntext = \"Export the configuration, then run this scene.\"\nscript = ExtResource(\"1\")\n" % JSON.stringify(script_path)
+	var scene_text: String = ("[gd_scene load_steps=2 format=3]\n\n[ext_resource type=\"Script\" path=%s id=\"1\"]\n\n[node name=\"ReadConfig\" type=\"Label\"]\ntext = \"Export the configuration, then run this scene.\"\nscript = ExtResource(\"1\")\n" % JSON.stringify(script_path))
 	var entries: Array[Dictionary] = [
-		GFArtifactWriteTransaction.make_text_entry(source_path + ".import", "[remap]\n\nimporter=\"keep\"\n", { "overwrite": false }),
-		GFArtifactWriteTransaction.make_text_entry(source_path, "id:int!,name:string,power:float\n1,Potion,2.5\n2,Ether,3.0\n", { "overwrite": false }),
-		GFArtifactWriteTransaction.make_text_entry(profile_path, profile_text, { "overwrite": false }),
-		GFArtifactWriteTransaction.make_text_entry(script_path, make_read_example(profile), { "overwrite": false }),
-		GFArtifactWriteTransaction.make_text_entry(scene_path, scene_text, { "overwrite": false }),
+		GFArtifactWriteTransaction.make_text_entry(
+			source_path + ".import",
+			"[remap]\n\nimporter=\"keep\"\n",
+			{ "overwrite": false }
+		),
+		GFArtifactWriteTransaction.make_text_entry(
+			source_path,
+			"id:int!,name:string,power:float\n1,Potion,2.5\n2,Ether,3.0\n",
+			{ "overwrite": false }
+		),
+		GFArtifactWriteTransaction.make_text_entry(
+			profile_path,
+			profile_text,
+			{ "overwrite": false }
+		),
+		GFArtifactWriteTransaction.make_text_entry(
+			script_path,
+			make_read_example(profile),
+			{ "overwrite": false }
+		),
+		GFArtifactWriteTransaction.make_text_entry(
+			scene_path,
+			scene_text,
+			{ "overwrite": false }
+		),
 	]
-	var result: Dictionary = GFArtifactWriteTransaction.commit(entries, {
-		"allowed_roots": [root_path],
-		"overwrite_existing": false,
-		"metadata": { "artifact_owner": "user", "preset_id": "gf.config.basic", "preset_version": 1 },
-	})
+	var result: Dictionary = GFArtifactWriteTransaction.commit(
+		entries,
+		{
+			"allowed_roots": [root_path],
+			"overwrite_existing": false,
+			"metadata": {
+				"artifact_owner": "user",
+				"preset_id": "gf.config.basic",
+				"preset_version": 1,
+			},
+		}
+	)
 	result["profile_path"] = profile_path
 	result["scene_path"] = scene_path
 	return result

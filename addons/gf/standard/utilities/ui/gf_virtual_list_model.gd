@@ -85,7 +85,11 @@ var trailing_padding: float:
 	set(value):
 		if not is_finite(value):
 			return
-		var _next_trailing_padding: float = clampf(value, 0.0, MAX_ITEM_EXTENT)
+		var _next_trailing_padding: float = clampf(
+			value,
+			0.0,
+			MAX_ITEM_EXTENT
+		)
 		if _trailing_padding == _next_trailing_padding:
 			return
 		_trailing_padding = _next_trailing_padding
@@ -396,9 +400,20 @@ func get_viewport_range(scroll_offset: float, viewport_extent: float) -> Vector2
 	if _extents.is_empty():
 		return Vector2i.ZERO
 	_ensure_offsets()
-	var scroll_top: float = clampf(scroll_offset, 0.0, _content_extent) if is_finite(scroll_offset) else 0.0
-	var visible_extent: float = clampf(viewport_extent, 0.0, _content_extent) if is_finite(viewport_extent) else 0.0
-	var scroll_bottom: float = minf(scroll_top + visible_extent, _content_extent)
+	var scroll_top: float = clampf(
+		scroll_offset,
+		0.0,
+		_content_extent
+	) if is_finite(scroll_offset) else 0.0
+	var visible_extent: float = clampf(
+		viewport_extent,
+		0.0,
+		_content_extent
+	) if is_finite(viewport_extent) else 0.0
+	var scroll_bottom: float = minf(
+		scroll_top + visible_extent,
+		_content_extent
+	)
 	var start_index: int = _search_first_bottom_after(scroll_top)
 	var end_index: int = _search_first_top_at_or_after(scroll_bottom)
 	if end_index < start_index:
@@ -423,8 +438,14 @@ func get_visible_range(scroll_offset: float, viewport_extent: float) -> Vector2i
 		return viewport_range
 	var start_index: int = viewport_range.x
 	var end_index: int = viewport_range.y
-	start_index = maxi(start_index - _overscan_items, 0)
-	end_index = mini(end_index + _overscan_items, _extents.size())
+	start_index = maxi(
+		start_index - _overscan_items,
+		0
+	)
+	end_index = mini(
+		end_index + _overscan_items,
+		_extents.size()
+	)
 	return Vector2i(start_index, end_index)
 
 
@@ -443,12 +464,14 @@ func get_visible_items(scroll_offset: float, viewport_extent: float) -> Array[Di
 	var result: Array[Dictionary] = []
 	var visible_range: Vector2i = get_visible_range(scroll_offset, viewport_extent)
 	for item_index: int in range(visible_range.x, visible_range.y):
-		result.append({
-			"index": item_index,
-			"offset": get_item_offset(item_index),
-			"extent": get_item_extent(item_index),
-			"measured": is_item_measured(item_index),
-		})
+		result.append(
+			{
+				"index": item_index,
+				"offset": get_item_offset(item_index),
+				"extent": get_item_extent(item_index),
+				"measured": is_item_measured(item_index),
+			}
+		)
 	return result
 
 
@@ -546,4 +569,8 @@ func _is_valid_index(item_index: int) -> bool:
 func _normalize_item_extent(value: float) -> float:
 	if not is_finite(value):
 		return _estimated_item_extent
-	return clampf(value, MIN_ITEM_EXTENT, MAX_ITEM_EXTENT)
+	return clampf(
+		value,
+		MIN_ITEM_EXTENT,
+		MAX_ITEM_EXTENT
+	)

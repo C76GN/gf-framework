@@ -15,7 +15,7 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 属性 | [`delays_msec`](#member-gfnetworkreconnectpolicy-properties-delays_msec) | `var delays_msec: Array[int] = [500, 1000, 2000, 5000]` |
+| 属性 | [`delays_msec`](#member-gfnetworkreconnectpolicy-properties-delays_msec) | `var delays_msec: Array[int] = [ 	500, 	1000, 	2000, 	5000, ]` |
 | 属性 | [`max_attempts`](#member-gfnetworkreconnectpolicy-properties-max_attempts) | `var max_attempts: int = 0` |
 | 属性 | [`jitter_ratio`](#member-gfnetworkreconnectpolicy-properties-jitter_ratio) | `var jitter_ratio: float = 0.0:` |
 | 方法 | [`reset`](#member-gfnetworkreconnectpolicy-methods-reset) | `func reset() -> void:` |
@@ -32,9 +32,15 @@
 ### `delays_msec`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var delays_msec: Array[int] = [500, 1000, 2000, 5000]
+var delays_msec: Array[int] = [
+	500,
+	1000,
+	2000,
+	5000,
+]
 ```
 
 重连延迟序列，单位毫秒。

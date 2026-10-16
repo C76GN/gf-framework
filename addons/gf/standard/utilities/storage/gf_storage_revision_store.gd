@@ -70,13 +70,19 @@ static func read_for_framework(context: Dictionary) -> GFStorageRevisionResult:
 	if not FileAccess.file_exists(GFVariantData.get_option_string(context, "payload_path")):
 		return GFStorageRevisionResult.failure(GFStorageRevisionResult.Status.NOT_FOUND, ERR_FILE_NOT_FOUND)
 	var state_read: Dictionary = read_state_for_framework(context)
-	var state_error: Error = GFVariantData.get_option_int(state_read, "error", ERR_FILE_CORRUPT) as Error
+	var state_error: Error = GFVariantData.get_option_int(
+		state_read,
+		"error",
+		ERR_FILE_CORRUPT
+	) as Error
 	if state_error != OK:
 		return failure_for_framework(state_error)
-	return GFStorageRevisionResult.available(_make_token(
-		context,
-		GFVariantData.get_option_string(state_read, "commit_id")
-	))
+	return GFStorageRevisionResult.available(
+		_make_token(
+			context,
+			GFVariantData.get_option_string(state_read, "commit_id")
+		)
+	)
 
 
 ## 发布可由闭合事务证据重建的 state；调用方必须在成功前保留全部 commit/prepare。
@@ -92,7 +98,11 @@ static func read_for_framework(context: Dictionary) -> GFStorageRevisionResult:
 ## @param writer: 接受绝对路径与 Dictionary、返回 Error 的框架文件写入接点。
 ## [br]
 ## @return schema 1 不写入并返回 OK；schema 2 写入且复核后成功。
-static func publish_for_framework(context: Dictionary, commit_id: String, writer: Callable) -> Error:
+static func publish_for_framework(
+	context: Dictionary,
+	commit_id: String,
+	writer: Callable
+) -> Error:
 	if context.is_empty():
 		return OK
 	if not GFUuid.is_valid(commit_id, 4) or not writer.is_valid():
@@ -101,7 +111,11 @@ static func publish_for_framework(context: Dictionary, commit_id: String, writer
 		return OK
 	var state_path: String = GFVariantData.get_option_string(context, "state_path")
 	var write_error: Error = GFVariantData.to_exact_int(
-		writer.call(state_path, _make_state(context, commit_id)), ERR_CANT_CREATE
+		writer.call(
+			state_path,
+			_make_state(context, commit_id)
+		),
+		ERR_CANT_CREATE
 	) as Error
 	if write_error != OK:
 		return write_error
@@ -124,7 +138,11 @@ static func matches_for_framework(context: Dictionary, commit_id: String) -> boo
 		return true
 	var state: Dictionary = read_state_for_framework(context)
 	return (
-		GFVariantData.get_option_int(state, "error", ERR_FILE_CORRUPT) == OK
+		GFVariantData.get_option_int(
+			state,
+			"error",
+			ERR_FILE_CORRUPT
+		) == OK
 		and GFVariantData.get_option_string(state, "commit_id") == commit_id
 	)
 
@@ -143,27 +161,30 @@ static func matches_for_framework(context: Dictionary, commit_id: String) -> boo
 static func read_state_for_framework(context: Dictionary) -> Dictionary:
 	var path: String = GFVariantData.get_option_string(context, "state_path")
 	if not FileAccess.file_exists(path):
-		return {"error": int(ERR_FILE_CORRUPT), "commit_id": ""}
+		return { "error": int(ERR_FILE_CORRUPT), "commit_id": "" }
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
-		return {"error": int(FileAccess.get_open_error()), "commit_id": ""}
+		return { "error": int(FileAccess.get_open_error()), "commit_id": "" }
 	var length: int = file.get_length()
 	if length <= 0 or length > _MAX_STATE_BYTES:
 		file.close()
-		return {"error": int(ERR_FILE_CORRUPT), "commit_id": ""}
+		return { "error": int(ERR_FILE_CORRUPT), "commit_id": "" }
 	var bytes: PackedByteArray = file.get_buffer(length)
 	var read_error: Error = file.get_error()
 	file.close()
 	if bytes.size() != length or read_error not in [OK, ERR_FILE_EOF]:
-		return {"error": int(ERR_FILE_CANT_READ), "commit_id": ""}
+		return { "error": int(ERR_FILE_CANT_READ), "commit_id": "" }
 	var parser: JSON = JSON.new()
 	if parser.parse(bytes.get_string_from_utf8()) != OK or not parser.data is Dictionary:
-		return {"error": int(ERR_FILE_CORRUPT), "commit_id": ""}
+		return { "error": int(ERR_FILE_CORRUPT), "commit_id": "" }
 	var record: Dictionary = parser.data
 	var commit_id: String = GFVariantData.get_option_string(record, "commit_id")
-	if not GFUuid.is_valid(commit_id, 4) or not _matches_state(record, _make_state(context, commit_id)):
-		return {"error": int(ERR_FILE_CORRUPT), "commit_id": ""}
-	return {"error": int(OK), "commit_id": commit_id}
+	if not GFUuid.is_valid(commit_id, 4) or not _matches_state(
+		record,
+		_make_state(context, commit_id)
+	):
+		return { "error": int(ERR_FILE_CORRUPT), "commit_id": "" }
+	return { "error": int(OK), "commit_id": commit_id }
 
 
 ## 把 Godot error 映射为 revision 查询失败。
@@ -211,11 +232,15 @@ static func _make_state(context: Dictionary, commit_id: String) -> Dictionary:
 ## @api private
 ## [br]
 static func _make_token(context: Dictionary, commit_id: String) -> String:
-	return JSON.stringify([
-		GFVariantData.get_option_string(context, "storage_incarnation"),
-		GFVariantData.get_option_string(context, "family_id"),
-		commit_id,
-	]).sha256_text()
+	return (
+		JSON.stringify(
+			[
+				GFVariantData.get_option_string(context, "storage_incarnation"),
+				GFVariantData.get_option_string(context, "family_id"),
+				commit_id,
+			]
+		).sha256_text()
+	)
 
 
 ## 要求记录字段数与 expected 完全一致，版本为精确整数 1，其余字段为相同字符串。
@@ -227,7 +252,10 @@ static func _matches_state(record: Dictionary, expected: Dictionary) -> bool:
 		return false
 	for key: String in expected:
 		if key == "schema_version":
-			if GFVariantData.to_exact_int(record.get(key), -1) != 1:
+			if GFVariantData.to_exact_int(
+				record.get(key),
+				-1
+			) != 1:
 				return false
 		elif not record.get(key) is String or record.get(key) != expected.get(key):
 			return false

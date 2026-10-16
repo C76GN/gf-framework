@@ -44,7 +44,14 @@ func start_output(
 	duration_seconds: float,
 	metadata: Dictionary = {}
 ) -> bool:
-	return _start_output(target_type, target_id, weak_magnitude, strong_magnitude, duration_seconds, metadata)
+	return _start_output(
+		target_type,
+		target_id,
+		weak_magnitude,
+		strong_magnitude,
+		duration_seconds,
+		metadata
+	)
 
 
 ## 停止指定目标的震动输出。
@@ -62,8 +69,16 @@ func start_output(
 ## @schema metadata: Dictionary copied from GFHapticUtility output target metadata.
 ## [br]
 ## @return: 后端确认停止时返回 true。
-func stop_output(target_type: int, target_id: int, metadata: Dictionary = {}) -> bool:
-	return _stop_output(target_type, target_id, metadata)
+func stop_output(
+	target_type: int,
+	target_id: int,
+	metadata: Dictionary = {}
+) -> bool:
+	return _stop_output(
+		target_type,
+		target_id,
+		metadata
+	)
 
 
 # --- 可重写钩子 / 虚方法 ---
@@ -115,5 +130,9 @@ func _start_output(
 ## @schema _metadata: Dictionary copied from GFHapticUtility output target metadata.
 ## [br]
 ## @return: 后端确认停止时返回 true。
-func _stop_output(_target_type: int, _target_id: int, _metadata: Dictionary = {}) -> bool:
+func _stop_output(
+	_target_type: int,
+	_target_id: int,
+	_metadata: Dictionary = {}
+) -> bool:
 	return false

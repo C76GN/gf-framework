@@ -29,6 +29,7 @@ enum OffsetLayout {
 	EVEN_Q,
 }
 
+
 ## 像素坐标换算时使用的六边形朝向。
 ## [br]
 ## @api public
@@ -57,12 +58,36 @@ const DEFAULT_HEX_SIZE: float = 32.0
 ## @api private
 ## [br]
 const _CUBE_DIRECTIONS: Array[Vector3i] = [
-	Vector3i(1, -1, 0),
-	Vector3i(1, 0, -1),
-	Vector3i(0, 1, -1),
-	Vector3i(-1, 1, 0),
-	Vector3i(-1, 0, 1),
-	Vector3i(0, -1, 1),
+	Vector3i(
+		1,
+		-1,
+		0
+	),
+	Vector3i(
+		1,
+		0,
+		-1
+	),
+	Vector3i(
+		0,
+		1,
+		-1
+	),
+	Vector3i(
+		-1,
+		1,
+		0
+	),
+	Vector3i(
+		-1,
+		0,
+		1
+	),
+	Vector3i(
+		0,
+		-1,
+		1
+	),
 ]
 
 
@@ -117,7 +142,11 @@ static func offset_to_cube(cell: Vector2i, layout: OffsetLayout = OffsetLayout.O
 			x = cell.x - _half_even(cell.y - _parity(cell.y))
 			z = cell.y
 
-	return Vector3i(x, -x - z, z)
+	return Vector3i(
+		x,
+		-x - z,
+		z
+	)
 
 
 ## 将 cube 坐标转换为 offset 坐标。
@@ -132,13 +161,25 @@ static func offset_to_cube(cell: Vector2i, layout: OffsetLayout = OffsetLayout.O
 static func cube_to_offset(cube: Vector3i, layout: OffsetLayout = OffsetLayout.ODD_R) -> Vector2i:
 	match layout:
 		OffsetLayout.EVEN_R:
-			return Vector2i(cube.x + _half_even(cube.z + _parity(cube.z)), cube.z)
+			return Vector2i(
+				cube.x + _half_even(cube.z + _parity(cube.z)),
+				cube.z
+			)
 		OffsetLayout.ODD_Q:
-			return Vector2i(cube.x, cube.z + _half_even(cube.x - _parity(cube.x)))
+			return Vector2i(
+				cube.x,
+				cube.z + _half_even(cube.x - _parity(cube.x))
+			)
 		OffsetLayout.EVEN_Q:
-			return Vector2i(cube.x, cube.z + _half_even(cube.x + _parity(cube.x)))
+			return Vector2i(
+				cube.x,
+				cube.z + _half_even(cube.x + _parity(cube.x))
+			)
 		_:
-			return Vector2i(cube.x + _half_even(cube.z - _parity(cube.z)), cube.z)
+			return Vector2i(
+				cube.x + _half_even(cube.z - _parity(cube.z)),
+				cube.z
+			)
 
 
 ## 四舍五入浮点 cube 坐标。
@@ -163,7 +204,11 @@ static func cube_round(cube: Vector3) -> Vector3i:
 	else:
 		rounded_z = -rounded_x - rounded_y
 
-	return Vector3i(rounded_x, rounded_y, rounded_z)
+	return Vector3i(
+		rounded_x,
+		rounded_y,
+		rounded_z
+	)
 
 
 ## 将 offset 坐标转换为像素中心点。
@@ -185,7 +230,11 @@ static func offset_to_pixel(
 	layout: OffsetLayout = OffsetLayout.ODD_R,
 	orientation: HexOrientation = HexOrientation.POINTY_TOP
 ) -> Vector2:
-	return cube_to_pixel(offset_to_cube(cell, layout), hex_size, orientation)
+	return cube_to_pixel(
+		offset_to_cube(cell, layout),
+		hex_size,
+		orientation
+	)
 
 
 ## 将像素坐标转换为最近的 offset 坐标。
@@ -207,7 +256,14 @@ static func pixel_to_offset(
 	layout: OffsetLayout = OffsetLayout.ODD_R,
 	orientation: HexOrientation = HexOrientation.POINTY_TOP
 ) -> Vector2i:
-	return cube_to_offset(pixel_to_cube(pixel, hex_size, orientation), layout)
+	return cube_to_offset(
+		pixel_to_cube(
+			pixel,
+			hex_size,
+			orientation
+		),
+		layout
+	)
 
 
 ## 将 cube 坐标转换为像素中心点。
@@ -231,9 +287,15 @@ static func cube_to_pixel(
 	var r: float = float(cube.z)
 	match orientation:
 		HexOrientation.FLAT_TOP:
-			return Vector2(safe_size * 1.5 * q, safe_size * (SQRT_3 * 0.5 * q + SQRT_3 * r))
+			return Vector2(
+				safe_size * 1.5 * q,
+				safe_size * (SQRT_3 * 0.5 * q + SQRT_3 * r)
+			)
 		_:
-			return Vector2(safe_size * (SQRT_3 * q + SQRT_3 * 0.5 * r), safe_size * 1.5 * r)
+			return Vector2(
+				safe_size * (SQRT_3 * q + SQRT_3 * 0.5 * r),
+				safe_size * 1.5 * r
+			)
 
 
 ## 将像素坐标转换为最近的 cube 坐标。
@@ -263,27 +325,38 @@ static func pixel_to_cube(
 			q = (SQRT_3 / 3.0 * pixel.x - 1.0 / 3.0 * pixel.y) / safe_size
 			r = (2.0 / 3.0 * pixel.y) / safe_size
 
-	return cube_round(Vector3(q, -q - r, r))
+	return cube_round(
+		Vector3(
+			q,
+			-q - r,
+			r
+		)
+	)
 
 
 ## 获取六边形顶点相对坐标。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param hex_size: 六边形外接圆半径。
 ## [br]
 ## @param orientation: 六边形朝向。
 ## [br]
 ## @return 顶点数组，按顺时针排列。
-static func get_polygon_points(
-	hex_size: float = DEFAULT_HEX_SIZE,
-	orientation: HexOrientation = HexOrientation.POINTY_TOP
-) -> PackedVector2Array:
+static func get_polygon_points(hex_size: float = DEFAULT_HEX_SIZE, orientation: HexOrientation = HexOrientation.POINTY_TOP) -> PackedVector2Array:
 	var points: PackedVector2Array = PackedVector2Array()
 	var offset_degrees: float = -30.0 if orientation == HexOrientation.POINTY_TOP else 0.0
 	for index: int in range(6):
 		var angle: float = deg_to_rad(60.0 * float(index) + offset_degrees)
-		_append_vector2(points, Vector2(cos(angle) * hex_size, sin(angle) * hex_size))
+		_append_vector2(
+			points,
+			Vector2(
+				cos(angle) * hex_size,
+				sin(angle) * hex_size
+			)
+		)
 	return points
 
 
@@ -306,7 +379,10 @@ static func get_neighbors(
 	var result: Array[Vector2i] = []
 	var cube: Vector3i = offset_to_cube(cell, layout)
 	for direction: Vector3i in _CUBE_DIRECTIONS:
-		var next_cell: Vector2i = cube_to_offset(cube + direction, layout)
+		var next_cell: Vector2i = cube_to_offset(
+			cube + direction,
+			layout
+		)
 		if is_in_bounds(next_cell, grid_size):
 			result.append(next_cell)
 	return result
@@ -328,7 +404,10 @@ static func distance(
 	to_cell: Vector2i,
 	layout: OffsetLayout = OffsetLayout.ODD_R
 ) -> int:
-	return cube_distance(offset_to_cube(from_cell, layout), offset_to_cube(to_cell, layout))
+	return cube_distance(
+		offset_to_cube(from_cell, layout),
+		offset_to_cube(to_cell, layout)
+	)
 
 
 ## 计算两个 cube 坐标之间的六边形距离。
@@ -341,11 +420,7 @@ static func distance(
 ## [br]
 ## @return 六边形步数距离。
 static func cube_distance(from_cube: Vector3i, to_cube: Vector3i) -> int:
-	return _half_even(
-		absi(from_cube.x - to_cube.x)
-		+ absi(from_cube.y - to_cube.y)
-		+ absi(from_cube.z - to_cube.z)
-	)
+	return _half_even(absi(from_cube.x - to_cube.x) + absi(from_cube.y - to_cube.y) + absi(from_cube.z - to_cube.z))
 
 
 ## 获取指定半径内的所有 offset 坐标。
@@ -372,12 +447,31 @@ static func get_range(
 		return result
 
 	var center_cube: Vector3i = offset_to_cube(center, layout)
-	for dx: int in range(-radius, radius + 1):
-		var min_dy: int = maxi(-radius, -dx - radius)
-		var max_dy: int = mini(radius, -dx + radius)
-		for dy: int in range(min_dy, max_dy + 1):
+	for dx: int in range(
+		-radius,
+		radius + 1
+	):
+		var min_dy: int = maxi(
+			-radius,
+			-dx - radius
+		)
+		var max_dy: int = mini(
+			radius,
+			-dx + radius
+		)
+		for dy: int in range(
+			min_dy,
+			max_dy + 1
+		):
 			var dz: int = -dx - dy
-			var cell: Vector2i = cube_to_offset(center_cube + Vector3i(dx, dy, dz), layout)
+			var cell: Vector2i = cube_to_offset(
+				center_cube + Vector3i(
+					dx,
+					dy,
+					dz
+				),
+				layout
+			)
 			if is_in_bounds(cell, grid_size):
 				result.append(cell)
 	return result
@@ -443,7 +537,16 @@ static func get_line(
 	var result: Array[Vector2i] = []
 	for index: int in range(steps + 1):
 		var t: float = float(index) / float(steps)
-		result.append(cube_to_offset(_cube_lerp_round(from_cube, to_cube, t), layout))
+		result.append(
+			cube_to_offset(
+				_cube_lerp_round(
+					from_cube,
+					to_cube,
+					t
+				),
+				layout
+			)
+		)
 	return result
 
 
@@ -472,11 +575,24 @@ static func has_line_of_sight(
 	if not is_blocking.is_valid():
 		return true
 
-	var line: Array[Vector2i] = get_line(from_cell, to_cell, layout)
+	var line: Array[Vector2i] = get_line(
+		from_cell,
+		to_cell,
+		layout
+	)
 	for index: int in range(line.size()):
-		if not include_endpoints and (index == 0 or index == line.size() - 1):
+		if (
+			not include_endpoints
+			and (
+				index == 0
+				or index == line.size() - 1
+			)
+		):
 			continue
-		if _call_cell_bool(is_blocking, line[index]):
+		if _call_cell_bool(
+			is_blocking,
+			line[index]
+		):
 			return false
 	return true
 
@@ -522,20 +638,40 @@ static func find_path_a_star(
 	var closed: Dictionary = {}
 	var came_from: Dictionary = {}
 	var g_score: Dictionary = { start: 0.0 }
-	var f_score: Dictionary = { start: float(distance(start, goal, layout)) }
+	var f_score: Dictionary = {
+		start: float(
+			distance(
+				start,
+				goal,
+				layout
+			)
+		),
+	}
 
 	while not open_set.is_empty():
 		var current: Vector2i = _take_lowest_score_cell(open_set, f_score)
 		_erase_dictionary_key(open_lookup, current)
 		if current == goal:
-			return _reconstruct_path(start, goal, came_from)
+			return _reconstruct_path(
+				start,
+				goal,
+				came_from
+			)
 
 		closed[current] = true
-		for next_cell: Vector2i in get_neighbors(current, grid_size, layout):
+		for next_cell: Vector2i in get_neighbors(
+			current,
+			grid_size,
+			layout
+		):
 			if closed.has(next_cell) or not _call_cell_bool(is_walkable, next_cell):
 				continue
 
-			var move_cost: float = _get_step_cost(current, next_cell, step_cost)
+			var move_cost: float = _get_step_cost(
+				current,
+				next_cell,
+				step_cost
+			)
 			if move_cost < 0.0:
 				continue
 
@@ -545,7 +681,13 @@ static func find_path_a_star(
 
 			came_from[next_cell] = current
 			g_score[next_cell] = tentative_score
-			f_score[next_cell] = tentative_score + float(distance(next_cell, goal, layout))
+			f_score[next_cell] = tentative_score + float(
+				distance(
+					next_cell,
+					goal,
+					layout
+				)
+			)
 			if not open_lookup.has(next_cell):
 				open_set.append(next_cell)
 				open_lookup[next_cell] = true
@@ -586,9 +728,17 @@ static func begin_path_a_star_search(
 	step_cost: Callable = Callable()
 ) -> GFGraphPathSearchState:
 	if not is_walkable.is_valid():
-		return _make_invalid_path_search(start, goal, &"invalid_walkable")
+		return _make_invalid_path_search(
+			start,
+			goal,
+			&"invalid_walkable"
+		)
 	if not is_in_bounds(start, grid_size) or not is_in_bounds(goal, grid_size):
-		return _make_invalid_path_search(start, goal, &"invalid_bounds")
+		return _make_invalid_path_search(
+			start,
+			goal,
+			&"invalid_bounds"
+		)
 	if start == goal:
 		return GFGraphMath.begin_path_search(
 			start,
@@ -597,7 +747,11 @@ static func begin_path_a_star_search(
 				return []
 		)
 	if not _call_cell_bool(is_walkable, goal):
-		return _make_invalid_path_search(start, goal, &"blocked_goal")
+		return _make_invalid_path_search(
+			start,
+			goal,
+			&"blocked_goal"
+		)
 
 	return GFGraphMath.begin_path_search(
 		start,
@@ -605,7 +759,11 @@ static func begin_path_a_star_search(
 		func(node: Variant) -> Array:
 			var cell: Vector2i = _variant_to_vector2i(node)
 			var result: Array = []
-			for next_cell: Vector2i in get_neighbors(cell, grid_size, layout):
+			for next_cell: Vector2i in get_neighbors(
+				cell,
+				grid_size,
+				layout
+			):
 				if _call_cell_bool(is_walkable, next_cell):
 					result.append(next_cell)
 			return result,
@@ -616,11 +774,13 @@ static func begin_path_a_star_search(
 				step_cost
 			),
 		func(node: Variant, goal_node: Variant) -> float:
-			return float(distance(
-				_variant_to_vector2i(node),
-				_variant_to_vector2i(goal_node),
-				layout
-			))
+			return float(
+				distance(
+					_variant_to_vector2i(node),
+					_variant_to_vector2i(goal_node),
+					layout
+				)
+			)
 	)
 
 
@@ -662,7 +822,13 @@ static func simplify_path_line_of_sight(
 	while anchor_index < path.size() - 1:
 		var next_index: int = path.size() - 1
 		while next_index > anchor_index + 1:
-			if has_line_of_sight(path[anchor_index], path[next_index], is_blocking, layout, include_endpoints):
+			if has_line_of_sight(
+				path[anchor_index],
+				path[next_index],
+				is_blocking,
+				layout,
+				include_endpoints
+			):
 				break
 			next_index -= 1
 
@@ -708,7 +874,11 @@ static func build_flow_field(
 
 	var frontier: Array[Vector2i] = []
 	for goal: Vector2i in goals:
-		if not is_in_bounds(goal, grid_size) or not _call_cell_bool(is_walkable, goal) or costs.has(goal):
+		if (
+			not is_in_bounds(goal, grid_size)
+			or not _call_cell_bool(is_walkable, goal)
+			or costs.has(goal)
+		):
 			continue
 
 		costs[goal] = 0.0
@@ -718,11 +888,19 @@ static func build_flow_field(
 
 	while not frontier.is_empty():
 		var current: Vector2i = _take_lowest_score_cell(frontier, costs)
-		for next_cell: Vector2i in get_neighbors(current, grid_size, layout):
+		for next_cell: Vector2i in get_neighbors(
+			current,
+			grid_size,
+			layout
+		):
 			if not _call_cell_bool(is_walkable, next_cell):
 				continue
 
-			var move_cost: float = _get_step_cost(next_cell, current, step_cost)
+			var move_cost: float = _get_step_cost(
+				next_cell,
+				current,
+				step_cost
+			)
 			if move_cost < 0.0:
 				continue
 
@@ -770,7 +948,11 @@ static func find_reachable(
 	step_cost: Callable = Callable()
 ) -> Dictionary:
 	var costs: Dictionary = {}
-	if max_cost < 0.0 or not is_in_bounds(start, grid_size) or not is_walkable.is_valid():
+	if (
+		max_cost < 0.0
+		or not is_in_bounds(start, grid_size)
+		or not is_walkable.is_valid()
+	):
 		return costs
 	if not _call_cell_bool(is_walkable, start):
 		return costs
@@ -779,11 +961,19 @@ static func find_reachable(
 	costs[start] = 0.0
 	while not frontier.is_empty():
 		var current: Vector2i = _take_lowest_score_cell(frontier, costs)
-		for next_cell: Vector2i in get_neighbors(current, grid_size, layout):
+		for next_cell: Vector2i in get_neighbors(
+			current,
+			grid_size,
+			layout
+		):
 			if not _call_cell_bool(is_walkable, next_cell):
 				continue
 
-			var move_cost: float = _get_step_cost(current, next_cell, step_cost)
+			var move_cost: float = _get_step_cost(
+				current,
+				next_cell,
+				step_cost
+			)
 			if move_cost < 0.0:
 				continue
 
@@ -840,7 +1030,10 @@ static func _erase_dictionary_key(target: Dictionary, key: Variant) -> void:
 ## @api private
 ## [br]
 static func _call_cell_bool(callback: Callable, cell: Vector2i) -> bool:
-	return GFVariantData.to_bool(callback.call(cell), false)
+	return GFVariantData.to_bool(
+		callback.call(cell),
+		false
+	)
 
 
 ## 读取格子的浮点评分；评分字典没有该格时以 INF 排在末尾。
@@ -848,16 +1041,32 @@ static func _call_cell_bool(callback: Callable, cell: Vector2i) -> bool:
 ## @api private
 ## [br]
 static func _get_score(scores: Dictionary, cell: Vector2i) -> float:
-	return GFVariantData.get_option_float(scores, cell, INF)
+	return GFVariantData.get_option_float(
+		scores,
+		cell,
+		INF
+	)
 
 
 ## 在两个 cube 坐标间插值，并用 cube_round 纠正为合法整数六边形坐标。
 ## [br]
 ## @api private
 ## [br]
-static func _cube_lerp_round(from_cube: Vector3i, to_cube: Vector3i, t: float) -> Vector3i:
-	var from_float: Vector3 = Vector3(from_cube.x, from_cube.y, from_cube.z)
-	var to_float: Vector3 = Vector3(to_cube.x, to_cube.y, to_cube.z)
+static func _cube_lerp_round(
+	from_cube: Vector3i,
+	to_cube: Vector3i,
+	t: float
+) -> Vector3i:
+	var from_float: Vector3 = Vector3(
+		from_cube.x,
+		from_cube.y,
+		from_cube.z
+	)
+	var to_float: Vector3 = Vector3(
+		to_cube.x,
+		to_cube.y,
+		to_cube.z
+	)
 	return cube_round(from_float.lerp(to_float, t))
 
 
@@ -865,9 +1074,16 @@ static func _cube_lerp_round(from_cube: Vector3i, to_cube: Vector3i, t: float) -
 ## [br]
 ## @api private
 ## [br]
-static func _get_step_cost(from_cell: Vector2i, to_cell: Vector2i, step_cost: Callable) -> float:
+static func _get_step_cost(
+	from_cell: Vector2i,
+	to_cell: Vector2i,
+	step_cost: Callable
+) -> float:
 	if step_cost.is_valid():
-		return GFVariantData.to_float(step_cost.call(from_cell, to_cell), 1.0)
+		return GFVariantData.to_float(
+			step_cost.call(from_cell, to_cell),
+			1.0
+		)
 	return 1.0
 
 
@@ -891,7 +1107,11 @@ static func _make_invalid_path_search(
 	goal: Variant,
 	reason: StringName
 ) -> GFGraphPathSearchState:
-	return GFGraphPathSearchState.make_invalid(start, goal, reason)
+	return GFGraphPathSearchState.make_invalid(
+		start,
+		goal,
+		reason
+	)
 
 
 ## 从候选列表移除并返回评分最低的格子；同分时保留原列表中的先后顺序。
@@ -900,9 +1120,18 @@ static func _make_invalid_path_search(
 ## [br]
 static func _take_lowest_score_cell(cells: Array[Vector2i], scores: Dictionary) -> Vector2i:
 	var best_index: int = 0
-	var best_score: float = _get_score(scores, cells[0])
-	for index: int in range(1, cells.size()):
-		var score: float = _get_score(scores, cells[index])
+	var best_score: float = _get_score(
+		scores,
+		cells[0]
+	)
+	for index: int in range(
+		1,
+		cells.size()
+	):
+		var score: float = _get_score(
+			scores,
+			cells[index]
+		)
 		if score < best_score:
 			best_index = index
 			best_score = score
@@ -916,7 +1145,11 @@ static func _take_lowest_score_cell(cells: Array[Vector2i], scores: Dictionary) 
 ## [br]
 ## @api private
 ## [br]
-static func _reconstruct_path(start: Vector2i, goal: Vector2i, came_from: Dictionary) -> Array[Vector2i]:
+static func _reconstruct_path(
+	start: Vector2i,
+	goal: Vector2i,
+	came_from: Dictionary
+) -> Array[Vector2i]:
 	var path: Array[Vector2i] = [goal]
 	var current: Vector2i = goal
 

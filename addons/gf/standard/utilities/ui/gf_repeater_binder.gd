@@ -28,7 +28,11 @@ extends RefCounted
 ## @param group_key: 失败的克隆组。
 ## [br]
 ## @param error: sync_container() 的失败标识。
-signal synchronization_failed(container: Node, group_key: StringName, error: StringName)
+signal synchronization_failed(
+	container: Node,
+	group_key: StringName,
+	error: StringName
+)
 
 
 # --- 常量 ---
@@ -142,7 +146,10 @@ func bind_repeater(
 
 	if not _SYNC_SCRIPT.validate_options(options).is_empty():
 		return false
-	if _SYNC_SCRIPT.is_busy(container, _get_group_key(options)):
+	if _SYNC_SCRIPT.is_busy(
+		container,
+		_get_group_key(options)
+	):
 		return false
 	var binding_id: int = _next_binding_id
 	_next_binding_id += 1
@@ -172,10 +179,7 @@ func bind_repeater(
 			var target: GFRepeaterBinder = GFRepeaterBinder._binder_from_ref(binder_ref)
 			if target != null:
 				target._apply_store_change_by_id(binding_id, change),
-		{
-			"mode": _GF_REACTIVE_STATE_STORE_SCRIPT.SUBSCRIBE_EXACT,
-			"owner": container,
-		}
+		{ "mode": _GF_REACTIVE_STATE_STORE_SCRIPT.SUBSCRIBE_EXACT, "owner": container, }
 	)
 	if not unsubscribe.is_valid():
 		var _removed_unsubscribed_binding: bool = _remove_binding(binding)
@@ -195,13 +199,29 @@ func bind_repeater(
 			CONNECT_ONE_SHOT as Object.ConnectFlags
 		)
 	binding["tree_exited_callable"] = tree_exited_callback
-	if GFVariantData.get_option_bool(options, "sync_initial", true):
-		var items: Array = _value_to_items(state_store.get_value(
-			path_segments,
-			GFVariantData.get_option_value(options, "default_items", []),
-			false
-		))
-		var initial_report: Dictionary = _SYNC_SCRIPT.synchronize(container, template, items, options, _get_sync_owner(binding))
+	if GFVariantData.get_option_bool(
+		options,
+		"sync_initial",
+		true
+	):
+		var items: Array = _value_to_items(
+			state_store.get_value(
+				path_segments,
+				GFVariantData.get_option_value(
+					options,
+					"default_items",
+					[]
+				),
+				false
+			)
+		)
+		var initial_report: Dictionary = _SYNC_SCRIPT.synchronize(
+			container,
+			template,
+			items,
+			options,
+			_get_sync_owner(binding)
+		)
 		if not GFVariantData.get_option_bool(initial_report, "ok") or not _binding_is_active(binding):
 			var _removed_failed_binding: bool = _remove_binding(binding)
 			return false
@@ -233,8 +253,18 @@ func bind_repeater(
 ## @schema items: Array，重复渲染的数据条目。
 ## [br]
 ## @schema options: Dictionary，字段及稳定 ID 同 sync_container()。
-func rebuild_target(container: Node, template: Node, items: Array, options: Dictionary = {}) -> Array[Node]:
-	return rebuild_container(container, template, items, options)
+func rebuild_target(
+	container: Node,
+	template: Node,
+	items: Array,
+	options: Dictionary = {}
+) -> Array[Node]:
+	return rebuild_container(
+		container,
+		template,
+		items,
+		options
+	)
 
 
 ## 解绑指定容器，并中断本实例绑定驱动的同步；已经显示的节点保留。
@@ -343,7 +373,12 @@ static func rebuild_container(
 	items: Array,
 	options: Dictionary = {}
 ) -> Array[Node]:
-	var report: Dictionary = sync_container(container, template, items, options)
+	var report: Dictionary = sync_container(
+		container,
+		template,
+		items,
+		options
+	)
 	return _report_nodes(report)
 
 
@@ -382,7 +417,12 @@ static func sync_container(
 	items: Array,
 	options: Dictionary = {}
 ) -> Dictionary:
-	return _SYNC_SCRIPT.synchronize(container, template, items, options)
+	return _SYNC_SCRIPT.synchronize(
+		container,
+		template,
+		items,
+		options
+	)
 
 
 ## 清理容器中由 GFRepeaterBinder 创建的副本。
@@ -399,7 +439,10 @@ static func sync_container(
 ## [br]
 ## @schema options: Dictionary，包含可选 group_key。
 static func clear_clones(container: Node, options: Dictionary = {}) -> int:
-	return _SYNC_SCRIPT.clear_clones(container, _get_group_key(options))
+	return _SYNC_SCRIPT.clear_clones(
+		container,
+		_get_group_key(options)
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -417,31 +460,68 @@ func _apply_store_change_to_container(binding: Dictionary, change: Dictionary) -
 		return
 
 	var options: Dictionary = GFVariantData.get_option_dictionary(binding, "options")
-	if _SYNC_SCRIPT.is_busy(container, _get_group_key(options)):
+	if _SYNC_SCRIPT.is_busy(
+		container,
+		_get_group_key(options)
+	):
 		_queue_binding_refresh(binding)
 		return
 	var value: Variant = GFVariantData.get_option_value(
 		change,
 		"new_value",
-		GFVariantData.get_option_value(options, "default_items", [])
+		GFVariantData.get_option_value(
+			options,
+			"default_items",
+			[]
+		)
 	)
-	if not GFVariantData.get_option_bool(change, "new_exists", true):
-		value = GFVariantData.get_option_value(options, "default_items", [])
-	var report: Dictionary = _SYNC_SCRIPT.synchronize(container, template, _value_to_items(value), options, _get_sync_owner(binding))
+	if not GFVariantData.get_option_bool(
+		change,
+		"new_exists",
+		true
+	):
+		value = GFVariantData.get_option_value(
+			options,
+			"default_items",
+			[]
+		)
+	var report: Dictionary = _SYNC_SCRIPT.synchronize(
+		container,
+		template,
+		_value_to_items(value),
+		options,
+		_get_sync_owner(binding)
+	)
 	if not GFVariantData.get_option_bool(report, "ok") and _binding_is_active(binding):
-		synchronization_failed.emit(container, _get_group_key(options), GFVariantData.get_option_string_name(report, "error"))
+		synchronization_failed.emit(
+			container,
+			_get_group_key(options),
+			GFVariantData.get_option_string_name(report, "error")
+		)
 
 
 ## 按 binding_id 从本实例移除绑定并断开其关联；未找到时返回 false。
 ## [br]
 ## @api private
 func _remove_binding(binding: Dictionary) -> bool:
-	var binding_id: int = GFVariantData.get_option_int(binding, "binding_id", -1)
+	var binding_id: int = GFVariantData.get_option_int(
+		binding,
+		"binding_id",
+		-1
+	)
 	if binding_id == -1:
 		return false
 
-	for index: int in range(_bindings.size() - 1, -1, -1):
-		if GFVariantData.get_option_int(_bindings[index], "binding_id", -1) == binding_id:
+	for index: int in range(
+		_bindings.size() - 1,
+		-1,
+		-1
+	):
+		if GFVariantData.get_option_int(
+			_bindings[index],
+			"binding_id",
+			-1
+		) == binding_id:
 			_bindings.remove_at(index)
 			_disconnect_binding(binding)
 			return true
@@ -466,7 +546,11 @@ static func _disconnect_binding(binding: Dictionary) -> void:
 	binding["refresh_pending"] = false
 	_disconnect_pending_refresh(binding)
 	var container: Node = _get_binding_container(binding)
-	_SYNC_SCRIPT.interrupt(container, _binding_group_key(binding), _get_sync_owner(binding))
+	_SYNC_SCRIPT.interrupt(
+		container,
+		_binding_group_key(binding),
+		_get_sync_owner(binding)
+	)
 	var unsubscribe: Callable = _get_binding_callable(binding, "unsubscribe")
 	if unsubscribe.is_valid():
 		var _unsubscribe_result: Variant = unsubscribe.call()
@@ -541,7 +625,11 @@ static func _get_binding_weak_ref(binding: Dictionary, key: String) -> WeakRef:
 ## [br]
 ## @api private
 static func _get_binding_callable(binding: Dictionary, key: String) -> Callable:
-	var value: Variant = GFVariantData.get_option_value(binding, key, Callable())
+	var value: Variant = GFVariantData.get_option_value(
+		binding,
+		key,
+		Callable()
+	)
 	if value is Callable:
 		var callback: Callable = value
 		return callback
@@ -560,10 +648,12 @@ static func _binding_group_key(binding: Dictionary) -> StringName:
 ## @api private
 func _prune_invalid_bindings() -> void:
 	for binding: Dictionary in _bindings.duplicate():
-		if _get_binding_store(binding) == null or _get_binding_container(binding) == null or _get_binding_template(binding) == null:
+		if (
+			_get_binding_store(binding) == null
+			or _get_binding_container(binding) == null
+			or _get_binding_template(binding) == null
+		):
 			var _removed_invalid: bool = _remove_binding(binding)
-
-
 
 
 ## 仅当输入值为 Array 时返回其内容；其他类型返回空数组。
@@ -611,14 +701,21 @@ func _flush_binding(binding_id: int) -> void:
 		var state_store: _GF_REACTIVE_STATE_STORE_SCRIPT = _get_binding_store(binding)
 		if state_store != null:
 			var options: Dictionary = GFVariantData.get_option_dictionary(binding, "options")
-			_apply_store_change_to_container(binding, {
-				"new_exists": true,
-				"new_value": state_store.get_value(
-					GFVariantData.get_option_value(binding, "path_segments"),
-					GFVariantData.get_option_value(options, "default_items", []),
-					false
-				),
-			})
+			_apply_store_change_to_container(
+				binding,
+				{
+					"new_exists": true,
+					"new_value": state_store.get_value(
+						GFVariantData.get_option_value(binding, "path_segments"),
+						GFVariantData.get_option_value(
+							options,
+							"default_items",
+							[]
+						),
+						false
+					),
+				}
+			)
 		return
 
 
@@ -641,7 +738,10 @@ func _queue_binding_refresh(binding: Dictionary) -> void:
 	binding["refresh_pending"] = true
 	binding["refresh_tree_ref"] = weakref(scene_tree)
 	binding["refresh_callable"] = callback
-	var _connected: int = scene_tree.process_frame.connect(callback, CONNECT_ONE_SHOT as Object.ConnectFlags)
+	var _connected: int = scene_tree.process_frame.connect(
+		callback,
+		CONNECT_ONE_SHOT as Object.ConnectFlags
+	)
 
 
 ## 若保存的 SceneTree 和回调仍有效且已连接，则断开排队刷新并清空对应引用。
@@ -708,7 +808,11 @@ static func _report_nodes(report: Dictionary) -> Array[Node]:
 ## [br]
 ## @api private
 static func _get_group_key(options: Dictionary) -> StringName:
-	return GFVariantData.get_option_string_name(options, "group_key", &"default")
+	return GFVariantData.get_option_string_name(
+		options,
+		"group_key",
+		&"default"
+	)
 
 
 # --- 信号处理函数 ---
@@ -717,7 +821,15 @@ static func _get_group_key(options: Dictionary) -> StringName:
 ## [br]
 ## @api private
 func _on_container_tree_exited(binding_id: int) -> void:
-	for index: int in range(_bindings.size() - 1, -1, -1):
-		if GFVariantData.get_option_int(_bindings[index], "binding_id", -1) == binding_id:
+	for index: int in range(
+		_bindings.size() - 1,
+		-1,
+		-1
+	):
+		if GFVariantData.get_option_int(
+			_bindings[index],
+			"binding_id",
+			-1
+		) == binding_id:
 			var _removed_exited_binding: bool = _remove_binding(_bindings[index])
 			return

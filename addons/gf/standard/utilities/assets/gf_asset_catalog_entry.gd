@@ -119,15 +119,31 @@ func configure(
 	options: Dictionary = {}
 ) -> GFAssetCatalogEntry:
 	asset_id = p_asset_id
-	primary_path = _make_resource_identity(p_primary_path, p_asset_id, GFVariantData.get_option_string(options, "type_hint")).canonical_path
+	primary_path = (
+		_make_resource_identity(
+			p_primary_path,
+			p_asset_id,
+			GFVariantData.get_option_string(options, "type_hint")
+		).canonical_path
+	)
 	type_hint = GFVariantData.get_option_string(options, "type_hint")
 	title = GFVariantData.get_option_string(options, "title")
 	description = GFVariantData.get_option_string(options, "description")
-	tags = _normalize_tags(GFVariantData.get_option_packed_string_array(options, "tags", PackedStringArray()))
+	tags = _normalize_tags(
+		GFVariantData.get_option_packed_string_array(
+			options,
+			"tags",
+			PackedStringArray()
+		)
+	)
 	category = GFVariantData.get_option_string_name(options, "category")
 	preview_path = _normalize_optional_path(GFVariantData.get_option_string(options, "preview_path"))
 	resource_entry_ids = _normalize_string_array(
-		GFVariantData.get_option_packed_string_array(options, "resource_entry_ids", PackedStringArray())
+		GFVariantData.get_option_packed_string_array(
+			options,
+			"resource_entry_ids",
+			PackedStringArray()
+		)
 	)
 	source_id = GFVariantData.get_option_string_name(options, "source_id")
 	metadata = GFVariantData.get_option_dictionary(options, "metadata").duplicate(true)
@@ -176,7 +192,11 @@ func duplicate_entry() -> GFAssetCatalogEntry:
 ## [br]
 ## @return 主资源身份；主路径为空时仍返回以 asset_id 为后备 cache key 的身份。
 func get_primary_identity() -> GFResourceIdentity:
-	return _make_resource_identity(primary_path, asset_id, type_hint)
+	return _make_resource_identity(
+		primary_path,
+		asset_id,
+		type_hint
+	)
 
 
 ## 获取预览资源身份。
@@ -189,7 +209,11 @@ func get_primary_identity() -> GFResourceIdentity:
 func get_preview_identity() -> GFResourceIdentity:
 	if preview_path.is_empty():
 		return null
-	return _make_resource_identity(preview_path, asset_id, "")
+	return _make_resource_identity(
+		preview_path,
+		asset_id,
+		""
+	)
 
 
 ## 获取推荐缓存键。
@@ -249,7 +273,11 @@ static func from_dict(data: Dictionary) -> GFAssetCatalogEntry:
 	var options: Dictionary = {
 		"title": GFVariantData.get_option_string(data, "title"),
 		"description": GFVariantData.get_option_string(data, "description"),
-		"tags": GFVariantData.get_option_packed_string_array(data, "tags", PackedStringArray()),
+		"tags": GFVariantData.get_option_packed_string_array(
+			data,
+			"tags",
+			PackedStringArray()
+		),
 		"category": GFVariantData.get_option_string_name(data, "category"),
 		"type_hint": GFVariantData.get_option_string(data, "type_hint"),
 		"preview_path": GFVariantData.get_option_string(data, "preview_path"),
@@ -271,7 +299,11 @@ static func from_dict(data: Dictionary) -> GFAssetCatalogEntry:
 		"primary_path",
 		GFVariantData.get_option_string(data, "resource_path")
 	)
-	return entry.configure(asset_id_text, primary_path_text, options)
+	return entry.configure(
+		asset_id_text,
+		primary_path_text,
+		options
+	)
 
 
 ## 从资源注册表条目创建资产条目。
@@ -287,26 +319,74 @@ static func from_dict(data: Dictionary) -> GFAssetCatalogEntry:
 ## @schema options: Dictionary with optional source_id and fields used by make_entry_summary().
 ## [br]
 ## @return 新资产条目；资源条目无效时返回 null。
-static func from_resource_registry_entry(
-	registry_entry: GFResourceRegistryEntry,
-	options: Dictionary = {}
-) -> GFAssetCatalogEntry:
+static func from_resource_registry_entry(registry_entry: GFResourceRegistryEntry, options: Dictionary = {}) -> GFAssetCatalogEntry:
 	if registry_entry == null or not registry_entry.is_valid_entry():
 		return null
 	var fields: Dictionary = registry_entry.fields.duplicate(true)
 	var asset_options: Dictionary = {
-		"title": _get_first_field_text(fields, _get_field_list(options, "title_fields", ["display_name", "name", "title"])),
-		"description": _get_first_field_text(fields, _get_field_list(options, "description_fields", ["description", "summary", "notes"])),
-		"tags": _get_field_tags(fields, _get_field_list(options, "tag_fields", ["tags", "keywords"])),
-		"category": _get_first_field_text(fields, _get_field_list(options, "category_fields", ["category", "group"])),
+		"title": _get_first_field_text(
+			fields,
+			_get_field_list(
+				options,
+				"title_fields",
+				[
+					"display_name",
+					"name",
+					"title",
+				]
+			)
+		),
+		"description": _get_first_field_text(
+			fields,
+			_get_field_list(
+				options,
+				"description_fields",
+				[
+					"description",
+					"summary",
+					"notes",
+				]
+			)
+		),
+		"tags": _get_field_tags(
+			fields,
+			_get_field_list(
+				options,
+				"tag_fields",
+				["tags", "keywords"]
+			)
+		),
+		"category": _get_first_field_text(
+			fields,
+			_get_field_list(
+				options,
+				"category_fields",
+				["category", "group"]
+			)
+		),
 		"type_hint": registry_entry.type_hint,
-		"preview_path": _get_first_field_text(fields, _get_field_list(options, "preview_path_fields", ["preview_path", "thumbnail_path", "icon_path"])),
+		"preview_path": _get_first_field_text(
+			fields,
+			_get_field_list(
+				options,
+				"preview_path_fields",
+				[
+					"preview_path",
+					"thumbnail_path",
+					"icon_path",
+				]
+			)
+		),
 		"resource_entry_ids": PackedStringArray([String(registry_entry.id)]),
 		"source_id": GFVariantData.get_option_string_name(options, "source_id"),
 		"metadata": fields,
 	}
 	var entry: GFAssetCatalogEntry = GFAssetCatalogEntry.new()
-	return entry.configure(registry_entry.id, registry_entry.path, asset_options)
+	return entry.configure(
+		registry_entry.id,
+		registry_entry.path,
+		asset_options
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -320,7 +400,12 @@ static func _make_resource_identity(
 	resource_key: StringName,
 	hint: String
 ) -> GFResourceIdentity:
-	return GFResourceIdentity.from_path(path, resource_key, hint, { "check_exists": false })
+	return GFResourceIdentity.from_path(
+		path,
+		resource_key,
+		hint,
+		{ "check_exists": false }
+	)
 
 
 ## 规范化可选路径；身份结果为空时保留去除首尾空白的原值。
@@ -328,7 +413,11 @@ static func _make_resource_identity(
 ## @api private
 ## [br]
 static func _normalize_optional_path(path: String) -> String:
-	var identity: GFResourceIdentity = _make_resource_identity(path, &"", "")
+	var identity: GFResourceIdentity = _make_resource_identity(
+		path,
+		&"",
+		""
+	)
 	return identity.canonical_path if not identity.canonical_path.is_empty() else path.strip_edges()
 
 
@@ -358,11 +447,19 @@ static func _normalize_string_array(values: PackedStringArray) -> PackedStringAr
 ## [br]
 ## @api private
 ## [br]
-static func _get_field_list(options: Dictionary, key: String, default_values: Array[String]) -> PackedStringArray:
+static func _get_field_list(
+	options: Dictionary,
+	key: String,
+	default_values: Array[String]
+) -> PackedStringArray:
 	var fallback: PackedStringArray = PackedStringArray()
 	for value: String in default_values:
 		var _fallback_appended: bool = fallback.append(value)
-	return GFVariantData.get_option_packed_string_array(options, key, fallback)
+	return GFVariantData.get_option_packed_string_array(
+		options,
+		key,
+		fallback
+	)
 
 
 ## 按字段顺序返回第一个非空文本值。
@@ -371,7 +468,10 @@ static func _get_field_list(options: Dictionary, key: String, default_values: Ar
 ## [br]
 static func _get_first_field_text(fields: Dictionary, field_ids: PackedStringArray) -> String:
 	for field_id_text: String in field_ids:
-		var value: Variant = _get_field_value(fields, StringName(field_id_text))
+		var value: Variant = _get_field_value(
+			fields,
+			StringName(field_id_text)
+		)
 		var text: String = GFVariantData.to_text(value).strip_edges()
 		if not text.is_empty():
 			return text
@@ -386,7 +486,14 @@ static func _get_field_tags(fields: Dictionary, field_ids: PackedStringArray) ->
 	var result: PackedStringArray = PackedStringArray()
 	var lookup: Dictionary = {}
 	for field_id_text: String in field_ids:
-		_append_tags(result, lookup, _get_field_value(fields, StringName(field_id_text)))
+		_append_tags(
+			result,
+			lookup,
+			_get_field_value(
+				fields,
+				StringName(field_id_text)
+			)
+		)
 	result.sort()
 	return result
 
@@ -395,26 +502,46 @@ static func _get_field_tags(fields: Dictionary, field_ids: PackedStringArray) ->
 ## [br]
 ## @api private
 ## [br]
-static func _append_tags(result: PackedStringArray, lookup: Dictionary, value: Variant) -> void:
+static func _append_tags(
+	result: PackedStringArray,
+	lookup: Dictionary,
+	value: Variant
+) -> void:
 	if value == null:
 		return
 	if value is PackedStringArray:
 		var packed_values: PackedStringArray = value
 		for item_text: String in packed_values:
-			_append_tag(result, lookup, item_text)
+			_append_tag(
+				result,
+				lookup,
+				item_text
+			)
 	elif value is Array:
 		var values: Array = value
 		for item: Variant in values:
-			_append_tags(result, lookup, item)
+			_append_tags(
+				result,
+				lookup,
+				item
+			)
 	else:
-		_append_tag(result, lookup, GFVariantData.to_text(value))
+		_append_tag(
+			result,
+			lookup,
+			GFVariantData.to_text(value)
+		)
 
 
 ## 去除标签首尾空白，并跳过空项和已收录项。
 ## [br]
 ## @api private
 ## [br]
-static func _append_tag(result: PackedStringArray, lookup: Dictionary, value: String) -> void:
+static func _append_tag(
+	result: PackedStringArray,
+	lookup: Dictionary,
+	value: String
+) -> void:
 	var tag: String = value.strip_edges()
 	if tag.is_empty() or lookup.has(tag):
 		return

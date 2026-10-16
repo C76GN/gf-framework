@@ -79,12 +79,15 @@ func configure(
 ) -> GFSessionTraceCheckpoint:
 	checkpoint_id = p_checkpoint_id
 	provider_ids = p_provider_ids.duplicate()
-	optional_provider_ids = GFVariantData.get_option_packed_string_array(
-		options,
-		"optional_provider_ids"
-	)
+	optional_provider_ids = GFVariantData.get_option_packed_string_array(options, "optional_provider_ids")
 	metadata = _duplicate_dictionary(
-		GFVariantData.as_dictionary(GFVariantData.get_option_value(options, "metadata", {}))
+		GFVariantData.as_dictionary(
+			GFVariantData.get_option_value(
+				options,
+				"metadata",
+				{}
+			)
+		)
 	)
 	return self
 
@@ -101,7 +104,11 @@ func configure(
 func validate_checkpoint() -> Dictionary:
 	var report: Dictionary = { "issues": [] }
 	var checkpoint_text: String = String(checkpoint_id)
-	if checkpoint_id == &"" or checkpoint_text != checkpoint_text.strip_edges() or checkpoint_text.length() > 128:
+	if (
+		checkpoint_id == &""
+		or checkpoint_text != checkpoint_text.strip_edges()
+		or checkpoint_text.length() > 128
+	):
 		var _id_issue: Variant = GFValidationReportDictionary.append_issue(
 			report,
 			"error",
@@ -134,10 +141,19 @@ func validate_checkpoint() -> Dictionary:
 			{ "path": "optional_provider_ids", "count": optional_provider_ids.size() }
 		)
 	var seen: Dictionary = {}
-	for index: int in range(mini(provider_ids.size(), _MAX_CHECKPOINT_PROVIDERS)):
+	for index: int in range(
+		mini(
+			provider_ids.size(),
+			_MAX_CHECKPOINT_PROVIDERS
+		)
+	):
 		var provider_text: String = provider_ids[index]
 		var provider_id: StringName = StringName(provider_text)
-		if provider_text.is_empty() or provider_text != provider_text.strip_edges() or provider_text.length() > 128:
+		if (
+			provider_text.is_empty()
+			or provider_text != provider_text.strip_edges()
+			or provider_text.length() > 128
+		):
 			var _provider_issue: Variant = GFValidationReportDictionary.append_issue(
 				report,
 				"error",
@@ -156,7 +172,12 @@ func validate_checkpoint() -> Dictionary:
 		else:
 			seen[provider_id] = true
 	var optional_seen: Dictionary = {}
-	for index: int in range(mini(optional_provider_ids.size(), _MAX_CHECKPOINT_PROVIDERS)):
+	for index: int in range(
+		mini(
+			optional_provider_ids.size(),
+			_MAX_CHECKPOINT_PROVIDERS
+		)
+	):
 		var optional_text: String = optional_provider_ids[index]
 		var optional_provider_id: StringName = StringName(optional_text)
 		if optional_seen.has(optional_provider_id):
@@ -177,21 +198,25 @@ func validate_checkpoint() -> Dictionary:
 				"Optional provider ids must be a subset of provider_ids.",
 				{ "path": "optional_provider_ids", "provider_id": optional_text }
 			)
-	return GFValidationReportDictionary.finalize_report(report, "Session trace checkpoint", {
-		"include_issue_count": true,
-		"next_actions": {
-			"invalid_checkpoint_id": "Assign a stable checkpoint id with at most 128 characters.",
-			"empty_checkpoint_providers": "Add at least one explicitly registered snapshot provider id.",
-			"invalid_checkpoint_provider_id": "Use stable provider ids with at most 128 characters.",
-			"checkpoint_provider_limit_exceeded": "Keep provider_ids at or below 256 entries.",
-			"checkpoint_optional_provider_limit_exceeded": "Keep optional_provider_ids at or below 256 entries.",
-			"duplicate_checkpoint_provider": "Remove duplicate provider ids.",
-			"duplicate_optional_provider": "Remove duplicate optional provider ids.",
-			"unknown_optional_provider": "Keep optional_provider_ids inside provider_ids.",
-		},
-		"fallback_action": "Review the first trace checkpoint issue.",
-		"no_action": "Session trace checkpoint is valid.",
-	})
+	return GFValidationReportDictionary.finalize_report(
+		report,
+		"Session trace checkpoint",
+		{
+			"include_issue_count": true,
+			"next_actions": {
+				"invalid_checkpoint_id": "Assign a stable checkpoint id with at most 128 characters.",
+				"empty_checkpoint_providers": "Add at least one explicitly registered snapshot provider id.",
+				"invalid_checkpoint_provider_id": "Use stable provider ids with at most 128 characters.",
+				"checkpoint_provider_limit_exceeded": "Keep provider_ids at or below 256 entries.",
+				"checkpoint_optional_provider_limit_exceeded": "Keep optional_provider_ids at or below 256 entries.",
+				"duplicate_checkpoint_provider": "Remove duplicate provider ids.",
+				"duplicate_optional_provider": "Remove duplicate optional provider ids.",
+				"unknown_optional_provider": "Keep optional_provider_ids inside provider_ids.",
+			},
+			"fallback_action": "Review the first trace checkpoint issue.",
+			"no_action": "Session trace checkpoint is valid.",
+		}
+	)
 
 
 # --- 框架内部方法 ---
@@ -226,9 +251,7 @@ func to_report_dictionary_for_framework() -> Dictionary:
 			"optional_provider_ids": optional_provider_ids,
 			"metadata": metadata,
 		},
-		GFReportValueCodec.make_redaction_options(
-			GFReportValueCodec.REDACTION_PROFILE_PRIVACY
-		)
+		GFReportValueCodec.make_redaction_options(GFReportValueCodec.REDACTION_PROFILE_PRIVACY)
 	)
 
 

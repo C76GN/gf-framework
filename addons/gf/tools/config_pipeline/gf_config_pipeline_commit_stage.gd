@@ -45,9 +45,7 @@ const _TRANSACTION_VERSION: int = 1
 ## [br]
 ## @api private
 ## [br]
-const _GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT = preload(
-	"res://addons/gf/kernel/editor/gf_artifact_write_transaction.gd"
-)
+const _GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT = preload("res://addons/gf/kernel/editor/gf_artifact_write_transaction.gd")
 
 
 # --- 公共方法 ---
@@ -67,10 +65,7 @@ const _GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT = preload(
 ## @schema options: Dictionary，必须包含非空 allowed_roots；可包含 max_file_count、max_backup_bytes 和 metadata。
 ## [br]
 ## @schema return: closed Dictionary，符合 gf.artifact_write.transaction@1，仅包含 ok、format、format_version、state、transaction_id、transaction_token、entry_count、backup_bytes、issues、recovery_required、recovery_action、recovery_transaction 和 metadata；事务身份及 recovery_transaction 均为不可改写的 opaque handle，不暴露目标或 sidecar 路径。失败且 recovery_required=true 时，按 recovery_action 终结 recovery_transaction。
-func begin(
-	paths: PackedStringArray,
-	options: Dictionary = {}
-) -> Dictionary:
+func begin(paths: PackedStringArray, options: Dictionary = {}) -> Dictionary:
 	return _GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.begin(paths, options)
 
 
@@ -121,9 +116,8 @@ func get_stage_descriptor() -> Dictionary:
 	return {
 		"stage_id": STAGE_ID,
 		"implementation_version": IMPLEMENTATION_VERSION,
-		"implementation_dependencies": [
-			"res://addons/gf/kernel/editor/gf_artifact_write_transaction.gd",
-		],
+		"implementation_dependencies": ["res://addons/gf/kernel/editor/gf_artifact_write_transaction.gd",],
 		"input_contract": "PackedStringArray",
-		"output_contract": "%s@%d" % [_TRANSACTION_FORMAT, _TRANSACTION_VERSION],
+		"output_contract": "%s@%d"
+		% [_TRANSACTION_FORMAT, _TRANSACTION_VERSION],
 	}

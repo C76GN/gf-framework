@@ -528,7 +528,10 @@ func get_rollback_errors() -> Array[GFSaveRollbackFailure]:
 ## [br]
 ## @return 单调毫秒耗时。
 func get_duration_msec() -> int:
-	return maxi(_completed_at_msec - _started_at_msec, 0)
+	return maxi(
+		_completed_at_msec - _started_at_msec,
+		0
+	)
 
 
 ## 获取保存准备阶段耗时。
@@ -792,9 +795,7 @@ func configure_for_framework(
 ## [br]
 ## @api private
 ## [br]
-func _duplicate_rollback_errors(
-	errors: Array[GFSaveRollbackFailure]
-) -> Array[GFSaveRollbackFailure]:
+func _duplicate_rollback_errors(errors: Array[GFSaveRollbackFailure]) -> Array[GFSaveRollbackFailure]:
 	var copies: Array[GFSaveRollbackFailure] = []
 	for failure: GFSaveRollbackFailure in errors:
 		if failure != null:

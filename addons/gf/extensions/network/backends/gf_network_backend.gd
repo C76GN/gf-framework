@@ -139,6 +139,8 @@ func disconnect_backend() -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param _peer_id: 目标 peer；后端可约定 -1 表示广播。
 ## [br]
 ## @param _bytes: 消息 bytes。
@@ -148,7 +150,11 @@ func disconnect_backend() -> void:
 ## @return Godot 错误码。
 ## [br]
 ## @schema _options: Dictionary，后端自定义发送选项。
-func send_bytes(_peer_id: int, _bytes: PackedByteArray, _options: Dictionary = {}) -> Error:
+func send_bytes(
+	_peer_id: int,
+	_bytes: PackedByteArray,
+	_options: Dictionary = {}
+) -> Error:
 	return ERR_UNAVAILABLE
 
 
@@ -239,30 +245,24 @@ func get_transport_metrics() -> GFNetworkTransportMetrics:
 	if _transport_connected:
 		var _connection_age_set: bool = metrics.set_metric(
 			GFNetworkTransportMetrics.CONNECTION_AGE_MSEC,
-			float(maxi(now_msec - _transport_connected_at_msec, 0))
+			float(
+				maxi(
+					now_msec - _transport_connected_at_msec,
+					0
+				)
+			)
 		)
 	var base_metrics: GFNetworkTransportMetrics = metrics.duplicate_metrics()
-	var enrichment_budget: GFExecutionBudget = GFExecutionBudget.new({
-		"max_steps": GFNetworkTransportMetrics.ABSOLUTE_MAX_METRIC_COUNT,
-		"max_elapsed_msec": MAX_TRANSPORT_METRICS_ENRICHMENT_MSEC,
-	})
+	var enrichment_budget: GFExecutionBudget = GFExecutionBudget.new({ "max_steps": GFNetworkTransportMetrics.ABSOLUTE_MAX_METRIC_COUNT, "max_elapsed_msec": MAX_TRANSPORT_METRICS_ENRICHMENT_MSEC, })
 	_enrich_transport_metrics(metrics, enrichment_budget)
 	if not enrichment_budget.check():
 		return base_metrics
-	if (
-		metrics.sample_time_msec != base_metrics.sample_time_msec
-		or metrics.sample_window_msec != base_metrics.sample_window_msec
-	):
+	if (metrics.sample_time_msec != base_metrics.sample_time_msec or metrics.sample_window_msec != base_metrics.sample_window_msec):
 		return base_metrics
 	var base_metric_ids: PackedStringArray = base_metrics.get_metric_ids()
 	for base_metric_id_text: String in base_metric_ids:
 		var base_metric_id: StringName = StringName(base_metric_id_text)
-		if (
-			not metrics.has_metric(base_metric_id)
-			or metrics.get_metric(base_metric_id) != base_metrics.get_metric(
-				base_metric_id
-			)
-		):
+		if (not metrics.has_metric(base_metric_id) or (metrics.get_metric(base_metric_id) != (base_metrics.get_metric(base_metric_id)))):
 			return base_metrics
 	var added_metric_count: int = 0
 	for current_metric_id_text: String in metrics.get_metric_ids():
@@ -290,10 +290,7 @@ func get_transport_metrics() -> GFNetworkTransportMetrics:
 ## @param _metrics: 可追加已知指标的有界快照。
 ## [br]
 ## @param _budget: 必须在每次可选指标写入前消费的协作式执行预算。
-func _enrich_transport_metrics(
-	_metrics: GFNetworkTransportMetrics,
-	_budget: GFExecutionBudget
-) -> void:
+func _enrich_transport_metrics(_metrics: GFNetworkTransportMetrics, _budget: GFExecutionBudget) -> void:
 	pass
 
 

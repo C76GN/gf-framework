@@ -20,7 +20,7 @@
 | 方法 | [`build_from_delaunay`](#member-gfdualmeshtopology2d-methods-build_from_delaunay) | `static func build_from_delaunay(delaunay_result: Dictionary, _options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`make_edge_key`](#member-gfdualmeshtopology2d-methods-make_edge_key) | `static func make_edge_key(a: int, b: int) -> String:` |
 | 方法 | [`get_point_neighbors`](#member-gfdualmeshtopology2d-methods-get_point_neighbors) | `static func get_point_neighbors(topology: Dictionary, point_index: int) -> PackedInt32Array:` |
-| 方法 | [`get_edge_triangles`](#member-gfdualmeshtopology2d-methods-get_edge_triangles) | `static func get_edge_triangles(topology: Dictionary, a: int, b: int) -> PackedInt32Array:` |
+| 方法 | [`get_edge_triangles`](#member-gfdualmeshtopology2d-methods-get_edge_triangles) | `static func get_edge_triangles( topology: Dictionary, a: int, b: int ) -> PackedInt32Array:` |
 
 ## 方法
 
@@ -163,7 +163,7 @@ static func get_point_neighbors(topology: Dictionary, point_index: int) -> Packe
 - 首次版本：`8.0.0`
 
 ```gdscript
-static func get_edge_triangles(topology: Dictionary, a: int, b: int) -> PackedInt32Array:
+static func get_edge_triangles( topology: Dictionary, a: int, b: int ) -> PackedInt32Array:
 ```
 
 获取指定边关联的三角形索引。

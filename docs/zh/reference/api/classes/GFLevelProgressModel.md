@@ -22,9 +22,9 @@
 | 方法 | [`unlock_level`](#member-gflevelprogressmodel-methods-unlock_level) | `func unlock_level(level_id: StringName) -> void:` |
 | 方法 | [`lock_level`](#member-gflevelprogressmodel-methods-lock_level) | `func lock_level(level_id: StringName) -> void:` |
 | 方法 | [`is_level_unlocked`](#member-gflevelprogressmodel-methods-is_level_unlocked) | `func is_level_unlocked(level_id: StringName) -> bool:` |
-| 方法 | [`complete_level`](#member-gflevelprogressmodel-methods-complete_level) | `func complete_level(level_id: StringName, result: Dictionary = {}, merge_result: bool = true) -> void:` |
+| 方法 | [`complete_level`](#member-gflevelprogressmodel-methods-complete_level) | `func complete_level( level_id: StringName, result: Dictionary = {}, merge_result: bool = true ) -> void:` |
 | 方法 | [`is_level_completed`](#member-gflevelprogressmodel-methods-is_level_completed) | `func is_level_completed(level_id: StringName) -> bool:` |
-| 方法 | [`set_level_result`](#member-gflevelprogressmodel-methods-set_level_result) | `func set_level_result(level_id: StringName, result: Dictionary, merge_result: bool = true) -> void:` |
+| 方法 | [`set_level_result`](#member-gflevelprogressmodel-methods-set_level_result) | `func set_level_result( level_id: StringName, result: Dictionary, merge_result: bool = true ) -> void:` |
 | 方法 | [`get_level_result`](#member-gflevelprogressmodel-methods-get_level_result) | `func get_level_result(level_id: StringName) -> Dictionary:` |
 | 方法 | [`clear_progress`](#member-gflevelprogressmodel-methods-clear_progress) | `func clear_progress() -> void:` |
 | 方法 | [`to_dict`](#member-gflevelprogressmodel-methods-to_dict) | `func to_dict() -> Dictionary:` |
@@ -177,9 +177,10 @@ func is_level_unlocked(level_id: StringName) -> bool:
 ### `complete_level`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func complete_level(level_id: StringName, result: Dictionary = {}, merge_result: bool = true) -> void:
+func complete_level( level_id: StringName, result: Dictionary = {}, merge_result: bool = true ) -> void:
 ```
 
 标记关卡完成。
@@ -221,9 +222,10 @@ func is_level_completed(level_id: StringName) -> bool:
 ### `set_level_result`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func set_level_result(level_id: StringName, result: Dictionary, merge_result: bool = true) -> void:
+func set_level_result( level_id: StringName, result: Dictionary, merge_result: bool = true ) -> void:
 ```
 
 设置关卡结果。

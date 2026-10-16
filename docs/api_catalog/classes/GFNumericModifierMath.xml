@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNumericModifierMath" path="addons/gf/standard/foundation/math/gf_numeric_modifier_math.gd" module="standard" extends="RefCounted" classDigest="e71ce53a4f7095163fedbd1c91a7601b3471209cff47c0c6234e4e65eec656d0">
+<class name="GFNumericModifierMath" path="addons/gf/standard/foundation/math/gf_numeric_modifier_math.gd" module="standard" extends="RefCounted" classDigest="53c7768cc77d04f470369918922d07c190b783b1adb9254819a1876580229770">
 	<description>GFNumericModifierMath: 通用数值修饰计算工具。
 按 priority 顺序把 add / multiply / divide 修饰应用到基础数值上，并返回结构化报告。
 该类只处理纯数值计算，不绑定属性、装备、Buff、经济或任意项目业务语义。</description>
@@ -59,7 +59,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="calculate">
-			<signature>static func calculate(base_value: float, modifiers: Array, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>static func calculate( base_value: float, modifiers: Array, options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>计算基础值叠加修饰后的结构化报告。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -74,7 +74,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="calculate_value">
-			<signature>static func calculate_value(base_value: float, modifiers: Array, options: Dictionary = {}) -&gt; float:</signature>
+			<signature>static func calculate_value( base_value: float, modifiers: Array, options: Dictionary = {} ) -&gt; float:</signature>
 			<description>计算基础值叠加修饰后的数值。</description>
 			<tags>
 				<tag name="api">public</tag>

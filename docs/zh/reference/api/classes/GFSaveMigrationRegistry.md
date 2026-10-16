@@ -20,7 +20,7 @@
 | 方法 | [`clear`](#member-gfsavemigrationregistry-methods-clear) | `func clear() -> void:` |
 | 方法 | [`has_step`](#member-gfsavemigrationregistry-methods-has_step) | `func has_step( schema_id: StringName, section_id: StringName, from_version: int ) -> bool:` |
 | 方法 | [`describe_steps`](#member-gfsavemigrationregistry-methods-describe_steps) | `func describe_steps() -> Array[Dictionary]:` |
-| 方法 | [`build_plan`](#member-gfsavemigrationregistry-methods-build_plan) | `func build_plan( document: GFSaveDocument, target_schema: GFSaveDocumentSchema ) -> Dictionary:` |
+| 方法 | [`build_plan`](#member-gfsavemigrationregistry-methods-build_plan) | `func build_plan(document: GFSaveDocument, target_schema: GFSaveDocumentSchema) -> Dictionary:` |
 | 方法 | [`migrate`](#member-gfsavemigrationregistry-methods-migrate) | `func migrate( document: GFSaveDocument, target_schema: GFSaveDocumentSchema, context: Dictionary = {} ) -> GFSaveMigrationResult:` |
 
 ## 方法
@@ -132,7 +132,7 @@ func describe_steps() -> Array[Dictionary]:
 - 首次版本：`9.0.0`
 
 ```gdscript
-func build_plan( document: GFSaveDocument, target_schema: GFSaveDocumentSchema ) -> Dictionary:
+func build_plan(document: GFSaveDocument, target_schema: GFSaveDocumentSchema) -> Dictionary:
 ```
 
 构建不执行迁移代码的路径计划。 计划只验证当前已存在的文档和分区版本边；文档步骤可能新增或移除的 分区仍会在真实迁移后的最终 schema 校验中判定。

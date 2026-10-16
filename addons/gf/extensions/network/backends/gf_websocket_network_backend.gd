@@ -543,14 +543,25 @@ func host(options: Dictionary = {}) -> Error:
 	_server = _create_tcp_server()
 	if _server == null:
 		return ERR_CANT_CREATE
-	var bind_address: String = GFVariantData.get_option_string(options, "bind_address", GFVariantData.get_option_string(options, "address", "*"))
+	var bind_address: String = GFVariantData.get_option_string(
+		options,
+		"bind_address",
+		GFVariantData.get_option_string(
+			options,
+			"address",
+			"*"
+		)
+	)
 	var error: Error = _server.listen(port, bind_address)
 	if error != OK:
 		_server = null
 		return error
 
 	_mode = Mode.SERVER
-	_endpoint = "%s:%d" % [bind_address, port]
+	_endpoint = (
+		"%s:%d"
+		% [bind_address, port]
+	)
 	_server_peer_options = normalized_peer_options
 	_server_capacity = server_capacity
 	_handshake_timeout_msec = server_handshake_timeout_msec
@@ -559,10 +570,7 @@ func host(options: Dictionary = {}) -> Error:
 	var session_generation: int = _session_generation
 	var server_identity: TCPServer = _server
 	_emit_connected()
-	if not _is_server_session_current(
-		session_generation,
-		server_identity
-	):
+	if not _is_server_session_current(session_generation, server_identity):
 		return OK
 	return OK
 
@@ -636,7 +644,11 @@ func disconnect_backend() -> void:
 ## @return Godot 错误码。
 ## [br]
 ## @schema _options: Dictionary，保留给后端自定义发送选项。
-func send_bytes(peer_id: int, bytes: PackedByteArray, _options: Dictionary = {}) -> Error:
+func send_bytes(
+	peer_id: int,
+	bytes: PackedByteArray,
+	_options: Dictionary = {}
+) -> Error:
 	if bytes.is_empty():
 		return ERR_INVALID_DATA
 	if _mode == Mode.CLIENT:
@@ -683,41 +695,49 @@ func poll(_delta: float) -> void:
 ## @schema return: Dictionary，包含 backend、available、mode、mode_name、endpoint、session_generation、peer_count、open_peer_count、handshaking_peer_count、client_state、server_capacity、容量与连接统计、handshake_timeout_msec、handshake_timeout_count、peer_option_rejection_count、max_accepts_per_poll、max_packets_per_peer_per_poll、max_packets_per_poll、max_service_peers_per_poll、当轮工作用量及各预算耗尽计数。
 func get_debug_snapshot() -> Dictionary:
 	var server_capacity_used: int = _peers.size()
-	return GFNetworkDebugTools.sanitize_debug_dictionary({
-		"backend": "GFWebSocketNetworkBackend",
-		"available": _mode != Mode.DISCONNECTED,
-		"mode": _mode,
-		"mode_name": _get_mode_name(_mode),
-		"endpoint": _endpoint,
-		"session_generation": _session_generation,
-		"peer_count": server_capacity_used,
-		"open_peer_count": _open_peer_ids.size(),
-		"handshaking_peer_count": maxi(0, server_capacity_used - _open_peer_ids.size()),
-		"client_state": _client.get_ready_state() if _client != null else WebSocketPeer.STATE_CLOSED,
-		"server_capacity": _server_capacity,
-		"server_capacity_used": server_capacity_used,
-		"server_capacity_remaining": maxi(0, _server_capacity - server_capacity_used),
-		"accepted_connection_count": _accepted_connection_count,
-		"capacity_rejection_count": _capacity_rejection_count,
-		"accept_failure_count": _accept_failure_count,
-		"handshake_failure_count": _handshake_failure_count,
-		"handshake_timeout_msec": _handshake_timeout_msec,
-		"handshake_timeout_count": _handshake_timeout_count,
-		"accept_attempt_count": _accept_attempt_count,
-		"last_poll_accept_attempt_count": _last_poll_accept_attempt_count,
-		"peer_option_rejection_count": _peer_option_rejection_count,
-		"max_accepts_per_poll": max_accepts_per_poll,
-		"max_packets_per_peer_per_poll": max_packets_per_peer_per_poll,
-		"max_packets_per_poll": max_packets_per_poll,
-		"max_service_peers_per_poll": max_service_peers_per_poll,
-		"last_poll_packet_count": _last_poll_packet_count,
-		"last_poll_service_peer_count": _last_poll_service_peer_count,
-		"last_poll_packet_budget_exhausted": _last_poll_packet_budget_exhausted,
-		"last_poll_service_peer_budget_exhausted": _last_poll_service_peer_budget_exhausted,
-		"packet_budget_exhaustion_count": _packet_budget_exhaustion_count,
-		"peer_packet_budget_exhaustion_count": _peer_packet_budget_exhaustion_count,
-		"service_peer_budget_exhaustion_count": _service_peer_budget_exhaustion_count,
-	})
+	return GFNetworkDebugTools.sanitize_debug_dictionary(
+		{
+			"backend": "GFWebSocketNetworkBackend",
+			"available": _mode != Mode.DISCONNECTED,
+			"mode": _mode,
+			"mode_name": _get_mode_name(_mode),
+			"endpoint": _endpoint,
+			"session_generation": _session_generation,
+			"peer_count": server_capacity_used,
+			"open_peer_count": _open_peer_ids.size(),
+			"handshaking_peer_count": maxi(
+				0,
+				server_capacity_used - _open_peer_ids.size()
+			),
+			"client_state": _client.get_ready_state() if _client != null else WebSocketPeer.STATE_CLOSED,
+			"server_capacity": _server_capacity,
+			"server_capacity_used": server_capacity_used,
+			"server_capacity_remaining": maxi(
+				0,
+				_server_capacity - server_capacity_used
+			),
+			"accepted_connection_count": _accepted_connection_count,
+			"capacity_rejection_count": _capacity_rejection_count,
+			"accept_failure_count": _accept_failure_count,
+			"handshake_failure_count": _handshake_failure_count,
+			"handshake_timeout_msec": _handshake_timeout_msec,
+			"handshake_timeout_count": _handshake_timeout_count,
+			"accept_attempt_count": _accept_attempt_count,
+			"last_poll_accept_attempt_count": _last_poll_accept_attempt_count,
+			"peer_option_rejection_count": _peer_option_rejection_count,
+			"max_accepts_per_poll": max_accepts_per_poll,
+			"max_packets_per_peer_per_poll": max_packets_per_peer_per_poll,
+			"max_packets_per_poll": max_packets_per_poll,
+			"max_service_peers_per_poll": max_service_peers_per_poll,
+			"last_poll_packet_count": _last_poll_packet_count,
+			"last_poll_service_peer_count": _last_poll_service_peer_count,
+			"last_poll_packet_budget_exhausted": _last_poll_packet_budget_exhausted,
+			"last_poll_service_peer_budget_exhausted": _last_poll_service_peer_budget_exhausted,
+			"packet_budget_exhaustion_count": _packet_budget_exhaustion_count,
+			"peer_packet_budget_exhaustion_count": _peer_packet_budget_exhaustion_count,
+			"service_peer_budget_exhaustion_count": _service_peer_budget_exhaustion_count,
+		}
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -768,7 +788,11 @@ func _is_valid_websocket_endpoint(endpoint: String) -> bool:
 			return false
 	var authority_start: int = endpoint.find("://") + 3
 	var authority_end: int = endpoint.length()
-	for separator: String in ["/", "?", "#"]:
+	for separator: String in [
+		"/",
+		"?",
+		"#",
+	]:
 		var separator_index: int = endpoint.find(separator, authority_start)
 		if separator_index >= 0:
 			authority_end = mini(authority_end, separator_index)
@@ -783,26 +807,17 @@ func _poll_server_accepts(
 	expected_generation: int,
 	expected_server: TCPServer
 ) -> void:
-	if not _is_server_session_current(
-		expected_generation,
-		expected_server
-	):
+	if not _is_server_session_current(expected_generation, expected_server):
 		return
 
-	while (
-		_is_server_session_current(expected_generation, expected_server)
-		and _is_server_connection_available()
-	):
+	while (_is_server_session_current(expected_generation, expected_server) and _is_server_connection_available()):
 		if _last_poll_accept_attempt_count >= accept_limit:
 			break
 
 		_last_poll_accept_attempt_count += 1
 		_accept_attempt_count += 1
 		var stream: StreamPeerTCP = _take_server_connection()
-		if not _is_server_session_current(
-			expected_generation,
-			expected_server
-		):
+		if not _is_server_session_current(expected_generation, expected_server):
 			if stream != null:
 				_reject_server_stream(stream)
 			return
@@ -825,10 +840,7 @@ func _poll_server_accepts(
 			_reject_server_stream(stream)
 			continue
 		var error: Error = _accept_server_stream(peer, stream)
-		if not _is_server_session_current(
-			expected_generation,
-			expected_server
-		):
+		if not _is_server_session_current(expected_generation, expected_server):
 			if peer.get_ready_state() != WebSocketPeer.STATE_CLOSED:
 				peer.close()
 			return
@@ -894,29 +906,21 @@ func _poll_server_peers(
 			0,
 			packet_limit - _last_poll_packet_count
 		)
-		var peer_packet_limit: int = mini(
-			packet_per_peer_limit,
-			global_packet_remaining
-		)
+		var peer_packet_limit: int = mini(packet_per_peer_limit, global_packet_remaining)
 		var packet_count_before_service: int = _last_poll_packet_count
 		var service_result: int = _service_server_peer(
 			peer_id,
 			peer,
 			peer_packet_limit
 		)
-		if (
-			service_result < 0
-			or not _is_server_generation_current(expected_generation)
-		):
+		if (service_result < 0 or not _is_server_generation_current(expected_generation)):
 			return
 		var processed_packets: int = clampi(
 			service_result,
 			0,
 			peer_packet_limit
 		)
-		_last_poll_packet_count = (
-			packet_count_before_service + processed_packets
-		)
+		_last_poll_packet_count = (packet_count_before_service + processed_packets)
 		var has_pending_packets: bool = _server_peer_has_available_packets(peer_id, peer)
 		if (
 			has_pending_packets
@@ -949,17 +953,11 @@ func _poll_client(
 	expected_generation: int,
 	expected_client: WebSocketPeer
 ) -> void:
-	if not _is_client_session_current(
-		expected_generation,
-		expected_client
-	):
+	if not _is_client_session_current(expected_generation, expected_client):
 		return
 
 	_poll_client_peer(expected_client)
-	if not _is_client_session_current(
-		expected_generation,
-		expected_client
-	):
+	if not _is_client_session_current(expected_generation, expected_client):
 		return
 	_last_poll_service_peer_count = 1
 	var state: int = _get_client_ready_state(expected_client)
@@ -967,21 +965,12 @@ func _poll_client(
 		if not _client_was_open:
 			_client_was_open = true
 			_emit_connected()
-			if not _is_client_session_current(
-				expected_generation,
-				expected_client
-			):
+			if not _is_client_session_current(expected_generation, expected_client):
 				return
 			_emit_peer_connected(SERVER_PEER_ID)
-			if not _is_client_session_current(
-				expected_generation,
-				expected_client
-			):
+			if not _is_client_session_current(expected_generation, expected_client):
 				return
-		var client_packet_limit: int = mini(
-			packet_per_peer_limit,
-			packet_limit
-		)
+		var client_packet_limit: int = mini(packet_per_peer_limit, packet_limit)
 		var packet_count_before_service: int = _last_poll_packet_count
 		var processed_packets: int = _emit_peer_packets(
 			SERVER_PEER_ID,
@@ -990,24 +979,10 @@ func _poll_client(
 			expected_generation,
 			Mode.CLIENT
 		)
-		if (
-			processed_packets < 0
-			or not _is_client_session_current(
-				expected_generation,
-				expected_client
-			)
-			):
+		if (processed_packets < 0 or not _is_client_session_current(expected_generation, expected_client)):
 			return
-		_last_poll_packet_count = (
-			packet_count_before_service + processed_packets
-		)
-		var has_pending_packets: bool = (
-			_get_peer_available_packet_count(
-				SERVER_PEER_ID,
-				expected_client
-			)
-			> 0
-		)
+		_last_poll_packet_count = (packet_count_before_service + processed_packets)
+		var has_pending_packets: bool = (_get_peer_available_packet_count(SERVER_PEER_ID, expected_client) > 0)
 		if (
 			has_pending_packets
 			and client_packet_limit == packet_per_peer_limit
@@ -1112,12 +1087,17 @@ func _service_server_peer(
 			Mode.SERVER
 		)
 	if state == WebSocketPeer.STATE_CLOSED:
-		_close_server_peer(peer_id, peer, "closed")
-	elif (
-		state == WebSocketPeer.STATE_CONNECTING
-		and _server_peer_handshake_timed_out(peer_id)
-	):
-		_close_server_peer(peer_id, peer, "handshake_timeout")
+		_close_server_peer(
+			peer_id,
+			peer,
+			"closed"
+		)
+	elif (state == WebSocketPeer.STATE_CONNECTING and _server_peer_handshake_timed_out(peer_id)):
+		_close_server_peer(
+			peer_id,
+			peer,
+			"handshake_timeout"
+		)
 	return 0
 
 
@@ -1125,16 +1105,10 @@ func _service_server_peer(
 ## [br]
 ## @api private
 ## [br]
-func _server_peer_has_available_packets(
-	peer_id: int,
-	peer: WebSocketPeer
-) -> bool:
+func _server_peer_has_available_packets(peer_id: int, peer: WebSocketPeer) -> bool:
 	return (
 		_peers.has(peer_id)
-		and _get_peer_value(
-			GFVariantData.get_option_value(_peers, peer_id)
-		)
-		== peer
+		and (_get_peer_value(GFVariantData.get_option_value(_peers, peer_id)) == peer)
 		and peer.get_ready_state() == WebSocketPeer.STATE_OPEN
 		and _get_peer_available_packet_count(peer_id, peer) > 0
 	)
@@ -1148,7 +1122,10 @@ func _send_server_bytes(peer_id: int, bytes: PackedByteArray) -> Error:
 	if peer_id == BROADCAST_PEER_ID:
 		var first_error: Error = OK
 		for id_variant: Variant in _peers.keys():
-			var send_error: Error = _send_to_server_peer(GFVariantData.to_int(id_variant), bytes)
+			var send_error: Error = _send_to_server_peer(
+				GFVariantData.to_int(id_variant),
+				bytes
+			)
 			if first_error == OK and send_error != OK:
 				first_error = send_error
 		return first_error
@@ -1278,11 +1255,7 @@ func _close_all(should_emit_signal: bool) -> void:
 	_service_peer_budget_exhaustion_count = 0
 	_reset_last_poll_work_snapshot()
 
-	if (
-		client_to_close != null
-		and client_to_close.get_ready_state()
-		!= WebSocketPeer.STATE_CLOSED
-	):
+	if (client_to_close != null and client_to_close.get_ready_state() != WebSocketPeer.STATE_CLOSED):
 		client_to_close.close()
 	for peer: WebSocketPeer in peers_to_close:
 		if peer.get_ready_state() != WebSocketPeer.STATE_CLOSED:
@@ -1325,34 +1298,22 @@ func _advance_session_generation() -> int:
 ## @api private
 ## [br]
 func _is_server_generation_current(expected_generation: int) -> bool:
-	return (
-		_session_generation == expected_generation
-		and _mode == Mode.SERVER
-	)
+	return (_session_generation == expected_generation and _mode == Mode.SERVER)
 
 
 ## 检查服务器代次与 TCPServer 实例都仍是当前会话。
 ## [br]
 ## @api private
 ## [br]
-func _is_server_session_current(
-	expected_generation: int,
-	expected_server: TCPServer
-) -> bool:
-	return (
-		_is_server_generation_current(expected_generation)
-		and _server == expected_server
-	)
+func _is_server_session_current(expected_generation: int, expected_server: TCPServer) -> bool:
+	return (_is_server_generation_current(expected_generation) and _server == expected_server)
 
 
 ## 检查客户端模式、会话代次及 WebSocketPeer 实例身份仍匹配。
 ## [br]
 ## @api private
 ## [br]
-func _is_client_session_current(
-	expected_generation: int,
-	expected_client: WebSocketPeer
-) -> bool:
+func _is_client_session_current(expected_generation: int, expected_client: WebSocketPeer) -> bool:
 	return (
 		_session_generation == expected_generation
 		and _mode == Mode.CLIENT
@@ -1374,10 +1335,7 @@ func _is_server_peer_current(
 		_is_server_generation_current(expected_generation)
 		and expected_peer != null
 		and _peers.has(peer_id)
-		and _get_peer_value(
-			GFVariantData.get_option_value(_peers, peer_id)
-		)
-		== expected_peer
+		and (_get_peer_value(GFVariantData.get_option_value(_peers, peer_id)) == expected_peer)
 	)
 
 
@@ -1392,10 +1350,7 @@ func _packet_source_is_current(
 	peer: WebSocketPeer
 ) -> bool:
 	if expected_mode == Mode.CLIENT:
-		return (
-			peer_id == SERVER_PEER_ID
-			and _is_client_session_current(expected_generation, peer)
-		)
+		return (peer_id == SERVER_PEER_ID and _is_client_session_current(expected_generation, peer))
 	if expected_mode == Mode.SERVER:
 		return _is_server_peer_current(
 			expected_generation,
@@ -1443,10 +1398,7 @@ func _advance_service_peer_cursor(peer_index: int, peer_id: int) -> void:
 	if _service_peer_ids.is_empty():
 		_service_peer_cursor = 0
 		return
-	if (
-		peer_index < _service_peer_ids.size()
-		and _service_peer_ids[peer_index] == peer_id
-	):
+	if (peer_index < _service_peer_ids.size() and _service_peer_ids[peer_index] == peer_id):
 		_service_peer_cursor = peer_index + 1
 	if _service_peer_cursor >= _service_peer_ids.size():
 		_service_peer_cursor = 0
@@ -1506,10 +1458,7 @@ func _get_client_ready_state(peer: WebSocketPeer) -> int:
 ## [br]
 ## @api private
 ## [br]
-func _get_server_peer_ready_state(
-	_peer_id: int,
-	peer: WebSocketPeer
-) -> int:
+func _get_server_peer_ready_state(_peer_id: int, peer: WebSocketPeer) -> int:
 	return peer.get_ready_state()
 
 
@@ -1517,10 +1466,7 @@ func _get_server_peer_ready_state(
 ## [br]
 ## @api private
 ## [br]
-func _get_peer_available_packet_count(
-	_peer_id: int,
-	peer: WebSocketPeer
-) -> int:
+func _get_peer_available_packet_count(_peer_id: int, peer: WebSocketPeer) -> int:
 	return peer.get_available_packet_count()
 
 
@@ -1528,10 +1474,7 @@ func _get_peer_available_packet_count(
 ## [br]
 ## @api private
 ## [br]
-func _get_peer_packet(
-	_peer_id: int,
-	peer: WebSocketPeer
-) -> PackedByteArray:
+func _get_peer_packet(_peer_id: int, peer: WebSocketPeer) -> PackedByteArray:
 	return peer.get_packet()
 
 
@@ -1620,9 +1563,7 @@ func _validate_peer_options(options: Dictionary) -> bool:
 func _normalize_peer_options(options: Dictionary) -> Dictionary:
 	var normalized: Dictionary = {}
 	if _has_option(options, &"supported_protocols"):
-		normalized["supported_protocols"] = (
-			_get_validated_supported_protocols(options)
-		)
+		normalized["supported_protocols"] = _get_validated_supported_protocols(options)
 	if _has_option(options, &"no_delay"):
 		normalized["no_delay"] = _get_option_value(options, &"no_delay")
 	normalized["inbound_buffer_size"] = _get_exact_option_int(
@@ -1653,24 +1594,28 @@ func _apply_peer_options(peer: WebSocketPeer, options: Dictionary) -> Error:
 	if not _validate_peer_options(options):
 		return ERR_INVALID_PARAMETER
 	if options.has("supported_protocols"):
-		peer.set_supported_protocols(
-			_get_validated_supported_protocols(options)
+		peer.set_supported_protocols(_get_validated_supported_protocols(options))
+	peer.set_inbound_buffer_size(
+		_get_exact_option_int(
+			options,
+			&"inbound_buffer_size",
+			DEFAULT_INBOUND_BUFFER_SIZE
 		)
-	peer.set_inbound_buffer_size(_get_exact_option_int(
-		options,
-		&"inbound_buffer_size",
-		DEFAULT_INBOUND_BUFFER_SIZE
-	))
-	peer.set_outbound_buffer_size(_get_exact_option_int(
-		options,
-		&"outbound_buffer_size",
-		DEFAULT_OUTBOUND_BUFFER_SIZE
-	))
-	peer.set_max_queued_packets(_get_exact_option_int(
-		options,
-		&"max_queued_packets",
-		DEFAULT_MAX_QUEUED_PACKETS
-	))
+	)
+	peer.set_outbound_buffer_size(
+		_get_exact_option_int(
+			options,
+			&"outbound_buffer_size",
+			DEFAULT_OUTBOUND_BUFFER_SIZE
+		)
+	)
+	peer.set_max_queued_packets(
+		_get_exact_option_int(
+			options,
+			&"max_queued_packets",
+			DEFAULT_MAX_QUEUED_PACKETS
+		)
+	)
 	if options.has("no_delay"):
 		var no_delay_value: Variant = options["no_delay"]
 		if no_delay_value is bool:
@@ -1686,10 +1631,7 @@ func _apply_peer_options(peer: WebSocketPeer, options: Dictionary) -> Error:
 func _supported_protocols_option_is_valid(options: Dictionary) -> bool:
 	if not _has_option(options, &"supported_protocols"):
 		return true
-	var raw_protocols: Variant = _get_option_value(
-		options,
-		&"supported_protocols"
-	)
+	var raw_protocols: Variant = _get_option_value(options, &"supported_protocols")
 	var values: Array = []
 	if raw_protocols is PackedStringArray:
 		for protocol: String in _get_packed_string_array_value(raw_protocols):
@@ -1711,10 +1653,7 @@ func _supported_protocols_option_is_valid(options: Dictionary) -> bool:
 			protocol = String(protocol_name)
 		else:
 			return false
-		if (
-			not _websocket_protocol_is_valid(protocol)
-			or identities.has(protocol)
-		):
+		if (not _websocket_protocol_is_valid(protocol) or identities.has(protocol)):
 			return false
 		identities[protocol] = true
 		var protocol_bytes: int = protocol.to_utf8_buffer().size()
@@ -1730,16 +1669,11 @@ func _supported_protocols_option_is_valid(options: Dictionary) -> bool:
 ## [br]
 ## @api private
 ## [br]
-func _get_validated_supported_protocols(
-	options: Dictionary
-) -> PackedStringArray:
+func _get_validated_supported_protocols(options: Dictionary) -> PackedStringArray:
 	var protocols: PackedStringArray = PackedStringArray()
 	if not _supported_protocols_option_is_valid(options):
 		return protocols
-	var raw_protocols: Variant = _get_option_value(
-		options,
-		&"supported_protocols"
-	)
+	var raw_protocols: Variant = _get_option_value(options, &"supported_protocols")
 	if raw_protocols is PackedStringArray:
 		return _get_packed_string_array_value(raw_protocols).duplicate()
 	if raw_protocols is Array:
@@ -1749,9 +1683,7 @@ func _get_validated_supported_protocols(
 				var _string_appended: bool = protocols.append(protocol)
 			elif protocol_value is StringName:
 				var protocol_name: StringName = protocol_value
-				var _name_appended: bool = protocols.append(
-					String(protocol_name)
-				)
+				var _name_appended: bool = protocols.append(String(protocol_name))
 	return protocols
 
 
@@ -1765,9 +1697,18 @@ func _websocket_protocol_is_valid(protocol: String) -> bool:
 	const TOKEN_PUNCTUATION: String = "!#$%&'*+-.^_`|~"
 	for byte_value: int in protocol.to_ascii_buffer():
 		if (
-			(byte_value >= 48 and byte_value <= 57)
-			or (byte_value >= 65 and byte_value <= 90)
-			or (byte_value >= 97 and byte_value <= 122)
+			(
+				byte_value >= 48
+				and byte_value <= 57
+			)
+			or (
+				byte_value >= 65
+				and byte_value <= 90
+			)
+			or (
+				byte_value >= 97
+				and byte_value <= 122
+			)
 			or TOKEN_PUNCTUATION.contains(String.chr(byte_value))
 		):
 			continue
@@ -1779,14 +1720,8 @@ func _websocket_protocol_is_valid(protocol: String) -> bool:
 ## [br]
 ## @api private
 ## [br]
-func _exact_bool_option_is_valid(
-	options: Dictionary,
-	option_name: StringName
-) -> bool:
-	return (
-		not _has_option(options, option_name)
-		or _get_option_value(options, option_name) is bool
-	)
+func _exact_bool_option_is_valid(options: Dictionary, option_name: StringName) -> bool:
+	return (not _has_option(options, option_name) or _get_option_value(options, option_name) is bool)
 
 
 ## 允许选项缺省；存在时要求精确 int 且在 1 到上限之间。

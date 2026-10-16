@@ -16,14 +16,14 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 方法 | [`source_has_tag`](#member-gftagsourceadapter-methods-source_has_tag) | `static func source_has_tag( source: Variant, tag: StringName, minimum_count: int = 1, include_child_tags: bool = false ) -> bool:` |
-| 方法 | [`get_tag_count`](#member-gftagsourceadapter-methods-get_tag_count) | `static func get_tag_count(source: Variant, tag: StringName, include_child_tags: bool = false) -> int:` |
+| 方法 | [`get_tag_count`](#member-gftagsourceadapter-methods-get_tag_count) | `static func get_tag_count( source: Variant, tag: StringName, include_child_tags: bool = false ) -> int:` |
 | 方法 | [`get_tags`](#member-gftagsourceadapter-methods-get_tags) | `static func get_tags(source: Variant) -> PackedStringArray:` |
 | 方法 | [`get_tag_counts`](#member-gftagsourceadapter-methods-get_tag_counts) | `static func get_tag_counts(source: Variant) -> Dictionary:` |
 | 方法 | [`to_tag_set`](#member-gftagsourceadapter-methods-to_tag_set) | `static func to_tag_set(source: Variant) -> GFTagSet:` |
 | 方法 | [`merge_sources`](#member-gftagsourceadapter-methods-merge_sources) | `static func merge_sources(sources: Array) -> GFTagSet:` |
-| 方法 | [`matches_all`](#member-gftagsourceadapter-methods-matches_all) | `static func matches_all(source: Variant, tags: Array[StringName], include_child_tags: bool = false) -> bool:` |
-| 方法 | [`matches_any`](#member-gftagsourceadapter-methods-matches_any) | `static func matches_any(source: Variant, tags: Array[StringName], include_child_tags: bool = false) -> bool:` |
-| 方法 | [`matches_none`](#member-gftagsourceadapter-methods-matches_none) | `static func matches_none(source: Variant, tags: Array[StringName], include_child_tags: bool = false) -> bool:` |
+| 方法 | [`matches_all`](#member-gftagsourceadapter-methods-matches_all) | `static func matches_all( source: Variant, tags: Array[StringName], include_child_tags: bool = false ) -> bool:` |
+| 方法 | [`matches_any`](#member-gftagsourceadapter-methods-matches_any) | `static func matches_any( source: Variant, tags: Array[StringName], include_child_tags: bool = false ) -> bool:` |
+| 方法 | [`matches_none`](#member-gftagsourceadapter-methods-matches_none) | `static func matches_none( source: Variant, tags: Array[StringName], include_child_tags: bool = false ) -> bool:` |
 
 ## 方法
 
@@ -59,9 +59,10 @@ static func source_has_tag( source: Variant, tag: StringName, minimum_count: int
 ### `get_tag_count`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-static func get_tag_count(source: Variant, tag: StringName, include_child_tags: bool = false) -> int:
+static func get_tag_count( source: Variant, tag: StringName, include_child_tags: bool = false ) -> int:
 ```
 
 获取标签源中的标签层数。
@@ -182,9 +183,10 @@ static func merge_sources(sources: Array) -> GFTagSet:
 ### `matches_all`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-static func matches_all(source: Variant, tags: Array[StringName], include_child_tags: bool = false) -> bool:
+static func matches_all( source: Variant, tags: Array[StringName], include_child_tags: bool = false ) -> bool:
 ```
 
 检查标签源是否包含所有标签。
@@ -208,9 +210,10 @@ static func matches_all(source: Variant, tags: Array[StringName], include_child_
 ### `matches_any`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-static func matches_any(source: Variant, tags: Array[StringName], include_child_tags: bool = false) -> bool:
+static func matches_any( source: Variant, tags: Array[StringName], include_child_tags: bool = false ) -> bool:
 ```
 
 检查标签源是否包含任意标签。
@@ -234,9 +237,10 @@ static func matches_any(source: Variant, tags: Array[StringName], include_child_
 ### `matches_none`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-static func matches_none(source: Variant, tags: Array[StringName], include_child_tags: bool = false) -> bool:
+static func matches_none( source: Variant, tags: Array[StringName], include_child_tags: bool = false ) -> bool:
 ```
 
 检查标签源是否不包含任何禁止标签。

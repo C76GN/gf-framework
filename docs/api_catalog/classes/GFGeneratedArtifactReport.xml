@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFGeneratedArtifactReport" path="addons/gf/kernel/editor/gf_generated_artifact_report.gd" module="kernel" extends="RefCounted" classDigest="3a74f3e63d693ec89e208b6cb1247b6cccf1f1cf5a5206b115550f25a3be30ac">
+<class name="GFGeneratedArtifactReport" path="addons/gf/kernel/editor/gf_generated_artifact_report.gd" module="kernel" extends="RefCounted" classDigest="cd0a22d7436638b0308774d3387ab74499cce72282702a7b50906218bf791b9b">
 	<description>GFGeneratedArtifactReport: 生成文本产物的保存报告辅助。
 用于编辑器代码生成、导表导出或项目工具在写入前后获得统一的
 new / changed / unchanged / skipped / failed 状态，不绑定具体生成器语义。</description>
@@ -113,7 +113,7 @@ new / changed / unchanged / skipped / failed 状态，不绑定具体生成器�
 			</tags>
 		</member>
 		<member kind="method" name="save_text">
-			<signature>static func save_text(output_path: String, text: String, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>static func save_text( output_path: String, text: String, options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>保存文本产物并返回统一报告。
 dry_run 为 true 时只比较目标文件状态，不创建目录或写入文件。
 overwrite_existing 为 false 且目标文件需要改写时返回 skipped / ERR_ALREADY_EXISTS。</description>

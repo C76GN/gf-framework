@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNodeCanvasItemSerializer" path="addons/gf/extensions/save/serializers/gf_node_canvas_item_serializer.gd" module="extensions/save" extends="GFNodeSerializer" classDigest="6ed110d2153f371d57bb15d25d584246b5db3369db933ddbbf25fc112ca48cec">
+<class name="GFNodeCanvasItemSerializer" path="addons/gf/extensions/save/serializers/gf_node_canvas_item_serializer.gd" module="extensions/save" extends="GFNodeSerializer" classDigest="f60b0ab6a4803c00c2d041a89f5a3c7acee06784b2118e0e4995ccc2f1fce7ab">
 	<description>GFNodeCanvasItemSerializer: CanvasItem 通用显示状态序列化器。
 保存可见性与颜色调制等通用表现状态，不保存具体业务字段。</description>
 	<tags>
@@ -34,7 +34,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="apply">
-			<signature>func apply(node: Node, payload: Dictionary, _context: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>func apply( node: Node, payload: Dictionary, _context: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>将序列化数据应用到节点。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -45,6 +45,7 @@
 				<tag name="schema">payload: Dictionary，可包含 visible、modulate、self_modulate、show_behind_parent、top_level、z_as_relative 与 z_index。</tag>
 				<tag name="schema">_context: Dictionary，调用方附加上下文；当前实现不读取。</tag>
 				<tag name="schema">return: Dictionary，包含 ok: bool 与 error: String。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

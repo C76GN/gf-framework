@@ -170,13 +170,33 @@ const _KEY_DICTIONARY_VALUE_TYPE: String = "dictionary_value_type"
 ## @return 编码报告。
 ## [br]
 ## @schema return: Dictionary with ok, data, issues, issue_count, and error.
-static func encode(value: Variant, policy: GFSafeResourceCodecPolicy = null, options: Dictionary = {}) -> Dictionary:
+static func encode(
+	value: Variant,
+	policy: GFSafeResourceCodecPolicy = null,
+	options: Dictionary = {}
+) -> Dictionary:
 	var active_policy: GFSafeResourceCodecPolicy = _get_policy(policy)
 	var state: Dictionary = _make_state(active_policy, options)
-	var result: Dictionary = _encode_recursive(value, active_policy, options, state, 0)
+	var result: Dictionary = _encode_recursive(
+		value,
+		active_policy,
+		options,
+		state,
+		0
+	)
 	if not GFVariantData.get_option_bool(result, "ok"):
-		return _make_report(false, {}, _get_first_issue(state), state)
-	return _make_report(true, GFVariantData.get_option_dictionary(result, "data"), "", state)
+		return _make_report(
+			false,
+			{},
+			_get_first_issue(state),
+			state
+		)
+	return _make_report(
+		true,
+		GFVariantData.get_option_dictionary(result, "data"),
+		"",
+		state
+	)
 
 
 ## 解码值。
@@ -198,11 +218,21 @@ static func encode(value: Variant, policy: GFSafeResourceCodecPolicy = null, opt
 ## @return 解码报告。
 ## [br]
 ## @schema return: Dictionary with ok, value, issues, issue_count, and error.
-static func decode(data: Dictionary, policy: GFSafeResourceCodecPolicy = null, options: Dictionary = {}) -> Dictionary:
+static func decode(
+	data: Dictionary,
+	policy: GFSafeResourceCodecPolicy = null,
+	options: Dictionary = {}
+) -> Dictionary:
 	var active_policy: GFSafeResourceCodecPolicy = _get_policy(policy)
 	var state: Dictionary = _make_state(active_policy, options)
 	state["objects"] = {}
-	var result: Dictionary = _decode_recursive(data, active_policy, options, state, 0)
+	var result: Dictionary = _decode_recursive(
+		data,
+		active_policy,
+		options,
+		state,
+		0
+	)
 	var decode_ok: bool = GFVariantData.get_option_bool(result, "ok")
 	if not decode_ok:
 		_cleanup_failed_decode(state)
@@ -244,28 +274,41 @@ static func _encode_recursive(
 	state: Dictionary,
 	depth: int
 ) -> Dictionary:
-	if not _consume_item(state, depth, "encode"):
+	if not _consume_item(
+		state,
+		depth,
+		"encode"
+	):
 		return _make_failure(_get_first_issue(state))
 
 	var value_type: int = typeof(value)
 	if _is_direct_value_type(value_type):
-		return _make_success({
-			KEY_KIND: _KIND_VALUE,
-			KEY_VARIANT_TYPE: value_type,
-			KEY_VALUE: GFVariantData.duplicate_variant(value, true, true),
-		})
+		return _make_success(
+			{
+				KEY_KIND: _KIND_VALUE,
+				KEY_VARIANT_TYPE: value_type,
+				KEY_VALUE: GFVariantData.duplicate_variant(
+					value,
+					true,
+					true
+				),
+			}
+		)
 	if value is Array:
 		var array_value: Array = value
 		var encoded_items: Array[Dictionary] = []
 		for item: Variant in array_value:
-			var item_result: Dictionary = _encode_recursive(item, policy, options, state, depth + 1)
+			var item_result: Dictionary = _encode_recursive(
+				item,
+				policy,
+				options,
+				state,
+				depth + 1
+			)
 			if not GFVariantData.get_option_bool(item_result, "ok"):
 				return item_result
 			encoded_items.append(GFVariantData.get_option_dictionary(item_result, "data"))
-		var array_data: Dictionary = {
-			KEY_KIND: _KIND_ARRAY,
-			KEY_ITEMS: encoded_items,
-		}
+		var array_data: Dictionary = { KEY_KIND: _KIND_ARRAY, KEY_ITEMS: encoded_items, }
 		if array_value.is_typed():
 			var array_type_result: Dictionary = _encode_container_type(
 				array_value.get_typed_builtin(),
@@ -282,20 +325,26 @@ static func _encode_recursive(
 		var dictionary_value: Dictionary = value
 		var encoded_entries: Array[Dictionary] = []
 		for raw_key: Variant in dictionary_value.keys():
-			var key_result: Dictionary = _encode_recursive(raw_key, policy, options, state, depth + 1)
+			var key_result: Dictionary = _encode_recursive(
+				raw_key,
+				policy,
+				options,
+				state,
+				depth + 1
+			)
 			if not GFVariantData.get_option_bool(key_result, "ok"):
 				return key_result
-			var value_result: Dictionary = _encode_recursive(dictionary_value[raw_key], policy, options, state, depth + 1)
+			var value_result: Dictionary = _encode_recursive(
+				dictionary_value[raw_key],
+				policy,
+				options,
+				state,
+				depth + 1
+			)
 			if not GFVariantData.get_option_bool(value_result, "ok"):
 				return value_result
-			encoded_entries.append({
-				"key": GFVariantData.get_option_dictionary(key_result, "data"),
-				"value": GFVariantData.get_option_dictionary(value_result, "data"),
-			})
-		var dictionary_data: Dictionary = {
-			KEY_KIND: _KIND_DICTIONARY,
-			KEY_ENTRIES: encoded_entries,
-		}
+			encoded_entries.append({ "key": GFVariantData.get_option_dictionary(key_result, "data"), "value": GFVariantData.get_option_dictionary(value_result, "data"), })
+		var dictionary_data: Dictionary = { KEY_KIND: _KIND_DICTIONARY, KEY_ENTRIES: encoded_entries, }
 		if dictionary_value.is_typed():
 			var key_type_result: Dictionary = _encode_container_type(
 				dictionary_value.get_typed_key_builtin(),
@@ -320,9 +369,19 @@ static func _encode_recursive(
 		return _make_success(dictionary_data)
 	if value is Object:
 		var object_value: Object = value
-		return _encode_object(object_value, policy, options, state, depth)
+		return _encode_object(
+			object_value,
+			policy,
+			options,
+			state,
+			depth
+		)
 
-	_add_issue(state, &"unsupported_variant_type", "Unsupported Variant type: %s." % type_string(value_type))
+	_add_issue(
+		state,
+		&"unsupported_variant_type",
+		"Unsupported Variant type: %s." % type_string(value_type)
+	)
 	return _make_failure(_get_first_issue(state))
 
 
@@ -339,12 +398,20 @@ static func _encode_object(
 ) -> Dictionary:
 	var native_class: String = object_value.get_class()
 	if not policy.allows_class(native_class):
-		_add_issue(state, &"class_not_allowed", "Class is not allowed: %s." % native_class)
+		_add_issue(
+			state,
+			&"class_not_allowed",
+			"Class is not allowed: %s." % native_class
+		)
 		return _make_failure(_get_first_issue(state))
 
 	var script_path: String = _get_object_script_path(object_value)
 	if not script_path.is_empty() and not policy.allows_script_path(script_path):
-		_add_issue(state, &"script_not_allowed", "Script path is not allowed: %s." % script_path)
+		_add_issue(
+			state,
+			&"script_not_allowed",
+			"Script path is not allowed: %s." % script_path
+		)
 		return _make_failure(_get_first_issue(state))
 
 	if object_value is Resource:
@@ -353,29 +420,53 @@ static func _encode_object(
 		if (
 			not resource_path.is_empty()
 			and policy.allow_external_resource_paths
-			and GFVariantData.get_option_bool(options, "encode_external_resources", true)
+			and GFVariantData.get_option_bool(
+				options,
+				"encode_external_resources",
+				true
+			)
 		):
 			if not policy.allows_resource_path(resource_path):
-				_add_issue(state, &"resource_path_not_allowed", "Resource path is not allowed: %s." % resource_path)
+				_add_issue(
+					state,
+					&"resource_path_not_allowed",
+					"Resource path is not allowed: %s." % resource_path
+				)
 				return _make_failure(_get_first_issue(state))
-			return _make_success({
-				KEY_KIND: _KIND_EXTERNAL_RESOURCE,
-				KEY_CLASS: native_class,
-				KEY_RESOURCE_PATH: resource_path,
-			})
+			return _make_success(
+				{
+					KEY_KIND: _KIND_EXTERNAL_RESOURCE,
+					KEY_CLASS: native_class,
+					KEY_RESOURCE_PATH: resource_path,
+				}
+			)
 
 	var object_key: int = object_value.get_instance_id()
 	var object_ids: Dictionary = GFVariantData.get_option_dictionary(state, "object_ids")
 	if object_ids.has(object_key):
 		if not policy.allow_object_identity_references:
-			_add_issue(state, &"repeated_object_reference", "Repeated object reference is not allowed.")
+			_add_issue(
+				state,
+				&"repeated_object_reference",
+				"Repeated object reference is not allowed."
+			)
 			return _make_failure(_get_first_issue(state))
-		return _make_success({
-			KEY_KIND: _KIND_OBJECT_REFERENCE,
-			KEY_OBJECT_ID: GFVariantData.get_option_int(object_ids, object_key, _INVALID_OBJECT_ID),
-		})
+		return _make_success(
+			{
+				KEY_KIND: _KIND_OBJECT_REFERENCE,
+				KEY_OBJECT_ID: GFVariantData.get_option_int(
+					object_ids,
+					object_key,
+					_INVALID_OBJECT_ID
+				),
+			}
+		)
 
-	var object_id: int = GFVariantData.get_option_int(state, "next_object_id", 1)
+	var object_id: int = GFVariantData.get_option_int(
+		state,
+		"next_object_id",
+		1
+	)
 	state["next_object_id"] = object_id + 1
 	object_ids[object_key] = object_id
 	state["object_ids"] = object_ids
@@ -388,21 +479,26 @@ static func _encode_object(
 		if not _should_encode_property(property_info):
 			continue
 		var property_id: String = GFVariantData.get_option_string(property_info, "name")
-		var property_result: Dictionary = _encode_recursive(object_value.get(property_id), policy, options, state, depth + 1)
+		var property_result: Dictionary = _encode_recursive(
+			object_value.get(property_id),
+			policy,
+			options,
+			state,
+			depth + 1
+		)
 		if not GFVariantData.get_option_bool(property_result, "ok"):
 			return property_result
-		properties.append({
-			"name": property_id,
-			"value": GFVariantData.get_option_dictionary(property_result, "data"),
-		})
+		properties.append({ "name": property_id, "value": GFVariantData.get_option_dictionary(property_result, "data"), })
 
-	return _make_success({
-		KEY_KIND: _KIND_OBJECT,
-		KEY_OBJECT_ID: object_id,
-		KEY_CLASS: native_class,
-		KEY_SCRIPT_PATH: script_path,
-		KEY_PROPERTIES: properties,
-	})
+	return _make_success(
+		{
+			KEY_KIND: _KIND_OBJECT,
+			KEY_OBJECT_ID: object_id,
+			KEY_CLASS: native_class,
+			KEY_SCRIPT_PATH: script_path,
+			KEY_PROPERTIES: properties,
+		}
+	)
 
 
 ## 根据 kind 分派解码值、容器、对象、对象引用或外部资源节点。
@@ -416,7 +512,11 @@ static func _decode_recursive(
 	state: Dictionary,
 	depth: int
 ) -> Dictionary:
-	if not _consume_item(state, depth, "decode"):
+	if not _consume_item(
+		state,
+		depth,
+		"decode"
+	):
 		return _make_decoded_failure(_get_first_issue(state))
 
 	var kind: StringName = GFVariantData.get_option_string_name(data, KEY_KIND)
@@ -424,29 +524,76 @@ static func _decode_recursive(
 		_KIND_VALUE:
 			return _decode_direct_value(data, state)
 		_KIND_ARRAY:
-			return _decode_array(data, policy, options, state, depth)
+			return _decode_array(
+				data,
+				policy,
+				options,
+				state,
+				depth
+			)
 		_KIND_DICTIONARY:
-			return _decode_dictionary(data, policy, options, state, depth)
+			return _decode_dictionary(
+				data,
+				policy,
+				options,
+				state,
+				depth
+			)
 		_KIND_OBJECT_REFERENCE:
-			var raw_object_id: Variant = GFVariantData.get_option_value(data, KEY_OBJECT_ID, null)
+			var raw_object_id: Variant = GFVariantData.get_option_value(
+				data,
+				KEY_OBJECT_ID,
+				null
+			)
 			if typeof(raw_object_id) != TYPE_INT:
-				_add_issue(state, &"invalid_object_id", "Object reference id must be a positive integer.")
+				_add_issue(
+					state,
+					&"invalid_object_id",
+					"Object reference id must be a positive integer."
+				)
 				return _make_decoded_failure(_get_first_issue(state))
 			var object_id: int = raw_object_id
 			if object_id <= 0:
-				_add_issue(state, &"invalid_object_id", "Object reference id must be a positive integer.")
+				_add_issue(
+					state,
+					&"invalid_object_id",
+					"Object reference id must be a positive integer."
+				)
 				return _make_decoded_failure(_get_first_issue(state))
 			var objects: Dictionary = GFVariantData.get_option_dictionary(state, "objects")
 			if not objects.has(object_id):
-				_add_issue(state, &"missing_object_reference", "Object reference target is missing.")
+				_add_issue(
+					state,
+					&"missing_object_reference",
+					"Object reference target is missing."
+				)
 				return _make_decoded_failure(_get_first_issue(state))
-			return { "ok": true, "value": objects[object_id], "error": "" }
+			return {
+				"ok": true,
+				"value": objects[object_id],
+				"error": "",
+			}
 		_KIND_EXTERNAL_RESOURCE:
-			return _decode_external_resource(data, policy, options, state)
+			return _decode_external_resource(
+				data,
+				policy,
+				options,
+				state
+			)
 		_KIND_OBJECT:
-			return _decode_object(data, policy, options, state, depth)
+			return _decode_object(
+				data,
+				policy,
+				options,
+				state,
+				depth
+			)
 
-	_add_issue(state, &"unknown_encoded_kind", "Unknown encoded kind: %s." % String(kind))
+	_add_issue(
+		state,
+		&"unknown_encoded_kind",
+		"Unknown encoded kind: %s." % String(kind)
+	)
 	return _make_decoded_failure(_get_first_issue(state))
 
 
@@ -464,34 +611,68 @@ static func _encode_container_type(
 	var script_path: String = ""
 	if typed_script != null:
 		if not typed_script is Script:
-			_add_issue(state, &"container_type_script_invalid", "Typed container script metadata is invalid.")
+			_add_issue(
+				state,
+				&"container_type_script_invalid",
+				"Typed container script metadata is invalid."
+			)
 			return _make_failure(_get_first_issue(state))
 		var script_value: Script = typed_script
 		script_path = script_value.resource_path
 		if script_path.is_empty():
-			_add_issue(state, &"container_type_script_unstorable", "Typed container script must have a resource path.")
+			_add_issue(
+				state,
+				&"container_type_script_unstorable",
+				"Typed container script must have a resource path."
+			)
 			return _make_failure(_get_first_issue(state))
 		if not policy.allows_script_path(script_path):
-			_add_issue(state, &"script_not_allowed", "Typed container script path is not allowed: %s." % script_path)
+			_add_issue(
+				state,
+				&"script_not_allowed",
+				"Typed container script path is not allowed: %s." % script_path
+			)
 			return _make_failure(_get_first_issue(state))
 		var script_base_type: String = String(script_value.get_instance_base_type())
 		if script_base_type.is_empty() or not policy.allows_class(script_base_type):
-			_add_issue(state, &"class_not_allowed", "Typed container script base class is not allowed: %s." % script_base_type)
+			_add_issue(
+				state,
+				&"class_not_allowed",
+				"Typed container script base class is not allowed: %s." % script_base_type
+			)
 			return _make_failure(_get_first_issue(state))
-		if not _container_class_matches_script(String(typed_class_name), script_value):
-			_add_issue(state, &"container_type_invalid", "Typed container class does not match its script.")
+		if not _container_class_matches_script(
+			String(typed_class_name),
+			script_value
+		):
+			_add_issue(
+				state,
+				&"container_type_invalid",
+				"Typed container class does not match its script."
+			)
 			return _make_failure(_get_first_issue(state))
 
 	var class_id: String = String(typed_class_name)
-	if typed_builtin == TYPE_OBJECT and script_path.is_empty() and not class_id.is_empty() and not policy.allows_class(class_id):
-		_add_issue(state, &"class_not_allowed", "Typed container class is not allowed: %s." % class_id)
+	if (
+		typed_builtin == TYPE_OBJECT
+		and script_path.is_empty()
+		and not class_id.is_empty()
+		and not policy.allows_class(class_id)
+	):
+		_add_issue(
+			state,
+			&"class_not_allowed",
+			"Typed container class is not allowed: %s." % class_id
+		)
 		return _make_failure(_get_first_issue(state))
 
-	return _make_success({
-		KEY_VARIANT_TYPE: typed_builtin,
-		KEY_CLASS: class_id,
-		KEY_SCRIPT_PATH: script_path,
-	})
+	return _make_success(
+		{
+			KEY_VARIANT_TYPE: typed_builtin,
+			KEY_CLASS: class_id,
+			KEY_SCRIPT_PATH: script_path,
+		}
+	)
 
 
 ## 校验数组节点形状与预算，递归解码元素并按元数据恢复 typed Array。
@@ -505,45 +686,84 @@ static func _decode_array(
 	state: Dictionary,
 	depth: int
 ) -> Dictionary:
-	var raw_items: Variant = GFVariantData.get_option_value(data, KEY_ITEMS, null)
+	var raw_items: Variant = GFVariantData.get_option_value(
+		data,
+		KEY_ITEMS,
+		null
+	)
 	if not raw_items is Array:
-		_add_issue(state, &"encoded_shape_invalid", "Encoded array items must be an Array.")
+		_add_issue(
+			state,
+			&"encoded_shape_invalid",
+			"Encoded array items must be an Array."
+		)
 		return _make_decoded_failure(_get_first_issue(state))
 	var items: Array = raw_items
-	if not _preflight_decode_container_cardinality(state, items.size(), 1):
+	if not _preflight_decode_container_cardinality(
+		state,
+		items.size(),
+		1
+	):
 		return _make_decoded_failure(_get_first_issue(state))
 	var item_nodes: Array[Dictionary] = []
 	for item_value: Variant in items:
 		if not item_value is Dictionary:
-			_add_issue(state, &"encoded_shape_invalid", "Encoded array items must be Dictionaries.")
+			_add_issue(
+				state,
+				&"encoded_shape_invalid",
+				"Encoded array items must be Dictionaries."
+			)
 			return _make_decoded_failure(_get_first_issue(state))
 		var item_data: Dictionary = item_value
 		item_nodes.append(item_data)
 
-	var type_result: Dictionary = _decode_container_type(data, _KEY_ARRAY_TYPE, policy, state)
+	var type_result: Dictionary = _decode_container_type(
+		data,
+		_KEY_ARRAY_TYPE,
+		policy,
+		state
+	)
 	if not GFVariantData.get_option_bool(type_result, "ok"):
 		return type_result
 
 	var result_array: Array = []
 	for item_data: Dictionary in item_nodes:
-		var item_result: Dictionary = _decode_recursive(item_data, policy, options, state, depth + 1)
+		var item_result: Dictionary = _decode_recursive(
+			item_data,
+			policy,
+			options,
+			state,
+			depth + 1
+		)
 		if not GFVariantData.get_option_bool(item_result, "ok"):
 			return item_result
 		var decoded_item: Variant = GFVariantData.get_option_value(item_result, "value")
 		if not _value_matches_container_type(decoded_item, type_result):
-			_add_issue(state, &"container_value_type_mismatch", "Decoded array item does not match its declared type.")
+			_add_issue(
+				state,
+				&"container_value_type_mismatch",
+				"Decoded array item does not match its declared type."
+			)
 			return _make_decoded_failure(_get_first_issue(state))
 		result_array.append(decoded_item)
 
 	if not GFVariantData.get_option_bool(type_result, "typed"):
-		return { "ok": true, "value": result_array, "error": "" }
+		return {
+			"ok": true,
+			"value": result_array,
+			"error": "",
+		}
 	var typed_array: Array = Array(
 		result_array,
 		GFVariantData.get_option_int(type_result, "builtin"),
 		GFVariantData.get_option_string_name(type_result, "class_name"),
 		GFVariantData.get_option_value(type_result, "script")
 	)
-	return { "ok": true, "value": typed_array, "error": "" }
+	return {
+		"ok": true,
+		"value": typed_array,
+		"error": "",
+	}
 
 
 ## 校验字典条目和键值类型元数据，拒绝重复键后递归解码并恢复 typed Dictionary。
@@ -557,35 +777,77 @@ static func _decode_dictionary(
 	state: Dictionary,
 	depth: int
 ) -> Dictionary:
-	var raw_entries: Variant = GFVariantData.get_option_value(data, KEY_ENTRIES, null)
+	var raw_entries: Variant = GFVariantData.get_option_value(
+		data,
+		KEY_ENTRIES,
+		null
+	)
 	if not raw_entries is Array:
-		_add_issue(state, &"encoded_shape_invalid", "Encoded dictionary entries must be an Array.")
+		_add_issue(
+			state,
+			&"encoded_shape_invalid",
+			"Encoded dictionary entries must be an Array."
+		)
 		return _make_decoded_failure(_get_first_issue(state))
 	var entries: Array = raw_entries
-	if not _preflight_decode_container_cardinality(state, entries.size(), 2):
+	if not _preflight_decode_container_cardinality(
+		state,
+		entries.size(),
+		2
+	):
 		return _make_decoded_failure(_get_first_issue(state))
 	var entry_nodes: Array[Dictionary] = []
 	for entry_value: Variant in entries:
 		if not entry_value is Dictionary:
-			_add_issue(state, &"encoded_shape_invalid", "Encoded dictionary entries must be Dictionaries.")
+			_add_issue(
+				state,
+				&"encoded_shape_invalid",
+				"Encoded dictionary entries must be Dictionaries."
+			)
 			return _make_decoded_failure(_get_first_issue(state))
 		var entry: Dictionary = entry_value
-		var raw_key: Variant = GFVariantData.get_option_value(entry, "key", null)
-		var raw_value: Variant = GFVariantData.get_option_value(entry, "value", null)
+		var raw_key: Variant = GFVariantData.get_option_value(
+			entry,
+			"key",
+			null
+		)
+		var raw_value: Variant = GFVariantData.get_option_value(
+			entry,
+			"value",
+			null
+		)
 		if not raw_key is Dictionary or not raw_value is Dictionary:
-			_add_issue(state, &"encoded_shape_invalid", "Encoded dictionary entries must contain Dictionary key and value nodes.")
+			_add_issue(
+				state,
+				&"encoded_shape_invalid",
+				"Encoded dictionary entries must contain Dictionary key and value nodes."
+			)
 			return _make_decoded_failure(_get_first_issue(state))
 		entry_nodes.append(entry)
 
 	var has_key_type: bool = data.has(_KEY_DICTIONARY_KEY_TYPE)
 	var has_value_type: bool = data.has(_KEY_DICTIONARY_VALUE_TYPE)
 	if has_key_type != has_value_type:
-		_add_issue(state, &"container_type_invalid", "Typed dictionary metadata must declare both key and value types.")
+		_add_issue(
+			state,
+			&"container_type_invalid",
+			"Typed dictionary metadata must declare both key and value types."
+		)
 		return _make_decoded_failure(_get_first_issue(state))
-	var key_type_result: Dictionary = _decode_container_type(data, _KEY_DICTIONARY_KEY_TYPE, policy, state)
+	var key_type_result: Dictionary = _decode_container_type(
+		data,
+		_KEY_DICTIONARY_KEY_TYPE,
+		policy,
+		state
+	)
 	if not GFVariantData.get_option_bool(key_type_result, "ok"):
 		return key_type_result
-	var value_type_result: Dictionary = _decode_container_type(data, _KEY_DICTIONARY_VALUE_TYPE, policy, state)
+	var value_type_result: Dictionary = _decode_container_type(
+		data,
+		_KEY_DICTIONARY_VALUE_TYPE,
+		policy,
+		state
+	)
 	if not GFVariantData.get_option_bool(value_type_result, "ok"):
 		return value_type_result
 
@@ -604,10 +866,18 @@ static func _decode_dictionary(
 			return key_result
 		var decoded_key: Variant = GFVariantData.get_option_value(key_result, "value")
 		if not _value_matches_container_type(decoded_key, key_type_result):
-			_add_issue(state, &"container_key_type_mismatch", "Decoded dictionary key does not match its declared type.")
+			_add_issue(
+				state,
+				&"container_key_type_mismatch",
+				"Decoded dictionary key does not match its declared type."
+			)
 			return _make_decoded_failure(_get_first_issue(state))
 		if result_dictionary.has(decoded_key):
-			_add_issue(state, &"duplicate_dictionary_key", "Encoded dictionary contains a duplicate key.")
+			_add_issue(
+				state,
+				&"duplicate_dictionary_key",
+				"Encoded dictionary contains a duplicate key."
+			)
 			return _make_decoded_failure(_get_first_issue(state))
 		var value_result: Dictionary = _decode_recursive(
 			value_data,
@@ -620,12 +890,20 @@ static func _decode_dictionary(
 			return value_result
 		var decoded_value: Variant = GFVariantData.get_option_value(value_result, "value")
 		if not _value_matches_container_type(decoded_value, value_type_result):
-			_add_issue(state, &"container_value_type_mismatch", "Decoded dictionary value does not match its declared type.")
+			_add_issue(
+				state,
+				&"container_value_type_mismatch",
+				"Decoded dictionary value does not match its declared type."
+			)
 			return _make_decoded_failure(_get_first_issue(state))
 		result_dictionary[decoded_key] = decoded_value
 
 	if not GFVariantData.get_option_bool(key_type_result, "typed"):
-		return { "ok": true, "value": result_dictionary, "error": "" }
+		return {
+			"ok": true,
+			"value": result_dictionary,
+			"error": "",
+		}
 	var typed_dictionary: Dictionary = Dictionary(
 		result_dictionary,
 		GFVariantData.get_option_int(key_type_result, "builtin"),
@@ -635,7 +913,11 @@ static func _decode_dictionary(
 		GFVariantData.get_option_string_name(value_type_result, "class_name"),
 		GFVariantData.get_option_value(value_type_result, "script")
 	)
-	return { "ok": true, "value": typed_dictionary, "error": "" }
+	return {
+		"ok": true,
+		"value": typed_dictionary,
+		"error": "",
+	}
 
 
 ## 读取并验证 typed 容器元数据；未声明元数据时返回未类型化描述。
@@ -659,48 +941,98 @@ static func _decode_container_type(
 		}
 	var raw_metadata: Variant = data[metadata_key]
 	if not raw_metadata is Dictionary:
-		_add_issue(state, &"container_type_invalid", "Typed container metadata must be a Dictionary.")
+		_add_issue(
+			state,
+			&"container_type_invalid",
+			"Typed container metadata must be a Dictionary."
+		)
 		return _make_decoded_failure(_get_first_issue(state))
 	var metadata: Dictionary = raw_metadata
-	var raw_typed_builtin: Variant = GFVariantData.get_option_value(metadata, KEY_VARIANT_TYPE, null)
+	var raw_typed_builtin: Variant = GFVariantData.get_option_value(
+		metadata,
+		KEY_VARIANT_TYPE,
+		null
+	)
 	if typeof(raw_typed_builtin) != TYPE_INT:
-		_add_issue(state, &"container_type_invalid", "Typed container Variant type must be an integer.")
+		_add_issue(
+			state,
+			&"container_type_invalid",
+			"Typed container Variant type must be an integer."
+		)
 		return _make_decoded_failure(_get_first_issue(state))
 	var typed_builtin: int = raw_typed_builtin
 	if typed_builtin < TYPE_NIL or typed_builtin >= TYPE_MAX:
-		_add_issue(state, &"container_type_invalid", "Typed container Variant type is invalid.")
+		_add_issue(
+			state,
+			&"container_type_invalid",
+			"Typed container Variant type is invalid."
+		)
 		return _make_decoded_failure(_get_first_issue(state))
 
 	var class_id: String = GFVariantData.get_option_string(metadata, KEY_CLASS)
 	var script_path: String = GFVariantData.get_option_string(metadata, KEY_SCRIPT_PATH)
-	if typed_builtin != TYPE_OBJECT and (not class_id.is_empty() or not script_path.is_empty()):
-		_add_issue(state, &"container_type_invalid", "Only Object container types may declare a class or script.")
+	if (
+		typed_builtin != TYPE_OBJECT
+		and (
+			not class_id.is_empty()
+			or not script_path.is_empty()
+		)
+	):
+		_add_issue(
+			state,
+			&"container_type_invalid",
+			"Only Object container types may declare a class or script."
+		)
 		return _make_decoded_failure(_get_first_issue(state))
 
 	var typed_script: Variant = null
 	if not script_path.is_empty():
 		if not policy.allows_script_path(script_path):
-			_add_issue(state, &"script_not_allowed", "Typed container script path is not allowed: %s." % script_path)
+			_add_issue(
+				state,
+				&"script_not_allowed",
+				"Typed container script path is not allowed: %s." % script_path
+			)
 			return _make_decoded_failure(_get_first_issue(state))
 		var script_resource: Resource = ResourceLoader.load(script_path)
 		if script_resource == null or not script_resource is Script:
-			_add_issue(state, &"script_load_failed", "Typed container script could not be loaded: %s." % script_path)
+			_add_issue(
+				state,
+				&"script_load_failed",
+				"Typed container script could not be loaded: %s." % script_path
+			)
 			return _make_decoded_failure(_get_first_issue(state))
 		var script_value: Script = script_resource
 		var script_base_type: String = String(script_value.get_instance_base_type())
 		if script_base_type.is_empty() or not policy.allows_class(script_base_type):
-			_add_issue(state, &"class_not_allowed", "Typed container script base class is not allowed: %s." % script_base_type)
+			_add_issue(
+				state,
+				&"class_not_allowed",
+				"Typed container script base class is not allowed: %s." % script_base_type
+			)
 			return _make_decoded_failure(_get_first_issue(state))
 		if not _container_class_matches_script(class_id, script_value):
-			_add_issue(state, &"container_type_invalid", "Typed container class does not match its script.")
+			_add_issue(
+				state,
+				&"container_type_invalid",
+				"Typed container class does not match its script."
+			)
 			return _make_decoded_failure(_get_first_issue(state))
 		typed_script = script_value
 	elif typed_builtin == TYPE_OBJECT and not class_id.is_empty():
 		if not policy.allows_class(class_id):
-			_add_issue(state, &"class_not_allowed", "Typed container class is not allowed: %s." % class_id)
+			_add_issue(
+				state,
+				&"class_not_allowed",
+				"Typed container class is not allowed: %s." % class_id
+			)
 			return _make_decoded_failure(_get_first_issue(state))
 		if not ClassDB.class_exists(class_id):
-			_add_issue(state, &"class_missing", "Typed container ClassDB class does not exist: %s." % class_id)
+			_add_issue(
+				state,
+				&"class_missing",
+				"Typed container ClassDB class does not exist: %s." % class_id
+			)
 			return _make_decoded_failure(_get_first_issue(state))
 
 	return {
@@ -720,7 +1052,11 @@ static func _decode_container_type(
 static func _value_matches_container_type(value: Variant, type_result: Dictionary) -> bool:
 	if not GFVariantData.get_option_bool(type_result, "typed"):
 		return true
-	var typed_builtin: int = GFVariantData.get_option_int(type_result, "builtin", TYPE_NIL)
+	var typed_builtin: int = GFVariantData.get_option_int(
+		type_result,
+		"builtin",
+		TYPE_NIL
+	)
 	if value == null:
 		return typed_builtin == TYPE_OBJECT or typed_builtin == TYPE_NIL
 	if typed_builtin != TYPE_NIL and typeof(value) != typed_builtin:
@@ -762,36 +1098,81 @@ static func _decode_external_resource(
 ) -> Dictionary:
 	var declared_class: String = GFVariantData.get_option_string(data, KEY_CLASS)
 	if not declared_class.is_empty() and not policy.allows_class(declared_class):
-		_add_issue(state, &"class_not_allowed", "Class is not allowed: %s." % declared_class)
+		_add_issue(
+			state,
+			&"class_not_allowed",
+			"Class is not allowed: %s." % declared_class
+		)
 		return _make_decoded_failure(_get_first_issue(state))
 
 	var resource_path: String = GFVariantData.get_option_string(data, KEY_RESOURCE_PATH)
 	if resource_path.is_empty() or not policy.allows_resource_path(resource_path):
-		_add_issue(state, &"resource_path_not_allowed", "Resource path is not allowed: %s." % resource_path)
+		_add_issue(
+			state,
+			&"resource_path_not_allowed",
+			"Resource path is not allowed: %s." % resource_path
+		)
 		return _make_decoded_failure(_get_first_issue(state))
-	if not GFVariantData.get_option_bool(options, "load_external_resources", false):
-		_add_issue(state, &"external_resource_loading_disabled", "External resource loading is disabled.")
+	if not GFVariantData.get_option_bool(
+		options,
+		"load_external_resources",
+		false
+	):
+		_add_issue(
+			state,
+			&"external_resource_loading_disabled",
+			"External resource loading is disabled."
+		)
 		return _make_decoded_failure(_get_first_issue(state))
 	if not ResourceLoader.exists(resource_path):
-		_add_issue(state, &"external_resource_missing", "External resource does not exist: %s." % resource_path)
+		_add_issue(
+			state,
+			&"external_resource_missing",
+			"External resource does not exist: %s." % resource_path
+		)
 		return _make_decoded_failure(_get_first_issue(state))
-	if not _preflight_external_resource_dependencies(resource_path, policy, options, state):
+	if not _preflight_external_resource_dependencies(
+		resource_path,
+		policy,
+		options,
+		state
+	):
 		return _make_decoded_failure(_get_first_issue(state))
-	var loaded_resource: Resource = ResourceLoader.load(resource_path, "", ResourceLoader.CACHE_MODE_IGNORE)
+	var loaded_resource: Resource = ResourceLoader.load(
+		resource_path,
+		"",
+		ResourceLoader.CACHE_MODE_IGNORE
+	)
 	if loaded_resource == null:
-		return { "ok": false, "value": null, "error": "External resource load failed." }
+		return {
+			"ok": false,
+			"value": null,
+			"error": "External resource load failed.",
+		}
 
 	var loaded_class: String = loaded_resource.get_class()
 	if not policy.allows_class(loaded_class):
-		_add_issue(state, &"class_not_allowed", "Loaded resource class is not allowed: %s." % loaded_class)
+		_add_issue(
+			state,
+			&"class_not_allowed",
+			"Loaded resource class is not allowed: %s." % loaded_class
+		)
 		return _make_decoded_failure(_get_first_issue(state))
 
 	var loaded_script_path: String = _get_object_script_path(loaded_resource)
 	if not loaded_script_path.is_empty() and not policy.allows_script_path(loaded_script_path):
-		_add_issue(state, &"script_not_allowed", "Loaded resource script path is not allowed: %s." % loaded_script_path)
+		_add_issue(
+			state,
+			&"script_not_allowed",
+			"Loaded resource script path is not allowed: %s." % loaded_script_path
+		)
 		return _make_decoded_failure(_get_first_issue(state))
 
-	return { "ok": true, "value": loaded_resource, "error": "" }
+	return {
+		"ok": true,
+		"value": loaded_resource,
+		"error": "",
+	}
 
 
 ## 按选项预检外部资源依赖中的脚本路径；默认开启，遇到未允许脚本时登记问题并返回 false。
@@ -804,7 +1185,11 @@ static func _preflight_external_resource_dependencies(
 	options: Dictionary,
 	state: Dictionary
 ) -> bool:
-	if not GFVariantData.get_option_bool(options, "preflight_external_resource_dependencies", true):
+	if not GFVariantData.get_option_bool(
+		options,
+		"preflight_external_resource_dependencies",
+		true
+	):
 		return true
 	var dependencies: PackedStringArray = ResourceLoader.get_dependencies(resource_path)
 	for dependency_entry: String in dependencies:
@@ -844,7 +1229,11 @@ static func _extract_dependency_resource_path(dependency_entry: String) -> Strin
 ## [br]
 static func _is_script_resource_path(path: String) -> bool:
 	var extension: String = path.get_extension().to_lower()
-	return extension == "gd" or extension == "gdc" or extension == "cs"
+	return (
+		extension == "gd"
+		or extension == "gdc"
+		or extension == "cs"
+	)
 
 
 ## 校验对象描述并实例化允许的类，登记对象引用，再按存储属性规则恢复属性值。
@@ -858,31 +1247,67 @@ static func _decode_object(
 	state: Dictionary,
 	depth: int
 ) -> Dictionary:
-	var raw_properties: Variant = GFVariantData.get_option_value(data, KEY_PROPERTIES, null)
+	var raw_properties: Variant = GFVariantData.get_option_value(
+		data,
+		KEY_PROPERTIES,
+		null
+	)
 	if not raw_properties is Array:
-		_add_issue(state, &"encoded_shape_invalid", "Encoded object properties must be an Array.")
+		_add_issue(
+			state,
+			&"encoded_shape_invalid",
+			"Encoded object properties must be an Array."
+		)
 		return _make_decoded_failure(_get_first_issue(state))
 	var properties: Array = raw_properties
-	if not _preflight_decode_container_cardinality(state, properties.size(), 1):
+	if not _preflight_decode_container_cardinality(
+		state,
+		properties.size(),
+		1
+	):
 		return _make_decoded_failure(_get_first_issue(state))
 	var property_nodes: Array[Dictionary] = []
 	var seen_property_ids: Dictionary = {}
 	for property_value: Variant in properties:
 		if not property_value is Dictionary:
-			_add_issue(state, &"encoded_shape_invalid", "Encoded object properties must be Dictionaries.")
+			_add_issue(
+				state,
+				&"encoded_shape_invalid",
+				"Encoded object properties must be Dictionaries."
+			)
 			return _make_decoded_failure(_get_first_issue(state))
 		var property_data: Dictionary = property_value
-		var raw_property_id: Variant = GFVariantData.get_option_value(property_data, "name", null)
+		var raw_property_id: Variant = GFVariantData.get_option_value(
+			property_data,
+			"name",
+			null
+		)
 		if typeof(raw_property_id) != TYPE_STRING and typeof(raw_property_id) != TYPE_STRING_NAME:
-			_add_issue(state, &"encoded_shape_invalid", "Encoded property names must be strings.")
+			_add_issue(
+				state,
+				&"encoded_shape_invalid",
+				"Encoded property names must be strings."
+			)
 			return _make_decoded_failure(_get_first_issue(state))
 		var property_id: String = GFVariantData.get_option_string(property_data, "name")
 		if seen_property_ids.has(property_id):
-			_add_issue(state, &"duplicate_property", "Encoded object contains a duplicate property: %s." % property_id)
+			_add_issue(
+				state,
+				&"duplicate_property",
+				"Encoded object contains a duplicate property: %s." % property_id
+			)
 			return _make_decoded_failure(_get_first_issue(state))
-		var raw_property_node: Variant = GFVariantData.get_option_value(property_data, "value", null)
+		var raw_property_node: Variant = GFVariantData.get_option_value(
+			property_data,
+			"value",
+			null
+		)
 		if not raw_property_node is Dictionary:
-			_add_issue(state, &"encoded_shape_invalid", "Encoded property values must be Dictionaries.")
+			_add_issue(
+				state,
+				&"encoded_shape_invalid",
+				"Encoded property values must be Dictionaries."
+			)
 			return _make_decoded_failure(_get_first_issue(state))
 		seen_property_ids[property_id] = true
 		property_nodes.append(property_data)
@@ -890,50 +1315,91 @@ static func _decode_object(
 	var native_class: String = GFVariantData.get_option_string(data, KEY_CLASS)
 	var script_path: String = GFVariantData.get_option_string(data, KEY_SCRIPT_PATH)
 	if not policy.allows_class(native_class):
-		_add_issue(state, &"class_not_allowed", "Class is not allowed: %s." % native_class)
+		_add_issue(
+			state,
+			&"class_not_allowed",
+			"Class is not allowed: %s." % native_class
+		)
 		return _make_decoded_failure(_get_first_issue(state))
 	if not script_path.is_empty() and not policy.allows_script_path(script_path):
-		_add_issue(state, &"script_not_allowed", "Script path is not allowed: %s." % script_path)
+		_add_issue(
+			state,
+			&"script_not_allowed",
+			"Script path is not allowed: %s." % script_path
+		)
 		return _make_decoded_failure(_get_first_issue(state))
 	if not ClassDB.class_exists(native_class):
-		_add_issue(state, &"class_missing", "ClassDB class does not exist: %s." % native_class)
+		_add_issue(
+			state,
+			&"class_missing",
+			"ClassDB class does not exist: %s." % native_class
+		)
 		return _make_decoded_failure(_get_first_issue(state))
 
-	var raw_object_id: Variant = GFVariantData.get_option_value(data, KEY_OBJECT_ID, null)
+	var raw_object_id: Variant = GFVariantData.get_option_value(
+		data,
+		KEY_OBJECT_ID,
+		null
+	)
 	if typeof(raw_object_id) != TYPE_INT:
-		_add_issue(state, &"invalid_object_id", "Object id must be a positive integer.")
+		_add_issue(
+			state,
+			&"invalid_object_id",
+			"Object id must be a positive integer."
+		)
 		return _make_decoded_failure(_get_first_issue(state))
 	var object_id: int = raw_object_id
 	if object_id <= 0:
-		_add_issue(state, &"invalid_object_id", "Object id must be a positive integer.")
+		_add_issue(
+			state,
+			&"invalid_object_id",
+			"Object id must be a positive integer."
+		)
 		return _make_decoded_failure(_get_first_issue(state))
 	var objects: Dictionary = GFVariantData.get_option_dictionary(state, "objects")
 	if objects.has(object_id):
-		_add_issue(state, &"duplicate_object_id", "Object id is already registered: %d." % object_id)
+		_add_issue(
+			state,
+			&"duplicate_object_id",
+			"Object id is already registered: %d." % object_id
+		)
 		return _make_decoded_failure(_get_first_issue(state))
 
 	var script_value: Script = null
 	if not script_path.is_empty():
 		var script_resource: Resource = ResourceLoader.load(script_path)
 		if script_resource == null or not script_resource is Script:
-			_add_issue(state, &"script_load_failed", "Script could not be loaded: %s." % script_path)
+			_add_issue(
+				state,
+				&"script_load_failed",
+				"Script could not be loaded: %s." % script_path
+			)
 			return _make_decoded_failure(_get_first_issue(state))
 		script_value = script_resource
 		var script_base_type: String = String(script_value.get_instance_base_type())
 		if script_base_type.is_empty() or not policy.allows_class(script_base_type):
-			_add_issue(state, &"class_not_allowed", "Script base class is not allowed: %s." % script_base_type)
+			_add_issue(
+				state,
+				&"class_not_allowed",
+				"Script base class is not allowed: %s." % script_base_type
+			)
 			return _make_decoded_failure(_get_first_issue(state))
 		if not ClassDB.class_exists(script_base_type) or not ClassDB.is_parent_class(native_class, script_base_type):
 			_add_issue(
 				state,
 				&"script_class_mismatch",
-				"Script base class %s is incompatible with native class %s." % [script_base_type, native_class]
+				"Script base class %s is incompatible with native class %s."
+				% [script_base_type, native_class]
 			)
 			return _make_decoded_failure(_get_first_issue(state))
 
 	var object_instance: Object = ClassDB.instantiate(native_class)
 	if object_instance == null:
-		_add_issue(state, &"class_instantiate_failed", "Class could not be instantiated: %s." % native_class)
+		_add_issue(
+			state,
+			&"class_instantiate_failed",
+			"Class could not be instantiated: %s." % native_class
+		)
 		return _make_decoded_failure(_get_first_issue(state))
 	var created_objects: Array = GFVariantData.get_option_array(state, "decoded_objects_created")
 	created_objects.append(object_instance)
@@ -942,7 +1408,11 @@ static func _decode_object(
 	if script_value != null:
 		object_instance.set_script(script_value)
 		if object_instance.get_script() != script_value:
-			_add_issue(state, &"script_attach_failed", "Script could not be attached: %s." % script_path)
+			_add_issue(
+				state,
+				&"script_attach_failed",
+				"Script could not be attached: %s." % script_path
+			)
 			return _make_decoded_failure(_get_first_issue(state))
 
 	objects[object_id] = object_instance
@@ -952,7 +1422,11 @@ static func _decode_object(
 	for property_data: Dictionary in property_nodes:
 		var property_id: String = GFVariantData.get_option_string(property_data, "name")
 		if not allowed_properties.has(property_id):
-			_add_issue(state, &"property_not_allowed", "Property is not allowed: %s." % property_id)
+			_add_issue(
+				state,
+				&"property_not_allowed",
+				"Property is not allowed: %s." % property_id
+			)
 			return _make_decoded_failure(_get_first_issue(state))
 		var property_node: Dictionary = GFVariantData.get_option_dictionary(property_data, "value")
 		var value_result: Dictionary = _decode_recursive(
@@ -971,7 +1445,11 @@ static func _decode_object(
 			property_info,
 			object_instance.get(property_id)
 		):
-			_add_issue(state, &"property_write_failed", "Property type mismatch: %s." % property_id)
+			_add_issue(
+				state,
+				&"property_write_failed",
+				"Property type mismatch: %s." % property_id
+			)
 			return _make_decoded_failure(_get_first_issue(state))
 		var write_result: Dictionary = GFObjectPropertyTools.write_property(
 			object_instance,
@@ -987,18 +1465,25 @@ static func _decode_object(
 			_add_issue(
 				state,
 				&"property_write_failed",
-				"Property write failed for %s: %s" % [property_id, GFVariantData.get_option_string(write_result, "error")]
+				"Property write failed for %s: %s"
+				% [property_id, GFVariantData.get_option_string(write_result, "error")]
 			)
 			return _make_decoded_failure(_get_first_issue(state))
 		var property_writes: Array = GFVariantData.get_option_array(state, "decoded_property_writes")
-		property_writes.append({
-			"object": object_instance,
-			"property_path": property_id,
-			"old_value": GFVariantData.get_option_value(write_result, "old_value"),
-		})
+		property_writes.append(
+			{
+				"object": object_instance,
+				"property_path": property_id,
+				"old_value": GFVariantData.get_option_value(write_result, "old_value"),
+			}
+		)
 		state["decoded_property_writes"] = property_writes
 
-	return { "ok": true, "value": object_instance, "error": "" }
+	return {
+		"ok": true,
+		"value": object_instance,
+		"error": "",
+	}
 
 
 ## 校验直接值字段及其声明类型与实际 Variant 类型一致后返回该值。
@@ -1007,33 +1492,58 @@ static func _decode_object(
 ## [br]
 static func _decode_direct_value(data: Dictionary, state: Dictionary) -> Dictionary:
 	if not data.has(KEY_VALUE):
-		_add_issue(state, &"encoded_shape_invalid", "Encoded direct value must declare a value field.")
+		_add_issue(
+			state,
+			&"encoded_shape_invalid",
+			"Encoded direct value must declare a value field."
+		)
 		return _make_decoded_failure(_get_first_issue(state))
 	var value: Variant = GFVariantData.get_option_value(data, KEY_VALUE)
 	var actual_type: int = typeof(value)
 	if not _is_direct_value_type(actual_type):
-		_add_issue(state, &"value_type_not_allowed", "Encoded value type is not allowed: %s." % type_string(actual_type))
+		_add_issue(
+			state,
+			&"value_type_not_allowed",
+			"Encoded value type is not allowed: %s." % type_string(actual_type)
+		)
 		return _make_decoded_failure(_get_first_issue(state))
 
-	var raw_declared_type: Variant = GFVariantData.get_option_value(data, KEY_VARIANT_TYPE, null)
+	var raw_declared_type: Variant = GFVariantData.get_option_value(
+		data,
+		KEY_VARIANT_TYPE,
+		null
+	)
 	if typeof(raw_declared_type) != TYPE_INT:
-		_add_issue(state, &"value_type_invalid", "Encoded value Variant type must be an integer.")
+		_add_issue(
+			state,
+			&"value_type_invalid",
+			"Encoded value Variant type must be an integer."
+		)
 		return _make_decoded_failure(_get_first_issue(state))
 	var declared_type: int = raw_declared_type
 	if declared_type < TYPE_NIL or declared_type >= TYPE_MAX:
-		_add_issue(state, &"value_type_invalid", "Encoded value Variant type is invalid.")
+		_add_issue(
+			state,
+			&"value_type_invalid",
+			"Encoded value Variant type is invalid."
+		)
 		return _make_decoded_failure(_get_first_issue(state))
 	if declared_type != actual_type:
 		_add_issue(
 			state,
 			&"value_type_mismatch",
-			"Encoded value type mismatch: declared %s but found %s." % [type_string(declared_type), type_string(actual_type)]
+			"Encoded value type mismatch: declared %s but found %s."
+			% [type_string(declared_type), type_string(actual_type)]
 		)
 		return _make_decoded_failure(_get_first_issue(state))
 
 	return {
 		"ok": true,
-		"value": GFVariantData.duplicate_variant(value, true, true),
+		"value": GFVariantData.duplicate_variant(
+			value,
+			true,
+			true
+		),
 		"error": "",
 	}
 
@@ -1043,41 +1553,43 @@ static func _decode_direct_value(data: Dictionary, state: Dictionary) -> Diction
 ## @api private
 ## [br]
 static func _is_direct_value_type(value_type: int) -> bool:
-	return [
-		TYPE_NIL,
-		TYPE_BOOL,
-		TYPE_INT,
-		TYPE_FLOAT,
-		TYPE_STRING,
-		TYPE_VECTOR2,
-		TYPE_VECTOR2I,
-		TYPE_RECT2,
-		TYPE_RECT2I,
-		TYPE_VECTOR3,
-		TYPE_VECTOR3I,
-		TYPE_TRANSFORM2D,
-		TYPE_VECTOR4,
-		TYPE_VECTOR4I,
-		TYPE_PLANE,
-		TYPE_QUATERNION,
-		TYPE_AABB,
-		TYPE_BASIS,
-		TYPE_TRANSFORM3D,
-		TYPE_PROJECTION,
-		TYPE_COLOR,
-		TYPE_STRING_NAME,
-		TYPE_NODE_PATH,
-		TYPE_PACKED_BYTE_ARRAY,
-		TYPE_PACKED_INT32_ARRAY,
-		TYPE_PACKED_INT64_ARRAY,
-		TYPE_PACKED_FLOAT32_ARRAY,
-		TYPE_PACKED_FLOAT64_ARRAY,
-		TYPE_PACKED_STRING_ARRAY,
-		TYPE_PACKED_VECTOR2_ARRAY,
-		TYPE_PACKED_VECTOR3_ARRAY,
-		TYPE_PACKED_COLOR_ARRAY,
-		TYPE_PACKED_VECTOR4_ARRAY,
-	].has(value_type)
+	return (
+		[
+			TYPE_NIL,
+			TYPE_BOOL,
+			TYPE_INT,
+			TYPE_FLOAT,
+			TYPE_STRING,
+			TYPE_VECTOR2,
+			TYPE_VECTOR2I,
+			TYPE_RECT2,
+			TYPE_RECT2I,
+			TYPE_VECTOR3,
+			TYPE_VECTOR3I,
+			TYPE_TRANSFORM2D,
+			TYPE_VECTOR4,
+			TYPE_VECTOR4I,
+			TYPE_PLANE,
+			TYPE_QUATERNION,
+			TYPE_AABB,
+			TYPE_BASIS,
+			TYPE_TRANSFORM3D,
+			TYPE_PROJECTION,
+			TYPE_COLOR,
+			TYPE_STRING_NAME,
+			TYPE_NODE_PATH,
+			TYPE_PACKED_BYTE_ARRAY,
+			TYPE_PACKED_INT32_ARRAY,
+			TYPE_PACKED_INT64_ARRAY,
+			TYPE_PACKED_FLOAT32_ARRAY,
+			TYPE_PACKED_FLOAT64_ARRAY,
+			TYPE_PACKED_STRING_ARRAY,
+			TYPE_PACKED_VECTOR2_ARRAY,
+			TYPE_PACKED_VECTOR3_ARRAY,
+			TYPE_PACKED_COLOR_ARRAY,
+			TYPE_PACKED_VECTOR4_ARRAY,
+		].has(value_type)
+	)
 
 
 ## 仅选择具有 STORAGE usage 的属性，并排除空名、script 与 resource_path。
@@ -1086,7 +1598,11 @@ static func _is_direct_value_type(value_type: int) -> bool:
 ## [br]
 static func _should_encode_property(property_info: Dictionary) -> bool:
 	var property_id: String = GFVariantData.get_option_string(property_info, "name")
-	if property_id.is_empty() or property_id == "script" or property_id == "resource_path":
+	if (
+		property_id.is_empty()
+		or property_id == "script"
+		or property_id == "resource_path"
+	):
 		return false
 	var usage: int = GFVariantData.get_option_int(property_info, "usage")
 	return (usage & PROPERTY_USAGE_STORAGE) != 0
@@ -1118,7 +1634,11 @@ static func _value_matches_decodable_property(
 	property_info: Dictionary,
 	current_value: Variant
 ) -> bool:
-	var property_type: int = GFVariantData.get_option_int(property_info, "type", TYPE_NIL)
+	var property_type: int = GFVariantData.get_option_int(
+		property_info,
+		"type",
+		TYPE_NIL
+	)
 	if value == null:
 		return property_type == TYPE_NIL or property_type == TYPE_OBJECT
 	if not GFObjectPropertyTools.value_matches_property_type(value, property_type):
@@ -1147,7 +1667,11 @@ static func _value_matches_decodable_property(
 ## @api private
 ## [br]
 static func _get_decodable_object_property_type(property_info: Dictionary) -> String:
-	var hint: int = GFVariantData.get_option_int(property_info, "hint", PROPERTY_HINT_NONE)
+	var hint: int = GFVariantData.get_option_int(
+		property_info,
+		"hint",
+		PROPERTY_HINT_NONE
+	)
 	if hint == PROPERTY_HINT_RESOURCE_TYPE:
 		var hint_string: String = GFVariantData.get_option_string(property_info, "hint_string").strip_edges()
 		if not hint_string.is_empty():
@@ -1213,7 +1737,11 @@ static func _get_policy(policy: GFSafeResourceCodecPolicy) -> GFSafeResourceCode
 ## [br]
 static func _cleanup_failed_decode(state: Dictionary) -> void:
 	var property_writes: Array = GFVariantData.get_option_array(state, "decoded_property_writes")
-	for index: int in range(property_writes.size() - 1, -1, -1):
+	for index: int in range(
+		property_writes.size() - 1,
+		-1,
+		-1
+	):
 		var write_record: Dictionary = GFVariantData.as_dictionary(property_writes[index])
 		var object_value: Variant = GFVariantData.get_option_value(write_record, "object")
 		if not object_value is Object:
@@ -1236,13 +1764,15 @@ static func _cleanup_failed_decode(state: Dictionary) -> void:
 			_add_issue(
 				state,
 				&"property_rollback_failed",
-				"Failed to roll back decoded property %s: %s" % [
-					String(property_path),
-					GFVariantData.get_option_string(rollback_result, "error"),
-				]
+				"Failed to roll back decoded property %s: %s"
+				% [String(property_path), GFVariantData.get_option_string(rollback_result, "error"),]
 			)
 	var created_objects: Array = GFVariantData.get_option_array(state, "decoded_objects_created")
-	for index: int in range(created_objects.size() - 1, -1, -1):
+	for index: int in range(
+		created_objects.size() - 1,
+		-1,
+		-1
+	):
 		var object_value: Variant = created_objects[index]
 		if not object_value is Object:
 			continue
@@ -1267,8 +1797,16 @@ static func _make_state(policy: GFSafeResourceCodecPolicy, options: Dictionary) 
 		"decoded_property_writes": [],
 		"decoded_objects_created": [],
 		"item_count": 0,
-		"max_depth": GFVariantData.get_option_int(options, "max_depth", policy.max_depth),
-		"max_items": GFVariantData.get_option_int(options, "max_items", policy.max_items),
+		"max_depth": GFVariantData.get_option_int(
+			options,
+			"max_depth",
+			policy.max_depth
+		),
+		"max_items": GFVariantData.get_option_int(
+			options,
+			"max_items",
+			policy.max_items
+		),
 	}
 
 
@@ -1276,15 +1814,39 @@ static func _make_state(policy: GFSafeResourceCodecPolicy, options: Dictionary) 
 ## [br]
 ## @api private
 ## [br]
-static func _consume_item(state: Dictionary, depth: int, phase: String) -> bool:
-	var max_depth: int = GFVariantData.get_option_int(state, "max_depth", 32)
+static func _consume_item(
+	state: Dictionary,
+	depth: int,
+	phase: String
+) -> bool:
+	var max_depth: int = GFVariantData.get_option_int(
+		state,
+		"max_depth",
+		32
+	)
 	if depth > max_depth:
-		_add_issue(state, &"max_depth_exceeded", "%s max_depth exceeded." % phase)
+		_add_issue(
+			state,
+			&"max_depth_exceeded",
+			"%s max_depth exceeded." % phase
+		)
 		return false
-	var item_count: int = GFVariantData.get_option_int(state, "item_count", 0) + 1
+	var item_count: int = GFVariantData.get_option_int(
+		state,
+		"item_count",
+		0
+	) + 1
 	state["item_count"] = item_count
-	if item_count > GFVariantData.get_option_int(state, "max_items", 4096):
-		_add_issue(state, &"max_items_exceeded", "%s max_items exceeded." % phase)
+	if item_count > GFVariantData.get_option_int(
+		state,
+		"max_items",
+		4096
+	):
+		_add_issue(
+			state,
+			&"max_items_exceeded",
+			"%s max_items exceeded." % phase
+		)
 		return false
 	return true
 
@@ -1298,16 +1860,32 @@ static func _preflight_decode_container_cardinality(
 	container_size: int,
 	nodes_per_item: int
 ) -> bool:
-	var consumed_items: int = GFVariantData.get_option_int(state, "item_count", 0)
-	var max_items: int = GFVariantData.get_option_int(state, "max_items", 4096)
+	var consumed_items: int = GFVariantData.get_option_int(
+		state,
+		"item_count",
+		0
+	)
+	var max_items: int = GFVariantData.get_option_int(
+		state,
+		"max_items",
+		4096
+	)
 	if consumed_items > max_items:
-		_add_issue(state, &"max_items_exceeded", "decode max_items exceeded.")
+		_add_issue(
+			state,
+			&"max_items_exceeded",
+			"decode max_items exceeded."
+		)
 		return false
 	var remaining_items: int = max_items - consumed_items
 	var required_items: int = 0
 	for _node_index: int in range(nodes_per_item):
 		if container_size > remaining_items - required_items:
-			_add_issue(state, &"max_items_exceeded", "decode max_items exceeded.")
+			_add_issue(
+				state,
+				&"max_items_exceeded",
+				"decode max_items exceeded."
+			)
 			return false
 		required_items += container_size
 	return true
@@ -1317,12 +1895,13 @@ static func _preflight_decode_container_cardinality(
 ## [br]
 ## @api private
 ## [br]
-static func _add_issue(state: Dictionary, kind: StringName, message: String) -> void:
+static func _add_issue(
+	state: Dictionary,
+	kind: StringName,
+	message: String
+) -> void:
 	var issues: Array = GFVariantData.get_option_array(state, "issues")
-	issues.append({
-		"kind": kind,
-		"message": message,
-	})
+	issues.append({ "kind": kind, "message": message, })
 	state["issues"] = issues
 
 
@@ -1355,7 +1934,12 @@ static func _get_state_issues(state: Dictionary) -> Array[Dictionary]:
 ## [br]
 ## @api private
 ## [br]
-static func _make_report(ok: bool, data: Dictionary, error: String, state: Dictionary) -> Dictionary:
+static func _make_report(
+	ok: bool,
+	data: Dictionary,
+	error: String,
+	state: Dictionary
+) -> Dictionary:
 	var issues: Array[Dictionary] = _get_state_issues(state)
 	return {
 		"ok": ok and issues.is_empty(),

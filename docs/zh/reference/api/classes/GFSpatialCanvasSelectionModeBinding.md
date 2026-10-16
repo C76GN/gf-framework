@@ -16,7 +16,7 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 属性 | [`modifier_mask`](#member-gfspatialcanvasselectionmodebinding-properties-modifier_mask) | `var modifier_mask: int = 0` |
-| 属性 | [`selection_mode`](#member-gfspatialcanvasselectionmodebinding-properties-selection_mode) | `var selection_mode: GFSpatialCanvas2D.SelectionMode = ( 	GFSpatialCanvas2D.SelectionMode.REPLACE )` |
+| 属性 | [`selection_mode`](#member-gfspatialcanvasselectionmodebinding-properties-selection_mode) | `var selection_mode: GFSpatialCanvas2D.SelectionMode = GFSpatialCanvas2D.SelectionMode.REPLACE` |
 | 方法 | [`duplicate_binding`](#member-gfspatialcanvasselectionmodebinding-methods-duplicate_binding) | `func duplicate_binding() -> GFSpatialCanvasSelectionModeBinding:` |
 
 ## 属性
@@ -42,9 +42,7 @@ var modifier_mask: int = 0
 - 首次版本：`11.0.0`
 
 ```gdscript
-var selection_mode: GFSpatialCanvas2D.SelectionMode = (
-	GFSpatialCanvas2D.SelectionMode.REPLACE
-)
+var selection_mode: GFSpatialCanvas2D.SelectionMode = GFSpatialCanvas2D.SelectionMode.REPLACE
 ```
 
 匹配时使用的 [code]GFSpatialCanvas2D.SelectionMode[/code] 值。

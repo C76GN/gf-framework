@@ -419,7 +419,11 @@ func complete(status: StringName, revision: int) -> void:
 ## @param report: 提交报告。
 ## [br]
 ## @schema report: GFValidationReport-compatible Dictionary.
-func refresh_catalog(catalog: GFAssetCatalog, revision: int, report: Dictionary) -> void:
+func refresh_catalog(
+	catalog: GFAssetCatalog,
+	revision: int,
+	report: Dictionary
+) -> void:
 	if not _active or catalog == null:
 		return
 	_catalog = GFAssetCatalog.from_dict(catalog.to_dict())

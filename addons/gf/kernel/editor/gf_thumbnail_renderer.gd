@@ -158,7 +158,12 @@ func render_node3d(
 	preview_mode: GFThumbnailRenderRequest.PreviewMode = GFThumbnailRenderRequest.PreviewMode.STATIC
 ) -> Image:
 	var task: GFThumbnailRenderTask = submit_render_request(
-		GFThumbnailRenderRequest.for_node3d_image(source, size, transparent, preview_mode)
+		GFThumbnailRenderRequest.for_node3d_image(
+			source,
+			size,
+			transparent,
+			preview_mode
+		)
 	)
 	var result: Variant = await task.wait_completed()
 	return _variant_to_image(result)
@@ -186,7 +191,12 @@ func render_node3d_texture(
 	preview_mode: GFThumbnailRenderRequest.PreviewMode = GFThumbnailRenderRequest.PreviewMode.STATIC
 ) -> ImageTexture:
 	var task: GFThumbnailRenderTask = submit_render_request(
-		GFThumbnailRenderRequest.for_node3d_texture(source, size, transparent, preview_mode)
+		GFThumbnailRenderRequest.for_node3d_texture(
+			source,
+			size,
+			transparent,
+			preview_mode
+		)
 	)
 	var result: Variant = await task.wait_completed()
 	return _variant_to_image_texture(result)
@@ -284,6 +294,8 @@ func render_canvas_item_texture(
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param mesh: 要渲染的 Mesh。
 ## [br]
 ## @param size: 输出尺寸。
@@ -291,9 +303,17 @@ func render_canvas_item_texture(
 ## @param transparent: 是否透明背景。
 ## [br]
 ## @return 渲染出的 Image；失败时返回 null。
-func render_mesh(mesh: Mesh, size: Vector2i = Vector2i(256, 256), transparent: bool = true) -> Image:
+func render_mesh(
+	mesh: Mesh,
+	size: Vector2i = Vector2i(256, 256),
+	transparent: bool = true
+) -> Image:
 	var task: GFThumbnailRenderTask = submit_render_request(
-		GFThumbnailRenderRequest.for_mesh_image(mesh, size, transparent)
+		GFThumbnailRenderRequest.for_mesh_image(
+			mesh,
+			size,
+			transparent
+		)
 	)
 	var result: Variant = await task.wait_completed()
 	return _variant_to_image(result)
@@ -316,7 +336,11 @@ func render_mesh_texture(
 	transparent: bool = true
 ) -> ImageTexture:
 	var task: GFThumbnailRenderTask = submit_render_request(
-		GFThumbnailRenderRequest.for_mesh_texture(mesh, size, transparent)
+		GFThumbnailRenderRequest.for_mesh_texture(
+			mesh,
+			size,
+			transparent
+		)
 	)
 	var result: Variant = await task.wait_completed()
 	return _variant_to_image_texture(result)
@@ -332,15 +356,16 @@ func render_mesh_texture(
 ## [br]
 ## @return 可取消、可等待的渲染任务。
 func submit_render_request(request: GFThumbnailRenderRequest) -> GFThumbnailRenderTask:
-	var task: GFThumbnailRenderTask = GFThumbnailRenderTask.new(request, _take_task_id())
+	var task: GFThumbnailRenderTask = GFThumbnailRenderTask.new(
+		request,
+		_take_task_id()
+	)
 	var validation_error: String = _get_request_validation_error(request)
 	if not validation_error.is_empty():
 		var _failed_request: bool = task.fail(validation_error)
 		return task
 	if _pending_tasks.size() >= MAX_PENDING_TASKS:
-		var _failed_queue: bool = task.fail(
-			"Thumbnail render queue reached its %d-task limit." % MAX_PENDING_TASKS
-		)
+		var _failed_queue: bool = task.fail("Thumbnail render queue reached its %d-task limit." % MAX_PENDING_TASKS)
 		return task
 	_pending_tasks.append(task)
 	_schedule_task_queue()
@@ -380,7 +405,11 @@ func render_mesh_library_previews(
 	size: Vector2i = Vector2i(128, 128),
 	overwrite_existing: bool = true
 ) -> int:
-	var plan: Dictionary = await build_mesh_library_preview_plan(mesh_library, size, overwrite_existing)
+	var plan: Dictionary = await build_mesh_library_preview_plan(
+		mesh_library,
+		size,
+		overwrite_existing
+	)
 	return apply_mesh_library_preview_plan(mesh_library, plan)
 
 
@@ -405,7 +434,11 @@ func build_mesh_library_preview_plan(
 	overwrite_existing: bool = true
 ) -> Dictionary:
 	var task: GFThumbnailRenderTask = submit_render_request(
-		GFThumbnailRenderRequest.for_mesh_library_preview_plan(mesh_library, size, overwrite_existing)
+		GFThumbnailRenderRequest.for_mesh_library_preview_plan(
+			mesh_library,
+			size,
+			overwrite_existing
+		)
 	)
 	var result: Variant = await task.wait_completed()
 	if result is Dictionary:
@@ -443,7 +476,11 @@ func apply_mesh_library_preview_plan(mesh_library: MeshLibrary, plan: Dictionary
 	mesh_library.set_block_signals(true)
 	for change_variant: Variant in changes:
 		var change: Dictionary = _as_dictionary(change_variant)
-		var item_id: int = _read_int(change, "item_id", -1)
+		var item_id: int = _read_int(
+			change,
+			"item_id",
+			-1
+		)
 		if item_id < 0:
 			continue
 		var preview: Texture2D = _variant_to_texture(_read_value(change, "new_preview"))
@@ -477,9 +514,17 @@ func revert_mesh_library_preview_plan(mesh_library: MeshLibrary, plan: Dictionar
 	var reverted_count: int = 0
 	var was_blocking: bool = mesh_library.is_blocking_signals()
 	mesh_library.set_block_signals(true)
-	for index: int in range(changes.size() - 1, -1, -1):
+	for index: int in range(
+		changes.size() - 1,
+		-1,
+		-1
+	):
 		var change: Dictionary = _as_dictionary(changes[index])
-		var item_id: int = _read_int(change, "item_id", -1)
+		var item_id: int = _read_int(
+			change,
+			"item_id",
+			-1
+		)
 		if item_id < 0:
 			continue
 		var preview: Texture2D = _variant_to_texture(_read_value(change, "old_preview"))
@@ -529,7 +574,11 @@ func add_mesh_library_preview_plan_to_undo_manager(
 	var _create_action_result: Variant = undo_manager.call("create_action", action_name)
 	for change_variant: Variant in changes:
 		var change: Dictionary = _as_dictionary(change_variant)
-		var item_id: int = _read_int(change, "item_id", -1)
+		var item_id: int = _read_int(
+			change,
+			"item_id",
+			-1
+		)
 		if item_id < 0:
 			continue
 		var _add_do_preview_result: Variant = undo_manager.call(
@@ -546,8 +595,16 @@ func add_mesh_library_preview_plan_to_undo_manager(
 			item_id,
 			_variant_to_texture(_read_value(change, "old_preview"))
 		)
-	var _add_do_changed_result: Variant = undo_manager.call("add_do_method", mesh_library, "emit_changed")
-	var _add_undo_changed_result: Variant = undo_manager.call("add_undo_method", mesh_library, "emit_changed")
+	var _add_do_changed_result: Variant = undo_manager.call(
+		"add_do_method",
+		mesh_library,
+		"emit_changed"
+	)
+	var _add_undo_changed_result: Variant = undo_manager.call(
+		"add_undo_method",
+		mesh_library,
+		"emit_changed"
+	)
 	var _commit_action_result: Variant = undo_manager.call("commit_action", true)
 	return OK
 
@@ -651,10 +708,21 @@ func _execute_render_task_async(task: GFThumbnailRenderTask) -> void:
 				request.should_overwrite_existing(),
 				task.get_cancel_token()
 			)
-			if task.is_cancel_requested() or _read_bool(plan, "cancelled", false):
-				var _cancelled_plan: bool = task.finish_cancelled(task.get_cancel_reason(), plan)
-			elif not _read_bool(plan, "ok", false):
-				var error: String = _render_error if not _render_error.is_empty() else "Invalid MeshLibrary preview request."
+			if task.is_cancel_requested() or _read_bool(
+				plan,
+				"cancelled",
+				false
+			):
+				var _cancelled_plan: bool = task.finish_cancelled(
+					task.get_cancel_reason(),
+					plan
+				)
+			elif not _read_bool(
+				plan,
+				"ok",
+				false
+			):
+				var error: String = (_render_error if not _render_error.is_empty() else "Invalid MeshLibrary preview request.")
 				var _failed_plan: bool = task.fail(error)
 			else:
 				var _succeeded_plan: bool = task.succeed(plan)
@@ -667,7 +735,10 @@ func _execute_render_task_async(task: GFThumbnailRenderTask) -> void:
 ## @api private
 func _finish_render_task_with_result(task: GFThumbnailRenderTask, result: Variant) -> void:
 	if task.is_cancel_requested():
-		var _cancelled_result: bool = task.finish_cancelled(task.get_cancel_reason(), result)
+		var _cancelled_result: bool = task.finish_cancelled(
+			task.get_cancel_reason(),
+			result
+		)
 		return
 	if result == null:
 		var error: String = _render_error if not _render_error.is_empty() else "Thumbnail render returned no result."
@@ -700,7 +771,11 @@ func _render_node3d_direct(
 
 	_world_root.add_child(instance)
 	_prepare_instance(instance)
-	_render_prepare(_normalize_render_size(size), transparent, _get_combined_aabb(instance))
+	_render_prepare(
+		_normalize_render_size(size),
+		transparent,
+		_get_combined_aabb(instance)
+	)
 
 	await get_tree().process_frame
 	RenderingServer.force_draw()
@@ -718,7 +793,12 @@ func _render_node3d_texture_direct(
 	transparent: bool,
 	preview_mode: GFThumbnailRenderRequest.PreviewMode
 ) -> ImageTexture:
-	var image: Image = await _render_node3d_direct(source, size, transparent, preview_mode)
+	var image: Image = await _render_node3d_direct(
+		source,
+		size,
+		transparent,
+		preview_mode
+	)
 	if image == null:
 		return null
 	return ImageTexture.create_from_image(image)
@@ -754,8 +834,16 @@ func _render_canvas_item_direct(
 	_prepare_canvas_item_instance(instance)
 	var bounds: Rect2 = content_bounds if has_content_bounds else _get_combined_canvas_rect(instance)
 	if not _is_usable_canvas_rect(bounds):
-		bounds = Rect2(Vector2(-0.5, -0.5), Vector2.ONE)
-	_render_canvas_prepare(safe_size, transparent, bounds, margin_ratio)
+		bounds = Rect2(
+			Vector2(-0.5, -0.5),
+			Vector2.ONE
+		)
+	_render_canvas_prepare(
+		safe_size,
+		transparent,
+		bounds,
+		margin_ratio
+	)
 
 	await get_tree().process_frame
 	RenderingServer.force_draw()
@@ -793,7 +881,11 @@ func _render_canvas_item_texture_direct(
 ## 将 Mesh 包装为临时 MeshInstance3D，并通过 3D 渲染路径生成图像。
 ## [br]
 ## @api private
-func _render_mesh_direct(mesh: Mesh, size: Vector2i, transparent: bool) -> Image:
+func _render_mesh_direct(
+	mesh: Mesh,
+	size: Vector2i,
+	transparent: bool
+) -> Image:
 	if mesh == null:
 		return null
 	if mesh.get_script() != null or ClassDB.class_get_api_type(mesh.get_class()) != ClassDB.API_CORE:
@@ -802,7 +894,11 @@ func _render_mesh_direct(mesh: Mesh, size: Vector2i, transparent: bool) -> Image
 
 	var instance: MeshInstance3D = MeshInstance3D.new()
 	instance.mesh = mesh
-	var image: Image = await _render_node3d_direct(instance, size, transparent)
+	var image: Image = await _render_node3d_direct(
+		instance,
+		size,
+		transparent
+	)
 	instance.free()
 	return image
 
@@ -822,8 +918,16 @@ func _create_render_instance(source: Node, preview_mode: GFThumbnailRenderReques
 ## 将 Mesh 渲染为图像，再转换为 ImageTexture。
 ## [br]
 ## @api private
-func _render_mesh_texture_direct(mesh: Mesh, size: Vector2i, transparent: bool) -> ImageTexture:
-	var image: Image = await _render_mesh_direct(mesh, size, transparent)
+func _render_mesh_texture_direct(
+	mesh: Mesh,
+	size: Vector2i,
+	transparent: bool
+) -> ImageTexture:
+	var image: Image = await _render_mesh_direct(
+		mesh,
+		size,
+		transparent
+	)
 	if image == null:
 		return null
 	return ImageTexture.create_from_image(image)
@@ -860,24 +964,33 @@ func _build_mesh_library_preview_plan_direct(
 		if mesh == null:
 			continue
 
-		var texture: ImageTexture = await _render_mesh_texture_direct(mesh, safe_size, true)
+		var texture: ImageTexture = await _render_mesh_texture_direct(
+			mesh,
+			safe_size,
+			true
+		)
 		if cancel_token != null and cancel_token.is_cancel_requested():
 			cancelled = true
 			break
 		if texture == null:
-			var error: String = _render_error if not _render_error.is_empty() else "Thumbnail render returned no result."
-			_render_error = "MeshLibrary item %d: %s" % [item_id, error]
+			var error: String = (_render_error if not _render_error.is_empty() else "Thumbnail render returned no result.")
+			_render_error = (
+				"MeshLibrary item %d: %s"
+				% [item_id, error]
+			)
 			return {
 				"ok": false,
 				"generated_count": 0,
 				"cancelled": false,
 				"changes": [],
 			}
-		changes.append({
-			"item_id": item_id,
-			"old_preview": mesh_library.get_item_preview(item_id),
-			"new_preview": texture,
-		})
+		changes.append(
+			{
+				"item_id": item_id,
+				"old_preview": mesh_library.get_item_preview(item_id),
+				"new_preview": texture,
+			}
+		)
 
 	return {
 		"ok": true,
@@ -909,15 +1022,9 @@ func _get_request_validation_error(request: GFThumbnailRenderRequest) -> String:
 		return "Invalid thumbnail render request."
 	var size: Vector2i = _normalize_render_size(request.get_size())
 	if size.x > MAX_TARGET_DIMENSION or size.y > MAX_TARGET_DIMENSION:
-		return (
-			"Thumbnail target exceeds the %d-pixel dimension limit."
-			% MAX_TARGET_DIMENSION
-		)
+		return "Thumbnail target exceeds the %d-pixel dimension limit." % MAX_TARGET_DIMENSION
 	if size.x * size.y > MAX_TARGET_PIXELS:
-		return (
-			"Thumbnail target exceeds the %d-pixel area limit."
-			% MAX_TARGET_PIXELS
-		)
+		return "Thumbnail target exceeds the %d-pixel area limit." % MAX_TARGET_PIXELS
 	return ""
 
 
@@ -953,8 +1060,16 @@ func _variant_to_image_texture(value: Variant) -> ImageTexture:
 ## 从字典读取布尔值；键缺失或值类型不匹配时返回 fallback。
 ## [br]
 ## @api private
-func _read_bool(data: Dictionary, key: String, fallback: bool = false) -> bool:
-	var value: Variant = _read_value(data, key, fallback)
+func _read_bool(
+	data: Dictionary,
+	key: String,
+	fallback: bool = false
+) -> bool:
+	var value: Variant = _read_value(
+		data,
+		key,
+		fallback
+	)
 	if value is bool:
 		var bool_value: bool = value
 		return bool_value
@@ -985,7 +1100,11 @@ func _as_dictionary(value: Variant) -> Dictionary:
 ## 读取字典中的键值；键不存在时返回给定 fallback。
 ## [br]
 ## @api private
-func _read_value(data: Dictionary, key: String, fallback: Variant = null) -> Variant:
+func _read_value(
+	data: Dictionary,
+	key: String,
+	fallback: Variant = null
+) -> Variant:
 	if data.has(key):
 		return data[key]
 	return fallback
@@ -994,8 +1113,16 @@ func _read_value(data: Dictionary, key: String, fallback: Variant = null) -> Var
 ## 将字典值转换为整数；接受 int、float 和有效整数字符串，其余情况返回 fallback。
 ## [br]
 ## @api private
-func _read_int(data: Dictionary, key: String, fallback: int = 0) -> int:
-	var value: Variant = _read_value(data, key, fallback)
+func _read_int(
+	data: Dictionary,
+	key: String,
+	fallback: int = 0
+) -> int:
+	var value: Variant = _read_value(
+		data,
+		key,
+		fallback
+	)
 	if value is int:
 		var int_value: int = value
 		return int_value
@@ -1044,11 +1171,7 @@ func _ensure_viewport() -> void:
 	_viewport.name = "GFThumbnailViewport"
 	_viewport.transparent_bg = true
 	_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
-	_viewport.msaa_2d = (
-		Viewport.MSAA_DISABLED
-		if RenderingServer.get_current_rendering_method() == "gl_compatibility"
-		else Viewport.MSAA_4X
-	)
+	_viewport.msaa_2d = (Viewport.MSAA_DISABLED if RenderingServer.get_current_rendering_method() == "gl_compatibility" else Viewport.MSAA_4X)
 	_viewport.msaa_3d = Viewport.MSAA_4X
 	_viewport.world_2d = World2D.new()
 	_viewport.world_3d = World3D.new()
@@ -1068,12 +1191,20 @@ func _ensure_viewport() -> void:
 
 	_key_light = DirectionalLight3D.new()
 	_key_light.light_energy = 2.0
-	_key_light.rotation_degrees = Vector3(-45.0, -35.0, 0.0)
+	_key_light.rotation_degrees = Vector3(
+		-45.0,
+		-35.0,
+		0.0
+	)
 	_world_root.add_child(_key_light)
 
 	_fill_light = DirectionalLight3D.new()
 	_fill_light.light_energy = 0.75
-	_fill_light.rotation_degrees = Vector3(35.0, 145.0, 0.0)
+	_fill_light.rotation_degrees = Vector3(
+		35.0,
+		145.0,
+		0.0
+	)
 	_world_root.add_child(_fill_light)
 
 	_canvas_root = Node2D.new()
@@ -1092,7 +1223,11 @@ func _ensure_viewport() -> void:
 ## @api private
 func _clear_world_root() -> void:
 	for child: Node in _world_root.get_children():
-		if child != _camera and child != _key_light and child != _fill_light:
+		if (
+			child != _camera
+			and child != _key_light
+			and child != _fill_light
+		):
 			_world_root.remove_child(child)
 			child.free()
 
@@ -1125,7 +1260,10 @@ func _free_render_instance(instance: Node) -> void:
 func _prepare_instance(instance: Node3D) -> void:
 	instance.transform = Transform3D.IDENTITY
 	var bounds: AABB = _get_combined_aabb(instance)
-	var largest: float = maxf(bounds.size.x, maxf(bounds.size.y, bounds.size.z))
+	var largest: float = maxf(
+		bounds.size.x,
+		maxf(bounds.size.y, bounds.size.z)
+	)
 	if largest > 0.0001:
 		instance.scale *= 2.0 / largest
 	bounds = _get_combined_aabb(instance)
@@ -1150,17 +1288,28 @@ func _prepare_canvas_item_instance(instance: CanvasItem) -> void:
 ## 设置 3D 视口尺寸、背景和正交相机视野，并请求更新一次渲染目标。
 ## [br]
 ## @api private
-func _render_prepare(size: Vector2i, transparent: bool, bounds: AABB) -> void:
+func _render_prepare(
+	size: Vector2i,
+	transparent: bool,
+	bounds: AABB
+) -> void:
 	_viewport.size = size
 	_viewport.transparent_bg = transparent
 	var environment: Environment = _viewport.world_3d.environment
 	environment.background_mode = Environment.BG_CLEAR_COLOR if transparent else Environment.BG_COLOR
 
 	var center: Vector3 = bounds.position + bounds.size * 0.5
-	var largest: float = maxf(bounds.size.x, maxf(bounds.size.y, bounds.size.z))
+	var largest: float = maxf(
+		bounds.size.x,
+		maxf(bounds.size.y, bounds.size.z)
+	)
 	if largest < 0.01:
 		largest = 1.0
-	var camera_direction: Vector3 = Vector3(0.45, 0.4, 1.0).normalized()
+	var camera_direction: Vector3 = Vector3(
+		0.45,
+		0.4,
+		1.0
+	).normalized()
 	_camera.position = center + camera_direction * largest * 4.0
 	_camera.look_at(center, Vector3.UP)
 	_camera.size = _calculate_orthographic_size_for_aabb(bounds, _camera) * 1.08
@@ -1178,7 +1327,11 @@ func _render_canvas_prepare(
 ) -> void:
 	_viewport.size = size
 	_viewport.transparent_bg = transparent
-	var safe_margin: float = clampf(margin_ratio, 0.0, 1.0)
+	var safe_margin: float = clampf(
+		margin_ratio,
+		0.0,
+		1.0
+	)
 	var padded_size: Vector2 = bounds.size * (1.0 + safe_margin * 2.0)
 	padded_size.x = maxf(padded_size.x, 0.0001)
 	padded_size.y = maxf(padded_size.y, 0.0001)
@@ -1195,7 +1348,10 @@ func _render_canvas_prepare(
 ## [br]
 ## @api private
 func _normalize_render_size(size: Vector2i) -> Vector2i:
-	return Vector2i(maxi(size.x, 1), maxi(size.y, 1))
+	return Vector2i(
+		maxi(size.x, 1),
+		maxi(size.y, 1)
+	)
 
 
 ## 遍历节点树，将 MeshInstance3D 的局部包围盒角点变换后合并为 AABB。
@@ -1217,12 +1373,48 @@ func _get_combined_aabb(root: Node) -> AABB:
 				var transform: Transform3D = mesh_instance.global_transform
 				var corners: Array[Vector3] = [
 					transform * aabb.position,
-					transform * (aabb.position + Vector3(aabb.size.x, 0.0, 0.0)),
-					transform * (aabb.position + Vector3(0.0, aabb.size.y, 0.0)),
-					transform * (aabb.position + Vector3(0.0, 0.0, aabb.size.z)),
-					transform * (aabb.position + Vector3(aabb.size.x, aabb.size.y, 0.0)),
-					transform * (aabb.position + Vector3(aabb.size.x, 0.0, aabb.size.z)),
-					transform * (aabb.position + Vector3(0.0, aabb.size.y, aabb.size.z)),
+					transform * (
+						aabb.position + Vector3(
+							aabb.size.x,
+							0.0,
+							0.0
+						)
+					),
+					transform * (
+						aabb.position + Vector3(
+							0.0,
+							aabb.size.y,
+							0.0
+						)
+					),
+					transform * (
+						aabb.position + Vector3(
+							0.0,
+							0.0,
+							aabb.size.z
+						)
+					),
+					transform * (
+						aabb.position + Vector3(
+							aabb.size.x,
+							aabb.size.y,
+							0.0
+						)
+					),
+					transform * (
+						aabb.position + Vector3(
+							aabb.size.x,
+							0.0,
+							aabb.size.z
+						)
+					),
+					transform * (
+						aabb.position + Vector3(
+							0.0,
+							aabb.size.y,
+							aabb.size.z
+						)
+					),
 					transform * (aabb.position + aabb.size),
 				]
 				for point: Vector3 in corners:
@@ -1235,7 +1427,14 @@ func _get_combined_aabb(root: Node) -> AABB:
 			stack.append(child)
 
 	if not has_bounds:
-		return AABB(Vector3(-0.5, -0.5, -0.5), Vector3.ONE)
+		return AABB(
+			Vector3(
+				-0.5,
+				-0.5,
+				-0.5
+			),
+			Vector3.ONE
+		)
 	return combined
 
 
@@ -1288,11 +1487,19 @@ func _get_canvas_item_local_rect(canvas_item: CanvasItem) -> Rect2:
 	if canvas_item is Polygon2D:
 		var polygon: Polygon2D = canvas_item
 		var polygon_rect: Rect2 = _get_points_rect(polygon.polygon)
-		return Rect2(polygon_rect.position + polygon.offset, polygon_rect.size)
+		return Rect2(
+			polygon_rect.position + polygon.offset,
+			polygon_rect.size
+		)
 	if canvas_item is Line2D:
 		var line: Line2D = canvas_item
 		var line_rect: Rect2 = _get_points_rect(line.points)
-		return line_rect.grow(maxf(line.width * 0.5, 0.0)) if _is_usable_canvas_rect(line_rect) else line_rect
+		return line_rect.grow(
+			maxf(
+				line.width * 0.5,
+				0.0
+			)
+		) if _is_usable_canvas_rect(line_rect) else line_rect
 	if canvas_item is GPUParticles2D:
 		var particles: GPUParticles2D = canvas_item
 		return particles.visibility_rect
@@ -1309,7 +1516,11 @@ func _get_animated_sprite_rect(animated_sprite: AnimatedSprite2D) -> Rect2:
 	var frame_count: int = sprite_frames.get_frame_count(animated_sprite.animation)
 	if frame_count <= 0:
 		return Rect2()
-	var frame_index: int = clampi(animated_sprite.frame, 0, frame_count - 1)
+	var frame_index: int = clampi(
+		animated_sprite.frame,
+		0,
+		frame_count - 1
+	)
 	var texture: Texture2D = sprite_frames.get_frame_texture(animated_sprite.animation, frame_index)
 	if texture == null:
 		return Rect2()
@@ -1333,7 +1544,10 @@ func _get_points_rect(points: PackedVector2Array) -> Rect2:
 		minimum.y = minf(minimum.y, point.y)
 		maximum.x = maxf(maximum.x, point.x)
 		maximum.y = maxf(maximum.y, point.y)
-	return Rect2(minimum, maximum - minimum)
+	return Rect2(
+		minimum,
+		maximum - minimum
+	)
 
 
 ## 变换矩形的四个角，并返回包围变换后角点的轴对齐矩形。
@@ -1353,7 +1567,10 @@ func _transform_canvas_rect(rect: Rect2, transform: Transform2D) -> Rect2:
 		minimum.y = minf(minimum.y, point.y)
 		maximum.x = maxf(maximum.x, point.x)
 		maximum.y = maxf(maximum.y, point.y)
-	return Rect2(minimum, maximum - minimum)
+	return Rect2(
+		minimum,
+		maximum - minimum
+	)
 
 
 ## 判断矩形位置与尺寸均为有限值，且宽、高都大于 0.0001。
@@ -1379,12 +1596,36 @@ func _calculate_orthographic_size_for_aabb(bounds: AABB, camera: Camera3D) -> fl
 	var camera_up: Vector3 = camera_transform.basis.y.normalized()
 	var corners: Array[Vector3] = [
 		bounds.position,
-		bounds.position + Vector3(bounds.size.x, 0.0, 0.0),
-		bounds.position + Vector3(0.0, bounds.size.y, 0.0),
-		bounds.position + Vector3(0.0, 0.0, bounds.size.z),
-		bounds.position + Vector3(bounds.size.x, bounds.size.y, 0.0),
-		bounds.position + Vector3(bounds.size.x, 0.0, bounds.size.z),
-		bounds.position + Vector3(0.0, bounds.size.y, bounds.size.z),
+		bounds.position + Vector3(
+			bounds.size.x,
+			0.0,
+			0.0
+		),
+		bounds.position + Vector3(
+			0.0,
+			bounds.size.y,
+			0.0
+		),
+		bounds.position + Vector3(
+			0.0,
+			0.0,
+			bounds.size.z
+		),
+		bounds.position + Vector3(
+			bounds.size.x,
+			bounds.size.y,
+			0.0
+		),
+		bounds.position + Vector3(
+			bounds.size.x,
+			0.0,
+			bounds.size.z
+		),
+		bounds.position + Vector3(
+			0.0,
+			bounds.size.y,
+			bounds.size.z
+		),
 		bounds.position + bounds.size,
 	]
 
@@ -1401,4 +1642,7 @@ func _calculate_orthographic_size_for_aabb(bounds: AABB, camera: Camera3D) -> fl
 		min_v = minf(min_v, v)
 		max_v = maxf(max_v, v)
 
-	return maxf(max_u - min_u, max_v - min_v)
+	return maxf(
+		max_u - min_u,
+		max_v - min_v
+	)

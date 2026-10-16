@@ -17,7 +17,7 @@ Config Pipeline 的文件提交事务阶段。 将 Config Pipeline 的 ResourceS
 |---|---|---|
 | 常量 | [`STAGE_ID`](#member-gfconfigpipelinecommitstage-constants-stage_id) | `const STAGE_ID: String = "gf.config.commit.filesystem"` |
 | 常量 | [`IMPLEMENTATION_VERSION`](#member-gfconfigpipelinecommitstage-constants-implementation_version) | `const IMPLEMENTATION_VERSION: int = 3` |
-| 方法 | [`begin`](#member-gfconfigpipelinecommitstage-methods-begin) | `func begin( paths: PackedStringArray, options: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`begin`](#member-gfconfigpipelinecommitstage-methods-begin) | `func begin(paths: PackedStringArray, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`rollback`](#member-gfconfigpipelinecommitstage-methods-rollback) | `func rollback(transaction: Dictionary) -> Dictionary:` |
 | 方法 | [`complete`](#member-gfconfigpipelinecommitstage-methods-complete) | `func complete(transaction: Dictionary) -> Dictionary:` |
 | 方法 | [`get_stage_descriptor`](#member-gfconfigpipelinecommitstage-methods-get_stage_descriptor) | `func get_stage_descriptor() -> Dictionary:` |
@@ -60,7 +60,7 @@ Commit 阶段的实现版本；改变事务或回滚语义时递增。
 - 首次版本：`9.0.0`
 
 ```gdscript
-func begin( paths: PackedStringArray, options: Dictionary = {} ) -> Dictionary:
+func begin(paths: PackedStringArray, options: Dictionary = {}) -> Dictionary:
 ```
 
 捕获待写入路径的事务前状态。

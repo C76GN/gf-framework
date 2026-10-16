@@ -59,4 +59,8 @@ func _start() -> void:
 ## [br]
 ## @api private
 func _is_current_start_owner() -> bool:
-	return is_inside_tree() and not is_queued_for_deletion() and get_tree().current_scene == self
+	return (
+		is_inside_tree()
+		and not is_queued_for_deletion()
+		and get_tree().current_scene == self
+	)

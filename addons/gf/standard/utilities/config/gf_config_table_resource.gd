@@ -141,11 +141,17 @@ func get_records_by_id(duplicate_records: bool = true) -> Dictionary:
 func get_index_ids() -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for index_id: Variant in records_by_index.keys():
-		_append_index_id(result, GFVariantData.to_string_name(index_id))
+		_append_index_id(
+			result,
+			GFVariantData.to_string_name(index_id)
+		)
 	if schema != null:
 		for index: GFConfigTableIndexDefinition in schema.indexes:
 			if index != null and index.is_valid_definition():
-				_append_index_id(result, index.get_index_id())
+				_append_index_id(
+					result,
+					index.get_index_id()
+				)
 	result.sort()
 	return result
 
@@ -220,7 +226,11 @@ func make_index_key(index_id: StringName, record: Dictionary) -> String:
 ## @return: 存在返回 true。
 func has_index_key(index_id: StringName, index_key: String) -> bool:
 	var index_data: Dictionary = _get_index_data(index_id)
-	var value: Variant = GFVariantData.get_option_value(index_data, index_key, null)
+	var value: Variant = GFVariantData.get_option_value(
+		index_data,
+		index_key,
+		null
+	)
 	return value is Array and not GFVariantData.as_array(value).is_empty()
 
 
@@ -239,12 +249,23 @@ func has_index_key(index_id: StringName, index_key: String) -> bool:
 ## @return: 命中的记录列表；未命中时返回空数组。
 ## [br]
 ## @schema return: Array[Dictionary]，每个 Dictionary 是一条配置记录。
-func get_index_records(index_id: StringName, index_key: String, duplicate_records: bool = true) -> Array[Dictionary]:
+func get_index_records(
+	index_id: StringName,
+	index_key: String,
+	duplicate_records: bool = true
+) -> Array[Dictionary]:
 	var index_data: Dictionary = _get_index_data(index_id)
-	var value: Variant = GFVariantData.get_option_value(index_data, index_key, [])
+	var value: Variant = GFVariantData.get_option_value(
+		index_data,
+		index_key,
+		[]
+	)
 	if not (value is Array):
 		return []
-	return _duplicate_record_array(GFVariantData.as_array(value), duplicate_records)
+	return _duplicate_record_array(
+		GFVariantData.as_array(value),
+		duplicate_records
+	)
 
 
 ## 根据命名索引获取第一条记录。
@@ -262,9 +283,17 @@ func get_index_records(index_id: StringName, index_key: String, duplicate_record
 ## @return: 找到时返回第一条记录 Dictionary，否则返回 null。
 ## [br]
 ## @schema return: Variant，找到时为 Dictionary，未命中时为 null。
-func get_index_record(index_id: StringName, index_key: String, duplicate_record: bool = true) -> Variant:
+func get_index_record(
+	index_id: StringName,
+	index_key: String,
+	duplicate_record: bool = true
+) -> Variant:
 	var index_data: Dictionary = _get_index_data(index_id)
-	var value: Variant = GFVariantData.get_option_value(index_data, index_key, [])
+	var value: Variant = GFVariantData.get_option_value(
+		index_data,
+		index_key,
+		[]
+	)
 	if not (value is Array):
 		return null
 	var matches: Array = GFVariantData.as_array(value)
@@ -316,10 +345,12 @@ func rebuild_indexes() -> int:
 ## @schema return: GFConfigValidationReport 兼容 Dictionary。
 func validate_records(options: Dictionary = {}) -> Dictionary:
 	if schema == null:
-		return GFConfigValidationReport.new().make_error_report(
-			get_table_key(),
-			"missing_schema",
-			"配置表资源缺少 schema：%s。" % String(get_table_key())
+		return (
+			GFConfigValidationReport.new().make_error_report(
+				get_table_key(),
+				"missing_schema",
+				"配置表资源缺少 schema：%s。" % String(get_table_key())
+			)
 		)
 	return schema.validate_table(records, options)
 
@@ -388,7 +419,13 @@ func _build_index_from_definition(index: GFConfigTableIndexDefinition) -> Dictio
 		var index_key: String = index.make_key(record)
 		if index_key.is_empty():
 			continue
-		var bucket: Array = GFVariantData.as_array(GFVariantData.get_option_value(result, index_key, []))
+		var bucket: Array = GFVariantData.as_array(
+			GFVariantData.get_option_value(
+				result,
+				index_key,
+				[]
+			)
+		)
 		bucket.append(record)
 		result[index_key] = bucket
 	return result
@@ -454,7 +491,10 @@ func _duplicate_records_by_index(source_index: Dictionary, duplicate_records: bo
 		for index_key: Variant in source_records_by_key.keys():
 			var rows: Variant = source_records_by_key[index_key]
 			if rows is Array:
-				records_by_key[index_key] = _duplicate_record_array(GFVariantData.as_array(rows), duplicate_records)
+				records_by_key[index_key] = _duplicate_record_array(
+					GFVariantData.as_array(rows),
+					duplicate_records
+				)
 			else:
 				records_by_key[index_key] = rows
 		result[index_id] = records_by_key
@@ -493,7 +533,11 @@ func _get_index_data(index_id: StringName) -> Dictionary:
 	if index != null and index.is_valid_definition():
 		return _build_index_from_definition(index)
 
-	var value: Variant = GFVariantData.get_option_value(records_by_index, index_id, null)
+	var value: Variant = GFVariantData.get_option_value(
+		records_by_index,
+		index_id,
+		null
+	)
 	if value is Dictionary:
 		var index_data: Dictionary = value
 		return index_data

@@ -25,9 +25,9 @@
 | 信号 | [`member_metadata_set`](#member-gfnetworklobbyservice-signals-member_metadata_set) | `signal member_metadata_set(result: GFNetworkLobbyOperationResult)` |
 | 信号 | [`lobby_updated`](#member-gfnetworklobbyservice-signals-lobby_updated) | `signal lobby_updated(lobby: GFNetworkLobbyDescriptor)` |
 | 信号 | [`member_joined`](#member-gfnetworklobbyservice-signals-member_joined) | `signal member_joined(lobby_id: String, member: GFNetworkLobbyMember)` |
-| 信号 | [`member_left`](#member-gfnetworklobbyservice-signals-member_left) | `signal member_left(lobby_id: String, peer_id: int, reason: String)` |
+| 信号 | [`member_left`](#member-gfnetworklobbyservice-signals-member_left) | `signal member_left( lobby_id: String, peer_id: int, reason: String )` |
 | 信号 | [`invite_received`](#member-gfnetworklobbyservice-signals-invite_received) | `signal invite_received(invite: GFNetworkLobbyInvite)` |
-| 信号 | [`backend_error`](#member-gfnetworklobbyservice-signals-backend_error) | `signal backend_error(operation: StringName, error: StringName, details: Dictionary)` |
+| 信号 | [`backend_error`](#member-gfnetworklobbyservice-signals-backend_error) | `signal backend_error( operation: StringName, error: StringName, details: Dictionary )` |
 | 属性 | [`backend`](#member-gfnetworklobbyservice-properties-backend) | `var backend: GFNetworkLobbyBackend:` |
 | 属性 | [`current_lobby`](#member-gfnetworklobbyservice-properties-current_lobby) | `var current_lobby: GFNetworkLobbyDescriptor = null` |
 | 属性 | [`default_timeout_msec`](#member-gfnetworklobbyservice-properties-default_timeout_msec) | `var default_timeout_msec: int = 15000` |
@@ -38,13 +38,13 @@
 | 方法 | [`set_clock`](#member-gfnetworklobbyservice-methods-set_clock) | `func set_clock(clock: GFClock) -> bool:` |
 | 方法 | [`get_clock`](#member-gfnetworklobbyservice-methods-get_clock) | `func get_clock() -> GFClock:` |
 | 方法 | [`create_lobby`](#member-gfnetworklobbyservice-methods-create_lobby) | `func create_lobby(options: Dictionary = {}) -> GFNetworkLobbyOperationHandle:` |
-| 方法 | [`query_lobbies`](#member-gfnetworklobbyservice-methods-query_lobbies) | `func query_lobbies( query: GFNetworkLobbyQuery = null, options: Dictionary = {} ) -> GFNetworkLobbyOperationHandle:` |
-| 方法 | [`join_lobby`](#member-gfnetworklobbyservice-methods-join_lobby) | `func join_lobby( lobby_id: String, options: Dictionary = {} ) -> GFNetworkLobbyOperationHandle:` |
-| 方法 | [`leave_lobby`](#member-gfnetworklobbyservice-methods-leave_lobby) | `func leave_lobby( lobby_id: String = "", options: Dictionary = {} ) -> GFNetworkLobbyOperationHandle:` |
+| 方法 | [`query_lobbies`](#member-gfnetworklobbyservice-methods-query_lobbies) | `func query_lobbies(query: GFNetworkLobbyQuery = null, options: Dictionary = {}) -> GFNetworkLobbyOperationHandle:` |
+| 方法 | [`join_lobby`](#member-gfnetworklobbyservice-methods-join_lobby) | `func join_lobby(lobby_id: String, options: Dictionary = {}) -> GFNetworkLobbyOperationHandle:` |
+| 方法 | [`leave_lobby`](#member-gfnetworklobbyservice-methods-leave_lobby) | `func leave_lobby(lobby_id: String = "", options: Dictionary = {}) -> GFNetworkLobbyOperationHandle:` |
 | 方法 | [`set_lobby_metadata`](#member-gfnetworklobbyservice-methods-set_lobby_metadata) | `func set_lobby_metadata( metadata_patch: Dictionary, lobby_id: String = "", options: Dictionary = {} ) -> GFNetworkLobbyOperationHandle:` |
 | 方法 | [`set_member_metadata`](#member-gfnetworklobbyservice-methods-set_member_metadata) | `func set_member_metadata( peer_id: int, metadata_patch: Dictionary, lobby_id: String = "", options: Dictionary = {} ) -> GFNetworkLobbyOperationHandle:` |
-| 方法 | [`invoke_operation`](#member-gfnetworklobbyservice-methods-invoke_operation) | `func invoke_operation( request: GFNetworkLobbyOperationRequest ) -> GFNetworkLobbyOperationHandle:` |
-| 方法 | [`cancel_operation`](#member-gfnetworklobbyservice-methods-cancel_operation) | `func cancel_operation( request_id: StringName, reason: StringName = &"cancelled" ) -> bool:` |
+| 方法 | [`invoke_operation`](#member-gfnetworklobbyservice-methods-invoke_operation) | `func invoke_operation(request: GFNetworkLobbyOperationRequest) -> GFNetworkLobbyOperationHandle:` |
+| 方法 | [`cancel_operation`](#member-gfnetworklobbyservice-methods-cancel_operation) | `func cancel_operation(request_id: StringName, reason: StringName = &"cancelled") -> bool:` |
 | 方法 | [`get_lobby`](#member-gfnetworklobbyservice-methods-get_lobby) | `func get_lobby(lobby_id: String) -> GFNetworkLobbyDescriptor:` |
 | 方法 | [`get_lobbies`](#member-gfnetworklobbyservice-methods-get_lobbies) | `func get_lobbies() -> Array[GFNetworkLobbyDescriptor]:` |
 | 方法 | [`get_debug_snapshot`](#member-gfnetworklobbyservice-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
@@ -250,7 +250,7 @@ signal member_joined(lobby_id: String, member: GFNetworkLobbyMember)
 - 首次版本：`8.0.0`
 
 ```gdscript
-signal member_left(lobby_id: String, peer_id: int, reason: String)
+signal member_left( lobby_id: String, peer_id: int, reason: String )
 ```
 
 成员离开后发出。
@@ -290,7 +290,7 @@ signal invite_received(invite: GFNetworkLobbyInvite)
 - 首次版本：`8.0.0`
 
 ```gdscript
-signal backend_error(operation: StringName, error: StringName, details: Dictionary)
+signal backend_error( operation: StringName, error: StringName, details: Dictionary )
 ```
 
 Backend 出现不属于具体请求的错误时发出。
@@ -485,7 +485,7 @@ func create_lobby(options: Dictionary = {}) -> GFNetworkLobbyOperationHandle:
 - 首次版本：`8.0.0`
 
 ```gdscript
-func query_lobbies( query: GFNetworkLobbyQuery = null, options: Dictionary = {} ) -> GFNetworkLobbyOperationHandle:
+func query_lobbies(query: GFNetworkLobbyQuery = null, options: Dictionary = {}) -> GFNetworkLobbyOperationHandle:
 ```
 
 查询 Lobby。
@@ -511,7 +511,7 @@ func query_lobbies( query: GFNetworkLobbyQuery = null, options: Dictionary = {} 
 - 首次版本：`8.0.0`
 
 ```gdscript
-func join_lobby( lobby_id: String, options: Dictionary = {} ) -> GFNetworkLobbyOperationHandle:
+func join_lobby(lobby_id: String, options: Dictionary = {}) -> GFNetworkLobbyOperationHandle:
 ```
 
 加入 Lobby。
@@ -537,7 +537,7 @@ func join_lobby( lobby_id: String, options: Dictionary = {} ) -> GFNetworkLobbyO
 - 首次版本：`8.0.0`
 
 ```gdscript
-func leave_lobby( lobby_id: String = "", options: Dictionary = {} ) -> GFNetworkLobbyOperationHandle:
+func leave_lobby(lobby_id: String = "", options: Dictionary = {}) -> GFNetworkLobbyOperationHandle:
 ```
 
 离开当前或指定 Lobby。
@@ -620,7 +620,7 @@ func set_member_metadata( peer_id: int, metadata_patch: Dictionary, lobby_id: St
 - 首次版本：`10.0.0`
 
 ```gdscript
-func invoke_operation( request: GFNetworkLobbyOperationRequest ) -> GFNetworkLobbyOperationHandle:
+func invoke_operation(request: GFNetworkLobbyOperationRequest) -> GFNetworkLobbyOperationHandle:
 ```
 
 提交完整 Lobby 操作请求。
@@ -641,7 +641,7 @@ func invoke_operation( request: GFNetworkLobbyOperationRequest ) -> GFNetworkLob
 - 首次版本：`10.0.0`
 
 ```gdscript
-func cancel_operation( request_id: StringName, reason: StringName = &"cancelled" ) -> bool:
+func cancel_operation(request_id: StringName, reason: StringName = &"cancelled") -> bool:
 ```
 
 取消等待中的操作。

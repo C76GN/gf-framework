@@ -49,7 +49,12 @@ static func analyze_context(
 ) -> Array[Dictionary]:
 	if context == null:
 		return []
-	return analyze_contexts([context], remap_config, false, include_non_remappable)
+	return analyze_contexts(
+		[context],
+		remap_config,
+		false,
+		include_non_remappable
+	)
 
 
 ## 分析多个上下文的绑定冲突。
@@ -75,7 +80,11 @@ static func analyze_contexts(
 	include_cross_context: bool = false,
 	include_non_remappable: bool = true
 ) -> Array[Dictionary]:
-	var items: Array[Dictionary] = collect_binding_items(contexts, remap_config, include_non_remappable)
+	var items: Array[Dictionary] = collect_binding_items(
+		contexts,
+		remap_config,
+		include_non_remappable
+	)
 	return _analyze_items(items, include_cross_context)
 
 
@@ -102,7 +111,11 @@ static func build_rebind_report(
 	include_cross_context: bool = false,
 	include_non_remappable: bool = true
 ) -> Dictionary:
-	var items: Array[Dictionary] = collect_binding_items(contexts, remap_config, include_non_remappable)
+	var items: Array[Dictionary] = collect_binding_items(
+		contexts,
+		remap_config,
+		include_non_remappable
+	)
 	var conflicts: Array[Dictionary] = _analyze_items(items, include_cross_context)
 	return {
 		"ok": conflicts.is_empty(),
@@ -140,7 +153,12 @@ static func collect_binding_items(
 	for context: GFInputContext in contexts:
 		if context == null:
 			continue
-		_collect_context_binding_items(context, remap_config, include_non_remappable, items)
+		_collect_context_binding_items(
+			context,
+			remap_config,
+			include_non_remappable,
+			items
+		)
 	return items
 
 
@@ -158,7 +176,10 @@ static func get_event_signature(input_event: InputEvent, match_device: bool = fa
 	if event_key.is_empty():
 		return ""
 	var device_scope: String = _get_device_scope(input_event, match_device)
-	return "%s@%s" % [event_key, device_scope]
+	return (
+		"%s@%s"
+		% [event_key, device_scope]
+	)
 
 
 ## 判断两个输入事件是否会在绑定层互相冲突。
@@ -187,7 +208,11 @@ static func are_events_equivalent(
 
 	var left_device: String = _get_device_scope(left_event, left_match_device)
 	var right_device: String = _get_device_scope(right_event, right_match_device)
-	return left_device == "*" or right_device == "*" or left_device == right_device
+	return (
+		left_device == "*"
+		or right_device == "*"
+		or left_device == right_device
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -207,7 +232,11 @@ static func _collect_context_binding_items(
 	for mapping: GFInputMapping in context.mappings:
 		if mapping == null:
 			continue
-		if not include_non_remappable and mapping.action != null and not mapping.action.remappable:
+		if (
+			not include_non_remappable
+			and mapping.action != null
+			and not mapping.action.remappable
+		):
 			continue
 
 		var action_id: StringName = mapping.get_action_id()
@@ -219,8 +248,16 @@ static func _collect_context_binding_items(
 				continue
 
 			var event: InputEvent = binding.input_event
-			if remap_config != null and remap_config.has_binding(context_id, action_id, binding_index):
-				event = remap_config.get_bound_event_or_null(context_id, action_id, binding_index)
+			if remap_config != null and remap_config.has_binding(
+				context_id,
+				action_id,
+				binding_index
+			):
+				event = remap_config.get_bound_event_or_null(
+					context_id,
+					action_id,
+					binding_index
+				)
 			if event == null:
 				continue
 
@@ -228,19 +265,22 @@ static func _collect_context_binding_items(
 			if event_key.is_empty():
 				continue
 
-			items.append({
-				"context_id": String(context_id),
-				"context_name": context.get_display_name(),
-				"action_id": String(action_id),
-				"action_name": mapping.get_display_name(),
-				"binding_index": binding_index,
-				"event_record": _INPUT_EVENT_TOOLS.input_event_to_record(event),
-				"event_text": GFInputFormatter.input_event_as_text(event),
-				"event_key": event_key,
-				"signature": "%s@%s" % [event_key, _get_device_scope(event, binding.match_device)],
-				"device_scope": _get_device_scope(event, binding.match_device),
-				"match_device": binding.match_device,
-			})
+			items.append(
+				{
+					"context_id": String(context_id),
+					"context_name": context.get_display_name(),
+					"action_id": String(action_id),
+					"action_name": mapping.get_display_name(),
+					"binding_index": binding_index,
+					"event_record": _INPUT_EVENT_TOOLS.input_event_to_record(event),
+					"event_text": GFInputFormatter.input_event_as_text(event),
+					"event_key": event_key,
+					"signature": "%s@%s"
+					% [event_key, _get_device_scope(event, binding.match_device)],
+					"device_scope": _get_device_scope(event, binding.match_device),
+					"match_device": binding.match_device,
+				}
+			)
 
 
 ## 按事件和可选上下文分桶，再对每个桶内的条目两两检查并生成冲突记录。
@@ -267,7 +307,10 @@ static func _analyze_items(items: Array[Dictionary], include_cross_context: bool
 		var bucket_items: Array = GFVariantData.get_option_array(buckets, bucket_key)
 		for left_index: int in range(bucket_items.size()):
 			var left: Dictionary = GFVariantData.as_dictionary(bucket_items[left_index])
-			for right_index: int in range(left_index + 1, bucket_items.size()):
+			for right_index: int in range(
+				left_index + 1,
+				bucket_items.size()
+			):
 				var right: Dictionary = GFVariantData.as_dictionary(bucket_items[right_index])
 				if not _items_conflict(left, right):
 					continue
@@ -293,12 +336,19 @@ static func _count_contexts(contexts: Array[GFInputContext]) -> int:
 ## @api private
 ## [br]
 static func _items_conflict(left: Dictionary, right: Dictionary) -> bool:
-	if not _event_keys_conflict(_get_item_event_key(left), _get_item_event_key(right)):
+	if not _event_keys_conflict(
+		_get_item_event_key(left),
+		_get_item_event_key(right)
+	):
 		return false
 
 	var left_device: String = _get_item_device_scope(left)
 	var right_device: String = _get_item_device_scope(right)
-	return left_device == "*" or right_device == "*" or left_device == right_device
+	return (
+		left_device == "*"
+		or right_device == "*"
+		or left_device == right_device
+	)
 
 
 ## 从左右条目提取冲突双方的标识、事件文本与签名，组装为公开报告使用的字典。
@@ -356,7 +406,11 @@ static func _get_item_event_key(item: Dictionary) -> String:
 ## @api private
 ## [br]
 static func _get_item_device_scope(item: Dictionary) -> String:
-	return GFVariantData.get_option_string(item, "device_scope", "*")
+	return GFVariantData.get_option_string(
+		item,
+		"device_scope",
+		"*"
+	)
 
 
 ## 读取条目的 event_text；缺少该字段时返回空字符串。
@@ -390,9 +444,10 @@ static func _get_event_key(input_event: InputEvent) -> String:
 ## [br]
 static func _get_binding_event_key(input_event: InputEvent, binding: GFInputBinding) -> String:
 	if input_event is InputEventJoypadMotion:
-		var identity: GFInputEventIdentity = _INPUT_EVENT_IDENTITY.from_event(input_event, {
-			&"joy_axis_sign": _get_joy_axis_sign_for_binding(binding),
-		})
+		var identity: GFInputEventIdentity = _INPUT_EVENT_IDENTITY.from_event(
+			input_event,
+			{ &"joy_axis_sign": _get_joy_axis_sign_for_binding(binding), }
+		)
 		return identity.conflict_key
 	return _get_event_key(input_event)
 
@@ -467,7 +522,10 @@ static func _make_item_bucket_key(item: Dictionary, include_cross_context: bool)
 		return ""
 	var bucket_key: String = _make_event_bucket_key(event_key)
 	if not include_cross_context:
-		bucket_key = "%s@%s" % [_get_item_context_id(item), bucket_key]
+		bucket_key = (
+			"%s@%s"
+			% [_get_item_context_id(item), bucket_key]
+		)
 	return bucket_key
 
 

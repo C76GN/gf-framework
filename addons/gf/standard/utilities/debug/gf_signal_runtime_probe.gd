@@ -202,12 +202,25 @@ func dispose() -> void:
 ## @schema return: Dictionary，包含 ok、watched_count、skipped_count 和 errors。
 func watch_node(source: Node, options: Dictionary = {}) -> Dictionary:
 	if source == null:
-		return _make_report(false, 0, 0, ["source_is_null"])
+		return _make_report(
+			false,
+			0,
+			0,
+			["source_is_null"]
+		)
 
 	var include_names: Array[StringName] = GFVariantData.get_option_string_name_array(options, "include_signals")
 	var exclude_names: Array[StringName] = GFVariantData.get_option_string_name_array(options, "exclude_signals")
 	var include_internal: bool = GFVariantData.get_option_bool(options, "include_internal")
-	var limit: int = clampi(GFVariantData.get_option_int(options, "max_argument_count", max_argument_count), 0, _MAX_SUPPORTED_ARGUMENT_COUNT)
+	var limit: int = clampi(
+		GFVariantData.get_option_int(
+			options,
+			"max_argument_count",
+			max_argument_count
+		),
+		0,
+		_MAX_SUPPORTED_ARGUMENT_COUNT
+	)
 	var connect_flags: int = GFVariantData.get_option_int(options, "connect_flags")
 	var watched_count: int = 0
 	var skipped_count: int = 0
@@ -234,16 +247,29 @@ func watch_node(source: Node, options: Dictionary = {}) -> Dictionary:
 			errors.append("too_many_arguments:%s" % String(signal_name))
 			continue
 
-		var error: Error = _watch_signal(source, signal_name, argument_count, connect_flags)
+		var error: Error = _watch_signal(
+			source,
+			signal_name,
+			argument_count,
+			connect_flags
+		)
 		if error == OK:
 			watched_count += 1
 		elif error == ERR_ALREADY_EXISTS:
 			skipped_count += 1
 		else:
 			skipped_count += 1
-			errors.append("%s:%s" % [String(signal_name), error_string(error)])
+			errors.append(
+				"%s:%s"
+				% [String(signal_name), error_string(error)]
+			)
 
-	return _make_report(errors.is_empty(), watched_count, skipped_count, errors)
+	return _make_report(
+		errors.is_empty(),
+		watched_count,
+		skipped_count,
+		errors
+	)
 
 
 ## 递归监听节点树。
@@ -261,19 +287,55 @@ func watch_node(source: Node, options: Dictionary = {}) -> Dictionary:
 ## @schema return: Dictionary，包含 ok、watched_count、skipped_count 和 errors。
 func watch_tree(root: Node, options: Dictionary = {}) -> Dictionary:
 	if root == null:
-		return _make_report(false, 0, 0, ["root_is_null"])
+		return _make_report(
+			false,
+			0,
+			0,
+			["root_is_null"]
+		)
 
-	var recursive: bool = GFVariantData.get_option_bool(options, "recursive", true)
+	var recursive: bool = GFVariantData.get_option_bool(
+		options,
+		"recursive",
+		true
+	)
 	var include_internal_nodes: bool = GFVariantData.get_option_bool(options, "include_internal_nodes")
-	var max_node_depth: int = maxi(GFVariantData.get_option_int(options, "max_node_depth", DEFAULT_MAX_WATCH_TREE_DEPTH), 0)
-	var max_nodes: int = maxi(GFVariantData.get_option_int(options, "max_nodes", DEFAULT_MAX_WATCH_TREE_NODES), 0)
+	var max_node_depth: int = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"max_node_depth",
+			DEFAULT_MAX_WATCH_TREE_DEPTH
+		),
+		0
+	)
+	var max_nodes: int = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"max_nodes",
+			DEFAULT_MAX_WATCH_TREE_NODES
+		),
+		0
+	)
 	var nodes: Array[Node] = []
 	var tree_scan_state: Dictionary = _make_tree_scan_state()
-	_collect_nodes(root, nodes, recursive, include_internal_nodes, 0, max_node_depth, max_nodes, tree_scan_state)
+	_collect_nodes(
+		root,
+		nodes,
+		recursive,
+		include_internal_nodes,
+		0,
+		max_node_depth,
+		max_nodes,
+		tree_scan_state
+	)
 
 	var total_watched: int = 0
 	var total_skipped: int = 0
-	var errors: Array[String] = _get_tree_scan_errors(tree_scan_state, max_node_depth, max_nodes)
+	var errors: Array[String] = _get_tree_scan_errors(
+		tree_scan_state,
+		max_node_depth,
+		max_nodes
+	)
 	for node: Node in nodes:
 		var report: Dictionary = watch_node(node, options)
 		total_watched += GFVariantData.get_option_int(report, "watched_count")
@@ -281,7 +343,12 @@ func watch_tree(root: Node, options: Dictionary = {}) -> Dictionary:
 		for error_variant: Variant in GFVariantData.get_option_array(report, "errors"):
 			errors.append(GFVariantData.to_text(error_variant))
 
-	return _make_report(errors.is_empty(), total_watched, total_skipped, errors)
+	return _make_report(
+		errors.is_empty(),
+		total_watched,
+		total_skipped,
+		errors
+	)
 
 
 ## 停止监听某个节点。
@@ -409,7 +476,10 @@ func get_debug_snapshot() -> Dictionary:
 ## [br]
 ## @schema return: Dictionary，包含已脱敏且可 JSON.stringify() 的 watch_count、event_count、max_events、max_argument_count 和 watches。
 func get_json_compatible_debug_snapshot(options: Dictionary = {}) -> Dictionary:
-	return _to_json_compatible_probe_dictionary(get_debug_snapshot(), options)
+	return _to_json_compatible_probe_dictionary(
+		get_debug_snapshot(),
+		options
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -418,20 +488,38 @@ func get_json_compatible_debug_snapshot(options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @api private
 ## [br]
-func _watch_signal(source: Node, signal_name: StringName, argument_count: int, connect_flags: int) -> Error:
+func _watch_signal(
+	source: Node,
+	signal_name: StringName,
+	argument_count: int,
+	connect_flags: int
+) -> Error:
 	_prune_invalid_watches()
-	var key: String = _make_watch_key(source.get_instance_id(), signal_name)
+	var key: String = _make_watch_key(
+		source.get_instance_id(),
+		signal_name
+	)
 	if _watched.has(key):
 		return ERR_ALREADY_EXISTS
 
 	var source_path: String = _get_node_path_text(source)
-	var callback: Callable = _make_emit_callable(argument_count).bind(source.get_instance_id(), source_path, signal_name)
+	var callback: Callable = (
+		_make_emit_callable(argument_count).bind(
+			source.get_instance_id(),
+			source_path,
+			signal_name
+		)
+	)
 	if not callback.is_valid():
 		return ERR_INVALID_PARAMETER
 	if source.is_connected(signal_name, callback):
 		return ERR_ALREADY_EXISTS
 
-	var error: Error = source.connect(signal_name, callback, connect_flags)
+	var error: Error = source.connect(
+		signal_name,
+		callback,
+		connect_flags
+	)
 	if error != OK:
 		return error
 
@@ -456,11 +544,18 @@ func _disconnect_entry(entry: Dictionary) -> bool:
 	var source: Node = _get_live_node_from_ref(source_ref)
 	var signal_name: StringName = GFVariantData.get_option_string_name(entry, "signal_name")
 	var callback: Callable = _get_dictionary_callable(entry, "callable")
-	if source == null or signal_name == &"" or not callback.is_valid():
+	if (
+		source == null
+		or signal_name == &""
+		or not callback.is_valid()
+	):
 		return false
 	if source.is_connected(signal_name, callback):
 		source.disconnect(signal_name, callback)
-		signal_watch_stopped.emit(GFVariantData.get_option_string(entry, "source_path"), signal_name)
+		signal_watch_stopped.emit(
+			GFVariantData.get_option_string(entry, "source_path"),
+			signal_name
+		)
 		return true
 	return false
 
@@ -469,7 +564,12 @@ func _disconnect_entry(entry: Dictionary) -> bool:
 ## [br]
 ## @api private
 ## [br]
-func _record_signal(source_id: int, source_path: String, signal_name: StringName, arguments: Array) -> void:
+func _record_signal(
+	source_id: int,
+	source_path: String,
+	signal_name: StringName,
+	arguments: Array
+) -> void:
 	var source: Node = _get_live_node_from_id(source_id)
 	var argument_snapshot: Dictionary = _snapshot_signal_arguments(arguments)
 	var event: Dictionary = {
@@ -504,7 +604,13 @@ func _snapshot_signal_arguments(arguments: Array) -> Dictionary:
 	}
 	var result: Array = []
 	for argument: Variant in arguments:
-		result.append(_snapshot_signal_argument(argument, 0, state))
+		result.append(
+			_snapshot_signal_argument(
+				argument,
+				0,
+				state
+			)
+		)
 	return {
 		"values": result,
 		"budget": {
@@ -524,35 +630,72 @@ func _snapshot_signal_arguments(arguments: Array) -> Dictionary:
 ## [br]
 ## @api private
 ## [br]
-func _snapshot_signal_argument(value: Variant, depth: int, state: Dictionary) -> Variant:
+func _snapshot_signal_argument(
+	value: Variant,
+	depth: int,
+	state: Dictionary
+) -> Variant:
 	if depth > max_snapshot_depth:
 		return _make_snapshot_truncation_marker(state, "max_depth")
 	if GFVariantData.get_option_int(state, "node_count") >= max_snapshot_nodes:
 		return _make_snapshot_truncation_marker(state, "max_nodes")
 	state["node_count"] = GFVariantData.get_option_int(state, "node_count") + 1
-	if value is String or value is StringName or value is NodePath:
-		return _snapshot_text(GFVariantData.to_text(value), state)
+	if (
+		value is String
+		or value is StringName
+		or value is NodePath
+	):
+		return _snapshot_text(
+			GFVariantData.to_text(value),
+			state
+		)
 	if value is Object:
 		var object_value: Object = value
 		return _snapshot_object_argument(object_value, state)
 	if value is Array:
 		var source_array: Array = value
 		var array_result: Array = []
-		var array_limit: int = mini(source_array.size(), max_container_items)
+		var array_limit: int = mini(
+			source_array.size(),
+			max_container_items
+		)
 		for index: int in range(array_limit):
-			array_result.append(_snapshot_signal_argument(source_array[index], depth + 1, state))
+			array_result.append(
+				_snapshot_signal_argument(
+					source_array[index],
+					depth + 1,
+					state
+				)
+			)
 		if source_array.size() > array_limit:
-			array_result.append(_make_snapshot_truncation_marker(state, "max_container_items", source_array.size() - array_limit))
+			array_result.append(
+				_make_snapshot_truncation_marker(
+					state,
+					"max_container_items",
+					source_array.size() - array_limit
+				)
+			)
 		return array_result
 	if value is Dictionary:
 		var source_dictionary: Dictionary = value
 		var dictionary_result: Dictionary = {}
 		var dictionary_keys: Array = source_dictionary.keys()
-		var dictionary_limit: int = mini(dictionary_keys.size(), max_container_items)
+		var dictionary_limit: int = mini(
+			dictionary_keys.size(),
+			max_container_items
+		)
 		for index: int in range(dictionary_limit):
 			var raw_key: Variant = dictionary_keys[index]
-			var key: Variant = _snapshot_dictionary_key(raw_key, depth + 1, state)
-			dictionary_result[key] = _snapshot_signal_argument(source_dictionary[raw_key], depth + 1, state)
+			var key: Variant = _snapshot_dictionary_key(
+				raw_key,
+				depth + 1,
+				state
+			)
+			dictionary_result[key] = _snapshot_signal_argument(
+				source_dictionary[raw_key],
+				depth + 1,
+				state
+			)
 		if dictionary_keys.size() > dictionary_limit:
 			dictionary_result["__gf_truncated__"] = _make_snapshot_truncation_marker(
 				state,
@@ -561,24 +704,50 @@ func _snapshot_signal_argument(value: Variant, depth: int, state: Dictionary) ->
 			)
 		return dictionary_result
 	if _variant_is_packed_array(value):
-		return _snapshot_packed_array(value, depth, state)
-	if typeof(value) == TYPE_CALLABLE or typeof(value) == TYPE_SIGNAL or typeof(value) == TYPE_RID:
+		return _snapshot_packed_array(
+			value,
+			depth,
+			state
+		)
+	if (
+		typeof(value) == TYPE_CALLABLE
+		or typeof(value) == TYPE_SIGNAL
+		or typeof(value) == TYPE_RID
+	):
 		return {
 			"type": type_string(typeof(value)),
-			"value": _snapshot_text(str(value), state),
+			"value": _snapshot_text(
+				str(value),
+				state
+			),
 		}
 	var scalar_text: String = str(value)
-	if not _try_charge_snapshot_bytes(state, scalar_text.to_utf8_buffer().size()):
+	if not _try_charge_snapshot_bytes(
+		state,
+		scalar_text.to_utf8_buffer().size()
+	):
 		return _make_snapshot_truncation_marker(state, "max_bytes")
-	return GFVariantData.duplicate_variant(value, true, true)
+	return GFVariantData.duplicate_variant(
+		value,
+		true,
+		true
+	)
 
 
 ## 快照字典键；若键快照成为容器，则转换为文本键。
 ## [br]
 ## @api private
 ## [br]
-func _snapshot_dictionary_key(value: Variant, depth: int, state: Dictionary) -> Variant:
-	var snapshot: Variant = _snapshot_signal_argument(value, depth, state)
+func _snapshot_dictionary_key(
+	value: Variant,
+	depth: int,
+	state: Dictionary
+) -> Variant:
+	var snapshot: Variant = _snapshot_signal_argument(
+		value,
+		depth,
+		state
+	)
 	if snapshot is Array or snapshot is Dictionary:
 		return str(snapshot)
 	return snapshot
@@ -591,9 +760,15 @@ func _snapshot_dictionary_key(value: Variant, depth: int, state: Dictionary) -> 
 func _snapshot_object_argument(object_value: Object, state: Dictionary) -> Dictionary:
 	var result: Dictionary = {
 		"type": "Object",
-		"class": _snapshot_text(object_value.get_class(), state),
+		"class": _snapshot_text(
+			object_value.get_class(),
+			state
+		),
 		"instance_id": object_value.get_instance_id(),
-		"text": _snapshot_text(str(object_value), state),
+		"text": _snapshot_text(
+			str(object_value),
+			state
+		),
 	}
 	if object_value is Resource:
 		var resource: Resource = object_value
@@ -610,15 +785,29 @@ func _snapshot_object_argument(object_value: Object, state: Dictionary) -> Dicti
 ## [br]
 ## @api private
 ## [br]
-func _snapshot_packed_array(value: Variant, depth: int, state: Dictionary) -> Dictionary:
+func _snapshot_packed_array(
+	value: Variant,
+	depth: int,
+	state: Dictionary
+) -> Dictionary:
 	var item_count: int = _get_packed_array_size(value)
 	var sample: Array = []
 	var limit: int = mini(item_count, max_container_items)
 	for index: int in range(limit):
 		var item: Variant = _get_packed_array_item(value, index)
-		sample.append(_snapshot_signal_argument(item, depth + 1, state))
+		sample.append(
+			_snapshot_signal_argument(
+				item,
+				depth + 1,
+				state
+			)
+		)
 	if item_count > limit:
-		var _marker: Dictionary = _make_snapshot_truncation_marker(state, "max_container_items", item_count - limit)
+		var _marker: Dictionary = _make_snapshot_truncation_marker(
+			state,
+			"max_container_items",
+			item_count - limit
+		)
 	return {
 		"type": type_string(typeof(value)),
 		"count": item_count,
@@ -633,12 +822,18 @@ func _snapshot_packed_array(value: Variant, depth: int, state: Dictionary) -> Di
 ## [br]
 func _snapshot_text(value: String, state: Dictionary) -> Variant:
 	var byte_count: int = value.to_utf8_buffer().size()
-	var remaining_bytes: int = maxi(max_snapshot_bytes - GFVariantData.get_option_int(state, "estimated_bytes"), 0)
+	var remaining_bytes: int = maxi(
+		max_snapshot_bytes - GFVariantData.get_option_int(state, "estimated_bytes"),
+		0
+	)
 	if byte_count <= remaining_bytes:
 		var _charged: bool = _try_charge_snapshot_bytes(state, byte_count)
 		return value
 	var truncated_text: String = _truncate_text_to_utf8_bytes(value, remaining_bytes)
-	var _charged_truncated: bool = _try_charge_snapshot_bytes(state, truncated_text.to_utf8_buffer().size())
+	var _charged_truncated: bool = _try_charge_snapshot_bytes(
+		state,
+		truncated_text.to_utf8_buffer().size()
+	)
 	return {
 		"text": truncated_text,
 		"original_byte_count": byte_count,
@@ -655,7 +850,10 @@ func _truncate_text_to_utf8_bytes(value: String, byte_limit: int) -> String:
 	if byte_limit <= 0 or value.is_empty():
 		return ""
 	var low: int = 0
-	var high: int = mini(value.length(), byte_limit)
+	var high: int = mini(
+		value.length(),
+		byte_limit
+	)
 	while low < high:
 		var middle: int = (low + high + 1) >> 1
 		if value.substr(0, middle).to_utf8_buffer().size() <= byte_limit:
@@ -681,11 +879,12 @@ func _try_charge_snapshot_bytes(state: Dictionary, byte_count: int) -> bool:
 ## [br]
 ## @api private
 ## [br]
-func _make_snapshot_truncation_marker(state: Dictionary, reason: String, omitted_count: int = 0) -> Dictionary:
-	var marker: Dictionary = {
-		"__gf_truncated__": true,
-		"reason": _mark_snapshot_truncated(state, reason),
-	}
+func _make_snapshot_truncation_marker(
+	state: Dictionary,
+	reason: String,
+	omitted_count: int = 0
+) -> Dictionary:
+	var marker: Dictionary = { "__gf_truncated__": true, "reason": _mark_snapshot_truncated(state, reason), }
 	if omitted_count > 0:
 		marker["omitted_count"] = omitted_count
 	return marker
@@ -706,18 +905,21 @@ func _mark_snapshot_truncated(state: Dictionary, reason: String) -> String:
 ## @api private
 ## [br]
 func _variant_is_packed_array(value: Variant) -> bool:
-	return typeof(value) in [
-		TYPE_PACKED_BYTE_ARRAY,
-		TYPE_PACKED_INT32_ARRAY,
-		TYPE_PACKED_INT64_ARRAY,
-		TYPE_PACKED_FLOAT32_ARRAY,
-		TYPE_PACKED_FLOAT64_ARRAY,
-		TYPE_PACKED_STRING_ARRAY,
-		TYPE_PACKED_VECTOR2_ARRAY,
-		TYPE_PACKED_VECTOR3_ARRAY,
-		TYPE_PACKED_COLOR_ARRAY,
-		TYPE_PACKED_VECTOR4_ARRAY,
-	]
+	return (
+		typeof(value)
+		in [
+			TYPE_PACKED_BYTE_ARRAY,
+			TYPE_PACKED_INT32_ARRAY,
+			TYPE_PACKED_INT64_ARRAY,
+			TYPE_PACKED_FLOAT32_ARRAY,
+			TYPE_PACKED_FLOAT64_ARRAY,
+			TYPE_PACKED_STRING_ARRAY,
+			TYPE_PACKED_VECTOR2_ARRAY,
+			TYPE_PACKED_VECTOR3_ARRAY,
+			TYPE_PACKED_COLOR_ARRAY,
+			TYPE_PACKED_VECTOR4_ARRAY,
+		]
+	)
 
 
 ## 返回受支持 PackedArray 的元素数量；其他类型返回 0。
@@ -815,11 +1017,13 @@ func _describe_signal_connections(source: Node, signal_name: StringName) -> Arra
 		var method_name: String = ""
 		if callable.is_valid():
 			method_name = String(callable.get_method())
-		result.append({
-			"target": str(target),
-			"method_name": method_name,
-			"flags": GFVariantData.get_option_int(connection_info, "flags"),
-		})
+		result.append(
+			{
+				"target": str(target),
+				"method_name": method_name,
+				"flags": GFVariantData.get_option_int(connection_info, "flags"),
+			}
+		)
 	return result
 
 
@@ -833,11 +1037,13 @@ func _describe_watches() -> Array[Dictionary]:
 		var entry: Dictionary = GFVariantData.as_dictionary(entry_variant)
 		if entry.is_empty():
 			continue
-		result.append({
-			"source_path": GFVariantData.get_option_string(entry, "source_path"),
-			"signal_name": GFVariantData.get_option_string(entry, "signal_name"),
-			"argument_count": GFVariantData.get_option_int(entry, "argument_count"),
-		})
+		result.append(
+			{
+				"source_path": GFVariantData.get_option_string(entry, "source_path"),
+				"signal_name": GFVariantData.get_option_string(entry, "signal_name"),
+				"argument_count": GFVariantData.get_option_int(entry, "argument_count"),
+			}
+		)
 	return result
 
 
@@ -862,8 +1068,17 @@ func _redact_probe_paths(value: Variant, options: Dictionary) -> Variant:
 		for key: Variant in source_dictionary.keys():
 			var key_text: String = GFVariantData.to_text(key)
 			var item: Variant = source_dictionary[key]
-			if _is_probe_path_field(key_text) and (typeof(item) == TYPE_STRING or typeof(item) == TYPE_STRING_NAME):
-				result[key] = _redact_probe_path(GFVariantData.to_text(item), options)
+			if (
+				_is_probe_path_field(key_text)
+				and (
+					typeof(item) == TYPE_STRING
+					or typeof(item) == TYPE_STRING_NAME
+				)
+			):
+				result[key] = _redact_probe_path(
+					GFVariantData.to_text(item),
+					options
+				)
 			else:
 				result[key] = _redact_probe_paths(item, options)
 		return result
@@ -881,7 +1096,12 @@ func _redact_probe_paths(value: Variant, options: Dictionary) -> Variant:
 ## @api private
 ## [br]
 func _is_probe_path_field(key: String) -> bool:
-	return key == "source_node_path" or key == "source_path" or key == "resource_path" or key == "script_path"
+	return (
+		key == "source_node_path"
+		or key == "source_path"
+		or key == "resource_path"
+		or key == "script_path"
+	)
 
 
 ## 按 none、basename 或 hash 选项保留、取文件名或哈希路径；其他值替换为占位文本。
@@ -889,7 +1109,11 @@ func _is_probe_path_field(key: String) -> bool:
 ## @api private
 ## [br]
 func _redact_probe_path(path: String, options: Dictionary) -> String:
-	var path_redaction: String = GFVariantData.get_option_string(options, "path_redaction", "redact")
+	var path_redaction: String = GFVariantData.get_option_string(
+		options,
+		"path_redaction",
+		"redact"
+	)
 	if path_redaction == "none":
 		return path
 	if path.is_empty():
@@ -987,7 +1211,16 @@ func _collect_nodes(
 		if not _can_collect_more_nodes(result, max_nodes):
 			scan_state["node_limit_reached"] = true
 			break
-		_collect_nodes(child, result, recursive, include_internal_nodes, depth + 1, max_node_depth, max_nodes, scan_state)
+		_collect_nodes(
+			child,
+			result,
+			recursive,
+			include_internal_nodes,
+			depth + 1,
+			max_node_depth,
+			max_nodes,
+			scan_state
+		)
 
 
 ## 判断是否还可收集节点；非正数上限表示不设节点数限制。
@@ -1003,17 +1236,18 @@ func _can_collect_more_nodes(result: Array[Node], max_nodes: int) -> bool:
 ## @api private
 ## [br]
 func _make_tree_scan_state() -> Dictionary:
-	return {
-		"depth_limit_reached": false,
-		"node_limit_reached": false,
-	}
+	return { "depth_limit_reached": false, "node_limit_reached": false, }
 
 
 ## 将已达到的节点数或深度上限转换为错误代码文本。
 ## [br]
 ## @api private
 ## [br]
-func _get_tree_scan_errors(scan_state: Dictionary, max_node_depth: int, max_nodes: int) -> Array[String]:
+func _get_tree_scan_errors(
+	scan_state: Dictionary,
+	max_node_depth: int,
+	max_nodes: int
+) -> Array[String]:
 	var errors: Array[String] = []
 	if GFVariantData.get_option_bool(scan_state, "depth_limit_reached"):
 		errors.append("max_node_depth_reached:%d" % max_node_depth)
@@ -1081,7 +1315,13 @@ static func _get_dictionary_weak_ref(source: Dictionary, key: Variant) -> WeakRe
 ## @api private
 ## [br]
 static func _get_dictionary_callable(source: Dictionary, key: Variant) -> Callable:
-	return _variant_to_callable(GFVariantData.get_option_value(source, key, Callable()))
+	return _variant_to_callable(
+		GFVariantData.get_option_value(
+			source,
+			key,
+			Callable()
+		)
+	)
 
 
 ## 将 Variant 转换为 WeakRef；值不是 WeakRef 时返回 null。
@@ -1135,14 +1375,22 @@ func _get_live_node_from_id(instance_id: int) -> Node:
 ## @api private
 ## [br]
 func _make_watch_key(source_id: int, signal_name: StringName) -> String:
-	return "%d:%s" % [source_id, String(signal_name)]
+	return (
+		"%d:%s"
+		% [source_id, String(signal_name)]
+	)
 
 
 ## 构造包含成功标志、监视数量、跳过数量和错误副本的报告。
 ## [br]
 ## @api private
 ## [br]
-func _make_report(ok: bool, watched_count: int, skipped_count: int, errors: Array[String]) -> Dictionary:
+func _make_report(
+	ok: bool,
+	watched_count: int,
+	skipped_count: int,
+	errors: Array[String]
+) -> Dictionary:
 	return {
 		"ok": ok,
 		"watched_count": watched_count,
@@ -1157,16 +1405,35 @@ func _make_report(ok: bool, watched_count: int, skipped_count: int, errors: Arra
 ## [br]
 ## @api private
 ## [br]
-func _on_signal_emitted_0(source_id: int, source_path: String, signal_name: StringName) -> void:
-	_record_signal(source_id, source_path, signal_name, [])
+func _on_signal_emitted_0(
+	source_id: int,
+	source_path: String,
+	signal_name: StringName
+) -> void:
+	_record_signal(
+		source_id,
+		source_path,
+		signal_name,
+		[]
+	)
 
 
 ## 接收 1 个信号参数，按发射顺序封装后交给事件记录流程。
 ## [br]
 ## @api private
 ## [br]
-func _on_signal_emitted_1(arg0: Variant, source_id: int, source_path: String, signal_name: StringName) -> void:
-	_record_signal(source_id, source_path, signal_name, [arg0])
+func _on_signal_emitted_1(
+	arg0: Variant,
+	source_id: int,
+	source_path: String,
+	signal_name: StringName
+) -> void:
+	_record_signal(
+		source_id,
+		source_path,
+		signal_name,
+		[arg0]
+	)
 
 
 ## 接收 2 个信号参数，按发射顺序封装后交给事件记录流程。
@@ -1180,7 +1447,12 @@ func _on_signal_emitted_2(
 	source_path: String,
 	signal_name: StringName
 ) -> void:
-	_record_signal(source_id, source_path, signal_name, [arg0, arg1])
+	_record_signal(
+		source_id,
+		source_path,
+		signal_name,
+		[arg0, arg1]
+	)
 
 
 ## 接收 3 个信号参数，按发射顺序封装后交给事件记录流程。
@@ -1195,7 +1467,16 @@ func _on_signal_emitted_3(
 	source_path: String,
 	signal_name: StringName
 ) -> void:
-	_record_signal(source_id, source_path, signal_name, [arg0, arg1, arg2])
+	_record_signal(
+		source_id,
+		source_path,
+		signal_name,
+		[
+			arg0,
+			arg1,
+			arg2,
+		]
+	)
 
 
 ## 接收 4 个信号参数，按发射顺序封装后交给事件记录流程。
@@ -1211,7 +1492,17 @@ func _on_signal_emitted_4(
 	source_path: String,
 	signal_name: StringName
 ) -> void:
-	_record_signal(source_id, source_path, signal_name, [arg0, arg1, arg2, arg3])
+	_record_signal(
+		source_id,
+		source_path,
+		signal_name,
+		[
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		]
+	)
 
 
 ## 接收 5 个信号参数，按发射顺序封装后交给事件记录流程。
@@ -1228,7 +1519,18 @@ func _on_signal_emitted_5(
 	source_path: String,
 	signal_name: StringName
 ) -> void:
-	_record_signal(source_id, source_path, signal_name, [arg0, arg1, arg2, arg3, arg4])
+	_record_signal(
+		source_id,
+		source_path,
+		signal_name,
+		[
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+			arg4,
+		]
+	)
 
 
 ## 接收 6 个信号参数，按发射顺序封装后交给事件记录流程。
@@ -1246,7 +1548,19 @@ func _on_signal_emitted_6(
 	source_path: String,
 	signal_name: StringName
 ) -> void:
-	_record_signal(source_id, source_path, signal_name, [arg0, arg1, arg2, arg3, arg4, arg5])
+	_record_signal(
+		source_id,
+		source_path,
+		signal_name,
+		[
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+			arg4,
+			arg5,
+		]
+	)
 
 
 ## 接收 7 个信号参数，按发射顺序封装后交给事件记录流程。
@@ -1265,7 +1579,20 @@ func _on_signal_emitted_7(
 	source_path: String,
 	signal_name: StringName
 ) -> void:
-	_record_signal(source_id, source_path, signal_name, [arg0, arg1, arg2, arg3, arg4, arg5, arg6])
+	_record_signal(
+		source_id,
+		source_path,
+		signal_name,
+		[
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+			arg4,
+			arg5,
+			arg6,
+		]
+	)
 
 
 ## 接收 8 个信号参数，按发射顺序封装后交给事件记录流程。
@@ -1285,7 +1612,21 @@ func _on_signal_emitted_8(
 	source_path: String,
 	signal_name: StringName
 ) -> void:
-	_record_signal(source_id, source_path, signal_name, [arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7])
+	_record_signal(
+		source_id,
+		source_path,
+		signal_name,
+		[
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+			arg4,
+			arg5,
+			arg6,
+			arg7,
+		]
+	)
 
 
 ## 接收 9 个信号参数，按发射顺序封装后交给事件记录流程。
@@ -1306,7 +1647,22 @@ func _on_signal_emitted_9(
 	source_path: String,
 	signal_name: StringName
 ) -> void:
-	_record_signal(source_id, source_path, signal_name, [arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8])
+	_record_signal(
+		source_id,
+		source_path,
+		signal_name,
+		[
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+			arg4,
+			arg5,
+			arg6,
+			arg7,
+			arg8,
+		]
+	)
 
 
 ## 接收 10 个信号参数，按发射顺序封装后交给事件记录流程。
@@ -1328,9 +1684,23 @@ func _on_signal_emitted_10(
 	source_path: String,
 	signal_name: StringName
 ) -> void:
-	_record_signal(source_id, source_path, signal_name, [
-		arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9,
-	])
+	_record_signal(
+		source_id,
+		source_path,
+		signal_name,
+		[
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+			arg4,
+			arg5,
+			arg6,
+			arg7,
+			arg8,
+			arg9,
+		]
+	)
 
 
 ## 接收 11 个信号参数，按发射顺序封装后交给事件记录流程。
@@ -1353,9 +1723,24 @@ func _on_signal_emitted_11(
 	source_path: String,
 	signal_name: StringName
 ) -> void:
-	_record_signal(source_id, source_path, signal_name, [
-		arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10,
-	])
+	_record_signal(
+		source_id,
+		source_path,
+		signal_name,
+		[
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+			arg4,
+			arg5,
+			arg6,
+			arg7,
+			arg8,
+			arg9,
+			arg10,
+		]
+	)
 
 
 ## 接收 12 个信号参数，按发射顺序封装后交给事件记录流程。
@@ -1379,9 +1764,25 @@ func _on_signal_emitted_12(
 	source_path: String,
 	signal_name: StringName
 ) -> void:
-	_record_signal(source_id, source_path, signal_name, [
-		arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11,
-	])
+	_record_signal(
+		source_id,
+		source_path,
+		signal_name,
+		[
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+			arg4,
+			arg5,
+			arg6,
+			arg7,
+			arg8,
+			arg9,
+			arg10,
+			arg11,
+		]
+	)
 
 
 ## 接收 13 个信号参数，按发射顺序封装后交给事件记录流程。
@@ -1406,9 +1807,26 @@ func _on_signal_emitted_13(
 	source_path: String,
 	signal_name: StringName
 ) -> void:
-	_record_signal(source_id, source_path, signal_name, [
-		arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12,
-	])
+	_record_signal(
+		source_id,
+		source_path,
+		signal_name,
+		[
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+			arg4,
+			arg5,
+			arg6,
+			arg7,
+			arg8,
+			arg9,
+			arg10,
+			arg11,
+			arg12,
+		]
+	)
 
 
 ## 接收 14 个信号参数，按发射顺序封装后交给事件记录流程。
@@ -1434,9 +1852,27 @@ func _on_signal_emitted_14(
 	source_path: String,
 	signal_name: StringName
 ) -> void:
-	_record_signal(source_id, source_path, signal_name, [
-		arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13,
-	])
+	_record_signal(
+		source_id,
+		source_path,
+		signal_name,
+		[
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+			arg4,
+			arg5,
+			arg6,
+			arg7,
+			arg8,
+			arg9,
+			arg10,
+			arg11,
+			arg12,
+			arg13,
+		]
+	)
 
 
 ## 接收 15 个信号参数，按发射顺序封装后交给事件记录流程。
@@ -1463,10 +1899,28 @@ func _on_signal_emitted_15(
 	source_path: String,
 	signal_name: StringName
 ) -> void:
-	_record_signal(source_id, source_path, signal_name, [
-		arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13,
-		arg14,
-	])
+	_record_signal(
+		source_id,
+		source_path,
+		signal_name,
+		[
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+			arg4,
+			arg5,
+			arg6,
+			arg7,
+			arg8,
+			arg9,
+			arg10,
+			arg11,
+			arg12,
+			arg13,
+			arg14,
+		]
+	)
 
 
 ## 接收 16 个信号参数，按发射顺序封装后交给事件记录流程。
@@ -1494,7 +1948,26 @@ func _on_signal_emitted_16(
 	source_path: String,
 	signal_name: StringName
 ) -> void:
-	_record_signal(source_id, source_path, signal_name, [
-		arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13,
-		arg14, arg15,
-	])
+	_record_signal(
+		source_id,
+		source_path,
+		signal_name,
+		[
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+			arg4,
+			arg5,
+			arg6,
+			arg7,
+			arg8,
+			arg9,
+			arg10,
+			arg11,
+			arg12,
+			arg13,
+			arg14,
+			arg15,
+		]
+	)

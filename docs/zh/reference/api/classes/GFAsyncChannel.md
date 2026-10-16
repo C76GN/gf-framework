@@ -32,7 +32,7 @@
 | 常量 | [`OVERFLOW_REJECT`](#member-gfasyncchannel-constants-overflow_reject) | `const OVERFLOW_REJECT: StringName = &"reject"` |
 | 常量 | [`OVERFLOW_DROP_OLDEST`](#member-gfasyncchannel-constants-overflow_drop_oldest) | `const OVERFLOW_DROP_OLDEST: StringName = &"drop_oldest"` |
 | 常量 | [`OVERFLOW_DROP_NEWEST`](#member-gfasyncchannel-constants-overflow_drop_newest) | `const OVERFLOW_DROP_NEWEST: StringName = &"drop_newest"` |
-| 方法 | [`configure_ingress`](#member-gfasyncchannel-methods-configure_ingress) | `func configure_ingress( max_buffered_items: int, overflow_policy: StringName = OVERFLOW_REJECT ) -> bool:` |
+| 方法 | [`configure_ingress`](#member-gfasyncchannel-methods-configure_ingress) | `func configure_ingress(max_buffered_items: int, overflow_policy: StringName = OVERFLOW_REJECT) -> bool:` |
 | 方法 | [`try_write`](#member-gfasyncchannel-methods-try_write) | `func try_write(item: Variant) -> bool:` |
 | 方法 | [`try_write_detailed`](#member-gfasyncchannel-methods-try_write_detailed) | `func try_write_detailed(item: Variant) -> Dictionary:` |
 | 方法 | [`close`](#member-gfasyncchannel-methods-close) | `func close(reason: StringName = STATUS_CLOSED, metadata: Dictionary = {}) -> bool:` |
@@ -305,7 +305,7 @@ const OVERFLOW_DROP_NEWEST: StringName = &"drop_newest"
 - 首次版本：`10.0.0`
 
 ```gdscript
-func configure_ingress( max_buffered_items: int, overflow_policy: StringName = OVERFLOW_REJECT ) -> bool:
+func configure_ingress(max_buffered_items: int, overflow_policy: StringName = OVERFLOW_REJECT) -> bool:
 ```
 
 配置有界缓冲和容量满时的处理策略。 该配置不会驱逐现有数据；max_buffered_items 小于当前缓冲数量时配置失败。

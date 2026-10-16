@@ -126,7 +126,12 @@ var decimal_places: int = 2:
 
 # --- Godot 生命周期方法 ---
 
-func _init(p_raw_x: int = 0, p_raw_y: int = 0, p_raw_z: int = 0, p_decimal_places: int = 2) -> void:
+func _init(
+	p_raw_x: int = 0,
+	p_raw_y: int = 0,
+	p_raw_z: int = 0,
+	p_decimal_places: int = 2
+) -> void:
 	raw_x = _normalize_raw_value(p_raw_x, "init")
 	raw_y = _normalize_raw_value(p_raw_y, "init")
 	raw_z = _normalize_raw_value(p_raw_z, "init")
@@ -156,7 +161,12 @@ static func from_raw(
 	p_raw_z: int,
 	p_decimal_places: int = 2
 ) -> GFFixedVector3:
-	return GFFixedVector3.new(p_raw_x, p_raw_y, p_raw_z, p_decimal_places)
+	return GFFixedVector3.new(
+		p_raw_x,
+		p_raw_y,
+		p_raw_z,
+		p_decimal_places
+	)
 
 
 ## 从普通十进制字符串创建定点三维向量。
@@ -183,10 +193,27 @@ static func from_decimal_strings(
 	p_decimal_places: int = 2,
 	rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP
 ) -> GFFixedVector3:
-	var x_decimal: GFFixedDecimal = GFFixedDecimal.from_string(x_text, p_decimal_places, rounding_mode)
-	var y_decimal: GFFixedDecimal = GFFixedDecimal.from_string(y_text, p_decimal_places, rounding_mode)
-	var z_decimal: GFFixedDecimal = GFFixedDecimal.from_string(z_text, p_decimal_places, rounding_mode)
-	return GFFixedVector3.new(x_decimal.raw_value, y_decimal.raw_value, z_decimal.raw_value, x_decimal.decimal_places)
+	var x_decimal: GFFixedDecimal = GFFixedDecimal.from_string(
+		x_text,
+		p_decimal_places,
+		rounding_mode
+	)
+	var y_decimal: GFFixedDecimal = GFFixedDecimal.from_string(
+		y_text,
+		p_decimal_places,
+		rounding_mode
+	)
+	var z_decimal: GFFixedDecimal = GFFixedDecimal.from_string(
+		z_text,
+		p_decimal_places,
+		rounding_mode
+	)
+	return GFFixedVector3.new(
+		x_decimal.raw_value,
+		y_decimal.raw_value,
+		z_decimal.raw_value,
+		x_decimal.decimal_places
+	)
 
 
 ## 从 Godot Vector3 创建定点三维向量。
@@ -208,10 +235,27 @@ static func from_vector3(
 	p_decimal_places: int = 2,
 	rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP
 ) -> GFFixedVector3:
-	var x_decimal: GFFixedDecimal = GFFixedDecimal.from_float(value.x, p_decimal_places, rounding_mode)
-	var y_decimal: GFFixedDecimal = GFFixedDecimal.from_float(value.y, p_decimal_places, rounding_mode)
-	var z_decimal: GFFixedDecimal = GFFixedDecimal.from_float(value.z, p_decimal_places, rounding_mode)
-	return GFFixedVector3.new(x_decimal.raw_value, y_decimal.raw_value, z_decimal.raw_value, x_decimal.decimal_places)
+	var x_decimal: GFFixedDecimal = GFFixedDecimal.from_float(
+		value.x,
+		p_decimal_places,
+		rounding_mode
+	)
+	var y_decimal: GFFixedDecimal = GFFixedDecimal.from_float(
+		value.y,
+		p_decimal_places,
+		rounding_mode
+	)
+	var z_decimal: GFFixedDecimal = GFFixedDecimal.from_float(
+		value.z,
+		p_decimal_places,
+		rounding_mode
+	)
+	return GFFixedVector3.new(
+		x_decimal.raw_value,
+		y_decimal.raw_value,
+		z_decimal.raw_value,
+		x_decimal.decimal_places
+	)
 
 
 ## 从状态字典恢复定点三维向量。
@@ -254,7 +298,12 @@ static func from_bytes(data: PackedByteArray) -> GFFixedVector3:
 ## [br]
 ## @return 内容相同的新实例。
 func clone() -> GFFixedVector3:
-	return GFFixedVector3.new(raw_x, raw_y, raw_z, decimal_places)
+	return GFFixedVector3.new(
+		raw_x,
+		raw_y,
+		raw_z,
+		decimal_places
+	)
 
 
 ## 当前向量是否为零向量。
@@ -265,7 +314,11 @@ func clone() -> GFFixedVector3:
 ## [br]
 ## @return 三个 raw 分量都为 0 时返回 true。
 func is_zero() -> bool:
-	return raw_x == 0 and raw_y == 0 and raw_z == 0
+	return (
+		raw_x == 0
+		and raw_y == 0
+		and raw_z == 0
+	)
 
 
 ## X 分量转为 GFFixedDecimal。
@@ -310,7 +363,11 @@ func get_z_decimal() -> GFFixedDecimal:
 ## [br]
 ## @return Godot 浮点三维向量。
 func to_vector3() -> Vector3:
-	return Vector3(get_x_decimal().to_float(), get_y_decimal().to_float(), get_z_decimal().to_float())
+	return Vector3(
+		get_x_decimal().to_float(),
+		get_y_decimal().to_float(),
+		get_z_decimal().to_float()
+	)
 
 
 ## 重设小数位数。
@@ -324,14 +381,16 @@ func to_vector3() -> Vector3:
 ## @param rounding_mode: 降位时的舍入策略。
 ## [br]
 ## @return 重设后的定点三维向量。
-func rescaled(
-	target_decimal_places: int,
-	rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP
-) -> GFFixedVector3:
+func rescaled(target_decimal_places: int, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP) -> GFFixedVector3:
 	var x_decimal: GFFixedDecimal = get_x_decimal().rescaled(target_decimal_places, rounding_mode)
 	var y_decimal: GFFixedDecimal = get_y_decimal().rescaled(target_decimal_places, rounding_mode)
 	var z_decimal: GFFixedDecimal = get_z_decimal().rescaled(target_decimal_places, rounding_mode)
-	return GFFixedVector3.new(x_decimal.raw_value, y_decimal.raw_value, z_decimal.raw_value, x_decimal.decimal_places)
+	return GFFixedVector3.new(
+		x_decimal.raw_value,
+		y_decimal.raw_value,
+		z_decimal.raw_value,
+		x_decimal.decimal_places
+	)
 
 
 ## 获取相反向量。
@@ -366,7 +425,12 @@ func add(other: GFFixedVector3) -> GFFixedVector3:
 	var x_decimal: GFFixedDecimal = get_x_decimal().add(other.get_x_decimal())
 	var y_decimal: GFFixedDecimal = get_y_decimal().add(other.get_y_decimal())
 	var z_decimal: GFFixedDecimal = get_z_decimal().add(other.get_z_decimal())
-	return GFFixedVector3.new(x_decimal.raw_value, y_decimal.raw_value, z_decimal.raw_value, x_decimal.decimal_places)
+	return GFFixedVector3.new(
+		x_decimal.raw_value,
+		y_decimal.raw_value,
+		z_decimal.raw_value,
+		x_decimal.decimal_places
+	)
 
 
 ## 与另一个定点三维向量相减。
@@ -405,10 +469,27 @@ func multiply_scalar(
 	if scalar == null:
 		return clone()
 
-	var x_decimal: GFFixedDecimal = get_x_decimal().multiply(scalar, target_decimal_places, rounding_mode)
-	var y_decimal: GFFixedDecimal = get_y_decimal().multiply(scalar, target_decimal_places, rounding_mode)
-	var z_decimal: GFFixedDecimal = get_z_decimal().multiply(scalar, target_decimal_places, rounding_mode)
-	return GFFixedVector3.new(x_decimal.raw_value, y_decimal.raw_value, z_decimal.raw_value, x_decimal.decimal_places)
+	var x_decimal: GFFixedDecimal = get_x_decimal().multiply(
+		scalar,
+		target_decimal_places,
+		rounding_mode
+	)
+	var y_decimal: GFFixedDecimal = get_y_decimal().multiply(
+		scalar,
+		target_decimal_places,
+		rounding_mode
+	)
+	var z_decimal: GFFixedDecimal = get_z_decimal().multiply(
+		scalar,
+		target_decimal_places,
+		rounding_mode
+	)
+	return GFFixedVector3.new(
+		x_decimal.raw_value,
+		y_decimal.raw_value,
+		z_decimal.raw_value,
+		x_decimal.decimal_places
+	)
 
 
 ## 计算点积。
@@ -432,9 +513,27 @@ func dot(
 	if other == null:
 		return GFFixedDecimal.new(0, decimal_places)
 
-	var x_product: GFFixedDecimal = get_x_decimal().multiply(other.get_x_decimal(), target_decimal_places, rounding_mode)
-	var y_product: GFFixedDecimal = get_y_decimal().multiply(other.get_y_decimal(), target_decimal_places, rounding_mode)
-	var z_product: GFFixedDecimal = get_z_decimal().multiply(other.get_z_decimal(), target_decimal_places, rounding_mode)
+	var x_product: GFFixedDecimal = (
+		get_x_decimal().multiply(
+			other.get_x_decimal(),
+			target_decimal_places,
+			rounding_mode
+		)
+	)
+	var y_product: GFFixedDecimal = (
+		get_y_decimal().multiply(
+			other.get_y_decimal(),
+			target_decimal_places,
+			rounding_mode
+		)
+	)
+	var z_product: GFFixedDecimal = (
+		get_z_decimal().multiply(
+			other.get_z_decimal(),
+			target_decimal_places,
+			rounding_mode
+		)
+	)
 	return x_product.add(y_product).add(z_product)
 
 
@@ -449,11 +548,12 @@ func dot(
 ## @param rounding_mode: 结果降位时的舍入策略。
 ## [br]
 ## @return 长度平方定点数。
-func length_squared(
-	target_decimal_places: int = -1,
-	rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP
-) -> GFFixedDecimal:
-	return dot(self, target_decimal_places, rounding_mode)
+func length_squared(target_decimal_places: int = -1, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP) -> GFFixedDecimal:
+	return dot(
+		self,
+		target_decimal_places,
+		rounding_mode
+	)
 
 
 ## 判断 raw 分量和小数位是否完全一致。
@@ -517,7 +617,11 @@ func apply_dict(data: Dictionary) -> bool:
 	var raw_x_data: Variant = GFVariantData.get_option_value(data, "raw_x")
 	var raw_y_data: Variant = GFVariantData.get_option_value(data, "raw_y")
 	var raw_z_data: Variant = GFVariantData.get_option_value(data, "raw_z")
-	var places: int = GFVariantData.get_option_int(data, "decimal_places", -1)
+	var places: int = GFVariantData.get_option_int(
+		data,
+		"decimal_places",
+		-1
+	)
 	if (
 		type_name != _SERIALIZATION_TYPE
 		or version != _SERIALIZATION_VERSION
@@ -553,9 +657,24 @@ func to_bytes() -> PackedByteArray:
 	var _magic_3: bool = result.append(_BYTE_MAGIC_3)
 	var _version_appended: bool = result.append(_SERIALIZATION_VERSION)
 	var _places_appended: bool = result.append(_normalize_decimal_places(decimal_places))
-	result = _append_signed_magnitude(result, raw_x, "GFFixedVector3", "to_bytes")
-	result = _append_signed_magnitude(result, raw_y, "GFFixedVector3", "to_bytes")
-	result = _append_signed_magnitude(result, raw_z, "GFFixedVector3", "to_bytes")
+	result = _append_signed_magnitude(
+		result,
+		raw_x,
+		"GFFixedVector3",
+		"to_bytes"
+	)
+	result = _append_signed_magnitude(
+		result,
+		raw_y,
+		"GFFixedVector3",
+		"to_bytes"
+	)
+	result = _append_signed_magnitude(
+		result,
+		raw_z,
+		"GFFixedVector3",
+		"to_bytes"
+	)
 	return result
 
 
@@ -574,9 +693,21 @@ func apply_bytes(data: PackedByteArray) -> bool:
 		_reset_serialized_zero()
 		return false
 
-	var x_value: int = _read_signed_magnitude(data, 6, _BYTE_X_MAGNITUDE_OFFSET)
-	var y_value: int = _read_signed_magnitude(data, _BYTE_Y_SIGN_OFFSET, _BYTE_Y_MAGNITUDE_OFFSET)
-	var z_value: int = _read_signed_magnitude(data, _BYTE_Z_SIGN_OFFSET, _BYTE_Z_MAGNITUDE_OFFSET)
+	var x_value: int = _read_signed_magnitude(
+		data,
+		6,
+		_BYTE_X_MAGNITUDE_OFFSET
+	)
+	var y_value: int = _read_signed_magnitude(
+		data,
+		_BYTE_Y_SIGN_OFFSET,
+		_BYTE_Y_MAGNITUDE_OFFSET
+	)
+	var z_value: int = _read_signed_magnitude(
+		data,
+		_BYTE_Z_SIGN_OFFSET,
+		_BYTE_Z_MAGNITUDE_OFFSET
+	)
 	if (
 		_signed_magnitude_is_invalid(x_value)
 		or _signed_magnitude_is_invalid(y_value)
@@ -640,7 +771,12 @@ static func _append_signed_magnitude(
 	var result: PackedByteArray = target
 	var _ignored: Variant = _call_serialization_support(
 		&"append_signed_magnitude",
-		[result, value, owner_name, context]
+		[
+			result,
+			value,
+			owner_name,
+			context,
+		]
 	)
 	return result
 
@@ -652,7 +788,11 @@ static func _append_signed_magnitude(
 static func _normalize_raw_value(value: int, context: String) -> int:
 	return _call_serialization_support_int(
 		&"normalize_raw_value",
-		[value, "GFFixedVector3", context],
+		[
+			value,
+			"GFFixedVector3",
+			context,
+		],
 		value
 	)
 
@@ -661,14 +801,21 @@ static func _normalize_raw_value(value: int, context: String) -> int:
 ## [br]
 ## @api private
 static func _normalize_decimal_places(value: int) -> int:
-	return _call_serialization_support_int(&"normalize_decimal_places", [value, "GFFixedVector3"], value)
+	return _call_serialization_support_int(
+		&"normalize_decimal_places",
+		[value, "GFFixedVector3"],
+		value
+	)
 
 
 ## 委托共享序列化脚本检查小数位是否处于状态格式允许范围。
 ## [br]
 ## @api private
 static func _decimal_places_are_in_serialized_range(value: int) -> bool:
-	return _call_serialization_support_bool(&"decimal_places_are_in_serialized_range", [value])
+	return _call_serialization_support_bool(
+		&"decimal_places_are_in_serialized_range",
+		[value]
+	)
 
 
 ## 检查数据长度、GFF3 标识、版本号及小数位范围。
@@ -689,10 +836,18 @@ static func _bytes_have_supported_header(data: PackedByteArray) -> bool:
 ## 委托共享脚本读取符号位与幅值；返回类型不符时使用无效哨兵。
 ## [br]
 ## @api private
-static func _read_signed_magnitude(data: PackedByteArray, sign_offset: int, magnitude_offset: int) -> int:
+static func _read_signed_magnitude(
+	data: PackedByteArray,
+	sign_offset: int,
+	magnitude_offset: int
+) -> int:
 	return _call_serialization_support_int(
 		&"read_signed_magnitude",
-		[data, sign_offset, magnitude_offset],
+		[
+			data,
+			sign_offset,
+			magnitude_offset,
+		],
 		_INVALID_SIGNED_MAGNITUDE
 	)
 
@@ -701,21 +856,30 @@ static func _read_signed_magnitude(data: PackedByteArray, sign_offset: int, magn
 ## [br]
 ## @api private
 static func _signed_magnitude_is_invalid(value: int) -> bool:
-	return _call_serialization_support_bool(&"signed_magnitude_is_invalid", [value])
+	return _call_serialization_support_bool(
+		&"signed_magnitude_is_invalid",
+		[value]
+	)
 
 
 ## 委托共享脚本判断状态字段是否是受支持的整数 raw 值。
 ## [br]
 ## @api private
 static func _state_value_is_int(value: Variant) -> bool:
-	return _call_serialization_support_bool(&"state_value_is_int", [value])
+	return _call_serialization_support_bool(
+		&"state_value_is_int",
+		[value]
+	)
 
 
 ## 委托共享脚本把已校验的状态字段转换为整数 raw 值。
 ## [br]
 ## @api private
 static func _state_value_to_int(value: Variant) -> int:
-	return _call_serialization_support_int(&"state_value_to_int", [value])
+	return _call_serialization_support_int(
+		&"state_value_to_int",
+		[value]
+	)
 
 
 ## 序列化输入无效时将三个分量清零，并将小数位恢复为 2。

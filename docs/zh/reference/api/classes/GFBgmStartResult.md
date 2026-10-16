@@ -29,7 +29,7 @@
 | 常量 | [`REASON_OWNER_UNAVAILABLE`](#member-gfbgmstartresult-constants-reason_owner_unavailable) | `const REASON_OWNER_UNAVAILABLE: StringName = &"owner_unavailable"` |
 | 常量 | [`REASON_ASSET_LOAD_FAILED`](#member-gfbgmstartresult-constants-reason_asset_load_failed) | `const REASON_ASSET_LOAD_FAILED: StringName = &"asset_load_failed"` |
 | 常量 | [`REASON_STREAM_UNPLAYABLE`](#member-gfbgmstartresult-constants-reason_stream_unplayable) | `const REASON_STREAM_UNPLAYABLE: StringName = &"stream_unplayable"` |
-| 常量 | [`REASON_BACKEND_REJECTED_AND_LOCAL_FAILED`](#member-gfbgmstartresult-constants-reason_backend_rejected_and_local_failed) | `const REASON_BACKEND_REJECTED_AND_LOCAL_FAILED: StringName = ( 	&"backend_rejected_and_local_failed" )` |
+| 常量 | [`REASON_BACKEND_REJECTED_AND_LOCAL_FAILED`](#member-gfbgmstartresult-constants-reason_backend_rejected_and_local_failed) | `const REASON_BACKEND_REJECTED_AND_LOCAL_FAILED: StringName = &"backend_rejected_and_local_failed"` |
 | 常量 | [`REASON_BACKEND_OWNER_RELEASE_FAILED`](#member-gfbgmstartresult-constants-reason_backend_owner_release_failed) | `const REASON_BACKEND_OWNER_RELEASE_FAILED: StringName = &"backend_owner_release_failed"` |
 | 常量 | [`REASON_LOCAL_PLAYER_REJECTED`](#member-gfbgmstartresult-constants-reason_local_player_rejected) | `const REASON_LOCAL_PLAYER_REJECTED: StringName = &"local_player_rejected"` |
 | 常量 | [`REASON_SESSION_PUBLICATION_FAILED`](#member-gfbgmstartresult-constants-reason_session_publication_failed) | `const REASON_SESSION_PUBLICATION_FAILED: StringName = &"session_publication_failed"` |
@@ -270,9 +270,7 @@ const REASON_STREAM_UNPLAYABLE: StringName = &"stream_unplayable"
 - 首次版本：`11.0.0`
 
 ```gdscript
-const REASON_BACKEND_REJECTED_AND_LOCAL_FAILED: StringName = (
-	&"backend_rejected_and_local_failed"
-)
+const REASON_BACKEND_REJECTED_AND_LOCAL_FAILED: StringName = &"backend_rejected_and_local_failed"
 ```
 
 后端拒绝后，本地 fallback 也无法开始。

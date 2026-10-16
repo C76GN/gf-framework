@@ -14,17 +14,33 @@ extends RefCounted
 ## 固定状态根不属于源码观察范围，项目声明不能重复或覆盖它们。
 ## [br]
 ## @api private
-const _FIXED_EXCLUSIONS: PackedStringArray = [".git", ".godot", ".import"]
+const _FIXED_EXCLUSIONS: PackedStringArray = [
+	".git",
+	".godot",
+	".import",
+]
 
 ## 必须可观察的项目配置与人工契约，不能由排除声明隐藏。
 ## [br]
 ## @api private
-const _FIXED_PROTECTED_SOURCES: PackedStringArray = ["project.godot", "gf_project_profile.json", ".gf/project_profile.json", "project_profile.json", ".gf/project_contract.json", "addons/gf/tools/project_layout/contracts/project_profile_v2.contract.json"]
+const _FIXED_PROTECTED_SOURCES: PackedStringArray = [
+	"project.godot",
+	"gf_project_profile.json",
+	".gf/project_profile.json",
+	"project_profile.json",
+	".gf/project_contract.json",
+	"addons/gf/tools/project_layout/contracts/project_profile_v2.contract.json",
+]
 
 ## 声明字段闭集；根是锚定 source_root 的逻辑 res:// 容器。
 ## [br]
 ## @api private
-const _DECLARATION_FIELDS: PackedStringArray = ["schema_version", "root_path", "required_roots", "excluded_roots"]
+const _DECLARATION_FIELDS: PackedStringArray = [
+	"schema_version",
+	"root_path",
+	"required_roots",
+	"excluded_roots",
+]
 
 ## 保护集合包含推导来源，仍受有限整体数量约束。
 ## [br]
@@ -57,7 +73,13 @@ static func normalize_declaration(value: Dictionary) -> Dictionary:
 	if not root_value is String:
 		return _declaration_failure("capture_scope.root_path 必须是逻辑 res:// 容器。")
 	var logical_root: String = root_value
-	if not logical_root.begins_with("res://") or (logical_root != "res://" and not literal_path_is_valid(logical_root.substr(6))):
+	if (
+		not logical_root.begins_with("res://")
+		or (
+			logical_root != "res://"
+			and not literal_path_is_valid(logical_root.substr(6))
+		)
+	):
 		return _declaration_failure("capture_scope.root_path 不是规范逻辑容器。")
 	var required_value: Variant = value.get("required_roots")
 	var excluded_value: Variant = value.get("excluded_roots")
@@ -86,7 +108,10 @@ static func normalize_declaration(value: Dictionary) -> Dictionary:
 		if not item is Dictionary:
 			return _declaration_failure("excluded_roots 条目必须是闭合字典。")
 		var entry: Dictionary = item
-		if not _exact_fields(entry, PackedStringArray(["path", "kind"])) or not entry.get("path") is String:
+		if not _exact_fields(
+			entry,
+			PackedStringArray(["path", "kind"])
+		) or not entry.get("path") is String:
 			return _declaration_failure("excluded_roots 条目字段无效。")
 		var path: String = entry["path"]
 		if not literal_path_is_valid(path) or not ["generated_evidence", "disposable"].has(entry.get("kind")):
@@ -95,10 +120,19 @@ static func normalize_declaration(value: Dictionary) -> Dictionary:
 			if paths_intersect(path, other):
 				return _declaration_failure("排除根重复、重叠或覆盖固定状态根。")
 		var _append_excluded_path: bool = excluded_paths.append(path)
-		excluded.append({"path": path, "kind": entry["kind"]})
+		excluded.append({ "path": path, "kind": entry["kind"] })
 	required.sort()
 	excluded.sort_custom(_excluded_precedes)
-	return {"success": true, "declaration": {"schema_version": 1, "root_path": logical_root, "required_roots": required, "excluded_roots": excluded}, "error": ""}
+	return {
+		"success": true,
+		"declaration": {
+			"schema_version": 1,
+			"root_path": logical_root,
+			"required_roots": required,
+			"excluded_roots": excluded,
+		},
+		"error": "",
+	}
 
 
 ## 将唯一 compiled policy 的声明绑定实际 source/capture 根并推导不可隐藏来源。
@@ -118,7 +152,11 @@ static func normalize_declaration(value: Dictionary) -> Dictionary:
 ## @return 闭合 success、binding 和 error；binding 只含纯数据。
 ## [br]
 ## @schema return: Dictionary，精确包含 success: bool、binding: Dictionary 和 error: String；成功 binding 精确包含 capture_scope: Dictionary、source_root: String、root_path: String、protected_roots: Array[String]、profile_source_path: String、excluded_prefixes: Array[String] 和 policy_digest: String；失败 binding 为 {}。
-static func prepare(profile: Dictionary, root_path: String, options: Dictionary) -> Dictionary:
+static func prepare(
+	profile: Dictionary,
+	root_path: String,
+	options: Dictionary
+) -> Dictionary:
 	var source_value: Variant = options.get("source_root", "res://")
 	if not source_value is String:
 		return _binding_failure("source_root 必须是规范来源根。")
@@ -130,7 +168,18 @@ static func prepare(profile: Dictionary, root_path: String, options: Dictionary)
 	var default_logical_root: String = "res://"
 	if capture_physical.begins_with(source_physical + "/"):
 		default_logical_root += capture_physical.substr(source_physical.length() + 1)
-	var declaration_value: Variant = profile.get("capture_scope", options.get("capture_scope", {"schema_version": 1, "root_path": default_logical_root, "required_roots": [], "excluded_roots": []}))
+	var declaration_value: Variant = profile.get(
+		"capture_scope",
+		options.get(
+			"capture_scope",
+			{
+				"schema_version": 1,
+				"root_path": default_logical_root,
+				"required_roots": [],
+				"excluded_roots": [],
+			}
+		)
+	)
 	if not declaration_value is Dictionary:
 		return _binding_failure("capture_scope 必须是字典。")
 	var declaration_input: Dictionary = declaration_value
@@ -148,7 +197,7 @@ static func prepare(profile: Dictionary, root_path: String, options: Dictionary)
 		if not option_normalized["success"] or option_normalized["declaration"] != declaration:
 			return _binding_failure("options.capture_scope 与 Profile 声明不一致。")
 	var logical_root: String = declaration["root_path"]
-	var resolved: String = source_physical if logical_root == "res://" else source_physical.path_join(logical_root.substr(6))
+	var resolved: String = (source_physical if logical_root == "res://" else source_physical.path_join(logical_root.substr(6)))
 	if resolved != capture_physical:
 		return _binding_failure("声明容器映射与请求捕获根不一致。")
 	var protected: Array[String] = []
@@ -163,7 +212,10 @@ static func prepare(profile: Dictionary, root_path: String, options: Dictionary)
 	if not profile_source_path.is_empty():
 		var profile_physical: String = physical_root(profile_source_path)
 		if profile_physical.begins_with(capture_physical + "/"):
-			_append_unique(protected, profile_physical.substr(capture_physical.length() + 1))
+			_append_unique(
+				protected,
+				profile_physical.substr(capture_physical.length() + 1)
+			)
 	for zone_value: Variant in _array(profile, "zones"):
 		if not zone_value is Dictionary:
 			return _binding_failure("保护 zone 必须为已编译字典。")
@@ -183,7 +235,10 @@ static func prepare(profile: Dictionary, root_path: String, options: Dictionary)
 			return _binding_failure("保护 rule kind 必须为 String。")
 		var rule_kind: String = rule_kind_value
 		if rule_kind in ["path_exists", "feature_module_contract"]:
-			for path_value: Variant in _array(rule, "paths" if rule_kind == "path_exists" else "roots"):
+			for path_value: Variant in _array(
+				rule,
+				"paths" if rule_kind == "path_exists" else "roots"
+			):
 				if not path_value is String:
 					return _binding_failure("保护 rule 根必须为规范路径。")
 				var path: String = path_value
@@ -195,7 +250,11 @@ static func prepare(profile: Dictionary, root_path: String, options: Dictionary)
 	protected.sort()
 	var protected_seen: Dictionary = {}
 	for path: String in protected:
-		if path.length() > 16_379 or not _relative_shape_is_valid(path) or protected_seen.has(path.to_lower()):
+		if (
+			path.length() > 16_379
+			or not _relative_shape_is_valid(path)
+			or protected_seen.has(path.to_lower())
+		):
 			return _binding_failure("保护来源路径无效或存在大小写 alias。")
 		protected_seen[path.to_lower()] = true
 	var prefixes: Array[String] = []
@@ -208,9 +267,20 @@ static func prepare(profile: Dictionary, root_path: String, options: Dictionary)
 			if paths_intersect(path, protected_path):
 				return _binding_failure("排除根与必需来源相交：%s。" % protected_path)
 	prefixes.sort()
-	var binding: Dictionary = {"capture_scope": declaration, "source_root": source_physical, "root_path": root_path, "protected_roots": protected, "profile_source_path": profile_source_path, "excluded_prefixes": prefixes}
+	var binding: Dictionary = {
+		"capture_scope": declaration,
+		"source_root": source_physical,
+		"root_path": root_path,
+		"protected_roots": protected,
+		"profile_source_path": profile_source_path,
+		"excluded_prefixes": prefixes,
+	}
 	binding["policy_digest"] = JSON.stringify(binding).sha256_text()
-	return {"success": true, "binding": binding, "error": ""}
+	return {
+		"success": true,
+		"binding": binding,
+		"error": "",
+	}
 
 
 ## 检查闭合 binding 的自身身份，跨消费者使用相同声明/排除/保护映射。
@@ -223,10 +293,28 @@ static func prepare(profile: Dictionary, root_path: String, options: Dictionary)
 ## [br]
 ## @return 是否完整、规范且 digest 精确匹配。
 static func binding_is_valid(binding: Dictionary) -> bool:
-	if not _exact_fields(binding, PackedStringArray(["capture_scope", "source_root", "root_path", "protected_roots", "profile_source_path", "excluded_prefixes", "policy_digest"])):
+	if not _exact_fields(
+		binding,
+		PackedStringArray(
+			[
+				"capture_scope",
+				"source_root",
+				"root_path",
+				"protected_roots",
+				"profile_source_path",
+				"excluded_prefixes",
+				"policy_digest",
+			]
+		)
+	):
 		return false
 	var declaration_value: Variant = binding.get("capture_scope")
-	if not declaration_value is Dictionary or not binding.get("source_root") is String or not binding.get("root_path") is String or not binding.get("profile_source_path") is String:
+	if (
+		not declaration_value is Dictionary
+		or not binding.get("source_root") is String
+		or not binding.get("root_path") is String
+		or not binding.get("profile_source_path") is String
+	):
 		return false
 	var declaration_input: Dictionary = declaration_value
 	var normalized: Dictionary = normalize_declaration(declaration_input)
@@ -246,14 +334,28 @@ static func binding_is_valid(binding: Dictionary) -> bool:
 		if not path_value is String:
 			return false
 		var path: String = path_value
-		if path.length() > 16_379 or not _relative_shape_is_valid(path) or protected_seen.has(path.to_lower()) or (not previous.is_empty() and previous >= path):
+		if (
+			path.length() > 16_379
+			or not _relative_shape_is_valid(path)
+			or protected_seen.has(path.to_lower())
+			or (
+				not previous.is_empty()
+				and previous >= path
+			)
+		):
 			return false
 		protected_seen[path.to_lower()] = true
 		previous = path
 	var source_root: String = binding["source_root"]
 	var root_path: String = binding["root_path"]
 	var profile_source_path: String = binding["profile_source_path"]
-	if not profile_source_path.is_empty() and (profile_source_path.length() > 16_384 or not root_is_canonical(profile_source_path)):
+	if (
+		not profile_source_path.is_empty()
+		and (
+			profile_source_path.length() > 16_384
+			or not root_is_canonical(profile_source_path)
+		)
+	):
 		return false
 	for fixed_path: String in _FIXED_PROTECTED_SOURCES:
 		if not protected.has(fixed_path):
@@ -264,10 +366,21 @@ static func binding_is_valid(binding: Dictionary) -> bool:
 	if not profile_source_path.is_empty():
 		var profile_physical: String = physical_root(profile_source_path)
 		var capture_physical: String = physical_root(root_path)
-		if profile_physical.begins_with(capture_physical + "/") and not protected.has(profile_physical.substr(capture_physical.length() + 1)):
+		if (profile_physical.begins_with(capture_physical + "/") and not protected.has(profile_physical.substr(capture_physical.length() + 1))):
 			return false
-	var reconstructed: Dictionary = {"capture_scope": declaration_input, "source_root": source_root, "root_path": root_path, "protected_roots": protected, "profile_source_path": profile_source_path, "excluded_prefixes": prefixes}
-	if not root_is_canonical(source_root) or source_root.begins_with("res://") or not root_is_canonical(root_path):
+	var reconstructed: Dictionary = {
+		"capture_scope": declaration_input,
+		"source_root": source_root,
+		"root_path": root_path,
+		"protected_roots": protected,
+		"profile_source_path": profile_source_path,
+		"excluded_prefixes": prefixes,
+	}
+	if (
+		not root_is_canonical(source_root)
+		or source_root.begins_with("res://")
+		or not root_is_canonical(root_path)
+	):
 		return false
 	var logical_root: String = declaration_input["root_path"]
 	var resolved: String = source_root if logical_root == "res://" else source_root.path_join(logical_root.substr(6))
@@ -299,7 +412,11 @@ static func binding_is_valid(binding: Dictionary) -> bool:
 ## @schema return: Dictionary，精确包含 success: bool、states: Array[Dictionary] 和 error: String。
 static func capture_root_states(binding: Dictionary) -> Dictionary:
 	if not binding_is_valid(binding):
-		return {"success": false, "states": [], "error": "捕获身份必须绑定有效范围声明。"}
+		return {
+			"success": false,
+			"states": [],
+			"error": "捕获身份必须绑定有效范围声明。",
+		}
 	var states: Array[Dictionary] = []
 	var identity_requests: Dictionary = {}
 	var bound_root: String = binding["root_path"]
@@ -313,18 +430,44 @@ static func capture_root_states(binding: Dictionary) -> Dictionary:
 			_append_unique(paths, current_path)
 	for path: String in paths:
 		if path_crosses_link(path):
-			return {"success": false, "states": [], "error": "排除根或父链不能穿过 link/junction。"}
+			return {
+				"success": false,
+				"states": [],
+				"error": "排除根或父链不能穿过 link/junction。",
+			}
 		var exists: bool = DirAccess.dir_exists_absolute(path)
 		if FileAccess.file_exists(path):
-			return {"success": false, "states": [], "error": "排除根或父链必须是目录。"}
+			return {
+				"success": false,
+				"states": [],
+				"error": "排除根或父链必须是目录。",
+			}
 		var directory: DirAccess = DirAccess.open(path) if exists else null
-		if exists and (directory == null or directory.get_current_dir().replace("\\", "/").trim_suffix("/") != path):
-			return {"success": false, "states": [], "error": "排除根或父链实际目录 identity 不匹配。"}
-		states.append({"path": path, "exists": exists})
+		if (
+			exists
+			and (
+				directory == null
+				or directory.get_current_dir().replace("\\", "/").trim_suffix("/") != path
+			)
+		):
+			return {
+				"success": false,
+				"states": [],
+				"error": "排除根或父链实际目录 identity 不匹配。",
+			}
+		states.append({ "path": path, "exists": exists })
 		_register_identity_path(path, identity_requests)
 	if not _qualify_directory_entries(identity_requests):
-		return {"success": false, "states": [], "error": "实际目录条目拼写不匹配或身份枚举超过有限预算。"}
-	return {"success": true, "states": states, "error": ""}
+		return {
+			"success": false,
+			"states": [],
+			"error": "实际目录条目拼写不匹配或身份枚举超过有限预算。",
+		}
+	return {
+		"success": true,
+		"states": states,
+		"error": "",
+	}
 
 
 ## 只接受规范 res:// 根或绝对本地路径，拒绝点段、链接别名与设备/网络路径形状。
@@ -335,11 +478,25 @@ static func capture_root_states(binding: Dictionary) -> Dictionary:
 ## [br]
 ## @return 路径是否具有规范形状；物理 link 检查独立执行。
 static func root_is_canonical(path: String) -> bool:
-	if path.is_empty() or path.length() > 16_384 or path != path.strip_edges() or path.contains("\\") or path.ends_with("/") and path != "res://" and path != "/":
+	if (
+		path.is_empty()
+		or path.length() > 16_384
+		or path != path.strip_edges()
+		or path.contains("\\")
+		or (
+			path.ends_with("/")
+			and path != "res://"
+			and path != "/"
+		)
+	):
 		return false
 	if path.begins_with("res://"):
 		return path == "res://" or _relative_shape_is_valid(path.substr(6))
-	if not path.is_absolute_path() or path.begins_with("//") or path.contains("://"):
+	if (
+		not path.is_absolute_path()
+		or path.begins_with("//")
+		or path.contains("://")
+	):
 		return false
 	var tail: String = path.substr(3) if path.length() > 2 and path[1] == ":" else path.substr(1)
 	return not tail.is_empty() and _relative_shape_is_valid(tail)
@@ -367,13 +524,38 @@ static func literal_path_is_valid(path: String) -> bool:
 	if path.length() > 1_024 or not _relative_shape_is_valid(path):
 		return false
 	for codepoint: int in path.to_utf8_buffer():
-		if codepoint < 33 or codepoint > 126 or codepoint in [34, 42, 60, 62, 63, 91, 93, 124]:
+		if (
+			codepoint < 33
+			or codepoint > 126
+			or codepoint in [
+				34,
+				42,
+				60,
+				62,
+				63,
+				91,
+				93,
+				124,
+			]
+		):
 			return false
 	for segment: String in path.split("/"):
 		if segment.ends_with(".") or segment.ends_with(" "):
 			return false
 		var stem: String = segment.get_slice(".", 0).to_lower()
-		if stem in ["con", "prn", "aux", "nul"] or (stem.length() == 4 and stem.left(3) in ["com", "lpt"] and stem[3] in "123456789"):
+		if (
+			stem in [
+				"con",
+				"prn",
+				"aux",
+				"nul",
+			]
+			or (
+				stem.length() == 4
+				and stem.left(3) in ["com", "lpt"]
+				and stem[3] in "123456789"
+			)
+		):
 			return false
 	return true
 
@@ -390,7 +572,11 @@ static func literal_path_is_valid(path: String) -> bool:
 static func paths_intersect(left: String, right: String) -> bool:
 	var left_key: String = left.to_lower()
 	var right_key: String = right.to_lower()
-	return left_key == right_key or left_key.begins_with(right_key + "/") or right_key.begins_with(left_key + "/")
+	return (
+		left_key == right_key
+		or left_key.begins_with(right_key + "/")
+		or right_key.begins_with(left_key + "/")
+	)
 
 
 ## 逐父目录检查 link，保留 DirAccess 路径级并发窗口，不声称原子 no-follow。
@@ -420,7 +606,14 @@ static func path_crosses_link(path: String) -> bool:
 ## @api private
 static func _register_identity_path(path: String, requests: Dictionary) -> void:
 	var current: String = path
-	while current != "/" and not (current.length() == 3 and current[1] == ":" and current[2] == "/"):
+	while (
+		current != "/"
+		and not (
+			current.length() == 3
+			and current[1] == ":"
+			and current[2] == "/"
+		)
+	):
 		var separator: int = current.rfind("/")
 		if separator < 0:
 			return
@@ -458,7 +651,12 @@ static func _qualify_directory_entries(requests: Dictionary) -> bool:
 			if entry_count > _MAX_IDENTITY_ENTRIES:
 				directory.list_dir_end()
 				return false
-			if names.has(entry_name) and not names[entry_name] and directory.current_is_dir() and not directory.is_link(entry_name):
+			if (
+				names.has(entry_name)
+				and not names[entry_name]
+				and directory.current_is_dir()
+				and not directory.is_link(entry_name)
+			):
 				names[entry_name] = true
 				pending -= 1
 			entry_name = directory.get_next()
@@ -468,11 +666,18 @@ static func _qualify_directory_entries(requests: Dictionary) -> bool:
 				return false
 	return true
 
+
 ## 相对路径语法允许普通 Unicode 库存名，声明 literal 另有更窄资格。
 ## [br]
 ## @api private
 static func _relative_shape_is_valid(path: String) -> bool:
-	if path.is_empty() or path.contains(":") or path.contains("\\") or path.begins_with("/") or path.ends_with("/"):
+	if (
+		path.is_empty()
+		or path.contains(":")
+		or path.contains("\\")
+		or path.begins_with("/")
+		or path.ends_with("/")
+	):
 		return false
 	for segment: String in path.split("/", true):
 		if segment.is_empty() or segment in [".", ".."]:
@@ -524,11 +729,19 @@ static func _excluded_precedes(left: Dictionary, right: Dictionary) -> bool:
 ## [br]
 ## @api private
 static func _declaration_failure(error: String) -> Dictionary:
-	return {"success": false, "declaration": {}, "error": error}
+	return {
+		"success": false,
+		"declaration": {},
+		"error": error,
+	}
 
 
 ## 来源准入失败不发布可执行捕获授权。
 ## [br]
 ## @api private
 static func _binding_failure(error: String) -> Dictionary:
-	return {"success": false, "binding": {}, "error": error}
+	return {
+		"success": false,
+		"binding": {},
+		"error": error,
+	}

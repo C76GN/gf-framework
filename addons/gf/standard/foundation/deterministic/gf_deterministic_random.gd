@@ -217,7 +217,12 @@ func next_float_unit() -> float:
 ## [br]
 ## @return 基于固定 u32 输出缩放得到的范围内浮点数。
 func next_float_range(min_value: float, max_value: float) -> float:
-	if is_nan(min_value) or is_nan(max_value) or is_inf(min_value) or is_inf(max_value):
+	if (
+		is_nan(min_value)
+		or is_nan(max_value)
+		or is_inf(min_value)
+		or is_inf(max_value)
+	):
 		push_error("[GFDeterministicRandom][deterministic_random.float_bounds_non_finite] next_float_range requires finite floating-point bounds.")
 		return 0.0
 
@@ -317,8 +322,16 @@ func apply_dict(data: Dictionary) -> bool:
 		set_seed(_DEFAULT_SEED)
 		return false
 
-	var algorithm: String = GFVariantData.get_option_string(data, "algorithm", _ALGORITHM)
-	var version: int = GFVariantData.get_option_int(data, "version", _STATE_VERSION)
+	var algorithm: String = GFVariantData.get_option_string(
+		data,
+		"algorithm",
+		_ALGORITHM
+	)
+	var version: int = GFVariantData.get_option_int(
+		data,
+		"version",
+		_STATE_VERSION
+	)
 	var seed_data: Variant = GFVariantData.get_option_value(data, "seed")
 	var state_data: Variant = GFVariantData.get_option_value(data, "state")
 	if (
@@ -408,7 +421,11 @@ static func _state_value_to_int(value: Variant) -> int:
 ## @api private
 static func _u32_text_is_valid(text: String) -> bool:
 	var trimmed: String = text.strip_edges()
-	if trimmed.is_empty() or trimmed.begins_with("-") or trimmed.begins_with("+"):
+	if (
+		trimmed.is_empty()
+		or trimmed.begins_with("-")
+		or trimmed.begins_with("+")
+	):
 		return false
 
 	for i: int in range(trimmed.length()):

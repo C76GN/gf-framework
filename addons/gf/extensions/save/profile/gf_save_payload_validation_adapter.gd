@@ -42,9 +42,7 @@ static func adapt_for_framework(
 	sections_entry_index: int,
 	section_ids_by_entry_index: Array[StringName]
 ) -> Dictionary:
-	var path_segments: Array[Dictionary] = _sanitize_path_segments(
-		GFVariantData.get_option_array(worker_report, "path_segments")
-	)
+	var path_segments: Array[Dictionary] = _sanitize_path_segments(GFVariantData.get_option_array(worker_report, "path_segments"))
 	var failure_kind: StringName = _normalize_failure_kind(
 		GFVariantData.get_option_string_name(
 			worker_report,
@@ -71,30 +69,19 @@ static func adapt_for_framework(
 			0
 		),
 	}
-	var report: Dictionary = {
-		"issues": [],
-		"worker_diagnostics": diagnostics,
-	}
+	var report: Dictionary = { "issues": [], "worker_diagnostics": diagnostics, }
 	var _issue: Dictionary = GFValidationReportDictionary.append_issue(
 		report,
 		"error",
 		&"invalid_save_payload_transfer",
 		_get_failure_message(failure_kind),
-		{
-			"path": _format_structural_path(path_segments),
-			"metadata": diagnostics,
-		}
+		{ "path": _format_structural_path(path_segments), "metadata": diagnostics, }
 	)
 	var finalized_report: Dictionary = GFValidationReportDictionary.finalize_report(
 		report,
 		"Save payload transfer",
 		{
-			"next_actions": {
-				"invalid_save_payload_transfer": (
-					"Convert the reported section payload to finite, acyclic, "
-					+ "worker-safe Variant values within the documented budgets."
-				),
-			},
+			"next_actions": { "invalid_save_payload_transfer": ("Convert the reported section payload to finite, acyclic, " + "worker-safe Variant values within the documented budgets."), },
 			"fallback_action": "Review the isolated Storage worker diagnostics.",
 			"no_action": "Save payload transfer is valid.",
 		}
@@ -126,34 +113,40 @@ static func _sanitize_path_segments(source: Array) -> Array[Dictionary]:
 		var kind: String = GFVariantData.get_option_string(source_segment, "kind")
 		match kind:
 			"array_index":
-				result.append({
-					"kind": kind,
-					"index": GFVariantData.get_option_int(
-						source_segment,
-						"index",
-						-1
-					),
-				})
+				result.append(
+					{
+						"kind": kind,
+						"index": GFVariantData.get_option_int(
+							source_segment,
+							"index",
+							-1
+						),
+					}
+				)
 
 			"dictionary_key":
-				result.append({
-					"kind": kind,
-					"entry_index": GFVariantData.get_option_int(
-						source_segment,
-						"entry_index",
-						-1
-					),
-				})
+				result.append(
+					{
+						"kind": kind,
+						"entry_index": GFVariantData.get_option_int(
+							source_segment,
+							"entry_index",
+							-1
+						),
+					}
+				)
 
 			"dictionary_value":
-				result.append({
-					"kind": kind,
-					"entry_index": GFVariantData.get_option_int(
-						source_segment,
-						"entry_index",
-						-1
-					),
-				})
+				result.append(
+					{
+						"kind": kind,
+						"entry_index": GFVariantData.get_option_int(
+							source_segment,
+							"entry_index",
+							-1
+						),
+					}
+				)
 	return result
 
 
@@ -171,15 +164,18 @@ static func _infer_section_id(
 	var root_segment: Dictionary = path_segments[0]
 	var section_segment: Dictionary = path_segments[1]
 	if (
-		GFVariantData.get_option_string(root_segment, "kind")
-			!= "dictionary_value"
-		or GFVariantData.get_option_int(
-			root_segment,
-			"entry_index",
-			-1
-		) != sections_entry_index
-		or GFVariantData.get_option_string(section_segment, "kind")
-			!= "dictionary_value"
+		GFVariantData.get_option_string(root_segment, "kind") != "dictionary_value"
+		or (
+			(
+				GFVariantData.get_option_int(
+					root_segment,
+					"entry_index",
+					-1
+				)
+			)
+			!= sections_entry_index
+		)
+		or GFVariantData.get_option_string(section_segment, "kind") != "dictionary_value"
 	):
 		return &""
 	var section_entry_index: int = GFVariantData.get_option_int(
@@ -187,10 +183,7 @@ static func _infer_section_id(
 		"entry_index",
 		-1
 	)
-	if (
-		section_entry_index < 0
-		or section_entry_index >= section_ids_by_entry_index.size()
-	):
+	if (section_entry_index < 0 or section_entry_index >= section_ids_by_entry_index.size()):
 		return &""
 	return section_ids_by_entry_index[section_entry_index]
 
@@ -206,15 +199,9 @@ static func _format_structural_path(path_segments: Array[Dictionary]) -> String:
 			"array_index":
 				result += "[%d]" % GFVariantData.get_option_int(segment, "index")
 			"dictionary_key":
-				result += "{key:%d}" % GFVariantData.get_option_int(
-					segment,
-					"entry_index"
-				)
+				result += ("{key:%d}" % (GFVariantData.get_option_int(segment, "entry_index")))
 			"dictionary_value":
-				result += "{value:%d}" % GFVariantData.get_option_int(
-					segment,
-					"entry_index"
-				)
+				result += ("{value:%d}" % (GFVariantData.get_option_int(segment, "entry_index")))
 	return result
 
 
@@ -223,15 +210,22 @@ static func _format_structural_path(path_segments: Array[Dictionary]) -> String:
 ## @api private
 ## [br]
 static func _normalize_failure_kind(value: StringName) -> StringName:
-	return value if value in [
-		&"unsupported_variant_type",
-		&"unsupported_typed_container",
-		&"non_finite_number",
-		&"circular_reference",
-		&"depth_limit_exceeded",
-		&"value_budget_exceeded",
-		&"byte_budget_exceeded",
-	] else &"payload_invalid"
+	return (
+		value
+		if (
+			value
+			in [
+				&"unsupported_variant_type",
+				&"unsupported_typed_container",
+				&"non_finite_number",
+				&"circular_reference",
+				&"depth_limit_exceeded",
+				&"value_budget_exceeded",
+				&"byte_budget_exceeded",
+			]
+		)
+		else &"payload_invalid"
+	)
 
 
 ## 返回已知 Storage 边界失败类别对应的诊断消息。

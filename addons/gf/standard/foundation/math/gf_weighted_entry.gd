@@ -56,7 +56,11 @@ extends Resource
 ## @schema p_metadata: Dictionary extension metadata for the weighted entry.
 ## [br]
 ## @return 当前条目。
-func configure(p_value: Variant, p_weight: float = 1.0, p_metadata: Dictionary = {}) -> GFWeightedEntry:
+func configure(
+	p_value: Variant,
+	p_weight: float = 1.0,
+	p_metadata: Dictionary = {}
+) -> GFWeightedEntry:
 	value = p_value
 	weight = p_weight
 	metadata = p_metadata.duplicate(true)
@@ -71,7 +75,11 @@ func configure(p_value: Variant, p_weight: float = 1.0, p_metadata: Dictionary =
 ## [br]
 ## @return 权重为有限正数时返回 true。
 func is_selectable() -> bool:
-	return weight > 0.0 and not is_nan(weight) and not is_inf(weight)
+	return (
+		weight > 0.0
+		and not is_nan(weight)
+		and not is_inf(weight)
+	)
 
 
 ## 复制当前条目。
@@ -83,7 +91,11 @@ func is_selectable() -> bool:
 ## @return 新条目实例。
 func duplicate_entry(deep: bool = true) -> GFWeightedEntry:
 	var entry: GFWeightedEntry = GFWeightedEntry.new()
-	entry.value = GFVariantData.duplicate_variant(value, deep, true)
+	entry.value = GFVariantData.duplicate_variant(
+		value,
+		deep,
+		true
+	)
 	entry.weight = weight
 	entry.metadata = metadata.duplicate(deep)
 	return entry
@@ -116,8 +128,16 @@ func to_dict() -> Dictionary:
 static func from_dict(data: Dictionary) -> GFWeightedEntry:
 	var entry: GFWeightedEntry = GFWeightedEntry.new()
 	entry.value = GFVariantData.get_option_value(data, "value")
-	entry.weight = GFVariantData.get_option_float(data, "weight", 1.0)
-	var raw_metadata: Variant = GFVariantData.get_option_value(data, "metadata", {})
+	entry.weight = GFVariantData.get_option_float(
+		data,
+		"weight",
+		1.0
+	)
+	var raw_metadata: Variant = GFVariantData.get_option_value(
+		data,
+		"metadata",
+		{}
+	)
 	entry.metadata = GFVariantData.as_dictionary(raw_metadata)
 	return entry
 

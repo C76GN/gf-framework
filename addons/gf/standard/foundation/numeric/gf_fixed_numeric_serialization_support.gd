@@ -49,10 +49,10 @@ static func normalize_decimal_places(value: int, owner_name: String) -> int:
 	if value < 0:
 		return 0
 	if value > _MAX_DECIMAL_PLACES:
-		push_error("[GFFixedNumericSerializationSupport][fixed_numeric_serialization_support.decimal_places_clamped] %s: decimal_places exceeds the limit %d and was clamped." % [
-			owner_name,
-			_MAX_DECIMAL_PLACES,
-		])
+		push_error(
+			"[GFFixedNumericSerializationSupport][fixed_numeric_serialization_support.decimal_places_clamped] %s: decimal_places exceeds the limit %d and was clamped."
+			% [owner_name, _MAX_DECIMAL_PLACES,]
+		)
 		return _MAX_DECIMAL_PLACES
 	return value
 
@@ -96,12 +96,22 @@ static func raw_value_is_supported(value: int) -> bool:
 ## @param context: 报错时使用的调用上下文。
 ## [br]
 ## @return 钳制后的 raw 值。
-static func normalize_raw_value(value: int, owner_name: String, context: String) -> int:
+static func normalize_raw_value(
+	value: int,
+	owner_name: String,
+	context: String
+) -> int:
 	if value < -_MAX_SIGNED_MAGNITUDE:
-		push_error("[GFFixedNumericSerializationSupport][fixed_numeric_serialization_support.value_clamped] %s: %s exceeds the representable range and was clamped." % [owner_name, context])
+		push_error(
+			"[GFFixedNumericSerializationSupport][fixed_numeric_serialization_support.value_clamped] %s: %s exceeds the representable range and was clamped."
+			% [owner_name, context]
+		)
 		return -_MAX_SIGNED_MAGNITUDE
 	if value > _MAX_SIGNED_MAGNITUDE:
-		push_error("[GFFixedNumericSerializationSupport][fixed_numeric_serialization_support.value_clamped] %s: %s exceeds the representable range and was clamped." % [owner_name, context])
+		push_error(
+			"[GFFixedNumericSerializationSupport][fixed_numeric_serialization_support.value_clamped] %s: %s exceeds the representable range and was clamped."
+			% [owner_name, context]
+		)
 		return _MAX_SIGNED_MAGNITUDE
 	return value
 
@@ -116,7 +126,11 @@ static func normalize_raw_value(value: int, owner_name: String, context: String)
 ## [br]
 ## @return 输入值的非负绝对值。
 static func abs_symmetric(value: int) -> int:
-	var normalized: int = normalize_raw_value(value, "GFFixedDecimal", "abs")
+	var normalized: int = normalize_raw_value(
+		value,
+		"GFFixedDecimal",
+		"abs"
+	)
 	return -normalized if normalized < 0 else normalized
 
 
@@ -206,10 +220,22 @@ static func signed_int_text_is_valid(text: String) -> bool:
 ## @param owner_name: 报错时使用的类型名。
 ## [br]
 ## @param context: 报错时使用的调用上下文。
-static func append_signed_magnitude(target: PackedByteArray, value: int, owner_name: String, context: String) -> void:
-	var normalized: int = normalize_raw_value(value, owner_name, context)
+static func append_signed_magnitude(
+	target: PackedByteArray,
+	value: int,
+	owner_name: String,
+	context: String
+) -> void:
+	var normalized: int = normalize_raw_value(
+		value,
+		owner_name,
+		context
+	)
 	var _sign_appended: bool = target.append(1 if normalized < 0 else 0)
-	append_u64_magnitude_bytes(target, abs_symmetric(normalized))
+	append_u64_magnitude_bytes(
+		target,
+		abs_symmetric(normalized)
+	)
 
 
 ## 写入 8 字节大端无符号 magnitude。
@@ -244,7 +270,11 @@ static func append_u64_magnitude_bytes(target: PackedByteArray, magnitude: int) 
 ## @param magnitude_offset: magnitude 起始偏移。
 ## [br]
 ## @return signed raw 值；格式非法时返回内部无效哨兵。
-static func read_signed_magnitude(data: PackedByteArray, sign_offset: int, magnitude_offset: int) -> int:
+static func read_signed_magnitude(
+	data: PackedByteArray,
+	sign_offset: int,
+	magnitude_offset: int
+) -> int:
 	var sign_value: int = data[sign_offset]
 	if sign_value != 0 and sign_value != 1:
 		return _INVALID_SIGNED_MAGNITUDE
@@ -285,7 +315,10 @@ static func read_u64_magnitude_bytes(data: PackedByteArray, offset: int) -> int:
 	var magnitude: int = 0
 	for i: int in range(8):
 		var byte_value: int = data[offset + i]
-		if magnitude > divide_truncated(_MAX_SIGNED_MAGNITUDE - byte_value, 256):
+		if magnitude > divide_truncated(
+			_MAX_SIGNED_MAGNITUDE - byte_value,
+			256
+		):
 			return -1
 		magnitude = magnitude * 256 + byte_value
 	return magnitude

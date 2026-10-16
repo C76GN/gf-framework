@@ -15,7 +15,11 @@ extends Control
 ## @param time_seconds: 点击位置对应的实际秒数。
 ## [br]
 ## @param plan: 发出事件时的冻结计划身份。
-signal span_selected(step_index: int, time_seconds: float, plan: GFTweenPreviewPlan)
+signal span_selected(
+	step_index: int,
+	time_seconds: float,
+	plan: GFTweenPreviewPlan
+)
 
 
 # --- 私有变量 ---
@@ -71,25 +75,62 @@ func _draw() -> void:
 	if accent.a == 0.0:
 		accent = foreground
 	var left: float = 82.0
-	var width: float = maxf(1.0, size.x - left - 8.0)
+	var width: float = maxf(
+		1.0,
+		size.x - left - 8.0
+	)
 	var duration: float = maxf(0.001, _plan.duration_seconds)
 	for index: int in range(_plan.steps.size()):
 		var y: float = float(index) * 23.0
 		var caption: String = "%d" % (index + 1)
 		if index < _names.size() and _names[index] != &"":
 			caption += " · " + _display_name(index, 64)
-		draw_string(font, Vector2(2.0, y + 16.0), caption, HORIZONTAL_ALIGNMENT_LEFT, 76.0, font_size, foreground)
-		draw_line(Vector2(left, y + 18.0), Vector2(left + width, y + 18.0), Color(foreground, 0.15))
+		draw_string(
+			font,
+			Vector2(
+				2.0,
+				y + 16.0
+			),
+			caption,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			76.0,
+			font_size,
+			foreground
+		)
+		draw_line(
+			Vector2(
+				left,
+				y + 18.0
+			),
+			Vector2(
+				left + width,
+				y + 18.0
+			),
+			Color(foreground, 0.15)
+		)
 	for span: Dictionary in _spans:
 		var index: int = span["index"]
 		var reverse: bool = span["reverse"]
-		var color: Color = Color(accent, 0.45 if reverse else 0.85)
+		var color: Color = Color(
+			accent,
+			0.45 if reverse else 0.85
+		)
 		var rect: Rect2 = _span_rect(span)
 		draw_rect(rect, color)
 		if index == _selected:
-			draw_rect(rect.grow(1.0), foreground, false, 1.0)
+			draw_rect(
+				rect.grow(1.0),
+				foreground,
+				false,
+				1.0
+			)
 	var cursor: float = left + _time_seconds / duration * width
-	draw_line(Vector2(cursor, 0.0), Vector2(cursor, size.y), foreground, 1.0)
+	draw_line(
+		Vector2(cursor, 0.0),
+		Vector2(cursor, size.y),
+		foreground,
+		1.0
+	)
 
 
 # --- 框架内部方法 ---
@@ -109,7 +150,10 @@ func configure(plan: GFTweenPreviewPlan, step_names: Array[StringName] = []) -> 
 	_plan = plan
 	_names = step_names.slice(0, 128)
 	_spans = build_spans(plan)
-	custom_minimum_size = Vector2(220.0, float(plan.steps.size()) * 23.0 if plan != null else 0.0)
+	custom_minimum_size = Vector2(
+		220.0,
+		float(plan.steps.size()) * 23.0 if plan != null else 0.0
+	)
 	queue_redraw()
 
 
@@ -150,8 +194,21 @@ static func build_spans(plan: GFTweenPreviewPlan) -> Array[Dictionary]:
 			group += 1
 		var delay: float = step["delay"]
 		var duration: float = step["duration"]
-		cycle.append({"index": index, "group": group, "loop": 1, "property_name": step["property_name"], "start": start + delay, "duration": duration, "reverse": false})
-		group_duration = maxf(group_duration, delay + duration)
+		cycle.append(
+			{
+				"index": index,
+				"group": group,
+				"loop": 1,
+				"property_name": step["property_name"],
+				"start": start + delay,
+				"duration": duration,
+				"reverse": false,
+			}
+		)
+		group_duration = maxf(
+			group_duration,
+			delay + duration
+		)
 	var cycle_duration: float = start + group_duration
 	var loops: int = plan.loop_count if cycle_duration > 0.0 else 1
 	for loop_index: int in range(loops):
@@ -164,7 +221,17 @@ static func build_spans(plan: GFTweenPreviewPlan) -> Array[Dictionary]:
 			forward["loop"] = loop_index + 1
 			result.append(forward)
 			if plan.ping_pong:
-				result.append({"index": source["index"], "group": source["group"], "loop": loop_index + 1, "property_name": source["property_name"], "start": offset + cycle_duration * 2.0 - source_start - source_duration, "duration": source_duration, "reverse": true})
+				result.append(
+					{
+						"index": source["index"],
+						"group": source["group"],
+						"loop": loop_index + 1,
+						"property_name": source["property_name"],
+						"start": offset + cycle_duration * 2.0 - source_start - source_duration,
+						"duration": source_duration,
+						"reverse": true,
+					}
+				)
 	return result
 
 
@@ -190,7 +257,19 @@ func _get_tooltip(at_position: Vector2) -> String:
 	var property_text: String = String(property_name)
 	if property_text.length() > 64:
 		property_text = property_text.left(64) + "…"
-	var text: String = "%s\n%s · 组 %d · 循环 %d · %s\n%.3f–%.3f s（%.3f s）\n点击定位；来源仍一致时同步选中步骤。" % [caption, property_text, group, loop_index, "反向" if reverse else "正向", start, start + duration, duration]
+	var text: String = (
+		"%s\n%s · 组 %d · 循环 %d · %s\n%.3f–%.3f s（%.3f s）\n点击定位；来源仍一致时同步选中步骤。"
+		% [
+			caption,
+			property_text,
+			group,
+			loop_index,
+			"反向" if reverse else "正向",
+			start,
+			start + duration,
+			duration,
+		]
+	)
 	return text.left(255) + "…" if text.length() > 256 else text
 
 
@@ -210,8 +289,19 @@ func _span_rect(span: Dictionary) -> Rect2:
 	var start: float = span["start"]
 	var duration: float = span["duration"]
 	var total: float = maxf(0.001, _plan.duration_seconds)
-	var width: float = maxf(1.0, size.x - 90.0)
-	return Rect2(82.0 + start / total * width, float(index) * 23.0 + 3.0, maxf(2.0, duration / total * width), 14.0)
+	var width: float = maxf(
+		1.0,
+		size.x - 90.0
+	)
+	return Rect2(
+		82.0 + start / total * width,
+		float(index) * 23.0 + 3.0,
+		maxf(
+			2.0,
+			duration / total * width
+		),
+		14.0
+	)
 
 
 ## 只返回当前冻结区段，不因点击空白区域猜测一个来源步骤。
@@ -232,7 +322,11 @@ func _span_at(point: Vector2) -> Dictionary:
 ## [br]
 ## @api private
 func _on_gui_input(event: InputEvent) -> void:
-	if not is_inside_tree() or is_queued_for_deletion() or not event is InputEventMouseButton:
+	if (
+		not is_inside_tree()
+		or is_queued_for_deletion()
+		or not event is InputEventMouseButton
+	):
 		return
 	var button_event: InputEventMouseButton = event
 	if not button_event.pressed or button_event.button_index != MOUSE_BUTTON_LEFT:
@@ -244,9 +338,17 @@ func _on_gui_input(event: InputEvent) -> void:
 	var start: float = span["start"]
 	var length: float = span["duration"]
 	var rect: Rect2 = _span_rect(span)
-	var fraction: float = clampf((button_event.position.x - rect.position.x) / rect.size.x, 0.0, 1.0)
+	var fraction: float = clampf(
+		(button_event.position.x - rect.position.x) / rect.size.x,
+		0.0,
+		1.0
+	)
 	var seconds: float = start + length * fraction
 	_selected = index
 	queue_redraw()
 	accept_event()
-	span_selected.emit(index, seconds, _plan)
+	span_selected.emit(
+		index,
+		seconds,
+		_plan
+	)

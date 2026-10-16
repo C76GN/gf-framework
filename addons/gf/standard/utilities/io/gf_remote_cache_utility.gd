@@ -163,7 +163,14 @@ func fetch_text(
 	force_refresh: bool = false,
 	headers: PackedStringArray = PackedStringArray()
 ) -> void:
-	_queue_fetch(url, callback, ttl_seconds, force_refresh, headers, &"text")
+	_queue_fetch(
+		url,
+		callback,
+		ttl_seconds,
+		force_refresh,
+		headers,
+		&"text"
+	)
 
 
 ## 获取远程 JSON。成功时 result["data"] 为解析结果。
@@ -186,7 +193,14 @@ func fetch_json(
 	force_refresh: bool = false,
 	headers: PackedStringArray = PackedStringArray()
 ) -> void:
-	_queue_fetch(url, callback, ttl_seconds, force_refresh, headers, &"json")
+	_queue_fetch(
+		url,
+		callback,
+		ttl_seconds,
+		force_refresh,
+		headers,
+		&"json"
+	)
 
 
 ## 判断 URL 当前是否存在有效缓存。
@@ -211,7 +225,13 @@ func has_valid_cache(
 	if url.is_empty():
 		return false
 
-	var path: String = _get_cache_path(_build_cache_key(url, headers, format))
+	var path: String = _get_cache_path(
+		_build_cache_key(
+			url,
+			headers,
+			format
+		)
+	)
 	if not FileAccess.file_exists(path):
 		return false
 
@@ -240,9 +260,20 @@ func get_cached_text(
 	ttl_seconds: int = -1,
 	headers: PackedStringArray = PackedStringArray()
 ) -> String:
-	if not has_valid_cache(url, ttl_seconds, headers, &"text"):
+	if not has_valid_cache(
+		url,
+		ttl_seconds,
+		headers,
+		&"text"
+	):
 		return ""
-	return _read_cache_text(_build_cache_key(url, headers, &"text"))
+	return _read_cache_text(
+		_build_cache_key(
+			url,
+			headers,
+			&"text"
+		)
+	)
 
 
 ## 移除指定 URL 的缓存。
@@ -261,7 +292,13 @@ func remove_cache(
 	headers: PackedStringArray = PackedStringArray(),
 	format: StringName = &"text"
 ) -> Error:
-	var path: String = _get_cache_path(_build_cache_key(url, headers, format))
+	var path: String = _get_cache_path(
+		_build_cache_key(
+			url,
+			headers,
+			format
+		)
+	)
 	if not FileAccess.file_exists(path):
 		return OK
 	return DirAccess.remove_absolute(path)
@@ -286,7 +323,13 @@ func cancel(
 	if url.is_empty():
 		return 0
 
-	return _cancel_by_cache_key(_build_cache_key(url, headers, format))
+	return _cancel_by_cache_key(
+		_build_cache_key(
+			url,
+			headers,
+			format
+		)
+	)
 
 
 ## 取消所有等待或进行中请求，返回取消数量。
@@ -321,7 +364,10 @@ func clear_cache() -> void:
 	var file_name: String = dir.get_next()
 	while not file_name.is_empty():
 		if not dir.current_is_dir():
-			var path: String = "%s/%s" % [dir_path, file_name]
+			var path: String = (
+				"%s/%s"
+				% [dir_path, file_name]
+			)
 			var _remove_error: Error = DirAccess.remove_absolute(path)
 		file_name = dir.get_next()
 	dir.list_dir_end()
@@ -400,7 +446,11 @@ func _complete_active_request(
 	_active_request.clear()
 
 	var url: String = GFVariantData.get_option_string(request_data, "url")
-	var format: StringName = GFVariantData.get_option_string_name(request_data, "format", &"text")
+	var format: StringName = GFVariantData.get_option_string_name(
+		request_data,
+		"format",
+		&"text"
+	)
 	var callbacks: Array[Callable] = _get_request_callbacks(request_data)
 	var cache_key: String = GFVariantData.get_option_string(request_data, "cache_key")
 	var result: Dictionary
@@ -410,17 +460,42 @@ func _complete_active_request(
 		error = _get_response_budget_error()
 
 	if success:
-		result = _build_success(url, content, false, false, response_code, format)
+		result = _build_success(
+			url,
+			content,
+			false,
+			false,
+			response_code,
+			format
+		)
 		if GFVariantData.get_option_bool(result, "success"):
 			var _cache_write_error: Error = _write_cache_text(cache_key, content)
 		elif _has_cache_file(cache_key):
 			var parse_error: String = GFVariantData.get_option_string(result, "error")
-			result = _build_success(url, _read_cache_text(cache_key), true, true, response_code, format)
+			result = _build_success(
+				url,
+				_read_cache_text(cache_key),
+				true,
+				true,
+				response_code,
+				format
+			)
 			result["error"] = parse_error
 	else:
-		result = _build_failure(url, response_code, error)
+		result = _build_failure(
+			url,
+			response_code,
+			error
+		)
 		if _has_cache_file(cache_key):
-			result = _build_success(url, _read_cache_text(cache_key), true, true, response_code, format)
+			result = _build_success(
+				url,
+				_read_cache_text(cache_key),
+				true,
+				true,
+				response_code,
+				format
+			)
 			result["error"] = error
 
 	_finish_callbacks(callbacks, result)
@@ -442,13 +517,31 @@ func _queue_fetch(
 	format: StringName
 ) -> void:
 	if url.is_empty():
-		_finish_immediate(callback, _build_failure(url, 0, "URL is empty"))
+		_finish_immediate(
+			callback,
+			_build_failure(
+				url,
+				0,
+				"URL is empty"
+			)
+		)
 		return
 
 	var ttl: int = _resolve_ttl(ttl_seconds)
-	var cache_key: String = _build_cache_key(url, headers, format)
+	var cache_key: String = _build_cache_key(
+		url,
+		headers,
+		format
+	)
 	if not force_refresh and _has_valid_cache_key(cache_key, ttl):
-		var cached_result: Dictionary = _build_success(url, _read_cache_text(cache_key), true, false, 200, format)
+		var cached_result: Dictionary = _build_success(
+			url,
+			_read_cache_text(cache_key),
+			true,
+			false,
+			200,
+			format
+		)
 		_finish_immediate(callback, cached_result)
 		return
 
@@ -456,19 +549,28 @@ func _queue_fetch(
 		return
 
 	if max_pending_requests > 0 and _pending_requests.size() >= max_pending_requests:
-		_finish_immediate(callback, _build_failure(url, 0, "Pending request limit exceeded"))
+		_finish_immediate(
+			callback,
+			_build_failure(
+				url,
+				0,
+				"Pending request limit exceeded"
+			)
+		)
 		return
 
 	var callbacks: Array[Callable] = []
 	callbacks.append(callback)
-	_pending_requests.append({
-		"url": url,
-		"callbacks": callbacks,
-		"ttl_seconds": ttl,
-		"headers": headers,
-		"format": format,
-		"cache_key": cache_key,
-	})
+	_pending_requests.append(
+		{
+			"url": url,
+			"callbacks": callbacks,
+			"ttl_seconds": ttl,
+			"headers": headers,
+			"format": format,
+			"cache_key": cache_key,
+		}
+	)
 	_process_next_request()
 
 
@@ -484,7 +586,12 @@ func _process_next_request() -> void:
 	_pending_requests.remove_at(0)
 	var error: Error = _start_http_request(_active_request)
 	if error != OK:
-		_complete_active_request(false, 0, "", "Request failed: %s" % error_string(error))
+		_complete_active_request(
+			false,
+			0,
+			"",
+			"Request failed: %s" % error_string(error)
+		)
 
 
 ## 将回调并入活动或等待中的同 key 请求，找到请求时返回 true。
@@ -542,7 +649,11 @@ func _cancel_http_request() -> void:
 ## [br]
 func _get_request_callbacks(request_data: Dictionary) -> Array[Callable]:
 	var result: Array[Callable] = []
-	var callbacks: Variant = GFVariantData.get_option_value(request_data, "callbacks", [])
+	var callbacks: Variant = GFVariantData.get_option_value(
+		request_data,
+		"callbacks",
+		[]
+	)
 	if not callbacks is Array:
 		return result
 
@@ -654,7 +765,11 @@ func _build_success(
 ## [br]
 ## @api private
 ## [br]
-func _build_failure(url: String, response_code: int, error: String) -> Dictionary:
+func _build_failure(
+	url: String,
+	response_code: int,
+	error: String
+) -> Dictionary:
 	return {
 		"success": false,
 		"url": url,
@@ -686,7 +801,10 @@ func _ensure_cache_dir() -> void:
 	if not DirAccess.dir_exists_absolute(dir_path):
 		var error: Error = DirAccess.make_dir_recursive_absolute(dir_path)
 		if error != OK:
-			push_warning("[GFRemoteCacheUtility][remote_cache_utility.cache_directory_failed] Cannot create the cache directory: %s, error code: %s." % [dir_path, error])
+			push_warning(
+				"[GFRemoteCacheUtility][remote_cache_utility.cache_directory_failed] Cannot create the cache directory: %s, error code: %s."
+				% [dir_path, error]
+			)
 
 
 ## 返回由 cache_dir_name 拼成的 user:// 缓存目录路径。
@@ -703,9 +821,17 @@ func _get_cache_dir_path() -> String:
 ## [br]
 func _sanitize_cache_dir_name(value: String) -> String:
 	var normalized: String = value.replace("\\", "/").strip_edges()
-	if normalized.is_empty() or normalized == "." or normalized == "..":
+	if (
+		normalized.is_empty()
+		or normalized == "."
+		or normalized == ".."
+	):
 		return _DEFAULT_CACHE_DIR_NAME
-	if normalized.begins_with("/") or normalized.contains("://") or normalized.contains(":"):
+	if (
+		normalized.begins_with("/")
+		or normalized.contains("://")
+		or normalized.contains(":")
+	):
 		return _DEFAULT_CACHE_DIR_NAME
 	if normalized.contains("/") or _has_parent_path_segment(normalized):
 		return _DEFAULT_CACHE_DIR_NAME
@@ -727,24 +853,46 @@ func _has_parent_path_segment(path: String) -> bool:
 ## [br]
 ## @api private
 ## [br]
-func _build_cache_key(url: String, headers: PackedStringArray, format: StringName) -> String:
+func _build_cache_key(
+	url: String,
+	headers: PackedStringArray,
+	format: StringName
+) -> String:
 	if cache_key_builder.is_valid():
-		var custom_key: Variant = cache_key_builder.call(url, headers, format)
+		var custom_key: Variant = cache_key_builder.call(
+			url,
+			headers,
+			format
+		)
 		var custom_key_text: String = GFVariantData.to_text(custom_key).strip_edges()
 		if not custom_key_text.is_empty():
 			return custom_key_text
 
-	return _build_default_cache_key(url, headers, format)
+	return _build_default_cache_key(
+		url,
+		headers,
+		format
+	)
 
 
 ## 将格式、URL 与排序后的请求头序列化为默认缓存 key。
 ## [br]
 ## @api private
 ## [br]
-func _build_default_cache_key(url: String, headers: PackedStringArray, format: StringName) -> String:
+func _build_default_cache_key(
+	url: String,
+	headers: PackedStringArray,
+	format: StringName
+) -> String:
 	var sorted_headers: PackedStringArray = headers.duplicate()
 	sorted_headers.sort()
-	return JSON.stringify([String(format), url, sorted_headers])
+	return JSON.stringify(
+		[
+			String(format),
+			url,
+			sorted_headers,
+		]
+	)
 
 
 ## 返回缓存 key 对应的 .cache 文件路径，文件名使用 key 的 MD5 文本。
@@ -752,7 +900,10 @@ func _build_default_cache_key(url: String, headers: PackedStringArray, format: S
 ## @api private
 ## [br]
 func _get_cache_path(cache_key: String) -> String:
-	return "%s/%s.cache" % [_get_cache_dir_path(), cache_key.md5_text()]
+	return (
+		"%s/%s.cache"
+		% [_get_cache_dir_path(), cache_key.md5_text()]
+	)
 
 
 ## 返回缓存目标旁的 .tmp 临时文件路径。
@@ -808,7 +959,10 @@ func _has_cache_file(cache_key: String) -> bool:
 func _read_cache_text(cache_key: String) -> String:
 	if not _has_cache_file(cache_key):
 		return ""
-	var file: FileAccess = FileAccess.open(_get_cache_path(cache_key), FileAccess.READ)
+	var file: FileAccess = FileAccess.open(
+		_get_cache_path(cache_key),
+		FileAccess.READ
+	)
 	if file == null:
 		return ""
 
@@ -884,11 +1038,23 @@ func _prune_cache() -> void:
 	var file_name: String = dir.get_next()
 	while not file_name.is_empty():
 		if not dir.current_is_dir() and file_name.ends_with(".cache"):
-			var path: String = "%s/%s" % [dir_path, file_name]
+			var path: String = (
+				"%s/%s"
+				% [dir_path, file_name]
+			)
 			var modified_time: int = FileAccess.get_modified_time(path)
 			entries.append(_CacheEntry.new(path, modified_time))
-		elif not dir.current_is_dir() and (file_name.ends_with(".cache.tmp") or file_name.ends_with(".cache.bak")):
-			var sidecar_path: String = "%s/%s" % [dir_path, file_name]
+		elif (
+			not dir.current_is_dir()
+			and (
+				file_name.ends_with(".cache.tmp")
+				or file_name.ends_with(".cache.bak")
+			)
+		):
+			var sidecar_path: String = (
+				"%s/%s"
+				% [dir_path, file_name]
+			)
 			var _sidecar_remove_error: Error = _remove_absolute_file_if_exists(sidecar_path)
 		file_name = dir.get_next()
 	dir.list_dir_end()
@@ -896,8 +1062,9 @@ func _prune_cache() -> void:
 	if entries.size() <= max_entries:
 		return
 
-	entries.sort_custom(func(left: _CacheEntry, right: _CacheEntry) -> bool:
-		return left._modified_time < right._modified_time
+	entries.sort_custom(
+		func(left: _CacheEntry, right: _CacheEntry) -> bool:
+			return left._modified_time < right._modified_time
 	)
 
 	while entries.size() > max_entries:
@@ -960,18 +1127,40 @@ func _on_request_completed(
 	body: PackedByteArray
 ) -> void:
 	if result == HTTPRequest.RESULT_BODY_SIZE_LIMIT_EXCEEDED:
-		_complete_active_request(false, response_code, "", _get_response_budget_error())
+		_complete_active_request(
+			false,
+			response_code,
+			"",
+			_get_response_budget_error()
+		)
 		return
 	var content: String = body.get_string_from_utf8()
 	if result != HTTPRequest.RESULT_SUCCESS:
-		_complete_active_request(false, response_code, content, "HTTP request result: %d" % result)
+		_complete_active_request(
+			false,
+			response_code,
+			content,
+			"HTTP request result: %d" % result
+		)
 		return
 
 	if response_code < 200 or response_code >= 300:
-		_complete_active_request(false, response_code, content, "HTTP %d: %s" % [response_code, content])
+		_complete_active_request(
+			false,
+			response_code,
+			content,
+			"HTTP %d: %s"
+			% [response_code, content]
+		)
 		return
 
-	_complete_active_request(true, response_code, content, "")
+	_complete_active_request(
+		true,
+		response_code,
+		content,
+		""
+	)
+
 
 # --- 内部类 ---
 
@@ -980,6 +1169,7 @@ func _on_request_completed(
 ## @api private
 ## [br]
 class _CacheEntry:
+
 
 	# --- 私有变量 ---
 

@@ -32,23 +32,35 @@ signal active_player_changed(player_index: int)
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param player_index: 玩家索引。
 ## [br]
 ## @param assignment: 活跃设备映射副本。
 ## [br]
 ## @param event: 触发变化的输入事件副本；手动设置时可能为空。
-signal active_device_changed(player_index: int, assignment: GFInputDeviceAssignment, event: InputEvent)
+signal active_device_changed(
+	player_index: int,
+	assignment: GFInputDeviceAssignment,
+	event: InputEvent
+)
 
 ## 收到项目配置的加入输入时发出。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param player_index: 玩家索引。
 ## [br]
 ## @param assignment: 触发加入请求的设备映射副本。
 ## [br]
 ## @param event: 触发加入请求的输入事件副本。
-signal player_join_requested(player_index: int, assignment: GFInputDeviceAssignment, event: InputEvent)
+signal player_join_requested(
+	player_index: int,
+	assignment: GFInputDeviceAssignment,
+	event: InputEvent
+)
 
 ## 设备分配诊断事件被记录时发出。
 ## [br]
@@ -131,7 +143,11 @@ var auto_assign_axis_threshold: float = 0.75
 ## @api public
 var active_player_axis_threshold: float = 0.2:
 	set(value):
-		active_player_axis_threshold = clampf(value, 0.0, 1.0)
+		active_player_axis_threshold = clampf(
+			value,
+			0.0,
+			1.0
+		)
 
 ## 可触发本地玩家加入请求的输入事件模板。为空时不启用 join 检测。
 ## [br]
@@ -208,27 +224,37 @@ func refresh_connected_devices() -> void:
 	_assignments.clear()
 
 	if include_keyboard_mouse and _assignments.size() < max_players:
-		_assignments.append(create_assignment(
-			_assignments.size(),
-			GFInputDeviceAssignment.DeviceType.KEYBOARD_MOUSE,
-			0
-		))
+		_assignments.append(
+			create_assignment(
+				_assignments.size(),
+				GFInputDeviceAssignment.DeviceType.KEYBOARD_MOUSE,
+				0
+			)
+		)
 
-	if include_touch and _is_touch_platform() and _assignments.size() < max_players:
-		_assignments.append(create_assignment(
-			_assignments.size(),
-			GFInputDeviceAssignment.DeviceType.TOUCH,
-			-1
-		))
+	if (
+		include_touch
+		and _is_touch_platform()
+		and _assignments.size() < max_players
+	):
+		_assignments.append(
+			create_assignment(
+				_assignments.size(),
+				GFInputDeviceAssignment.DeviceType.TOUCH,
+				-1
+			)
+		)
 
 	for joypad_id: int in Input.get_connected_joypads():
 		if _assignments.size() >= max_players:
 			break
-		_assignments.append(create_assignment(
-			_assignments.size(),
-			GFInputDeviceAssignment.DeviceType.JOYPAD,
-			joypad_id
-		))
+		_assignments.append(
+			create_assignment(
+				_assignments.size(),
+				GFInputDeviceAssignment.DeviceType.JOYPAD,
+				joypad_id
+			)
+		)
 
 	assignments_changed.emit(get_assignments())
 	_record_assignment_event(
@@ -298,7 +324,11 @@ func set_assignment(
 	var previous_assignment: GFInputDeviceAssignment = null
 	var displaced_players: Array[int] = []
 	var replaced: bool = false
-	for index: int in range(_assignments.size() - 1, -1, -1):
+	for index: int in range(
+		_assignments.size() - 1,
+		-1,
+		-1
+	):
 		var current: GFInputDeviceAssignment = _assignments[index]
 		if current.player_index == next_assignment.player_index:
 			previous_assignment = current.duplicate_assignment()
@@ -315,17 +345,29 @@ func set_assignment(
 
 	if not replaced:
 		_assignments.append(next_assignment)
-	_assignments.sort_custom(func(a: GFInputDeviceAssignment, b: GFInputDeviceAssignment) -> bool:
-		return a.player_index < b.player_index
+	_assignments.sort_custom(
+		func(a: GFInputDeviceAssignment, b: GFInputDeviceAssignment) -> bool:
+			return a.player_index < b.player_index
 	)
 	assignments_changed.emit(get_assignments())
 	var metadata: Dictionary = event_metadata.duplicate(true)
 	if not displaced_players.is_empty():
 		metadata["displaced_player_indices"] = displaced_players
-	_record_assignment_event(&"assignment_set", next_assignment, previous_assignment, reason, source_event, metadata)
+	_record_assignment_event(
+		&"assignment_set",
+		next_assignment,
+		previous_assignment,
+		reason,
+		source_event,
+		metadata
+	)
 	_repair_active_player_after_assignments_changed(&"assignment_set")
 	if active_player_before == next_assignment.player_index and active_player_index == next_assignment.player_index:
-		_emit_active_device_changed(next_assignment, source_event, reason)
+		_emit_active_device_changed(
+			next_assignment,
+			source_event,
+			reason
+		)
 
 
 ## 移除指定玩家的设备映射。
@@ -338,12 +380,21 @@ func set_assignment(
 ## [br]
 ## @param reason: 调用方给出的移除原因。
 func remove_assignment(player_index: int, reason: StringName = &"manual") -> void:
-	for index: int in range(_assignments.size() - 1, -1, -1):
+	for index: int in range(
+		_assignments.size() - 1,
+		-1,
+		-1
+	):
 		if _assignments[index].player_index == player_index:
 			var previous_assignment: GFInputDeviceAssignment = _assignments[index].duplicate_assignment()
 			_assignments.remove_at(index)
 			assignments_changed.emit(get_assignments())
-			_record_assignment_event(&"assignment_removed", null, previous_assignment, reason)
+			_record_assignment_event(
+				&"assignment_removed",
+				null,
+				previous_assignment,
+				reason
+			)
 			_repair_active_player_after_assignments_changed(&"assignment_removed")
 			return
 
@@ -371,16 +422,12 @@ func get_assignment(player_index: int) -> GFInputDeviceAssignment:
 ## @return 玩家索引；不存在时返回 -1。
 ## [br]
 ## @api public
-func get_player_for_device(
-	device_type: GFInputDeviceAssignment.DeviceType,
-	device_id: int
-) -> int:
+## [br]
+## @since 3.17.0
+func get_player_for_device(device_type: GFInputDeviceAssignment.DeviceType, device_id: int) -> int:
 	var normalized_device_id: int = _normalize_device_id(device_type, device_id)
 	for assignment: GFInputDeviceAssignment in _assignments:
-		if (
-			assignment.device_type == device_type
-			and _normalize_device_id(assignment.device_type, assignment.device_id) == normalized_device_id
-		):
+		if (assignment.device_type == device_type and _normalize_device_id(assignment.device_type, assignment.device_id) == normalized_device_id):
 			return assignment.player_index
 	return -1
 
@@ -424,7 +471,12 @@ func handle_input_event(event: InputEvent) -> int:
 		and auto_assign_joypads_on_input
 		and _is_event_active_enough_for_assignment(event)
 	):
-		player_index = assign_device_to_next_player(device_type, device_id, &"auto_assign_on_input", event)
+		player_index = assign_device_to_next_player(
+			device_type,
+			device_id,
+			&"auto_assign_on_input",
+			event
+		)
 
 	if player_index != -1 and _is_event_active_enough_for_active_player(event):
 		_set_active_player(player_index, event)
@@ -452,7 +504,12 @@ func handle_join_input_event(event: InputEvent) -> int:
 	var device_id: int = _get_event_device_id(event, device_type)
 	var player_index: int = get_player_for_device(device_type, device_id)
 	if player_index == -1 and auto_assign_devices_on_join:
-		player_index = assign_device_to_next_player(device_type, device_id, &"join_input", event)
+		player_index = assign_device_to_next_player(
+			device_type,
+			device_id,
+			&"join_input",
+			event
+		)
 
 	if player_index == -1:
 		return -1
@@ -538,7 +595,16 @@ func assign_device_to_next_player(
 	if player_index == -1:
 		return -1
 
-	set_assignment(create_assignment(player_index, device_type, normalized_device_id), reason, {}, source_event)
+	set_assignment(
+		create_assignment(
+			player_index,
+			device_type,
+			normalized_device_id
+		),
+		reason,
+		{},
+		source_event
+	)
 	return player_index
 
 
@@ -552,7 +618,11 @@ func set_active_player(player_index: int) -> void:
 		return
 	if _find_assignment(player_index) == null:
 		return
-	_set_active_player(player_index, null, &"manual")
+	_set_active_player(
+		player_index,
+		null,
+		&"manual"
+	)
 
 
 ## 设置玩家级输入死区。小于 0 表示清除覆盖。
@@ -570,7 +640,11 @@ func set_player_deadzone(player_index: int, deadzone: float) -> void:
 	if deadzone < 0.0:
 		var _deadzone_removed: bool = _player_deadzones.erase(player_index)
 	else:
-		_player_deadzones[player_index] = clampf(deadzone, 0.0, 1.0)
+		_player_deadzones[player_index] = clampf(
+			deadzone,
+			0.0,
+			1.0
+		)
 
 
 ## 获取玩家级输入死区覆盖。
@@ -670,8 +744,16 @@ func start_vibration_for_player(
 
 	Input.start_joy_vibration(
 		assignment.device_id,
-		clampf(weak_magnitude, 0.0, 1.0),
-		clampf(strong_magnitude, 0.0, 1.0),
+		clampf(
+			weak_magnitude,
+			0.0,
+			1.0
+		),
+		clampf(
+			strong_magnitude,
+			0.0,
+			1.0
+		),
 		maxf(duration_seconds, 0.0)
 	)
 	return true
@@ -746,9 +828,20 @@ func get_assignment_events(limit: int = 0, json_compatible: bool = true) -> Arra
 	if limit <= 0 or _assignment_events.size() <= limit:
 		return _assignment_events_to_array(_assignment_events, json_compatible)
 	var result: Array[Dictionary] = []
-	var start_index: int = maxi(_assignment_events.size() - limit, 0)
-	for index: int in range(start_index, _assignment_events.size()):
-		result.append(_assignment_event_to_dictionary(_assignment_events[index], json_compatible))
+	var start_index: int = maxi(
+		_assignment_events.size() - limit,
+		0
+	)
+	for index: int in range(
+		start_index,
+		_assignment_events.size()
+	):
+		result.append(
+			_assignment_event_to_dictionary(
+				_assignment_events[index],
+				json_compatible
+			)
+		)
 	return result
 
 
@@ -774,7 +867,10 @@ func get_assignment_report(event_limit: int = 10, json_compatible: bool = true) 
 		"active_player_index": active_player_index,
 		"assignment_count": _assignments.size(),
 		"assignments": assignments,
-		"active_assignment": _assignment_to_dictionary(_find_assignment(active_player_index), json_compatible),
+		"active_assignment": _assignment_to_dictionary(
+			_find_assignment(active_player_index),
+			json_compatible
+		),
 		"event_count": _assignment_events.size(),
 		"recent_events": get_assignment_events(event_limit, json_compatible),
 	}
@@ -800,7 +896,11 @@ func _find_assignment(player_index: int) -> GFInputDeviceAssignment:
 ## [br]
 func _prune_state_to_player_capacity(previous_max_players: int) -> void:
 	var removed_assignments: Array[GFInputDeviceAssignment] = []
-	for index: int in range(_assignments.size() - 1, -1, -1):
+	for index: int in range(
+		_assignments.size() - 1,
+		-1,
+		-1
+	):
 		var assignment: GFInputDeviceAssignment = _assignments[index]
 		if assignment.player_index >= 0 and assignment.player_index < max_players:
 			continue
@@ -829,10 +929,7 @@ func _prune_state_to_player_capacity(previous_max_players: int) -> void:
 				removed_assignment,
 				&"max_players_reduced",
 				null,
-				{
-					"previous_max_players": previous_max_players,
-					"max_players": max_players,
-				}
+				{ "previous_max_players": previous_max_players, "max_players": max_players, }
 			)
 
 	if previous_active_player != active_player_index:
@@ -871,10 +968,7 @@ func _get_event_device_type(event: InputEvent) -> int:
 ## [br]
 ## @api private
 ## [br]
-func _get_event_device_id(
-	event: InputEvent,
-	device_type: GFInputDeviceAssignment.DeviceType
-) -> int:
+func _get_event_device_id(event: InputEvent, device_type: GFInputDeviceAssignment.DeviceType) -> int:
 	match device_type:
 		GFInputDeviceAssignment.DeviceType.KEYBOARD_MOUSE:
 			return 0
@@ -890,10 +984,7 @@ func _get_event_device_id(
 ## [br]
 ## @api private
 ## [br]
-func _normalize_device_id(
-	device_type: GFInputDeviceAssignment.DeviceType,
-	device_id: int
-) -> int:
+func _normalize_device_id(device_type: GFInputDeviceAssignment.DeviceType, device_id: int) -> int:
 	match device_type:
 		GFInputDeviceAssignment.DeviceType.KEYBOARD_MOUSE:
 			return 0
@@ -992,11 +1083,12 @@ func _assignment_event_to_dictionary(record: Dictionary, json_compatible: bool) 
 	if previous_value is Dictionary:
 		var previous_data: Dictionary = previous_value
 		result["previous_assignment"] = _assignment_data_to_dictionary(previous_data, json_compatible)
-	result["metadata"] = _report_metadata(GFVariantData.get_option_dictionary(record, "metadata"), json_compatible)
+	result["metadata"] = _report_metadata(
+		GFVariantData.get_option_dictionary(record, "metadata"),
+		json_compatible
+	)
 	if json_compatible:
-		result["input_event"] = GFVariantJsonCodec.variant_to_json_compatible(
-			GFVariantData.get_option_dictionary(record, "input_event")
-		)
+		result["input_event"] = GFVariantJsonCodec.variant_to_json_compatible(GFVariantData.get_option_dictionary(record, "input_event"))
 	return result
 
 
@@ -1006,7 +1098,10 @@ func _assignment_event_to_dictionary(record: Dictionary, json_compatible: bool) 
 ## [br]
 func _assignment_data_to_dictionary(data: Dictionary, json_compatible: bool) -> Dictionary:
 	var result: Dictionary = data.duplicate(true)
-	result["metadata"] = _report_metadata(GFVariantData.get_option_dictionary(data, "metadata"), json_compatible)
+	result["metadata"] = _report_metadata(
+		GFVariantData.get_option_dictionary(data, "metadata"),
+		json_compatible
+	)
 	return result
 
 
@@ -1047,10 +1142,7 @@ func _device_type_to_text(device_type: int) -> String:
 func _input_event_to_dictionary(event: InputEvent) -> Dictionary:
 	if event == null:
 		return {}
-	var result: Dictionary = {
-		"class": event.get_class(),
-		"device": event.device,
-	}
+	var result: Dictionary = { "class": event.get_class(), "device": event.device, }
 	if event is InputEventKey:
 		var key_event: InputEventKey = event
 		result["pressed"] = key_event.pressed
@@ -1182,7 +1274,11 @@ func _set_active_player(
 	active_player_index = player_index
 	active_player_changed.emit(active_player_index)
 	var assignment: GFInputDeviceAssignment = _find_assignment(active_player_index)
-	_emit_active_device_changed(assignment, event, reason)
+	_emit_active_device_changed(
+		assignment,
+		event,
+		reason
+	)
 
 
 ## 复制可选输入事件、记录活跃设备诊断事件，再发出包含映射副本和事件副本的设备变化信号。
@@ -1197,7 +1293,13 @@ func _emit_active_device_changed(
 	var event_copy: InputEvent = null
 	if event != null:
 		event_copy = _INPUT_EVENT_TOOLS.duplicate_input_event(event)
-	_record_assignment_event(&"active_device_changed", assignment, null, reason, event)
+	_record_assignment_event(
+		&"active_device_changed",
+		assignment,
+		null,
+		reason,
+		event
+	)
 	active_device_changed.emit(
 		active_player_index,
 		assignment.duplicate_assignment() if assignment != null else null,
@@ -1212,7 +1314,11 @@ func _emit_active_device_changed(
 func _repair_active_player_after_assignments_changed(reason: StringName) -> void:
 	if active_player_index >= 0 and _find_assignment(active_player_index) != null:
 		return
-	_set_active_player(_find_first_assigned_player_index(), null, reason)
+	_set_active_player(
+		_find_first_assigned_player_index(),
+		null,
+		reason
+	)
 
 
 ## 返回分配列表中最小的玩家索引；列表为空时返回 -1。
@@ -1250,15 +1356,21 @@ func _on_joy_connection_changed(device: int, connected: bool) -> void:
 		return
 
 	var changed: bool = false
-	for index: int in range(_assignments.size() - 1, -1, -1):
+	for index: int in range(
+		_assignments.size() - 1,
+		-1,
+		-1
+	):
 		var assignment: GFInputDeviceAssignment = _assignments[index]
-		if (
-			assignment.device_type == GFInputDeviceAssignment.DeviceType.JOYPAD
-			and assignment.device_id == device
-		):
+		if (assignment.device_type == GFInputDeviceAssignment.DeviceType.JOYPAD and assignment.device_id == device):
 			var removed_assignment: GFInputDeviceAssignment = assignment.duplicate_assignment()
 			_assignments.remove_at(index)
-			_record_assignment_event(&"assignment_removed", null, removed_assignment, &"device_disconnected")
+			_record_assignment_event(
+				&"assignment_removed",
+				null,
+				removed_assignment,
+				&"device_disconnected"
+			)
 			changed = true
 	if changed:
 		assignments_changed.emit(get_assignments())

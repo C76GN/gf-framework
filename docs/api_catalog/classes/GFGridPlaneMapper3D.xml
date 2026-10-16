@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFGridPlaneMapper3D" path="addons/gf/standard/foundation/math/gf_grid_plane_mapper_3d.gd" module="standard" extends="RefCounted" classDigest="1314c00323fc8727a8e9c88ab691beb061b0d4072540b7f6833e91d5ba5da1f4">
+<class name="GFGridPlaneMapper3D" path="addons/gf/standard/foundation/math/gf_grid_plane_mapper_3d.gd" module="standard" extends="RefCounted" classDigest="e648f4cf3b88cd3cbe15234ecf33079428899ba70357bb1d25db3024329e76a0">
 	<description>GFGridPlaneMapper3D: 3D 轴对齐平面与 2D 邻域坐标映射工具。
 将 axis-aligned 3D 表面上的格坐标映射为局部 2D 坐标，并可按 2D offset
 采样邻域值。它只处理坐标和回调取值，不绑定 TileSet、GridMap、碰撞或玩法语义。</description>
@@ -55,7 +55,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="map_cell_to_plane">
-			<signature>static func map_cell_to_plane(cell: Vector3i, origin: Vector3i, normal: Vector3i) -&gt; Vector2i:</signature>
+			<signature>static func map_cell_to_plane( cell: Vector3i, origin: Vector3i, normal: Vector3i ) -&gt; Vector2i:</signature>
 			<description>将 3D 格坐标映射为平面局部 2D 坐标。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -63,6 +63,7 @@
 				<tag name="param">origin: 平面局部原点。</tag>
 				<tag name="param">normal: 3D 平面法线。</tag>
 				<tag name="return">局部 2D 坐标；normal 无效时返回 Vector2i.ZERO。</tag>
+				<tag name="since">3.18.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="map_plane_to_cell">
@@ -78,7 +79,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="get_cell_depth">
-			<signature>static func get_cell_depth(cell: Vector3i, origin: Vector3i, normal: Vector3i) -&gt; int:</signature>
+			<signature>static func get_cell_depth( cell: Vector3i, origin: Vector3i, normal: Vector3i ) -&gt; int:</signature>
 			<description>获取格坐标相对平面的深度。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -86,10 +87,11 @@
 				<tag name="param">origin: 平面局部原点。</tag>
 				<tag name="param">normal: 3D 平面法线。</tag>
 				<tag name="return">沿 normal 的偏移层数；normal 无效时返回 0。</tag>
+				<tag name="since">3.18.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_neighbor_cells">
-			<signature>static func get_neighbor_cells(center: Vector3i, normal: Vector3i, offsets: Array[Vector2i] = []) -&gt; Array[Vector3i]:</signature>
+			<signature>static func get_neighbor_cells( center: Vector3i, normal: Vector3i, offsets: Array[Vector2i] = [] ) -&gt; Array[Vector3i]:</signature>
 			<description>按 2D offset 获取同一平面上的 3D 邻居格。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -97,6 +99,7 @@
 				<tag name="param">normal: 3D 平面法线。</tag>
 				<tag name="param">offsets: 局部 2D offset；为空时使用 DEFAULT_CARDINAL_OFFSETS。</tag>
 				<tag name="return">3D 邻居格列表。</tag>
+				<tag name="since">3.18.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="sample_neighbor_values">

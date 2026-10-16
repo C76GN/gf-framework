@@ -173,7 +173,12 @@ func configure_for_framework(
 		or not Status.values().has(int(status))
 		or stage == &""
 		or requested_count < 0
-		or not _terminal_union_is_valid(status, stage, reason, sessions)
+		or not _terminal_union_is_valid(
+			status,
+			stage,
+			reason,
+			sessions
+		)
 	):
 		return false
 	_status = status
@@ -198,7 +203,11 @@ static func _terminal_union_is_valid(
 ) -> bool:
 	if status == Status.FAILED:
 		return reason != &"" and sessions.is_empty()
-	if stage != &"completed" or reason != &"" or sessions.is_empty():
+	if (
+		stage != &"completed"
+		or reason != &""
+		or sessions.is_empty()
+	):
 		return false
 	var session_ids: Dictionary = {}
 	for projectile_session: GFProjectileSession in sessions:

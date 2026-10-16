@@ -49,6 +49,7 @@ enum PositionMode {
 	FOLLOW,
 }
 
+
 ## 摇杆输出模式。
 ## [br]
 ## @api public
@@ -82,7 +83,7 @@ const _VIRTUAL_INPUT_BRIDGE = preload("res://addons/gf/standard/input/common/gf_
 ## [br]
 ## @api private
 ## [br]
-const _WARNING_EMPTY_ACTIVE_REGION: String = "[GFTouchJoystick][touch_joystick.active_region_missing] use_active_region is enabled but active_region is empty; touch starts and dragging will be rejected."
+const _WARNING_EMPTY_ACTIVE_REGION: String = ("[GFTouchJoystick][touch_joystick.active_region_missing] use_active_region is enabled but active_region is empty; touch starts and dragging will be rejected.")
 
 
 # --- 导出变量 ---
@@ -107,7 +108,14 @@ const _WARNING_EMPTY_ACTIVE_REGION: String = "[GFTouchJoystick][touch_joystick.a
 ## 摇杆颜色。
 ## [br]
 ## @api public
-@export var color: Color = Color(1.0, 1.0, 1.0, 0.35):
+## [br]
+## @since 1.15.0
+@export var color: Color = Color(
+	1.0,
+	1.0,
+	1.0,
+	0.35
+):
 	set(value):
 		color = value
 		queue_redraw()
@@ -336,10 +344,44 @@ func _input(event: InputEvent) -> void:
 
 func _draw() -> void:
 	if draw_interaction_zone and _uses_touch_origin():
-		draw_circle(Vector2.ZERO, interaction_radius, Color(color, color.a * 0.35), false, 1.0, true)
-	draw_circle(Vector2.ZERO, radius, color, false, 2.0, true)
-	draw_circle(Vector2.ZERO, radius, Color(color, color.a * 0.35), true, -1.0, true)
-	draw_circle(_knob_position, radius / knob_radius_ratio, color, true, -1.0, true)
+		draw_circle(
+			Vector2.ZERO,
+			interaction_radius,
+			Color(
+				color,
+				color.a * 0.35
+			),
+			false,
+			1.0,
+			true
+		)
+	draw_circle(
+		Vector2.ZERO,
+		radius,
+		color,
+		false,
+		2.0,
+		true
+	)
+	draw_circle(
+		Vector2.ZERO,
+		radius,
+		Color(
+			color,
+			color.a * 0.35
+		),
+		true,
+		-1.0,
+		true
+	)
+	draw_circle(
+		_knob_position,
+		radius / knob_radius_ratio,
+		color,
+		true,
+		-1.0,
+		true
+	)
 
 
 # --- 公共方法 ---
@@ -388,7 +430,11 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 	var local_pos: Vector2 = to_local(global_pos)
 	if event.pressed:
 		if not is_touch_active() and _can_begin_at(local_pos, event.position):
-			_begin_touch(event.index, global_pos, local_pos)
+			_begin_touch(
+				event.index,
+				global_pos,
+				local_pos
+			)
 			_mark_input_as_handled()
 	elif _touch_matches(event.index):
 		release()
@@ -402,7 +448,11 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 func _handle_drag(event: InputEventScreenDrag) -> void:
 	if not _touch_matches(event.index):
 		return
-	if release_outside_active_region and use_active_region and not _is_screen_position_in_active_region(event.position):
+	if (
+		release_outside_active_region
+		and use_active_region
+		and not _is_screen_position_in_active_region(event.position)
+	):
 		release()
 		_mark_input_as_handled()
 		return
@@ -414,7 +464,11 @@ func _handle_drag(event: InputEventScreenDrag) -> void:
 ## [br]
 ## @api private
 ## [br]
-func _begin_touch(touch_index: int, global_pos: Vector2, local_pos: Vector2) -> void:
+func _begin_touch(
+	touch_index: int,
+	global_pos: Vector2,
+	local_pos: Vector2
+) -> void:
 	if _release_in_progress or not _try_capture_touch_index(touch_index):
 		return
 	_gesture_generation += 1
@@ -481,8 +535,16 @@ func _apply_input_actions(direction: Vector2) -> void:
 	var right_action: StringName = _active_action_right if _gesture_binding_active else action_right
 	var up_action: StringName = _active_action_up if _gesture_binding_active else action_up
 	var down_action: StringName = _active_action_down if _gesture_binding_active else action_down
-	_apply_axis_actions(direction.x, left_action, right_action)
-	_apply_axis_actions(direction.y, up_action, down_action)
+	_apply_axis_actions(
+		direction.x,
+		left_action,
+		right_action
+	)
+	_apply_axis_actions(
+		direction.y,
+		up_action,
+		down_action
+	)
 	_emit_joypad_motion(direction)
 
 
@@ -490,12 +552,22 @@ func _apply_input_actions(direction: Vector2) -> void:
 ## [br]
 ## @api private
 ## [br]
-func _apply_axis_actions(value: float, negative_action: StringName, positive_action: StringName) -> void:
+func _apply_axis_actions(
+	value: float,
+	negative_action: StringName,
+	positive_action: StringName
+) -> void:
 	if value < 0.0:
-		_press_action(negative_action, absf(value))
+		_press_action(
+			negative_action,
+			absf(value)
+		)
 		_release_action(positive_action)
 	elif value > 0.0:
-		_press_action(positive_action, absf(value))
+		_press_action(
+			positive_action,
+			absf(value)
+		)
 		_release_action(negative_action)
 	else:
 		_release_action(negative_action)
@@ -509,7 +581,12 @@ func _apply_axis_actions(value: float, negative_action: StringName, positive_act
 func _press_action(action: StringName, strength: float) -> void:
 	if action == &"":
 		return
-	var _pressed_action: bool = _VIRTUAL_INPUT_BRIDGE.press_action(action, self, action, strength)
+	var _pressed_action: bool = _VIRTUAL_INPUT_BRIDGE.press_action(
+		action,
+		self,
+		action,
+		strength
+	)
 
 
 ## 忽略空动作名，否则通过虚拟输入桥接释放本控件对动作的贡献。
@@ -519,7 +596,11 @@ func _press_action(action: StringName, strength: float) -> void:
 func _release_action(action: StringName) -> void:
 	if action == &"":
 		return
-	var _released_action: bool = _VIRTUAL_INPUT_BRIDGE.release_action(action, self, action)
+	var _released_action: bool = _VIRTUAL_INPUT_BRIDGE.release_action(
+		action,
+		self,
+		action
+	)
 
 
 ## 按当前手势冻结或实时配置决定是否发送手柄轴事件，并分别选择轴映射。
@@ -527,11 +608,7 @@ func _release_action(action: StringName) -> void:
 ## @api private
 ## [br]
 func _emit_joypad_motion(direction: Vector2) -> void:
-	var should_emit: bool = (
-		_active_emit_joypad_motion
-		if _gesture_binding_active
-		else emit_joypad_motion
-	)
+	var should_emit: bool = (_active_emit_joypad_motion if _gesture_binding_active else emit_joypad_motion)
 	if not should_emit:
 		return
 
@@ -547,7 +624,11 @@ func _emit_joypad_motion(direction: Vector2) -> void:
 ## [br]
 func _emit_joypad_axis(axis: JoyAxis, value: float) -> void:
 	var device_id: int = _active_joypad_device_id if _gesture_binding_active else joypad_device_id
-	_VIRTUAL_INPUT_BRIDGE.emit_joypad_axis(device_id, axis, value)
+	_VIRTUAL_INPUT_BRIDGE.emit_joypad_axis(
+		device_id,
+		axis,
+		value
+	)
 
 
 ## 对原始向量应用径向死区。
@@ -583,11 +664,7 @@ func _calculate_output_direction(raw_direction: Vector2) -> Vector2:
 ## @api private
 ## [br]
 func _apply_follow_origin(local_pos: Vector2) -> Vector2:
-	var effective_position_mode: PositionMode = (
-		_active_position_mode
-		if _gesture_binding_active
-		else position_mode
-	)
+	var effective_position_mode: PositionMode = (_active_position_mode if _gesture_binding_active else position_mode)
 	if effective_position_mode != PositionMode.FOLLOW or local_pos.length() <= radius:
 		return local_pos
 	var knob_pos: Vector2 = local_pos.limit_length(radius)
@@ -601,11 +678,7 @@ func _apply_follow_origin(local_pos: Vector2) -> Vector2:
 ## @api private
 ## [br]
 func _uses_touch_origin() -> bool:
-	var effective_position_mode: PositionMode = (
-		_active_position_mode
-		if _gesture_binding_active
-		else position_mode
-	)
+	var effective_position_mode: PositionMode = (_active_position_mode if _gesture_binding_active else position_mode)
 	return _position_mode_uses_touch_origin(effective_position_mode)
 
 

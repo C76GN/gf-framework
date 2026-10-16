@@ -76,7 +76,11 @@ func _bind_instance(
 	var motion_snapshot: GFProjectileMotion = motion
 	var lifetime_snapshot: GFProjectileLifetimePolicy = lifetime_policy
 	var adapter_snapshot: Resource = body_adapter
-	if root == null or not is_instance_valid(root) or root.is_queued_for_deletion():
+	if (
+		root == null
+		or not is_instance_valid(root)
+		or root.is_queued_for_deletion()
+	):
 		return binding.initialize_for_framework(GFProjectileBinding.FailureReason.INVALID_ROOT)
 	if not _root_matches_dimension(root, dimension):
 		return binding.initialize_for_framework(GFProjectileBinding.FailureReason.ROOT_DIMENSION_MISMATCH)
@@ -92,7 +96,11 @@ func _bind_instance(
 		return binding.initialize_for_framework(GFProjectileBinding.FailureReason.MISSING_BODY_ADAPTER)
 	if lifetime_snapshot != null and not is_instance_valid(lifetime_snapshot):
 		return binding.initialize_for_framework(GFProjectileBinding.FailureReason.INVALID_DEFINITION)
-	var adapter_validation: Error = _validate_adapter(root, dimension, adapter_snapshot)
+	var adapter_validation: Error = _validate_adapter(
+		root,
+		dimension,
+		adapter_snapshot
+	)
 	if not is_instance_valid(root) or root.is_queued_for_deletion():
 		return binding.initialize_for_framework(GFProjectileBinding.FailureReason.INVALID_ROOT)
 	if not root.is_inside_tree():
@@ -116,7 +124,11 @@ func _bind_instance(
 		return binding.initialize_for_framework(GFProjectileBinding.FailureReason.UNSUPPORTED_MOTION_BODY)
 
 	var resolved_runtime: Node = root.get_node_or_null(runtime_path_snapshot)
-	if resolved_runtime != null and resolved_runtime != root and not root.is_ancestor_of(resolved_runtime):
+	if (
+		resolved_runtime != null
+		and resolved_runtime != root
+		and not root.is_ancestor_of(resolved_runtime)
+	):
 		return binding.initialize_for_framework(GFProjectileBinding.FailureReason.RUNTIME_OUTSIDE_ROOT)
 	if resolved_runtime != null and _runtime_has_opposite_dimension(resolved_runtime, dimension):
 		return binding.initialize_for_framework(GFProjectileBinding.FailureReason.RUNTIME_DIMENSION_MISMATCH)
@@ -220,7 +232,10 @@ func _bind_fence_is_current(
 		or motion_snapshot == null
 		or not is_instance_valid(motion_snapshot)
 		or lifetime_policy != lifetime_snapshot
-		or (lifetime_snapshot != null and not is_instance_valid(lifetime_snapshot))
+		or (
+			lifetime_snapshot != null
+			and not is_instance_valid(lifetime_snapshot)
+		)
 		or adapter_snapshot == null
 		or not is_instance_valid(adapter_snapshot)
 	):
@@ -239,31 +254,37 @@ func _bind_fence_is_current(
 ## @api private
 func _root_matches_dimension(root: Node, dimension: GFProjectileSession.Dimension) -> bool:
 	return (
-		(root is Node2D and dimension == GFProjectileSession.Dimension.TWO_D)
-		or (root is Node3D and dimension == GFProjectileSession.Dimension.THREE_D)
+		(
+			root is Node2D
+			and dimension == GFProjectileSession.Dimension.TWO_D
+		)
+		or (
+			root is Node3D
+			and dimension == GFProjectileSession.Dimension.THREE_D
+		)
 	)
 
 
 ## 检查候选 runtime 是否属于与请求相反的 projectile 维度。
 ## [br]
 ## @api private
-func _runtime_has_opposite_dimension(
-	runtime: Node,
-	dimension: GFProjectileSession.Dimension
-) -> bool:
+func _runtime_has_opposite_dimension(runtime: Node, dimension: GFProjectileSession.Dimension) -> bool:
 	return (
-		(runtime is GFProjectile3D and dimension == GFProjectileSession.Dimension.TWO_D)
-		or (runtime is GFProjectile2D and dimension == GFProjectileSession.Dimension.THREE_D)
+		(
+			runtime is GFProjectile3D
+			and dimension == GFProjectileSession.Dimension.TWO_D
+		)
+		or (
+			runtime is GFProjectile2D
+			and dimension == GFProjectileSession.Dimension.THREE_D
+		)
 	)
 
 
 ## 深度遍历实例子树并收集未排队删除的 2D/3D projectile runtime。
 ## [br]
 ## @api private
-func _collect_runtimes(
-	node: Node,
-	result: Array[Node]
-) -> void:
+func _collect_runtimes(node: Node, result: Array[Node]) -> void:
 	for child: Node in node.get_children():
 		if not is_instance_valid(child) or child.is_queued_for_deletion():
 			continue
@@ -275,17 +296,20 @@ func _collect_runtimes(
 ## 检查 impact source 是否是请求维度支持的 hit box 或 hit scan。
 ## [br]
 ## @api private
-func _impact_matches_dimension(
-	source: Node,
-	dimension: GFProjectileSession.Dimension
-) -> bool:
+func _impact_matches_dimension(source: Node, dimension: GFProjectileSession.Dimension) -> bool:
 	return (
 		(
-			(source is GFHitBox2D or source is GFHitScan2D)
+			(
+				source is GFHitBox2D
+				or source is GFHitScan2D
+			)
 			and dimension == GFProjectileSession.Dimension.TWO_D
 		)
 		or (
-			(source is GFHitBox3D or source is GFHitScan3D)
+			(
+				source is GFHitBox3D
+				or source is GFHitScan3D
+			)
 			and dimension == GFProjectileSession.Dimension.THREE_D
 		)
 	)
@@ -294,17 +318,20 @@ func _impact_matches_dimension(
 ## 检查 impact source 是否明确属于另一维度。
 ## [br]
 ## @api private
-func _impact_has_opposite_dimension(
-	source: Node,
-	dimension: GFProjectileSession.Dimension
-) -> bool:
+func _impact_has_opposite_dimension(source: Node, dimension: GFProjectileSession.Dimension) -> bool:
 	return (
 		(
-			(source is GFHitBox3D or source is GFHitScan3D)
+			(
+				source is GFHitBox3D
+				or source is GFHitScan3D
+			)
 			and dimension == GFProjectileSession.Dimension.TWO_D
 		)
 		or (
-			(source is GFHitBox2D or source is GFHitScan2D)
+			(
+				source is GFHitBox2D
+				or source is GFHitScan2D
+			)
 			and dimension == GFProjectileSession.Dimension.THREE_D
 		)
 	)

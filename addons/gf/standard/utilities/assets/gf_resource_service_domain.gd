@@ -203,7 +203,11 @@ func configure(broker: GFResourceBroker, mode: Mode = Mode.STABLE) -> Error:
 		return ERR_UNAUTHORIZED
 	if _current_generation != 0 or _closing:
 		return ERR_ALREADY_IN_USE
-	if mode != Mode.STABLE and mode != Mode.CONTROLLED and mode != Mode.IN_FLIGHT:
+	if (
+		mode != Mode.STABLE
+		and mode != Mode.CONTROLLED
+		and mode != Mode.IN_FLIGHT
+	):
 		return ERR_INVALID_PARAMETER
 	if not _supports_mode(broker, mode):
 		return ERR_UNAVAILABLE
@@ -247,7 +251,11 @@ func get_current_generation() -> int:
 ## [br]
 ## @return 已配置且未暂停、未关闭时为 true。
 func is_accepting_requests() -> bool:
-	return _current_generation > 0 and not _closing and not _paused
+	return (
+		_current_generation > 0
+		and not _closing
+		and not _paused
+	)
 
 
 ## 立即发起绑定当前代次的请求；旧结果仍通过返回租约读取。
@@ -266,8 +274,16 @@ func is_accepting_requests() -> bool:
 ## @schema options: Dictionary with optional exclusive: bool, require_idle: bool, consumer_id: StringName.
 ## [br]
 ## @return 拒绝返回 failed Lease，绝不静默降级。
-func request(path: String, type_hint: String = "", options: Dictionary = {}) -> GFResourceLease:
-	var reservation: GFResourceServiceReservation = reserve_for_framework(path, type_hint, options)
+func request(
+	path: String,
+	type_hint: String = "",
+	options: Dictionary = {}
+) -> GFResourceLease:
+	var reservation: GFResourceServiceReservation = reserve_for_framework(
+		path,
+		type_hint,
+		options
+	)
 	if reservation == null:
 		return _failed_lease("resource_service_not_accepting")
 	var lease: GFResourceLease = reservation.start()
@@ -294,7 +310,15 @@ func begin_switch(broker: GFResourceBroker, timeout_msec: int = 30000) -> GFAsyn
 		return _failed_completion("resource_service_domain_closing_or_unconfigured")
 	if _mode == Mode.STABLE:
 		return _failed_completion("resource_service_stable_mode")
-	if _pumping or _candidate != null or _retiring_generation != 0 or (_switch_completion != null and _switch_completion.is_pending()):
+	if (
+		_pumping
+		or _candidate != null
+		or _retiring_generation != 0
+		or (
+			_switch_completion != null
+			and _switch_completion.is_pending()
+		)
+	):
 		return _failed_completion("resource_service_switch_busy")
 	if timeout_msec < 1 or timeout_msec > 600000:
 		return _failed_completion("resource_service_invalid_deadline")
@@ -334,7 +358,11 @@ func pump() -> void:
 		for generation: int in _generations.keys():
 			if _can_retire(generation):
 				_retire(generation)
-		if _generations.is_empty() and _close_completion != null and _close_completion.is_pending():
+		if (
+			_generations.is_empty()
+			and _close_completion != null
+			and _close_completion.is_pending()
+		):
 			var _closed: bool = _close_completion.succeed()
 	elif _switch_completion != null:
 		if _switch_completion.is_pending() and Time.get_ticks_msec() >= _switch_deadline:
@@ -385,7 +413,13 @@ func get_debug_snapshot() -> Dictionary:
 	for generation: int in _generations:
 		var record: Dictionary = _generations[generation]
 		_prune_references(record)
-		generations.append({ "generation": generation, "references": _reference_count(record), "idle": _get_broker(generation).is_idle() })
+		generations.append(
+			{
+				"generation": generation,
+				"references": _reference_count(record),
+				"idle": _get_broker(generation).is_idle(),
+			}
+		)
 	return {
 		"mode": _mode,
 		"current_generation": _current_generation,
@@ -410,6 +444,7 @@ func get_debug_snapshot() -> Dictionary:
 func has_live_generations_for_framework() -> bool:
 	return not _generations.is_empty()
 
+
 ## 在 Asset 本地排队之前捕获代次；暂停时返回 null，不接纳隐藏队列。
 ## [br]
 ## @api framework_internal
@@ -423,7 +458,11 @@ func has_live_generations_for_framework() -> bool:
 ## @schema options: Dictionary with optional exclusive: bool, require_idle: bool, consumer_id: StringName.
 ## [br]
 ## @return 原代请求票据；未准入返回 null。
-func reserve_for_framework(path: String, type_hint: String, options: Dictionary) -> GFResourceServiceReservation:
+func reserve_for_framework(
+	path: String,
+	type_hint: String,
+	options: Dictionary
+) -> GFResourceServiceReservation:
 	if not Thread.is_main_thread() or not is_accepting_requests():
 		return null
 	var admission: Dictionary = {
@@ -431,7 +470,14 @@ func reserve_for_framework(path: String, type_hint: String, options: Dictionary)
 		"require_idle": GFVariantData.get_option_bool(options, "require_idle"),
 		"consumer_id": GFVariantData.get_option_string_name(options, "consumer_id"),
 	}
-	return _retain(_current_generation, { "path": path, "type_hint": type_hint, "options": admission })
+	return _retain(
+		_current_generation,
+		{
+			"path": path,
+			"type_hint": type_hint,
+			"options": admission,
+		}
+	)
 
 
 ## 为已接纳请求或已交付句柄保留原代；不能创建新的请求载荷。
@@ -471,7 +517,14 @@ func start_reservation_for_framework(reservation: GFResourceServiceReservation, 
 	_prune_references(record)
 	if _reference_count(record) >= MAX_GENERATION_REFERENCES:
 		return _failed_lease("resource_service_reference_budget")
-	var lease: GFResourceLease = _get_broker(generation).request_for_service_domain(self, GFVariantData.get_option_string(payload, "path"), GFVariantData.get_option_string(payload, "type_hint"), GFVariantData.get_option_dictionary(payload, "options"))
+	var lease: GFResourceLease = (
+		_get_broker(generation).request_for_service_domain(
+			self,
+			GFVariantData.get_option_string(payload, "path"),
+			GFVariantData.get_option_string(payload, "type_hint"),
+			GFVariantData.get_option_dictionary(payload, "options")
+		)
+	)
 	lease.bind_service_generation(generation, self)
 	references.append(weakref(lease))
 	return lease
@@ -489,7 +542,11 @@ func _ensure_retirement_guard() -> void:
 	if not loop is SceneTree:
 		return
 	var tree: SceneTree = loop
-	if tree.root == null or not tree.root.is_inside_tree() or tree.root.is_queued_for_deletion():
+	if (
+		tree.root == null
+		or not tree.root.is_inside_tree()
+		or tree.root.is_queued_for_deletion()
+	):
 		return
 	var guard: GFResourceServiceRetirement = GFResourceServiceRetirement.new()
 	guard.bind(self)
@@ -508,6 +565,7 @@ func _has_retirement_guard() -> bool:
 		var guard: GFResourceServiceRetirement = value
 		return guard.is_inside_tree() and not guard.is_queued_for_deletion()
 	return false
+
 
 ## 只认可框架已实现的所有权和后端隔离，不采用调用方自报能力布尔值。
 ## [br]
@@ -545,7 +603,11 @@ func _retain(generation: int, request_payload: Dictionary) -> GFResourceServiceR
 	if _reference_count(record) >= MAX_GENERATION_REFERENCES - 1:
 		return null
 	var reservation: GFResourceServiceReservation = GFResourceServiceReservation.new()
-	reservation.bind(self, generation, request_payload)
+	reservation.bind(
+		self,
+		generation,
+		request_payload
+	)
 	var references: Array = record["references"]
 	references.append(weakref(reservation))
 	return reservation
@@ -564,7 +626,11 @@ func _get_broker(generation: int) -> GFResourceBroker:
 ## @api private
 func _prune_references(record: Dictionary) -> void:
 	var references: Array = record["references"]
-	for index: int in range(references.size() - 1, -1, -1):
+	for index: int in range(
+		references.size() - 1,
+		-1,
+		-1
+	):
 		var weak_reference: WeakRef = references[index]
 		var object: Object = weak_reference.get_ref()
 		if object == null:
@@ -591,7 +657,11 @@ func _reference_count(record: Dictionary) -> int:
 ## [br]
 ## @api private
 func _can_retire(generation: int) -> bool:
-	return _generations.has(generation) and _get_broker(generation).is_idle() and _reference_count(_generations[generation]) == 0
+	return (
+		_generations.has(generation)
+		and _get_broker(generation).is_idle()
+		and _reference_count(_generations[generation]) == 0
+	)
 
 
 ## 仅在安全条件满足后释放代次；底层未收尾从不强制 dispose。

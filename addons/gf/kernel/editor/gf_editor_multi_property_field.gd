@@ -42,21 +42,41 @@ const _VALUE_FIELD_SCRIPT = preload("res://addons/gf/kernel/editor/gf_editor_val
 ## 多分量向量按顺序读取和构造的属性名称。
 ## [br]
 ## @api private
-const _VECTOR_COMPONENTS: Array[String] = ["x", "y", "z", "w"]
+const _VECTOR_COMPONENTS: Array[String] = [
+	"x",
+	"y",
+	"z",
+	"w",
+]
 
 ## 当前控件支持编辑的标量和向量 Variant 类型。
 ## [br]
 ## @api private
 const _SUPPORTED_TYPES: Array[int] = [
-	TYPE_BOOL, TYPE_INT, TYPE_FLOAT, TYPE_STRING, TYPE_STRING_NAME, TYPE_NODE_PATH,
-	TYPE_VECTOR2, TYPE_VECTOR2I, TYPE_VECTOR3, TYPE_VECTOR3I, TYPE_VECTOR4, TYPE_VECTOR4I,
+	TYPE_BOOL,
+	TYPE_INT,
+	TYPE_FLOAT,
+	TYPE_STRING,
+	TYPE_STRING_NAME,
+	TYPE_NODE_PATH,
+	TYPE_VECTOR2,
+	TYPE_VECTOR2I,
+	TYPE_VECTOR3,
+	TYPE_VECTOR3I,
+	TYPE_VECTOR4,
+	TYPE_VECTOR4I,
 ]
 
 ## 需要按 x/y/z/w 分解显示的整数和浮点向量类型。
 ## [br]
 ## @api private
 const _VECTOR_TYPES: Array[int] = [
-	TYPE_VECTOR2, TYPE_VECTOR2I, TYPE_VECTOR3, TYPE_VECTOR3I, TYPE_VECTOR4, TYPE_VECTOR4I,
+	TYPE_VECTOR2,
+	TYPE_VECTOR2I,
+	TYPE_VECTOR3,
+	TYPE_VECTOR3I,
+	TYPE_VECTOR4,
+	TYPE_VECTOR4I,
 ]
 
 
@@ -181,7 +201,7 @@ func cancel_edit() -> void:
 				var parts: Array = _split_value(value)
 				if parts[index] != first_components[index]:
 					mixed = true
-			_components[component] = {"value": first_components[index], "mixed": mixed}
+			_components[component] = { "value": first_components[index], "mixed": mixed }
 	_rebuild_controls()
 	draft_changed.emit()
 
@@ -231,26 +251,37 @@ func prepare_changes() -> Dictionary:
 		_rebuild_controls()
 		draft_changed.emit()
 		return {
-			"ok": false, "error": ERR_INVALID_DATA, "status": status, "changes": [],
+			"ok": false,
+			"error": ERR_INVALID_DATA,
+			"status": status,
+			"changes": [],
 		}
 	var changes: Array[Dictionary] = []
 	for reference: WeakRef in _targets:
 		var target_value: Variant = reference.get_ref()
 		if not target_value is Object or not is_instance_valid(target_value):
 			return {
-				"ok": false, "error": ERR_INVALID_DATA, "status": "invalid", "changes": [],
+				"ok": false,
+				"error": ERR_INVALID_DATA,
+				"status": "invalid",
+				"changes": [],
 			}
 		var target: Object = target_value
 		for component: String in _components:
 			if not _draft.has(component):
 				continue
-			var change: Dictionary = {"target": target, "new_value": _draft[component]}
+			var change: Dictionary = { "target": target, "new_value": _draft[component] }
 			if component == "value":
 				change["property_name"] = _property
 			else:
 				change["property_path"] = NodePath(String(_property) + ":" + component)
 			changes.append(change)
-	return {"ok": true, "error": OK, "status": status, "changes": changes}
+	return {
+		"ok": true,
+		"error": OK,
+		"status": status,
+		"changes": changes,
+	}
 
 
 # --- 私有/辅助方法 ---
@@ -260,7 +291,11 @@ func prepare_changes() -> Dictionary:
 ## [br]
 ## @api private
 func _inspect_selection() -> Dictionary:
-	var result: Dictionary = {"status": "empty", "property_info": {}, "values": []}
+	var result: Dictionary = {
+		"status": "empty",
+		"property_info": {},
+		"values": [],
+	}
 	if _targets.is_empty() or _property == &"":
 		return result
 	var values: Array = []
@@ -296,16 +331,30 @@ func _inspect_selection() -> Dictionary:
 		values.append(property_value)
 	var value_type: int = _int_field(first_info, "type")
 	var indexed_name_unsupported: bool = String(_property).contains(":") or String(_property).contains("/")
-	if value_type not in _SUPPORTED_TYPES or (value_type in _VECTOR_TYPES and indexed_name_unsupported):
+	if (
+		value_type not in _SUPPORTED_TYPES
+		or (
+			value_type in _VECTOR_TYPES
+			and indexed_name_unsupported
+		)
+	):
 		state = "unsupported"
-	return {"status": state, "property_info": first_info, "values": values}
+	return {
+		"status": state,
+		"property_info": first_info,
+		"values": values,
+	}
 
 
 ## 仅当两份非空属性声明的 type、hint 和 hint_string 全部相同时视为同一编辑 schema。
 ## [br]
 ## @api private
 func _same_schema(first: Dictionary, second: Dictionary) -> bool:
-	for key: String in ["type", "hint", "hint_string"]:
+	for key: String in [
+		"type",
+		"hint",
+		"hint_string",
+	]:
 		if first.get(key) != second.get(key):
 			return false
 	return not first.is_empty() and not second.is_empty()
@@ -339,8 +388,11 @@ func _rebuild_controls() -> void:
 			var info: Dictionary = _property_info.duplicate(true)
 			var component_value: Variant = entry.get("value")
 			if component != "value":
-				info = {"name": component, "type": typeof(component_value)}
-			field.configure(info, _draft.get(component, component_value))
+				info = { "name": component, "type": typeof(component_value) }
+			field.configure(
+				info,
+				_draft.get(component, component_value)
+			)
 			field.set_label(component if component != "value" else String(_property))
 			row.add_child(field)
 			var label: Label = Label.new()
@@ -348,10 +400,18 @@ func _rebuild_controls() -> void:
 			row.add_child(label)
 			add_child(row)
 			var _value_connection: int = field.value_changed.connect(
-				_on_component_value_changed.bind(component, enabled, _ui_generation)
+				_on_component_value_changed.bind(
+					component,
+					enabled,
+					_ui_generation
+				)
 			)
 			var _toggle_connection: int = enabled.toggled.connect(
-				_on_component_toggled.bind(component, field, _ui_generation)
+				_on_component_toggled.bind(
+					component,
+					field,
+					_ui_generation
+				)
 			)
 	_updating = false
 
@@ -363,11 +423,19 @@ func _reset_component_inputs() -> void:
 	_updating = true
 	for component: String in _components:
 		var entry: Dictionary = _dictionary_field(_components, component)
-		var field_node: Node = find_child("Component_" + component, true, false)
+		var field_node: Node = find_child(
+			"Component_" + component,
+			true,
+			false
+		)
 		if field_node is GFEditorValueField:
 			var field: GFEditorValueField = field_node
 			field.set_value(entry.get("value"))
-		var checkbox_node: Node = find_child("Edit_" + component, true, false)
+		var checkbox_node: Node = find_child(
+			"Edit_" + component,
+			true,
+			false
+		)
 		if checkbox_node is CheckBox:
 			var checkbox: CheckBox = checkbox_node
 			checkbox.set_pressed_no_signal(false)
@@ -380,14 +448,22 @@ func _reset_component_inputs() -> void:
 ## @api private
 func _status_text() -> String:
 	match _status:
-		"empty": return "请选择资源和属性。"
-		"invalid": return "选择包含失效目标，无法编辑。"
-		"missing": return "部分目标缺失此属性，无法编辑。"
-		"incompatible": return "属性类型或编辑提示不兼容，无法编辑。"
-		"readonly": return "属性只读，无法编辑。"
-		"unsupported": return "此类型仅展示；多选编辑支持标量和向量。"
-		"mixed": return "混合值 · 仅应用勾选的值或分量。"
-		_: return "一致值 · 仅应用勾选的值或分量。"
+		"empty":
+			return "请选择资源和属性。"
+		"invalid":
+			return "选择包含失效目标，无法编辑。"
+		"missing":
+			return "部分目标缺失此属性，无法编辑。"
+		"incompatible":
+			return "属性类型或编辑提示不兼容，无法编辑。"
+		"readonly":
+			return "属性只读，无法编辑。"
+		"unsupported":
+			return "此类型仅展示；多选编辑支持标量和向量。"
+		"mixed":
+			return "混合值 · 仅应用勾选的值或分量。"
+		_:
+			return "一致值 · 仅应用勾选的值或分量。"
 
 
 ## 将支持的 Vector2/3/4 整数或浮点向量展开为分量数组，其余值包装为单元素数组。
@@ -402,16 +478,34 @@ func _split_value(value: Variant) -> Array:
 		return [vector.x, vector.y]
 	if value is Vector3:
 		var vector: Vector3 = value
-		return [vector.x, vector.y, vector.z]
+		return [
+			vector.x,
+			vector.y,
+			vector.z,
+		]
 	if value is Vector3i:
 		var vector: Vector3i = value
-		return [vector.x, vector.y, vector.z]
+		return [
+			vector.x,
+			vector.y,
+			vector.z,
+		]
 	if value is Vector4:
 		var vector: Vector4 = value
-		return [vector.x, vector.y, vector.z, vector.w]
+		return [
+			vector.x,
+			vector.y,
+			vector.z,
+			vector.w,
+		]
 	if value is Vector4i:
 		var vector: Vector4i = value
-		return [vector.x, vector.y, vector.z, vector.w]
+		return [
+			vector.x,
+			vector.y,
+			vector.z,
+			vector.w,
+		]
 	return [value]
 
 
@@ -466,9 +560,16 @@ func _int_field(source: Dictionary, key: String) -> int:
 ## [br]
 ## @api private
 func _on_component_value_changed(
-	value: Variant, component: String, enabled: CheckBox, generation: int
+	value: Variant,
+	component: String,
+	enabled: CheckBox,
+	generation: int
 ) -> void:
-	if _updating or not _accepting_input or generation != _ui_generation:
+	if (
+		_updating
+		or not _accepting_input
+		or generation != _ui_generation
+	):
 		return
 	_draft[component] = value
 	enabled.set_pressed_no_signal(true)
@@ -480,9 +581,16 @@ func _on_component_value_changed(
 ## [br]
 ## @api private
 func _on_component_toggled(
-	enabled: bool, component: String, field: GFEditorValueField, generation: int
+	enabled: bool,
+	component: String,
+	field: GFEditorValueField,
+	generation: int
 ) -> void:
-	if _updating or not _accepting_input or generation != _ui_generation:
+	if (
+		_updating
+		or not _accepting_input
+		or generation != _ui_generation
+	):
 		return
 	if enabled:
 		_draft[component] = field.get_value()

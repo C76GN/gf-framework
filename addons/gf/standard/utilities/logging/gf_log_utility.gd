@@ -19,12 +19,18 @@ extends GFUtility
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param level: LogLevel 枚举值。
 ## [br]
 ## @param tag: 日志标签。
 ## [br]
 ## @param message: 日志内容。
-signal log_emitted(level: int, tag: String, message: String)
+signal log_emitted(
+	level: int,
+	tag: String,
+	message: String
+)
 
 ## 每次打印日志时发出完整结构化条目。
 ## [br]
@@ -176,13 +182,15 @@ var _max_memory_entries: int = 500
 ## [br]
 ## @api private
 ## [br]
-static var _LEVEL_NAMES: PackedStringArray = PackedStringArray([
-	"DEBUG",
-	"INFO",
-	"WARN",
-	"ERROR",
-	"FATAL",
-])
+static var _LEVEL_NAMES: PackedStringArray = PackedStringArray(
+	[
+		"DEBUG",
+		"INFO",
+		"WARN",
+		"ERROR",
+		"FATAL",
+	]
+)
 
 ## 当前本地日志文件句柄。
 ## [br]
@@ -300,7 +308,10 @@ func init() -> void:
 	if not DirAccess.dir_exists_absolute(_LOG_DIR):
 		var make_log_dir_result: Error = DirAccess.make_dir_recursive_absolute(_LOG_DIR)
 		if make_log_dir_result != OK:
-			push_warning("[GFLogUtility][log_utility.log_directory_failed] Cannot create the log directory: %s, error code: %s." % [_LOG_DIR, make_log_dir_result])
+			push_warning(
+				"[GFLogUtility][log_utility.log_directory_failed] Cannot create the log directory: %s, error code: %s."
+				% [_LOG_DIR, make_log_dir_result]
+			)
 
 	if trace_id.is_empty():
 		trace_id = _generate_trace_id()
@@ -308,20 +319,26 @@ func init() -> void:
 	_write_crash_marker()
 
 	var datetime: Dictionary = Time.get_datetime_dict_from_system()
-	var file_name: String = "gf_log_%04d%02d%02d_%02d%02d%02d_%03d.log" % [
-		datetime.year,
-		datetime.month,
-		datetime.day,
-		datetime.hour,
-		datetime.minute,
-		datetime.second,
-		Time.get_ticks_msec() % 1000,
-	]
+	var file_name: String = (
+		"gf_log_%04d%02d%02d_%02d%02d%02d_%03d.log"
+		% [
+			datetime.year,
+			datetime.month,
+			datetime.day,
+			datetime.hour,
+			datetime.minute,
+			datetime.second,
+			Time.get_ticks_msec() % 1000,
+		]
+	)
 	_log_file_path = _LOG_DIR + file_name
 
 	_file = FileAccess.open(_log_file_path, FileAccess.WRITE)
 	if _file == null:
-		push_error("[GFLogUtility][log_utility.log_file_creation_failed] Cannot create the log file: %s, error code: %s." % [_log_file_path, FileAccess.get_open_error()])
+		push_error(
+			"[GFLogUtility][log_utility.log_file_creation_failed] Cannot create the log file: %s, error code: %s."
+			% [_log_file_path, FileAccess.get_open_error()]
+		)
 	else:
 		_active_files.append(weakref(_file))
 		_last_file_flush_msec = Time.get_ticks_msec()
@@ -350,7 +367,11 @@ func dispose() -> void:
 
 	if _file != null:
 		_flush_file()
-		for index: int in range(_active_files.size() - 1, -1, -1):
+		for index: int in range(
+			_active_files.size() - 1,
+			-1,
+			-1
+		):
 			var active_file: Variant = _active_files[index].get_ref()
 			if active_file == null or active_file == _file:
 				_active_files.remove_at(index)
@@ -369,7 +390,11 @@ func dispose() -> void:
 ## [br]
 ## @param delta: 本帧时间增量（秒）；非有限或非正数不会推进状态。
 func tick(delta: float) -> void:
-	if not _is_initialized or not is_finite(delta) or delta <= 0.0:
+	if (
+		not _is_initialized
+		or not is_finite(delta)
+		or delta <= 0.0
+	):
 		return
 	_file_flush_elapsed_msec += delta * 1000.0
 	if (
@@ -390,6 +415,8 @@ func tick(delta: float) -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param tag: 日志标签（如模块名）。
 ## [br]
 ## @param msg: 日志内容。
@@ -397,27 +424,49 @@ func tick(delta: float) -> void:
 ## @param context: 结构化上下文字典。
 ## [br]
 ## @schema context: Dictionary[String, Variant] structured context merged into the log entry.
-func debug(tag: String, msg: String, context: Dictionary = {}) -> void:
-	_log(LogLevel.DEBUG, tag, msg, context)
+func debug(
+	tag: String,
+	msg: String,
+	context: Dictionary = {}
+) -> void:
+	_log(
+		LogLevel.DEBUG,
+		tag,
+		msg,
+		context
+	)
 
 
 ## 延迟输出 DEBUG 级别日志。只有日志未被过滤时才调用 message_builder。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param tag: 日志标签。
 ## [br]
 ## @param message_builder: 延迟构造日志消息的回调。
 ## [br]
 ## @param context_builder: 延迟构造结构化上下文的回调。
-func debug_lazy(tag: String, message_builder: Callable, context_builder: Callable = Callable()) -> void:
-	_log_lazy(LogLevel.DEBUG, tag, message_builder, context_builder)
+func debug_lazy(
+	tag: String,
+	message_builder: Callable,
+	context_builder: Callable = Callable()
+) -> void:
+	_log_lazy(
+		LogLevel.DEBUG,
+		tag,
+		message_builder,
+		context_builder
+	)
 
 
 ## 输出 INFO 级别日志。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param tag: 日志标签。
 ## [br]
 ## @param msg: 日志内容。
@@ -425,27 +474,49 @@ func debug_lazy(tag: String, message_builder: Callable, context_builder: Callabl
 ## @param context: 结构化上下文字典。
 ## [br]
 ## @schema context: Dictionary[String, Variant] structured context merged into the log entry.
-func info(tag: String, msg: String, context: Dictionary = {}) -> void:
-	_log(LogLevel.INFO, tag, msg, context)
+func info(
+	tag: String,
+	msg: String,
+	context: Dictionary = {}
+) -> void:
+	_log(
+		LogLevel.INFO,
+		tag,
+		msg,
+		context
+	)
 
 
 ## 延迟输出 INFO 级别日志。只有日志未被过滤时才调用 message_builder。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param tag: 日志标签。
 ## [br]
 ## @param message_builder: 延迟构造日志消息的回调。
 ## [br]
 ## @param context_builder: 延迟构造结构化上下文的回调。
-func info_lazy(tag: String, message_builder: Callable, context_builder: Callable = Callable()) -> void:
-	_log_lazy(LogLevel.INFO, tag, message_builder, context_builder)
+func info_lazy(
+	tag: String,
+	message_builder: Callable,
+	context_builder: Callable = Callable()
+) -> void:
+	_log_lazy(
+		LogLevel.INFO,
+		tag,
+		message_builder,
+		context_builder
+	)
 
 
 ## 输出 WARN 级别日志。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param tag: 日志标签。
 ## [br]
 ## @param msg: 日志内容。
@@ -453,27 +524,49 @@ func info_lazy(tag: String, message_builder: Callable, context_builder: Callable
 ## @param context: 结构化上下文字典。
 ## [br]
 ## @schema context: Dictionary[String, Variant] structured context merged into the log entry.
-func warn(tag: String, msg: String, context: Dictionary = {}) -> void:
-	_log(LogLevel.WARN, tag, msg, context)
+func warn(
+	tag: String,
+	msg: String,
+	context: Dictionary = {}
+) -> void:
+	_log(
+		LogLevel.WARN,
+		tag,
+		msg,
+		context
+	)
 
 
 ## 延迟输出 WARN 级别日志。只有日志未被过滤时才调用 message_builder。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param tag: 日志标签。
 ## [br]
 ## @param message_builder: 延迟构造日志消息的回调。
 ## [br]
 ## @param context_builder: 延迟构造结构化上下文的回调。
-func warn_lazy(tag: String, message_builder: Callable, context_builder: Callable = Callable()) -> void:
-	_log_lazy(LogLevel.WARN, tag, message_builder, context_builder)
+func warn_lazy(
+	tag: String,
+	message_builder: Callable,
+	context_builder: Callable = Callable()
+) -> void:
+	_log_lazy(
+		LogLevel.WARN,
+		tag,
+		message_builder,
+		context_builder
+	)
 
 
 ## 输出 ERROR 级别日志。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param tag: 日志标签。
 ## [br]
 ## @param msg: 日志内容。
@@ -481,26 +574,48 @@ func warn_lazy(tag: String, message_builder: Callable, context_builder: Callable
 ## @param context: 结构化上下文字典。
 ## [br]
 ## @schema context: Dictionary[String, Variant] structured context merged into the log entry.
-func error(tag: String, msg: String, context: Dictionary = {}) -> void:
-	_log(LogLevel.ERROR, tag, msg, context)
+func error(
+	tag: String,
+	msg: String,
+	context: Dictionary = {}
+) -> void:
+	_log(
+		LogLevel.ERROR,
+		tag,
+		msg,
+		context
+	)
 
 
 ## 延迟输出 ERROR 级别日志。只有日志未被过滤时才调用 message_builder。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param tag: 日志标签。
 ## [br]
 ## @param message_builder: 延迟构造日志消息的回调。
 ## [br]
 ## @param context_builder: 延迟构造结构化上下文的回调。
-func error_lazy(tag: String, message_builder: Callable, context_builder: Callable = Callable()) -> void:
-	_log_lazy(LogLevel.ERROR, tag, message_builder, context_builder)
+func error_lazy(
+	tag: String,
+	message_builder: Callable,
+	context_builder: Callable = Callable()
+) -> void:
+	_log_lazy(
+		LogLevel.ERROR,
+		tag,
+		message_builder,
+		context_builder
+	)
 
 
 ## 输出 FATAL 级别日志。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param tag: 日志标签。
 ## [br]
@@ -509,26 +624,48 @@ func error_lazy(tag: String, message_builder: Callable, context_builder: Callabl
 ## @param context: 结构化上下文字典。
 ## [br]
 ## @schema context: Dictionary[String, Variant] structured context merged into the log entry.
-func fatal(tag: String, msg: String, context: Dictionary = {}) -> void:
-	_log(LogLevel.FATAL, tag, msg, context)
+func fatal(
+	tag: String,
+	msg: String,
+	context: Dictionary = {}
+) -> void:
+	_log(
+		LogLevel.FATAL,
+		tag,
+		msg,
+		context
+	)
 
 
 ## 延迟输出 FATAL 级别日志。只有日志未被过滤时才调用 message_builder。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param tag: 日志标签。
 ## [br]
 ## @param message_builder: 延迟构造日志消息的回调。
 ## [br]
 ## @param context_builder: 延迟构造结构化上下文的回调。
-func fatal_lazy(tag: String, message_builder: Callable, context_builder: Callable = Callable()) -> void:
-	_log_lazy(LogLevel.FATAL, tag, message_builder, context_builder)
+func fatal_lazy(
+	tag: String,
+	message_builder: Callable,
+	context_builder: Callable = Callable()
+) -> void:
+	_log_lazy(
+		LogLevel.FATAL,
+		tag,
+		message_builder,
+		context_builder
+	)
 
 
 ## 输出指定等级日志。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param level: LogLevel 枚举值。
 ## [br]
@@ -539,8 +676,18 @@ func fatal_lazy(tag: String, message_builder: Callable, context_builder: Callabl
 ## @param context: 结构化上下文字典。
 ## [br]
 ## @schema context: Dictionary[String, Variant] structured context merged into the log entry.
-func log(level: int, tag: String, msg: String, context: Dictionary = {}) -> void:
-	_log(level, tag, msg, context)
+func log(
+	level: int,
+	tag: String,
+	msg: String,
+	context: Dictionary = {}
+) -> void:
+	_log(
+		level,
+		tag,
+		msg,
+		context
+	)
 
 
 ## 设置当前 trace id。
@@ -727,7 +874,10 @@ func get_recent_entries(count: int = -1) -> Array[Dictionary]:
 	var size: int = _memory_entries.size()
 	if count < 0 or count >= size:
 		return get_entries(0, -1)
-	return get_entries(size - count, count)
+	return get_entries(
+		size - count,
+		count
+	)
 
 
 ## 按偏移读取内存日志条目。
@@ -742,8 +892,15 @@ func get_recent_entries(count: int = -1) -> Array[Dictionary]:
 ## [br]
 ## @schema return: Array[Dictionary] of log entries from oldest to newest.
 func get_entries(offset: int = 0, count: int = -1) -> Array[Dictionary]:
-	var safe_offset: int = clampi(offset, 0, _memory_entries.size())
-	var end: int = _memory_entries.size() if count < 0 else mini(safe_offset + count, _memory_entries.size())
+	var safe_offset: int = clampi(
+		offset,
+		0,
+		_memory_entries.size()
+	)
+	var end: int = _memory_entries.size() if count < 0 else mini(
+		safe_offset + count,
+		_memory_entries.size()
+	)
 	var result: Array[Dictionary] = []
 	for logical_index: int in range(safe_offset, end):
 		var physical_index: int = _memory_logical_to_physical(logical_index)
@@ -782,9 +939,16 @@ func get_entries_since(since_sequence: int, limit: int = -1) -> Dictionary:
 	var retained_count: int = _memory_entries.size()
 	var oldest_sequence: int = _memory_appended_total - retained_count
 	var requested_sequence: int = maxi(since_sequence, 0)
-	var start_sequence: int = clampi(requested_sequence, oldest_sequence, _memory_appended_total)
+	var start_sequence: int = clampi(
+		requested_sequence,
+		oldest_sequence,
+		_memory_appended_total
+	)
 	var start_offset: int = start_sequence - oldest_sequence
-	var available_count: int = maxi(retained_count - start_offset, 0)
+	var available_count: int = maxi(
+		retained_count - start_offset,
+		0
+	)
 	var read_count: int = available_count
 	if limit >= 0:
 		read_count = mini(available_count, limit)
@@ -802,7 +966,10 @@ func get_entries_since(since_sequence: int, limit: int = -1) -> Dictionary:
 		"entries": entries,
 		"truncated": requested_sequence < oldest_sequence,
 		"has_more": has_more,
-		"missed_count": maxi(oldest_sequence - requested_sequence, 0),
+		"missed_count": maxi(
+			oldest_sequence - requested_sequence,
+			0
+		),
 		"dropped_count": _memory_dropped_count,
 	}
 
@@ -870,20 +1037,28 @@ static func sanitize_log_value(value: Variant) -> Variant:
 ## [br]
 ## @api private
 ## [br]
-func _log(level: int, tag: String, msg: String, context: Dictionary = {}) -> void:
+func _log(
+	level: int,
+	tag: String,
+	msg: String,
+	context: Dictionary = {}
+) -> void:
 	if not _should_log(level, tag):
 		return
 
 	var level_str: String = _LEVEL_NAMES[level] if level < _LEVEL_NAMES.size() else "UNKNOWN"
 	var datetime: Dictionary = Time.get_datetime_dict_from_system()
-	var timestamp: String = "%04d-%02d-%02d %02d:%02d:%02d" % [
-		datetime.year,
-		datetime.month,
-		datetime.day,
-		datetime.hour,
-		datetime.minute,
-		datetime.second,
-	]
+	var timestamp: String = (
+		"%04d-%02d-%02d %02d:%02d:%02d"
+		% [
+			datetime.year,
+			datetime.month,
+			datetime.day,
+			datetime.hour,
+			datetime.minute,
+			datetime.second,
+		]
+	)
 	var merged_context: Dictionary = _merge_log_context(context)
 	var entry: Dictionary = _make_entry(
 		timestamp,
@@ -912,7 +1087,11 @@ func _log(level: int, tag: String, msg: String, context: Dictionary = {}) -> voi
 			print(formatted)
 
 	_write_sinks(entry, merged_context)
-	log_emitted.emit(level, entry_tag, entry_message)
+	log_emitted.emit(
+		level,
+		entry_tag,
+		entry_message
+	)
 	log_entry_emitted.emit(entry.duplicate(true))
 
 
@@ -939,7 +1118,12 @@ func _log_lazy(
 			context = GFVariantData.to_dictionary(context_variant)
 
 	var message: String = _variant_to_log_string(message_builder.call())
-	_log(level, tag, message, context)
+	_log(
+		level,
+		tag,
+		message,
+		context
+	)
 
 
 ## 拒绝低于 DEBUG、低于 min_level 或标签已静音的日志。
@@ -971,7 +1155,11 @@ func _cleanup_old_logs() -> void:
 		return
 	var file_name: String = dir.get_next()
 	while file_name != "":
-		if not dir.current_is_dir() and file_name.begins_with("gf_log_") and file_name.ends_with(".log"):
+		if (
+			not dir.current_is_dir()
+			and file_name.begins_with("gf_log_")
+			and file_name.ends_with(".log")
+		):
 			var _append_result: bool = files.append(file_name)
 		file_name = dir.get_next()
 	dir.list_dir_end()
@@ -982,7 +1170,11 @@ func _cleanup_old_logs() -> void:
 	files.sort()
 	var to_remove: int = files.size() - max_log_files
 	var active_paths: Dictionary = {}
-	for index: int in range(_active_files.size() - 1, -1, -1):
+	for index: int in range(
+		_active_files.size() - 1,
+		-1,
+		-1
+	):
 		var active_value: Variant = _active_files[index].get_ref()
 		if active_value is FileAccess:
 			var active_file: FileAccess = active_value
@@ -1138,7 +1330,15 @@ func _format_log_entry_text(
 	message: String,
 	context: Dictionary
 ) -> String:
-	var text: String = "[%s][%s][%s] %s" % [timestamp, level_name, tag, message]
+	var text: String = (
+		"[%s][%s][%s] %s"
+		% [
+			timestamp,
+			level_name,
+			tag,
+			message,
+		]
+	)
 	if not context.is_empty():
 		text += " " + JSON.stringify(context)
 	return text
@@ -1288,17 +1488,17 @@ static func _remove_absolute(path: String, warn_on_failure: bool = false) -> voi
 
 	var remove_result: Error = DirAccess.remove_absolute(remove_path)
 	if remove_result != OK and warn_on_failure:
-		push_warning("[GFLogUtility][log_utility.file_remove_failed] Cannot remove file: %s, error code: %s." % [remove_path, remove_result])
+		push_warning(
+			"[GFLogUtility][log_utility.file_remove_failed] Cannot remove file: %s, error code: %s."
+			% [remove_path, remove_result]
+		)
 
 
 ## 使用指定报告脱敏 profile 和固定预算清洗字典。
 ## [br]
 ## @api private
 ## [br]
-static func _sanitize_log_dictionary(
-	source: Dictionary,
-	redaction_profile: String = GFReportValueCodec.REDACTION_PROFILE_DEBUG
-) -> Dictionary:
+static func _sanitize_log_dictionary(source: Dictionary, redaction_profile: String = GFReportValueCodec.REDACTION_PROFILE_DEBUG) -> Dictionary:
 	return GFReportValueCodec.to_report_dictionary(
 		source,
 		_make_log_report_options(redaction_profile)
@@ -1394,11 +1594,15 @@ func _write_crash_marker() -> void:
 	var file: FileAccess = FileAccess.open(_CRASH_MARKER_PATH, FileAccess.WRITE)
 	if file == null:
 		return
-	var stored: bool = file.store_string(JSON.stringify({
-		"trace_id": get_trace_id(),
-		"started_at": Time.get_datetime_string_from_system(true, true),
-		"ticks_msec": Time.get_ticks_msec(),
-	}))
+	var stored: bool = file.store_string(
+		JSON.stringify(
+			{
+				"trace_id": get_trace_id(),
+				"started_at": Time.get_datetime_string_from_system(true, true),
+				"ticks_msec": Time.get_ticks_msec(),
+			}
+		)
+	)
 	if not stored:
 		push_warning("[GFLogUtility][log_utility.running_marker_write_failed] Cannot write the running marker: %s." % _CRASH_MARKER_PATH)
 	file.close()
@@ -1418,9 +1622,12 @@ func _mark_shutdown_clean() -> void:
 ## @api private
 ## [br]
 func _generate_trace_id() -> String:
-	var source: String = "%s:%s:%s" % [
-		Time.get_unix_time_from_system(),
-		Time.get_ticks_usec(),
-		randi(),
-	]
+	var source: String = (
+		"%s:%s:%s"
+		% [
+			Time.get_unix_time_from_system(),
+			Time.get_ticks_usec(),
+			randi(),
+		]
+	)
 	return source.sha256_text().substr(0, 16)

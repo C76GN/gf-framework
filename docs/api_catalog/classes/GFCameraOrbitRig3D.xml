@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCameraOrbitRig3D" path="addons/gf/extensions/camera/nodes/gf_camera_orbit_rig_3d.gd" module="extensions/camera" extends="GFCameraRig3D" classDigest="aa113b80100d089dbb46be58757d873878c64d15763aad690ac3f5bfd7cf09b2">
+<class name="GFCameraOrbitRig3D" path="addons/gf/extensions/camera/nodes/gf_camera_orbit_rig_3d.gd" module="extensions/camera" extends="GFCameraRig3D" classDigest="2e950099707c6e03142b162cd1b761a81121826b6e60ead9bfbb0de6885991bc">
 	<description>GFCameraOrbitRig3D: 通用 3D 环绕相机 Rig。
 基于目标焦点、yaw / pitch 和距离计算期望 Camera3D Transform。
 它只描述相机姿态，不处理碰撞、锁定目标、遮挡或具体玩法输入。</description>
@@ -10,13 +10,14 @@
 	</tags>
 	<signals>
 		<member kind="signal" name="orbit_changed">
-			<signature>signal orbit_changed(yaw_degrees_value: float, pitch_degrees_value: float, distance_value: float)</signature>
+			<signature>signal orbit_changed( yaw_degrees_value: float, pitch_degrees_value: float, distance_value: float )</signature>
 			<description>环绕参数变化后发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">yaw_degrees_value: 当前水平角度。</tag>
 				<tag name="param">pitch_degrees_value: 当前俯仰角度。</tag>
 				<tag name="param">distance_value: 当前距离。</tag>
+				<tag name="since">3.23.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -113,13 +114,14 @@
 			</tags>
 		</member>
 		<member kind="method" name="set_orbit">
-			<signature>func set_orbit(new_yaw_degrees: float, new_pitch_degrees: float, new_distance: float) -&gt; void:</signature>
+			<signature>func set_orbit( new_yaw_degrees: float, new_pitch_degrees: float, new_distance: float ) -&gt; void:</signature>
 			<description>设置环绕参数。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">new_yaw_degrees: 水平角度，单位度。</tag>
 				<tag name="param">new_pitch_degrees: 俯仰角度，单位度。</tag>
 				<tag name="param">new_distance: 与焦点的距离。</tag>
+				<tag name="since">3.23.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="apply_orbit_delta">

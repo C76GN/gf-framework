@@ -194,7 +194,12 @@ var _error: String = ""
 ## @schema request: Dictionary with catalog_revision: int, query_generation: int, query: String, asset_ids: PackedStringArray, page: int, page_size: int and limit: int.
 ## [br]
 ## @param project_items: 模型提供的纯摘要编码函数，接收 Array 并返回 Array[Dictionary]。
-func configure(owner: WeakRef, catalog: GFAssetCatalog, request: Dictionary, project_items: Callable) -> void:
+func configure(
+	owner: WeakRef,
+	catalog: GFAssetCatalog,
+	request: Dictionary,
+	project_items: Callable
+) -> void:
 	_owner = owner
 	_catalog = catalog
 	_request = request.duplicate(true)
@@ -215,18 +220,49 @@ func configure(owner: WeakRef, catalog: GFAssetCatalog, request: Dictionary, pro
 ## @param allow_worker: 页面没有尚未回收的线程时才允许启动工作线程。
 ## [br]
 ## @return 已完成或已取消时为 true。
-func step(max_items: int = 16, max_usec: int = 2000, allow_worker: bool = true) -> bool:
-	if _stage in [&"done", &"cancelled", &"failed", &"unconfigured"]:
+func step(
+	max_items: int = 16,
+	max_usec: int = 2000,
+	allow_worker: bool = true
+) -> bool:
+	if _stage in [
+		&"done",
+		&"cancelled",
+		&"failed",
+		&"unconfigured",
+	]:
 		return true
 	if not _is_current():
 		cancel()
 		return true
 	var started: int = Time.get_ticks_usec()
-	var item_limit: int = clampi(max_items, 1, 256)
-	var time_limit: int = clampi(max_usec, 1, 16000)
+	var item_limit: int = clampi(
+		max_items,
+		1,
+		256
+	)
+	var time_limit: int = clampi(
+		max_usec,
+		1,
+		16000
+	)
 	_last_step_items = 0
-	while _last_step_items < item_limit and _stage not in [&"done", &"cancelled", &"failed"]:
-		if (_stage == &"worker_pending" and not allow_worker) or (_stage == &"worker" and _thread != null and _thread.is_alive()):
+	while _last_step_items < item_limit and _stage not in [
+		&"done",
+		&"cancelled",
+		&"failed",
+	]:
+		if (
+			(
+				_stage == &"worker_pending"
+				and not allow_worker
+			)
+			or (
+				_stage == &"worker"
+				and _thread != null
+				and _thread.is_alive()
+			)
+		):
 			break
 		if _last_step_items > 0 and Time.get_ticks_usec() - started >= time_limit:
 			break
@@ -241,7 +277,11 @@ func step(max_items: int = 16, max_usec: int = 2000, allow_worker: bool = true) 
 			cancel()
 	_last_step_usec = Time.get_ticks_usec() - started
 	_peak_step_usec = maxi(_peak_step_usec, _last_step_usec)
-	return _stage in [&"done", &"cancelled", &"failed"]
+	return _stage in [
+		&"done",
+		&"cancelled",
+		&"failed",
+	]
 
 
 ## 立即取消发布并通知线程退出；拥有线程时，页面仍须调用 reap_worker 或 join_worker 完成回收。
@@ -308,7 +348,11 @@ func join_worker() -> void:
 ## [br]
 ## @schema return: Dictionary with catalog_revision, query_generation, query, page, page_size, page_count, total_count, has_previous, has_next, asset_ids and items, or an empty Dictionary.
 func take_result() -> Dictionary:
-	if _stage != &"done" or _taken or not _is_current():
+	if (
+		_stage != &"done"
+		or _taken
+		or not _is_current()
+	):
 		return {}
 	_taken = true
 	var result: Dictionary = _result
@@ -332,12 +376,20 @@ func get_progress() -> Dictionary:
 	var worker_phase: StringName = _worker_phase
 	_worker_mutex.unlock()
 	return {
-		"stage": _stage, "scanned": _cursor, "input_count": _input_count, "matched_count": _total_count,
-		"last_step_items": _last_step_items, "last_step_usec": _last_step_usec,
-		"peak_step_usec": _peak_step_usec, "peak_operation_usec": _peak_operation_usec,
+		"stage": _stage,
+		"scanned": _cursor,
+		"input_count": _input_count,
+		"matched_count": _total_count,
+		"last_step_items": _last_step_items,
+		"last_step_usec": _last_step_usec,
+		"peak_step_usec": _peak_step_usec,
+		"peak_operation_usec": _peak_operation_usec,
 		"stage_usec": _stage_usec.duplicate(),
-		"worker_owned": has_worker(), "worker_phase": worker_phase,
-		"worker_score_usec": _worker_score_usec, "worker_sort_usec": _worker_sort_usec, "error": _error,
+		"worker_owned": has_worker(),
+		"worker_phase": worker_phase,
+		"worker_score_usec": _worker_score_usec,
+		"worker_sort_usec": _worker_sort_usec,
+		"error": _error,
 	}
 
 
@@ -442,7 +494,11 @@ func _run_worker(candidates: Array[Dictionary], context: Dictionary) -> Dictiona
 	for index: int in range(candidates.size()):
 		if _is_worker_cancelled():
 			return { "cancelled": true }
-		var report: Dictionary = GFTextSearchScorer.score_ranking_candidate(candidates[index], context, index)
+		var report: Dictionary = GFTextSearchScorer.score_ranking_candidate(
+			candidates[index],
+			context,
+			index
+		)
 		if GFVariantData.get_option_bool(report, "matched"):
 			reports.append(report)
 	var score_usec: int = Time.get_ticks_usec() - started
@@ -455,7 +511,12 @@ func _run_worker(candidates: Array[Dictionary], context: Dictionary) -> Dictiona
 	var sort_usec: int = Time.get_ticks_usec() - started
 	var cancelled: bool = _is_worker_cancelled()
 	_set_worker_phase(&"finished")
-	return { "reports": [] if cancelled else reports, "cancelled": cancelled, "score_usec": score_usec, "sort_usec": sort_usec }
+	return {
+		"reports": [] if cancelled else reports,
+		"cancelled": cancelled,
+		"score_usec": score_usec,
+		"sort_usec": sort_usec,
+	}
 
 
 ## 等待并回收现存线程，读取计时后再次核对取消和请求版本；仅有效的报告可继续分页。
@@ -473,7 +534,11 @@ func _collect_worker_result() -> void:
 	var result: Dictionary = value
 	_worker_score_usec = GFVariantData.get_option_int(result, "score_usec")
 	_worker_sort_usec = GFVariantData.get_option_int(result, "sort_usec")
-	if _stage == &"cancelled" or GFVariantData.get_option_bool(result, "cancelled") or not _is_current():
+	if (
+		_stage == &"cancelled"
+		or GFVariantData.get_option_bool(result, "cancelled")
+		or not _is_current()
+	):
 		cancel()
 		return
 	var reports_value: Variant = result.get("reports")
@@ -509,12 +574,22 @@ func _set_worker_phase(phase: StringName) -> void:
 ## @api private
 func _prepare_page() -> void:
 	var listing: bool = GFVariantData.get_option_string(_request, "query").strip_edges().is_empty()
-	_total_count = mini(_listing_ids.size() if listing else _reports.size(), GFVariantData.get_option_int(_request, "limit"))
+	_total_count = mini(
+		_listing_ids.size() if listing else _reports.size(),
+		GFVariantData.get_option_int(_request, "limit")
+	)
 	var page_size: int = GFVariantData.get_option_int(_request, "page_size")
 	_page_count = ceili(float(_total_count) / float(page_size)) if _total_count > 0 else 0
-	_page = clampi(GFVariantData.get_option_int(_request, "page"), 1, maxi(_page_count, 1))
+	_page = clampi(
+		GFVariantData.get_option_int(_request, "page"),
+		1,
+		maxi(_page_count, 1)
+	)
 	_page_start = (_page - 1) * page_size
-	_page_end = mini(_page_start + page_size, _total_count)
+	_page_end = mini(
+		_page_start + page_size,
+		_total_count
+	)
 	_stage = &"summary"
 
 
@@ -529,9 +604,15 @@ func _advance_summary() -> void:
 	if GFVariantData.get_option_string(_request, "query").strip_edges().is_empty():
 		asset_id = _listing_ids[_page_start]
 	else:
-		var candidate: Dictionary = GFVariantData.get_option_dictionary(_reports[_page_start], "candidate")
+		var candidate: Dictionary = GFVariantData.get_option_dictionary(
+			_reports[_page_start],
+			"candidate"
+		)
 		asset_id = GFVariantData.get_option_string(candidate, "asset_id")
-	var summary: Dictionary = _catalog.make_asset_summary(StringName(asset_id), { "include_metadata": true })
+	var summary: Dictionary = _catalog.make_asset_summary(
+		StringName(asset_id),
+		{ "include_metadata": true }
+	)
 	var projected: Variant = _project_items.call([summary])
 	if projected is Array:
 		var projected_items: Array = projected
@@ -554,10 +635,14 @@ func _finish() -> void:
 		"catalog_revision": GFVariantData.get_option_int(_request, "catalog_revision"),
 		"query_generation": GFVariantData.get_option_int(_request, "query_generation"),
 		"query": GFVariantData.get_option_string(_request, "query"),
-		"page": _page, "page_size": GFVariantData.get_option_int(_request, "page_size"),
-		"page_count": _page_count, "total_count": _total_count,
-		"has_previous": _page > 1 and _total_count > 0, "has_next": _page < _page_count,
-		"asset_ids": _page_ids, "items": _items,
+		"page": _page,
+		"page_size": GFVariantData.get_option_int(_request, "page_size"),
+		"page_count": _page_count,
+		"total_count": _total_count,
+		"has_previous": _page > 1 and _total_count > 0,
+		"has_next": _page < _page_count,
+		"asset_ids": _page_ids,
+		"items": _items,
 	}
 	_stage = &"done"
 	_release_work()

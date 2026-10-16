@@ -19,7 +19,7 @@
 | 常量 | [`STATUS_LOADED`](#member-gfconfigprovideradapter-constants-status_loaded) | `const STATUS_LOADED: StringName = &"loaded"` |
 | 常量 | [`STATUS_MISSING`](#member-gfconfigprovideradapter-constants-status_missing) | `const STATUS_MISSING: StringName = &"missing"` |
 | 常量 | [`STATUS_FAILED`](#member-gfconfigprovideradapter-constants-status_failed) | `const STATUS_FAILED: StringName = &"failed"` |
-| 方法 | [`register_table_source`](#member-gfconfigprovideradapter-methods-register_table_source) | `func register_table_source(table_name: StringName, source: Variant, options: Dictionary = {}) -> bool:` |
+| 方法 | [`register_table_source`](#member-gfconfigprovideradapter-methods-register_table_source) | `func register_table_source( table_name: StringName, source: Variant, options: Dictionary = {} ) -> bool:` |
 | 方法 | [`unregister_table_source`](#member-gfconfigprovideradapter-methods-unregister_table_source) | `func unregister_table_source(table_name: StringName) -> bool:` |
 | 方法 | [`clear_table_sources`](#member-gfconfigprovideradapter-methods-clear_table_sources) | `func clear_table_sources() -> void:` |
 | 方法 | [`has_table_source`](#member-gfconfigprovideradapter-methods-has_table_source) | `func has_table_source(table_name: StringName) -> bool:` |
@@ -96,7 +96,7 @@ const STATUS_FAILED: StringName = &"failed"
 - 首次版本：`7.0.0`
 
 ```gdscript
-func register_table_source(table_name: StringName, source: Variant, options: Dictionary = {}) -> bool:
+func register_table_source( table_name: StringName, source: Variant, options: Dictionary = {} ) -> bool:
 ```
 
 注册一个配置表源。 source 可以是 Array、Dictionary、自定义 Object 或 Callable。Callable 会在首次查询时以 `(table_name: StringName, metadata: Dictionary)` 调用，并返回实际表数据。

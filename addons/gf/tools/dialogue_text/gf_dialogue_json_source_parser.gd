@@ -181,29 +181,53 @@ func _parse_value(pointer: String, depth: int) -> Variant:
 	var start_index: int = _index
 	var start_line: int = _line
 	var start_column: int = _column
-	if not _reserve_node(pointer, start_line, start_column):
+	if not _reserve_node(
+		pointer,
+		start_line,
+		start_column
+	):
 		return null
 	var codepoint: int = _peek()
 	var value: Variant = null
 	match codepoint:
 		123:
 			if depth > _max_depth:
-				_set_budget_error("JSON nesting exceeds max_depth.", pointer, _make_current_span())
+				_set_budget_error(
+					"JSON nesting exceeds max_depth.",
+					pointer,
+					_make_current_span()
+				)
 				return null
 			value = _parse_object(pointer, depth)
 		91:
 			if depth > _max_depth:
-				_set_budget_error("JSON nesting exceeds max_depth.", pointer, _make_current_span())
+				_set_budget_error(
+					"JSON nesting exceeds max_depth.",
+					pointer,
+					_make_current_span()
+				)
 				return null
 			value = _parse_array(pointer, depth)
 		34:
 			value = _parse_string(pointer)
 		116:
-			value = _parse_keyword("true", true, pointer)
+			value = _parse_keyword(
+				"true",
+				true,
+				pointer
+			)
 		102:
-			value = _parse_keyword("false", false, pointer)
+			value = _parse_keyword(
+				"false",
+				false,
+				pointer
+			)
 		110:
-			value = _parse_keyword("null", null, pointer)
+			value = _parse_keyword(
+				"null",
+				null,
+				pointer
+			)
 		_:
 			if codepoint == 45 or _is_digit(codepoint):
 				value = _parse_number(pointer)
@@ -250,7 +274,11 @@ func _parse_object(pointer: String, depth: int) -> Dictionary:
 		var key_start_index: int = _index
 		var key_start_line: int = _line
 		var key_start_column: int = _column
-		if not _reserve_node(pointer, key_start_line, key_start_column):
+		if not _reserve_node(
+			pointer,
+			key_start_line,
+			key_start_column
+		):
 			break
 		var key: String = _parse_string(pointer)
 		if _has_error():
@@ -265,10 +293,7 @@ func _parse_object(pointer: String, depth: int) -> Dictionary:
 			_column
 		)
 		if result.has(key):
-			var first_span: Dictionary = GFVariantData.get_option_dictionary(
-				_key_spans,
-				member_pointer
-			)
+			var first_span: Dictionary = GFVariantData.get_option_dictionary(_key_spans, member_pointer)
 			_set_error(
 				&"duplicate_field",
 				"Strict JSON object member names must be unique.",
@@ -291,7 +316,10 @@ func _parse_object(pointer: String, depth: int) -> Dictionary:
 			)
 			break
 		var _colon_codepoint: int = _advance()
-		var member_value: Variant = _parse_value(member_pointer, depth + 1)
+		var member_value: Variant = _parse_value(
+			member_pointer,
+			depth + 1
+		)
 		if _has_error():
 			break
 		result[key] = member_value
@@ -334,8 +362,16 @@ func _parse_array(pointer: String, depth: int) -> Array:
 		return result
 	var item_index: int = 0
 	while not _has_error():
-		var item_pointer: String = _append_pointer(pointer, str(item_index))
-		result.append(_parse_value(item_pointer, depth + 1))
+		var item_pointer: String = _append_pointer(
+			pointer,
+			str(item_index)
+		)
+		result.append(
+			_parse_value(
+				item_pointer,
+				depth + 1
+			)
+		)
 		if _has_error():
 			break
 		item_index += 1
@@ -423,7 +459,14 @@ func _parse_string(pointer: String) -> String:
 			&"invalid_json",
 			"Strict JSON string is not terminated.",
 			pointer,
-			_make_span(start_index, start_line, start_column, _index, _line, _column)
+			_make_span(
+				start_index,
+				start_line,
+				start_column,
+				_index,
+				_line,
+				_column
+			)
 		)
 	return ""
 
@@ -481,11 +524,7 @@ func _parse_escape(fragments: PackedStringArray, pointer: String) -> void:
 						_make_current_span()
 					)
 					return
-				var scalar_value: int = (
-					0x10000
-					+ ((first_codepoint - 0xD800) << 10)
-					+ (low_codepoint - 0xDC00)
-				)
+				var scalar_value: int = 0x10000 + ((first_codepoint - 0xD800) << 10) + (low_codepoint - 0xDC00)
 				var _append_pair_result: bool = fragments.append(String.chr(scalar_value))
 			elif first_codepoint >= 0xDC00 and first_codepoint <= 0xDFFF:
 				_set_error(
@@ -583,14 +622,24 @@ func _parse_number(pointer: String) -> Variant:
 			)
 			return null
 		_advance_digits()
-	var token: String = _text.substr(start_index, _index - start_index)
+	var token: String = _text.substr(
+		start_index,
+		_index - start_index
+	)
 	if not has_fraction_or_exponent:
 		if not _is_supported_int64_token(token):
 			_set_error(
 				&"number_out_of_range",
 				"JSON integer is outside the supported signed 64-bit domain.",
 				pointer,
-				_make_span(start_index, start_line, start_column, _index, _line, _column)
+				_make_span(
+					start_index,
+					start_line,
+					start_column,
+					_index,
+					_line,
+					_column
+				)
 			)
 			return null
 		return token.to_int()
@@ -600,7 +649,14 @@ func _parse_number(pointer: String) -> Variant:
 			&"non_finite_number",
 			"JSON number is outside the supported finite float domain.",
 			pointer,
-			_make_span(start_index, start_line, start_column, _index, _line, _column)
+			_make_span(
+				start_index,
+				start_line,
+				start_column,
+				_index,
+				_line,
+				_column
+			)
 		)
 		return null
 	return GFVariantData.get_option_float(float_result, "value")
@@ -646,23 +702,18 @@ func _convert_finite_float_token(token: String) -> Dictionary:
 	var digits: String = mantissa.replace(".", "")
 	var first_nonzero: int = _find_first_nonzero_digit(digits)
 	if first_nonzero < 0:
-		return {
-			"ok": true,
-			"value": -0.0 if negative else 0.0,
-		}
-	var normalized_exponent: int = (
-		digits_before_decimal
-		- first_nonzero
-		- 1
-		+ explicit_exponent
-	)
+		return { "ok": true, "value": -0.0 if negative else 0.0, }
+	var normalized_exponent: int = digits_before_decimal - first_nonzero - 1 + explicit_exponent
 	if normalized_exponent > 308 or normalized_exponent < -307:
 		return { "ok": false }
 	var significant_digits: String = digits.substr(first_nonzero)
 	if normalized_exponent == 308:
 		var comparable_prefix: String = significant_digits.substr(
 			0,
-			mini(significant_digits.length(), _MAX_FLOAT_DECIMAL_PREFIX.length())
+			mini(
+				significant_digits.length(),
+				_MAX_FLOAT_DECIMAL_PREFIX.length()
+			)
 		)
 		while comparable_prefix.length() < _MAX_FLOAT_DECIMAL_PREFIX.length():
 			comparable_prefix += "0"
@@ -670,12 +721,12 @@ func _convert_finite_float_token(token: String) -> Dictionary:
 			return { "ok": false }
 	var canonical_digits: String = significant_digits.substr(
 		0,
-		mini(significant_digits.length(), _MAX_FLOAT_SIGNIFICANT_DIGITS)
+		mini(
+			significant_digits.length(),
+			_MAX_FLOAT_SIGNIFICANT_DIGITS
+		)
 	)
-	if (
-		significant_digits.length() > _MAX_FLOAT_SIGNIFICANT_DIGITS
-		and _contains_nonzero_digit(significant_digits, _MAX_FLOAT_SIGNIFICANT_DIGITS)
-	):
+	if (significant_digits.length() > _MAX_FLOAT_SIGNIFICANT_DIGITS and _contains_nonzero_digit(significant_digits, _MAX_FLOAT_SIGNIFICANT_DIGITS)):
 		canonical_digits += "1"
 	var canonical_token: String = "-" if negative else ""
 	canonical_token += canonical_digits.left(1)
@@ -683,12 +734,13 @@ func _convert_finite_float_token(token: String) -> Dictionary:
 	canonical_token += canonical_digits.substr(1) if canonical_digits.length() > 1 else "0"
 	canonical_token += "e%d" % normalized_exponent
 	var number: float = canonical_token.to_float()
-	if is_nan(number) or is_inf(number) or number == 0.0:
+	if (
+		is_nan(number)
+		or is_inf(number)
+		or number == 0.0
+	):
 		return { "ok": false }
-	return {
-		"ok": true,
-		"value": number,
-	}
+	return { "ok": true, "value": number, }
 
 
 ## 累加十进制指数，并在绝对值超过 saturation 后停止累加并返回带符号结果。
@@ -726,7 +778,10 @@ func _find_first_nonzero_digit(digits: String) -> int:
 ## @api private
 ## [br]
 func _contains_nonzero_digit(digits: String, start_index: int) -> bool:
-	for index: int in range(start_index, digits.length()):
+	for index: int in range(
+		start_index,
+		digits.length()
+	):
 		if digits.unicode_at(index) != 48:
 			return true
 	return false
@@ -737,7 +792,12 @@ func _contains_nonzero_digit(digits: String, start_index: int) -> bool:
 ## @api private
 ## [br]
 func _compare_decimal_digits(left: String, right: String) -> int:
-	for index: int in range(mini(left.length(), right.length())):
+	for index: int in range(
+		mini(
+			left.length(),
+			right.length()
+		)
+	):
 		var left_digit: int = left.unicode_at(index)
 		var right_digit: int = right.unicode_at(index)
 		if left_digit < right_digit:
@@ -755,7 +815,11 @@ func _compare_decimal_digits(left: String, right: String) -> int:
 ## [br]
 ## @api private
 ## [br]
-func _parse_keyword(keyword: String, value: Variant, pointer: String) -> Variant:
+func _parse_keyword(
+	keyword: String,
+	value: Variant,
+	pointer: String
+) -> Variant:
 	for offset: int in range(keyword.length()):
 		if _peek() != keyword.unicode_at(offset):
 			_set_error(
@@ -782,7 +846,11 @@ func _advance_digits() -> void:
 ## [br]
 ## @api private
 ## [br]
-func _reserve_node(pointer: String, line: int, column: int) -> bool:
+func _reserve_node(
+	pointer: String,
+	line: int,
+	column: int
+) -> bool:
 	if _node_count >= _max_nodes:
 		_set_budget_error(
 			"JSON structure exceeds max_nodes.",
@@ -849,18 +917,28 @@ func _advance() -> int:
 ## [br]
 func _append_pointer(parent: String, token: String) -> String:
 	var escaped_token: String = token.replace("~", "~0").replace("/", "~1")
-	return "%s/%s" % [parent, escaped_token]
+	return (
+		"%s/%s"
+		% [parent, escaped_token]
+	)
 
 
 ## 将预算失败记录为 input_budget_exceeded，并附上当前节点和字符串字节计数。
 ## [br]
 ## @api private
 ## [br]
-func _set_budget_error(message: String, pointer: String, span: Dictionary) -> void:
-	_set_error(&"input_budget_exceeded", message, pointer, span, {
-		"node_count": _node_count,
-		"string_byte_count": _string_byte_count,
-	})
+func _set_budget_error(
+	message: String,
+	pointer: String,
+	span: Dictionary
+) -> void:
+	_set_error(
+		&"input_budget_exceeded",
+		message,
+		pointer,
+		span,
+		{ "node_count": _node_count, "string_byte_count": _string_byte_count, }
+	)
 
 
 ## 只在 _error 为空时写入首个错误，并深复制 span 与 metadata。
@@ -897,8 +975,16 @@ func _make_failure_result() -> Dictionary:
 		"key_spans": _key_spans.duplicate(true),
 		"node_count": _node_count,
 		"string_byte_count": _string_byte_count,
-		"error_kind": GFVariantData.get_option_string_name(_error, "error_kind", &"invalid_json"),
-		"error": GFVariantData.get_option_string(_error, "error", "Strict JSON parsing failed."),
+		"error_kind": GFVariantData.get_option_string_name(
+			_error,
+			"error_kind",
+			&"invalid_json"
+		),
+		"error": GFVariantData.get_option_string(
+			_error,
+			"error",
+			"Strict JSON parsing failed."
+		),
 		"pointer": GFVariantData.get_option_string(_error, "pointer"),
 		"span": GFVariantData.get_option_dictionary(_error, "span"),
 		"metadata": GFVariantData.get_option_dictionary(_error, "metadata"),
@@ -932,7 +1018,10 @@ func _make_span(
 	return {
 		"line": start_line,
 		"column": start_column,
-		"length": maxi(end_index - start_index, 0) if start_line == end_line else 0,
+		"length": maxi(
+			end_index - start_index,
+			0
+		) if start_line == end_line else 0,
 		"end_line": end_line,
 		"end_column": end_column,
 	}
@@ -943,7 +1032,14 @@ func _make_span(
 ## @api private
 ## [br]
 func _read_positive_limit(limits: Dictionary, key: String) -> int:
-	return maxi(GFVariantData.get_option_int(limits, key, 1), 1)
+	return maxi(
+		GFVariantData.get_option_int(
+			limits,
+			key,
+			1
+		),
+		1
+	)
 
 
 ## 判断首个错误字典是否已被设置。
@@ -981,4 +1077,9 @@ func _hex_digit_value(codepoint: int) -> int:
 ## @api private
 ## [br]
 func _is_json_whitespace(codepoint: int) -> bool:
-	return codepoint in [9, 10, 13, 32]
+	return codepoint in [
+		9,
+		10,
+		13,
+		32,
+	]

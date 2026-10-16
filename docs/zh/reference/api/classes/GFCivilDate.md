@@ -18,7 +18,7 @@
 | 枚举 | [`Weekday`](#member-gfcivildate-enums-weekday) | `enum Weekday` |
 | 常量 | [`MIN_YEAR`](#member-gfcivildate-constants-min_year) | `const MIN_YEAR: int = 1` |
 | 常量 | [`MAX_YEAR`](#member-gfcivildate-constants-max_year) | `const MAX_YEAR: int = 9999` |
-| 方法 | [`create`](#member-gfcivildate-methods-create) | `static func create(year: int, month: int, day: int) -> GFCivilDateResult:` |
+| 方法 | [`create`](#member-gfcivildate-methods-create) | `static func create( year: int, month: int, day: int ) -> GFCivilDateResult:` |
 | 方法 | [`parse_iso8601`](#member-gfcivildate-methods-parse_iso8601) | `static func parse_iso8601(text: String) -> GFCivilDateResult:` |
 | 方法 | [`from_dict`](#member-gfcivildate-methods-from_dict) | `static func from_dict(data: Dictionary) -> GFCivilDateResult:` |
 | 方法 | [`from_ordinal`](#member-gfcivildate-methods-from_ordinal) | `static func from_ordinal(ordinal: int) -> GFCivilDateResult:` |
@@ -109,7 +109,7 @@ const MAX_YEAR: int = 9999
 - 首次版本：`11.0.0`
 
 ```gdscript
-static func create(year: int, month: int, day: int) -> GFCivilDateResult:
+static func create( year: int, month: int, day: int ) -> GFCivilDateResult:
 ```
 
 创建公民日期。

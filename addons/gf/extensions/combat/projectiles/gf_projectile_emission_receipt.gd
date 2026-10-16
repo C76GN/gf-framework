@@ -128,10 +128,18 @@ func publish_for_framework() -> Dictionary:
 		or _publish_attempted
 		or _state != State.ACTIVATED
 	):
-		return { "ok": false, "published": false, "reason": &"receipt_not_activated" }
+		return {
+			"ok": false,
+			"published": false,
+			"reason": &"receipt_not_activated",
+		}
 	_publish_attempted = true
 	_settlement_in_progress = true
-	var report: Dictionary = { "ok": true, "published": true, "reason": &"" }
+	var report: Dictionary = {
+		"ok": true,
+		"published": true,
+		"reason": &"",
+	}
 	if _policy != null and is_instance_valid(_policy):
 		report = _policy.publish_deferred_for_framework(
 			_node_from_ref(_emitter_ref),
@@ -140,9 +148,17 @@ func publish_for_framework() -> Dictionary:
 			_committed_generation
 		)
 	elif _policy != null:
-		report = { "ok": false, "published": false, "reason": &"policy_unavailable" }
+		report = {
+			"ok": false,
+			"published": false,
+			"reason": &"policy_unavailable",
+		}
 	_settlement_in_progress = false
-	if not GFVariantData.get_option_bool(report, "ok", false):
+	if not GFVariantData.get_option_bool(
+		report,
+		"ok",
+		false
+	):
 		return report
 	_state = State.PUBLISHED
 	return report
@@ -166,19 +182,32 @@ func compensate_for_framework(_reason: StringName) -> Dictionary:
 		or _compensation_attempted
 		or _state != State.COMMITTED_UNPUBLISHED
 	):
-		return { "ok": false, "compensated": false, "reason": &"receipt_not_compensatable" }
+		return {
+			"ok": false,
+			"compensated": false,
+			"reason": &"receipt_not_compensatable",
+		}
 	_compensation_attempted = true
 	_settlement_in_progress = true
-	var report: Dictionary = { "ok": true, "compensated": true, "reason": &"" }
+	var report: Dictionary = {
+		"ok": true,
+		"compensated": true,
+		"reason": &"",
+	}
 	if _policy != null and is_instance_valid(_policy):
-		report = _policy.compensate_deferred_for_framework(
-			_policy_snapshot,
-			_committed_generation
-		)
+		report = _policy.compensate_deferred_for_framework(_policy_snapshot, _committed_generation)
 	elif _policy != null:
-		report = { "ok": false, "compensated": false, "reason": &"policy_unavailable" }
+		report = {
+			"ok": false,
+			"compensated": false,
+			"reason": &"policy_unavailable",
+		}
 	_settlement_in_progress = false
-	if not GFVariantData.get_option_bool(report, "ok", false):
+	if not GFVariantData.get_option_bool(
+		report,
+		"ok",
+		false
+	):
 		return report
 	_state = State.COMPENSATED
 	return report
@@ -221,7 +250,10 @@ func initialize_for_framework(
 		or emitter == null
 		or not is_instance_valid(emitter)
 		or emitter.is_queued_for_deletion()
-		or (policy != null and not is_instance_valid(policy))
+		or (
+			policy != null
+			and not is_instance_valid(policy)
+		)
 	):
 		return ERR_INVALID_PARAMETER
 	_policy = policy

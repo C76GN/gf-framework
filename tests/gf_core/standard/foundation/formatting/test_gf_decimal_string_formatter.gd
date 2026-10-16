@@ -12,17 +12,32 @@ const GFDecimalStringFormatterBase = preload("res://addons/gf/standard/foundatio
 ## 验证小数格式化支持四舍五入、截断和尾零裁剪。
 func test_decimal_string_formatting_rounds_truncates_and_trims() -> void:
 	assert_eq(
-		GFDecimalStringFormatterBase.format_decimal_value(12.345, 2, false, false),
+		GFDecimalStringFormatterBase.format_decimal_value(
+			12.345,
+			2,
+			false,
+			false
+		),
 		"12.35",
 		"默认应按小数位四舍五入。"
 	)
 	assert_eq(
-		GFDecimalStringFormatterBase.format_decimal_value(-12.345, 2, false, true),
+		GFDecimalStringFormatterBase.format_decimal_value(
+			-12.345,
+			2,
+			false,
+			true
+		),
 		"-12.34",
 		"截断负数时应向零靠近。"
 	)
 	assert_eq(
-		GFDecimalStringFormatterBase.format_decimal_value(-0.004, 2, true, false),
+		GFDecimalStringFormatterBase.format_decimal_value(
+			-0.004,
+			2,
+			true,
+			false
+		),
 		"0",
 		"裁剪尾零后应规整 -0。"
 	)
@@ -30,14 +45,23 @@ func test_decimal_string_formatting_rounds_truncates_and_trims() -> void:
 
 func test_decimal_string_formatting_rejects_non_finite_values() -> void:
 	assert_eq(
-		GFDecimalStringFormatterBase.format_decimal_value(INF, 2, true, false),
+		GFDecimalStringFormatterBase.format_decimal_value(
+			INF,
+			2,
+			true,
+			false
+		),
 		"0",
 		"非有限浮点值应格式化为稳定 fallback。"
 	)
 	assert_push_error("[GFDecimalStringFormatter][decimal_string_formatter.value_non_finite] Only finite floating-point values can be formatted.")
 
 	assert_eq(
-		GFDecimalStringFormatterBase.apply_decimal_places(NAN, 2, false),
+		GFDecimalStringFormatterBase.apply_decimal_places(
+			NAN,
+			2,
+			false
+		),
 		0.0,
 		"直接调整非有限浮点值时也应返回稳定 fallback。"
 	)
@@ -46,7 +70,11 @@ func test_decimal_string_formatting_rejects_non_finite_values() -> void:
 
 func test_decimal_string_formatting_rejects_scaled_overflow() -> void:
 	assert_eq(
-		GFDecimalStringFormatterBase.apply_decimal_places(1.0e300, 18, false),
+		GFDecimalStringFormatterBase.apply_decimal_places(
+			1.0e300,
+			18,
+			false
+		),
 		0.0,
 		"有限输入在小数缩放后溢出时应返回稳定 fallback。"
 	)
@@ -54,11 +82,24 @@ func test_decimal_string_formatting_rejects_scaled_overflow() -> void:
 
 
 func test_decimal_string_formatting_clamps_excessive_decimal_places() -> void:
-	var text: String = GFDecimalStringFormatterBase.format_decimal_value(1.25, 1_000_000, false, false)
+	var text: String = GFDecimalStringFormatterBase.format_decimal_value(
+		1.25,
+		1_000_000,
+		false,
+		false
+	)
 
 	assert_push_error("[GFDecimalStringFormatter][decimal_string_formatter.decimal_places_clamped] decimal_places exceeds 18 and was clamped.")
-	assert_eq(text, "1.250000000000000000", "超大小数位数应被钳制到显示层上限。")
-	assert_lte(text.length(), 24, "钳制后不应生成巨大字符串。")
+	assert_eq(
+		text,
+		"1.250000000000000000",
+		"超大小数位数应被钳制到显示层上限。"
+	)
+	assert_lte(
+		text.length(),
+		24,
+		"钳制后不应生成巨大字符串。"
+	)
 
 
 func test_trim_trailing_zeroes_only_changes_fractional_digits() -> void:
@@ -77,7 +118,11 @@ func test_trim_trailing_zeroes_only_changes_fractional_digits() -> void:
 		"-1200",
 		"负数整数部分的尾零也必须保留。"
 	)
-	assert_eq(GFDecimalStringFormatterBase.trim_trailing_zeroes("-0.00"), "0", "负零应规范化为零。")
+	assert_eq(
+		GFDecimalStringFormatterBase.trim_trailing_zeroes("-0.00"),
+		"0",
+		"负零应规范化为零。"
+	)
 
 
 func test_normalize_numeric_text_enforces_separator_grammar_and_budget() -> void:
@@ -89,33 +134,77 @@ func test_normalize_numeric_text_enforces_separator_grammar_and_budget() -> void
 	var whitespace_bypass: Dictionary = GFDecimalStringFormatterBase.normalize_numeric_text("    1    ", 4)
 	var exact_budget: Dictionary = GFDecimalStringFormatterBase.normalize_numeric_text("1.20", 4)
 
-	assert_true(GFVariantData.get_option_bool(grouped, "ok"), "合法千分位文本应通过。")
-	assert_eq(GFVariantData.get_option_string(grouped, "text"), "+001234.500e-2")
-	assert_true(GFVariantData.get_option_bool(underscored, "ok"), "合法数字下划线应通过。")
-	assert_eq(GFVariantData.get_option_string(underscored, "text"), "1234.500")
-	assert_eq(GFVariantData.get_option_string(malformed_group, "error"), "invalid_separator")
-	assert_eq(GFVariantData.get_option_string(malformed_underscore, "error"), "invalid_separator")
-	assert_eq(GFVariantData.get_option_string(over_budget, "error"), "input_too_long")
-	assert_eq(GFVariantData.get_option_string(whitespace_bypass, "error"), "input_too_long", "预算必须约束原始输入，而不是 trim 后文本。")
-	assert_true(GFVariantData.get_option_bool(exact_budget, "ok"), "长度恰好等于预算的合法文本应通过。")
+	assert_true(
+		GFVariantData.get_option_bool(grouped, "ok"),
+		"合法千分位文本应通过。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(grouped, "text"),
+		"+001234.500e-2"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(underscored, "ok"),
+		"合法数字下划线应通过。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(underscored, "text"),
+		"1234.500"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(malformed_group, "error"),
+		"invalid_separator"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(malformed_underscore, "error"),
+		"invalid_separator"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(over_budget, "error"),
+		"input_too_long"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(whitespace_bypass, "error"),
+		"input_too_long",
+		"预算必须约束原始输入，而不是 trim 后文本。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(exact_budget, "ok"),
+		"长度恰好等于预算的合法文本应通过。"
+	)
 
 
 ## 验证小数字符串拆分校验只接受纯数字部分。
 func test_decimal_string_parts_validation() -> void:
 	assert_true(
-		GFDecimalStringFormatterBase.is_valid_decimal_parts("12", "34", true),
+		GFDecimalStringFormatterBase.is_valid_decimal_parts(
+			"12",
+			"34",
+			true
+		),
 		"合法小数拆分应通过。"
 	)
 	assert_true(
-		GFDecimalStringFormatterBase.is_valid_decimal_parts("", "5", true),
+		GFDecimalStringFormatterBase.is_valid_decimal_parts(
+			"",
+			"5",
+			true
+		),
 		"省略整数部分的小数应通过。"
 	)
 	assert_false(
-		GFDecimalStringFormatterBase.is_valid_decimal_parts("", "", false),
+		GFDecimalStringFormatterBase.is_valid_decimal_parts(
+			"",
+			"",
+			false
+		),
 		"空数字不应通过。"
 	)
 	assert_false(
-		GFDecimalStringFormatterBase.is_valid_decimal_parts("12x", "34", true),
+		GFDecimalStringFormatterBase.is_valid_decimal_parts(
+			"12x",
+			"34",
+			true
+		),
 		"非数字字符不应通过。"
 	)
 

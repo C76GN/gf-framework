@@ -51,7 +51,11 @@ const _GF_TAG_SOURCE_ADAPTER_SCRIPT = preload("res://addons/gf/standard/foundati
 ## [br]
 ## @return 无任何条件时返回 true。
 func is_empty() -> bool:
-	return all_tags.is_empty() and any_tags.is_empty() and none_tags.is_empty()
+	return (
+		all_tags.is_empty()
+		and any_tags.is_empty()
+		and none_tags.is_empty()
+	)
 
 
 ## 匹配标签源。
@@ -82,24 +86,41 @@ func matches(source: Variant) -> bool:
 func get_match_report(source: Variant) -> Dictionary:
 	var missing_all: Array[StringName] = []
 	for tag: StringName in all_tags:
-		if not _GF_TAG_SOURCE_ADAPTER_SCRIPT.source_has_tag(source, tag, 1, include_child_tags):
+		if not _GF_TAG_SOURCE_ADAPTER_SCRIPT.source_has_tag(
+			source,
+			tag,
+			1,
+			include_child_tags
+		):
 			missing_all.append(tag)
 
 	var missing_any: Array[StringName] = []
 	if not any_tags.is_empty():
 		for tag: StringName in any_tags:
-			if not _GF_TAG_SOURCE_ADAPTER_SCRIPT.source_has_tag(source, tag, 1, include_child_tags):
+			if not _GF_TAG_SOURCE_ADAPTER_SCRIPT.source_has_tag(
+				source,
+				tag,
+				1,
+				include_child_tags
+			):
 				missing_any.append(tag)
 		if missing_any.size() < any_tags.size():
 			missing_any.clear()
 
 	var blocked_tags: Array[StringName] = []
 	for tag: StringName in none_tags:
-		if _GF_TAG_SOURCE_ADAPTER_SCRIPT.source_has_tag(source, tag, 1, include_child_tags):
+		if _GF_TAG_SOURCE_ADAPTER_SCRIPT.source_has_tag(
+			source,
+			tag,
+			1,
+			include_child_tags
+		):
 			blocked_tags.append(tag)
 
 	return {
-		"ok": missing_all.is_empty() and missing_any.is_empty() and blocked_tags.is_empty(),
+		"ok": missing_all.is_empty()
+		and missing_any.is_empty()
+		and blocked_tags.is_empty(),
 		"missing_all": missing_all,
 		"missing_any": missing_any,
 		"blocked_tags": blocked_tags,
@@ -140,7 +161,12 @@ func configure(
 ## @return 新查询。
 func duplicate_query() -> GFTagQuery:
 	var query: GFTagQuery = GFTagQuery.new()
-	var _configure_result_139: Variant = query.configure(all_tags, any_tags, none_tags, include_child_tags)
+	var _configure_result_139: Variant = query.configure(
+		all_tags,
+		any_tags,
+		none_tags,
+		include_child_tags
+	)
 	return query
 
 

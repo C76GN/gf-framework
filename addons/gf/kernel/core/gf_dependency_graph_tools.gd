@@ -63,7 +63,9 @@ static func sort_dependency_first(node_ids: PackedStringArray, dependency_map: D
 		)
 
 	return {
-		"ok": missing_root_ids.is_empty() and missing_dependencies.is_empty() and dependency_cycles.is_empty(),
+		"ok": missing_root_ids.is_empty()
+		and missing_dependencies.is_empty()
+		and dependency_cycles.is_empty(),
 		"ordered_ids": ordered_ids,
 		"missing_root_ids": missing_root_ids,
 		"missing_dependencies": missing_dependencies,
@@ -88,9 +90,7 @@ static func _visit_node_iterative(
 	missing_dependencies: Array[Dictionary],
 	dependency_cycles: Array[PackedStringArray]
 ) -> void:
-	var frame_stack: Array[Dictionary] = [
-		_make_visit_frame(node_id),
-	]
+	var frame_stack: Array[Dictionary] = [_make_visit_frame(node_id),]
 	var path_stack: PackedStringArray = PackedStringArray()
 	while not frame_stack.is_empty():
 		var frame_index: int = frame_stack.size() - 1
@@ -106,7 +106,11 @@ static func _visit_node_iterative(
 				frame_stack.remove_at(frame_index)
 				continue
 			if current_state == _STATE_VISITING:
-				_append_cycle(current_id, path_stack, dependency_cycles)
+				_append_cycle(
+					current_id,
+					path_stack,
+					dependency_cycles
+				)
 				frame_stack.remove_at(frame_index)
 				continue
 
@@ -126,14 +130,22 @@ static func _visit_node_iterative(
 			if dependency_id.is_empty():
 				continue
 			if not _has_node(dependency_map, dependency_id):
-				_append_missing_dependency(current_id, dependency_id, missing_dependencies)
+				_append_missing_dependency(
+					current_id,
+					dependency_id,
+					missing_dependencies
+				)
 				continue
 
 			var dependency_state: int = _get_state(states, dependency_id)
 			if dependency_state == _STATE_DONE:
 				continue
 			if dependency_state == _STATE_VISITING:
-				_append_cycle(dependency_id, path_stack, dependency_cycles)
+				_append_cycle(
+					dependency_id,
+					path_stack,
+					dependency_cycles
+				)
 				continue
 
 			frame["dependency_index"] = dependency_index
@@ -175,7 +187,10 @@ static func _get_frame_node_id(frame: Dictionary) -> String:
 ## [br]
 ## @api private
 static func _get_frame_dependencies(frame: Dictionary) -> PackedStringArray:
-	var value: Variant = frame.get("dependencies", PackedStringArray())
+	var value: Variant = frame.get(
+		"dependencies",
+		PackedStringArray()
+	)
 	if value is PackedStringArray:
 		var dependencies: PackedStringArray = value
 		return dependencies
@@ -213,7 +228,11 @@ static func _remove_last_path_id(path_stack: PackedStringArray, node_id: String)
 	if path_stack[path_stack.size() - 1] == node_id:
 		path_stack.remove_at(path_stack.size() - 1)
 		return
-	for index: int in range(path_stack.size() - 1, -1, -1):
+	for index: int in range(
+		path_stack.size() - 1,
+		-1,
+		-1
+	):
 		if path_stack[index] == node_id:
 			path_stack.remove_at(index)
 			return
@@ -235,7 +254,11 @@ static func _get_state(states: Dictionary, node_id: String) -> int:
 ## [br]
 ## @api private
 static func _get_dependencies(dependency_map: Dictionary, node_id: String) -> PackedStringArray:
-	var value: Variant = _get_map_value(dependency_map, node_id, PackedStringArray())
+	var value: Variant = _get_map_value(
+		dependency_map,
+		node_id,
+		PackedStringArray()
+	)
 	return _to_packed_string_array(value)
 
 
@@ -249,7 +272,11 @@ static func _has_node(dependency_map: Dictionary, node_id: String) -> bool:
 ## 按 String、再按 StringName 查找节点依赖值；均缺失时返回 fallback。
 ## [br]
 ## @api private
-static func _get_map_value(dependency_map: Dictionary, node_id: String, fallback: Variant) -> Variant:
+static func _get_map_value(
+	dependency_map: Dictionary,
+	node_id: String,
+	fallback: Variant
+) -> Variant:
 	if dependency_map.has(node_id):
 		return dependency_map[node_id]
 	var node_name: StringName = StringName(node_id)
@@ -307,15 +334,9 @@ static func _append_missing_dependency(
 	missing_dependencies: Array[Dictionary]
 ) -> void:
 	for entry: Dictionary in missing_dependencies:
-		if (
-			_to_text(entry.get("node_id", "")) == node_id
-			and _to_text(entry.get("dependency_id", "")) == dependency_id
-		):
+		if (_to_text(entry.get("node_id", "")) == node_id and _to_text(entry.get("dependency_id", "")) == dependency_id):
 			return
-	missing_dependencies.append({
-		"node_id": node_id,
-		"dependency_id": dependency_id,
-	})
+	missing_dependencies.append({ "node_id": node_id, "dependency_id": dependency_id, })
 
 
 ## 根据当前 DFS 路径构造闭合循环，并按生成的路径文本去重后追加。
@@ -331,7 +352,10 @@ static func _append_cycle(
 	if start_index == -1:
 		var _node_appended: bool = cycle.append(node_id)
 	else:
-		for index: int in range(start_index, stack.size()):
+		for index: int in range(
+			start_index,
+			stack.size()
+		):
 			var _stack_item_appended: bool = cycle.append(stack[index])
 	var _closed_appended: bool = cycle.append(node_id)
 

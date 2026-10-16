@@ -76,6 +76,8 @@ var _is_emitting_mutation_signal: bool = false
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param item_id: 条目标识。
 ## [br]
 ## @param value: 条目值。
@@ -87,21 +89,26 @@ var _is_emitting_mutation_signal: bool = false
 ## @schema value: Variant item value.
 ## [br]
 ## @schema fields: Dictionary from field id to scalar, Array, or PackedStringArray values.
-func set_item(item_id: StringName, value: Variant, fields: Dictionary = {}) -> bool:
+func set_item(
+	item_id: StringName,
+	value: Variant,
+	fields: Dictionary = {}
+) -> bool:
 	if item_id == &"" or _is_emitting_mutation_signal:
 		return false
 
 	var normalized_report: Dictionary = _try_normalize_fields(fields)
-	if not GFVariantData.get_option_bool(normalized_report, "ok", false):
+	if not GFVariantData.get_option_bool(
+		normalized_report,
+		"ok",
+		false
+	):
 		return false
 	var normalized_fields: Dictionary = GFVariantData.get_option_dictionary(normalized_report, "fields")
 	var removed_existing: bool = _remove_item_state(item_id)
 	if removed_existing:
 		_emit_item_removed(item_id)
-	_items[item_id] = {
-		"value": _copy_value(value),
-		"fields": normalized_fields,
-	}
+	_items[item_id] = { "value": _copy_value(value), "fields": normalized_fields, }
 	_index_fields(item_id, normalized_fields)
 	_emit_item_indexed(item_id)
 	return true
@@ -149,7 +156,13 @@ func get_item(item_id: StringName, default_value: Variant = null) -> Variant:
 	if not _items.has(item_id):
 		return default_value
 	var entry: Dictionary = _get_item_entry(item_id)
-	return _copy_value(GFVariantData.get_option_value(entry, "value", default_value))
+	return _copy_value(
+		GFVariantData.get_option_value(
+			entry,
+			"value",
+			default_value
+		)
+	)
 
 
 ## 获取条目字段。
@@ -188,7 +201,13 @@ func query(field_id: StringName, field_value: Variant) -> PackedStringArray:
 	if not _is_stable_field_value(field_value):
 		return result
 	var value_key: String = _make_value_key(field_value)
-	var item_lookup: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(field_index, value_key, {}))
+	var item_lookup: Dictionary = GFVariantData.as_dictionary(
+		GFVariantData.get_option_value(
+			field_index,
+			value_key,
+			{}
+		)
+	)
 	if item_lookup.is_empty():
 		return result
 
@@ -214,7 +233,10 @@ func query_many(criteria: Dictionary, match_all: bool = true) -> PackedStringArr
 	var initialized: bool = false
 	for field_id_variant: Variant in criteria.keys():
 		var field_id: StringName = GFVariantData.to_string_name(field_id_variant)
-		var matches: PackedStringArray = query(field_id, criteria[field_id_variant])
+		var matches: PackedStringArray = query(
+			field_id,
+			criteria[field_id_variant]
+		)
 		if not initialized:
 			for item_id_text: String in matches:
 				result_lookup[StringName(item_id_text)] = true
@@ -339,18 +361,16 @@ func _try_normalize_fields(fields: Dictionary) -> Dictionary:
 		if field_id == &"":
 			continue
 		var value_report: Dictionary = _try_normalize_field_values(fields[field_id_variant])
-		if not GFVariantData.get_option_bool(value_report, "ok", false):
-			return {
-				"ok": false,
-				"fields": {},
-			}
+		if not GFVariantData.get_option_bool(
+			value_report,
+			"ok",
+			false
+		):
+			return { "ok": false, "fields": {}, }
 		var values: Array = GFVariantData.get_option_array(value_report, "values")
 		if not values.is_empty():
 			result[field_id] = values
-	return {
-		"ok": true,
-		"fields": result,
-	}
+	return { "ok": true, "fields": result, }
 
 
 ## 将单字段输入转为值数组；数组中 null 项会跳过。
@@ -359,10 +379,7 @@ func _try_normalize_fields(fields: Dictionary) -> Dictionary:
 func _try_normalize_field_values(value: Variant) -> Dictionary:
 	var result: Array = []
 	if value == null:
-		return {
-			"ok": true,
-			"values": result,
-		}
+		return { "ok": true, "values": result, }
 	if value is PackedStringArray:
 		for text: String in value:
 			result.append(text)
@@ -371,22 +388,13 @@ func _try_normalize_field_values(value: Variant) -> Dictionary:
 			if item == null:
 				continue
 			if not _is_stable_field_value(item):
-				return {
-					"ok": false,
-					"values": [],
-				}
+				return { "ok": false, "values": [], }
 			result.append(item)
 	else:
 		if not _is_stable_field_value(value):
-			return {
-				"ok": false,
-				"values": [],
-			}
+			return { "ok": false, "values": [], }
 		result.append(value)
-	return {
-		"ok": true,
-		"values": result,
-	}
+	return { "ok": true, "values": result, }
 
 
 ## 将条目的每个字段值登记到反向索引。
@@ -398,7 +406,11 @@ func _index_fields(item_id: StringName, fields: Dictionary) -> void:
 		if values.is_empty():
 			continue
 		for value: Variant in values:
-			_add_index_value(field_id, value, item_id)
+			_add_index_value(
+				field_id,
+				value,
+				item_id
+			)
 
 
 ## 从反向索引移除条目的每个字段值。
@@ -410,13 +422,21 @@ func _remove_fields_from_indexes(item_id: StringName, fields: Dictionary) -> voi
 		if values.is_empty():
 			continue
 		for value: Variant in values:
-			_remove_index_value(field_id, value, item_id)
+			_remove_index_value(
+				field_id,
+				value,
+				item_id
+			)
 
 
 ## 将 item_id 加入字段值 token 对应的索引集合。
 ## [br]
 ## @api private
-func _add_index_value(field_id: StringName, field_value: Variant, item_id: StringName) -> void:
+func _add_index_value(
+	field_id: StringName,
+	field_value: Variant,
+	item_id: StringName
+) -> void:
 	var field_index: Dictionary = _get_or_create_field_index(field_id)
 	var value_key: String = _make_value_key(field_value)
 	if not field_index.has(value_key):
@@ -428,13 +448,23 @@ func _add_index_value(field_id: StringName, field_value: Variant, item_id: Strin
 ## 从字段值索引中移除 item_id，并清理空值项及空字段索引。
 ## [br]
 ## @api private
-func _remove_index_value(field_id: StringName, field_value: Variant, item_id: StringName) -> void:
+func _remove_index_value(
+	field_id: StringName,
+	field_value: Variant,
+	item_id: StringName
+) -> void:
 	var field_index: Dictionary = _get_field_index(field_id)
 	if field_index.is_empty():
 		return
 
 	var value_key: String = _make_value_key(field_value)
-	var item_lookup: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(field_index, value_key, {}))
+	var item_lookup: Dictionary = GFVariantData.as_dictionary(
+		GFVariantData.get_option_value(
+			field_index,
+			value_key,
+			{}
+		)
+	)
 	if item_lookup.is_empty():
 		return
 
@@ -489,21 +519,39 @@ func _lookup_to_sorted_ids(lookup: Dictionary) -> PackedStringArray:
 ## [br]
 ## @api private
 func _get_item_entry(item_id: StringName) -> Dictionary:
-	return GFVariantData.as_dictionary(GFVariantData.get_option_value(_items, item_id, {}))
+	return GFVariantData.as_dictionary(
+		GFVariantData.get_option_value(
+			_items,
+			item_id,
+			{}
+		)
+	)
 
 
 ## 从条目读取规范字段字典；字段缺失时返回空字典。
 ## [br]
 ## @api private
 func _get_entry_fields(entry: Dictionary) -> Dictionary:
-	return GFVariantData.as_dictionary(GFVariantData.get_option_value(entry, "fields", {}))
+	return GFVariantData.as_dictionary(
+		GFVariantData.get_option_value(
+			entry,
+			"fields",
+			{}
+		)
+	)
 
 
 ## 获取 field_id 对应的反向索引；不存在时返回空字典。
 ## [br]
 ## @api private
 func _get_field_index(field_id: StringName) -> Dictionary:
-	return GFVariantData.as_dictionary(GFVariantData.get_option_value(_indexes, field_id, {}))
+	return GFVariantData.as_dictionary(
+		GFVariantData.get_option_value(
+			_indexes,
+			field_id,
+			{}
+		)
+	)
 
 
 ## 确保字段索引存在并返回该索引字典。
@@ -519,4 +567,10 @@ func _get_or_create_field_index(field_id: StringName) -> Dictionary:
 ## [br]
 ## @api private
 func _get_field_values(fields: Dictionary, field_id: StringName) -> Array:
-	return GFVariantData.as_array(GFVariantData.get_option_value(fields, field_id, []))
+	return GFVariantData.as_array(
+		GFVariantData.get_option_value(
+			fields,
+			field_id,
+			[]
+		)
+	)

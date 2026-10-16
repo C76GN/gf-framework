@@ -141,7 +141,16 @@ static func for_node3d_image(
 	transparent: bool = true,
 	preview_mode: PreviewMode = PreviewMode.STATIC
 ) -> GFThumbnailRenderRequest:
-	return _make_request(Kind.NODE3D_IMAGE, source, null, null, size, transparent, true, preview_mode)
+	return _make_request(
+		Kind.NODE3D_IMAGE,
+		source,
+		null,
+		null,
+		size,
+		transparent,
+		true,
+		preview_mode
+	)
 
 
 ## 创建 Node3D ImageTexture 渲染请求。
@@ -165,7 +174,16 @@ static func for_node3d_texture(
 	transparent: bool = true,
 	preview_mode: PreviewMode = PreviewMode.STATIC
 ) -> GFThumbnailRenderRequest:
-	return _make_request(Kind.NODE3D_TEXTURE, source, null, null, size, transparent, true, preview_mode)
+	return _make_request(
+		Kind.NODE3D_TEXTURE,
+		source,
+		null,
+		null,
+		size,
+		transparent,
+		true,
+		preview_mode
+	)
 
 
 ## 创建 CanvasItem Image 渲染请求。
@@ -268,7 +286,15 @@ static func for_mesh_image(
 	size: Vector2i = Vector2i(256, 256),
 	transparent: bool = true
 ) -> GFThumbnailRenderRequest:
-	return _make_request(Kind.MESH_IMAGE, null, mesh, null, size, transparent, true)
+	return _make_request(
+		Kind.MESH_IMAGE,
+		null,
+		mesh,
+		null,
+		size,
+		transparent,
+		true
+	)
 
 
 ## 创建 Mesh ImageTexture 渲染请求。
@@ -289,7 +315,15 @@ static func for_mesh_texture(
 	size: Vector2i = Vector2i(256, 256),
 	transparent: bool = true
 ) -> GFThumbnailRenderRequest:
-	return _make_request(Kind.MESH_TEXTURE, null, mesh, null, size, transparent, true)
+	return _make_request(
+		Kind.MESH_TEXTURE,
+		null,
+		mesh,
+		null,
+		size,
+		transparent,
+		true
+	)
 
 
 ## 创建 MeshLibrary 预览计划请求。
@@ -310,7 +344,15 @@ static func for_mesh_library_preview_plan(
 	size: Vector2i = Vector2i(128, 128),
 	overwrite_existing: bool = true
 ) -> GFThumbnailRenderRequest:
-	return _make_request(Kind.MESH_LIBRARY_PREVIEW_PLAN, null, null, mesh_library, size, true, overwrite_existing)
+	return _make_request(
+		Kind.MESH_LIBRARY_PREVIEW_PLAN,
+		null,
+		null,
+		mesh_library,
+		size,
+		true,
+		overwrite_existing
+	)
 
 
 ## 返回请求类型。
@@ -521,7 +563,11 @@ static func _make_canvas_item_request(
 	request._has_content_bounds = content_bounds.size.x > 0.0 and content_bounds.size.y > 0.0
 	request._content_bounds = content_bounds if request._has_content_bounds else Rect2()
 	request._margin_ratio = (
-		clampf(margin_ratio, 0.0, 1.0)
+		clampf(
+			margin_ratio,
+			0.0,
+			1.0
+		)
 		if is_finite(margin_ratio)
 		else margin_ratio
 	)

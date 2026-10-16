@@ -104,7 +104,10 @@ static func index_to_cell(index: int, width: int) -> Vector2i:
 	if index < 0 or width <= 0:
 		return Vector2i(-1, -1)
 
-	return Vector2i(index % width, floori(float(index) / float(width)))
+	return Vector2i(
+		index % width,
+		floori(float(index) / float(width))
+	)
 
 
 ## 将世界坐标转换为二维 chunk 坐标。
@@ -143,7 +146,10 @@ static func chunk_cell_to_world_origin(chunk_cell: Vector2i, chunk_size: Vector2
 	if chunk_size.x <= 0 or chunk_size.y <= 0:
 		return Vector2.ZERO
 
-	return Vector2(chunk_cell.x * chunk_size.x, chunk_cell.y * chunk_size.y)
+	return Vector2(
+		chunk_cell.x * chunk_size.x,
+		chunk_cell.y * chunk_size.y
+	)
 
 
 ## 将二维 chunk 坐标转换为世界中心坐标。
@@ -246,14 +252,26 @@ static func get_rectangle_cells(
 		if grid_size.x <= 0 or grid_size.y <= 0:
 			return result
 		min_x = maxi(min_x, 0)
-		max_x = mini(max_x, grid_size.x - 1)
+		max_x = mini(
+			max_x,
+			grid_size.x - 1
+		)
 		min_y = maxi(min_y, 0)
-		max_y = mini(max_y, grid_size.y - 1)
+		max_y = mini(
+			max_y,
+			grid_size.y - 1
+		)
 		if min_x > max_x or min_y > max_y:
 			return result
 
-	for y: int in range(min_y, max_y + 1):
-		for x: int in range(min_x, max_x + 1):
+	for y: int in range(
+		min_y,
+		max_y + 1
+	):
+		for x: int in range(
+			min_x,
+			max_x + 1
+		):
 			var cell: Vector2i = Vector2i(x, y)
 			if has_bounds or _is_in_optional_bounds(cell, grid_size):
 				result.append(cell)
@@ -286,14 +304,32 @@ static func get_range(
 		return result
 
 	var has_bounds: bool = grid_size.x >= 0 and grid_size.y >= 0
-	var x_span: Array[int] = _get_query_axis_span(center.x, radius, grid_size.x if has_bounds else -1)
-	var y_span: Array[int] = _get_query_axis_span(center.y, radius, grid_size.y if has_bounds else -1)
+	var x_span: Array[int] = _get_query_axis_span(
+		center.x,
+		radius,
+		grid_size.x if has_bounds else -1
+	)
+	var y_span: Array[int] = _get_query_axis_span(
+		center.y,
+		radius,
+		grid_size.y if has_bounds else -1
+	)
 	if x_span.is_empty() or y_span.is_empty():
 		return result
-	for y: int in range(y_span[0], y_span[1] + 1):
-		for x: int in range(x_span[0], x_span[1] + 1):
+	for y: int in range(
+		y_span[0],
+		y_span[1] + 1
+	):
+		for x: int in range(
+			x_span[0],
+			x_span[1] + 1
+		):
 			var cell: Vector2i = Vector2i(x, y)
-			if _get_grid_distance(center, cell, include_diagonal) <= radius:
+			if _get_grid_distance(
+				center,
+				cell,
+				include_diagonal
+			) <= radius:
 				result.append(cell)
 	return result
 
@@ -324,14 +360,32 @@ static func get_ring(
 		return result
 
 	var has_bounds: bool = grid_size.x >= 0 and grid_size.y >= 0
-	var x_span: Array[int] = _get_query_axis_span(center.x, radius, grid_size.x if has_bounds else -1)
-	var y_span: Array[int] = _get_query_axis_span(center.y, radius, grid_size.y if has_bounds else -1)
+	var x_span: Array[int] = _get_query_axis_span(
+		center.x,
+		radius,
+		grid_size.x if has_bounds else -1
+	)
+	var y_span: Array[int] = _get_query_axis_span(
+		center.y,
+		radius,
+		grid_size.y if has_bounds else -1
+	)
 	if x_span.is_empty() or y_span.is_empty():
 		return result
-	for y: int in range(y_span[0], y_span[1] + 1):
-		for x: int in range(x_span[0], x_span[1] + 1):
+	for y: int in range(
+		y_span[0],
+		y_span[1] + 1
+	):
+		for x: int in range(
+			x_span[0],
+			x_span[1] + 1
+		):
 			var cell: Vector2i = Vector2i(x, y)
-			if _get_grid_distance(center, cell, include_diagonal) == radius:
+			if _get_grid_distance(
+				center,
+				cell,
+				include_diagonal
+			) == radius:
 				result.append(cell)
 	return result
 
@@ -361,10 +415,20 @@ static func get_chunk_window(
 		return result
 
 	var normalized_shape: StringName = _normalize_chunk_window_shape(shape)
-	for y: int in range(center_chunk.y - radius, center_chunk.y + radius + 1):
-		for x: int in range(center_chunk.x - radius, center_chunk.x + radius + 1):
+	for y: int in range(
+		center_chunk.y - radius,
+		center_chunk.y + radius + 1
+	):
+		for x: int in range(
+			center_chunk.x - radius,
+			center_chunk.x + radius + 1
+		):
 			var chunk_cell: Vector2i = Vector2i(x, y)
-			if _is_chunk_window_cell_in_shape(chunk_cell - center_chunk, radius, normalized_shape):
+			if _is_chunk_window_cell_in_shape(
+				chunk_cell - center_chunk,
+				radius,
+				normalized_shape
+			):
 				result.append(chunk_cell)
 	return result
 
@@ -486,9 +550,18 @@ static func has_line_of_sight(
 
 	var line: Array[Vector2i] = get_line(from_cell, to_cell)
 	for index: int in range(line.size()):
-		if not include_endpoints and (index == 0 or index == line.size() - 1):
+		if (
+			not include_endpoints
+			and (
+				index == 0
+				or index == line.size() - 1
+			)
+		):
 			continue
-		if _call_cell_predicate(is_blocking, line[index]):
+		if _call_cell_predicate(
+			is_blocking,
+			line[index]
+		):
 			return false
 	return true
 
@@ -529,7 +602,11 @@ static func flood_fill(
 		queue_index += 1
 		result.append(cell)
 
-		for next_cell: Vector2i in get_neighbors(cell, grid_size, include_diagonal):
+		for next_cell: Vector2i in get_neighbors(
+			cell,
+			grid_size,
+			include_diagonal
+		):
 			if visited.has(next_cell):
 				continue
 			visited[next_cell] = true
@@ -554,7 +631,11 @@ static func _is_in_optional_bounds(cell: Vector2i, grid_size: Vector2i) -> bool:
 ## 返回半径查询在单轴上的裁剪闭区间；无交集或有效范围为空时返回空数组。
 ## [br]
 ## @api private
-static func _get_query_axis_span(center: int, radius: int, grid_extent: int) -> Array[int]:
+static func _get_query_axis_span(
+	center: int,
+	radius: int,
+	grid_extent: int
+) -> Array[int]:
 	var minimum: int = _MIN_VECTOR2I_COMPONENT
 	var maximum: int = _MAX_VECTOR2I_COMPONENT
 	if grid_extent >= 0:
@@ -595,10 +676,17 @@ static func _normalize_chunk_window_shape(shape: StringName) -> StringName:
 ## 按方形、菱形或默认圆形度量检查偏移是否位于半径内。
 ## [br]
 ## @api private
-static func _is_chunk_window_cell_in_shape(delta: Vector2i, radius: int, shape: StringName) -> bool:
+static func _is_chunk_window_cell_in_shape(
+	delta: Vector2i,
+	radius: int,
+	shape: StringName
+) -> bool:
 	match shape:
 		&"square":
-			return maxi(absi(delta.x), absi(delta.y)) <= radius
+			return maxi(
+				absi(delta.x),
+				absi(delta.y)
+			) <= radius
 		&"diamond":
 			return absi(delta.x) + absi(delta.y) <= radius
 		_:
@@ -618,7 +706,11 @@ static func _make_vector2i_set(cells: Array[Vector2i]) -> Dictionary:
 ## 按对角选项返回 Chebyshev 距离或 Manhattan 距离。
 ## [br]
 ## @api private
-static func _get_grid_distance(from_cell: Vector2i, to_cell: Vector2i, include_diagonal: bool) -> int:
+static func _get_grid_distance(
+	from_cell: Vector2i,
+	to_cell: Vector2i,
+	include_diagonal: bool
+) -> int:
 	var dx: int = absi(to_cell.x - from_cell.x)
 	var dy: int = absi(to_cell.y - from_cell.y)
 	return maxi(dx, dy) if include_diagonal else dx + dy
@@ -627,7 +719,14 @@ static func _get_grid_distance(from_cell: Vector2i, to_cell: Vector2i, include_d
 ## 调用有效格子谓词并转换为 bool；无效回调或转换失败时使用 fallback。
 ## [br]
 ## @api private
-static func _call_cell_predicate(predicate: Callable, cell: Vector2i, fallback: bool = false) -> bool:
+static func _call_cell_predicate(
+	predicate: Callable,
+	cell: Vector2i,
+	fallback: bool = false
+) -> bool:
 	if not predicate.is_valid():
 		return fallback
-	return GFVariantData.to_bool(predicate.call(cell), fallback)
+	return GFVariantData.to_bool(
+		predicate.call(cell),
+		fallback
+	)

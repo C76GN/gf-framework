@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<autoload name="Gf" path="addons/gf/kernel/core/gf.gd" module="kernel" extends="Node" packageId="gf.kernel" autoloadDigest="02cc014c3cba1af4848969a3e0dd38429b0d0361b27d4fef568e85288ebbf112">
+<autoload name="Gf" path="addons/gf/kernel/core/gf.gd" module="kernel" extends="Node" packageId="gf.kernel" autoloadDigest="0e0ef56dd9e60a9305072838a0138230a769e57c747cdf3e820c47f0b4fb5ed2">
 	<description>Gf: GF Framework 的全局运行时入口。
 负责项目架构的安装、初始化、查询、替换与释放，并作为受控 AutoLoad 注册到场景树根节点。</description>
 	<tags>
@@ -512,7 +512,7 @@ architecture 参数或 binder，不得通过 Gf facade 隐式访问候选架构�
 			</tags>
 		</member>
 		<member kind="method" name="listen">
-			<signature>func listen(event_type: Script, listener: GFEventListener, priority: int = 0) -&gt; void:</signature>
+			<signature>func listen( event_type: Script, listener: GFEventListener, priority: int = 0 ) -&gt; void:</signature>
 			<description>快捷注册类型事件监听（别名：listen）。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -523,7 +523,7 @@ architecture 参数或 binder，不得通过 Gf facade 隐式访问候选架构�
 			</tags>
 		</member>
 		<member kind="method" name="listen_owned">
-			<signature>func listen_owned(listener_owner: Object, event_type: Script, listener: GFEventListener, priority: int = 0) -&gt; void:</signature>
+			<signature>func listen_owned( listener_owner: Object, event_type: Script, listener: GFEventListener, priority: int = 0 ) -&gt; void:</signature>
 			<description>快捷注册带拥有者的类型事件监听。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -550,7 +550,7 @@ listener 携带 owner 时句柄会绑定该 owner 生命周期。`once` 订阅�
 			</tags>
 		</member>
 		<member kind="method" name="listen_assignable">
-			<signature>func listen_assignable(base_event_type: Script, listener: GFEventListener, priority: int = 0) -&gt; void:</signature>
+			<signature>func listen_assignable( base_event_type: Script, listener: GFEventListener, priority: int = 0 ) -&gt; void:</signature>
 			<description>快捷注册可赋值类型事件监听。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -598,7 +598,7 @@ listener 携带 owner 时句柄会绑定该 owner 生命周期。监听基类脚
 			</tags>
 		</member>
 		<member kind="method" name="unlisten_owned">
-			<signature>func unlisten_owned(listener_owner: Object, event_type: Script, listener: GFEventListener) -&gt; void:</signature>
+			<signature>func unlisten_owned( listener_owner: Object, event_type: Script, listener: GFEventListener ) -&gt; void:</signature>
 			<description>快捷注销带拥有者的类型事件监听。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -619,7 +619,7 @@ listener 携带 owner 时句柄会绑定该 owner 生命周期。监听基类脚
 			</tags>
 		</member>
 		<member kind="method" name="unlisten_assignable_owned">
-			<signature>func unlisten_assignable_owned(listener_owner: Object, base_event_type: Script, listener: GFEventListener) -&gt; void:</signature>
+			<signature>func unlisten_assignable_owned( listener_owner: Object, base_event_type: Script, listener: GFEventListener ) -&gt; void:</signature>
 			<description>快捷注销带拥有者的可赋值类型事件监听。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -640,7 +640,7 @@ listener 携带 owner 时句柄会绑定该 owner 生命周期。监听基类脚
 			</tags>
 		</member>
 		<member kind="method" name="listen_simple_owned">
-			<signature>func listen_simple_owned(listener_owner: Object, event_id: StringName, listener: GFEventListener) -&gt; void:</signature>
+			<signature>func listen_simple_owned( listener_owner: Object, event_id: StringName, listener: GFEventListener ) -&gt; void:</signature>
 			<description>快捷注册带拥有者的轻量事件监听。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -675,7 +675,7 @@ listener 携带 owner 时句柄会绑定该 owner 生命周期。`once` 订阅�
 			</tags>
 		</member>
 		<member kind="method" name="unlisten_simple_owned">
-			<signature>func unlisten_simple_owned(listener_owner: Object, event_id: StringName, listener: GFEventListener) -&gt; void:</signature>
+			<signature>func unlisten_simple_owned( listener_owner: Object, event_id: StringName, listener: GFEventListener ) -&gt; void:</signature>
 			<description>快捷注销带拥有者的轻量事件监听。</description>
 			<tags>
 				<tag name="api">public</tag>

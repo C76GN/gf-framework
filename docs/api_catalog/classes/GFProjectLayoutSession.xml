@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectLayoutSession" path="addons/gf/tools/project_layout/gf_project_layout_session.gd" module="tools" extends="RefCounted" classDigest="445f49b5169641af1ab406c55f3c539132fb9d92ba1f6ae16d683865bfab5df5">
+<class name="GFProjectLayoutSession" path="addons/gf/tools/project_layout/gf_project_layout_session.gd" module="tools" extends="RefCounted" classDigest="e9c024248df02c46ccfe5c4a93ae0ebf97edc04ce8f059411be3637dc3859070">
 	<description>GFProjectLayoutSession: 拥有一次编译与一次冻结分析的只读 Layout 会话。
 会话不执行目标项目代码；结果通过深复制导出，查询复用内部 compilation 与验证索引。</description>
 	<tags>
@@ -13,7 +13,7 @@
 	<properties />
 	<methods>
 		<member kind="method" name="open_profile_text">
-			<signature>func open_profile_text(text: String, source_path: String, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>func open_profile_text( text: String, source_path: String, options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>严格准入真实来源文件的原始 JSON，编译一次后捕获只读库存。
 source_path 必须位于 options.source_root 中且 bytes 与 text 完全一致。
 失败不捕获来源；此入口不加载场景、资源脚本或目标项目配置。

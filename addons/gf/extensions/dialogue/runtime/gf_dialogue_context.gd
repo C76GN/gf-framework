@@ -107,12 +107,18 @@ func set_value(key: StringName, value: Variant) -> GFDialogueContext:
 ## [br]
 ## @schema return: values 中的项目值，或传入的 default_value。
 func get_value(key: StringName, default_value: Variant = null) -> Variant:
-	return GFVariantData.get_option_value(values, key, default_value)
+	return GFVariantData.get_option_value(
+		values,
+		key,
+		default_value
+	)
 
 
 ## 检查条件。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param condition_id: 条件 ID。
 ## [br]
@@ -127,17 +133,30 @@ func get_value(key: StringName, default_value: Variant = null) -> Variant:
 ## @return: 结构化结果。
 ## [br]
 ## @schema return: 包含 ok、reason 和 value 等字段的 Dictionary；当处理器返回 Dictionary 时会保留调用方字段。
-func check_condition(condition_id: StringName, payload: Variant = null, subject: Variant = null) -> Dictionary:
+func check_condition(
+	condition_id: StringName,
+	payload: Variant = null,
+	subject: Variant = null
+) -> Dictionary:
 	if condition_id == &"":
 		return _normalize_result(true)
 	if not condition_handler.is_valid():
 		return _normalize_result(false, &"missing_condition_handler")
-	return _normalize_result(condition_handler.call(condition_id, payload, subject, self))
+	return _normalize_result(
+		condition_handler.call(
+			condition_id,
+			payload,
+			subject,
+			self
+		)
+	)
 
 
 ## 请求执行 mutation。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param mutation_id: mutation ID。
 ## [br]
@@ -152,12 +171,23 @@ func check_condition(condition_id: StringName, payload: Variant = null, subject:
 ## @return: 结构化结果。
 ## [br]
 ## @schema return: 包含 ok、reason 和 value 等字段的 Dictionary；当处理器返回 Dictionary 时会保留调用方字段。
-func apply_mutation(mutation_id: StringName, payload: Variant = null, subject: Variant = null) -> Dictionary:
+func apply_mutation(
+	mutation_id: StringName,
+	payload: Variant = null,
+	subject: Variant = null
+) -> Dictionary:
 	if mutation_id == &"":
 		return _normalize_result(true)
 	if not mutation_handler.is_valid():
 		return _normalize_result(false, &"missing_mutation_handler")
-	return _normalize_result(mutation_handler.call(mutation_id, payload, subject, self))
+	return _normalize_result(
+		mutation_handler.call(
+			mutation_id,
+			payload,
+			subject,
+			self
+		)
+	)
 
 
 ## 解析文本。
@@ -174,7 +204,13 @@ func apply_mutation(mutation_id: StringName, payload: Variant = null, subject: V
 func resolve_text(text: String, subject: Variant = null) -> String:
 	if not text_resolver.is_valid():
 		return text
-	return GFVariantData.to_text(text_resolver.call(text, subject, self))
+	return GFVariantData.to_text(
+		text_resolver.call(
+			text,
+			subject,
+			self
+		)
+	)
 
 
 ## 序列化运行值为 JSON 兼容结构。
@@ -188,9 +224,10 @@ func resolve_text(text: String, subject: Variant = null) -> String:
 ## [br]
 ## @schema return: values 经过 GFVariantJsonCodec 编码后的深拷贝 Dictionary。
 func serialize_values() -> Dictionary:
-	var result: Dictionary = GFVariantJsonCodec.variant_to_json_compatible_result(values, {
-		"encode_dictionary_keys": true,
-	})
+	var result: Dictionary = GFVariantJsonCodec.variant_to_json_compatible_result(
+		values,
+		{ "encode_dictionary_keys": true, }
+	)
 	if not GFVariantData.get_option_bool(result, "ok"):
 		return {}
 	var encoded_values: Variant = result.get("value")
@@ -232,11 +269,19 @@ func deserialize_values(data: Dictionary) -> bool:
 ## @api private
 func _normalize_result(raw_result: Variant, default_reason: StringName = &"ok") -> Dictionary:
 	if raw_result is Dictionary:
-		var result: Dictionary = GFVariantData.to_dictionary(raw_result, {}, true)
+		var result: Dictionary = GFVariantData.to_dictionary(
+			raw_result,
+			{},
+			true
+		)
 		if not result.has("ok"):
 			result["ok"] = false
 		if not result.has("reason"):
-			result["reason"] = default_reason if GFVariantData.get_option_bool(result, "ok", false) else &"rejected"
+			result["reason"] = default_reason if GFVariantData.get_option_bool(
+				result,
+				"ok",
+				false
+			) else &"rejected"
 		return result
 
 	var ok: bool = false

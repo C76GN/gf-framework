@@ -36,13 +36,12 @@ signal request_finished(request_id: StringName, report: GFAPISurfaceReport)
 enum ExecuteMode {
 	## 立即执行。
 	IMMEDIATE,
-
 	## 排队执行。
 	QUEUED,
-
 	## 只验证请求，不产生副作用。
 	DRY_RUN,
 }
+
 
 ## 定义内部缓存状态。
 ##
@@ -275,9 +274,15 @@ func validate_request(request: Dictionary) -> GFAPISurfaceReport:
 	if not request.has("request_id"):
 		return GFAPISurfaceReport.make_rejected(&"", "missing_request_id")
 	if not request.has("config_id"):
-		return GFAPISurfaceReport.make_rejected(_string_name_value(request["request_id"]), "missing_config_id")
+		return GFAPISurfaceReport.make_rejected(
+			_string_name_value(request["request_id"]),
+			"missing_config_id"
+		)
 	if not _configs_by_id.has(_string_name_value(request["config_id"])):
-		return GFAPISurfaceReport.make_rejected(_string_name_value(request["request_id"]), "unknown_config")
+		return GFAPISurfaceReport.make_rejected(
+			_string_name_value(request["request_id"]),
+			"unknown_config"
+		)
 
 	return GFAPISurfaceReport.make_accepted(_string_name_value(request["request_id"]))
 
@@ -429,7 +434,10 @@ func restore_layer_state(state: Dictionary) -> void:
 ## @api private
 func _execute_now(request: Dictionary) -> GFAPISurfaceReport:
 	if not _before_execute(request):
-		return GFAPISurfaceReport.make_rejected(_string_name_value(request["request_id"]), "blocked_by_hook")
+		return GFAPISurfaceReport.make_rejected(
+			_string_name_value(request["request_id"]),
+			"blocked_by_hook"
+		)
 
 	var report: GFAPISurfaceReport = _create_success_report(request)
 	return report
@@ -439,7 +447,10 @@ func _execute_now(request: Dictionary) -> GFAPISurfaceReport:
 ## [br]
 ## @api private
 func _make_request_id(config_id: StringName) -> StringName:
-	return StringName("%s:%d" % [config_id, Time.get_ticks_usec()])
+	return StringName(
+		"%s:%d"
+		% [config_id, Time.get_ticks_usec()]
+	)
 
 
 ## 输出当前配置、队列和可选所有者名称，不修改服务状态。
@@ -450,7 +461,14 @@ func _refresh_editor_diagnostics() -> void:
 	var owner_name: String = ""
 	if _owner_node != null:
 		owner_name = _owner_node.name
-	print_verbose("[GFAPISurfaceFullExample] configs=%d pending=%d owner=%s" % [config_count, _pending_requests.size(), owner_name])
+	print_verbose(
+		"[GFAPISurfaceFullExample] configs=%d pending=%d owner=%s"
+		% [
+			config_count,
+			_pending_requests.size(),
+			owner_name,
+		]
+	)
 
 
 ## 从请求中读取字符串标识；字段缺失或类型不受支持时返回空 StringName。
@@ -497,6 +515,7 @@ func _on_external_config_changed(config_id: StringName) -> void:
 class GFAPISurfaceConfig:
 	extends Resource
 
+
 	# --- 导出变量 ---
 
 	## 配置唯一 ID。
@@ -513,6 +532,7 @@ class GFAPISurfaceConfig:
 	##
 	## @api public
 	@export var weight: float = 1.0
+
 
 	# --- 公共方法 ---
 
@@ -533,6 +553,7 @@ class GFAPISurfaceConfig:
 ## @since 1.24.0
 class GFAPISurfaceReport:
 	extends RefCounted
+
 
 	# --- 公共变量 ---
 
@@ -556,6 +577,7 @@ class GFAPISurfaceReport:
 	## @api public
 	var reason: String = ""
 
+
 	# --- 公共方法 ---
 
 	## 创建已接受报告。
@@ -569,6 +591,7 @@ class GFAPISurfaceReport:
 		report.accepted = true
 		return report
 
+
 	## 创建已排队报告。
 	##
 	## @api public
@@ -579,6 +602,7 @@ class GFAPISurfaceReport:
 		report.reason = "queued"
 		return report
 
+
 	## 创建已完成报告。
 	##
 	## @api public
@@ -588,6 +612,7 @@ class GFAPISurfaceReport:
 		var report: GFAPISurfaceReport = make_accepted(report_request_id)
 		report.completed = true
 		return report
+
 
 	## 创建拒绝报告。
 	##
@@ -612,6 +637,7 @@ class GFAPISurfaceReport:
 class GFAPISurfaceHandle:
 	extends RefCounted
 
+
 	# --- 公共变量 ---
 
 	## 句柄持有的配置 ID。
@@ -623,6 +649,7 @@ class GFAPISurfaceHandle:
 	##
 	## @api public
 	var released: bool = false
+
 
 	# --- 公共方法 ---
 
@@ -644,6 +671,7 @@ class GFAPISurfaceHandle:
 class _ParserState:
 	extends RefCounted
 
+
 	# --- 私有变量 ---
 
 	## 游标按字符计数，只能在当前输入范围内推进。
@@ -656,6 +684,7 @@ class _ParserState:
 	## @api private
 	var _source: String = ""
 
+
 	# --- 私有/辅助方法 ---
 
 	## 开始新输入时必须同时复位游标，避免沿用前一次解析位置。
@@ -664,6 +693,7 @@ class _ParserState:
 	func _reset(source_text: String) -> void:
 		_cursor = 0
 		_source = source_text
+
 
 	## 游标到达或越过输入末尾时结束读取。
 	## [br]

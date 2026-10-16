@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFFormulaSet" path="addons/gf/standard/foundation/formula/gf_formula_set.gd" module="standard" extends="Resource" classDigest="361a008c7ec477559f48b0b1195428d51ad9af481800a3028208c581a9ca92d4">
+<class name="GFFormulaSet" path="addons/gf/standard/foundation/formula/gf_formula_set.gd" module="standard" extends="Resource" classDigest="cb2afda604f0a05c2e2624f81cc5d051a50346a836cde217a90118563e2b5ae6">
 	<description>GFFormulaSet: 按键管理资源化公式的轻量集合。
 适合把一组项目公式集中到配置资源里，再由 System 或 Utility
 按 `StringName` 获取并计算。</description>
@@ -50,7 +50,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="calculate">
-			<signature>func calculate(formula_id: StringName, parameter: GFFormulaParameter = null, fallback: Variant = null) -&gt; Variant:</signature>
+			<signature>func calculate( formula_id: StringName, parameter: GFFormulaParameter = null, fallback: Variant = null ) -&gt; Variant:</signature>
 			<description>计算指定公式。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -60,6 +60,7 @@
 				<tag name="return">公式结果或 fallback。</tag>
 				<tag name="schema">fallback: Variant result returned when formula_id is absent.</tag>
 				<tag name="schema">return: Variant formula result or fallback.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

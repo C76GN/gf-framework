@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputNormalizeModifier" path="addons/gf/standard/input/modifiers/gf_input_normalize_modifier.gd" module="standard" extends="GFInputModifier" classDigest="cec6f5be20b6c6516e2aff8d0bfb1ab2b45d1d1585cf64001956f108b89888a6">
+<class name="GFInputNormalizeModifier" path="addons/gf/standard/input/modifiers/gf_input_normalize_modifier.gd" module="standard" extends="GFInputModifier" classDigest="604f6cb17a034123fd7e561ba66a6870750628677272da76daa19a081406c3eb">
 	<description>GFInputNormalizeModifier: 输入归一化修饰器。
 可避免多个方向叠加后超过单位长度，也可强制非零输入变成单位向量。</description>
 	<tags>
@@ -21,7 +21,7 @@
 	</properties>
 	<methods>
 		<member kind="method" name="modify">
-			<signature>func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = null) -&gt; Vector2:</signature>
+			<signature>func modify( value: Vector2, _event: InputEvent = null, _action: GFInputAction = null ) -&gt; Vector2:</signature>
 			<description>修改二维输入值。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -29,10 +29,11 @@
 				<tag name="param">_event: 原始输入事件，默认实现不直接使用。</tag>
 				<tag name="param">_action: 当前输入动作配置，默认实现不直接使用。</tag>
 				<tag name="return">归一化后的二维输入值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="modify_3d">
-			<signature>func modify_3d(value: Vector3, _event: InputEvent = null, _action: GFInputAction = null) -&gt; Vector3:</signature>
+			<signature>func modify_3d( value: Vector3, _event: InputEvent = null, _action: GFInputAction = null ) -&gt; Vector3:</signature>
 			<description>修改三维输入值。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -40,6 +41,7 @@
 				<tag name="param">_event: 原始输入事件，默认实现不直接使用。</tag>
 				<tag name="param">_action: 当前输入动作配置，默认实现不直接使用。</tag>
 				<tag name="return">归一化后的三维输入值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

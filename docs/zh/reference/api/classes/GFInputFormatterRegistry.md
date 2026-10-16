@@ -15,8 +15,8 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 方法 | [`register_text_provider`](#member-gfinputformatterregistry-methods-register_text_provider) | `func register_text_provider( provider: GFInputTextProvider, owner: Object = null ) -> GFInputProviderRegistration:` |
-| 方法 | [`register_icon_provider`](#member-gfinputformatterregistry-methods-register_icon_provider) | `func register_icon_provider( provider: GFInputIconProvider, owner: Object = null ) -> GFInputProviderRegistration:` |
+| 方法 | [`register_text_provider`](#member-gfinputformatterregistry-methods-register_text_provider) | `func register_text_provider(provider: GFInputTextProvider, owner: Object = null) -> GFInputProviderRegistration:` |
+| 方法 | [`register_icon_provider`](#member-gfinputformatterregistry-methods-register_icon_provider) | `func register_icon_provider(provider: GFInputIconProvider, owner: Object = null) -> GFInputProviderRegistration:` |
 | 方法 | [`add_text_provider`](#member-gfinputformatterregistry-methods-add_text_provider) | `func add_text_provider(provider: GFInputTextProvider, owner: Object = null) -> void:` |
 | 方法 | [`add_icon_provider`](#member-gfinputformatterregistry-methods-add_icon_provider) | `func add_icon_provider(provider: GFInputIconProvider, owner: Object = null) -> void:` |
 | 方法 | [`remove_text_provider`](#member-gfinputformatterregistry-methods-remove_text_provider) | `func remove_text_provider(provider: GFInputTextProvider) -> bool:` |
@@ -38,7 +38,7 @@
 - 首次版本：`8.0.0`
 
 ```gdscript
-func register_text_provider( provider: GFInputTextProvider, owner: Object = null ) -> GFInputProviderRegistration:
+func register_text_provider(provider: GFInputTextProvider, owner: Object = null) -> GFInputProviderRegistration:
 ```
 
 注册文本 provider 并返回释放句柄。
@@ -60,7 +60,7 @@ func register_text_provider( provider: GFInputTextProvider, owner: Object = null
 - 首次版本：`8.0.0`
 
 ```gdscript
-func register_icon_provider( provider: GFInputIconProvider, owner: Object = null ) -> GFInputProviderRegistration:
+func register_icon_provider(provider: GFInputIconProvider, owner: Object = null) -> GFInputProviderRegistration:
 ```
 
 注册图标 provider 并返回释放句柄。

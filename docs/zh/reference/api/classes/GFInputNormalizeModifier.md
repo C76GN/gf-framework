@@ -16,8 +16,8 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 属性 | [`only_when_over_one`](#member-gfinputnormalizemodifier-properties-only_when_over_one) | `var only_when_over_one: bool = true` |
-| 方法 | [`modify`](#member-gfinputnormalizemodifier-methods-modify) | `func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = null) -> Vector2:` |
-| 方法 | [`modify_3d`](#member-gfinputnormalizemodifier-methods-modify_3d) | `func modify_3d(value: Vector3, _event: InputEvent = null, _action: GFInputAction = null) -> Vector3:` |
+| 方法 | [`modify`](#member-gfinputnormalizemodifier-methods-modify) | `func modify( value: Vector2, _event: InputEvent = null, _action: GFInputAction = null ) -> Vector2:` |
+| 方法 | [`modify_3d`](#member-gfinputnormalizemodifier-methods-modify_3d) | `func modify_3d( value: Vector3, _event: InputEvent = null, _action: GFInputAction = null ) -> Vector3:` |
 
 ## 属性
 
@@ -40,9 +40,10 @@ var only_when_over_one: bool = true
 ### `modify`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = null) -> Vector2:
+func modify( value: Vector2, _event: InputEvent = null, _action: GFInputAction = null ) -> Vector2:
 ```
 
 修改二维输入值。
@@ -62,9 +63,10 @@ func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = 
 ### `modify_3d`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func modify_3d(value: Vector3, _event: InputEvent = null, _action: GFInputAction = null) -> Vector3:
+func modify_3d( value: Vector3, _event: InputEvent = null, _action: GFInputAction = null ) -> Vector3:
 ```
 
 修改三维输入值。

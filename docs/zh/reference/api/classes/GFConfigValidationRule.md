@@ -28,10 +28,10 @@
 | 方法 | [`duplicate_rule`](#member-gfconfigvalidationrule-methods-duplicate_rule) | `func duplicate_rule() -> GFConfigValidationRule:` |
 | 方法 | [`describe`](#member-gfconfigvalidationrule-methods-describe) | `func describe() -> Dictionary:` |
 | 方法 | [`_get_default_rule_id`](#member-gfconfigvalidationrule-methods-_get_default_rule_id) | `func _get_default_rule_id() -> StringName:` |
-| 方法 | [`_validate_value`](#member-gfconfigvalidationrule-methods-_validate_value) | `func _validate_value(_value: Variant, _context: Dictionary, _report: Dictionary) -> void:` |
-| 方法 | [`_validate_record`](#member-gfconfigvalidationrule-methods-_validate_record) | `func _validate_record(_record: Dictionary, _context: Dictionary, _report: Dictionary) -> void:` |
-| 方法 | [`_validate_table`](#member-gfconfigvalidationrule-methods-_validate_table) | `func _validate_table(_rows: Array[Dictionary], _context: Dictionary, _report: Dictionary) -> void:` |
-| 方法 | [`_add_issue`](#member-gfconfigvalidationrule-methods-_add_issue) | `func _add_issue(report: Dictionary, context: Dictionary, kind: String, message: String) -> void:` |
+| 方法 | [`_validate_value`](#member-gfconfigvalidationrule-methods-_validate_value) | `func _validate_value( _value: Variant, _context: Dictionary, _report: Dictionary ) -> void:` |
+| 方法 | [`_validate_record`](#member-gfconfigvalidationrule-methods-_validate_record) | `func _validate_record( _record: Dictionary, _context: Dictionary, _report: Dictionary ) -> void:` |
+| 方法 | [`_validate_table`](#member-gfconfigvalidationrule-methods-_validate_table) | `func _validate_table( _rows: Array[Dictionary], _context: Dictionary, _report: Dictionary ) -> void:` |
+| 方法 | [`_add_issue`](#member-gfconfigvalidationrule-methods-_add_issue) | `func _add_issue( report: Dictionary, context: Dictionary, kind: String, message: String ) -> void:` |
 | 方法 | [`_make_variant_key`](#member-gfconfigvalidationrule-methods-_make_variant_key) | `func _make_variant_key(value: Variant) -> String:` |
 
 ## 枚举
@@ -271,7 +271,7 @@ func _get_default_rule_id() -> StringName:
 - 首次版本：`3.17.0`
 
 ```gdscript
-func _validate_value(_value: Variant, _context: Dictionary, _report: Dictionary) -> void:
+func _validate_value( _value: Variant, _context: Dictionary, _report: Dictionary ) -> void:
 ```
 
 校验单个字段值。
@@ -295,9 +295,10 @@ func _validate_value(_value: Variant, _context: Dictionary, _report: Dictionary)
 ### `_validate_record`
 
 - API：`protected`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func _validate_record(_record: Dictionary, _context: Dictionary, _report: Dictionary) -> void:
+func _validate_record( _record: Dictionary, _context: Dictionary, _report: Dictionary ) -> void:
 ```
 
 校验单条记录。
@@ -321,9 +322,10 @@ func _validate_record(_record: Dictionary, _context: Dictionary, _report: Dictio
 ### `_validate_table`
 
 - API：`protected`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func _validate_table(_rows: Array[Dictionary], _context: Dictionary, _report: Dictionary) -> void:
+func _validate_table( _rows: Array[Dictionary], _context: Dictionary, _report: Dictionary ) -> void:
 ```
 
 校验整张表。
@@ -347,9 +349,10 @@ func _validate_table(_rows: Array[Dictionary], _context: Dictionary, _report: Di
 ### `_add_issue`
 
 - API：`protected`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func _add_issue(report: Dictionary, context: Dictionary, kind: String, message: String) -> void:
+func _add_issue( report: Dictionary, context: Dictionary, kind: String, message: String ) -> void:
 ```
 
 向当前报告追加一个带规则上下文的问题。

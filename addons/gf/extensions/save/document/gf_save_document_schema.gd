@@ -97,10 +97,12 @@ func configure(
 	schema_id = p_schema_id
 	schema_version = p_schema_version
 	section_versions = _normalize_section_versions(p_section_versions)
-	required_sections = _normalize_section_ids(
-		GFVariantData.get_option_packed_string_array(options, "required_sections")
+	required_sections = _normalize_section_ids(GFVariantData.get_option_packed_string_array(options, "required_sections"))
+	allow_unknown_sections = GFVariantData.get_option_bool(
+		options,
+		"allow_unknown_sections",
+		true
 	)
-	allow_unknown_sections = GFVariantData.get_option_bool(options, "allow_unknown_sections", true)
 	return self
 
 
@@ -187,12 +189,16 @@ func validate_schema() -> Dictionary:
 				"Required section must have a declared target version.",
 				{ "path": "required_sections", "section_id": required_id }
 			)
-	return GFValidationReportDictionary.finalize_report(report, "Save document schema", {
-		"include_issue_count": true,
-		"next_actions": _get_validation_next_actions(),
-		"fallback_action": "Review the first save document schema issue.",
-		"no_action": "Save document schema is valid.",
-	})
+	return GFValidationReportDictionary.finalize_report(
+		report,
+		"Save document schema",
+		{
+			"include_issue_count": true,
+			"next_actions": _get_validation_next_actions(),
+			"fallback_action": "Review the first save document schema issue.",
+			"no_action": "Save document schema is valid.",
+		}
+	)
 
 
 ## 校验文档是否符合该 schema。
@@ -208,10 +214,7 @@ func validate_schema() -> Dictionary:
 ## @return 结构化兼容性报告。
 ## [br]
 ## @schema return: GFValidationReportDictionary-compatible report with compatible, migration_required, schema_id, schema_version, issues, counts, summary, and next_actions.
-func validate_document(
-	document: GFSaveDocument,
-	require_current_versions: bool = true
-) -> Dictionary:
+func validate_document(document: GFSaveDocument, require_current_versions: bool = true) -> Dictionary:
 	var report: Dictionary = {
 		"issues": [],
 		"compatible": false,
@@ -220,7 +223,11 @@ func validate_document(
 		"schema_version": schema_version,
 	}
 	var schema_validation: Dictionary = validate_schema()
-	_append_nested_issues(report, schema_validation, "schema")
+	_append_nested_issues(
+		report,
+		schema_validation,
+		"schema"
+	)
 	if document == null:
 		var _null_document_issue: Variant = GFValidationReportDictionary.append_issue(
 			report,
@@ -231,7 +238,11 @@ func validate_document(
 		)
 		return _finalize_document_report(report)
 	var document_validation: Dictionary = document.validate_document()
-	_append_nested_issues(report, document_validation, "document")
+	_append_nested_issues(
+		report,
+		document_validation,
+		"document"
+	)
 	if document.get_schema_id() != schema_id:
 		var _schema_mismatch_issue: Variant = GFValidationReportDictionary.append_issue(
 			report,
@@ -338,15 +349,15 @@ static func from_dict(data: Dictionary) -> GFSaveDocumentSchema:
 			return null
 	var schema_id_value: Variant = GFVariantData.get_option_value(data, "schema_id")
 	if (
-		typeof(schema_id_value) != TYPE_STRING
-		and typeof(schema_id_value) != TYPE_STRING_NAME
-	) or GFVariantData.to_text(schema_id_value).is_empty():
+		(
+			typeof(schema_id_value) != TYPE_STRING
+			and typeof(schema_id_value) != TYPE_STRING_NAME
+		)
+		or GFVariantData.to_text(schema_id_value).is_empty()
+	):
 		return null
 	var schema_version_value: Variant = GFVariantData.get_option_value(data, "schema_version")
-	if (
-		not GFVariantData.is_exact_integer(schema_version_value)
-		or GFVariantData.to_exact_int(schema_version_value) <= 0
-	):
+	if (not GFVariantData.is_exact_integer(schema_version_value) or GFVariantData.to_exact_int(schema_version_value) <= 0):
 		return null
 	var section_versions_value: Variant = GFVariantData.get_option_value(data, "section_versions")
 	if not section_versions_value is Dictionary:
@@ -354,19 +365,13 @@ static func from_dict(data: Dictionary) -> GFSaveDocumentSchema:
 	var strict_section_versions: Dictionary = {}
 	var raw_section_versions: Dictionary = GFVariantData.as_dictionary(section_versions_value)
 	for section_id_value: Variant in raw_section_versions.keys():
-		if (
-			typeof(section_id_value) != TYPE_STRING
-			and typeof(section_id_value) != TYPE_STRING_NAME
-		):
+		if (typeof(section_id_value) != TYPE_STRING and typeof(section_id_value) != TYPE_STRING_NAME):
 			return null
 		var section_id_text: String = GFVariantData.to_text(section_id_value)
 		if section_id_text.is_empty() or section_id_text != section_id_text.strip_edges():
 			return null
 		var section_version_value: Variant = raw_section_versions[section_id_value]
-		if (
-			not GFVariantData.is_exact_integer(section_version_value)
-			or GFVariantData.to_exact_int(section_version_value) <= 0
-		):
+		if (not GFVariantData.is_exact_integer(section_version_value) or GFVariantData.to_exact_int(section_version_value) <= 0):
 			return null
 		var section_id: StringName = StringName(section_id_text)
 		if strict_section_versions.has(section_id):
@@ -377,10 +382,7 @@ static func from_dict(data: Dictionary) -> GFSaveDocumentSchema:
 		return null
 	var strict_required_sections: PackedStringArray = PackedStringArray()
 	for required_id_value: Variant in required_value:
-		if (
-			typeof(required_id_value) != TYPE_STRING
-			and typeof(required_id_value) != TYPE_STRING_NAME
-		):
+		if (typeof(required_id_value) != TYPE_STRING and typeof(required_id_value) != TYPE_STRING_NAME):
 			return null
 		var required_id: String = GFVariantData.to_text(required_id_value)
 		if (
@@ -393,16 +395,19 @@ static func from_dict(data: Dictionary) -> GFSaveDocumentSchema:
 	var allow_unknown_value: Variant = GFVariantData.get_option_value(data, "allow_unknown_sections")
 	if typeof(allow_unknown_value) != TYPE_BOOL:
 		return null
-	var schema: GFSaveDocumentSchema = GFSaveDocumentSchema.new().configure(
-		GFVariantData.to_string_name(schema_id_value),
-		GFVariantData.to_exact_int(schema_version_value),
-		strict_section_versions,
-		{
-			"required_sections": strict_required_sections,
-			"allow_unknown_sections": GFVariantData.to_bool(allow_unknown_value),
-		}
+	var schema: GFSaveDocumentSchema = (
+		GFSaveDocumentSchema.new().configure(
+			GFVariantData.to_string_name(schema_id_value),
+			GFVariantData.to_exact_int(schema_version_value),
+			strict_section_versions,
+			{ "required_sections": strict_required_sections, "allow_unknown_sections": GFVariantData.to_bool(allow_unknown_value), }
+		)
 	)
-	if not GFVariantData.get_option_bool(schema.validate_schema(), "ok", false):
+	if not GFVariantData.get_option_bool(
+		schema.validate_schema(),
+		"ok",
+		false
+	):
 		return null
 	return schema
 
@@ -457,17 +462,36 @@ func _append_version_issue(
 ## [br]
 ## @api private
 ## [br]
-func _append_nested_issues(report: Dictionary, nested_report: Dictionary, path_prefix: String) -> void:
+func _append_nested_issues(
+	report: Dictionary,
+	nested_report: Dictionary,
+	path_prefix: String
+) -> void:
 	for issue_value: Variant in GFVariantData.get_option_array(nested_report, "issues"):
 		var issue: Dictionary = GFVariantData.as_dictionary(issue_value)
 		var nested_path: String = GFVariantData.get_option_string(issue, "path")
 		var payload: Dictionary = issue.duplicate(true)
-		payload["path"] = path_prefix if nested_path.is_empty() else "%s.%s" % [path_prefix, nested_path]
+		payload["path"] = path_prefix if nested_path.is_empty() else (
+			"%s.%s"
+			% [path_prefix, nested_path]
+		)
 		var _nested_issue: Variant = GFValidationReportDictionary.append_issue(
 			report,
-			GFVariantData.get_option_string(issue, "severity", "error"),
-			GFVariantData.get_option_string_name(issue, "kind", &"invalid_nested_value"),
-			GFVariantData.get_option_string(issue, "message", "Nested validation failed."),
+			GFVariantData.get_option_string(
+				issue,
+				"severity",
+				"error"
+			),
+			GFVariantData.get_option_string_name(
+				issue,
+				"kind",
+				&"invalid_nested_value"
+			),
+			GFVariantData.get_option_string(
+				issue,
+				"message",
+				"Nested validation failed."
+			),
 			payload
 		)
 
@@ -477,13 +501,21 @@ func _append_nested_issues(report: Dictionary, nested_report: Dictionary, path_p
 ## @api private
 ## [br]
 func _finalize_document_report(report: Dictionary) -> Dictionary:
-	var finalized: Dictionary = GFValidationReportDictionary.finalize_report(report, "Save document compatibility", {
-		"include_issue_count": true,
-		"next_actions": _get_validation_next_actions(),
-		"fallback_action": "Review the first save document compatibility issue.",
-		"no_action": "Save document matches the target schema.",
-	})
-	finalized["compatible"] = GFVariantData.get_option_bool(finalized, "ok", false)
+	var finalized: Dictionary = GFValidationReportDictionary.finalize_report(
+		report,
+		"Save document compatibility",
+		{
+			"include_issue_count": true,
+			"next_actions": _get_validation_next_actions(),
+			"fallback_action": "Review the first save document compatibility issue.",
+			"no_action": "Save document matches the target schema.",
+		}
+	)
+	finalized["compatible"] = GFVariantData.get_option_bool(
+		finalized,
+		"ok",
+		false
+	)
 	return finalized
 
 

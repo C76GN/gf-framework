@@ -133,10 +133,26 @@ func configure(p_platform_id: StringName, options: Dictionary = {}) -> GFPlatfor
 	display_name = GFVariantData.get_option_string(options, "display_name").strip_edges()
 	locale = GFVariantData.get_option_string(options, "locale").strip_edges()
 	fallback_locale = GFVariantData.get_option_string(options, "fallback_locale").strip_edges()
-	pixel_ratio = maxf(GFVariantData.get_option_float(options, "pixel_ratio", 1.0), 0.0)
-	window_size = _to_vector2i(GFVariantData.get_option_value(options, "window_size"), Vector2i.ZERO)
-	screen_size = _to_vector2i(GFVariantData.get_option_value(options, "screen_size"), Vector2i.ZERO)
-	safe_area = _to_rect2i(GFVariantData.get_option_value(options, "safe_area"), Rect2i())
+	pixel_ratio = maxf(
+		GFVariantData.get_option_float(
+			options,
+			"pixel_ratio",
+			1.0
+		),
+		0.0
+	)
+	window_size = _to_vector2i(
+		GFVariantData.get_option_value(options, "window_size"),
+		Vector2i.ZERO
+	)
+	screen_size = _to_vector2i(
+		GFVariantData.get_option_value(options, "screen_size"),
+		Vector2i.ZERO
+	)
+	safe_area = _to_rect2i(
+		GFVariantData.get_option_value(options, "safe_area"),
+		Rect2i()
+	)
 	storage_roots = _normalize_storage_roots(GFVariantData.get_option_dictionary(options, "storage_roots"))
 	launch_options = GFVariantData.get_option_dictionary(options, "launch_options")
 	metadata = GFVariantData.get_option_dictionary(options, "metadata")
@@ -155,7 +171,12 @@ func configure(p_platform_id: StringName, options: Dictionary = {}) -> GFPlatfor
 ## @return 当前上下文。
 func set_capabilities(p_capabilities: GFPlatformCapabilitySet) -> GFPlatformRuntimeContext:
 	if p_capabilities == null:
-		capabilities = GFPlatformCapabilitySet.new().configure(platform_id, PackedStringArray(), {}, adapter_id)
+		capabilities = GFPlatformCapabilitySet.new().configure(
+			platform_id,
+			PackedStringArray(),
+			{},
+			adapter_id
+		)
 	else:
 		capabilities = p_capabilities.duplicate_set()
 		if capabilities.platform_id == &"":
@@ -359,10 +380,26 @@ func apply_dict(data: Dictionary) -> void:
 		capabilities.adapter_id = adapter_id
 	locale = GFVariantData.get_option_string(data, "locale").strip_edges()
 	fallback_locale = GFVariantData.get_option_string(data, "fallback_locale").strip_edges()
-	pixel_ratio = maxf(GFVariantData.get_option_float(data, "pixel_ratio", 1.0), 0.0)
-	window_size = _to_vector2i(GFVariantData.get_option_value(data, "window_size"), Vector2i.ZERO)
-	screen_size = _to_vector2i(GFVariantData.get_option_value(data, "screen_size"), Vector2i.ZERO)
-	safe_area = _to_rect2i(GFVariantData.get_option_value(data, "safe_area"), Rect2i())
+	pixel_ratio = maxf(
+		GFVariantData.get_option_float(
+			data,
+			"pixel_ratio",
+			1.0
+		),
+		0.0
+	)
+	window_size = _to_vector2i(
+		GFVariantData.get_option_value(data, "window_size"),
+		Vector2i.ZERO
+	)
+	screen_size = _to_vector2i(
+		GFVariantData.get_option_value(data, "screen_size"),
+		Vector2i.ZERO
+	)
+	safe_area = _to_rect2i(
+		GFVariantData.get_option_value(data, "safe_area"),
+		Rect2i()
+	)
 	storage_roots = _normalize_storage_roots(GFVariantData.get_option_dictionary(data, "storage_roots"))
 	launch_options = GFVariantData.get_option_dictionary(data, "launch_options")
 	metadata = GFVariantData.get_option_dictionary(data, "metadata")
@@ -404,16 +441,18 @@ static func from_dict(data: Dictionary) -> GFPlatformRuntimeContext:
 func _ensure_capabilities() -> void:
 	if capabilities != null:
 		return
-	capabilities = GFPlatformCapabilitySet.new().configure(platform_id, PackedStringArray(), {}, adapter_id)
+	capabilities = GFPlatformCapabilitySet.new().configure(
+		platform_id,
+		PackedStringArray(),
+		{},
+		adapter_id
+	)
 
 
 ## 从选项中的集合、字典或 capability_ids 创建能力集合，并补齐缺失的平台与 adapter 标识。
 ## [br]
 ## @api private
-static func _make_capability_set_from_options(
-	p_platform_id: StringName,
-	options: Dictionary
-) -> GFPlatformCapabilitySet:
+static func _make_capability_set_from_options(p_platform_id: StringName, options: Dictionary) -> GFPlatformCapabilitySet:
 	var adapter: StringName = GFVariantData.get_option_string_name(options, "adapter_id")
 	var capability_value: Variant = GFVariantData.get_option_value(options, "capabilities")
 	if capability_value is GFPlatformCapabilitySet:
@@ -433,7 +472,12 @@ static func _make_capability_set_from_options(
 			result_from_dict.adapter_id = adapter
 		return result_from_dict
 	var capability_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(options, "capability_ids")
-	return GFPlatformCapabilitySet.new().configure(p_platform_id, capability_ids, {}, adapter)
+	return GFPlatformCapabilitySet.new().configure(
+		p_platform_id,
+		capability_ids,
+		{},
+		adapter
+	)
 
 
 ## 修剪存储根字典的键和值，并丢弃任一为空的条目。
@@ -460,17 +504,36 @@ static func _to_vector2i(value: Variant, default_value: Vector2i) -> Vector2i:
 		return _clamp_vector2i(value_vector2i)
 	if value is Vector2:
 		var value_vector2: Vector2 = value
-		return _clamp_vector2i(Vector2i(roundi(value_vector2.x), roundi(value_vector2.y)))
+		return _clamp_vector2i(
+			Vector2i(
+				roundi(value_vector2.x),
+				roundi(value_vector2.y)
+			)
+		)
 	if value is Dictionary:
 		var data: Dictionary = value
-		var dictionary_x: int = GFVariantData.get_option_int(data, "x", default_value.x)
-		var dictionary_y: int = GFVariantData.get_option_int(data, "y", default_value.y)
+		var dictionary_x: int = GFVariantData.get_option_int(
+			data,
+			"x",
+			default_value.x
+		)
+		var dictionary_y: int = GFVariantData.get_option_int(
+			data,
+			"y",
+			default_value.y
+		)
 		return _clamp_vector2i(Vector2i(dictionary_x, dictionary_y))
 	if value is Array:
 		var values: Array = value
 		if values.size() >= 2:
-			var array_x: int = GFVariantData.to_int(values[0], default_value.x)
-			var array_y: int = GFVariantData.to_int(values[1], default_value.y)
+			var array_x: int = GFVariantData.to_int(
+				values[0],
+				default_value.x
+			)
+			var array_y: int = GFVariantData.to_int(
+				values[1],
+				default_value.y
+			)
 			return _clamp_vector2i(Vector2i(array_x, array_y))
 	return default_value
 
@@ -488,19 +551,69 @@ static func _to_rect2i(value: Variant, default_value: Rect2i) -> Rect2i:
 		return Rect2i(value_rect2)
 	if value is Dictionary:
 		var data: Dictionary = value
-		var dictionary_x: int = GFVariantData.get_option_int(data, "x", default_value.position.x)
-		var dictionary_y: int = GFVariantData.get_option_int(data, "y", default_value.position.y)
-		var dictionary_width: int = max(GFVariantData.get_option_int(data, "width", default_value.size.x), 0)
-		var dictionary_height: int = max(GFVariantData.get_option_int(data, "height", default_value.size.y), 0)
-		return Rect2i(dictionary_x, dictionary_y, dictionary_width, dictionary_height)
+		var dictionary_x: int = GFVariantData.get_option_int(
+			data,
+			"x",
+			default_value.position.x
+		)
+		var dictionary_y: int = GFVariantData.get_option_int(
+			data,
+			"y",
+			default_value.position.y
+		)
+		var dictionary_width: int = max(
+			GFVariantData.get_option_int(
+				data,
+				"width",
+				default_value.size.x
+			),
+			0
+		)
+		var dictionary_height: int = max(
+			GFVariantData.get_option_int(
+				data,
+				"height",
+				default_value.size.y
+			),
+			0
+		)
+		return Rect2i(
+			dictionary_x,
+			dictionary_y,
+			dictionary_width,
+			dictionary_height
+		)
 	if value is Array:
 		var values: Array = value
 		if values.size() >= 4:
-			var array_x: int = GFVariantData.to_int(values[0], default_value.position.x)
-			var array_y: int = GFVariantData.to_int(values[1], default_value.position.y)
-			var array_width: int = max(GFVariantData.to_int(values[2], default_value.size.x), 0)
-			var array_height: int = max(GFVariantData.to_int(values[3], default_value.size.y), 0)
-			return Rect2i(array_x, array_y, array_width, array_height)
+			var array_x: int = GFVariantData.to_int(
+				values[0],
+				default_value.position.x
+			)
+			var array_y: int = GFVariantData.to_int(
+				values[1],
+				default_value.position.y
+			)
+			var array_width: int = max(
+				GFVariantData.to_int(
+					values[2],
+					default_value.size.x
+				),
+				0
+			)
+			var array_height: int = max(
+				GFVariantData.to_int(
+					values[3],
+					default_value.size.y
+				),
+				0
+			)
+			return Rect2i(
+				array_x,
+				array_y,
+				array_width,
+				array_height
+			)
 	return default_value
 
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTraitSet" path="addons/gf/extensions/domain/traits/gf_trait_set.gd" module="extensions/domain" extends="Resource" classDigest="fea2c85aa0f932cdc44864e5399187fccd4576ae801ef0ef26574ab6a0c48e16">
+<class name="GFTraitSet" path="addons/gf/extensions/domain/traits/gf_trait_set.gd" module="extensions/domain" extends="Resource" classDigest="c424452729937b65a056b32f44a9e340255b89dc1a8213d612b2be0ee7deb61e">
 	<description>GFTraitSet: 通用特征集合。
 可从任意来源收集 `GFTrait`，再按目标键与分类计算最终数值。</description>
 	<tags>
@@ -49,7 +49,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="calculate_number">
-			<signature>func calculate_number(target_id: StringName, base_value: float, category: StringName = &amp;"") -&gt; float:</signature>
+			<signature>func calculate_number( target_id: StringName, base_value: float, category: StringName = &amp;"" ) -&gt; float:</signature>
 			<description>计算目标键的最终数值。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -57,6 +57,7 @@
 				<tag name="param">base_value: 基础值。</tag>
 				<tag name="param">category: 可选分类。</tag>
 				<tag name="return">合并后的数值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clear">

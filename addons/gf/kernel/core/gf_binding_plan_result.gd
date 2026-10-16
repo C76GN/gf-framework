@@ -30,6 +30,7 @@ enum Status {
 	INVALID_REQUEST = 3,
 }
 
+
 ## 绑定类别。
 ## [br]
 ## @api public
@@ -47,6 +48,7 @@ enum BindingKind {
 	## 短生命周期对象工厂。
 	FACTORY = 4,
 }
+
 
 ## 首个失败阶段。
 ## [br]
@@ -67,6 +69,7 @@ enum Phase {
 	## Scope 取消观察。
 	CANCELLATION = 5,
 }
+
 
 ## 稳定失败原因。
 ## [br]
@@ -123,9 +126,7 @@ const _MAX_TARGET_PATH_LENGTH: int = 512
 ## 用于校验结果中生命周期值的枚举脚本。
 ## [br]
 ## @api private
-const _GF_BINDING_LIFETIMES_SCRIPT = preload(
-	"res://addons/gf/kernel/core/gf_binding_lifetimes.gd"
-)
+const _GF_BINDING_LIFETIMES_SCRIPT = preload("res://addons/gf/kernel/core/gf_binding_lifetimes.gd")
 
 
 # --- 私有变量 ---
@@ -410,7 +411,11 @@ func configure_for_framework(
 		return ERR_INVALID_PARAMETER
 	if reason < Reason.NONE or reason > Reason.ALIAS_REJECTED:
 		return ERR_INVALID_PARAMETER
-	if entry_index < -1 or lifetime < -1 or executed_count < 0:
+	if (
+		entry_index < -1
+		or lifetime < -1
+		or executed_count < 0
+	):
 		return ERR_INVALID_PARAMETER
 	if String(binding_id).length() > _MAX_BINDING_ID_LENGTH:
 		return ERR_INVALID_PARAMETER
@@ -419,39 +424,48 @@ func configure_for_framework(
 	if entry_index >= 0:
 		if binding_kind == BindingKind.NONE or binding_id == &"":
 			return ERR_INVALID_PARAMETER
-		if lifetime not in [
-			_GF_BINDING_LIFETIMES_SCRIPT.Lifetime.SINGLETON,
-			_GF_BINDING_LIFETIMES_SCRIPT.Lifetime.TRANSIENT,
-		]:
+		if (lifetime not in [_GF_BINDING_LIFETIMES_SCRIPT.Lifetime.SINGLETON, _GF_BINDING_LIFETIMES_SCRIPT.Lifetime.TRANSIENT,]):
 			return ERR_INVALID_PARAMETER
-	if entry_index == -1 and (
-		binding_kind != BindingKind.NONE
-		or binding_id != &""
-		or not target_path.is_empty()
-		or lifetime != -1
+	if (
+		entry_index == -1
+		and (
+			binding_kind != BindingKind.NONE
+			or binding_id != &""
+			or not target_path.is_empty()
+			or lifetime != -1
+		)
 	):
 		return ERR_INVALID_PARAMETER
-	if status == Status.SUCCESS and (
-		binding_kind != BindingKind.NONE
-		or failed_phase != Phase.NONE
-		or reason != Reason.NONE
-		or entry_index != -1
-		or binding_id != &""
-		or not target_path.is_empty()
-		or lifetime != -1
+	if (
+		status == Status.SUCCESS
+		and (
+			binding_kind != BindingKind.NONE
+			or failed_phase != Phase.NONE
+			or reason != Reason.NONE
+			or entry_index != -1
+			or binding_id != &""
+			or not target_path.is_empty()
+			or lifetime != -1
+		)
 	):
 		return ERR_INVALID_PARAMETER
-	if status != Status.SUCCESS and (
-		failed_phase == Phase.NONE
-		or reason == Reason.NONE
-		or bounded_detail.strip_edges().is_empty()
+	if (
+		status != Status.SUCCESS
+		and (
+			failed_phase == Phase.NONE
+			or reason == Reason.NONE
+			or bounded_detail.strip_edges().is_empty()
+		)
 	):
 		return ERR_INVALID_PARAMETER
 	if status == Status.SUCCESS and not detail.is_empty():
 		return ERR_INVALID_PARAMETER
-	if status == Status.CANCELLED and (
-		failed_phase != Phase.CANCELLATION
-		or reason != Reason.SCOPE_CANCELLED
+	if (
+		status == Status.CANCELLED
+		and (
+			failed_phase != Phase.CANCELLATION
+			or reason != Reason.SCOPE_CANCELLED
+		)
 	):
 		return ERR_INVALID_PARAMETER
 

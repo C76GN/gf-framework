@@ -339,6 +339,7 @@ func finish(reason: EndReason = EndReason.CALLER_FINISHED) -> bool:
 		finished.emit(self, reason)
 	return true
 
+
 # --- 框架内部方法 ---
 
 ## 由 runtime 原子激活 session。
@@ -424,10 +425,7 @@ func advance_for_framework(delta: float, displacement_length: float) -> void:
 		return
 	var next_elapsed_seconds: float = _elapsed_seconds + delta
 	var next_travelled_distance: float = _travelled_distance + displacement_length
-	if (
-		not _GF_COMBAT_FINITE_MATH.is_finite_float(next_elapsed_seconds)
-		or not _GF_COMBAT_FINITE_MATH.is_finite_float(next_travelled_distance)
-	):
+	if (not _GF_COMBAT_FINITE_MATH.is_finite_float(next_elapsed_seconds) or not _GF_COMBAT_FINITE_MATH.is_finite_float(next_travelled_distance)):
 		var _overflowed_observation: bool = finish(EndReason.INTERNAL_FAILURE)
 		return
 	_elapsed_seconds = next_elapsed_seconds
@@ -464,10 +462,7 @@ func advance_terminal_body_result_for_framework(
 		return ERR_INVALID_DATA
 	var next_elapsed_seconds: float = _elapsed_seconds + delta
 	var next_travelled_distance: float = _travelled_distance + displacement_length
-	if (
-		not _GF_COMBAT_FINITE_MATH.is_finite_float(next_elapsed_seconds)
-		or not _GF_COMBAT_FINITE_MATH.is_finite_float(next_travelled_distance)
-	):
+	if (not _GF_COMBAT_FINITE_MATH.is_finite_float(next_elapsed_seconds) or not _GF_COMBAT_FINITE_MATH.is_finite_float(next_travelled_distance)):
 		return ERR_INVALID_DATA
 	_terminal_body_observation_recorded = true
 	_elapsed_seconds = next_elapsed_seconds
@@ -541,7 +536,11 @@ func _disconnect_root_tree_exiting_observer() -> void:
 ## @api private
 func _stop_body_once() -> void:
 	var root: Node = get_instance_root()
-	if root == null or _body_adapter == null or not is_instance_valid(_body_adapter):
+	if (
+		root == null
+		or _body_adapter == null
+		or not is_instance_valid(_body_adapter)
+	):
 		return
 	if _dimension == Dimension.TWO_D and _body_adapter is GFProjectileBodyAdapter2D:
 		var adapter_2d: GFProjectileBodyAdapter2D = _body_adapter

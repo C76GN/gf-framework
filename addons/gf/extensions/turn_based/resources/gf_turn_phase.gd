@@ -82,10 +82,7 @@ func _enter(_context: GFTurnContext) -> void:
 ## @return: 可等待结果。
 ## [br]
 ## @schema return: Variant that is null or a Signal awaited before phase completion.
-func _execute(
-	_context: GFTurnContext,
-	_completion: GFTurnPhaseCompletionHandle
-) -> Variant:
+func _execute(_context: GFTurnContext, _completion: GFTurnPhaseCompletionHandle) -> Variant:
 	return null
 
 
@@ -124,7 +121,11 @@ func begin_runtime(
 	if (
 		context == null
 		or owner == null
-		or not context.is_flow_operation_lease_active(lease, owner, flow_serial)
+		or not context.is_flow_operation_lease_active(
+			lease,
+			owner,
+			flow_serial
+		)
 	):
 		return null
 	var context_id: int = context.get_instance_id()
@@ -132,12 +133,15 @@ func begin_runtime(
 		push_error("[GFTurnPhase][turn_phase.context_already_active] The same context already has an active runtime state.")
 		return null
 	var runtime: RuntimeState = RuntimeState.new()
-	if not runtime.configure_from_flow(context, lease, owner, flow_serial):
+	if not runtime.configure_from_flow(
+		context,
+		lease,
+		owner,
+		flow_serial
+	):
 		return null
 	_runtime_by_context_id[context_id] = runtime
-	var _finished_connected: Error = runtime.finished.connect(
-		_on_runtime_finished.bind(context_id, runtime)
-	) as Error
+	var _finished_connected: Error = runtime.finished.connect(_on_runtime_finished.bind(context_id, runtime)) as Error
 	return runtime
 
 
@@ -169,7 +173,12 @@ func end_runtime(context: GFTurnContext, runtime: RuntimeState) -> void:
 func _get_runtime(context: GFTurnContext) -> RuntimeState:
 	if context == null:
 		return null
-	return _get_runtime_value(GFVariantData.get_option_value(_runtime_by_context_id, context.get_instance_id()))
+	return _get_runtime_value(
+		GFVariantData.get_option_value(
+			_runtime_by_context_id,
+			context.get_instance_id()
+		)
+	)
 
 
 ## 将字典取出的 Variant 限定为 RuntimeState，其他值一律视为不存在。
@@ -218,6 +227,7 @@ class RuntimeState extends RefCounted:
 	## [br]
 	## @since 8.0.0
 	var is_finished: bool = false
+
 
 	# --- 私有变量 ---
 
@@ -279,7 +289,11 @@ class RuntimeState extends RefCounted:
 			_active
 			or context == null
 			or owner == null
-			or not context.is_flow_operation_lease_active(lease, owner, flow_serial)
+			or not context.is_flow_operation_lease_active(
+				lease,
+				owner,
+				flow_serial
+			)
 		):
 			return false
 		_context_ref = weakref(context)
@@ -373,7 +387,11 @@ class RuntimeState extends RefCounted:
 			return false
 		var context: GFTurnContext = context_value
 		var owner: GFTurnFlowSystem = owner_value
-		if not context.is_flow_operation_lease_active(_lease, owner, _flow_serial):
+		if not context.is_flow_operation_lease_active(
+			_lease,
+			owner,
+			_flow_serial
+		):
 			return false
 		is_finished = true
 		_active = false

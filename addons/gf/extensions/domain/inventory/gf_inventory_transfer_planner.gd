@@ -68,10 +68,7 @@ static func plan_source(
 	allow_partial: bool,
 	budget: Dictionary
 ) -> Dictionary:
-	var source_stack: GFInventoryStack = model.get_inventory_transfer_stack_for_framework(
-		owner,
-		source_slot
-	)
+	var source_stack: GFInventoryStack = model.get_inventory_transfer_stack_for_framework(owner, source_slot)
 	if source_stack == null:
 		return { "status": GFInventoryTransferResult.STATUS_INVALID_REQUEST }
 	var requested_amount: int = source_stack.amount if amount <= 0 else amount
@@ -84,20 +81,31 @@ static func plan_source(
 			"requested_amount": requested_amount,
 		}
 	var transferable_amount: int = mini(requested_amount, source_stack.amount)
-	if not _reserve_slots(model.get_slot_count(), budget):
+	if not _reserve_slots(
+		model.get_slot_count(),
+		budget
+	):
 		return _source_failure(
 			GFInventoryTransferResult.STATUS_UNSUPPORTED_DATA,
 			source_stack.item_id,
 			requested_amount
 		)
-	var config_result: Dictionary = _build_config_evidence(model, source_stack.item_id, budget)
+	var config_result: Dictionary = _build_config_evidence(
+		model,
+		source_stack.item_id,
+		budget
+	)
 	if not GFVariantData.get_option_bool(config_result, "ok"):
 		return _source_failure(
 			GFInventoryTransferResult.STATUS_UNSUPPORTED_DATA,
 			source_stack.item_id,
 			requested_amount
 		)
-	var before_result: Dictionary = _copy_slots(model, owner, budget)
+	var before_result: Dictionary = _copy_slots(
+		model,
+		owner,
+		budget
+	)
 	if not GFVariantData.get_option_bool(before_result, "ok"):
 		return _source_failure(
 			GFInventoryTransferResult.STATUS_UNSUPPORTED_DATA,
@@ -124,7 +132,11 @@ static func plan_source(
 	candidate_stack.amount -= removed_amount
 	if candidate_stack.amount <= 0:
 		candidate_slots[source_slot] = null
-	var changes_result: Dictionary = _build_slot_changes(before_snapshots, candidate_slots, budget)
+	var changes_result: Dictionary = _build_slot_changes(
+		before_snapshots,
+		candidate_slots,
+		budget
+	)
 	if not GFVariantData.get_option_bool(changes_result, "ok"):
 		return _source_failure(
 			GFInventoryTransferResult.STATUS_UNSUPPORTED_DATA,
@@ -136,11 +148,7 @@ static func plan_source(
 		source_stack.item_id,
 		budget
 	)
-	if (
-		not GFVariantData.get_option_bool(config_after_result, "ok")
-		or GFVariantData.get_option_string(config_result, "sha")
-		!= GFVariantData.get_option_string(config_after_result, "sha")
-	):
+	if (not GFVariantData.get_option_bool(config_after_result, "ok") or (GFVariantData.get_option_string(config_result, "sha") != GFVariantData.get_option_string(config_after_result, "sha"))):
 		return _source_failure(
 			GFInventoryTransferResult.STATUS_STALE_PLAN,
 			source_stack.item_id,
@@ -156,11 +164,13 @@ static func plan_source(
 		"slots": candidate_slots,
 		"slot_changes": GFVariantData.get_option_dictionary(changes_result, "slot_changes"),
 		"slot_change_order": GFVariantData.get_option_array(changes_result, "slot_change_order"),
-		"item_events": [{
-			"slot_index": source_slot,
-			"item_id": source_stack.item_id,
-			"amount": removed_amount,
-		}],
+		"item_events": [
+			{
+				"slot_index": source_slot,
+				"item_id": source_stack.item_id,
+				"amount": removed_amount,
+			},
+		],
 		"before_sha": _sha(before_snapshots),
 		"after_sha": _sha(after_snapshots),
 		"config_sha": GFVariantData.get_option_string(config_result, "sha"),
@@ -206,20 +216,46 @@ static func plan_target(
 	allow_partial: bool,
 	budget: Dictionary
 ) -> Dictionary:
-	if item_id == &"" or amount <= 0 or not _accepts_item(model, item_id):
+	if (
+		item_id == &""
+		or amount <= 0
+		or not _accepts_item(model, item_id)
+	):
 		return { "status": GFInventoryTransferResult.STATUS_INVALID_REQUEST }
-	if target_slot < -1 or (target_slot >= 0 and not model.is_valid_slot(target_slot)):
+	if (
+		target_slot < -1
+		or (
+			target_slot >= 0
+			and not model.is_valid_slot(target_slot)
+		)
+	):
 		return { "status": GFInventoryTransferResult.STATUS_INVALID_REQUEST }
-	if not _reserve_slots(model.get_slot_count(), budget):
+	if not _reserve_slots(
+		model.get_slot_count(),
+		budget
+	):
 		return { "status": GFInventoryTransferResult.STATUS_UNSUPPORTED_DATA }
-	var config_result: Dictionary = _build_config_evidence(model, item_id, budget)
+	var config_result: Dictionary = _build_config_evidence(
+		model,
+		item_id,
+		budget
+	)
 	if not GFVariantData.get_option_bool(config_result, "ok"):
 		return { "status": GFInventoryTransferResult.STATUS_UNSUPPORTED_DATA }
-	var normalized_result: Dictionary = _normalize_instance_data(model, item_id, instance_data, budget)
+	var normalized_result: Dictionary = _normalize_instance_data(
+		model,
+		item_id,
+		instance_data,
+		budget
+	)
 	if not GFVariantData.get_option_bool(normalized_result, "ok"):
 		return { "status": GFInventoryTransferResult.STATUS_UNSUPPORTED_DATA }
 	var normalized_data: Dictionary = GFVariantData.get_option_dictionary(normalized_result, "value")
-	var before_result: Dictionary = _copy_slots(model, owner, budget)
+	var before_result: Dictionary = _copy_slots(
+		model,
+		owner,
+		budget
+	)
 	if not GFVariantData.get_option_bool(before_result, "ok"):
 		return { "status": GFInventoryTransferResult.STATUS_UNSUPPORTED_DATA }
 	var candidate_slots: Array = GFVariantData.get_option_array(before_result, "slots")
@@ -252,7 +288,11 @@ static func plan_target(
 			if remaining <= 0:
 				break
 		while remaining > 0:
-			if not _can_create_stack(model, candidate_slots, item_id):
+			if not _can_create_stack(
+				model,
+				candidate_slots,
+				item_id
+			):
 				break
 			var empty_slot: int = _find_empty_slot(
 				model,
@@ -283,17 +323,27 @@ static func plan_target(
 	if GFVariantData.get_option_bool(budget, "failed"):
 		return { "status": GFInventoryTransferResult.STATUS_UNSUPPORTED_DATA }
 	var accepted_amount: int = amount - remaining
-	if accepted_amount <= 0 or (remaining > 0 and not allow_partial):
+	if (
+		accepted_amount <= 0
+		or (
+			remaining > 0
+			and not allow_partial
+		)
+	):
 		return { "status": GFInventoryTransferResult.STATUS_NOT_ENOUGH_SPACE }
-	var changes_result: Dictionary = _build_slot_changes(before_snapshots, candidate_slots, budget)
+	var changes_result: Dictionary = _build_slot_changes(
+		before_snapshots,
+		candidate_slots,
+		budget
+	)
 	if not GFVariantData.get_option_bool(changes_result, "ok"):
 		return { "status": GFInventoryTransferResult.STATUS_UNSUPPORTED_DATA }
-	var config_after_result: Dictionary = _build_config_evidence(model, item_id, budget)
-	if (
-		not GFVariantData.get_option_bool(config_after_result, "ok")
-		or GFVariantData.get_option_string(config_result, "sha")
-		!= GFVariantData.get_option_string(config_after_result, "sha")
-	):
+	var config_after_result: Dictionary = _build_config_evidence(
+		model,
+		item_id,
+		budget
+	)
+	if (not GFVariantData.get_option_bool(config_after_result, "ok") or (GFVariantData.get_option_string(config_result, "sha") != GFVariantData.get_option_string(config_after_result, "sha"))):
 		return { "status": GFInventoryTransferResult.STATUS_STALE_PLAN }
 	var after_snapshots: Array = GFVariantData.get_option_array(changes_result, "after_snapshots")
 	return {
@@ -346,12 +396,13 @@ static func plan_same_model(
 	allow_partial: bool,
 	budget: Dictionary
 ) -> Dictionary:
-	if source_slot == target_slot or target_slot < 0 or not model.is_valid_slot(target_slot):
+	if (
+		source_slot == target_slot
+		or target_slot < 0
+		or not model.is_valid_slot(target_slot)
+	):
 		return { "status": GFInventoryTransferResult.STATUS_INVALID_REQUEST }
-	var source_stack: GFInventoryStack = model.get_inventory_transfer_stack_for_framework(
-		owner,
-		source_slot
-	)
+	var source_stack: GFInventoryStack = model.get_inventory_transfer_stack_for_framework(owner, source_slot)
 	if source_stack == null:
 		return { "status": GFInventoryTransferResult.STATUS_INVALID_REQUEST }
 	var requested_amount: int = source_stack.amount if amount <= 0 else amount
@@ -363,13 +414,20 @@ static func plan_same_model(
 			"item_id": source_stack.item_id,
 			"requested_amount": requested_amount,
 		}
-	if not _reserve_slots(model.get_slot_count(), budget):
+	if not _reserve_slots(
+		model.get_slot_count(),
+		budget
+	):
 		return _source_failure(
 			GFInventoryTransferResult.STATUS_UNSUPPORTED_DATA,
 			source_stack.item_id,
 			requested_amount
 		)
-	var before_result: Dictionary = _copy_slots(model, owner, budget)
+	var before_result: Dictionary = _copy_slots(
+		model,
+		owner,
+		budget
+	)
 	if not GFVariantData.get_option_bool(before_result, "ok"):
 		return _source_failure(
 			GFInventoryTransferResult.STATUS_UNSUPPORTED_DATA,
@@ -385,14 +443,24 @@ static func plan_same_model(
 			source_stack.item_id,
 			requested_amount
 		)
-	var config_result: Dictionary = _build_config_evidence(model, candidate_source.item_id, budget)
+	var config_result: Dictionary = _build_config_evidence(
+		model,
+		candidate_source.item_id,
+		budget
+	)
 	if not GFVariantData.get_option_bool(config_result, "ok"):
 		return _source_failure(
 			GFInventoryTransferResult.STATUS_UNSUPPORTED_DATA,
 			candidate_source.item_id,
 			requested_amount
 		)
-	if not _slot_accepts(model, candidate_slots, target_slot, candidate_source.item_id, candidate_source.instance_data):
+	if not _slot_accepts(
+		model,
+		candidate_slots,
+		target_slot,
+		candidate_source.item_id,
+		candidate_source.instance_data
+	):
 		return _source_failure(
 			GFInventoryTransferResult.STATUS_NOT_ENOUGH_SPACE,
 			candidate_source.item_id,
@@ -404,7 +472,11 @@ static func plan_same_model(
 	if candidate_target == null:
 		if (
 			candidate_source.amount > move_amount
-			and not _can_create_stack(model, candidate_slots, candidate_source.item_id)
+			and not _can_create_stack(
+				model,
+				candidate_slots,
+				candidate_source.item_id
+			)
 		):
 			accepted_amount = 0
 	else:
@@ -419,7 +491,10 @@ static func plan_same_model(
 		else:
 			accepted_amount = mini(
 				move_amount,
-				maxi(_max_stack_amount(model, candidate_source.item_id) - candidate_target.amount, 0)
+				maxi(
+					_max_stack_amount(model, candidate_source.item_id) - candidate_target.amount,
+					0
+				)
 			)
 	if GFVariantData.get_option_bool(budget, "failed"):
 		return _source_failure(
@@ -427,7 +502,13 @@ static func plan_same_model(
 			candidate_source.item_id,
 			requested_amount
 		)
-	if accepted_amount <= 0 or (accepted_amount < requested_amount and not allow_partial):
+	if (
+		accepted_amount <= 0
+		or (
+			accepted_amount < requested_amount
+			and not allow_partial
+		)
+	):
 		return _source_failure(
 			GFInventoryTransferResult.STATUS_NOT_ENOUGH_SPACE,
 			candidate_source.item_id,
@@ -438,10 +519,7 @@ static func plan_same_model(
 			candidate_slots[source_slot] = null
 			candidate_slots[target_slot] = candidate_source
 		else:
-			var target_data_result: Dictionary = _copy_dictionary(
-				candidate_source.instance_data,
-				budget
-			)
+			var target_data_result: Dictionary = _copy_dictionary(candidate_source.instance_data, budget)
 			if not GFVariantData.get_option_bool(target_data_result, "ok"):
 				return _source_failure(
 					GFInventoryTransferResult.STATUS_UNSUPPORTED_DATA,
@@ -451,10 +529,7 @@ static func plan_same_model(
 			var moved_stack: GFInventoryStack = GFInventoryStack.new()
 			moved_stack.item_id = candidate_source.item_id
 			moved_stack.amount = accepted_amount
-			moved_stack.instance_data = GFVariantData.get_option_dictionary(
-				target_data_result,
-				"value"
-			)
+			moved_stack.instance_data = GFVariantData.get_option_dictionary(target_data_result, "value")
 			candidate_source.amount -= accepted_amount
 			candidate_slots[target_slot] = moved_stack
 	else:
@@ -473,12 +548,12 @@ static func plan_same_model(
 			source_stack.item_id,
 			requested_amount
 		)
-	var config_after_result: Dictionary = _build_config_evidence(model, candidate_source.item_id, budget)
-	if (
-		not GFVariantData.get_option_bool(config_after_result, "ok")
-		or GFVariantData.get_option_string(config_result, "sha")
-		!= GFVariantData.get_option_string(config_after_result, "sha")
-	):
+	var config_after_result: Dictionary = _build_config_evidence(
+		model,
+		candidate_source.item_id,
+		budget
+	)
+	if (not GFVariantData.get_option_bool(config_after_result, "ok") or (GFVariantData.get_option_string(config_result, "sha") != GFVariantData.get_option_string(config_after_result, "sha"))):
 		return _source_failure(
 			GFInventoryTransferResult.STATUS_STALE_PLAN,
 			candidate_source.item_id,
@@ -516,6 +591,7 @@ static func _source_failure(
 		"requested_amount": requested_amount,
 	}
 
+
 ## 在共享预算内复制模型槽位及其内容快照。
 ## 任一实例数据无法安全复制时返回失败结果。
 ## [br]
@@ -528,32 +604,32 @@ static func _copy_slots(
 	var copied_slots: Array = []
 	var snapshots: Array = []
 	for slot_index: int in range(model.get_slot_count()):
-		var stack: GFInventoryStack = model.get_inventory_transfer_stack_for_framework(
-			owner,
-			slot_index
-		)
+		var stack: GFInventoryStack = model.get_inventory_transfer_stack_for_framework(owner, slot_index)
 		if stack == null or stack.is_empty():
 			copied_slots.append(null)
 			snapshots.append({})
 			continue
 		var candidate_data_result: Dictionary = _copy_dictionary(stack.instance_data, budget)
 		var snapshot_data_result: Dictionary = _copy_dictionary(stack.instance_data, budget)
-		if (
-			not GFVariantData.get_option_bool(candidate_data_result, "ok")
-			or not GFVariantData.get_option_bool(snapshot_data_result, "ok")
-		):
+		if (not GFVariantData.get_option_bool(candidate_data_result, "ok") or not GFVariantData.get_option_bool(snapshot_data_result, "ok")):
 			return { "ok": false }
 		var copied_stack: GFInventoryStack = GFInventoryStack.new()
 		copied_stack.item_id = stack.item_id
 		copied_stack.amount = stack.amount
 		copied_stack.instance_data = GFVariantData.get_option_dictionary(candidate_data_result, "value")
 		copied_slots.append(copied_stack)
-		snapshots.append({
-			"item_id": String(stack.item_id),
-			"amount": stack.amount,
-			"instance_data": GFVariantData.get_option_dictionary(snapshot_data_result, "value"),
-		})
-	return { "ok": true, "slots": copied_slots, "snapshots": snapshots }
+		snapshots.append(
+			{
+				"item_id": String(stack.item_id),
+				"amount": stack.amount,
+				"instance_data": GFVariantData.get_option_dictionary(snapshot_data_result, "value"),
+			}
+		)
+	return {
+		"ok": true,
+		"slots": copied_slots,
+		"snapshots": snapshots,
+	}
 
 
 ## 比较提交前快照和候选槽位，生成变更字典、顺序及提交后快照。
@@ -567,7 +643,10 @@ static func _build_slot_changes(
 	var after_snapshots: Array = []
 	var slot_changes: Dictionary = {}
 	var slot_change_order: Array[int] = []
-	var count: int = maxi(before_snapshots.size(), after_slots.size())
+	var count: int = maxi(
+		before_snapshots.size(),
+		after_slots.size()
+	)
 	for slot_index: int in range(count):
 		var after_snapshot: Dictionary = {}
 		if slot_index < after_slots.size():
@@ -610,21 +689,49 @@ static func _add_to_slot(
 	item_events: Array[Dictionary],
 	budget: Dictionary
 ) -> int:
-	if remaining <= 0 or not _slot_accepts(model, candidate_slots, slot_index, item_id, instance_data):
+	if remaining <= 0 or not _slot_accepts(
+		model,
+		candidate_slots,
+		slot_index,
+		item_id,
+		instance_data
+	):
 		return remaining
 	var stack: GFInventoryStack = _get_stack_value(candidate_slots[slot_index])
 	if stack == null:
-		if not _can_create_stack(model, candidate_slots, item_id):
+		if not _can_create_stack(
+			model,
+			candidate_slots,
+			item_id
+		):
 			return remaining
 		return _add_to_empty(
-			model, candidate_slots, slot_index, item_id, remaining,
-			instance_data, item_events, budget
+			model,
+			candidate_slots,
+			slot_index,
+			item_id,
+			remaining,
+			instance_data,
+			item_events,
+			budget
 		)
-	if not _stack_can_merge(model, stack, item_id, instance_data, budget):
+	if not _stack_can_merge(
+		model,
+		stack,
+		item_id,
+		instance_data,
+		budget
+	):
 		return remaining
 	return _add_to_existing(
-		model, candidate_slots, slot_index, item_id, remaining,
-		instance_data, item_events, budget
+		model,
+		candidate_slots,
+		slot_index,
+		item_id,
+		remaining,
+		instance_data,
+		item_events,
+		budget
 	)
 
 
@@ -641,20 +748,48 @@ static func _add_to_existing(
 	item_events: Array[Dictionary],
 	budget: Dictionary
 ) -> int:
-	if remaining <= 0 or slot_index < 0 or slot_index >= candidate_slots.size():
+	if (
+		remaining <= 0
+		or slot_index < 0
+		or slot_index >= candidate_slots.size()
+	):
 		return remaining
 	var stack: GFInventoryStack = _get_stack_value(candidate_slots[slot_index])
 	if (
 		stack == null
-		or not _stack_can_merge(model, stack, item_id, instance_data, budget)
-		or not _slot_accepts(model, candidate_slots, slot_index, item_id, instance_data)
+		or not _stack_can_merge(
+			model,
+			stack,
+			item_id,
+			instance_data,
+			budget
+		)
+		or not _slot_accepts(
+			model,
+			candidate_slots,
+			slot_index,
+			item_id,
+			instance_data
+		)
 	):
 		return remaining
-	var accepted: int = mini(remaining, maxi(_max_stack_amount(model, item_id) - stack.amount, 0))
+	var accepted: int = mini(
+		remaining,
+		maxi(
+			_max_stack_amount(model, item_id) - stack.amount,
+			0
+		)
+	)
 	if accepted <= 0:
 		return remaining
 	stack.amount += accepted
-	item_events.append({ "slot_index": slot_index, "item_id": item_id, "amount": accepted })
+	item_events.append(
+		{
+			"slot_index": slot_index,
+			"item_id": item_id,
+			"amount": accepted,
+		}
+	)
 	return remaining - accepted
 
 
@@ -676,10 +811,19 @@ static func _add_to_empty(
 		or slot_index < 0
 		or slot_index >= candidate_slots.size()
 		or _get_stack_value(candidate_slots[slot_index]) != null
-		or not _slot_accepts(model, candidate_slots, slot_index, item_id, instance_data)
+		or not _slot_accepts(
+			model,
+			candidate_slots,
+			slot_index,
+			item_id,
+			instance_data
+		)
 	):
 		return remaining
-	var accepted: int = mini(remaining, _max_stack_amount(model, item_id))
+	var accepted: int = mini(
+		remaining,
+		_max_stack_amount(model, item_id)
+	)
 	if accepted <= 0:
 		return remaining
 	var data_result: Dictionary = _copy_dictionary(instance_data, budget)
@@ -690,7 +834,13 @@ static func _add_to_empty(
 	stack.amount = accepted
 	stack.instance_data = GFVariantData.get_option_dictionary(data_result, "value")
 	candidate_slots[slot_index] = stack
-	item_events.append({ "slot_index": slot_index, "item_id": item_id, "amount": accepted })
+	item_events.append(
+		{
+			"slot_index": slot_index,
+			"item_id": item_id,
+			"amount": accepted,
+		}
+	)
 	return remaining - accepted
 
 
@@ -706,7 +856,13 @@ static func _find_empty_slot(
 	for slot_index: int in range(candidate_slots.size()):
 		if (
 			_get_stack_value(candidate_slots[slot_index]) == null
-			and _slot_accepts(model, candidate_slots, slot_index, item_id, instance_data)
+			and _slot_accepts(
+				model,
+				candidate_slots,
+				slot_index,
+				item_id,
+				instance_data
+			)
 		):
 			return slot_index
 	return -1
@@ -793,15 +949,16 @@ static func _stack_can_merge(
 	if definition == null:
 		return stack.instance_data == instance_data
 	var left_result: Dictionary = _merge_defaults(
-		definition.default_instance_data, stack.instance_data, budget
+		definition.default_instance_data,
+		stack.instance_data,
+		budget
 	)
 	var right_result: Dictionary = _merge_defaults(
-		definition.default_instance_data, instance_data, budget
+		definition.default_instance_data,
+		instance_data,
+		budget
 	)
-	if (
-		not GFVariantData.get_option_bool(left_result, "ok")
-		or not GFVariantData.get_option_bool(right_result, "ok")
-	):
+	if (not GFVariantData.get_option_bool(left_result, "ok") or not GFVariantData.get_option_bool(right_result, "ok")):
 		return false
 	var left: Dictionary = GFVariantData.get_option_dictionary(left_result, "value")
 	var right: Dictionary = GFVariantData.get_option_dictionary(right_result, "value")
@@ -809,7 +966,11 @@ static func _stack_can_merge(
 		var result_output: Array = []
 		if not GFInventoryRuleCallableSupport.try_call_for_framework(
 			definition.compatibility_checker,
-			[left, right, definition],
+			[
+				left,
+				right,
+				definition,
+			],
 			result_output
 		):
 			return false
@@ -841,18 +1002,14 @@ static func _normalize_instance_data(
 	if definition == null:
 		return { "ok": true, "value": input_copy }
 	var normalized_result: Dictionary = _merge_defaults(
-		definition.default_instance_data, input_copy, budget
+		definition.default_instance_data,
+		input_copy,
+		budget
 	)
 	var defaults_result: Dictionary = _copy_dictionary(definition.default_instance_data, budget)
-	if (
-		not GFVariantData.get_option_bool(normalized_result, "ok")
-		or not GFVariantData.get_option_bool(defaults_result, "ok")
-	):
+	if (not GFVariantData.get_option_bool(normalized_result, "ok") or not GFVariantData.get_option_bool(defaults_result, "ok")):
 		return { "ok": false }
-	if (
-		GFVariantData.get_option_dictionary(normalized_result, "value")
-		== GFVariantData.get_option_dictionary(defaults_result, "value")
-	):
+	if (GFVariantData.get_option_dictionary(normalized_result, "value") == GFVariantData.get_option_dictionary(defaults_result, "value")):
 		return { "ok": true, "value": {} }
 	return { "ok": true, "value": input_copy }
 
@@ -867,10 +1024,7 @@ static func _merge_defaults(
 ) -> Dictionary:
 	var defaults_result: Dictionary = _copy_dictionary(defaults, budget)
 	var overrides_result: Dictionary = _copy_dictionary(overrides, budget)
-	if (
-		not GFVariantData.get_option_bool(defaults_result, "ok")
-		or not GFVariantData.get_option_bool(overrides_result, "ok")
-	):
+	if (not GFVariantData.get_option_bool(defaults_result, "ok") or not GFVariantData.get_option_bool(overrides_result, "ok")):
 		return { "ok": false }
 	var merged: Dictionary = GFVariantData.get_option_dictionary(defaults_result, "value")
 	var override_values: Dictionary = GFVariantData.get_option_dictionary(overrides_result, "value")
@@ -902,16 +1056,9 @@ static func _build_config_evidence(
 		}
 		var definition: GFInventoryItemDefinition = model.registry.get_definition(item_id)
 		if definition != null:
-			var default_data_result: Dictionary = _copy_dictionary(
-				definition.default_instance_data, budget
-			)
-			var compatibility_result: Dictionary = _build_callable_evidence(
-				definition.compatibility_checker, budget
-			)
-			if (
-				not GFVariantData.get_option_bool(default_data_result, "ok")
-				or not GFVariantData.get_option_bool(compatibility_result, "ok")
-			):
+			var default_data_result: Dictionary = _copy_dictionary(definition.default_instance_data, budget)
+			var compatibility_result: Dictionary = _build_callable_evidence(definition.compatibility_checker, budget)
+			if (not GFVariantData.get_option_bool(default_data_result, "ok") or not GFVariantData.get_option_bool(compatibility_result, "ok")):
 				return { "ok": false }
 			registry_evidence["definition"] = {
 				"identity": definition.get_instance_id(),
@@ -919,13 +1066,9 @@ static func _build_config_evidence(
 				"max_stack_amount": definition.max_stack_amount,
 				"max_stack_count": definition.max_stack_count,
 				"categories": definition.categories,
-				"default_instance_data": GFVariantData.get_option_dictionary(
-					default_data_result, "value"
-				),
+				"default_instance_data": GFVariantData.get_option_dictionary(default_data_result, "value"),
 				"stack_key_fields": definition.stack_key_fields,
-				"compatibility_checker": GFVariantData.get_option_value(
-					compatibility_result, "value"
-				),
+				"compatibility_checker": GFVariantData.get_option_value(compatibility_result, "value"),
 			}
 		evidence["registry"] = registry_evidence
 	var slot_evidence: Array = []
@@ -934,19 +1077,19 @@ static func _build_config_evidence(
 		if slot_definition == null:
 			slot_evidence.append(null)
 			continue
-		var acceptance_result: Dictionary = _build_callable_evidence(
-			slot_definition.acceptance_checker, budget
-		)
+		var acceptance_result: Dictionary = _build_callable_evidence(slot_definition.acceptance_checker, budget)
 		if not GFVariantData.get_option_bool(acceptance_result, "ok"):
 			return { "ok": false }
-		slot_evidence.append({
-			"identity": slot_definition.get_instance_id(),
-			"accepted_item_ids": slot_definition.accepted_item_ids,
-			"rejected_item_ids": slot_definition.rejected_item_ids,
-			"accepted_categories": slot_definition.accepted_categories,
-			"require_all_categories": slot_definition.require_all_categories,
-			"acceptance_checker": GFVariantData.get_option_value(acceptance_result, "value"),
-		})
+		slot_evidence.append(
+			{
+				"identity": slot_definition.get_instance_id(),
+				"accepted_item_ids": slot_definition.accepted_item_ids,
+				"rejected_item_ids": slot_definition.rejected_item_ids,
+				"accepted_categories": slot_definition.accepted_categories,
+				"require_all_categories": slot_definition.require_all_categories,
+				"acceptance_checker": GFVariantData.get_option_value(acceptance_result, "value"),
+			}
+		)
 	evidence["slots"] = slot_evidence
 	var copy_result: Dictionary = _copy_variant_root(evidence, budget)
 	if not GFVariantData.get_option_bool(copy_result, "ok"):
@@ -994,7 +1137,10 @@ static func _build_callable_evidence(callback: Callable, budget: Dictionary) -> 
 	if not callback.is_valid():
 		return { "ok": true, "value": null }
 	var bound_count: int = callback.get_bound_arguments_count()
-	if bound_count < 0 or not _can_reserve_items(bound_count + 1, budget):
+	if bound_count < 0 or not _can_reserve_items(
+		bound_count + 1,
+		budget
+	):
 		return { "ok": false }
 	var bound_arguments: Array = callback.get_bound_arguments()
 	if bound_arguments.size() != bound_count:
@@ -1016,10 +1162,7 @@ static func _build_callable_evidence(callback: Callable, budget: Dictionary) -> 
 ## @api private
 static func _copy_dictionary(value: Dictionary, budget: Dictionary) -> Dictionary:
 	var result: Dictionary = _copy_variant_root(value, budget)
-	if (
-		not GFVariantData.get_option_bool(result, "ok")
-		or not (GFVariantData.get_option_value(result, "value") is Dictionary)
-	):
+	if (not GFVariantData.get_option_bool(result, "ok") or not (GFVariantData.get_option_value(result, "value") is Dictionary)):
 		return { "ok": false }
 	return result
 
@@ -1029,7 +1172,12 @@ static func _copy_dictionary(value: Dictionary, budget: Dictionary) -> Dictionar
 ## @api private
 static func _copy_variant_root(value: Variant, budget: Dictionary) -> Dictionary:
 	var output: Array = []
-	if not _copy_variant(value, 0, budget, output):
+	if not _copy_variant(
+		value,
+		0,
+		budget,
+		output
+	):
 		return { "ok": false }
 	return { "ok": true, "value": output[0] }
 
@@ -1054,20 +1202,25 @@ static func _copy_variant(
 			return true
 		TYPE_FLOAT:
 			var number: float = value
-			if is_nan(number) or is_inf(number) or not _reserve_bytes(16, budget):
+			if (
+				is_nan(number)
+				or is_inf(number)
+				or not _reserve_bytes(16, budget)
+			):
 				_fail_budget(budget)
 				return false
 			output.append(number)
 			return true
 		TYPE_STRING, TYPE_STRING_NAME, TYPE_NODE_PATH:
 			var text: String = str(value)
-			var remaining_bytes: int = (
-				_MAX_VALUE_BYTES - GFVariantData.get_option_int(budget, "bytes")
-			)
+			var remaining_bytes: int = _MAX_VALUE_BYTES - GFVariantData.get_option_int(budget, "bytes")
 			if text.length() > remaining_bytes:
 				_fail_budget(budget)
 				return false
-			if not _reserve_bytes(text.to_utf8_buffer().size(), budget):
+			if not _reserve_bytes(
+				text.to_utf8_buffer().size(),
+				budget
+			):
 				return false
 			output.append(value)
 			return true
@@ -1076,14 +1229,22 @@ static func _copy_variant(
 			if not _is_supported_typed_array(array_value):
 				_fail_budget(budget)
 				return false
-			if not _can_reserve_items(array_value.size(), budget):
+			if not _can_reserve_items(
+				array_value.size(),
+				budget
+			):
 				return false
 			if not _enter_container(array_value, budget):
 				return false
 			var array_copy: Array = _create_typed_array_copy(array_value)
 			for entry: Variant in array_value:
 				var entry_output: Array = []
-				if not _copy_variant(entry, depth + 1, budget, entry_output):
+				if not _copy_variant(
+					entry,
+					depth + 1,
+					budget,
+					entry_output
+				):
 					_leave_container(budget)
 					return false
 				array_copy.append(entry_output[0])
@@ -1095,7 +1256,10 @@ static func _copy_variant(
 			if not _is_supported_typed_dictionary(dictionary_value):
 				_fail_budget(budget)
 				return false
-			if not _can_reserve_items(dictionary_value.size() * 2, budget):
+			if not _can_reserve_items(
+				dictionary_value.size() * 2,
+				budget
+			):
 				return false
 			if not _enter_container(dictionary_value, budget):
 				return false
@@ -1104,9 +1268,17 @@ static func _copy_variant(
 				var key_output: Array = []
 				var value_output: Array = []
 				if (
-					not _copy_variant(key, depth + 1, budget, key_output)
+					not _copy_variant(
+						key,
+						depth + 1,
+						budget,
+						key_output
+					)
 					or not _copy_variant(
-						dictionary_value[key], depth + 1, budget, value_output
+						dictionary_value[key],
+						depth + 1,
+						budget,
+						value_output
 					)
 				):
 					_leave_container(budget)
@@ -1115,9 +1287,15 @@ static func _copy_variant(
 			_leave_container(budget)
 			output.append(dictionary_copy)
 			return true
-		TYPE_PACKED_BYTE_ARRAY, TYPE_PACKED_INT32_ARRAY, TYPE_PACKED_INT64_ARRAY, \
-		TYPE_PACKED_FLOAT32_ARRAY, TYPE_PACKED_FLOAT64_ARRAY, TYPE_PACKED_STRING_ARRAY, \
-		TYPE_PACKED_VECTOR2_ARRAY, TYPE_PACKED_VECTOR3_ARRAY, TYPE_PACKED_COLOR_ARRAY, \
+		TYPE_PACKED_BYTE_ARRAY, \
+		TYPE_PACKED_INT32_ARRAY, \
+		TYPE_PACKED_INT64_ARRAY, \
+		TYPE_PACKED_FLOAT32_ARRAY, \
+		TYPE_PACKED_FLOAT64_ARRAY, \
+		TYPE_PACKED_STRING_ARRAY, \
+		TYPE_PACKED_VECTOR2_ARRAY, \
+		TYPE_PACKED_VECTOR3_ARRAY, \
+		TYPE_PACKED_COLOR_ARRAY, \
 		TYPE_PACKED_VECTOR4_ARRAY:
 			var packed_count: int = len(value)
 			if not _reserve_items(packed_count, budget):
@@ -1323,10 +1501,7 @@ static func _has_only_finite_float_components(value: Variant) -> bool:
 			return _is_finite_basis(basis)
 		TYPE_TRANSFORM3D:
 			var transform_3d: Transform3D = value
-			return (
-				_is_finite_basis(transform_3d.basis)
-				and _is_finite_vector3(transform_3d.origin)
-			)
+			return (_is_finite_basis(transform_3d.basis) and _is_finite_vector3(transform_3d.origin))
 		TYPE_PROJECTION:
 			var projection: Projection = value
 			return (

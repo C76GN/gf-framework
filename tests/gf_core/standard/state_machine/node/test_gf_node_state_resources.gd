@@ -11,6 +11,7 @@ class TrackingNodeState:
 	func _enter(_previous_state: StringName = &"", _args: Dictionary = {}) -> void:
 		enter_count += 1
 
+
 	func _exit(_next_state: StringName = &"", _args: Dictionary = {}) -> void:
 		exit_count += 1
 
@@ -22,7 +23,12 @@ class ToggleCondition:
 	var phases: Array[StringName] = []
 	var peers: Array[StringName] = []
 
-	func _evaluate(_state: GFNodeState, phase: StringName, peer_state: StringName = &"", _args: Dictionary = {}) -> bool:
+	func _evaluate(
+		_state: GFNodeState,
+		phase: StringName,
+		peer_state: StringName = &"",
+		_args: Dictionary = {}
+	) -> bool:
 		phases.append(phase)
 		peers.append(peer_state)
 		return allowed
@@ -41,14 +47,17 @@ class RedirectingState:
 		if redirect_on_enter:
 			transition_to(&"Next")
 
+
 	func _handle_state_event(_event_id: StringName, _payload: Variant = null) -> bool:
 		if redirect_on_event:
 			transition_to(&"Next")
 		return false
 
+
 	func _pause(_next_state: StringName = &"", _args: Dictionary = {}) -> void:
 		if redirect_on_pause:
 			transition_to(&"Next")
+
 
 	func _resume(_previous_state: StringName = &"", _args: Dictionary = {}) -> void:
 		if redirect_on_resume:
@@ -60,11 +69,20 @@ class RedirectingBehavior:
 
 	var redirect_on_enter: bool = false
 
-	func _enter(state: GFNodeState, _previous_state: StringName = &"", _args: Dictionary = {}) -> void:
+	func _enter(
+		state: GFNodeState,
+		_previous_state: StringName = &"",
+		_args: Dictionary = {}
+	) -> void:
 		if redirect_on_enter:
 			state.transition_to(&"Next")
 
-	func _handle_state_event(state: GFNodeState, _event_id: StringName, _payload: Variant = null) -> bool:
+
+	func _handle_state_event(
+		state: GFNodeState,
+		_event_id: StringName,
+		_payload: Variant = null
+	) -> bool:
 		state.transition_to(&"Next")
 		return false
 
@@ -78,20 +96,60 @@ class RecordingBehavior:
 	func _initialize(state: GFNodeState) -> void:
 		calls.append("initialize:%s" % state.get_state_name())
 
-	func _enter(state: GFNodeState, previous_state: StringName = &"", _args: Dictionary = {}) -> void:
-		calls.append("enter:%s:%s" % [state.get_state_name(), previous_state])
 
-	func _exit(state: GFNodeState, next_state: StringName = &"", _args: Dictionary = {}) -> void:
-		calls.append("exit:%s:%s" % [state.get_state_name(), next_state])
+	func _enter(
+		state: GFNodeState,
+		previous_state: StringName = &"",
+		_args: Dictionary = {}
+	) -> void:
+		calls.append(
+			"enter:%s:%s"
+			% [state.get_state_name(), previous_state]
+		)
 
-	func _pause(state: GFNodeState, next_state: StringName = &"", _args: Dictionary = {}) -> void:
-		calls.append("pause:%s:%s" % [state.get_state_name(), next_state])
 
-	func _resume(state: GFNodeState, previous_state: StringName = &"", _args: Dictionary = {}) -> void:
-		calls.append("resume:%s:%s" % [state.get_state_name(), previous_state])
+	func _exit(
+		state: GFNodeState,
+		next_state: StringName = &"",
+		_args: Dictionary = {}
+	) -> void:
+		calls.append(
+			"exit:%s:%s"
+			% [state.get_state_name(), next_state]
+		)
 
-	func _handle_state_event(state: GFNodeState, event_id: StringName, _payload: Variant = null) -> bool:
-		calls.append("event:%s:%s" % [state.get_state_name(), event_id])
+
+	func _pause(
+		state: GFNodeState,
+		next_state: StringName = &"",
+		_args: Dictionary = {}
+	) -> void:
+		calls.append(
+			"pause:%s:%s"
+			% [state.get_state_name(), next_state]
+		)
+
+
+	func _resume(
+		state: GFNodeState,
+		previous_state: StringName = &"",
+		_args: Dictionary = {}
+	) -> void:
+		calls.append(
+			"resume:%s:%s"
+			% [state.get_state_name(), previous_state]
+		)
+
+
+	func _handle_state_event(
+		state: GFNodeState,
+		event_id: StringName,
+		_payload: Variant = null
+	) -> bool:
+		calls.append(
+			"event:%s:%s"
+			% [state.get_state_name(), event_id]
+		)
 		return event_id == handled_event_id
 
 
@@ -117,8 +175,11 @@ func test_redirected_hooks_stop_remaining_behaviors() -> void:
 			group.transition_to(&"First")
 			if not redirect_on_enter:
 				var _handled: bool = group.dispatch_state_event(&"redirect")
-			assert_eq(group.get_current_state(), next_state)
-			assert_false(recording.calls.has("enter:First:") if redirect_on_enter else recording.calls.has("event:First:redirect"))
+			assert_eq(
+				group.get_current_state(),
+				next_state
+			)
+			assert_false((recording.calls.has("enter:First:") if redirect_on_enter else recording.calls.has("event:First:redirect")))
 			group.clear_states(false)
 
 
@@ -142,7 +203,10 @@ func test_pause_and_resume_redirects_stop_stale_behaviors() -> void:
 		group.push_state(&"Menu")
 		if phase == &"resume":
 			assert_true(group.pop_state())
-		assert_eq(group.get_current_state(), next_state)
+		assert_eq(
+			group.get_current_state(),
+			next_state
+		)
 		assert_false(recording.calls.has("%s:First:Menu" % phase))
 		group.clear_states(false)
 
@@ -164,16 +228,40 @@ func test_enter_condition_blocks_transition_until_allowed() -> void:
 
 	machine.transition_to(&"Run")
 
-	assert_eq(machine.get_current_state(), idle, "条件拒绝时不应进入目标状态。")
-	assert_eq(run.enter_count, 0, "条件拒绝时目标 enter 不应执行。")
-	assert_eq(condition.phases, [&"enter"], "进入条件应以 enter 阶段评估。")
-	assert_eq(condition.peers, [&"Idle"], "进入条件应收到来源状态名。")
+	assert_eq(
+		machine.get_current_state(),
+		idle,
+		"条件拒绝时不应进入目标状态。"
+	)
+	assert_eq(
+		run.enter_count,
+		0,
+		"条件拒绝时目标 enter 不应执行。"
+	)
+	assert_eq(
+		condition.phases,
+		[&"enter"],
+		"进入条件应以 enter 阶段评估。"
+	)
+	assert_eq(
+		condition.peers,
+		[&"Idle"],
+		"进入条件应收到来源状态名。"
+	)
 
 	condition.allowed = true
 	machine.transition_to(&"Run")
 
-	assert_eq(machine.get_current_state(), run, "条件允许后应完成切换。")
-	assert_eq(run.enter_count, 1, "条件允许后目标 enter 应执行。")
+	assert_eq(
+		machine.get_current_state(),
+		run,
+		"条件允许后应完成切换。"
+	)
+	assert_eq(
+		run.enter_count,
+		1,
+		"条件允许后目标 enter 应执行。"
+	)
 
 
 func test_exit_condition_blocks_leaving_current_state() -> void:
@@ -193,10 +281,26 @@ func test_exit_condition_blocks_leaving_current_state() -> void:
 
 	machine.transition_to(&"Run")
 
-	assert_eq(machine.get_current_state(), idle, "退出条件拒绝时应保持当前状态。")
-	assert_eq(idle.exit_count, 0, "退出条件拒绝时当前 exit 不应执行。")
-	assert_eq(condition.phases, [&"exit"], "退出条件应以 exit 阶段评估。")
-	assert_eq(condition.peers, [&"Run"], "退出条件应收到目标状态名。")
+	assert_eq(
+		machine.get_current_state(),
+		idle,
+		"退出条件拒绝时应保持当前状态。"
+	)
+	assert_eq(
+		idle.exit_count,
+		0,
+		"退出条件拒绝时当前 exit 不应执行。"
+	)
+	assert_eq(
+		condition.phases,
+		[&"exit"],
+		"退出条件应以 exit 阶段评估。"
+	)
+	assert_eq(
+		condition.peers,
+		[&"Run"],
+		"退出条件应收到目标状态名。"
+	)
 
 
 func test_behavior_receives_lifecycle_and_can_handle_events() -> void:
@@ -215,14 +319,33 @@ func test_behavior_receives_lifecycle_and_can_handle_events() -> void:
 	await get_tree().process_frame
 
 	var group: GFNodeStateGroup = machine.get_state_group(GFNodeStateMachine.INTERNAL_GROUP_NAME)
-	var handled: bool = group.dispatch_state_event(&"ping", { "value": 1 })
+	var handled: bool = group.dispatch_state_event(
+		&"ping",
+		{ "value": 1 }
+	)
 	machine.transition_to(&"Run")
 
 	assert_true(handled, "状态自身未处理时，行为资源应能处理状态事件。")
-	assert_has(behavior.calls, "initialize:Idle", "行为应收到初始化回调。")
-	assert_has(behavior.calls, "enter:Idle:", "行为应收到进入回调。")
-	assert_has(behavior.calls, "event:Idle:ping", "行为应收到事件回调。")
-	assert_has(behavior.calls, "exit:Idle:Run", "行为应收到退出回调。")
+	assert_has(
+		behavior.calls,
+		"initialize:Idle",
+		"行为应收到初始化回调。"
+	)
+	assert_has(
+		behavior.calls,
+		"enter:Idle:",
+		"行为应收到进入回调。"
+	)
+	assert_has(
+		behavior.calls,
+		"event:Idle:ping",
+		"行为应收到事件回调。"
+	)
+	assert_has(
+		behavior.calls,
+		"exit:Idle:Run",
+		"行为应收到退出回调。"
+	)
 
 
 func test_behavior_receives_pause_and_resume_callbacks() -> void:
@@ -242,8 +365,16 @@ func test_behavior_receives_pause_and_resume_callbacks() -> void:
 	machine.push_state(&"Menu")
 	var _pop_state_result_150: Variant = machine.pop_state()
 
-	assert_has(behavior.calls, "pause:Idle:Menu", "push_state 应触发行为资源的 pause。")
-	assert_has(behavior.calls, "resume:Idle:Menu", "pop_state 应触发行为资源的 resume。")
+	assert_has(
+		behavior.calls,
+		"pause:Idle:Menu",
+		"push_state 应触发行为资源的 pause。"
+	)
+	assert_has(
+		behavior.calls,
+		"resume:Idle:Menu",
+		"pop_state 应触发行为资源的 resume。"
+	)
 
 
 func test_group_remove_stacked_state_exits_removed_state() -> void:
@@ -260,7 +391,18 @@ func test_group_remove_stacked_state_exits_removed_state() -> void:
 	group.transition_to(&"Idle")
 	group.push_state(&"Menu")
 
-	assert_true(group.remove_state(idle), "移除暂停栈中的状态应成功。")
+	assert_true(
+		group.remove_state(idle),
+		"移除暂停栈中的状态应成功。"
+	)
 
-	assert_eq(idle.exit_count, 1, "暂停栈中的状态被移除时也应执行 exit。")
-	assert_eq(group.get_stack_depth(), 0, "移除暂停栈状态后栈中不应残留该状态。")
+	assert_eq(
+		idle.exit_count,
+		1,
+		"暂停栈中的状态被移除时也应执行 exit。"
+	)
+	assert_eq(
+		group.get_stack_depth(),
+		0,
+		"移除暂停栈状态后栈中不应残留该状态。"
+	)

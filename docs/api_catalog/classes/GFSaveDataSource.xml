@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveDataSource" path="addons/gf/extensions/save/core/gf_save_data_source.gd" module="extensions/save" extends="GFSaveSource" classDigest="73e4abaaa5e88d3ee616d7ed58904be9f2fd91c78cdb7d136441e81be24df341">
+<class name="GFSaveDataSource" path="addons/gf/extensions/save/core/gf_save_data_source.gd" module="extensions/save" extends="GFSaveSource" classDigest="466fa0408ba1418b74ccbdcdcdafee922a84f7be2c177d2003abc3ac22473078">
 	<description>GFSaveDataSource: 通用对象数据源适配器。
 将 Resource、目标 Node 或目标属性上的对象按 Dictionary 载荷接入 SaveGraph。
 适合已有 Model、Resource 或数据持有对象复用 to_dict()/from_dict() 等通用协议，
@@ -78,7 +78,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="_gather_save_data">
-			<signature>func _gather_save_data( context: Dictionary = {}, _serializer_registry: GFNodeSerializerRegistry = null ) -&gt; Variant:</signature>
+			<signature>func _gather_save_data(context: Dictionary = {}, _serializer_registry: GFNodeSerializerRegistry = null) -&gt; Variant:</signature>
 			<description>采集数据对象载荷。</description>
 			<tags>
 				<tag name="api">protected</tag>
@@ -87,6 +87,7 @@
 				<tag name="return">数据对象返回的 Dictionary 载荷；失败时返回空 Dictionary 并写入流程错误。</tag>
 				<tag name="schema">context: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。</tag>
 				<tag name="schema">return: Variant，成功时为 Dictionary。</tag>
+				<tag name="since">3.18.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_apply_save_data">

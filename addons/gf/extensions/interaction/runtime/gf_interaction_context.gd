@@ -253,7 +253,11 @@ func _set_target(value: Object) -> void:
 ## [br]
 ## @api private
 func _get_node_path_snapshot(value: Object) -> NodePath:
-	if value != null and is_instance_valid(value) and value is Node:
+	if (
+		value != null
+		and is_instance_valid(value)
+		and value is Node
+	):
 		var node_value: Node = value
 		if node_value.is_inside_tree():
 			return node_value.get_path()

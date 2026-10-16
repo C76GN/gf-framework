@@ -25,7 +25,7 @@
 | 属性 | [`dry_run`](#member-gfeditoroperationplan-properties-dry_run) | `var dry_run: bool = false` |
 | 属性 | [`metadata`](#member-gfeditoroperationplan-properties-metadata) | `var metadata: Dictionary = {}` |
 | 方法 | [`configure`](#member-gfeditoroperationplan-methods-configure) | `func configure( p_operation_id: StringName, p_label: String = "", p_dry_run: bool = false, p_metadata: Dictionary = {} ) -> GFEditorOperationPlan:` |
-| 方法 | [`add_step`](#member-gfeditoroperationplan-methods-add_step) | `func add_step(step_id: StringName, step_label: String = "", options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`add_step`](#member-gfeditoroperationplan-methods-add_step) | `func add_step( step_id: StringName, step_label: String = "", options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`mark_step`](#member-gfeditoroperationplan-methods-mark_step) | `func mark_step( step_id: StringName, status: StringName, error_code: Error = OK, error: String = "", extra_metadata: Dictionary = {} ) -> bool:` |
 | 方法 | [`add_artifact_report`](#member-gfeditoroperationplan-methods-add_artifact_report) | `func add_artifact_report(report: Dictionary) -> void:` |
 | 方法 | [`get_steps`](#member-gfeditoroperationplan-methods-get_steps) | `func get_steps() -> Array[Dictionary]:` |
@@ -196,7 +196,7 @@ func configure( p_operation_id: StringName, p_label: String = "", p_dry_run: boo
 - 首次版本：`7.0.0`
 
 ```gdscript
-func add_step(step_id: StringName, step_label: String = "", options: Dictionary = {}) -> Dictionary:
+func add_step( step_id: StringName, step_label: String = "", options: Dictionary = {} ) -> Dictionary:
 ```
 
 添加一个操作步骤。

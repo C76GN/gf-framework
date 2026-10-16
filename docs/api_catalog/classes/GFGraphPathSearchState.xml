@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFGraphPathSearchState" path="addons/gf/standard/foundation/math/gf_graph_path_search_state.gd" module="standard" extends="RefCounted" classDigest="a90b93fb1e60211c07541bcce8898b02501d3407535abd8a23ab8babbc23a5bd">
+<class name="GFGraphPathSearchState" path="addons/gf/standard/foundation/math/gf_graph_path_search_state.gd" module="standard" extends="RefCounted" classDigest="ec6a6d44d9dc57919de1a32a1451df17f2d87747d0c27609fb0955f2e3469865">
 	<description>GFGraphPathSearchState: 可预算推进的图路径搜索运行期句柄。
 该对象保存 A* / Dijkstra 分步搜索所需的回调、frontier、分数和路径重建状态。
 它只适合运行期跨帧推进，不是存档格式，也不应写入网络同步 payload。</description>
@@ -63,7 +63,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="make_invalid">
-			<signature>static func make_invalid(start: Variant, goal: Variant, reason: StringName) -&gt; GFGraphPathSearchState:</signature>
+			<signature>static func make_invalid( start: Variant, goal: Variant, reason: StringName ) -&gt; GFGraphPathSearchState:</signature>
 			<description>创建已结束的无效搜索状态。</description>
 			<tags>
 				<tag name="api">public</tag>

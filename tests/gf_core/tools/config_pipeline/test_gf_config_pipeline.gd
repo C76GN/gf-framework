@@ -4,18 +4,10 @@ extends GutTest
 
 # --- 常量 ---
 
-const GF_TRANSIENT_GDSCRIPT_TEST_SUPPORT = preload(
-	"res://tests/gf_core/support/gf_transient_gdscript_test_support.gd"
-)
-const GF_BOUNDED_ZIP_SUPPORT_SCRIPT = preload(
-	"res://addons/gf/tools/config_pipeline/gf_bounded_zip_support.gd"
-)
-
-
+const GF_TRANSIENT_GDSCRIPT_TEST_SUPPORT = preload("res://tests/gf_core/support/gf_transient_gdscript_test_support.gd")
+const GF_BOUNDED_ZIP_SUPPORT_SCRIPT = preload("res://addons/gf/tools/config_pipeline/gf_bounded_zip_support.gd")
 const GF_CONFIG_PIPELINE_COMMAND_SCRIPT = preload("res://addons/gf/tools/config_pipeline/gf_config_pipeline_command.gd")
-const GF_CONFIG_OUTPUT_PATH_POLICY_SCRIPT = preload(
-	"res://addons/gf/tools/config_pipeline/gf_config_pipeline_output_path_policy.gd"
-)
+const GF_CONFIG_OUTPUT_PATH_POLICY_SCRIPT = preload("res://addons/gf/tools/config_pipeline/gf_config_pipeline_output_path_policy.gd")
 
 
 # --- 私有变量 ---
@@ -40,7 +32,10 @@ func after_each() -> void:
 # --- 测试 ---
 
 func test_pipeline_builds_typed_database_from_csv_and_saves_resource() -> void:
-	var csv_path: String = _write_text("user://gf_config_pipeline_items_%d.csv" % Time.get_ticks_usec(), "id,name,power\n1,Potion,2.5\n2,Ether,3\n")
+	var csv_path: String = _write_text(
+		"user://gf_config_pipeline_items_%d.csv" % Time.get_ticks_usec(),
+		"id,name,power\n1,Potion,2.5\n2,Ether,3\n"
+	)
 	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
 	source.table_name = &"items"
 	source.source_path = csv_path
@@ -48,38 +43,85 @@ func test_pipeline_builds_typed_database_from_csv_and_saves_resource() -> void:
 	source.schema = _make_item_schema()
 	source.metadata = { "owner": "test" }
 
-	var build_result: Dictionary = _call_pipeline(&"build_database", [[source], { "database_id": &"main", "version": "test" }])
+	var build_result: Dictionary = _call_pipeline(
+		&"build_database",
+		[
+			[source],
+			{ "database_id": &"main", "version": "test" },
+		]
+	)
 	var database: GFConfigDatabaseResource = _get_database_from_result(build_result)
-	var provider: GFResourceConfigProvider = GFResourceConfigProvider.from_database(database) if database != null else null
+	var provider: GFResourceConfigProvider = (GFResourceConfigProvider.from_database(database) if database != null else null)
 	var report: Dictionary = GFVariantData.get_option_dictionary(build_result, "report")
 	var record: Dictionary = GFVariantData.as_dictionary(provider.get_record(&"items", 1)) if provider != null else {}
 	var output_path: String = _track_path("user://gf_config_pipeline_database_%d.tres" % Time.get_ticks_usec())
-	var save_result: Dictionary = _call_pipeline(&"save_database", [database, output_path])
+	var save_result: Dictionary = _call_pipeline(
+		&"save_database",
+		[database, output_path]
+	)
 	var loaded: GFConfigDatabaseResource = _load_database_resource(output_path)
-	var loaded_provider: GFResourceConfigProvider = GFResourceConfigProvider.from_database(loaded) if loaded != null else null
+	var loaded_provider: GFResourceConfigProvider = (GFResourceConfigProvider.from_database(loaded) if loaded != null else null)
 
-	assert_true(GFVariantData.get_option_bool(build_result, "success"), "合法 CSV 来源应构建数据库成功。")
-	assert_true(GFVariantData.get_option_bool(report, "ok"), "构建报告应通过校验。")
+	assert_true(
+		GFVariantData.get_option_bool(build_result, "success"),
+		"合法 CSV 来源应构建数据库成功。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(report, "ok"),
+		"构建报告应通过校验。"
+	)
 	assert_not_null(database, "构建结果应返回数据库资源。")
 	assert_not_null(provider, "数据库资源应能接入 Resource Provider。")
-	assert_eq(GFVariantData.get_option_int(record, "id"), 1, "CSV 字符串 ID 应按 schema 转为 int 后写入资源。")
-	assert_eq(GFVariantData.get_option_float(record, "power"), 2.5, "CSV 字符串数值应按 schema 转为 float 后写入资源。")
-	assert_eq(GFVariantData.get_option_string(database.get_table_resource(&"items").metadata, "owner"), "test", "来源 metadata 应写入表资源。")
-	assert_true(GFVariantData.get_option_bool(save_result, "success"), "数据库资源应可保存为 .tres。")
+	assert_eq(
+		GFVariantData.get_option_int(record, "id"),
+		1,
+		"CSV 字符串 ID 应按 schema 转为 int 后写入资源。"
+	)
+	assert_eq(
+		GFVariantData.get_option_float(record, "power"),
+		2.5,
+		"CSV 字符串数值应按 schema 转为 float 后写入资源。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(
+			database.get_table_resource(&"items").metadata,
+			"owner"
+		),
+		"test",
+		"来源 metadata 应写入表资源。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(save_result, "success"),
+		"数据库资源应可保存为 .tres。"
+	)
 	assert_not_null(loaded, "保存后的数据库资源应能重新加载。")
 	assert_not_null(loaded_provider, "加载后的数据库资源应能接入 Resource Provider。")
-	assert_eq(GFVariantData.get_option_string(GFVariantData.as_dictionary(loaded_provider.get_record(&"items", 2)), "name"), "Ether", "加载后的数据库资源应保留记录。")
+	assert_eq(
+		GFVariantData.get_option_string(
+			GFVariantData.as_dictionary(loaded_provider.get_record(&"items", 2)),
+			"name"
+		),
+		"Ether",
+		"加载后的数据库资源应保留记录。"
+	)
 
 
 func test_pipeline_saves_database_as_json_export() -> void:
 	var database: GFConfigDatabaseResource = _build_items_database_from_csv("json_save")
 	var output_path: String = _track_path("user://gf_config_pipeline_database_%d.json" % Time.get_ticks_usec())
 
-	var export_data: Dictionary = _call_pipeline(&"make_database_export", [database])
-	var save_result: Dictionary = _call_pipeline(&"save_database", [database, output_path, {
-		"indent": "",
-		"sort_keys": true,
-	}])
+	var export_data: Dictionary = _call_pipeline(
+		&"make_database_export",
+		[database]
+	)
+	var save_result: Dictionary = _call_pipeline(
+		&"save_database",
+		[
+			database,
+			output_path,
+			{ "indent": "", "sort_keys": true, },
+		]
+	)
 	var loaded_data: Dictionary = _load_json_dictionary(output_path)
 	var tables: Array = GFVariantData.get_option_array(loaded_data, "tables")
 	var first_table: Dictionary = GFVariantData.as_dictionary(tables[0]) if not tables.is_empty() else {}
@@ -87,71 +129,144 @@ func test_pipeline_saves_database_as_json_export() -> void:
 	var first_record: Dictionary = GFVariantData.as_dictionary(records[0]) if not records.is_empty() else {}
 	var table_metadata: Dictionary = GFVariantData.get_option_dictionary(first_table, "metadata")
 
-	assert_eq(GFVariantData.get_option_string(export_data, "format"), "gf.config.database", "导出字典应带稳定格式标识。")
-	assert_true(GFVariantData.get_option_bool(save_result, "success"), "数据库应能保存为 JSON 导出。")
-	assert_eq(GFVariantData.get_option_string_name(save_result, "format"), &"json", "保存结果应报告 JSON 输出格式。")
-	assert_eq(GFVariantData.get_option_string(loaded_data, "database_id"), "main", "JSON 导出应保留数据库 ID。")
-	assert_eq(tables.size(), 1, "JSON 导出应包含表列表。")
-	assert_eq(GFVariantData.get_option_string(first_table, "table_name"), "items", "JSON 导出应保留表名。")
-	assert_true(first_table.has("schema"), "JSON 导出默认应包含 schema 摘要。")
-	assert_false(first_table.has("records_by_index"), "JSON 导出默认不应写入可重建索引缓存。")
-	assert_eq(GFVariantData.get_option_int(first_record, "id"), 1, "JSON 导出应保留转换后的记录数据。")
-	assert_eq(GFVariantData.get_option_string(table_metadata, "source_format"), "csv", "JSON 导出应把 StringName metadata 转为 JSON 字符串。")
+	assert_eq(
+		GFVariantData.get_option_string(export_data, "format"),
+		"gf.config.database",
+		"导出字典应带稳定格式标识。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(save_result, "success"),
+		"数据库应能保存为 JSON 导出。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(save_result, "format"),
+		&"json",
+		"保存结果应报告 JSON 输出格式。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(loaded_data, "database_id"),
+		"main",
+		"JSON 导出应保留数据库 ID。"
+	)
+	assert_eq(
+		tables.size(),
+		1,
+		"JSON 导出应包含表列表。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(first_table, "table_name"),
+		"items",
+		"JSON 导出应保留表名。"
+	)
+	assert_true(
+		first_table.has("schema"),
+		"JSON 导出默认应包含 schema 摘要。"
+	)
+	assert_false(
+		first_table.has("records_by_index"),
+		"JSON 导出默认不应写入可重建索引缓存。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(first_record, "id"),
+		1,
+		"JSON 导出应保留转换后的记录数据。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(table_metadata, "source_format"),
+		"csv",
+		"JSON 导出应把 StringName metadata 转为 JSON 字符串。"
+	)
 
 
 func test_pipeline_save_database_json_dry_run_reports_artifact_without_writing() -> void:
 	var database: GFConfigDatabaseResource = _build_items_database_from_csv("json_dry_run")
 	var output_path: String = _track_path("user://gf_config_pipeline_database_dry_run_%d.json" % Time.get_ticks_usec())
 
-	var save_result: Dictionary = _call_pipeline(&"save_database", [database, output_path, {
-		"output_format": &"json",
-		"dry_run": true,
-	}])
+	var save_result: Dictionary = _call_pipeline(
+		&"save_database",
+		[
+			database,
+			output_path,
+			{ "output_format": &"json", "dry_run": true, },
+		]
+	)
 	var artifact_report: Dictionary = GFVariantData.get_option_dictionary(save_result, "artifact_report")
 
-	assert_true(GFVariantData.get_option_bool(save_result, "success"), "JSON dry-run 保存应报告成功。")
-	assert_eq(GFVariantData.get_option_string_name(save_result, "status"), GFGeneratedArtifactReport.STATUS_NEW, "新文件 dry-run 应报告 new。")
-	assert_true(GFVariantData.get_option_bool(save_result, "dry_run"), "保存结果应保留 dry_run 标记。")
-	assert_false(GFVariantData.get_option_bool(save_result, "written"), "dry-run 不应写入文件。")
-	assert_eq(GFVariantData.get_option_string_name(artifact_report, "status"), GFGeneratedArtifactReport.STATUS_NEW, "artifact_report 应保留产物状态。")
-	assert_false(FileAccess.file_exists(output_path), "JSON dry-run 不应创建输出文件。")
+	assert_true(
+		GFVariantData.get_option_bool(save_result, "success"),
+		"JSON dry-run 保存应报告成功。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(save_result, "status"),
+		GFGeneratedArtifactReport.STATUS_NEW,
+		"新文件 dry-run 应报告 new。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(save_result, "dry_run"),
+		"保存结果应保留 dry_run 标记。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(save_result, "written"),
+		"dry-run 不应写入文件。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(artifact_report, "status"),
+		GFGeneratedArtifactReport.STATUS_NEW,
+		"artifact_report 应保留产物状态。"
+	)
+	assert_false(
+		FileAccess.file_exists(output_path),
+		"JSON dry-run 不应创建输出文件。"
+	)
 
 
 func test_pipeline_resource_routes_reject_unrecognized_target_extension() -> void:
 	var database: GFConfigDatabaseResource = _build_items_database_from_csv("resource_extension")
-	var output_path: String = _track_path(
-		"user://gf_config_pipeline_resource_extension_%d.unknown" % Time.get_ticks_usec()
-	)
+	var output_path: String = _track_path("user://gf_config_pipeline_resource_extension_%d.unknown" % Time.get_ticks_usec())
 	var recognized_extensions: PackedStringArray = ResourceSaver.get_recognized_extensions(database)
 
-	var dry_run_result: Dictionary = _call_pipeline(&"save_database", [
-		database,
-		output_path,
-		{
-			"dry_run": true,
-		},
-	])
-	var real_run_result: Dictionary = _call_pipeline(&"save_database", [database, output_path])
-	var dry_run_artifact_report: Dictionary = GFVariantData.get_option_dictionary(
-		dry_run_result,
-		"artifact_report"
+	var dry_run_result: Dictionary = _call_pipeline(
+		&"save_database",
+		[
+			database,
+			output_path,
+			{ "dry_run": true, },
+		]
 	)
-	var real_run_artifact_report: Dictionary = GFVariantData.get_option_dictionary(
-		real_run_result,
-		"artifact_report"
+	var real_run_result: Dictionary = _call_pipeline(
+		&"save_database",
+		[database, output_path]
 	)
+	var dry_run_artifact_report: Dictionary = GFVariantData.get_option_dictionary(dry_run_result, "artifact_report")
+	var real_run_artifact_report: Dictionary = GFVariantData.get_option_dictionary(real_run_result, "artifact_report")
 
-	assert_false(recognized_extensions.has("unknown"), "测试扩展名不得被当前 ResourceSaver 接受。")
+	assert_false(
+		recognized_extensions.has("unknown"),
+		"测试扩展名不得被当前 ResourceSaver 接受。"
+	)
 	for result: Dictionary in [dry_run_result, real_run_result]:
-		assert_false(GFVariantData.get_option_bool(result, "success"), "resource dry/real 路由都必须拒绝未识别扩展名。")
+		assert_false(
+			GFVariantData.get_option_bool(result, "success"),
+			"resource dry/real 路由都必须拒绝未识别扩展名。"
+		)
 		assert_eq(
 			GFVariantData.get_option_int(result, "error_code"),
 			ERR_FILE_UNRECOGNIZED,
 			"resource dry/real 路由应共享 ResourceSaver 未识别文件错误。"
 		)
-		assert_eq(GFVariantData.get_option_string_name(result, "format"), &"resource", "失败结果应保留 resource 格式。")
-		assert_false(GFVariantData.get_option_bool(result, "written"), "扩展名预检失败不得写入。")
-		assert_false(GFVariantData.get_option_bool(result, "changed"), "扩展名预检失败不得宣称产物变化。")
+		assert_eq(
+			GFVariantData.get_option_string_name(result, "format"),
+			&"resource",
+			"失败结果应保留 resource 格式。"
+		)
+		assert_false(
+			GFVariantData.get_option_bool(result, "written"),
+			"扩展名预检失败不得写入。"
+		)
+		assert_false(
+			GFVariantData.get_option_bool(result, "changed"),
+			"扩展名预检失败不得宣称产物变化。"
+		)
 	assert_eq(
 		GFVariantData.get_option_string(dry_run_result, "error"),
 		GFVariantData.get_option_string(real_run_result, "error"),
@@ -173,175 +288,350 @@ func test_pipeline_resource_routes_reject_unrecognized_target_extension() -> voi
 			GFGeneratedArtifactReport.STATUS_FAILED,
 			"未识别扩展名应形成 failed artifact report。"
 		)
-	assert_true(GFVariantData.get_option_bool(dry_run_artifact_report, "dry_run"), "dry-run 失败报告应保留标记。")
-	assert_false(GFVariantData.get_option_bool(real_run_artifact_report, "dry_run"), "真实保存失败报告不得冒充 dry-run。")
-	assert_false(FileAccess.file_exists(output_path), "扩展名预检失败不得创建文件。")
+	assert_true(
+		GFVariantData.get_option_bool(dry_run_artifact_report, "dry_run"),
+		"dry-run 失败报告应保留标记。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(real_run_artifact_report, "dry_run"),
+		"真实保存失败报告不得冒充 dry-run。"
+	)
+	assert_false(
+		FileAccess.file_exists(output_path),
+		"扩展名预检失败不得创建文件。"
+	)
 
 
 func test_pipeline_resource_extension_matching_is_case_insensitive() -> void:
 	var database: GFConfigDatabaseResource = _build_items_database_from_csv("resource_extension_case")
-	var output_path: String = _track_path(
-		"user://gf_config_pipeline_resource_extension_%d.TRES" % Time.get_ticks_usec()
+	var output_path: String = _track_path("user://gf_config_pipeline_resource_extension_%d.TRES" % Time.get_ticks_usec())
+
+	var dry_run_result: Dictionary = _call_pipeline(
+		&"save_database",
+		[
+			database,
+			output_path,
+			{ "output_format": &"resource", "dry_run": true, },
+		]
+	)
+	var real_run_result: Dictionary = _call_pipeline(
+		&"save_database",
+		[
+			database,
+			output_path,
+			{ "output_format": &"resource", },
+		]
 	)
 
-	var dry_run_result: Dictionary = _call_pipeline(&"save_database", [
-		database,
-		output_path,
-		{
-			"output_format": &"resource",
-			"dry_run": true,
-		},
-	])
-	var real_run_result: Dictionary = _call_pipeline(&"save_database", [
-		database,
-		output_path,
-		{
-			"output_format": &"resource",
-		},
-	])
-
-	assert_true(GFVariantData.get_option_bool(dry_run_result, "success"), "ResourceSaver dry-run 扩展名匹配应忽略大小写。")
-	assert_eq(GFVariantData.get_option_int(dry_run_result, "error_code"), OK, "合法大写扩展名 dry-run 应通过。")
-	assert_true(GFVariantData.get_option_bool(real_run_result, "success"), "ResourceSaver 真实保存扩展名匹配应忽略大小写。")
-	assert_eq(GFVariantData.get_option_int(real_run_result, "error_code"), OK, "合法大写扩展名真实保存应通过。")
-	assert_true(FileAccess.file_exists(output_path), "合法大写扩展名真实保存应创建资源文件。")
+	assert_true(
+		GFVariantData.get_option_bool(dry_run_result, "success"),
+		"ResourceSaver dry-run 扩展名匹配应忽略大小写。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(dry_run_result, "error_code"),
+		OK,
+		"合法大写扩展名 dry-run 应通过。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(real_run_result, "success"),
+		"ResourceSaver 真实保存扩展名匹配应忽略大小写。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(real_run_result, "error_code"),
+		OK,
+		"合法大写扩展名真实保存应通过。"
+	)
+	assert_true(
+		FileAccess.file_exists(output_path),
+		"合法大写扩展名真实保存应创建资源文件。"
+	)
 
 
 func test_pipeline_resource_target_rejects_trailing_directory_uri() -> void:
 	var database: GFConfigDatabaseResource = _build_items_database_from_csv("resource_directory_uri")
 	var output_path: String = "user://gf_config_pipeline_resource_directory_%d/" % Time.get_ticks_usec()
 
-	var save_result: Dictionary = _call_pipeline(&"save_database", [
-		database,
-		output_path,
-		{
-			"output_format": &"resource",
-			"dry_run": true,
-		},
-	])
+	var save_result: Dictionary = _call_pipeline(
+		&"save_database",
+		[
+			database,
+			output_path,
+			{ "output_format": &"resource", "dry_run": true, },
+		]
+	)
 
-	assert_false(GFVariantData.get_option_bool(save_result, "success"), "resource 输出必须指向文件 URI。")
+	assert_false(
+		GFVariantData.get_option_bool(save_result, "success"),
+		"resource 输出必须指向文件 URI。"
+	)
 	assert_eq(
 		GFVariantData.get_option_int(save_result, "error_code"),
 		ERR_INVALID_PARAMETER,
 		"尾随目录 URI 应由公开保存入口报告参数错误。"
 	)
-	assert_eq(GFVariantData.get_option_string_name(save_result, "format"), &"resource", "失败结果应保留 resource 格式。")
-	assert_false(GFVariantData.get_option_bool(save_result, "written"), "目录 URI 失败不得产生写入。")
+	assert_eq(
+		GFVariantData.get_option_string_name(save_result, "format"),
+		&"resource",
+		"失败结果应保留 resource 格式。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(save_result, "written"),
+		"目录 URI 失败不得产生写入。"
+	)
 
 
 func test_pipeline_explicit_json_format_keeps_non_json_extension_policy() -> void:
 	var database: GFConfigDatabaseResource = _build_items_database_from_csv("explicit_json_extension")
-	var output_path: String = _track_path(
-		"user://gf_config_pipeline_explicit_json_%d.unknown" % Time.get_ticks_usec()
+	var output_path: String = _track_path("user://gf_config_pipeline_explicit_json_%d.unknown" % Time.get_ticks_usec())
+
+	var save_result: Dictionary = _call_pipeline(
+		&"save_database",
+		[
+			database,
+			output_path,
+			{ "output_format": &"json", "dry_run": true, },
+		]
 	)
 
-	var save_result: Dictionary = _call_pipeline(&"save_database", [
-		database,
-		output_path,
-		{
-			"output_format": &"json",
-			"dry_run": true,
-		},
-	])
-
-	assert_true(GFVariantData.get_option_bool(save_result, "success"), "显式 JSON 格式不应套用 ResourceSaver 扩展名策略。")
-	assert_eq(GFVariantData.get_option_string_name(save_result, "format"), &"json", "显式 JSON 格式应保持不变。")
-	assert_false(FileAccess.file_exists(output_path), "显式 JSON dry-run 不得创建文件。")
+	assert_true(
+		GFVariantData.get_option_bool(save_result, "success"),
+		"显式 JSON 格式不应套用 ResourceSaver 扩展名策略。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(save_result, "format"),
+		&"json",
+		"显式 JSON 格式应保持不变。"
+	)
+	assert_false(
+		FileAccess.file_exists(output_path),
+		"显式 JSON dry-run 不得创建文件。"
+	)
 
 
 func test_pipeline_generate_access_dry_run_reports_artifact_without_writing() -> void:
 	var database: GFConfigDatabaseResource = _build_items_database_from_csv("access_dry_run")
 	var output_path: String = _track_path("user://gf_config_pipeline_access_dry_run_%d.gd" % Time.get_ticks_usec())
 
-	var access_result: Dictionary = _call_pipeline(&"generate_access", [
-		database,
-		output_path,
-		"DryRunConfigAccess",
-		"null",
-		{
-			"dry_run": true,
-		},
-	])
+	var access_result: Dictionary = _call_pipeline(
+		&"generate_access",
+		[
+			database,
+			output_path,
+			"DryRunConfigAccess",
+			"null",
+			{ "dry_run": true, },
+		]
+	)
 	var artifact_report: Dictionary = GFVariantData.get_option_dictionary(access_result, "artifact_report")
 
-	assert_true(GFVariantData.get_option_bool(access_result, "success"), "访问器 dry-run 生成应报告成功。")
-	assert_eq(GFVariantData.get_option_string_name(artifact_report, "status"), GFGeneratedArtifactReport.STATUS_NEW, "artifact_report 应报告 new。")
-	assert_true(GFVariantData.get_option_bool(artifact_report, "dry_run"), "artifact_report 应保留 dry_run 标记。")
-	assert_false(GFVariantData.get_option_bool(artifact_report, "written"), "dry-run 不应写入访问器。")
-	assert_false(FileAccess.file_exists(output_path), "访问器 dry-run 不应创建输出文件。")
+	assert_true(
+		GFVariantData.get_option_bool(access_result, "success"),
+		"访问器 dry-run 生成应报告成功。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(artifact_report, "status"),
+		GFGeneratedArtifactReport.STATUS_NEW,
+		"artifact_report 应报告 new。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(artifact_report, "dry_run"),
+		"artifact_report 应保留 dry_run 标记。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(artifact_report, "written"),
+		"dry-run 不应写入访问器。"
+	)
+	assert_false(
+		FileAccess.file_exists(output_path),
+		"访问器 dry-run 不应创建输出文件。"
+	)
 
 
 func test_pipeline_loads_json_source_with_auto_format() -> void:
-	var json_path: String = _write_text("user://gf_config_pipeline_items_%d.json" % Time.get_ticks_usec(), "{\"b\":{\"id\":2,\"name\":\"Ether\",\"power\":3.0},\"a\":{\"id\":1,\"name\":\"Potion\",\"power\":2.5}}")
+	var json_path: String = _write_text(
+		"user://gf_config_pipeline_items_%d.json" % Time.get_ticks_usec(),
+		"{\"b\":{\"id\":2,\"name\":\"Ether\",\"power\":3.0},\"a\":{\"id\":1,\"name\":\"Potion\",\"power\":2.5}}"
+	)
 	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
 	source.source_path = json_path
 	source.source_format = GFConfigPipelineTableSource.FORMAT_AUTO
 	source.schema = _make_item_schema()
 
-	var table_result: Dictionary = _call_pipeline(&"build_table", [source])
+	var table_result: Dictionary = _call_pipeline(
+		&"build_table",
+		[source]
+	)
 	var table: GFConfigTableResource = _get_table_from_result(table_result)
 
-	assert_true(GFVariantData.get_option_bool(table_result, "success"), "JSON 来源应按扩展名自动解析。")
+	assert_true(
+		GFVariantData.get_option_bool(table_result, "success"),
+		"JSON 来源应按扩展名自动解析。"
+	)
 	assert_not_null(table, "JSON 来源应构建表资源。")
-	assert_eq(table.get_table_key(), &"items", "表名应可从 schema 推断。")
-	assert_eq(GFVariantData.get_option_int(table.records[0], "id"), 1, "Dictionary 形式 JSON 表应按键排序保持确定性。")
+	assert_eq(
+		table.get_table_key(),
+		&"items",
+		"表名应可从 schema 推断。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			table.records[0],
+			"id"
+		),
+		1,
+		"Dictionary 形式 JSON 表应按键排序保持确定性。"
+	)
 
 
 func test_pipeline_loads_config_file_source_with_auto_format() -> void:
-	var cfg_path: String = _write_text("user://gf_config_pipeline_items_%d.cfg" % Time.get_ticks_usec(), "[1]\nname=\"Potion\"\npower=2.5\n\n[2]\nname=\"Ether\"\npower=3\n")
+	var cfg_path: String = _write_text(
+		"user://gf_config_pipeline_items_%d.cfg" % Time.get_ticks_usec(),
+		"[1]\nname=\"Potion\"\npower=2.5\n\n[2]\nname=\"Ether\"\npower=3\n"
+	)
 	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
 	source.source_path = cfg_path
 	source.source_format = GFConfigPipelineTableSource.FORMAT_AUTO
 	source.schema = _make_item_schema()
-	source.parse_options = {
-		"section_field": &"id",
-	}
+	source.parse_options = { "section_field": &"id", }
 
-	var table_result: Dictionary = _call_pipeline(&"build_table", [source])
+	var table_result: Dictionary = _call_pipeline(
+		&"build_table",
+		[source]
+	)
 	var table: GFConfigTableResource = _get_table_from_result(table_result)
 	var first_record: Dictionary = table.records[0] if table != null and not table.records.is_empty() else {}
 
-	assert_eq(source.get_resolved_format(), GFConfigPipelineTableSource.FORMAT_CONFIG_FILE, "cfg 扩展名应被自动识别为 ConfigFile。")
-	assert_true(GFVariantData.get_option_bool(table_result, "success"), "ConfigFile 来源应能构建表资源。")
+	assert_eq(
+		source.get_resolved_format(),
+		GFConfigPipelineTableSource.FORMAT_CONFIG_FILE,
+		"cfg 扩展名应被自动识别为 ConfigFile。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(table_result, "success"),
+		"ConfigFile 来源应能构建表资源。"
+	)
 	assert_not_null(table, "ConfigFile 来源应返回表资源。")
-	assert_eq(GFVariantData.get_option_string_name(table.metadata, "source_format"), GFConfigPipelineTableSource.FORMAT_CONFIG_FILE, "表 metadata 应记录 ConfigFile 来源格式。")
-	assert_eq(GFVariantData.get_option_int(first_record, "id"), 1, "section 名应按 schema 转为 id。")
-	assert_eq(GFVariantData.get_option_float(first_record, "power"), 2.5, "ConfigFile 数值应按 schema 保留或转换。")
+	assert_eq(
+		GFVariantData.get_option_string_name(table.metadata, "source_format"),
+		GFConfigPipelineTableSource.FORMAT_CONFIG_FILE,
+		"表 metadata 应记录 ConfigFile 来源格式。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(first_record, "id"),
+		1,
+		"section 名应按 schema 转为 id。"
+	)
+	assert_eq(
+		GFVariantData.get_option_float(first_record, "power"),
+		2.5,
+		"ConfigFile 数值应按 schema 保留或转换。"
+	)
 
 
 func test_pipeline_loads_xlsx_source_with_auto_format() -> void:
-	var xlsx_path: String = _write_xlsx("user://gf_config_pipeline_items_%d.xlsx" % Time.get_ticks_usec(), "Items", [
-		PackedStringArray(["id", "name", "power"]),
-		PackedStringArray(["1", "Potion", "2.5"]),
-		PackedStringArray(["2", "Ether", "3"]),
-	])
+	var xlsx_path: String = _write_xlsx(
+		"user://gf_config_pipeline_items_%d.xlsx" % Time.get_ticks_usec(),
+		"Items",
+		[
+			PackedStringArray(
+				[
+					"id",
+					"name",
+					"power",
+				]
+			),
+			PackedStringArray(
+				[
+					"1",
+					"Potion",
+					"2.5",
+				]
+			),
+			PackedStringArray(
+				[
+					"2",
+					"Ether",
+					"3",
+				]
+			),
+		]
+	)
 	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
 	source.source_path = xlsx_path
 	source.source_format = GFConfigPipelineTableSource.FORMAT_AUTO
 	source.schema = _make_item_schema()
 	source.parse_options = { "sheet_name": "Items" }
 
-	var table_result: Dictionary = _call_pipeline(&"build_table", [source])
+	var table_result: Dictionary = _call_pipeline(
+		&"build_table",
+		[source]
+	)
 	var table: GFConfigTableResource = _get_table_from_result(table_result)
 	var report: Dictionary = GFVariantData.get_option_dictionary(table_result, "report")
 	var first_record: Dictionary = table.records[0] if table != null and not table.records.is_empty() else {}
 
-	assert_eq(source.get_resolved_format(), GFConfigPipelineTableSource.FORMAT_XLSX, "xlsx 扩展名应被自动识别。")
-	assert_true(GFVariantData.get_option_bool(table_result, "success"), "XLSX 来源应能构建表资源。")
-	assert_true(GFVariantData.get_option_bool(report, "ok"), "XLSX 构建报告应通过校验。")
+	assert_eq(
+		source.get_resolved_format(),
+		GFConfigPipelineTableSource.FORMAT_XLSX,
+		"xlsx 扩展名应被自动识别。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(table_result, "success"),
+		"XLSX 来源应能构建表资源。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(report, "ok"),
+		"XLSX 构建报告应通过校验。"
+	)
 	assert_not_null(table, "XLSX 来源应返回表资源。")
-	assert_eq(GFVariantData.get_option_string_name(table.metadata, "source_format"), GFConfigPipelineTableSource.FORMAT_XLSX, "表 metadata 应记录 xlsx 来源格式。")
-	assert_eq(GFVariantData.get_option_int(first_record, "id"), 1, "XLSX 字符串 ID 应按 schema 转为 int。")
-	assert_eq(GFVariantData.get_option_float(first_record, "power"), 2.5, "XLSX 字符串数值应按 schema 转为 float。")
+	assert_eq(
+		GFVariantData.get_option_string_name(table.metadata, "source_format"),
+		GFConfigPipelineTableSource.FORMAT_XLSX,
+		"表 metadata 应记录 xlsx 来源格式。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(first_record, "id"),
+		1,
+		"XLSX 字符串 ID 应按 schema 转为 int。"
+	)
+	assert_eq(
+		GFVariantData.get_option_float(first_record, "power"),
+		2.5,
+		"XLSX 字符串数值应按 schema 转为 float。"
+	)
 
 
 func test_pipeline_xlsx_preserves_empty_shared_string_slots() -> void:
-	var empty_encodings: PackedStringArray = PackedStringArray(["<si/>", "<si></si>", "<si><t/></si>", "<si><t/> \n</si>"])
+	var empty_encodings: PackedStringArray = PackedStringArray(
+		[
+			"<si/>",
+			"<si></si>",
+			"<si><t/></si>",
+			"<si><t/> \n</si>",
+		]
+	)
 	var rows: Array[PackedStringArray] = [
-		PackedStringArray(["id", "name", "power"]),
-		PackedStringArray(["1", "empty", "2"]),
-		PackedStringArray(["2", "sentinel", "3"]),
+		PackedStringArray(
+			[
+				"id",
+				"name",
+				"power",
+			]
+		),
+		PackedStringArray(
+			[
+				"1",
+				"empty",
+				"2",
+			]
+		),
+		PackedStringArray(
+			[
+				"2",
+				"sentinel",
+				"3",
+			]
+		),
 	]
 	var worksheet: String = _xlsx_sheet_xml(rows)
 	worksheet = worksheet.replace("<c r=\"B2\" t=\"inlineStr\"><is><t>empty</t></is></c>", "<c r=\"B2\" t=\"s\"><v>0</v></c>")
@@ -351,19 +641,39 @@ func test_pipeline_xlsx_preserves_empty_shared_string_slots() -> void:
 		var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
 		source.source_path = _write_xlsx_with_xml_overrides(
 			"user://gf_config_pipeline_empty_shared_%d.xlsx" % Time.get_ticks_usec(),
-			"Items", rows, {
-				"worksheet": worksheet,
-				"shared_strings": "<sst xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">%s<si><t>after-empty</t></si></sst>" % empty_encoding,
-			}
+			"Items",
+			rows,
+			{ "worksheet": worksheet, "shared_strings": ("<sst xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">%s<si><t>after-empty</t></si></sst>" % empty_encoding), }
 		)
 		source.source_format = GFConfigPipelineTableSource.FORMAT_XLSX
 		source.schema = _make_item_schema()
-		var result: Dictionary = _call_pipeline(&"build_table", [source])
-		assert_true(GFVariantData.get_option_bool(result, "success"), "合法空 shared string 必须占据自己的索引：%s，%s" % [empty_encoding, result.get("error", "")])
+		var result: Dictionary = _call_pipeline(
+			&"build_table",
+			[source]
+		)
+		assert_true(
+			GFVariantData.get_option_bool(result, "success"),
+			"合法空 shared string 必须占据自己的索引：%s，%s"
+			% [empty_encoding, result.get("error", "")]
+		)
 		var table: GFConfigTableResource = _get_table_from_result(result)
 		if table != null and table.records.size() == 2:
-			assert_eq(GFVariantData.get_option_string(table.records[0], "name"), "", "索引 0 应保留为空字符串。")
-			assert_eq(GFVariantData.get_option_string(table.records[1], "name"), "after-empty", "空项后续索引不得前移。")
+			assert_eq(
+				GFVariantData.get_option_string(
+					table.records[0],
+					"name"
+				),
+				"",
+				"索引 0 应保留为空字符串。"
+			)
+			assert_eq(
+				GFVariantData.get_option_string(
+					table.records[1],
+					"name"
+				),
+				"after-empty",
+				"空项后续索引不得前移。"
+			)
 		else:
 			fail_test("空项夹具必须完整导入两条记录。")
 
@@ -372,17 +682,31 @@ func test_pipeline_xlsx_empty_shared_strings_consume_string_count_budget() -> vo
 	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
 	source.source_path = _write_xlsx_with_xml_overrides(
 		"user://gf_config_pipeline_empty_shared_budget_%d.xlsx" % Time.get_ticks_usec(),
-		"Items", [PackedStringArray(["id", "name", "power"])], {
-			"shared_strings": "<sst><si/><si/></sst>",
-		}
+		"Items",
+		[
+			PackedStringArray(
+				[
+					"id",
+					"name",
+					"power",
+				]
+			),
+		],
+		{ "shared_strings": "<sst><si/><si/></sst>", }
 	)
 	source.source_format = GFConfigPipelineTableSource.FORMAT_XLSX
 	source.schema = _make_item_schema()
 	source.parse_options = { "max_xlsx_shared_strings": 1 }
 
-	var result: Dictionary = _call_pipeline(&"build_table", [source])
+	var result: Dictionary = _call_pipeline(
+		&"build_table",
+		[source]
+	)
 
-	assert_false(GFVariantData.get_option_bool(result, "success"), "空 shared string 也必须占用条目预算。")
+	assert_false(
+		GFVariantData.get_option_bool(result, "success"),
+		"空 shared string 也必须占用条目预算。"
+	)
 	assert_true(GFVariantData.get_option_string(result, "error").contains("max_xlsx_shared_strings"))
 
 
@@ -391,8 +715,20 @@ func test_pipeline_xlsx_layout_is_bound_to_reader_receipt() -> void:
 		"user://gf_config_pipeline_receipt_%d.xlsx" % Time.get_ticks_usec(),
 		"Items",
 		[
-			PackedStringArray(["id", "name", "power"]),
-			PackedStringArray(["1", "Potion", "2.5"]),
+			PackedStringArray(
+				[
+					"id",
+					"name",
+					"power",
+				]
+			),
+			PackedStringArray(
+				[
+					"1",
+					"Potion",
+					"2.5",
+				]
+			),
 		]
 	)
 	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
@@ -404,24 +740,40 @@ func test_pipeline_xlsx_layout_is_bound_to_reader_receipt() -> void:
 		xlsx_path,
 		"Items",
 		[
-			PackedStringArray(["id", "name", "power"]),
-			PackedStringArray(["2", "Elixir", "7.5"]),
+			PackedStringArray(
+				[
+					"id",
+					"name",
+					"power",
+				]
+			),
+			PackedStringArray(
+				[
+					"2",
+					"Elixir",
+					"7.5",
+				]
+			),
 		]
 	)
-	var layout_result: Dictionary = GFConfigPipelineLayoutStage.new().decode_source(
-		source,
-		read_result
-	)
+	var layout_result: Dictionary = (GFConfigPipelineLayoutStage.new().decode_source(source, read_result))
 
-	assert_true(GFVariantData.get_option_bool(read_result, "success"), "Reader 应先取得 XLSX 编译收据。")
-	assert_false(GFVariantData.get_option_bool(layout_result, "success"), "XLSX 在 Reader 与 Layout 之间变化时必须 fail-closed。")
-	assert_true(GFVariantData.get_option_string(layout_result, "error").contains("changed"), "XLSX 身份漂移应返回明确错误。")
+	assert_true(
+		GFVariantData.get_option_bool(read_result, "success"),
+		"Reader 应先取得 XLSX 编译收据。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(layout_result, "success"),
+		"XLSX 在 Reader 与 Layout 之间变化时必须 fail-closed。"
+	)
+	assert_true(
+		GFVariantData.get_option_string(layout_result, "error").contains("changed"),
+		"XLSX 身份漂移应返回明确错误。"
+	)
 
 
 func test_pipeline_xlsx_unlimited_file_budget_uses_framework_archive_cap() -> void:
-	var layout_stage: GFConfigPipelineLayoutStage = (
-		GFConfigPipelineLayoutStage.new()
-	)
+	var layout_stage: GFConfigPipelineLayoutStage = GFConfigPipelineLayoutStage.new()
 	assert_eq(
 		layout_stage._resolve_xlsx_archive_file_limit(0),
 		GF_BOUNDED_ZIP_SUPPORT_SCRIPT.get_absolute_max_archive_bytes(),
@@ -429,34 +781,42 @@ func test_pipeline_xlsx_unlimited_file_budget_uses_framework_archive_cap() -> vo
 	)
 	assert_eq(
 		layout_stage._resolve_xlsx_total_uncompressed_limit(
-			{"max_xlsx_total_uncompressed_bytes": -1},
+			{ "max_xlsx_total_uncompressed_bytes": -1 },
 			0
 		),
-		(
-			GF_BOUNDED_ZIP_SUPPORT_SCRIPT
-			.get_absolute_max_total_uncompressed_bytes()
-		),
+		GF_BOUNDED_ZIP_SUPPORT_SCRIPT.get_absolute_max_total_uncompressed_bytes(),
 		"累计解压 unlimited sentinel 必须映射为 ZIP 绝对硬上限。"
 	)
 	var xlsx_path: String = _write_xlsx(
-		"user://gf_config_pipeline_unlimited_%d.xlsx"
-		% Time.get_ticks_usec(),
+		"user://gf_config_pipeline_unlimited_%d.xlsx" % Time.get_ticks_usec(),
 		"Items",
 		[
-			PackedStringArray(["id", "name", "power"]),
-			PackedStringArray(["1", "Potion", "2.5"]),
+			PackedStringArray(
+				[
+					"id",
+					"name",
+					"power",
+				]
+			),
+			PackedStringArray(
+				[
+					"1",
+					"Potion",
+					"2.5",
+				]
+			),
 		]
 	)
 	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
 	source.source_path = xlsx_path
 	source.source_format = GFConfigPipelineTableSource.FORMAT_XLSX
 	source.schema = _make_item_schema()
-	source.parse_options = {
-		"sheet_name": "Items",
-		"max_xlsx_file_bytes": -1,
-	}
+	source.parse_options = { "sheet_name": "Items", "max_xlsx_file_bytes": -1, }
 
-	var table_result: Dictionary = _call_pipeline(&"build_table", [source])
+	var table_result: Dictionary = _call_pipeline(
+		&"build_table",
+		[source]
+	)
 	var table: GFConfigTableResource = _get_table_from_result(table_result)
 
 	assert_true(
@@ -467,11 +827,36 @@ func test_pipeline_xlsx_unlimited_file_budget_uses_framework_archive_cap() -> vo
 
 
 func test_pipeline_xlsx_source_respects_comment_prefix_parse_options() -> void:
-	var xlsx_path: String = _write_xlsx("user://gf_config_pipeline_comment_options_%d.xlsx" % Time.get_ticks_usec(), "Items", [
-		PackedStringArray(["id", "#note", "name", "power"]),
-		PackedStringArray(["# local", "", "", ""]),
-		PackedStringArray(["1", "internal", "Potion", "2.5"]),
-	])
+	var xlsx_path: String = _write_xlsx(
+		"user://gf_config_pipeline_comment_options_%d.xlsx" % Time.get_ticks_usec(),
+		"Items",
+		[
+			PackedStringArray(
+				[
+					"id",
+					"#note",
+					"name",
+					"power",
+				]
+			),
+			PackedStringArray(
+				[
+					"# local",
+					"",
+					"",
+					"",
+				]
+			),
+			PackedStringArray(
+				[
+					"1",
+					"internal",
+					"Potion",
+					"2.5",
+				]
+			),
+		]
+	)
 	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
 	source.table_name = &"items"
 	source.source_path = xlsx_path
@@ -482,144 +867,320 @@ func test_pipeline_xlsx_source_respects_comment_prefix_parse_options() -> void:
 		"comment_prefixes": PackedStringArray(["#"]),
 	}
 
-	var table_result: Dictionary = _call_pipeline(&"build_table", [source])
+	var table_result: Dictionary = _call_pipeline(
+		&"build_table",
+		[source]
+	)
 	var table: GFConfigTableResource = _get_table_from_result(table_result)
 	var first_record: Dictionary = table.records[0] if table != null and not table.records.is_empty() else {}
 
-	assert_true(GFVariantData.get_option_bool(table_result, "success"), "XLSX 注释行列选项不应破坏导表。")
+	assert_true(
+		GFVariantData.get_option_bool(table_result, "success"),
+		"XLSX 注释行列选项不应破坏导表。"
+	)
 	assert_not_null(table, "XLSX 来源应返回表资源。")
-	assert_eq(table.records.size(), 1, "注释行不应进入表资源。")
-	assert_eq(GFVariantData.get_option_string(first_record, "name"), "Potion", "非注释列应保留。")
-	assert_false(first_record.has(&"#note"), "注释列不应写入表资源记录。")
+	assert_eq(
+		table.records.size(),
+		1,
+		"注释行不应进入表资源。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(first_record, "name"),
+		"Potion",
+		"非注释列应保留。"
+	)
+	assert_false(
+		first_record.has(&"#note"),
+		"注释列不应写入表资源记录。"
+	)
 
 
 func test_pipeline_reports_xlsx_row_limit_exceeded() -> void:
-	var xlsx_path: String = _write_xlsx("user://gf_config_pipeline_row_limit_%d.xlsx" % Time.get_ticks_usec(), "Items", [
-		PackedStringArray(["id", "name", "power"]),
-		PackedStringArray(["1", "Potion", "2.5"]),
-	])
+	var xlsx_path: String = _write_xlsx(
+		"user://gf_config_pipeline_row_limit_%d.xlsx" % Time.get_ticks_usec(),
+		"Items",
+		[
+			PackedStringArray(
+				[
+					"id",
+					"name",
+					"power",
+				]
+			),
+			PackedStringArray(
+				[
+					"1",
+					"Potion",
+					"2.5",
+				]
+			),
+		]
+	)
 	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
 	source.source_path = xlsx_path
 	source.source_format = GFConfigPipelineTableSource.FORMAT_XLSX
 	source.schema = _make_item_schema()
-	source.parse_options = {
-		"sheet_name": "Items",
-		"max_xlsx_rows": 1,
-	}
+	source.parse_options = { "sheet_name": "Items", "max_xlsx_rows": 1, }
 
-	var table_result: Dictionary = _call_pipeline(&"build_table", [source])
+	var table_result: Dictionary = _call_pipeline(
+		&"build_table",
+		[source]
+	)
 	var report: Dictionary = GFVariantData.get_option_dictionary(table_result, "report")
 
-	assert_false(GFVariantData.get_option_bool(table_result, "success"), "超过 XLSX 行数上限时不应构建表资源。")
-	assert_true(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "parse_failed"), "错误报告应包含 XLSX parse_failed。")
-	assert_true(GFVariantData.get_option_string(table_result, "error").contains("max_xlsx_rows"), "错误应说明行数上限。")
+	assert_false(
+		GFVariantData.get_option_bool(table_result, "success"),
+		"超过 XLSX 行数上限时不应构建表资源。"
+	)
+	assert_true(
+		_has_issue_kind(
+			GFVariantData.get_option_array(report, "issues"),
+			"parse_failed"
+		),
+		"错误报告应包含 XLSX parse_failed。"
+	)
+	assert_true(
+		GFVariantData.get_option_string(table_result, "error").contains("max_xlsx_rows"),
+		"错误应说明行数上限。"
+	)
 
 
 func test_pipeline_reports_xlsx_entry_count_limit_before_reading_entries() -> void:
-	var xlsx_path: String = _write_xlsx("user://gf_config_pipeline_entry_count_%d.xlsx" % Time.get_ticks_usec(), "Items", [
-		PackedStringArray(["id", "name", "power"]),
-		PackedStringArray(["1", "Potion", "2.5"]),
-	])
+	var xlsx_path: String = _write_xlsx(
+		"user://gf_config_pipeline_entry_count_%d.xlsx" % Time.get_ticks_usec(),
+		"Items",
+		[
+			PackedStringArray(
+				[
+					"id",
+					"name",
+					"power",
+				]
+			),
+			PackedStringArray(
+				[
+					"1",
+					"Potion",
+					"2.5",
+				]
+			),
+		]
+	)
 	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
 	source.source_path = xlsx_path
 	source.source_format = GFConfigPipelineTableSource.FORMAT_XLSX
 	source.schema = _make_item_schema()
-	source.parse_options = {
-		"max_xlsx_entry_count": 2,
-	}
+	source.parse_options = { "max_xlsx_entry_count": 2, }
 
-	var table_result: Dictionary = _call_pipeline(&"build_table", [source])
+	var table_result: Dictionary = _call_pipeline(
+		&"build_table",
+		[source]
+	)
 	var report: Dictionary = GFVariantData.get_option_dictionary(table_result, "report")
 
-	assert_false(GFVariantData.get_option_bool(table_result, "success"), "超过 XLSX entry 数量上限时不应构建表资源。")
-	assert_true(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "parse_failed"), "错误报告应包含 XLSX parse_failed。")
-	assert_true(GFVariantData.get_option_string(table_result, "error").contains("max_xlsx_entry_count"), "错误应说明 entry 数量上限。")
+	assert_false(
+		GFVariantData.get_option_bool(table_result, "success"),
+		"超过 XLSX entry 数量上限时不应构建表资源。"
+	)
+	assert_true(
+		_has_issue_kind(
+			GFVariantData.get_option_array(report, "issues"),
+			"parse_failed"
+		),
+		"错误报告应包含 XLSX parse_failed。"
+	)
+	assert_true(
+		GFVariantData.get_option_string(table_result, "error").contains("max_xlsx_entry_count"),
+		"错误应说明 entry 数量上限。"
+	)
 
 
 func test_pipeline_reports_xlsx_entry_size_limit_before_reading_entries() -> void:
-	var xlsx_path: String = _write_xlsx("user://gf_config_pipeline_entry_size_%d.xlsx" % Time.get_ticks_usec(), "Items", [
-		PackedStringArray(["id", "name", "power"]),
-		PackedStringArray(["1", "Potion", "2.5"]),
-	])
+	var xlsx_path: String = _write_xlsx(
+		"user://gf_config_pipeline_entry_size_%d.xlsx" % Time.get_ticks_usec(),
+		"Items",
+		[
+			PackedStringArray(
+				[
+					"id",
+					"name",
+					"power",
+				]
+			),
+			PackedStringArray(
+				[
+					"1",
+					"Potion",
+					"2.5",
+				]
+			),
+		]
+	)
 	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
 	source.source_path = xlsx_path
 	source.source_format = GFConfigPipelineTableSource.FORMAT_XLSX
 	source.schema = _make_item_schema()
-	source.parse_options = {
-		"max_xlsx_entry_bytes": 32,
-	}
+	source.parse_options = { "max_xlsx_entry_bytes": 32, }
 
-	var table_result: Dictionary = _call_pipeline(&"build_table", [source])
+	var table_result: Dictionary = _call_pipeline(
+		&"build_table",
+		[source]
+	)
 	var report: Dictionary = GFVariantData.get_option_dictionary(table_result, "report")
 
-	assert_false(GFVariantData.get_option_bool(table_result, "success"), "声明解压大小超限的 XLSX entry 必须在读取前拒绝。")
-	assert_true(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "parse_failed"), "entry 大小预检错误应进入 parse_failed。")
-	assert_true(GFVariantData.get_option_string(table_result, "error").contains("max_xlsx_entry_bytes"), "错误应说明 entry 解压大小上限。")
+	assert_false(
+		GFVariantData.get_option_bool(table_result, "success"),
+		"声明解压大小超限的 XLSX entry 必须在读取前拒绝。"
+	)
+	assert_true(
+		_has_issue_kind(
+			GFVariantData.get_option_array(report, "issues"),
+			"parse_failed"
+		),
+		"entry 大小预检错误应进入 parse_failed。"
+	)
+	assert_true(
+		GFVariantData.get_option_string(table_result, "error").contains("max_xlsx_entry_bytes"),
+		"错误应说明 entry 解压大小上限。"
+	)
 
 
 func test_pipeline_reports_xlsx_compression_ratio_limit_before_reading_entries() -> void:
-	var xlsx_path: String = _write_xlsx("user://gf_config_pipeline_ratio_%d.xlsx" % Time.get_ticks_usec(), "Items", [
-		PackedStringArray(["id", "name", "power"]),
-		PackedStringArray(["1", "PotionPotionPotionPotionPotionPotionPotionPotion", "2.5"]),
-	])
+	var xlsx_path: String = _write_xlsx(
+		"user://gf_config_pipeline_ratio_%d.xlsx" % Time.get_ticks_usec(),
+		"Items",
+		[
+			PackedStringArray(
+				[
+					"id",
+					"name",
+					"power",
+				]
+			),
+			PackedStringArray(
+				[
+					"1",
+					"PotionPotionPotionPotionPotionPotionPotionPotion",
+					"2.5",
+				]
+			),
+		]
+	)
 	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
 	source.source_path = xlsx_path
 	source.source_format = GFConfigPipelineTableSource.FORMAT_XLSX
 	source.schema = _make_item_schema()
-	source.parse_options = {
-		"max_xlsx_compression_ratio": 1,
-	}
+	source.parse_options = { "max_xlsx_compression_ratio": 1, }
 
-	var table_result: Dictionary = _call_pipeline(&"build_table", [source])
+	var table_result: Dictionary = _call_pipeline(
+		&"build_table",
+		[source]
+	)
 	var report: Dictionary = GFVariantData.get_option_dictionary(table_result, "report")
 
-	assert_false(GFVariantData.get_option_bool(table_result, "success"), "异常压缩比的 XLSX 必须在读取前拒绝。")
-	assert_true(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "parse_failed"), "压缩比预检错误应进入 parse_failed。")
-	assert_true(GFVariantData.get_option_string(table_result, "error").contains("max_xlsx_compression_ratio"), "错误应说明 XLSX 压缩比上限。")
+	assert_false(
+		GFVariantData.get_option_bool(table_result, "success"),
+		"异常压缩比的 XLSX 必须在读取前拒绝。"
+	)
+	assert_true(
+		_has_issue_kind(
+			GFVariantData.get_option_array(report, "issues"),
+			"parse_failed"
+		),
+		"压缩比预检错误应进入 parse_failed。"
+	)
+	assert_true(
+		GFVariantData.get_option_string(table_result, "error").contains("max_xlsx_compression_ratio"),
+		"错误应说明 XLSX 压缩比上限。"
+	)
 
 
 func test_pipeline_reports_xlsx_missing_header_row() -> void:
-	var xlsx_path: String = _write_xlsx("user://gf_config_pipeline_missing_header_%d.xlsx" % Time.get_ticks_usec(), "Items", [
-		PackedStringArray(["1", "Potion", "2.5"]),
-	])
+	var xlsx_path: String = _write_xlsx(
+		"user://gf_config_pipeline_missing_header_%d.xlsx" % Time.get_ticks_usec(),
+		"Items",
+		[
+			PackedStringArray(
+				[
+					"1",
+					"Potion",
+					"2.5",
+				]
+			),
+		]
+	)
 	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
 	source.source_path = xlsx_path
 	source.source_format = GFConfigPipelineTableSource.FORMAT_XLSX
 	source.schema = _make_item_schema()
-	source.parse_options = {
-		"sheet_name": "Items",
-		"header_row": 3,
-	}
+	source.parse_options = { "sheet_name": "Items", "header_row": 3, }
 
-	var table_result: Dictionary = _call_pipeline(&"build_table", [source])
+	var table_result: Dictionary = _call_pipeline(
+		&"build_table",
+		[source]
+	)
 	var report: Dictionary = GFVariantData.get_option_dictionary(table_result, "report")
 
-	assert_false(GFVariantData.get_option_bool(table_result, "success"), "缺失指定 header row 的 XLSX 不应被当作空表成功导入。")
-	assert_true(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "parse_failed"), "错误报告应包含 XLSX parse_failed。")
-	assert_true(GFVariantData.get_option_string(table_result, "error").contains("header row is missing"), "错误应说明 header row 缺失。")
+	assert_false(
+		GFVariantData.get_option_bool(table_result, "success"),
+		"缺失指定 header row 的 XLSX 不应被当作空表成功导入。"
+	)
+	assert_true(
+		_has_issue_kind(
+			GFVariantData.get_option_array(report, "issues"),
+			"parse_failed"
+		),
+		"错误报告应包含 XLSX parse_failed。"
+	)
+	assert_true(
+		GFVariantData.get_option_string(table_result, "error").contains("header row is missing"),
+		"错误应说明 header row 缺失。"
+	)
 
 
 func test_pipeline_reports_xlsx_empty_header_row() -> void:
-	var xlsx_path: String = _write_xlsx("user://gf_config_pipeline_empty_header_%d.xlsx" % Time.get_ticks_usec(), "Items", [
-		PackedStringArray(["", ""]),
-		PackedStringArray(["1", "Potion"]),
-	])
+	var xlsx_path: String = _write_xlsx(
+		"user://gf_config_pipeline_empty_header_%d.xlsx" % Time.get_ticks_usec(),
+		"Items",
+		[
+			PackedStringArray(["", ""]),
+			PackedStringArray(["1", "Potion"]),
+		]
+	)
 	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
 	source.source_path = xlsx_path
 	source.source_format = GFConfigPipelineTableSource.FORMAT_XLSX
 	source.schema = _make_item_schema()
 	source.parse_options = { "sheet_name": "Items" }
 
-	var table_result: Dictionary = _call_pipeline(&"build_table", [source])
+	var table_result: Dictionary = _call_pipeline(
+		&"build_table",
+		[source]
+	)
 	var report: Dictionary = GFVariantData.get_option_dictionary(table_result, "report")
 
-	assert_false(GFVariantData.get_option_bool(table_result, "success"), "空 header row 的 XLSX 不应生成无字段记录。")
-	assert_true(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "parse_failed"), "错误报告应包含 XLSX parse_failed。")
-	assert_true(GFVariantData.get_option_string(table_result, "error").contains("header row is empty"), "错误应说明 header row 为空。")
+	assert_false(
+		GFVariantData.get_option_bool(table_result, "success"),
+		"空 header row 的 XLSX 不应生成无字段记录。"
+	)
+	assert_true(
+		_has_issue_kind(
+			GFVariantData.get_option_array(report, "issues"),
+			"parse_failed"
+		),
+		"错误报告应包含 XLSX parse_failed。"
+	)
+	assert_true(
+		GFVariantData.get_option_string(table_result, "error").contains("header row is empty"),
+		"错误应说明 header row 为空。"
+	)
 
 
 func test_pipeline_builds_schema_from_typed_csv_headers() -> void:
-	var csv_path: String = _write_text("user://gf_config_pipeline_typed_headers_%d.csv" % Time.get_ticks_usec(), "id:int!,name:string,power:float\n1,Potion,2.5\n2,Ether,3\n")
+	var csv_path: String = _write_text(
+		"user://gf_config_pipeline_typed_headers_%d.csv" % Time.get_ticks_usec(),
+		"id:int!,name:string,power:float\n1,Potion,2.5\n2,Ether,3\n"
+	)
 	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
 	source.table_name = &"items"
 	source.source_path = csv_path
@@ -630,28 +1191,56 @@ func test_pipeline_builds_schema_from_typed_csv_headers() -> void:
 		"require_unique_id": true,
 	}
 
-	var table_result: Dictionary = _call_pipeline(&"build_table", [source])
+	var table_result: Dictionary = _call_pipeline(
+		&"build_table",
+		[source]
+	)
 	var table: GFConfigTableResource = _get_table_from_result(table_result)
 	var schema: GFConfigTableSchema = table.schema if table != null else null
 	var id_column: GFConfigTableColumn = schema.get_column(&"id") if schema != null else null
 	var power_column: GFConfigTableColumn = schema.get_column(&"power") if schema != null else null
 	var first_record: Dictionary = table.records[0] if table != null and not table.records.is_empty() else {}
 
-	assert_true(GFVariantData.get_option_bool(table_result, "success"), "类型化 CSV 表头应能生成 schema 并构建表资源。")
+	assert_true(
+		GFVariantData.get_option_bool(table_result, "success"),
+		"类型化 CSV 表头应能生成 schema 并构建表资源。"
+	)
 	assert_not_null(schema, "类型化表头应生成表 schema。")
 	assert_not_null(id_column, "类型化表头应生成 id 字段声明。")
 	assert_not_null(power_column, "类型化表头应生成 power 字段声明。")
-	assert_eq(id_column.value_type, GFConfigTableColumn.ValueType.INT, "id:int! 应声明为 int 字段。")
+	assert_eq(
+		id_column.value_type,
+		GFConfigTableColumn.ValueType.INT,
+		"id:int! 应声明为 int 字段。"
+	)
 	assert_true(id_column.required, "id:int! 应声明为必填字段。")
 	assert_false(id_column.allow_null, "id:int! 应禁止 null。")
-	assert_eq(power_column.value_type, GFConfigTableColumn.ValueType.FLOAT, "power:float 应声明为 float 字段。")
-	assert_eq(GFVariantData.get_option_int(first_record, "id"), 1, "类型化表头生成的 schema 应默认转换 CSV 字符串 ID。")
-	assert_eq(GFVariantData.get_option_float(first_record, "power"), 2.5, "类型化表头生成的 schema 应默认转换 CSV 字符串数值。")
-	assert_false(first_record.has(&"id:int!"), "写入资源的记录字段名应清理为稳定字段名。")
+	assert_eq(
+		power_column.value_type,
+		GFConfigTableColumn.ValueType.FLOAT,
+		"power:float 应声明为 float 字段。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(first_record, "id"),
+		1,
+		"类型化表头生成的 schema 应默认转换 CSV 字符串 ID。"
+	)
+	assert_eq(
+		GFVariantData.get_option_float(first_record, "power"),
+		2.5,
+		"类型化表头生成的 schema 应默认转换 CSV 字符串数值。"
+	)
+	assert_false(
+		first_record.has(&"id:int!"),
+		"写入资源的记录字段名应清理为稳定字段名。"
+	)
 
 
 func test_pipeline_builds_schema_from_typed_csv_header_type_row() -> void:
-	var csv_path: String = _write_text("user://gf_config_pipeline_typed_header_type_row_%d.csv" % Time.get_ticks_usec(), "id,name,power\nint!,string,float\n1,Potion,2.5\n")
+	var csv_path: String = _write_text(
+		"user://gf_config_pipeline_typed_header_type_row_%d.csv" % Time.get_ticks_usec(),
+		"id,name,power\nint!,string,float\n1,Potion,2.5\n"
+	)
 	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
 	source.table_name = &"items"
 	source.source_path = csv_path
@@ -662,103 +1251,194 @@ func test_pipeline_builds_schema_from_typed_csv_header_type_row() -> void:
 		"require_unique_id": true,
 	}
 
-	var table_result: Dictionary = _call_pipeline(&"build_table", [source])
+	var table_result: Dictionary = _call_pipeline(
+		&"build_table",
+		[source]
+	)
 	var table: GFConfigTableResource = _get_table_from_result(table_result)
 	var schema: GFConfigTableSchema = table.schema if table != null else null
 	var id_column: GFConfigTableColumn = schema.get_column(&"id") if schema != null else null
 	var power_column: GFConfigTableColumn = schema.get_column(&"power") if schema != null else null
 	var first_record: Dictionary = table.records[0] if table != null and not table.records.is_empty() else {}
 
-	assert_true(GFVariantData.get_option_bool(table_result, "success"), "独立类型行应能生成 schema 并构建表资源。")
+	assert_true(
+		GFVariantData.get_option_bool(table_result, "success"),
+		"独立类型行应能生成 schema 并构建表资源。"
+	)
 	assert_not_null(id_column, "类型行应生成 id 字段声明。")
 	assert_not_null(power_column, "类型行应生成 power 字段声明。")
-	assert_eq(id_column.value_type, GFConfigTableColumn.ValueType.INT, "类型行 int! 应声明为 int 必填字段。")
+	assert_eq(
+		id_column.value_type,
+		GFConfigTableColumn.ValueType.INT,
+		"类型行 int! 应声明为 int 必填字段。"
+	)
 	assert_true(id_column.required, "类型行 int! 应保留必填标记。")
-	assert_eq(power_column.value_type, GFConfigTableColumn.ValueType.FLOAT, "类型行 float 应声明为 float 字段。")
-	assert_eq(table.records.size(), 1, "类型行本身不应写入记录列表。")
-	assert_eq(GFVariantData.get_option_int(first_record, "id"), 1, "类型行生成的 schema 应转换 CSV 字符串 ID。")
-	assert_eq(GFVariantData.get_option_float(first_record, "power"), 2.5, "类型行生成的 schema 应转换 CSV 字符串数值。")
-	assert_eq(GFVariantData.get_option_string(schema.metadata, "schema_source"), "typed_header_type_row", "schema metadata 应标记类型行来源。")
+	assert_eq(
+		power_column.value_type,
+		GFConfigTableColumn.ValueType.FLOAT,
+		"类型行 float 应声明为 float 字段。"
+	)
+	assert_eq(
+		table.records.size(),
+		1,
+		"类型行本身不应写入记录列表。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(first_record, "id"),
+		1,
+		"类型行生成的 schema 应转换 CSV 字符串 ID。"
+	)
+	assert_eq(
+		GFVariantData.get_option_float(first_record, "power"),
+		2.5,
+		"类型行生成的 schema 应转换 CSV 字符串数值。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(schema.metadata, "schema_source"),
+		"typed_header_type_row",
+		"schema metadata 应标记类型行来源。"
+	)
 
 
 func test_pipeline_reports_missing_typed_csv_header_type_row() -> void:
-	var csv_path: String = _write_text("user://gf_config_pipeline_missing_typed_header_type_row_%d.csv" % Time.get_ticks_usec(), "id,name\n")
+	var csv_path: String = _write_text(
+		"user://gf_config_pipeline_missing_typed_header_type_row_%d.csv" % Time.get_ticks_usec(),
+		"id,name\n"
+	)
 	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
 	source.table_name = &"items"
 	source.source_path = csv_path
 	source.source_format = GFConfigPipelineTableSource.FORMAT_CSV
-	source.schema_options = {
-		"typed_headers": true,
-		"typed_header_type_row": true,
-	}
+	source.schema_options = { "typed_headers": true, "typed_header_type_row": true, }
 
-	var table_result: Dictionary = _call_pipeline(&"build_table", [source])
+	var table_result: Dictionary = _call_pipeline(
+		&"build_table",
+		[source]
+	)
 	var report: Dictionary = GFVariantData.get_option_dictionary(table_result, "report")
 
-	assert_false(GFVariantData.get_option_bool(table_result, "success"), "启用类型行但缺少类型行时应报告错误。")
-	assert_true(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "missing_typed_header_type_row"), "错误报告应包含缺少类型行。")
+	assert_false(
+		GFVariantData.get_option_bool(table_result, "success"),
+		"启用类型行但缺少类型行时应报告错误。"
+	)
+	assert_true(
+		_has_issue_kind(
+			GFVariantData.get_option_array(report, "issues"),
+			"missing_typed_header_type_row"
+		),
+		"错误报告应包含缺少类型行。"
+	)
 
 
 func test_pipeline_builds_schema_from_typed_csv_header_type_row_without_data_rows() -> void:
-	var csv_path: String = _write_text("user://gf_config_pipeline_empty_typed_header_type_row_%d.csv" % Time.get_ticks_usec(), "id,name\nint!,string\n")
+	var csv_path: String = _write_text(
+		"user://gf_config_pipeline_empty_typed_header_type_row_%d.csv" % Time.get_ticks_usec(),
+		"id,name\nint!,string\n"
+	)
 	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
 	source.table_name = &"items"
 	source.source_path = csv_path
 	source.source_format = GFConfigPipelineTableSource.FORMAT_CSV
-	source.schema_options = {
-		"typed_headers": true,
-		"typed_header_type_row": true,
-	}
+	source.schema_options = { "typed_headers": true, "typed_header_type_row": true, }
 
-	var table_result: Dictionary = _call_pipeline(&"build_table", [source])
+	var table_result: Dictionary = _call_pipeline(
+		&"build_table",
+		[source]
+	)
 	var table: GFConfigTableResource = _get_table_from_result(table_result)
 	var schema: GFConfigTableSchema = table.schema if table != null else null
 	var id_column: GFConfigTableColumn = schema.get_column(&"id") if schema != null else null
 
-	assert_true(GFVariantData.get_option_bool(table_result, "success"), "只有表头和类型行时也应能构建空表资源。")
+	assert_true(
+		GFVariantData.get_option_bool(table_result, "success"),
+		"只有表头和类型行时也应能构建空表资源。"
+	)
 	assert_not_null(id_column, "空表 schema 应包含类型行声明的字段。")
-	assert_eq(id_column.value_type, GFConfigTableColumn.ValueType.INT, "空表 schema 应保留类型行字段类型。")
-	assert_eq(table.records.size(), 0, "类型行空表不应生成数据记录。")
+	assert_eq(
+		id_column.value_type,
+		GFConfigTableColumn.ValueType.INT,
+		"空表 schema 应保留类型行字段类型。"
+	)
+	assert_eq(
+		table.records.size(),
+		0,
+		"类型行空表不应生成数据记录。"
+	)
 
 
 func test_pipeline_builds_schema_from_typed_csv_headers_without_rows() -> void:
-	var csv_path: String = _write_text("user://gf_config_pipeline_empty_typed_headers_%d.csv" % Time.get_ticks_usec(), "id:int!,name:string\n")
+	var csv_path: String = _write_text(
+		"user://gf_config_pipeline_empty_typed_headers_%d.csv" % Time.get_ticks_usec(),
+		"id:int!,name:string\n"
+	)
 	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
 	source.table_name = &"items"
 	source.source_path = csv_path
 	source.source_format = GFConfigPipelineTableSource.FORMAT_CSV
 	source.schema_options = { "typed_headers": true }
 
-	var table_result: Dictionary = _call_pipeline(&"build_table", [source])
+	var table_result: Dictionary = _call_pipeline(
+		&"build_table",
+		[source]
+	)
 	var table: GFConfigTableResource = _get_table_from_result(table_result)
 	var schema: GFConfigTableSchema = table.schema if table != null else null
 	var id_column: GFConfigTableColumn = schema.get_column(&"id") if schema != null else null
 	var record_count: int = table.records.size() if table != null else -1
 
-	assert_true(GFVariantData.get_option_bool(table_result, "success"), "只有类型化表头的 CSV 也应能构建空表资源。")
+	assert_true(
+		GFVariantData.get_option_bool(table_result, "success"),
+		"只有类型化表头的 CSV 也应能构建空表资源。"
+	)
 	assert_not_null(schema, "空表也应保留由表头声明生成的 schema。")
 	assert_not_null(id_column, "空表 schema 应包含类型化表头字段。")
-	assert_eq(id_column.value_type, GFConfigTableColumn.ValueType.INT, "空表 schema 应保留表头类型。")
-	assert_eq(record_count, 0, "只有表头时记录列表应为空。")
+	assert_eq(
+		id_column.value_type,
+		GFConfigTableColumn.ValueType.INT,
+		"空表 schema 应保留表头类型。"
+	)
+	assert_eq(
+		record_count,
+		0,
+		"只有表头时记录列表应为空。"
+	)
 
 
 func test_pipeline_reports_invalid_typed_header_type() -> void:
-	var csv_path: String = _write_text("user://gf_config_pipeline_bad_typed_headers_%d.csv" % Time.get_ticks_usec(), "id:uuid\n1\n")
+	var csv_path: String = _write_text(
+		"user://gf_config_pipeline_bad_typed_headers_%d.csv" % Time.get_ticks_usec(),
+		"id:uuid\n1\n"
+	)
 	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
 	source.table_name = &"items"
 	source.source_path = csv_path
 	source.source_format = GFConfigPipelineTableSource.FORMAT_CSV
 	source.schema_options = { "typed_headers": true }
 
-	var table_result: Dictionary = _call_pipeline(&"build_table", [source])
+	var table_result: Dictionary = _call_pipeline(
+		&"build_table",
+		[source]
+	)
 	var report: Dictionary = GFVariantData.get_option_dictionary(table_result, "report")
 
-	assert_false(GFVariantData.get_option_bool(table_result, "success"), "未知类型化表头类型不应静默导入。")
-	assert_true(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "unsupported_typed_header_type"), "错误报告应包含不支持的表头类型。")
+	assert_false(
+		GFVariantData.get_option_bool(table_result, "success"),
+		"未知类型化表头类型不应静默导入。"
+	)
+	assert_true(
+		_has_issue_kind(
+			GFVariantData.get_option_array(report, "issues"),
+			"unsupported_typed_header_type"
+		),
+		"错误报告应包含不支持的表头类型。"
+	)
 
 
 func test_pipeline_profile_exports_database_resource() -> void:
-	var csv_path: String = _write_text("user://gf_config_pipeline_profile_items_%d.csv" % Time.get_ticks_usec(), "id,name,power\n1,Potion,2.5\n")
+	var csv_path: String = _write_text(
+		"user://gf_config_pipeline_profile_items_%d.csv" % Time.get_ticks_usec(),
+		"id,name,power\n1,Potion,2.5\n"
+	)
 	var output_path: String = _track_path("user://gf_config_pipeline_profile_database_%d.tres" % Time.get_ticks_usec())
 	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
 	source.table_name = &"items"
@@ -771,26 +1451,56 @@ func test_pipeline_profile_exports_database_resource() -> void:
 	profile.version = "profile-test"
 	profile.output_path = output_path
 	profile.sources = [source]
-	profile.build_options = { "metadata": { "build": "profile" } }
+	profile.build_options = {
+		"metadata": { "build": "profile" },
+	}
 	profile.metadata = { "owner": "test" }
 
-	var export_result: Dictionary = _call_pipeline(&"export_profile", [profile])
+	var export_result: Dictionary = _call_pipeline(
+		&"export_profile",
+		[profile]
+	)
 	var database: GFConfigDatabaseResource = _get_database_from_result(export_result)
 	var save_result: Dictionary = GFVariantData.get_option_dictionary(export_result, "save_result")
 	var loaded: GFConfigDatabaseResource = _load_database_resource(output_path)
 
-	assert_true(GFVariantData.get_option_bool(export_result, "success"), "Profile 应能构建并保存数据库资源。")
+	assert_true(
+		GFVariantData.get_option_bool(export_result, "success"),
+		"Profile 应能构建并保存数据库资源。"
+	)
 	assert_not_null(database, "Profile 导出结果应返回数据库资源。")
-	assert_true(GFVariantData.get_option_bool(save_result, "success"), "Profile 导出应包含保存成功结果。")
-	assert_eq(database.database_id, &"main", "Profile database_id 应写入数据库资源。")
-	assert_eq(database.version, "profile-test", "Profile version 应写入数据库资源。")
-	assert_eq(GFVariantData.get_option_string(database.metadata, "build"), "profile", "build_options metadata 应写入数据库资源。")
-	assert_eq(GFVariantData.get_option_string(database.metadata, "owner"), "test", "Profile metadata 应合并写入数据库资源。")
+	assert_true(
+		GFVariantData.get_option_bool(save_result, "success"),
+		"Profile 导出应包含保存成功结果。"
+	)
+	assert_eq(
+		database.database_id,
+		&"main",
+		"Profile database_id 应写入数据库资源。"
+	)
+	assert_eq(
+		database.version,
+		"profile-test",
+		"Profile version 应写入数据库资源。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(database.metadata, "build"),
+		"profile",
+		"build_options metadata 应写入数据库资源。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(database.metadata, "owner"),
+		"test",
+		"Profile metadata 应合并写入数据库资源。"
+	)
 	assert_not_null(loaded, "Profile 保存后的数据库资源应能重新加载。")
 
 
 func test_pipeline_profile_exports_database_json() -> void:
-	var csv_path: String = _write_text("user://gf_config_pipeline_profile_json_items_%d.csv" % Time.get_ticks_usec(), "id,name,power\n1,Potion,2.5\n")
+	var csv_path: String = _write_text(
+		"user://gf_config_pipeline_profile_json_items_%d.csv" % Time.get_ticks_usec(),
+		"id,name,power\n1,Potion,2.5\n"
+	)
 	var output_path: String = _track_path("user://gf_config_pipeline_profile_database_%d.json" % Time.get_ticks_usec())
 	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
 	source.table_name = &"items"
@@ -802,21 +1512,35 @@ func test_pipeline_profile_exports_database_json() -> void:
 	profile.database_id = &"main"
 	profile.output_path = output_path
 	profile.sources = [source]
-	profile.save_options = {
-		"include_indexes": true,
-		"indent": "",
-	}
+	profile.save_options = { "include_indexes": true, "indent": "", }
 
-	var export_result: Dictionary = _call_pipeline(&"export_profile", [profile])
+	var export_result: Dictionary = _call_pipeline(
+		&"export_profile",
+		[profile]
+	)
 	var save_result: Dictionary = GFVariantData.get_option_dictionary(export_result, "save_result")
 	var loaded_data: Dictionary = _load_json_dictionary(output_path)
 	var tables: Array = GFVariantData.get_option_array(loaded_data, "tables")
 	var first_table: Dictionary = GFVariantData.as_dictionary(tables[0]) if not tables.is_empty() else {}
 
-	assert_true(GFVariantData.get_option_bool(export_result, "success"), "Profile 应能导出 JSON 数据库。")
-	assert_eq(GFVariantData.get_option_string_name(save_result, "format"), &"json", "Profile 保存结果应报告 JSON 输出格式。")
-	assert_eq(GFVariantData.get_option_string(loaded_data, "format"), "gf.config.database", "Profile JSON 导出应带稳定格式标识。")
-	assert_true(first_table.has("records_by_id"), "include_indexes 时 JSON 导出应包含 ID 索引。")
+	assert_true(
+		GFVariantData.get_option_bool(export_result, "success"),
+		"Profile 应能导出 JSON 数据库。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(save_result, "format"),
+		&"json",
+		"Profile 保存结果应报告 JSON 输出格式。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(loaded_data, "format"),
+		"gf.config.database",
+		"Profile JSON 导出应带稳定格式标识。"
+	)
+	assert_true(
+		first_table.has("records_by_id"),
+		"include_indexes 时 JSON 导出应包含 ID 索引。"
+	)
 
 
 func test_pipeline_profile_manifest_uses_canonical_output_identities() -> void:
@@ -839,10 +1563,13 @@ func test_pipeline_profile_manifest_uses_canonical_output_identities() -> void:
 	profile.access_output_path = "user:\\\\gf_config_pipeline_canonical_manifest_%d/./access.gd" % suffix
 	profile.sources = [source]
 
-	var export_result: Dictionary = _call_pipeline(&"export_profile", [profile, {
-		"dry_run": true,
-		"write_manifest": true,
-	}])
+	var export_result: Dictionary = _call_pipeline(
+		&"export_profile",
+		[
+			profile,
+			{ "dry_run": true, "write_manifest": true, },
+		]
+	)
 	var access_result: Dictionary = GFVariantData.get_option_dictionary(export_result, "access_result")
 	var manifest_result: Dictionary = GFVariantData.get_option_dictionary(export_result, "manifest_result")
 	var manifest: Dictionary = GFVariantData.get_option_dictionary(export_result, "manifest")
@@ -850,13 +1577,40 @@ func test_pipeline_profile_manifest_uses_canonical_output_identities() -> void:
 	var database_entry: Dictionary = GFVariantData.as_dictionary(output_entries[0]) if output_entries.size() > 0 else {}
 	var access_entry: Dictionary = GFVariantData.as_dictionary(output_entries[1]) if output_entries.size() > 1 else {}
 
-	assert_true(GFVariantData.get_option_bool(export_result, "success"), "可规范化路径的 dry-run Profile 导出应成功。")
-	assert_eq(GFVariantData.get_option_string(export_result, "output_path"), canonical_output_path, "导出结果应使用 canonical database identity。")
-	assert_eq(GFVariantData.get_option_string(access_result, "path"), canonical_access_path, "访问器结果应使用 canonical identity。")
-	assert_eq(GFVariantData.get_option_string(export_result, "manifest_path"), canonical_manifest_path, "manifest 路径应使用 canonical identity。")
-	assert_eq(GFVariantData.get_option_string(manifest_result, "path"), canonical_manifest_path, "manifest writer report 应使用 canonical identity。")
-	assert_eq(GFVariantData.get_option_string(database_entry, "path"), canonical_output_path, "manifest database entry 必须绑定实际 target。")
-	assert_eq(GFVariantData.get_option_string(access_entry, "path"), canonical_access_path, "manifest access entry 必须绑定实际 target。")
+	assert_true(
+		GFVariantData.get_option_bool(export_result, "success"),
+		"可规范化路径的 dry-run Profile 导出应成功。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(export_result, "output_path"),
+		canonical_output_path,
+		"导出结果应使用 canonical database identity。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(access_result, "path"),
+		canonical_access_path,
+		"访问器结果应使用 canonical identity。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(export_result, "manifest_path"),
+		canonical_manifest_path,
+		"manifest 路径应使用 canonical identity。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(manifest_result, "path"),
+		canonical_manifest_path,
+		"manifest writer report 应使用 canonical identity。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(database_entry, "path"),
+		canonical_output_path,
+		"manifest database entry 必须绑定实际 target。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(access_entry, "path"),
+		canonical_access_path,
+		"manifest access entry 必须绑定实际 target。"
+	)
 
 
 func test_pipeline_profile_validates_all_output_uris_before_database_preflight() -> void:
@@ -886,41 +1640,79 @@ func test_pipeline_profile_validates_all_output_uris_before_database_preflight()
 	manifest_profile.access_output_path = "user://gf_config_pipeline_path_plan_access_%d.gd" % suffix
 	manifest_profile.sources = [source]
 
-	var access_failure: Dictionary = _call_pipeline(&"export_profile", [access_profile, {
-		"dry_run": true,
-	}])
-	var manifest_failure: Dictionary = _call_pipeline(&"export_profile", [manifest_profile, {
-		"dry_run": true,
-		"manifest_path": "C:/outside/config.manifest.json",
-		"write_manifest": true,
-	}])
-	var manifest_result: Dictionary = GFVariantData.get_option_dictionary(
-		manifest_failure,
-		"manifest_result"
+	var access_failure: Dictionary = _call_pipeline(
+		&"export_profile",
+		[
+			access_profile,
+			{ "dry_run": true, },
+		]
 	)
-	var access_result: Dictionary = GFVariantData.get_option_dictionary(
-		access_failure,
-		"access_result"
+	var manifest_failure: Dictionary = _call_pipeline(
+		&"export_profile",
+		[
+			manifest_profile,
+			{
+				"dry_run": true,
+				"manifest_path": "C:/outside/config.manifest.json",
+				"write_manifest": true,
+			},
+		]
 	)
-	var manifest_access_result: Dictionary = GFVariantData.get_option_dictionary(
-		manifest_failure,
-		"access_result"
-	)
+	var manifest_result: Dictionary = GFVariantData.get_option_dictionary(manifest_failure, "manifest_result")
+	var access_result: Dictionary = GFVariantData.get_option_dictionary(access_failure, "access_result")
+	var manifest_access_result: Dictionary = GFVariantData.get_option_dictionary(manifest_failure, "access_result")
 
-	assert_false(GFVariantData.get_option_bool(access_failure, "success"), "非法 access URI 必须在 database writer preflight 前失败。")
-	assert_true(GFVariantData.get_option_dictionary(access_failure, "save_result").is_empty(), "access 路径计划失败前不得进入 database writer preflight。")
-	assert_eq(GFVariantData.get_option_int(access_result, "error_code"), ERR_INVALID_PARAMETER, "access 路径计划失败应保留结构化参数错误。")
-	assert_true(GFVariantData.get_option_string(access_failure, "error").contains("res:// 或 user://"), "access 失败应保留 URI 迁移提示。")
-	assert_false(GFVariantData.get_option_bool(manifest_failure, "success"), "非法 manifest URI 必须在 database writer preflight 前失败。")
-	assert_true(GFVariantData.get_option_dictionary(manifest_failure, "save_result").is_empty(), "manifest 路径计划失败前不得进入 database writer preflight。")
-	assert_true(manifest_access_result.is_empty(), "manifest 路径计划失败前不得进入 access writer preflight。")
-	assert_eq(GFVariantData.get_option_string(manifest_failure, "manifest_path"), "C:/outside/config.manifest.json", "manifest 路径失败应保留调用方原始身份用于诊断。")
-	assert_eq(GFVariantData.get_option_int(manifest_result, "error_code"), ERR_INVALID_PARAMETER, "manifest 路径计划失败应报告参数错误。")
-	assert_eq(_read_text(output_path), "unowned\n", "整批路径计划失败不得改写已有产物。")
+	assert_false(
+		GFVariantData.get_option_bool(access_failure, "success"),
+		"非法 access URI 必须在 database writer preflight 前失败。"
+	)
+	assert_true(
+		GFVariantData.get_option_dictionary(access_failure, "save_result").is_empty(),
+		"access 路径计划失败前不得进入 database writer preflight。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(access_result, "error_code"),
+		ERR_INVALID_PARAMETER,
+		"access 路径计划失败应保留结构化参数错误。"
+	)
+	assert_true(
+		GFVariantData.get_option_string(access_failure, "error").contains("res:// 或 user://"),
+		"access 失败应保留 URI 迁移提示。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(manifest_failure, "success"),
+		"非法 manifest URI 必须在 database writer preflight 前失败。"
+	)
+	assert_true(
+		GFVariantData.get_option_dictionary(manifest_failure, "save_result").is_empty(),
+		"manifest 路径计划失败前不得进入 database writer preflight。"
+	)
+	assert_true(
+		manifest_access_result.is_empty(),
+		"manifest 路径计划失败前不得进入 access writer preflight。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(manifest_failure, "manifest_path"),
+		"C:/outside/config.manifest.json",
+		"manifest 路径失败应保留调用方原始身份用于诊断。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(manifest_result, "error_code"),
+		ERR_INVALID_PARAMETER,
+		"manifest 路径计划失败应报告参数错误。"
+	)
+	assert_eq(
+		_read_text(output_path),
+		"unowned\n",
+		"整批路径计划失败不得改写已有产物。"
+	)
 
 
 func test_pipeline_profile_exports_access_script() -> void:
-	var csv_path: String = _write_text("user://gf_config_pipeline_profile_access_items_%d.csv" % Time.get_ticks_usec(), "id,name,power\n1,Potion,2.5\n")
+	var csv_path: String = _write_text(
+		"user://gf_config_pipeline_profile_access_items_%d.csv" % Time.get_ticks_usec(),
+		"id,name,power\n1,Potion,2.5\n"
+	)
 	var output_path: String = _track_path("user://gf_config_pipeline_profile_access_database_%d.tres" % Time.get_ticks_usec())
 	var access_path: String = _track_path("user://gf_config_pipeline_access_%d.gd" % Time.get_ticks_usec())
 	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
@@ -934,30 +1726,71 @@ func test_pipeline_profile_exports_access_script() -> void:
 	profile.output_path = output_path
 	profile.access_output_path = access_path
 	profile.access_class_name = "ItemsConfigAccess"
-	profile.access_options = {
-		"include_typed_records": true,
-	}
+	profile.access_options = { "include_typed_records": true, }
 	profile.sources = [source]
 
-	var export_result: Dictionary = _call_pipeline(&"export_profile", [profile])
+	var export_result: Dictionary = _call_pipeline(
+		&"export_profile",
+		[profile]
+	)
 	var access_result: Dictionary = GFVariantData.get_option_dictionary(export_result, "access_result")
 	var access_source: String = _read_text(access_path)
 
-	assert_true(GFVariantData.get_option_bool(export_result, "success"), "Profile 应能导出数据库并生成访问器。")
-	assert_true(GFVariantData.get_option_bool(access_result, "success"), "访问器生成结果应成功。")
-	assert_false(GFVariantData.get_option_bool(access_result, "skipped", true), "配置访问器输出路径后不应跳过生成。")
-	assert_eq(GFVariantData.get_option_string(access_result, "path"), access_path, "访问器结果应报告输出路径。")
-	assert_eq(GFVariantData.get_option_int(access_result, "schema_count"), 1, "访问器结果应报告参与生成的 schema 数量。")
-	assert_true(access_source.contains("class_name ItemsConfigAccess"), "访问器源码应使用 Profile 配置的 class_name。")
-	assert_true(access_source.contains("static func get_items_typed_record(id: Variant, provider: Variant = null) -> ItemsRecord:"), "访问器源码应包含 typed record 方法。")
-	assert_true(access_source.contains("func get_power() -> float:"), "访问器源码应根据 schema 字段生成 typed getter。")
-
-	var compile_report: Dictionary = GF_TRANSIENT_GDSCRIPT_TEST_SUPPORT.compile_and_release(
-		access_source.replace("class_name ItemsConfigAccess\n", "")
+	assert_true(
+		GFVariantData.get_option_bool(export_result, "success"),
+		"Profile 应能导出数据库并生成访问器。"
 	)
-	assert_eq(GFVariantData.get_option_int(compile_report, "compile_error"), OK, "Profile 生成的访问器源码应能编译。")
-	assert_eq(GFVariantData.get_option_array(compile_report, "cleanup_errors"), [], "Profile 动态编译测试必须释放生成脚本的内部类图。")
-	assert_eq(GFVariantData.get_option_string(compile_report, "configuration_error"), "", "Profile 动态编译测试必须使用匿名内建 GDScript 根。")
+	assert_true(
+		GFVariantData.get_option_bool(access_result, "success"),
+		"访问器生成结果应成功。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(
+			access_result,
+			"skipped",
+			true
+		),
+		"配置访问器输出路径后不应跳过生成。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(access_result, "path"),
+		access_path,
+		"访问器结果应报告输出路径。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(access_result, "schema_count"),
+		1,
+		"访问器结果应报告参与生成的 schema 数量。"
+	)
+	assert_true(
+		access_source.contains("class_name ItemsConfigAccess"),
+		"访问器源码应使用 Profile 配置的 class_name。"
+	)
+	assert_true(
+		access_source.contains("static func get_items_typed_record(id: Variant, provider: Variant = null) -> ItemsRecord:"),
+		"访问器源码应包含 typed record 方法。"
+	)
+	assert_true(
+		access_source.contains("func get_power() -> float:"),
+		"访问器源码应根据 schema 字段生成 typed getter。"
+	)
+
+	var compile_report: Dictionary = GF_TRANSIENT_GDSCRIPT_TEST_SUPPORT.compile_and_release(access_source.replace("class_name ItemsConfigAccess\n", ""))
+	assert_eq(
+		GFVariantData.get_option_int(compile_report, "compile_error"),
+		OK,
+		"Profile 生成的访问器源码应能编译。"
+	)
+	assert_eq(
+		GFVariantData.get_option_array(compile_report, "cleanup_errors"),
+		[],
+		"Profile 动态编译测试必须释放生成脚本的内部类图。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(compile_report, "configuration_error"),
+		"",
+		"Profile 动态编译测试必须使用匿名内建 GDScript 根。"
+	)
 
 
 func test_pipeline_access_generation_reports_complete_unicode_emission() -> void:
@@ -969,25 +1802,57 @@ func test_pipeline_access_generation_reports_complete_unicode_emission() -> void
 		var table: GFConfigTableResource = GFConfigTableResource.new()
 		table.table_name = table_name
 		table.schema = schema
-		table.records = [{ &"id": 1, &"name": "Potion", &"power": 2.5 }]
-		assert_true(database.register_table(table), "测试数据库应注册每张访问器表。")
-	var output_path: String = _track_path(
-		"user://gf_config_pipeline_unicode_access_%d.gd" % Time.get_ticks_usec()
+		table.records = [
+			{
+				&"id": 1,
+				&"name": "Potion",
+				&"power": 2.5,
+			},
+		]
+		assert_true(
+			database.register_table(table),
+			"测试数据库应注册每张访问器表。"
+		)
+	var output_path: String = _track_path("user://gf_config_pipeline_unicode_access_%d.gd" % Time.get_ticks_usec())
+	var result: Dictionary = _call_pipeline(
+		&"generate_access",
+		[
+			database,
+			output_path,
+			"UnicodePipelineAccess",
+			"null",
+		]
 	)
-	var result: Dictionary = _call_pipeline(&"generate_access", [
-		database,
-		output_path,
-		"UnicodePipelineAccess",
-		"null",
-	])
 	var generated_source: String = _read_text(output_path)
 
-	assert_true(GFVariantData.get_option_bool(result, "success"), "Unicode-only 表名不得让 Pipeline 产生部分访问器。")
-	assert_eq(GFVariantData.get_option_int(result, "input_schema_count"), 2, "Pipeline 应报告输入 schema 数量。")
-	assert_eq(GFVariantData.get_option_int(result, "emitted_schema_count"), 2, "Pipeline 应报告实际发射数量。")
-	assert_eq(GFVariantData.get_option_int(result, "schema_count"), 2, "兼容 schema_count 必须等于实际发射数量。")
-	assert_eq(GFVariantData.get_option_int(result, "skipped_schema_count"), 0, "成功访问器不得静默 skip。")
-	assert_true(generated_source.contains("&\"物品\""), "生成访问器必须保留 Unicode 原始表名。")
+	assert_true(
+		GFVariantData.get_option_bool(result, "success"),
+		"Unicode-only 表名不得让 Pipeline 产生部分访问器。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(result, "input_schema_count"),
+		2,
+		"Pipeline 应报告输入 schema 数量。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(result, "emitted_schema_count"),
+		2,
+		"Pipeline 应报告实际发射数量。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(result, "schema_count"),
+		2,
+		"兼容 schema_count 必须等于实际发射数量。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(result, "skipped_schema_count"),
+		0,
+		"成功访问器不得静默 skip。"
+	)
+	assert_true(
+		generated_source.contains("&\"物品\""),
+		"生成访问器必须保留 Unicode 原始表名。"
+	)
 
 
 func test_pipeline_profile_and_source_duplicate_as_independent_resources() -> void:
@@ -1004,20 +1869,48 @@ func test_pipeline_profile_and_source_duplicate_as_independent_resources() -> vo
 	var profile: GFConfigPipelineProfile = GFConfigPipelineProfile.new()
 	profile.profile_id = &"dev"
 	profile.sources = [source]
-	profile.build_options = { "metadata": { "owner": "source" } }
+	profile.build_options = {
+		"metadata": { "owner": "source" },
+	}
 	var profile_copy: GFConfigPipelineProfile = profile.duplicate_profile()
 	profile_copy.profile_id = &"copy"
 	profile_copy.build_options["metadata"]["owner"] = "copy"
 
-	assert_eq(source.table_name, &"items", "duplicate_source 不应共享基础字段。")
-	assert_eq(GFVariantData.get_option_string(source.parse_options, "delimiter"), ",", "duplicate_source 不应共享 parse_options。")
-	assert_eq(source.schema.table_name, &"items", "duplicate_source 不应共享 schema。")
-	assert_eq(profile.profile_id, &"dev", "duplicate_profile 不应共享基础字段。")
-	assert_eq(GFVariantData.get_option_string(GFVariantData.get_option_dictionary(profile.build_options, "metadata"), "owner"), "source", "duplicate_profile 不应共享 build_options。")
+	assert_eq(
+		source.table_name,
+		&"items",
+		"duplicate_source 不应共享基础字段。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(source.parse_options, "delimiter"),
+		",",
+		"duplicate_source 不应共享 parse_options。"
+	)
+	assert_eq(
+		source.schema.table_name,
+		&"items",
+		"duplicate_source 不应共享 schema。"
+	)
+	assert_eq(
+		profile.profile_id,
+		&"dev",
+		"duplicate_profile 不应共享基础字段。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(
+			GFVariantData.get_option_dictionary(profile.build_options, "metadata"),
+			"owner"
+		),
+		"source",
+		"duplicate_profile 不应共享 build_options。"
+	)
 
 
 func test_pipeline_profile_uses_export_output_override() -> void:
-	var csv_path: String = _write_text("user://gf_config_pipeline_profile_override_%d.csv" % Time.get_ticks_usec(), "id,name,power\n1,Potion,2.5\n")
+	var csv_path: String = _write_text(
+		"user://gf_config_pipeline_profile_override_%d.csv" % Time.get_ticks_usec(),
+		"id,name,power\n1,Potion,2.5\n"
+	)
 	var default_output_path: String = _track_path("user://gf_config_pipeline_profile_default_%d.tres" % Time.get_ticks_usec())
 	var override_output_path: String = _track_path("user://gf_config_pipeline_profile_override_%d.tres" % Time.get_ticks_usec())
 	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
@@ -1031,12 +1924,25 @@ func test_pipeline_profile_uses_export_output_override() -> void:
 	profile.output_path = default_output_path
 	profile.sources = [source]
 
-	var export_result: Dictionary = _call_pipeline(&"export_profile", [profile, { "output_path": override_output_path }])
+	var export_result: Dictionary = _call_pipeline(
+		&"export_profile",
+		[
+			profile,
+			{ "output_path": override_output_path },
+		]
+	)
 	var default_path_exists: bool = FileAccess.file_exists(ProjectSettings.globalize_path(default_output_path))
 	var loaded_override: GFConfigDatabaseResource = _load_database_resource(override_output_path)
 
-	assert_true(GFVariantData.get_option_bool(export_result, "success"), "Profile 应允许本次导出覆盖输出路径。")
-	assert_eq(GFVariantData.get_option_string(export_result, "output_path"), override_output_path, "导出结果应报告覆盖后的输出路径。")
+	assert_true(
+		GFVariantData.get_option_bool(export_result, "success"),
+		"Profile 应允许本次导出覆盖输出路径。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(export_result, "output_path"),
+		override_output_path,
+		"导出结果应报告覆盖后的输出路径。"
+	)
 	assert_false(default_path_exists, "覆盖输出路径时不应写入 Profile 默认路径。")
 	assert_not_null(loaded_override, "覆盖输出路径应保存数据库资源。")
 
@@ -1044,50 +1950,107 @@ func test_pipeline_profile_uses_export_output_override() -> void:
 func test_pipeline_profile_build_options_do_not_include_runner_options() -> void:
 	var profile: GFConfigPipelineProfile = GFConfigPipelineProfile.new()
 	profile.database_id = &"main"
-	profile.build_options = { "metadata": { "owner": "profile" } }
+	profile.build_options = {
+		"metadata": { "owner": "profile" },
+	}
 
-	var build_options: Dictionary = profile.make_build_options({
-		"changed_only": true,
-		"manifest_path": "user://ignored.manifest.json",
-		"manifest_options": { "indent": "" },
-		"output_path": "user://ignored.tres",
-		"database_id": &"override",
-		"metadata": { "owner": "override" },
-	})
+	var build_options: Dictionary = profile.make_build_options(
+		{
+			"changed_only": true,
+			"manifest_path": "user://ignored.manifest.json",
+			"manifest_options": { "indent": "" },
+			"output_path": "user://ignored.tres",
+			"database_id": &"override",
+			"metadata": { "owner": "override" },
+		}
+	)
 	var metadata: Dictionary = GFVariantData.get_option_dictionary(build_options, "metadata")
 
-	assert_eq(GFVariantData.get_option_string_name(build_options, "database_id"), &"override", "构建白名单选项仍应允许覆盖 database_id。")
-	assert_eq(GFVariantData.get_option_string(metadata, "owner"), "override", "构建白名单选项仍应允许覆盖 metadata。")
-	assert_false(build_options.has("changed_only"), "runner 选项不应进入 build options。")
-	assert_false(build_options.has("manifest_path"), "manifest 输出路径不应进入 build options。")
-	assert_false(build_options.has("manifest_options"), "manifest 选项不应进入 build options。")
-	assert_false(build_options.has("output_path"), "保存输出路径不应进入 build options。")
+	assert_eq(
+		GFVariantData.get_option_string_name(build_options, "database_id"),
+		&"override",
+		"构建白名单选项仍应允许覆盖 database_id。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(metadata, "owner"),
+		"override",
+		"构建白名单选项仍应允许覆盖 metadata。"
+	)
+	assert_false(
+		build_options.has("changed_only"),
+		"runner 选项不应进入 build options。"
+	)
+	assert_false(
+		build_options.has("manifest_path"),
+		"manifest 输出路径不应进入 build options。"
+	)
+	assert_false(
+		build_options.has("manifest_options"),
+		"manifest 选项不应进入 build options。"
+	)
+	assert_false(
+		build_options.has("output_path"),
+		"保存输出路径不应进入 build options。"
+	)
 
 
 func test_pipeline_profile_reports_empty_sources() -> void:
 	var profile: GFConfigPipelineProfile = GFConfigPipelineProfile.new()
 	profile.profile_id = &"empty"
 
-	var build_result: Dictionary = _call_pipeline(&"build_profile", [profile])
+	var build_result: Dictionary = _call_pipeline(
+		&"build_profile",
+		[profile]
+	)
 	var report: Dictionary = GFVariantData.get_option_dictionary(build_result, "report")
 
-	assert_false(GFVariantData.get_option_bool(build_result, "success"), "空来源 Profile 不应被当作成功构建。")
-	assert_true(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "empty_pipeline_sources"), "空来源 Profile 应返回明确问题类型。")
+	assert_false(
+		GFVariantData.get_option_bool(build_result, "success"),
+		"空来源 Profile 不应被当作成功构建。"
+	)
+	assert_true(
+		_has_issue_kind(
+			GFVariantData.get_option_array(report, "issues"),
+			"empty_pipeline_sources"
+		),
+		"空来源 Profile 应返回明确问题类型。"
+	)
 
 
 func test_pipeline_database_reports_empty_sources() -> void:
-	var build_result: Dictionary = _call_pipeline(&"build_database", [[], { "database_id": &"empty" }])
+	var build_result: Dictionary = _call_pipeline(
+		&"build_database",
+		[
+			[],
+			{ "database_id": &"empty" },
+		]
+	)
 	var report: Dictionary = GFVariantData.get_option_dictionary(build_result, "report")
 	var database: GFConfigDatabaseResource = _get_database_from_result(build_result)
 
-	assert_false(GFVariantData.get_option_bool(build_result, "success"), "空来源数据库不应被当作成功构建。")
+	assert_false(
+		GFVariantData.get_option_bool(build_result, "success"),
+		"空来源数据库不应被当作成功构建。"
+	)
 	assert_not_null(database, "失败结果仍应返回数据库资源以便调用方检查上下文。")
-	assert_true(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "empty_table_sources"), "空来源数据库应返回明确问题类型。")
+	assert_true(
+		_has_issue_kind(
+			GFVariantData.get_option_array(report, "issues"),
+			"empty_table_sources"
+		),
+		"空来源数据库应返回明确问题类型。"
+	)
 
 
 func test_pipeline_database_rejects_duplicate_table_sources() -> void:
-	var first_path: String = _write_text("user://gf_config_pipeline_dupe_a_%d.csv" % Time.get_ticks_usec(), "id,name,power\n1,Potion,2.5\n")
-	var second_path: String = _write_text("user://gf_config_pipeline_dupe_b_%d.csv" % Time.get_ticks_usec(), "id,name,power\n2,Ether,3\n")
+	var first_path: String = _write_text(
+		"user://gf_config_pipeline_dupe_a_%d.csv" % Time.get_ticks_usec(),
+		"id,name,power\n1,Potion,2.5\n"
+	)
+	var second_path: String = _write_text(
+		"user://gf_config_pipeline_dupe_b_%d.csv" % Time.get_ticks_usec(),
+		"id,name,power\n2,Ether,3\n"
+	)
 	var first_source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
 	first_source.table_name = &"items"
 	first_source.source_path = first_path
@@ -1097,60 +2060,116 @@ func test_pipeline_database_rejects_duplicate_table_sources() -> void:
 	second_source.source_path = second_path
 	second_source.schema = _make_item_schema()
 
-	var build_result: Dictionary = _call_pipeline(&"build_database", [[first_source, second_source], { "database_id": &"main" }])
+	var build_result: Dictionary = _call_pipeline(
+		&"build_database",
+		[
+			[first_source, second_source],
+			{ "database_id": &"main" },
+		]
+	)
 	var report: Dictionary = GFVariantData.get_option_dictionary(build_result, "report")
 	var database: GFConfigDatabaseResource = _get_database_from_result(build_result)
 
-	assert_false(GFVariantData.get_option_bool(build_result, "success"), "重复 table key 的来源不应静默覆盖前一个表。")
-	assert_true(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "duplicate_table_source"), "报告应包含重复来源错误。")
-	assert_eq(database.get_table_ids().size(), 1, "重复来源失败时数据库只应保留首个成功注册表，避免覆盖。")
+	assert_false(
+		GFVariantData.get_option_bool(build_result, "success"),
+		"重复 table key 的来源不应静默覆盖前一个表。"
+	)
+	assert_true(
+		_has_issue_kind(
+			GFVariantData.get_option_array(report, "issues"),
+			"duplicate_table_source"
+		),
+		"报告应包含重复来源错误。"
+	)
+	assert_eq(
+		database.get_table_ids().size(),
+		1,
+		"重复来源失败时数据库只应保留首个成功注册表，避免覆盖。"
+	)
 
 
 func test_pipeline_save_database_rejects_gf_source_output_path_by_default() -> void:
 	var database: GFConfigDatabaseResource = _build_items_database_from_csv("gf_source_output")
 	var output_path: String = "res://addons/gf/tools/config_pipeline/should_not_write_config_pipeline_test.tres"
 
-	var save_result: Dictionary = _call_pipeline(&"save_database", [database, output_path])
+	var save_result: Dictionary = _call_pipeline(
+		&"save_database",
+		[database, output_path]
+	)
 
-	assert_false(GFVariantData.get_option_bool(save_result, "success"), "默认不应允许导表输出写入 GF 框架源码目录。")
-	assert_eq(GFVariantData.get_option_int(save_result, "error_code"), ERR_INVALID_PARAMETER, "路径策略失败应报告参数错误。")
-	assert_false(FileAccess.file_exists(output_path), "被路径策略拒绝的产物不应落盘。")
+	assert_false(
+		GFVariantData.get_option_bool(save_result, "success"),
+		"默认不应允许导表输出写入 GF 框架源码目录。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(save_result, "error_code"),
+		ERR_INVALID_PARAMETER,
+		"路径策略失败应报告参数错误。"
+	)
+	assert_false(
+		FileAccess.file_exists(output_path),
+		"被路径策略拒绝的产物不应落盘。"
+	)
 
 
 func test_pipeline_save_database_rejects_canonicalized_gf_source_output_path() -> void:
 	var database: GFConfigDatabaseResource = _build_items_database_from_csv("gf_source_output_canonical")
 	var output_path: String = "res://addons/./gf/tools/config_pipeline/should_not_write_config_pipeline_test.tres"
 
-	var save_result: Dictionary = _call_pipeline(&"save_database", [database, output_path])
+	var save_result: Dictionary = _call_pipeline(
+		&"save_database",
+		[database, output_path]
+	)
 
-	assert_false(GFVariantData.get_option_bool(save_result, "success"), "默认不应允许 canonicalize 后落入 GF 源码目录的输出路径。")
-	assert_eq(GFVariantData.get_option_int(save_result, "error_code"), ERR_INVALID_PARAMETER, "路径策略失败应报告参数错误。")
-	assert_false(FileAccess.file_exists("res://addons/gf/tools/config_pipeline/should_not_write_config_pipeline_test.tres"), "被路径策略拒绝的产物不应落盘。")
+	assert_false(
+		GFVariantData.get_option_bool(save_result, "success"),
+		"默认不应允许 canonicalize 后落入 GF 源码目录的输出路径。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(save_result, "error_code"),
+		ERR_INVALID_PARAMETER,
+		"路径策略失败应报告参数错误。"
+	)
+	assert_false(
+		FileAccess.file_exists("res://addons/gf/tools/config_pipeline/should_not_write_config_pipeline_test.tres"),
+		"被路径策略拒绝的产物不应落盘。"
+	)
 
 
 func test_pipeline_public_writers_reject_bare_relative_output_uris() -> void:
 	var database: GFConfigDatabaseResource = _build_items_database_from_csv("relative_output_uri")
-	var save_resource_result: Dictionary = _call_pipeline(&"save_database", [
-		database,
-		"build/config.tres",
-		{ "dry_run": true },
-	])
-	var save_json_result: Dictionary = _call_pipeline(&"save_database", [
-		database,
-		"build/config.json",
-		{ "dry_run": true },
-	])
-	var access_result: Dictionary = _call_pipeline(&"generate_access", [
-		database,
-		"build/config_access.gd",
-		"RelativeConfigAccess",
-		"null",
-		{ "dry_run": true },
-	])
-	var manifest_result: Dictionary = GFConfigPipelineArtifactManifest.new().save_manifest(
-		"build/config.manifest.json",
-		{},
-		{ "dry_run": true }
+	var save_resource_result: Dictionary = _call_pipeline(
+		&"save_database",
+		[
+			database,
+			"build/config.tres",
+			{ "dry_run": true },
+		]
+	)
+	var save_json_result: Dictionary = _call_pipeline(
+		&"save_database",
+		[
+			database,
+			"build/config.json",
+			{ "dry_run": true },
+		]
+	)
+	var access_result: Dictionary = _call_pipeline(
+		&"generate_access",
+		[
+			database,
+			"build/config_access.gd",
+			"RelativeConfigAccess",
+			"null",
+			{ "dry_run": true },
+		]
+	)
+	var manifest_result: Dictionary = (
+		GFConfigPipelineArtifactManifest.new().save_manifest(
+			"build/config.manifest.json",
+			{},
+			{ "dry_run": true }
+		)
 	)
 
 	for result: Dictionary in [
@@ -1159,111 +2178,174 @@ func test_pipeline_public_writers_reject_bare_relative_output_uris() -> void:
 		access_result,
 		manifest_result,
 	]:
-		assert_false(GFVariantData.get_option_bool(result, "success"), "所有公开 writer 都应拒绝裸相对输出路径。")
-		assert_eq(GFVariantData.get_option_int(result, "error_code"), ERR_INVALID_PARAMETER, "URI 域失败应统一报告参数错误。")
-		assert_false(GFVariantData.get_option_bool(result, "written"), "URI 域失败不得产生物理写入。")
-		assert_true(GFVariantData.get_option_string(result, "error").contains("res:// 或 user://"), "URI 域错误应给出可执行迁移提示。")
+		assert_false(
+			GFVariantData.get_option_bool(result, "success"),
+			"所有公开 writer 都应拒绝裸相对输出路径。"
+		)
+		assert_eq(
+			GFVariantData.get_option_int(result, "error_code"),
+			ERR_INVALID_PARAMETER,
+			"URI 域失败应统一报告参数错误。"
+		)
+		assert_false(
+			GFVariantData.get_option_bool(result, "written"),
+			"URI 域失败不得产生物理写入。"
+		)
+		assert_true(
+			GFVariantData.get_option_string(result, "error").contains("res:// 或 user://"),
+			"URI 域错误应给出可执行迁移提示。"
+		)
 
 
 func test_pipeline_output_results_use_the_canonical_target_identity() -> void:
 	var suffix: int = Time.get_ticks_usec()
 	var database: GFConfigDatabaseResource = _build_items_database_from_csv("canonical_output_identity")
 	var raw_path: String = "  user:\\\\gf_config_pipeline_identity_%d/./config.json  " % suffix
-	var expected_path: String = _track_path(
-		"user://gf_config_pipeline_identity_%d/config.json" % suffix
-	)
+	var expected_path: String = _track_path("user://gf_config_pipeline_identity_%d/config.json" % suffix)
 
-	var save_result: Dictionary = _call_pipeline(&"save_database", [
-		database,
-		raw_path,
-		{ "dry_run": true },
-	])
+	var save_result: Dictionary = _call_pipeline(
+		&"save_database",
+		[
+			database,
+			raw_path,
+			{ "dry_run": true },
+		]
+	)
 	var artifact_report: Dictionary = GFVariantData.get_option_dictionary(save_result, "artifact_report")
 
-	assert_true(GFVariantData.get_option_bool(save_result, "success"), "可规范化的 user URI 应继续支持。")
-	assert_eq(GFVariantData.get_option_string(save_result, "path"), expected_path, "外层结果必须报告实际使用的 canonical target。")
-	assert_eq(GFVariantData.get_option_string(artifact_report, "path"), expected_path, "artifact report 必须与外层结果共享同一 target identity。")
+	assert_true(
+		GFVariantData.get_option_bool(save_result, "success"),
+		"可规范化的 user URI 应继续支持。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(save_result, "path"),
+		expected_path,
+		"外层结果必须报告实际使用的 canonical target。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(artifact_report, "path"),
+		expected_path,
+		"artifact report 必须与外层结果共享同一 target identity。"
+	)
 
 
 func test_pipeline_parent_output_path_opt_in_stays_inside_resource_uri_domain() -> void:
 	var suffix: int = Time.get_ticks_usec()
 	var database: GFConfigDatabaseResource = _build_items_database_from_csv("parent_output_uri")
 	var raw_path: String = "user://gf_config_pipeline_parent_%d/nested/../config.json" % suffix
-	var expected_path: String = _track_path(
-		"user://gf_config_pipeline_parent_%d/config.json" % suffix
+	var expected_path: String = _track_path("user://gf_config_pipeline_parent_%d/config.json" % suffix)
+
+	var rejected_result: Dictionary = _call_pipeline(
+		&"save_database",
+		[
+			database,
+			raw_path,
+			{ "dry_run": true },
+		]
+	)
+	var accepted_result: Dictionary = _call_pipeline(
+		&"save_database",
+		[
+			database,
+			raw_path,
+			{ "allow_parent_output_path": true, "dry_run": true, },
+		]
+	)
+	var artifact_report: Dictionary = GFVariantData.get_option_dictionary(accepted_result, "artifact_report")
+	var root_target_result: Dictionary = _call_pipeline(
+		&"save_database",
+		[
+			database,
+			"user://folder/..",
+			{
+				"allow_parent_output_path": true,
+				"dry_run": true,
+				"output_format": &"resource",
+			},
+		]
+	)
+	var root_uri_result: Dictionary = _call_pipeline(
+		&"save_database",
+		[
+			database,
+			"user://",
+			{ "dry_run": true, "output_format": &"resource", },
+		]
 	)
 
-	var rejected_result: Dictionary = _call_pipeline(&"save_database", [
-		database,
-		raw_path,
-		{ "dry_run": true },
-	])
-	var accepted_result: Dictionary = _call_pipeline(&"save_database", [
-		database,
-		raw_path,
-		{
-			"allow_parent_output_path": true,
-			"dry_run": true,
-		},
-	])
-	var artifact_report: Dictionary = GFVariantData.get_option_dictionary(accepted_result, "artifact_report")
-	var root_target_result: Dictionary = _call_pipeline(&"save_database", [
-		database,
-		"user://folder/..",
-		{
-			"allow_parent_output_path": true,
-			"dry_run": true,
-			"output_format": &"resource",
-		},
-	])
-	var root_uri_result: Dictionary = _call_pipeline(&"save_database", [
-		database,
-		"user://",
-		{
-			"dry_run": true,
-			"output_format": &"resource",
-		},
-	])
-
-	assert_false(GFVariantData.get_option_bool(rejected_result, "success"), "parent segment 默认仍应拒绝。")
-	assert_true(GFVariantData.get_option_bool(accepted_result, "success"), "显式 opt-in 应只允许 resource URI 内的规范化。")
-	assert_eq(GFVariantData.get_option_string(accepted_result, "path"), expected_path, "opt-in 结果必须返回规范化后的 resource URI。")
-	assert_eq(GFVariantData.get_option_string(artifact_report, "path"), expected_path, "下层 writer 必须使用同一规范化 target。")
-	assert_false(GFVariantData.get_option_bool(root_target_result, "success"), "parent opt-in 不能把文件 target 规范化为 URI 根。")
-	assert_false(GFVariantData.get_option_bool(root_uri_result, "success"), "resource URI 根本身不能作为文件 target。")
+	assert_false(
+		GFVariantData.get_option_bool(rejected_result, "success"),
+		"parent segment 默认仍应拒绝。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(accepted_result, "success"),
+		"显式 opt-in 应只允许 resource URI 内的规范化。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(accepted_result, "path"),
+		expected_path,
+		"opt-in 结果必须返回规范化后的 resource URI。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(artifact_report, "path"),
+		expected_path,
+		"下层 writer 必须使用同一规范化 target。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(root_target_result, "success"),
+		"parent opt-in 不能把文件 target 规范化为 URI 根。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(root_uri_result, "success"),
+		"resource URI 根本身不能作为文件 target。"
+	)
 
 
 func test_pipeline_manifest_absolute_output_bypass_no_longer_changes_uri_domain() -> void:
-	var manifest_result: Dictionary = GFConfigPipelineArtifactManifest.new().save_manifest(
-		"C:/outside/config.manifest.json",
-		{},
-		{
-			"allow_absolute_output_path": true,
-			"dry_run": true,
-		}
+	var manifest_result: Dictionary = (
+		GFConfigPipelineArtifactManifest.new().save_manifest(
+			"C:/outside/config.manifest.json",
+			{},
+			{ "allow_absolute_output_path": true, "dry_run": true, }
+		)
 	)
 
-	assert_false(GFVariantData.get_option_bool(manifest_result, "success"), "旧 absolute bypass 不得授权 host filesystem 输出。")
-	assert_eq(GFVariantData.get_option_int(manifest_result, "error_code"), ERR_INVALID_PARAMETER, "absolute URI 域失败应报告参数错误。")
-	assert_true(GFVariantData.get_option_string(manifest_result, "error").contains("res:// 或 user://"), "错误应指向受支持的 URI 域。")
-	assert_false(GFVariantData.get_option_bool(manifest_result, "written"), "被拒绝的绝对路径不得写入。")
+	assert_false(
+		GFVariantData.get_option_bool(manifest_result, "success"),
+		"旧 absolute bypass 不得授权 host filesystem 输出。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(manifest_result, "error_code"),
+		ERR_INVALID_PARAMETER,
+		"absolute URI 域失败应报告参数错误。"
+	)
+	assert_true(
+		GFVariantData.get_option_string(manifest_result, "error").contains("res:// 或 user://"),
+		"错误应指向受支持的 URI 域。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(manifest_result, "written"),
+		"被拒绝的绝对路径不得写入。"
+	)
 
 
 func test_pipeline_output_uri_policy_rejects_malformed_and_host_paths() -> void:
-	var invalid_paths: PackedStringArray = PackedStringArray([
-		"C:/outside/config.json",
-		"C:\\outside\\config.json",
-		"//server/share/config.json",
-		"/tmp/config.json",
-		"file://config.json",
-		"uid://abc",
-		"http://example.com/config.json",
-		"res:/config.json",
-		"RES://config.json",
-		"res://folder://config.json",
-		"res:////config.json",
-		"user://folder/",
-	])
+	var invalid_paths: PackedStringArray = PackedStringArray(
+		[
+			"C:/outside/config.json",
+			"C:\\outside\\config.json",
+			"//server/share/config.json",
+			"/tmp/config.json",
+			"file://config.json",
+			"uid://abc",
+			"http://example.com/config.json",
+			"res:/config.json",
+			"RES://config.json",
+			"res://folder://config.json",
+			"res:////config.json",
+			"user://folder/",
+		]
+	)
 
 	for invalid_path: String in invalid_paths:
 		var result: Dictionary = GF_CONFIG_OUTPUT_PATH_POLICY_SCRIPT.resolve_output_path(
@@ -1271,15 +2353,25 @@ func test_pipeline_output_uri_policy_rejects_malformed_and_host_paths() -> void:
 			{},
 			"测试产物"
 		)
-		assert_false(GFVariantData.get_option_bool(result, "success"), "非法输出 URI 必须拒绝：%s" % invalid_path)
-		assert_eq(GFVariantData.get_option_int(result, "error_code"), ERR_INVALID_PARAMETER, "非法输出 URI 应报告参数错误：%s" % invalid_path)
+		assert_false(
+			GFVariantData.get_option_bool(result, "success"),
+			"非法输出 URI 必须拒绝：%s" % invalid_path
+		)
+		assert_eq(
+			GFVariantData.get_option_int(result, "error_code"),
+			ERR_INVALID_PARAMETER,
+			"非法输出 URI 应报告参数错误：%s" % invalid_path
+		)
 
 	var root_escape_result: Dictionary = GF_CONFIG_OUTPUT_PATH_POLICY_SCRIPT.resolve_output_path(
 		"user://../config.json",
 		{ "allow_parent_output_path": true },
 		"测试产物"
 	)
-	assert_false(GFVariantData.get_option_bool(root_escape_result, "success"), "parent opt-in 也不得越过 resource URI 根。")
+	assert_false(
+		GFVariantData.get_option_bool(root_escape_result, "success"),
+		"parent opt-in 也不得越过 resource URI 根。"
+	)
 
 
 func test_pipeline_gf_source_protection_uses_an_exact_path_boundary() -> void:
@@ -1306,16 +2398,31 @@ func test_pipeline_gf_source_protection_uses_an_exact_path_boundary() -> void:
 		"测试产物"
 	)
 
-	assert_false(GFVariantData.get_option_bool(protected_result, "success"), "默认应保护精确 GF 源码根。")
+	assert_false(
+		GFVariantData.get_option_bool(protected_result, "success"),
+		"默认应保护精确 GF 源码根。"
+	)
 	for sibling_result: Dictionary in sibling_results:
-		assert_true(GFVariantData.get_option_bool(sibling_result, "success"), "相邻目录名不得被误判为 GF 源码根。")
-	assert_false(GFVariantData.get_option_bool(absolute_with_source_bypass, "success"), "GF 源码 bypass 不得扩大 URI 域。")
+		assert_true(
+			GFVariantData.get_option_bool(sibling_result, "success"),
+			"相邻目录名不得被误判为 GF 源码根。"
+		)
+	assert_false(
+		GFVariantData.get_option_bool(absolute_with_source_bypass, "success"),
+		"GF 源码 bypass 不得扩大 URI 域。"
+	)
 
 
 func test_pipeline_export_profile_preflights_access_before_writing_database() -> void:
-	var csv_path: String = _write_text("user://gf_config_pipeline_atomic_items_%d.csv" % Time.get_ticks_usec(), "id,name,power\n1,Potion,2.5\n")
+	var csv_path: String = _write_text(
+		"user://gf_config_pipeline_atomic_items_%d.csv" % Time.get_ticks_usec(),
+		"id,name,power\n1,Potion,2.5\n"
+	)
 	var output_path: String = _track_path("user://gf_config_pipeline_atomic_database_%d.tres" % Time.get_ticks_usec())
-	var access_path: String = _write_text("user://gf_config_pipeline_atomic_access_%d.gd" % Time.get_ticks_usec(), "# existing\n")
+	var access_path: String = _write_text(
+		"user://gf_config_pipeline_atomic_access_%d.gd" % Time.get_ticks_usec(),
+		"# existing\n"
+	)
 	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
 	source.table_name = &"items"
 	source.source_path = csv_path
@@ -1326,25 +2433,45 @@ func test_pipeline_export_profile_preflights_access_before_writing_database() ->
 	profile.output_path = output_path
 	profile.access_output_path = access_path
 	profile.access_class_name = "AtomicConfigAccess"
-	profile.access_options = {
-		"overwrite_existing": false,
-	}
+	profile.access_options = { "overwrite_existing": false, }
 	profile.sources = [source]
 
-	var export_result: Dictionary = _call_pipeline(&"export_profile", [profile])
+	var export_result: Dictionary = _call_pipeline(
+		&"export_profile",
+		[profile]
+	)
 	var save_result: Dictionary = GFVariantData.get_option_dictionary(export_result, "save_result")
 	var access_result: Dictionary = GFVariantData.get_option_dictionary(export_result, "access_result")
 
 	assert_push_warning("[GFGeneratedArtifactReport][generated_artifact_report.output_exists] Artifact operation for GFConfigAccessGenerator reported the following.\nThe target file already exists and was skipped: %s." % access_path)
-	assert_false(GFVariantData.get_option_bool(export_result, "success"), "访问器预检失败应让 Profile 导出整体失败。")
-	assert_true(GFVariantData.get_option_bool(save_result, "dry_run"), "导出失败时 save_result 应保留预检结果而非实际写入结果。")
-	assert_false(FileAccess.file_exists(output_path), "访问器预检失败时数据库不应提前写入。")
-	assert_false(GFVariantData.get_option_bool(access_result, "success"), "access_result 应报告预检失败。")
-	assert_eq(_read_text(access_path), "# existing\n", "访问器预检失败不应改写已有文件。")
+	assert_false(
+		GFVariantData.get_option_bool(export_result, "success"),
+		"访问器预检失败应让 Profile 导出整体失败。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(save_result, "dry_run"),
+		"导出失败时 save_result 应保留预检结果而非实际写入结果。"
+	)
+	assert_false(
+		FileAccess.file_exists(output_path),
+		"访问器预检失败时数据库不应提前写入。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(access_result, "success"),
+		"access_result 应报告预检失败。"
+	)
+	assert_eq(
+		_read_text(access_path),
+		"# existing\n",
+		"访问器预检失败不应改写已有文件。"
+	)
 
 
 func test_pipeline_runner_exports_profile_from_resource_path() -> void:
-	var csv_path: String = _write_text("user://gf_config_pipeline_runner_items_%d.csv" % Time.get_ticks_usec(), "id,name,power\n1,Potion,2.5\n")
+	var csv_path: String = _write_text(
+		"user://gf_config_pipeline_runner_items_%d.csv" % Time.get_ticks_usec(),
+		"id,name,power\n1,Potion,2.5\n"
+	)
 	var profile_path: String = _track_path("user://gf_config_pipeline_runner_profile_%d.tres" % Time.get_ticks_usec())
 	var output_path: String = _track_path("user://gf_config_pipeline_runner_database_%d.tres" % Time.get_ticks_usec())
 	var access_path: String = _track_path("user://gf_config_pipeline_runner_access_%d.gd" % Time.get_ticks_usec())
@@ -1359,93 +2486,216 @@ func test_pipeline_runner_exports_profile_from_resource_path() -> void:
 	profile.output_path = output_path
 	profile.access_output_path = access_path
 	profile.sources = [source]
-	assert_eq(ResourceSaver.save(profile, profile_path), OK, "测试 Profile 应能保存为 .tres。")
+	assert_eq(
+		ResourceSaver.save(profile, profile_path),
+		OK,
+		"测试 Profile 应能保存为 .tres。"
+	)
 
-	var run_result: Dictionary = _call_runner(&"export_profile_path", [profile_path])
+	var run_result: Dictionary = _call_runner(
+		&"export_profile_path",
+		[profile_path]
+	)
 	var database: GFConfigDatabaseResource = _get_database_from_result(run_result)
 	var loaded: GFConfigDatabaseResource = _load_database_resource(output_path)
 	var access_result: Dictionary = GFVariantData.get_option_dictionary(run_result, "access_result")
 
-	assert_true(GFVariantData.get_option_bool(run_result, "success"), "Runner 应能从 Profile 路径导出数据库资源。")
-	assert_eq(GFVariantData.get_option_string_name(run_result, "operation"), &"export", "Runner 应报告执行操作。")
-	assert_eq(GFVariantData.get_option_string(run_result, "profile_path"), profile_path, "Runner 应保留 Profile 路径。")
-	assert_eq(GFVariantData.get_option_string_name(run_result, "profile_id"), &"runner", "Runner 应报告 Profile ID。")
+	assert_true(
+		GFVariantData.get_option_bool(run_result, "success"),
+		"Runner 应能从 Profile 路径导出数据库资源。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(run_result, "operation"),
+		&"export",
+		"Runner 应报告执行操作。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(run_result, "profile_path"),
+		profile_path,
+		"Runner 应保留 Profile 路径。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(run_result, "profile_id"),
+		&"runner",
+		"Runner 应报告 Profile ID。"
+	)
 	assert_not_null(database, "Runner 应返回导出的数据库资源。")
 	assert_not_null(loaded, "Runner 应保存数据库资源到 Profile output_path。")
-	assert_true(GFVariantData.get_option_bool(access_result, "success"), "Runner 应透传访问器生成结果。")
-	assert_true(FileAccess.file_exists(ProjectSettings.globalize_path(access_path)), "Runner 应按 Profile 生成访问器脚本。")
+	assert_true(
+		GFVariantData.get_option_bool(access_result, "success"),
+		"Runner 应透传访问器生成结果。"
+	)
+	assert_true(
+		FileAccess.file_exists(ProjectSettings.globalize_path(access_path)),
+		"Runner 应按 Profile 生成访问器脚本。"
+	)
 
 
 func test_pipeline_runner_writes_manifest_for_changed_only_export() -> void:
-	var csv_path: String = _write_text("user://gf_config_pipeline_manifest_items_%d.csv" % Time.get_ticks_usec(), "id,name,power\n1,Potion,2.5\n")
+	var csv_path: String = _write_text(
+		"user://gf_config_pipeline_manifest_items_%d.csv" % Time.get_ticks_usec(),
+		"id,name,power\n1,Potion,2.5\n"
+	)
 	var profile_path: String = _track_path("user://gf_config_pipeline_manifest_profile_%d.tres" % Time.get_ticks_usec())
 	var output_path: String = _track_path("user://gf_config_pipeline_manifest_database_%d.json" % Time.get_ticks_usec())
 	var manifest_path: String = _track_path("user://gf_config_pipeline_manifest_database_%d.manifest.json" % Time.get_ticks_usec())
-	_save_runner_profile(&"manifest", csv_path, profile_path, output_path)
+	_save_runner_profile(
+		&"manifest",
+		csv_path,
+		profile_path,
+		output_path
+	)
 
-	var run_result: Dictionary = _call_runner(&"export_profile_path", [profile_path, {
-		"changed_only": true,
-		"manifest_path": manifest_path,
-	}])
+	var run_result: Dictionary = _call_runner(
+		&"export_profile_path",
+		[
+			profile_path,
+			{ "changed_only": true, "manifest_path": manifest_path, },
+		]
+	)
 	var manifest_result: Dictionary = GFVariantData.get_option_dictionary(run_result, "manifest_result")
 	var manifest_data: Dictionary = _load_json_dictionary(manifest_path)
 
-	assert_true(GFVariantData.get_option_bool(run_result, "success"), "changed-only 首次导出应成功写入产物。")
-	assert_false(GFVariantData.get_option_bool(run_result, "skipped"), "首次导出没有 fresh manifest，不应跳过。")
-	assert_true(FileAccess.file_exists(output_path), "首次导出应写入数据库 JSON。")
-	assert_true(FileAccess.file_exists(manifest_path), "首次导出应写入 manifest。")
-	assert_true(GFVariantData.get_option_bool(manifest_result, "success"), "manifest 保存结果应成功。")
-	assert_eq(GFVariantData.get_option_string(manifest_data, "format"), GFConfigPipelineArtifactManifest.FORMAT, "manifest 应包含稳定格式标识。")
-	assert_false(GFVariantData.get_option_string(manifest_data, "input_digest").is_empty(), "manifest 应记录输入摘要。")
-	assert_false(GFVariantData.get_option_string(manifest_data, "compiler_digest").is_empty(), "manifest 应记录编译器摘要。")
+	assert_true(
+		GFVariantData.get_option_bool(run_result, "success"),
+		"changed-only 首次导出应成功写入产物。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(run_result, "skipped"),
+		"首次导出没有 fresh manifest，不应跳过。"
+	)
+	assert_true(
+		FileAccess.file_exists(output_path),
+		"首次导出应写入数据库 JSON。"
+	)
+	assert_true(
+		FileAccess.file_exists(manifest_path),
+		"首次导出应写入 manifest。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(manifest_result, "success"),
+		"manifest 保存结果应成功。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(manifest_data, "format"),
+		GFConfigPipelineArtifactManifest.FORMAT,
+		"manifest 应包含稳定格式标识。"
+	)
+	assert_false(
+		GFVariantData.get_option_string(manifest_data, "input_digest").is_empty(),
+		"manifest 应记录输入摘要。"
+	)
+	assert_false(
+		GFVariantData.get_option_string(manifest_data, "compiler_digest").is_empty(),
+		"manifest 应记录编译器摘要。"
+	)
 	var compiler_fingerprint: Dictionary = GFVariantData.get_option_dictionary(manifest_data, "compiler_fingerprint")
-	assert_gt(GFVariantData.get_option_int(compiler_fingerprint, "contract_version"), 0, "编译器指纹应声明正数契约版本。")
-	assert_false(GFVariantData.get_option_array(compiler_fingerprint, "stage_entries").is_empty(), "编译器指纹应记录实际阶段实现。")
+	assert_gt(
+		GFVariantData.get_option_int(compiler_fingerprint, "contract_version"),
+		0,
+		"编译器指纹应声明正数契约版本。"
+	)
+	assert_false(
+		GFVariantData.get_option_array(compiler_fingerprint, "stage_entries").is_empty(),
+		"编译器指纹应记录实际阶段实现。"
+	)
 
 
 func test_pipeline_runner_rejects_manifest_path_inside_gf_source_by_default() -> void:
-	var csv_path: String = _write_text("user://gf_config_pipeline_manifest_reject_items_%d.csv" % Time.get_ticks_usec(), "id,name,power\n1,Potion,2.5\n")
+	var csv_path: String = _write_text(
+		"user://gf_config_pipeline_manifest_reject_items_%d.csv" % Time.get_ticks_usec(),
+		"id,name,power\n1,Potion,2.5\n"
+	)
 	var profile_path: String = _track_path("user://gf_config_pipeline_manifest_reject_profile_%d.tres" % Time.get_ticks_usec())
 	var output_path: String = _track_path("user://gf_config_pipeline_manifest_reject_database_%d.json" % Time.get_ticks_usec())
-	var manifest_path: String = "res://addons/./gf/tools/config_pipeline/should_not_write_config_pipeline_test.manifest.json"
-	_save_runner_profile(&"manifest_reject", csv_path, profile_path, output_path)
+	var manifest_path: String = ("res://addons/./gf/tools/config_pipeline/should_not_write_config_pipeline_test.manifest.json")
+	_save_runner_profile(
+		&"manifest_reject",
+		csv_path,
+		profile_path,
+		output_path
+	)
 
-	var run_result: Dictionary = _call_runner(&"export_profile_path", [profile_path, {
-		"changed_only": true,
-		"manifest_path": manifest_path,
-	}])
+	var run_result: Dictionary = _call_runner(
+		&"export_profile_path",
+		[
+			profile_path,
+			{ "changed_only": true, "manifest_path": manifest_path, },
+		]
+	)
 	var manifest_result: Dictionary = GFVariantData.get_option_dictionary(run_result, "manifest_result")
 
-	assert_false(GFVariantData.get_option_bool(run_result, "success"), "manifest 路径写入 GF 源码目录时导出应失败。")
-	assert_false(GFVariantData.get_option_bool(manifest_result, "success"), "manifest 保存结果应报告失败。")
-	assert_eq(GFVariantData.get_option_int(manifest_result, "error_code"), ERR_INVALID_PARAMETER, "manifest 路径策略失败应报告参数错误。")
-	assert_false(FileAccess.file_exists("res://addons/gf/tools/config_pipeline/should_not_write_config_pipeline_test.manifest.json"), "被路径策略拒绝的 manifest 不应落盘。")
+	assert_false(
+		GFVariantData.get_option_bool(run_result, "success"),
+		"manifest 路径写入 GF 源码目录时导出应失败。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(manifest_result, "success"),
+		"manifest 保存结果应报告失败。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(manifest_result, "error_code"),
+		ERR_INVALID_PARAMETER,
+		"manifest 路径策略失败应报告参数错误。"
+	)
+	assert_false(
+		FileAccess.file_exists("res://addons/gf/tools/config_pipeline/should_not_write_config_pipeline_test.manifest.json"),
+		"被路径策略拒绝的 manifest 不应落盘。"
+	)
 
 
 func test_pipeline_runner_rejects_overwriting_unowned_manifest_before_commit() -> void:
-	var csv_path: String = _write_text("user://gf_config_pipeline_manifest_owner_items_%d.csv" % Time.get_ticks_usec(), "id,name,power\n1,Potion,2.5\n")
+	var csv_path: String = _write_text(
+		"user://gf_config_pipeline_manifest_owner_items_%d.csv" % Time.get_ticks_usec(),
+		"id,name,power\n1,Potion,2.5\n"
+	)
 	var profile_path: String = _track_path("user://gf_config_pipeline_manifest_owner_profile_%d.tres" % Time.get_ticks_usec())
 	var output_path: String = _track_path("user://gf_config_pipeline_manifest_owner_database_%d.json" % Time.get_ticks_usec())
 	var manifest_path: String = _write_text(
 		"user://gf_config_pipeline_manifest_owner_%d.manifest.json" % Time.get_ticks_usec(),
 		"{\"manual\":true}\n"
 	)
-	_save_runner_profile(&"manifest_owner", csv_path, profile_path, output_path)
+	_save_runner_profile(
+		&"manifest_owner",
+		csv_path,
+		profile_path,
+		output_path
+	)
 
-	var run_result: Dictionary = _call_runner(&"export_profile_path", [profile_path, {
-		"changed_only": true,
-		"manifest_path": manifest_path,
-	}])
+	var run_result: Dictionary = _call_runner(
+		&"export_profile_path",
+		[
+			profile_path,
+			{ "changed_only": true, "manifest_path": manifest_path, },
+		]
+	)
 	var manifest_result: Dictionary = GFVariantData.get_option_dictionary(run_result, "manifest_result")
 
-	assert_false(GFVariantData.get_option_bool(run_result, "success"), "未拥有的 manifest 必须在提交任一产物前被拒绝。")
-	assert_eq(GFVariantData.get_option_int(manifest_result, "error_code"), ERR_UNAUTHORIZED, "manifest ownership 失败应报告未授权。")
-	assert_false(FileAccess.file_exists(output_path), "manifest ownership 预检失败不得留下数据库产物。")
-	assert_eq(_read_text(manifest_path), "{\"manual\":true}\n", "拒绝覆盖时必须保留原 manifest。")
+	assert_false(
+		GFVariantData.get_option_bool(run_result, "success"),
+		"未拥有的 manifest 必须在提交任一产物前被拒绝。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(manifest_result, "error_code"),
+		ERR_UNAUTHORIZED,
+		"manifest ownership 失败应报告未授权。"
+	)
+	assert_false(
+		FileAccess.file_exists(output_path),
+		"manifest ownership 预检失败不得留下数据库产物。"
+	)
+	assert_eq(
+		_read_text(manifest_path),
+		"{\"manual\":true}\n",
+		"拒绝覆盖时必须保留原 manifest。"
+	)
 
 
 func test_pipeline_runner_rolls_back_all_outputs_when_manifest_commit_fails() -> void:
-	var csv_path: String = _write_text("user://gf_config_pipeline_manifest_tx_items_%d.csv" % Time.get_ticks_usec(), "id,name,power\n1,Potion,2.5\n")
+	var csv_path: String = _write_text(
+		"user://gf_config_pipeline_manifest_tx_items_%d.csv" % Time.get_ticks_usec(),
+		"id,name,power\n1,Potion,2.5\n"
+	)
 	var profile_path: String = _track_path("user://gf_config_pipeline_manifest_tx_profile_%d.tres" % Time.get_ticks_usec())
 	var output_path: String = _track_path("user://gf_config_pipeline_manifest_tx_database_%d.json" % Time.get_ticks_usec())
 	var access_path: String = _track_path("user://gf_config_pipeline_manifest_tx_access_%d.gd" % Time.get_ticks_usec())
@@ -1466,73 +2716,150 @@ func test_pipeline_runner_rolls_back_all_outputs_when_manifest_commit_fails() ->
 	profile.access_output_path = access_path
 	profile.access_class_name = "ManifestTransactionAccess"
 	profile.sources = [source]
-	assert_eq(ResourceSaver.save(profile, profile_path), OK, "测试 Profile 应能保存为 .tres。")
+	assert_eq(
+		ResourceSaver.save(profile, profile_path),
+		OK,
+		"测试 Profile 应能保存为 .tres。"
+	)
 
-	var run_result: Dictionary = _call_runner(&"export_profile_path", [profile_path, {
-		"write_manifest": true,
-		"manifest_path": manifest_path,
-	}])
+	var run_result: Dictionary = _call_runner(
+		&"export_profile_path",
+		[
+			profile_path,
+			{ "write_manifest": true, "manifest_path": manifest_path, },
+		]
+	)
 	var manifest_result: Dictionary = GFVariantData.get_option_dictionary(run_result, "manifest_result")
 
 	assert_push_error("[GFGeneratedArtifactReport][generated_artifact_report.temporary_file_open_failed] Artifact operation for GFConfigPipelineArtifactManifest reported the following.\nCould not write the text artifact temporary file")
-	assert_false(GFVariantData.get_option_bool(run_result, "success"), "manifest commit 失败必须让同一 operation transaction 整体失败。")
-	assert_false(GFVariantData.get_option_bool(manifest_result, "success"), "manifest_result 应保留最终写入失败。")
-	assert_false(FileAccess.file_exists(output_path), "manifest commit 失败后必须回滚新数据库。")
-	assert_false(FileAccess.file_exists(access_path), "manifest commit 失败后必须回滚新访问器。")
+	assert_false(
+		GFVariantData.get_option_bool(run_result, "success"),
+		"manifest commit 失败必须让同一 operation transaction 整体失败。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(manifest_result, "success"),
+		"manifest_result 应保留最终写入失败。"
+	)
+	assert_false(
+		FileAccess.file_exists(output_path),
+		"manifest commit 失败后必须回滚新数据库。"
+	)
+	assert_false(
+		FileAccess.file_exists(access_path),
+		"manifest commit 失败后必须回滚新访问器。"
+	)
 	assert_false(
 		FileAccess.file_exists(access_uid_path),
 		"批量事务中的 constituent 不得提前 scan 并留下未纳入回滚的 .gd.uid。"
 	)
-	assert_false(FileAccess.file_exists(manifest_path), "失败事务不得留下 manifest 半成品。")
+	assert_false(
+		FileAccess.file_exists(manifest_path),
+		"失败事务不得留下 manifest 半成品。"
+	)
 
 
 func test_pipeline_runner_fails_freshness_before_hashing_over_budget_source() -> void:
-	var csv_path: String = _write_text("user://gf_config_pipeline_freshness_budget_items_%d.csv" % Time.get_ticks_usec(), "id,name,power\n1,Potion,2.5\n")
+	var csv_path: String = _write_text(
+		"user://gf_config_pipeline_freshness_budget_items_%d.csv" % Time.get_ticks_usec(),
+		"id,name,power\n1,Potion,2.5\n"
+	)
 	var profile_path: String = _track_path("user://gf_config_pipeline_freshness_budget_profile_%d.tres" % Time.get_ticks_usec())
 	var output_path: String = _track_path("user://gf_config_pipeline_freshness_budget_database_%d.json" % Time.get_ticks_usec())
 	var manifest_path: String = _track_path("user://gf_config_pipeline_freshness_budget_%d.manifest.json" % Time.get_ticks_usec())
-	_save_runner_profile(&"freshness_budget", csv_path, profile_path, output_path)
+	_save_runner_profile(
+		&"freshness_budget",
+		csv_path,
+		profile_path,
+		output_path
+	)
 
-	var run_result: Dictionary = _call_runner(&"export_profile_path", [profile_path, {
-		"changed_only": true,
-		"manifest_path": manifest_path,
-		"max_freshness_file_bytes": 8,
-	}])
+	var run_result: Dictionary = _call_runner(
+		&"export_profile_path",
+		[
+			profile_path,
+			{
+				"changed_only": true,
+				"manifest_path": manifest_path,
+				"max_freshness_file_bytes": 8,
+			},
+		]
+	)
 	var freshness_report: Dictionary = GFVariantData.get_option_dictionary(run_result, "freshness_report")
 	var scan_report: Dictionary = GFVariantData.get_option_dictionary(freshness_report, "scan_report")
 
-	assert_false(GFVariantData.get_option_bool(run_result, "success"), "freshness 单文件预算超限必须直接失败。")
-	assert_eq(GFVariantData.get_option_string(scan_report, "error_code"), "freshness_file_budget_exceeded", "失败应暴露稳定预算错误码。")
-	assert_eq(GFVariantData.get_option_int(scan_report, "hashed_bytes"), 0, "单文件预算应在进入哈希循环前拒绝。")
-	assert_false(FileAccess.file_exists(output_path), "freshness 预算失败不得继续导出数据库。")
-	assert_false(FileAccess.file_exists(manifest_path), "freshness 预算失败不得写入 manifest。")
+	assert_false(
+		GFVariantData.get_option_bool(run_result, "success"),
+		"freshness 单文件预算超限必须直接失败。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(scan_report, "error_code"),
+		"freshness_file_budget_exceeded",
+		"失败应暴露稳定预算错误码。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(scan_report, "hashed_bytes"),
+		0,
+		"单文件预算应在进入哈希循环前拒绝。"
+	)
+	assert_false(
+		FileAccess.file_exists(output_path),
+		"freshness 预算失败不得继续导出数据库。"
+	)
+	assert_false(
+		FileAccess.file_exists(manifest_path),
+		"freshness 预算失败不得写入 manifest。"
+	)
 
 
 func test_pipeline_runner_preserves_validation_warnings_on_fresh_export() -> void:
 	var stamp: int = Time.get_ticks_usec()
 	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
 	source.table_name = &"items"
-	source.source_path = _write_text("user://gf_warning_items_%d.csv" % stamp, "id,name\n1,Potion\n")
+	source.source_path = _write_text(
+		"user://gf_warning_items_%d.csv" % stamp,
+		"id,name\n1,Potion\n"
+	)
 	source.infer_schema = false
 	var profile: GFConfigPipelineProfile = GFConfigPipelineProfile.new()
 	profile.profile_id = &"warnings"
 	profile.output_path = _track_path("user://gf_warning_database_%d.json" % stamp)
 	profile.sources = [source]
 	var profile_path: String = _track_path("user://gf_warning_profile_%d.tres" % stamp)
-	assert_eq(ResourceSaver.save(profile, profile_path), OK)
+	assert_eq(
+		ResourceSaver.save(profile, profile_path),
+		OK
+	)
 	var options: Dictionary = {
 		"changed_only": true,
 		"manifest_path": _track_path("user://gf_warning_manifest_%d.json" % stamp),
 		"validate_database": false,
 	}
-	var first: Dictionary = _call_runner(&"export_profile_path", [profile_path, options])
-	var second: Dictionary = _call_runner(&"export_profile_path", [profile_path, options])
+	var first: Dictionary = _call_runner(
+		&"export_profile_path",
+		[profile_path, options]
+	)
+	var second: Dictionary = _call_runner(
+		&"export_profile_path",
+		[profile_path, options]
+	)
 	var first_report: Dictionary = GFVariantData.get_option_dictionary(first, "report")
 	var second_report: Dictionary = GFVariantData.get_option_dictionary(second, "report")
-	assert_true(GFVariantData.get_option_bool(first, "success"), str(first))
-	assert_gt(GFVariantData.get_option_int(first_report, "warning_count"), 0)
-	assert_eq(GFVariantData.get_option_int(second_report, "warning_count"), GFVariantData.get_option_int(first_report, "warning_count"))
-	assert_eq(GFVariantData.get_option_array(second_report, "issues"), GFVariantData.get_option_array(first_report, "issues"))
+	assert_true(
+		GFVariantData.get_option_bool(first, "success"),
+		str(first)
+	)
+	assert_gt(
+		GFVariantData.get_option_int(first_report, "warning_count"),
+		0
+	)
+	assert_eq(
+		GFVariantData.get_option_int(second_report, "warning_count"),
+		GFVariantData.get_option_int(first_report, "warning_count")
+	)
+	assert_eq(
+		GFVariantData.get_option_array(second_report, "issues"),
+		GFVariantData.get_option_array(first_report, "issues")
+	)
 	var manifest_path: String = GFVariantData.get_option_string(options, "manifest_path")
 	var manifest: Dictionary = _load_json_dictionary(manifest_path)
 	var summary: Dictionary = GFVariantData.get_option_dictionary(manifest, "run_summary")
@@ -1541,37 +2868,80 @@ func test_pipeline_runner_preserves_validation_warnings_on_fresh_export() -> voi
 	stored_report["issue_count"] = 0
 	summary["report"] = stored_report
 	manifest["run_summary"] = summary
-	var _tampered_path: String = _write_text(manifest_path, JSON.stringify(manifest, "\t", true))
-	var tampered_result: Dictionary = _call_runner(&"export_profile_path", [profile_path, options])
-	assert_false(GFVariantData.get_option_bool(tampered_result, "success"),
-		"诊断计数属于摘要，篡改计数不得制造无诊断的 fresh 跳过。")
+	var _tampered_path: String = _write_text(
+		manifest_path,
+		JSON.stringify(
+			manifest,
+			"\t",
+			true
+		)
+	)
+	var tampered_result: Dictionary = _call_runner(
+		&"export_profile_path",
+		[profile_path, options]
+	)
+	assert_false(
+		GFVariantData.get_option_bool(tampered_result, "success"),
+		"诊断计数属于摘要，篡改计数不得制造无诊断的 fresh 跳过。"
+	)
 	assert_false(GFVariantData.get_option_bool(tampered_result, "skipped"))
 
 
 func test_pipeline_runner_skips_changed_only_when_manifest_is_fresh() -> void:
-	var csv_path: String = _write_text("user://gf_config_pipeline_manifest_fresh_items_%d.csv" % Time.get_ticks_usec(), "id,name,power\n1,Potion,2.5\n")
+	var csv_path: String = _write_text(
+		"user://gf_config_pipeline_manifest_fresh_items_%d.csv" % Time.get_ticks_usec(),
+		"id,name,power\n1,Potion,2.5\n"
+	)
 	var profile_path: String = _track_path("user://gf_config_pipeline_manifest_fresh_profile_%d.tres" % Time.get_ticks_usec())
 	var suffix: int = Time.get_ticks_usec()
 	var output_path: String = _track_path("user://gf_config_pipeline_manifest_fresh_database_%d.json" % suffix)
 	var manifest_path: String = _track_path("user://gf_config_pipeline_manifest_fresh_database_%d.manifest.json" % suffix)
 	var raw_output_path: String = "  user:\\\\gf_config_pipeline_manifest_fresh_database_%d.json  " % suffix
 	var raw_manifest_path: String = "user:\\\\gf_config_pipeline_manifest_fresh_database_%d.manifest.json" % suffix
-	_save_runner_profile(&"manifest_fresh", csv_path, profile_path, raw_output_path)
-	var options: Dictionary = {
-		"changed_only": true,
-		"manifest_path": raw_manifest_path,
-	}
-	var first_result: Dictionary = _call_runner(&"export_profile_path", [profile_path, options])
+	_save_runner_profile(
+		&"manifest_fresh",
+		csv_path,
+		profile_path,
+		raw_output_path
+	)
+	var options: Dictionary = { "changed_only": true, "manifest_path": raw_manifest_path, }
+	var first_result: Dictionary = _call_runner(
+		&"export_profile_path",
+		[profile_path, options]
+	)
 
-	var second_result: Dictionary = _call_runner(&"export_profile_path", [profile_path, options])
+	var second_result: Dictionary = _call_runner(
+		&"export_profile_path",
+		[profile_path, options]
+	)
 	var freshness_report: Dictionary = GFVariantData.get_option_dictionary(second_result, "freshness_report")
 
-	assert_true(GFVariantData.get_option_bool(first_result, "success"), "首次导出应成功建立 manifest。")
-	assert_true(GFVariantData.get_option_bool(second_result, "success"), "fresh manifest 命中时应返回成功。")
-	assert_true(GFVariantData.get_option_bool(second_result, "skipped"), "fresh manifest 命中时应跳过导出。")
-	assert_true(GFVariantData.get_option_bool(freshness_report, "fresh"), "freshness_report 应明确 fresh。")
-	assert_eq(GFVariantData.get_option_string(second_result, "output_path"), output_path, "跳过结果应使用 canonical database identity。")
-	assert_eq(GFVariantData.get_option_string(second_result, "manifest_path"), manifest_path, "跳过结果应保留 manifest 路径。")
+	assert_true(
+		GFVariantData.get_option_bool(first_result, "success"),
+		"首次导出应成功建立 manifest。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(second_result, "success"),
+		"fresh manifest 命中时应返回成功。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(second_result, "skipped"),
+		"fresh manifest 命中时应跳过导出。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(freshness_report, "fresh"),
+		"freshness_report 应明确 fresh。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(second_result, "output_path"),
+		output_path,
+		"跳过结果应使用 canonical database identity。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(second_result, "manifest_path"),
+		manifest_path,
+		"跳过结果应保留 manifest 路径。"
+	)
 
 
 func test_pipeline_runner_validates_output_uri_before_changed_only_skip() -> void:
@@ -1580,14 +2950,13 @@ func test_pipeline_runner_validates_output_uri_before_changed_only_skip() -> voi
 		"user://gf_config_pipeline_relative_skip_items_%d.csv" % suffix,
 		"id,name,power\n1,Potion,2.5\n"
 	)
-	var profile_path: String = _track_path(
-		"user://gf_config_pipeline_relative_skip_profile_%d.tres" % suffix
-	)
-	var manifest_path: String = _track_path(
-		"user://gf_config_pipeline_relative_skip_%d.manifest.json" % suffix
-	)
+	var profile_path: String = _track_path("user://gf_config_pipeline_relative_skip_profile_%d.tres" % suffix)
+	var manifest_path: String = _track_path("user://gf_config_pipeline_relative_skip_%d.manifest.json" % suffix)
 	var relative_output_path: String = "gf_config_pipeline_relative_skip_%d.json" % suffix
-	var _legacy_output_path: String = _write_text("res://%s" % relative_output_path, "{}\n")
+	var _legacy_output_path: String = _write_text(
+		"res://%s" % relative_output_path,
+		"{}\n"
+	)
 
 	_save_runner_profile(
 		&"relative_skip",
@@ -1600,77 +2969,144 @@ func test_pipeline_runner_validates_output_uri_before_changed_only_skip() -> voi
 		"Resource",
 		ResourceLoader.CACHE_MODE_IGNORE
 	)
-	assert_true(loaded_resource is GFConfigPipelineProfile, "测试应能加载相对输出路径 Profile。")
+	assert_true(
+		loaded_resource is GFConfigPipelineProfile,
+		"测试应能加载相对输出路径 Profile。"
+	)
 	if not (loaded_resource is GFConfigPipelineProfile):
 		return
 	var profile: GFConfigPipelineProfile = loaded_resource
-	var options: Dictionary = {
-		"changed_only": true,
-		"manifest_path": manifest_path,
-	}
+	var options: Dictionary = { "changed_only": true, "manifest_path": manifest_path, }
 	var manifest_helper: GFConfigPipelineArtifactManifest = GFConfigPipelineArtifactManifest.new()
 	var legacy_manifest: Dictionary = manifest_helper.make_manifest(
 		profile_path,
 		profile,
 		options
 	)
-	var legacy_manifest_result: Dictionary = manifest_helper.save_manifest(
-		manifest_path,
-		legacy_manifest
+	var legacy_manifest_result: Dictionary = manifest_helper.save_manifest(manifest_path, legacy_manifest)
+	assert_true(
+		GFVariantData.get_option_bool(legacy_manifest_result, "success"),
+		"测试应能建立旧合同下的 fresh manifest。"
 	)
-	assert_true(GFVariantData.get_option_bool(legacy_manifest_result, "success"), "测试应能建立旧合同下的 fresh manifest。")
 
-	var run_result: Dictionary = _call_runner(&"export_profile_path", [profile_path, options])
+	var run_result: Dictionary = _call_runner(
+		&"export_profile_path",
+		[profile_path, options]
+	)
 
-	assert_false(GFVariantData.get_option_bool(run_result, "success"), "Runner 必须在 freshness skip 前拒绝非法输出 URI。")
-	assert_false(GFVariantData.get_option_bool(run_result, "skipped"), "非法输出 URI 不得伪装成 changed-only 命中。")
-	assert_eq(GFVariantData.get_option_int(run_result, "error_code"), ERR_INVALID_PARAMETER, "Runner URI 失败应报告参数错误。")
-	assert_true(GFVariantData.get_option_string(run_result, "error").contains("res:// 或 user://"), "Runner 应返回 URI 迁移提示。")
-	assert_true(GFVariantData.get_option_dictionary(run_result, "freshness_report").is_empty(), "非法路径应在 freshness 扫描前失败。")
+	assert_false(
+		GFVariantData.get_option_bool(run_result, "success"),
+		"Runner 必须在 freshness skip 前拒绝非法输出 URI。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(run_result, "skipped"),
+		"非法输出 URI 不得伪装成 changed-only 命中。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(run_result, "error_code"),
+		ERR_INVALID_PARAMETER,
+		"Runner URI 失败应报告参数错误。"
+	)
+	assert_true(
+		GFVariantData.get_option_string(run_result, "error").contains("res:// 或 user://"),
+		"Runner 应返回 URI 迁移提示。"
+	)
+	assert_true(
+		GFVariantData.get_option_dictionary(run_result, "freshness_report").is_empty(),
+		"非法路径应在 freshness 扫描前失败。"
+	)
 
 
 func test_pipeline_runner_rebuilds_changed_only_when_source_changes() -> void:
-	var csv_path: String = _write_text("user://gf_config_pipeline_manifest_changed_items_%d.csv" % Time.get_ticks_usec(), "id,name,power\n1,Potion,2.5\n")
+	var csv_path: String = _write_text(
+		"user://gf_config_pipeline_manifest_changed_items_%d.csv" % Time.get_ticks_usec(),
+		"id,name,power\n1,Potion,2.5\n"
+	)
 	var profile_path: String = _track_path("user://gf_config_pipeline_manifest_changed_profile_%d.tres" % Time.get_ticks_usec())
 	var output_path: String = _track_path("user://gf_config_pipeline_manifest_changed_database_%d.json" % Time.get_ticks_usec())
 	var manifest_path: String = _track_path("user://gf_config_pipeline_manifest_changed_database_%d.manifest.json" % Time.get_ticks_usec())
-	_save_runner_profile(&"manifest_changed", csv_path, profile_path, output_path)
-	var options: Dictionary = {
-		"changed_only": true,
-		"manifest_path": manifest_path,
-	}
-	var first_result: Dictionary = _call_runner(&"export_profile_path", [profile_path, options])
+	_save_runner_profile(
+		&"manifest_changed",
+		csv_path,
+		profile_path,
+		output_path
+	)
+	var options: Dictionary = { "changed_only": true, "manifest_path": manifest_path, }
+	var first_result: Dictionary = _call_runner(
+		&"export_profile_path",
+		[profile_path, options]
+	)
 	var changed_csv_path: String = _write_text(csv_path, "id,name,power\n1,Potion,4.0\n")
 
-	var second_result: Dictionary = _call_runner(&"export_profile_path", [profile_path, options])
+	var second_result: Dictionary = _call_runner(
+		&"export_profile_path",
+		[profile_path, options]
+	)
 	var freshness_report: Dictionary = GFVariantData.get_option_dictionary(second_result, "freshness_report")
 	var reasons: Array = GFVariantData.get_option_array(freshness_report, "reasons")
 
-	assert_eq(changed_csv_path, csv_path, "测试应覆盖同一个来源文件。")
-	assert_true(GFVariantData.get_option_bool(first_result, "success"), "首次导出应成功建立 manifest。")
-	assert_true(GFVariantData.get_option_bool(second_result, "success"), "来源变化后应重新导出成功。")
-	assert_false(GFVariantData.get_option_bool(second_result, "skipped"), "来源变化后不应跳过导出。")
-	assert_false(GFVariantData.get_option_bool(freshness_report, "fresh"), "来源变化后 freshness_report 应为 false。")
-	assert_true(reasons.has("changed_input_digest"), "来源变化应由 input_digest 变化触发。")
+	assert_eq(
+		changed_csv_path,
+		csv_path,
+		"测试应覆盖同一个来源文件。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(first_result, "success"),
+		"首次导出应成功建立 manifest。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(second_result, "success"),
+		"来源变化后应重新导出成功。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(second_result, "skipped"),
+		"来源变化后不应跳过导出。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(freshness_report, "fresh"),
+		"来源变化后 freshness_report 应为 false。"
+	)
+	assert_true(
+		reasons.has("changed_input_digest"),
+		"来源变化应由 input_digest 变化触发。"
+	)
 
 
 func test_pipeline_runner_rebuilds_changed_only_when_explicit_schema_changes() -> void:
-	var csv_path: String = _write_text("user://gf_config_pipeline_manifest_schema_items_%d.csv" % Time.get_ticks_usec(), "id,name,power\n1,Potion,2.5\n")
+	var csv_path: String = _write_text(
+		"user://gf_config_pipeline_manifest_schema_items_%d.csv" % Time.get_ticks_usec(),
+		"id,name,power\n1,Potion,2.5\n"
+	)
 	var profile_path: String = _track_path("user://gf_config_pipeline_manifest_schema_profile_%d.tres" % Time.get_ticks_usec())
 	var output_path: String = _track_path("user://gf_config_pipeline_manifest_schema_database_%d.json" % Time.get_ticks_usec())
 	var manifest_path: String = _track_path("user://gf_config_pipeline_manifest_schema_database_%d.manifest.json" % Time.get_ticks_usec())
-	_save_runner_profile(&"manifest_schema", csv_path, profile_path, output_path)
-	var options: Dictionary = {
-		"changed_only": true,
-		"manifest_path": manifest_path,
-	}
-	var first_result: Dictionary = _call_runner(&"export_profile_path", [profile_path, options])
-	var loaded_resource: Resource = ResourceLoader.load(profile_path, "Resource", ResourceLoader.CACHE_MODE_IGNORE)
-	assert_true(loaded_resource is GFConfigPipelineProfile, "测试应能重新加载 Profile。")
+	_save_runner_profile(
+		&"manifest_schema",
+		csv_path,
+		profile_path,
+		output_path
+	)
+	var options: Dictionary = { "changed_only": true, "manifest_path": manifest_path, }
+	var first_result: Dictionary = _call_runner(
+		&"export_profile_path",
+		[profile_path, options]
+	)
+	var loaded_resource: Resource = ResourceLoader.load(
+		profile_path,
+		"Resource",
+		ResourceLoader.CACHE_MODE_IGNORE
+	)
+	assert_true(
+		loaded_resource is GFConfigPipelineProfile,
+		"测试应能重新加载 Profile。"
+	)
 	if not (loaded_resource is GFConfigPipelineProfile):
 		return
 	var profile: GFConfigPipelineProfile = loaded_resource
-	assert_false(profile.sources.is_empty(), "测试 Profile 应包含来源。")
+	assert_false(
+		profile.sources.is_empty(),
+		"测试 Profile 应包含来源。"
+	)
 	if profile.sources.is_empty():
 		return
 	var source: GFConfigPipelineTableSource = profile.sources[0]
@@ -1682,9 +3118,16 @@ func test_pipeline_runner_rebuilds_changed_only_when_explicit_schema_changes() -
 	if power_column == null:
 		return
 	power_column.value_type = GFConfigTableColumn.ValueType.STRING
-	assert_eq(ResourceSaver.save(profile, profile_path), OK, "修改后的测试 Profile 应能保存。")
+	assert_eq(
+		ResourceSaver.save(profile, profile_path),
+		OK,
+		"修改后的测试 Profile 应能保存。"
+	)
 
-	var second_result: Dictionary = _call_runner(&"export_profile_path", [profile_path, options])
+	var second_result: Dictionary = _call_runner(
+		&"export_profile_path",
+		[profile_path, options]
+	)
 	var freshness_report: Dictionary = GFVariantData.get_option_dictionary(second_result, "freshness_report")
 	var reasons: Array = GFVariantData.get_option_array(freshness_report, "reasons")
 	var database_json: Dictionary = _load_json_dictionary(output_path)
@@ -1694,17 +3137,38 @@ func test_pipeline_runner_rebuilds_changed_only_when_explicit_schema_changes() -
 	var first_record: Dictionary = GFVariantData.as_dictionary(records[0]) if not records.is_empty() else {}
 	var power_value: Variant = GFVariantData.get_option_value(first_record, "power")
 
-	assert_true(GFVariantData.get_option_bool(first_result, "success"), "测试前置导出应成功。")
-	assert_true(GFVariantData.get_option_bool(second_result, "success"), "显式 schema 变化后应重新导出成功。")
-	assert_false(GFVariantData.get_option_bool(second_result, "skipped"), "显式 schema 变化后不得跳过导出。")
-	assert_false(GFVariantData.get_option_bool(freshness_report, "fresh"), "显式 schema 变化后 freshness_report 应为 false。")
-	assert_true(reasons.has("changed_profile_digest"), "显式 schema 变化应由 profile_digest 变化触发。")
-	assert_true(power_value is String, "重新导出的记录应使用变化后的 schema 字段类型。")
+	assert_true(
+		GFVariantData.get_option_bool(first_result, "success"),
+		"测试前置导出应成功。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(second_result, "success"),
+		"显式 schema 变化后应重新导出成功。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(second_result, "skipped"),
+		"显式 schema 变化后不得跳过导出。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(freshness_report, "fresh"),
+		"显式 schema 变化后 freshness_report 应为 false。"
+	)
+	assert_true(
+		reasons.has("changed_profile_digest"),
+		"显式 schema 变化应由 profile_digest 变化触发。"
+	)
+	assert_true(
+		power_value is String,
+		"重新导出的记录应使用变化后的 schema 字段类型。"
+	)
 
 
 func test_pipeline_runner_rebuilds_changed_only_when_validator_implementation_changes() -> void:
 	var suffix: int = Time.get_ticks_usec()
-	var csv_path: String = _write_text("user://gf_config_pipeline_manifest_validator_items_%d.csv" % suffix, "id,name,power\n1,Potion,2.5\n")
+	var csv_path: String = _write_text(
+		"user://gf_config_pipeline_manifest_validator_items_%d.csv" % suffix,
+		"id,name,power\n1,Potion,2.5\n"
+	)
 	var validator_path: String = _write_text(
 		"user://gf_config_pipeline_manifest_validator_%d.gd" % suffix,
 		"@tool\n\nextends GFConfigValidationRule\n\nfunc _validate_value(_value: Variant, _context: Dictionary, _report: Dictionary) -> void:\n\tpass\n"
@@ -1718,7 +3182,10 @@ func test_pipeline_runner_rebuilds_changed_only_when_validator_implementation_ch
 	if validator_script == null:
 		return
 	var validator_value: Variant = validator_script.new()
-	assert_true(validator_value is GFConfigValidationRule, "测试脚本应实例化为校验规则。")
+	assert_true(
+		validator_value is GFConfigValidationRule,
+		"测试脚本应实例化为校验规则。"
+	)
 	if not (validator_value is GFConfigValidationRule):
 		return
 	var validator: GFConfigValidationRule = validator_value
@@ -1741,62 +3208,113 @@ func test_pipeline_runner_rebuilds_changed_only_when_validator_implementation_ch
 	profile.database_id = &"main"
 	profile.output_path = output_path
 	profile.sources = [source]
-	assert_eq(ResourceSaver.save(profile, profile_path), OK, "带自定义校验器的测试 Profile 应能保存。")
-	var options: Dictionary = {
-		"changed_only": true,
-		"manifest_path": manifest_path,
-	}
-	var first_result: Dictionary = _call_runner(&"export_profile_path", [profile_path, options])
+	assert_eq(
+		ResourceSaver.save(profile, profile_path),
+		OK,
+		"带自定义校验器的测试 Profile 应能保存。"
+	)
+	var options: Dictionary = { "changed_only": true, "manifest_path": manifest_path, }
+	var first_result: Dictionary = _call_runner(
+		&"export_profile_path",
+		[profile_path, options]
+	)
 	var first_manifest: Dictionary = GFVariantData.get_option_dictionary(first_result, "manifest")
 	var first_profile_entries: Array = GFVariantData.get_option_array(first_manifest, "profile_entries")
-	assert_true(_has_digest_entry_path(first_profile_entries, validator_path), "Profile 依赖摘要应覆盖校验器实现脚本。")
-	var changed_validator_path: String = _write_text(
-		validator_path,
-		"@tool\n\nextends GFConfigValidationRule\n\nfunc _validate_value(_value: Variant, _context: Dictionary, _report: Dictionary) -> void:\n\tpass\n\n# implementation revision\n"
+	assert_true(
+		_has_digest_entry_path(first_profile_entries, validator_path),
+		"Profile 依赖摘要应覆盖校验器实现脚本。"
 	)
+	var changed_validator_path: String = _write_text(validator_path, "@tool\n\nextends GFConfigValidationRule\n\nfunc _validate_value(_value: Variant, _context: Dictionary, _report: Dictionary) -> void:\n\tpass\n\n# implementation revision\n")
 
-	var second_result: Dictionary = _call_runner(&"export_profile_path", [profile_path, options])
+	var second_result: Dictionary = _call_runner(
+		&"export_profile_path",
+		[profile_path, options]
+	)
 	var freshness_report: Dictionary = GFVariantData.get_option_dictionary(second_result, "freshness_report")
 	var reasons: Array = GFVariantData.get_option_array(freshness_report, "reasons")
 
-	assert_eq(changed_validator_path, validator_path, "测试应覆盖同一个校验器实现文件。")
-	assert_true(GFVariantData.get_option_bool(first_result, "success"), "测试前置导出应成功。")
-	assert_true(GFVariantData.get_option_bool(second_result, "success"), "校验器实现变化后应重新导出成功。")
-	assert_false(GFVariantData.get_option_bool(second_result, "skipped"), "校验器实现变化后不得跳过导出。")
-	assert_true(reasons.has("changed_profile_digest"), "校验器实现变化应由 profile_digest 变化触发。")
+	assert_eq(
+		changed_validator_path,
+		validator_path,
+		"测试应覆盖同一个校验器实现文件。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(first_result, "success"),
+		"测试前置导出应成功。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(second_result, "success"),
+		"校验器实现变化后应重新导出成功。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(second_result, "skipped"),
+		"校验器实现变化后不得跳过导出。"
+	)
+	assert_true(
+		reasons.has("changed_profile_digest"),
+		"校验器实现变化应由 profile_digest 变化触发。"
+	)
 
 
 func test_pipeline_runner_rebuilds_changed_only_when_compiler_contract_changes() -> void:
 	var suffix: int = Time.get_ticks_usec()
-	var csv_path: String = _write_text("user://gf_config_pipeline_manifest_compiler_items_%d.csv" % suffix, "id,name,power\n1,Potion,2.5\n")
+	var csv_path: String = _write_text(
+		"user://gf_config_pipeline_manifest_compiler_items_%d.csv" % suffix,
+		"id,name,power\n1,Potion,2.5\n"
+	)
 	var profile_path: String = _track_path("user://gf_config_pipeline_manifest_compiler_profile_%d.tres" % suffix)
 	var output_path: String = _track_path("user://gf_config_pipeline_manifest_compiler_database_%d.json" % suffix)
 	var manifest_path: String = _track_path("user://gf_config_pipeline_manifest_compiler_database_%d.manifest.json" % suffix)
-	_save_runner_profile(&"manifest_compiler", csv_path, profile_path, output_path)
-	var options: Dictionary = {
-		"changed_only": true,
-		"manifest_path": manifest_path,
-	}
-	var first_result: Dictionary = _call_runner(&"export_profile_path", [profile_path, options])
+	_save_runner_profile(
+		&"manifest_compiler",
+		csv_path,
+		profile_path,
+		output_path
+	)
+	var options: Dictionary = { "changed_only": true, "manifest_path": manifest_path, }
+	var first_result: Dictionary = _call_runner(
+		&"export_profile_path",
+		[profile_path, options]
+	)
 	var prior_manifest: Dictionary = _load_json_dictionary(manifest_path)
 	var prior_fingerprint: Dictionary = GFVariantData.get_option_dictionary(prior_manifest, "compiler_fingerprint")
 	prior_fingerprint["contract_version"] = GFVariantData.get_option_int(prior_fingerprint, "contract_version") + 1
 	prior_manifest["compiler_fingerprint"] = prior_fingerprint
 	_resign_artifact_manifest_for_test(prior_manifest)
-	var rewritten_manifest_path: String = _write_text(manifest_path, JSON.stringify(prior_manifest, "\t", true))
+	var rewritten_manifest_path: String = _write_text(
+		manifest_path,
+		JSON.stringify(
+			prior_manifest,
+			"\t",
+			true
+		)
+	)
 
-	var second_result: Dictionary = _call_runner(&"export_profile_path", [profile_path, options])
+	var second_result: Dictionary = _call_runner(
+		&"export_profile_path",
+		[profile_path, options]
+	)
 	var freshness_report: Dictionary = GFVariantData.get_option_dictionary(second_result, "freshness_report")
 	var load_result: Dictionary = GFVariantData.get_option_dictionary(freshness_report, "load_result")
 	var reasons: Array = GFVariantData.get_option_array(freshness_report, "reasons")
 
-	assert_eq(rewritten_manifest_path, manifest_path, "测试应覆盖同一个 manifest。")
-	assert_true(GFVariantData.get_option_bool(first_result, "success"), "测试前置导出应成功。")
+	assert_eq(
+		rewritten_manifest_path,
+		manifest_path,
+		"测试应覆盖同一个 manifest。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(first_result, "success"),
+		"测试前置导出应成功。"
+	)
 	assert_true(
 		GFVariantData.get_option_bool(second_result, "success"),
 		"编译契约变化后应重新导出成功：%s" % GFVariantData.get_option_string(second_result, "error")
 	)
-	assert_false(GFVariantData.get_option_bool(second_result, "skipped"), "编译契约变化后不得跳过导出。")
+	assert_false(
+		GFVariantData.get_option_bool(second_result, "skipped"),
+		"编译契约变化后不得跳过导出。"
+	)
 	assert_true(
 		reasons.has("changed_compiler_digest"),
 		"编译契约变化应由 compiler_digest 变化触发：%s" % GFVariantData.get_option_string(load_result, "error")
@@ -1805,70 +3323,164 @@ func test_pipeline_runner_rebuilds_changed_only_when_compiler_contract_changes()
 
 func test_pipeline_runner_rebuilds_legacy_manifest_without_compiler_fingerprint() -> void:
 	var suffix: int = Time.get_ticks_usec()
-	var csv_path: String = _write_text("user://gf_config_pipeline_manifest_legacy_items_%d.csv" % suffix, "id,name,power\n1,Potion,2.5\n")
+	var csv_path: String = _write_text(
+		"user://gf_config_pipeline_manifest_legacy_items_%d.csv" % suffix,
+		"id,name,power\n1,Potion,2.5\n"
+	)
 	var profile_path: String = _track_path("user://gf_config_pipeline_manifest_legacy_profile_%d.tres" % suffix)
 	var output_path: String = _track_path("user://gf_config_pipeline_manifest_legacy_database_%d.json" % suffix)
 	var manifest_path: String = _track_path("user://gf_config_pipeline_manifest_legacy_database_%d.manifest.json" % suffix)
-	_save_runner_profile(&"manifest_legacy", csv_path, profile_path, output_path)
-	var options: Dictionary = {
-		"changed_only": true,
-		"manifest_path": manifest_path,
-	}
-	var first_result: Dictionary = _call_runner(&"export_profile_path", [profile_path, options])
+	_save_runner_profile(
+		&"manifest_legacy",
+		csv_path,
+		profile_path,
+		output_path
+	)
+	var options: Dictionary = { "changed_only": true, "manifest_path": manifest_path, }
+	var first_result: Dictionary = _call_runner(
+		&"export_profile_path",
+		[profile_path, options]
+	)
 	var legacy_manifest: Dictionary = _load_json_dictionary(manifest_path)
 	var _compiler_fingerprint_removed: bool = legacy_manifest.erase("compiler_fingerprint")
 	var _compiler_digest_removed: bool = legacy_manifest.erase("compiler_digest")
 	var _profile_entries_removed: bool = legacy_manifest.erase("profile_entries")
 	_resign_artifact_manifest_for_test(legacy_manifest, false)
-	var rewritten_manifest_path: String = _write_text(manifest_path, JSON.stringify(legacy_manifest, "\t", true))
+	var rewritten_manifest_path: String = _write_text(
+		manifest_path,
+		JSON.stringify(
+			legacy_manifest,
+			"\t",
+			true
+		)
+	)
 
-	var second_result: Dictionary = _call_runner(&"export_profile_path", [profile_path, options])
+	var second_result: Dictionary = _call_runner(
+		&"export_profile_path",
+		[profile_path, options]
+	)
 	var freshness_report: Dictionary = GFVariantData.get_option_dictionary(second_result, "freshness_report")
 	var load_result: Dictionary = GFVariantData.get_option_dictionary(freshness_report, "load_result")
 	var reasons: Array = GFVariantData.get_option_array(freshness_report, "reasons")
 
-	assert_eq(rewritten_manifest_path, manifest_path, "测试应覆盖同一个 manifest。")
-	assert_true(GFVariantData.get_option_bool(first_result, "success"), "测试前置导出应成功。")
-	assert_true(GFVariantData.get_option_bool(load_result, "success"), "旧版合法 manifest 应通过所有权和摘要校验。")
-	assert_true(GFVariantData.get_option_bool(second_result, "success"), "旧版 manifest 应安全重建并升级。")
-	assert_false(GFVariantData.get_option_bool(second_result, "skipped"), "缺少编译指纹的旧版 manifest 不得命中 fresh。")
-	assert_true(reasons.has("changed_compiler_digest"), "旧版 manifest 应因缺少 compiler_digest 触发重建。")
+	assert_eq(
+		rewritten_manifest_path,
+		manifest_path,
+		"测试应覆盖同一个 manifest。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(first_result, "success"),
+		"测试前置导出应成功。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(load_result, "success"),
+		"旧版合法 manifest 应通过所有权和摘要校验。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(second_result, "success"),
+		"旧版 manifest 应安全重建并升级。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(second_result, "skipped"),
+		"缺少编译指纹的旧版 manifest 不得命中 fresh。"
+	)
+	assert_true(
+		reasons.has("changed_compiler_digest"),
+		"旧版 manifest 应因缺少 compiler_digest 触发重建。"
+	)
 
 
 func test_pipeline_runner_reports_missing_profile_path() -> void:
-	var run_result: Dictionary = _call_runner(&"export_profile_path", [""])
+	var run_result: Dictionary = _call_runner(
+		&"export_profile_path",
+		[""]
+	)
 	var report: Dictionary = GFVariantData.get_option_dictionary(run_result, "report")
 
-	assert_false(GFVariantData.get_option_bool(run_result, "success"), "空 Profile 路径不应导出成功。")
-	assert_eq(GFVariantData.get_option_string_name(run_result, "operation"), &"export", "Runner 失败结果也应保留目标操作。")
-	assert_true(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "missing_profile_path"), "空 Profile 路径应返回明确问题类型。")
+	assert_false(
+		GFVariantData.get_option_bool(run_result, "success"),
+		"空 Profile 路径不应导出成功。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(run_result, "operation"),
+		&"export",
+		"Runner 失败结果也应保留目标操作。"
+	)
+	assert_true(
+		_has_issue_kind(
+			GFVariantData.get_option_array(report, "issues"),
+			"missing_profile_path"
+		),
+		"空 Profile 路径应返回明确问题类型。"
+	)
 
 
 func test_pipeline_runner_rejects_plain_filesystem_profile_path() -> void:
-	var resource_path: String = _write_text("user://gf_config_pipeline_plain_profile_path_%d.tres" % Time.get_ticks_usec(), "")
+	var resource_path: String = _write_text(
+		"user://gf_config_pipeline_plain_profile_path_%d.tres" % Time.get_ticks_usec(),
+		""
+	)
 	var plain_path: String = ProjectSettings.globalize_path(resource_path)
 
-	var run_result: Dictionary = _call_runner(&"build_profile_path", [plain_path])
+	var run_result: Dictionary = _call_runner(
+		&"build_profile_path",
+		[plain_path]
+	)
 	var report: Dictionary = GFVariantData.get_option_dictionary(run_result, "report")
 
-	assert_false(GFVariantData.get_option_bool(run_result, "success"), "Runner 不应接受普通文件系统 Profile 路径。")
-	assert_true(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "invalid_profile_path"), "普通文件系统路径应返回明确问题类型。")
+	assert_false(
+		GFVariantData.get_option_bool(run_result, "success"),
+		"Runner 不应接受普通文件系统 Profile 路径。"
+	)
+	assert_true(
+		_has_issue_kind(
+			GFVariantData.get_option_array(report, "issues"),
+			"invalid_profile_path"
+		),
+		"普通文件系统路径应返回明确问题类型。"
+	)
 
 
 func test_pipeline_runner_rejects_non_profile_resource() -> void:
 	var profile_path: String = _track_path("user://gf_config_pipeline_runner_plain_%d.tres" % Time.get_ticks_usec())
-	assert_eq(ResourceSaver.save(Resource.new(), profile_path), OK, "测试 Resource 应能保存为 .tres。")
+	assert_eq(
+		ResourceSaver.save(
+			Resource.new(),
+			profile_path
+		),
+		OK,
+		"测试 Resource 应能保存为 .tres。"
+	)
 
-	var run_result: Dictionary = _call_runner(&"build_profile_path", [profile_path])
+	var run_result: Dictionary = _call_runner(
+		&"build_profile_path",
+		[profile_path]
+	)
 	var report: Dictionary = GFVariantData.get_option_dictionary(run_result, "report")
 
-	assert_false(GFVariantData.get_option_bool(run_result, "success"), "普通 Resource 不应被当作导表 Profile。")
-	assert_eq(GFVariantData.get_option_string_name(run_result, "operation"), &"build", "Runner 应保留目标构建操作。")
-	assert_true(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "invalid_pipeline_profile_resource"), "无 sources 字段的 Resource 应返回明确问题类型。")
+	assert_false(
+		GFVariantData.get_option_bool(run_result, "success"),
+		"普通 Resource 不应被当作导表 Profile。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(run_result, "operation"),
+		&"build",
+		"Runner 应保留目标构建操作。"
+	)
+	assert_true(
+		_has_issue_kind(
+			GFVariantData.get_option_array(report, "issues"),
+			"invalid_pipeline_profile_resource"
+		),
+		"无 sources 字段的 Resource 应返回明确问题类型。"
+	)
 
 
 func test_pipeline_command_exports_profile_dry_run_as_json_report() -> void:
-	var csv_path: String = _write_text("user://gf_config_pipeline_command_items_%d.csv" % Time.get_ticks_usec(), "id,name,power\n1,Potion,2.5\n")
+	var csv_path: String = _write_text(
+		"user://gf_config_pipeline_command_items_%d.csv" % Time.get_ticks_usec(),
+		"id,name,power\n1,Potion,2.5\n"
+	)
 	var profile_path: String = _track_path("user://gf_config_pipeline_command_profile_%d.tres" % Time.get_ticks_usec())
 	var output_path: String = _track_path("user://gf_config_pipeline_command_database_%d.tres" % Time.get_ticks_usec())
 	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
@@ -1881,52 +3493,102 @@ func test_pipeline_command_exports_profile_dry_run_as_json_report() -> void:
 	profile.database_id = &"main"
 	profile.output_path = "user://unused_profile_output.tres"
 	profile.sources = [source]
-	assert_eq(ResourceSaver.save(profile, profile_path), OK, "测试 Profile 应能保存为 .tres。")
+	assert_eq(
+		ResourceSaver.save(profile, profile_path),
+		OK,
+		"测试 Profile 应能保存为 .tres。"
+	)
 
-	var command_result: Dictionary = _call_command(PackedStringArray([
-		"--profile",
-		profile_path,
-		"--operation",
-		"export",
-		"--output",
-		output_path,
-		"--dry-run",
-		"--json",
-		"--compact",
-	]))
+	var command_result: Dictionary = _call_command(
+		PackedStringArray(
+			[
+				"--profile",
+				profile_path,
+				"--operation",
+				"export",
+				"--output",
+				output_path,
+				"--dry-run",
+				"--json",
+				"--compact",
+			]
+		)
+	)
 	var runner_result: Dictionary = GFVariantData.get_option_dictionary(command_result, "runner_result")
 	var save_result: Dictionary = GFVariantData.get_option_dictionary(runner_result, "save_result")
 	var command: GF_CONFIG_PIPELINE_COMMAND_SCRIPT = GF_CONFIG_PIPELINE_COMMAND_SCRIPT.new()
 	var output_text: String = command.make_output_text(command_result, false)
 	var parsed_output: Variant = JSON.parse_string(output_text)
 
-	assert_true(GFVariantData.get_option_bool(command_result, "success"), "Command 应能调用 Runner 导出 Profile。")
-	assert_eq(GFVariantData.get_option_int(command_result, "exit_code"), 0, "成功命令应返回 0 exit_code。")
-	assert_true(GFVariantData.get_option_bool(command_result, "dry_run"), "命令报告应保留 dry_run 标记。")
-	assert_true(GFVariantData.get_option_bool(save_result, "dry_run"), "dry-run 应传递给 Profile 导出。")
-	assert_false(FileAccess.file_exists(output_path), "命令 dry-run 不应写入数据库资源。")
-	assert_true(parsed_output is Dictionary, "JSON report 输出必须可解析为 Dictionary。")
+	assert_true(
+		GFVariantData.get_option_bool(command_result, "success"),
+		"Command 应能调用 Runner 导出 Profile。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(command_result, "exit_code"),
+		0,
+		"成功命令应返回 0 exit_code。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(command_result, "dry_run"),
+		"命令报告应保留 dry_run 标记。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(save_result, "dry_run"),
+		"dry-run 应传递给 Profile 导出。"
+	)
+	assert_false(
+		FileAccess.file_exists(output_path),
+		"命令 dry-run 不应写入数据库资源。"
+	)
+	assert_true(
+		parsed_output is Dictionary,
+		"JSON report 输出必须可解析为 Dictionary。"
+	)
 
 
 func test_pipeline_command_reports_missing_profile_argument() -> void:
-	var command_result: Dictionary = _call_command(PackedStringArray([
-		"--operation",
-		"export",
-		"--json",
-	]))
+	var command_result: Dictionary = _call_command(
+		PackedStringArray(
+			[
+				"--operation",
+				"export",
+				"--json",
+			]
+		)
+	)
 	var command: GF_CONFIG_PIPELINE_COMMAND_SCRIPT = GF_CONFIG_PIPELINE_COMMAND_SCRIPT.new()
 	var output_text: String = command.make_output_text(command_result, false)
 	var parsed_output: Variant = JSON.parse_string(output_text)
 
-	assert_false(GFVariantData.get_option_bool(command_result, "success"), "缺少 --profile 时命令不应成功。")
-	assert_eq(GFVariantData.get_option_int(command_result, "exit_code"), 2, "参数错误应返回 2 exit_code。")
-	assert_true(GFVariantData.get_option_string(command_result, "error").contains("--profile"), "错误信息应指出缺少 --profile。")
-	assert_true(parsed_output is Dictionary, "参数错误也应能输出 JSON report。")
+	assert_false(
+		GFVariantData.get_option_bool(command_result, "success"),
+		"缺少 --profile 时命令不应成功。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(command_result, "exit_code"),
+		2,
+		"参数错误应返回 2 exit_code。"
+	)
+	assert_true(
+		GFVariantData.get_option_string(command_result, "error").contains("--profile"),
+		"错误信息应指出缺少 --profile。"
+	)
+	assert_true(
+		parsed_output is Dictionary,
+		"参数错误也应能输出 JSON report。"
+	)
 
 
 func test_pipeline_database_validates_cross_table_references() -> void:
-	var items_path: String = _write_text("user://gf_config_pipeline_ref_items_%d.csv" % Time.get_ticks_usec(), "id,name,power\n1,Potion,2.5\n")
-	var owners_path: String = _write_text("user://gf_config_pipeline_ref_owners_%d.csv" % Time.get_ticks_usec(), "id,item_id\n10,999\n")
+	var items_path: String = _write_text(
+		"user://gf_config_pipeline_ref_items_%d.csv" % Time.get_ticks_usec(),
+		"id,name,power\n1,Potion,2.5\n"
+	)
+	var owners_path: String = _write_text(
+		"user://gf_config_pipeline_ref_owners_%d.csv" % Time.get_ticks_usec(),
+		"id,item_id\n10,999\n"
+	)
 	var item_source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
 	item_source.table_name = &"items"
 	item_source.source_path = items_path
@@ -1936,11 +3598,26 @@ func test_pipeline_database_validates_cross_table_references() -> void:
 	owner_source.source_path = owners_path
 	owner_source.schema = _make_owner_schema()
 
-	var build_result: Dictionary = _call_pipeline(&"build_database", [[item_source, owner_source], { "database_id": &"main" }])
+	var build_result: Dictionary = _call_pipeline(
+		&"build_database",
+		[
+			[item_source, owner_source],
+			{ "database_id": &"main" },
+		]
+	)
 	var report: Dictionary = GFVariantData.get_option_dictionary(build_result, "report")
 
-	assert_false(GFVariantData.get_option_bool(build_result, "success"), "缺失跨表引用目标时数据库构建应失败。")
-	assert_true(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "missing_reference"), "数据库报告应包含跨表引用缺失问题。")
+	assert_false(
+		GFVariantData.get_option_bool(build_result, "success"),
+		"缺失跨表引用目标时数据库构建应失败。"
+	)
+	assert_true(
+		_has_issue_kind(
+			GFVariantData.get_option_array(report, "issues"),
+			"missing_reference"
+		),
+		"数据库报告应包含跨表引用缺失问题。"
+	)
 
 
 func test_pipeline_element_rules_keep_csv_and_json_locations_through_command_reports() -> void:
@@ -1953,35 +3630,81 @@ func test_pipeline_element_rules_keep_csv_and_json_locations_through_command_rep
 		source.schema.get_column(&"item_ids").element_validation_rules = [allowed]
 		var pipeline: GFConfigPipeline = GFConfigPipeline.new()
 		if use_csv:
-			var _configured: GFConfigPipeline = pipeline.configure_stages(null, _ArrayCellLayoutStage.new())
+			var _configured: GFConfigPipeline = pipeline.configure_stages(
+				null,
+				_ArrayCellLayoutStage.new()
+			)
 		var result: Dictionary = pipeline.build_database([source])
 		var report: Dictionary = GFVariantData.get_option_dictionary(result, "report")
 		var issues: Array = GFVariantData.get_option_array(report, "issues")
 		assert_false(GFVariantData.get_option_bool(result, "success"))
-		assert_eq(issues.size(), 2 if use_csv else 1)
+		assert_eq(
+			issues.size(),
+			2 if use_csv else 1
+		)
 		for index: int in range(issues.size()):
 			var issue: Dictionary = GFVariantData.as_dictionary(issues[index])
-			assert_eq(GFVariantData.get_option_string(issue, "kind"), "set_value_not_allowed")
-			assert_eq(GFVariantData.get_option_string(issue, "source"), source.source_path)
-			assert_eq(GFVariantData.get_option_string(issue, "row_key"), "bad")
-			assert_eq(GFVariantData.get_option_string_name(issue, "field"), &"item_ids")
-			assert_eq(_get_issue_int(issue, "element_index"), index + 1)
+			assert_eq(
+				GFVariantData.get_option_string(issue, "kind"),
+				"set_value_not_allowed"
+			)
+			assert_eq(
+				GFVariantData.get_option_string(issue, "source"),
+				source.source_path
+			)
+			assert_eq(
+				GFVariantData.get_option_string(issue, "row_key"),
+				"bad"
+			)
+			assert_eq(
+				GFVariantData.get_option_string_name(issue, "field"),
+				&"item_ids"
+			)
+			assert_eq(
+				_get_issue_int(issue, "element_index"),
+				index + 1
+			)
 			if use_csv:
-				assert_eq(_get_issue_int(issue, "line"), 5)
-				assert_eq(_get_issue_int(issue, "column"), 4)
+				assert_eq(
+					_get_issue_int(issue, "line"),
+					5
+				)
+				assert_eq(
+					_get_issue_int(issue, "column"),
+					4
+				)
 			else:
 				assert_false(issue.has("line"))
 				assert_false(issue.has("column"))
 		var command: GF_CONFIG_PIPELINE_COMMAND_SCRIPT = GF_CONFIG_PIPELINE_COMMAND_SCRIPT.new()
-		var text: String = command.make_output_text({ "json_report": true, "runner_result": { "report": report } }, false)
+		var text: String = command.make_output_text(
+			{
+				"json_report": true,
+				"runner_result": { "report": report },
+			},
+			false
+		)
 		var decoded: Dictionary = GFVariantData.as_dictionary(JSON.parse_string(text))
-		var decoded_report: Dictionary = GFVariantData.get_option_dictionary(GFVariantData.get_option_dictionary(decoded, "runner_result"), "report")
+		var decoded_report: Dictionary = GFVariantData.get_option_dictionary(
+			GFVariantData.get_option_dictionary(decoded, "runner_result"),
+			"report"
+		)
 		var decoded_issues: Array = GFVariantData.get_option_array(decoded_report, "issues")
-		assert_eq(decoded_issues.size(), issues.size())
+		assert_eq(
+			decoded_issues.size(),
+			issues.size()
+		)
 		if not decoded_issues.is_empty():
 			var decoded_index: Variant = GFVariantData.as_dictionary(decoded_issues[0]).get("element_index")
-			assert_true(decoded_index is int or decoded_index is float, "JSON 数字不得丢失或变成文本。")
-			assert_eq(GFVariantData.to_float(decoded_index), 1.0, "JSON 解析为浮点仍应保留原始元素位置。")
+			assert_true(
+				decoded_index is int or decoded_index is float,
+				"JSON 数字不得丢失或变成文本。"
+			)
+			assert_eq(
+				GFVariantData.to_float(decoded_index),
+				1.0,
+				"JSON 解析为浮点仍应保留原始元素位置。"
+			)
 
 
 func test_pipeline_element_rule_failure_keeps_existing_artifact_unchanged() -> void:
@@ -1992,55 +3715,153 @@ func test_pipeline_element_rule_failure_keeps_existing_artifact_unchanged() -> v
 	allowed.allowed_values = ["potion"]
 	source.schema.get_column(&"item_ids").element_validation_rules = [allowed]
 	var original: String = "{\"previous\":true}\n"
-	var path: String = _write_text("user://gf_element_previous_%d.json" % Time.get_ticks_usec(), original)
+	var path: String = _write_text(
+		"user://gf_element_previous_%d.json" % Time.get_ticks_usec(),
+		original
+	)
 	var profile: GFConfigPipelineProfile = GFConfigPipelineProfile.new()
 	profile.profile_id = &"element_failure"
 	profile.sources = [source]
 	profile.output_path = path
-	var result: Dictionary = GFConfigPipeline.new().export_profile(profile, { "scan_filesystem": false })
+	var result: Dictionary = GFConfigPipeline.new().export_profile(
+		profile,
+		{ "scan_filesystem": false }
+	)
 	assert_false(GFVariantData.get_option_bool(result, "success"))
-	assert_eq(FileAccess.get_file_as_string(path), original)
-	assert_true(_has_issue_kind(GFVariantData.get_option_array(GFVariantData.get_option_dictionary(result, "report"), "issues"), "set_value_not_allowed"))
+	assert_eq(
+		FileAccess.get_file_as_string(path),
+		original
+	)
+	assert_true(
+		_has_issue_kind(
+			GFVariantData.get_option_array(
+				GFVariantData.get_option_dictionary(result, "report"),
+				"issues"
+			),
+			"set_value_not_allowed"
+		)
+	)
 
 
 func test_pipeline_array_reference_issues_keep_csv_adapter_source_positions() -> void:
 	var sources: Array[GFConfigPipelineTableSource] = _make_array_reference_sources("csv_locations")
 	# CSV 数组语法由项目 Layout 适配器解释，内置 CSV 继续只负责文本与真实来源位置。
-	var pipeline: GFConfigPipeline = GFConfigPipeline.new().configure_stages(null, _ArrayCellLayoutStage.new())
+	var pipeline: GFConfigPipeline = GFConfigPipeline.new().configure_stages(
+		null,
+		_ArrayCellLayoutStage.new()
+	)
 	var build_result: Dictionary = pipeline.build_database(sources)
 	var report: Dictionary = GFVariantData.get_option_dictionary(build_result, "report")
 	var issues: Array[Dictionary] = _get_reference_issues(report)
 
-	assert_false(GFVariantData.get_option_bool(build_result, "success"), "数组中的坏引用应阻止数据库构建成功。")
-	assert_eq(GFVariantData.get_option_int(report, "error_count"), 2, "相同坏 ID 的两个位置应分别报告，合法前缀不应误报。")
-	assert_eq(issues.size(), 2, "每个缺失的数组元素应有独立 issue。")
+	assert_false(
+		GFVariantData.get_option_bool(build_result, "success"),
+		"数组中的坏引用应阻止数据库构建成功。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(report, "error_count"),
+		2,
+		"相同坏 ID 的两个位置应分别报告，合法前缀不应误报。"
+	)
+	assert_eq(
+		issues.size(),
+		2,
+		"每个缺失的数组元素应有独立 issue。"
+	)
 	for index: int in range(issues.size()):
 		var issue: Dictionary = issues[index]
-		assert_eq(GFVariantData.get_option_string(issue, "source"), sources[1].source_path, "来源应属于包含引用的表。")
-		assert_eq(GFVariantData.get_option_string_name(issue, "table_name"), &"owners", "问题应保留来源表名。")
-		assert_eq(GFVariantData.get_option_string(issue, "row_key"), "bad", "行标识应使用 schema 自定义主键。")
-		assert_eq(GFVariantData.get_option_string_name(issue, "field"), &"item_ids", "字段名不应拼接元素下标。")
-		assert_eq(_get_issue_int(issue, "row_index"), 1, "规范记录顺序应排除注释行。")
-		assert_eq(_get_issue_int(issue, "element_index"), index + 1, "重复坏 ID 应保留各自的零基元素位置。")
-		assert_eq(GFVariantData.get_option_string(issue, "value"), "missing", "问题值应是单个坏元素。")
-		assert_eq(_get_issue_int(issue, "line"), 5, "位置应包含前置多行单元格与注释行的物理行偏移。")
-		assert_eq(_get_issue_int(issue, "column"), 4, "位置应保留被过滤注释列之前的物理列号。")
-		assert_eq(_get_issue_int(issue, "column_index"), 3, "列索引应为物理列号的零基形式。")
+		assert_eq(
+			GFVariantData.get_option_string(issue, "source"),
+			sources[1].source_path,
+			"来源应属于包含引用的表。"
+		)
+		assert_eq(
+			GFVariantData.get_option_string_name(issue, "table_name"),
+			&"owners",
+			"问题应保留来源表名。"
+		)
+		assert_eq(
+			GFVariantData.get_option_string(issue, "row_key"),
+			"bad",
+			"行标识应使用 schema 自定义主键。"
+		)
+		assert_eq(
+			GFVariantData.get_option_string_name(issue, "field"),
+			&"item_ids",
+			"字段名不应拼接元素下标。"
+		)
+		assert_eq(
+			_get_issue_int(issue, "row_index"),
+			1,
+			"规范记录顺序应排除注释行。"
+		)
+		assert_eq(
+			_get_issue_int(issue, "element_index"),
+			index + 1,
+			"重复坏 ID 应保留各自的零基元素位置。"
+		)
+		assert_eq(
+			GFVariantData.get_option_string(issue, "value"),
+			"missing",
+			"问题值应是单个坏元素。"
+		)
+		assert_eq(
+			_get_issue_int(issue, "line"),
+			5,
+			"位置应包含前置多行单元格与注释行的物理行偏移。"
+		)
+		assert_eq(
+			_get_issue_int(issue, "column"),
+			4,
+			"位置应保留被过滤注释列之前的物理列号。"
+		)
+		assert_eq(
+			_get_issue_int(issue, "column_index"),
+			3,
+			"列索引应为物理列号的零基形式。"
+		)
 
 	var command: GF_CONFIG_PIPELINE_COMMAND_SCRIPT = GF_CONFIG_PIPELINE_COMMAND_SCRIPT.new()
-	var output_text: String = command.make_output_text({
-		"json_report": true,
-		"runner_result": { "report": report },
-	}, false)
+	var output_text: String = command.make_output_text(
+		{
+			"json_report": true,
+			"runner_result": { "report": report },
+		},
+		false
+	)
 	var parsed: Dictionary = GFVariantData.as_dictionary(JSON.parse_string(output_text))
 	var runner_result: Dictionary = GFVariantData.get_option_dictionary(parsed, "runner_result")
 	var decoded_issues: Array[Dictionary] = _get_reference_issues(GFVariantData.get_option_dictionary(runner_result, "report"))
-	assert_eq(decoded_issues.size(), 2, "命令 JSON 输出不得丢失元素问题。")
+	assert_eq(
+		decoded_issues.size(),
+		2,
+		"命令 JSON 输出不得丢失元素问题。"
+	)
 	for index: int in range(decoded_issues.size()):
 		var issue: Dictionary = decoded_issues[index]
-		assert_eq(GFVariantData.get_option_int(issue, "element_index", -1), index + 1, "JSON 输出应保留元素下标。")
-		assert_eq(GFVariantData.get_option_int(issue, "line", -1), 5, "JSON 输出应保留物理来源行。")
-		assert_eq(GFVariantData.get_option_string(issue, "source"), sources[1].source_path, "JSON 输出应保留文件来源。")
+		assert_eq(
+			GFVariantData.get_option_int(
+				issue,
+				"element_index",
+				-1
+			),
+			index + 1,
+			"JSON 输出应保留元素下标。"
+		)
+		assert_eq(
+			GFVariantData.get_option_int(
+				issue,
+				"line",
+				-1
+			),
+			5,
+			"JSON 输出应保留物理来源行。"
+		)
+		assert_eq(
+			GFVariantData.get_option_string(issue, "source"),
+			sources[1].source_path,
+			"JSON 输出应保留文件来源。"
+		)
 
 
 func test_pipeline_native_json_array_reference_does_not_invent_line_or_column() -> void:
@@ -2049,19 +3870,55 @@ func test_pipeline_native_json_array_reference_does_not_invent_line_or_column() 
 	var report: Dictionary = GFVariantData.get_option_dictionary(build_result, "report")
 	var issues: Array[Dictionary] = _get_reference_issues(report)
 
-	assert_false(GFVariantData.get_option_bool(build_result, "success"), "原生 JSON 数组中的坏 ID 应使构建失败。")
-	assert_eq(issues.size(), 1, "合法 JSON 数组元素不应误报。")
+	assert_false(
+		GFVariantData.get_option_bool(build_result, "success"),
+		"原生 JSON 数组中的坏 ID 应使构建失败。"
+	)
+	assert_eq(
+		issues.size(),
+		1,
+		"合法 JSON 数组元素不应误报。"
+	)
 	if issues.is_empty():
 		return
 	var issue: Dictionary = issues[0]
-	assert_eq(GFVariantData.get_option_string(issue, "source"), sources[1].source_path, "JSON 引用问题仍应有来源文件。")
-	assert_eq(GFVariantData.get_option_string(issue, "row_key"), "bad", "JSON 引用问题应使用自定义主键。")
-	assert_eq(_get_issue_int(issue, "row_index"), 0, "记录索引不依赖物理行信息。")
-	assert_eq(_get_issue_int(issue, "element_index"), 1, "原生数组问题应保留零基元素索引。")
-	assert_eq(GFVariantData.get_option_string(issue, "value"), "missing", "问题应指向坏元素。")
-	assert_false(issue.has("line"), "JSON Layout 未提供物理行时不得推测行号。")
-	assert_false(issue.has("column"), "JSON Layout 未提供物理列时不得推测列号。")
-	assert_false(issue.has("column_index"), "字段顺序不能充当 JSON 物理列索引。")
+	assert_eq(
+		GFVariantData.get_option_string(issue, "source"),
+		sources[1].source_path,
+		"JSON 引用问题仍应有来源文件。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(issue, "row_key"),
+		"bad",
+		"JSON 引用问题应使用自定义主键。"
+	)
+	assert_eq(
+		_get_issue_int(issue, "row_index"),
+		0,
+		"记录索引不依赖物理行信息。"
+	)
+	assert_eq(
+		_get_issue_int(issue, "element_index"),
+		1,
+		"原生数组问题应保留零基元素索引。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(issue, "value"),
+		"missing",
+		"问题应指向坏元素。"
+	)
+	assert_false(
+		issue.has("line"),
+		"JSON Layout 未提供物理行时不得推测行号。"
+	)
+	assert_false(
+		issue.has("column"),
+		"JSON Layout 未提供物理列时不得推测列号。"
+	)
+	assert_false(
+		issue.has("column_index"),
+		"字段顺序不能充当 JSON 物理列索引。"
+	)
 
 
 func test_pipeline_array_reference_failure_does_not_publish_artifacts() -> void:
@@ -2078,16 +3935,42 @@ func test_pipeline_array_reference_failure_does_not_publish_artifacts() -> void:
 	profile.sources = sources
 	profile.output_path = output_path
 	profile.access_output_path = access_path
-	var pipeline: GFConfigPipeline = GFConfigPipeline.new().configure_stages(null, _ArrayCellLayoutStage.new())
-	var export_result: Dictionary = pipeline.export_profile(profile, { "scan_filesystem": false })
+	var pipeline: GFConfigPipeline = GFConfigPipeline.new().configure_stages(
+		null,
+		_ArrayCellLayoutStage.new()
+	)
+	var export_result: Dictionary = pipeline.export_profile(
+		profile,
+		{ "scan_filesystem": false }
+	)
 	var report: Dictionary = GFVariantData.get_option_dictionary(export_result, "report")
 
-	assert_false(GFVariantData.get_option_bool(export_result, "success"), "引用校验失败必须阻止发布。")
-	assert_eq(_get_reference_issues(report).size(), 2, "导出结果应保留逐元素诊断。")
-	assert_true(GFVariantData.get_option_dictionary(export_result, "save_result").is_empty(), "失败构建不应进入数据库保存。")
-	assert_true(GFVariantData.get_option_dictionary(export_result, "access_result").is_empty(), "失败构建不应进入访问器生成。")
-	assert_eq(FileAccess.get_file_as_string(output_path), previous_text, "原有产物必须保持原字节。")
-	assert_false(FileAccess.file_exists(access_path), "不得留下部分生成的访问器。")
+	assert_false(
+		GFVariantData.get_option_bool(export_result, "success"),
+		"引用校验失败必须阻止发布。"
+	)
+	assert_eq(
+		_get_reference_issues(report).size(),
+		2,
+		"导出结果应保留逐元素诊断。"
+	)
+	assert_true(
+		GFVariantData.get_option_dictionary(export_result, "save_result").is_empty(),
+		"失败构建不应进入数据库保存。"
+	)
+	assert_true(
+		GFVariantData.get_option_dictionary(export_result, "access_result").is_empty(),
+		"失败构建不应进入访问器生成。"
+	)
+	assert_eq(
+		FileAccess.get_file_as_string(output_path),
+		previous_text,
+		"原有产物必须保持原字节。"
+	)
+	assert_false(
+		FileAccess.file_exists(access_path),
+		"不得留下部分生成的访问器。"
+	)
 
 
 func test_pipeline_reports_unsupported_auto_format() -> void:
@@ -2096,68 +3979,162 @@ func test_pipeline_reports_unsupported_auto_format() -> void:
 	source.source_path = "user://items.toml"
 	source.source_format = GFConfigPipelineTableSource.FORMAT_AUTO
 
-	var table_result: Dictionary = _call_pipeline(&"build_table_from_text", [source, "id = 1"])
+	var table_result: Dictionary = _call_pipeline(
+		&"build_table_from_text",
+		[source, "id = 1"]
+	)
 	var report: Dictionary = GFVariantData.get_option_dictionary(table_result, "report")
 
-	assert_false(GFVariantData.get_option_bool(table_result, "success"), "未知扩展名不应被自动解析。")
-	assert_true(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "unsupported_source_format"), "错误报告应说明来源格式不支持。")
+	assert_false(
+		GFVariantData.get_option_bool(table_result, "success"),
+		"未知扩展名不应被自动解析。"
+	)
+	assert_true(
+		_has_issue_kind(
+			GFVariantData.get_option_array(report, "issues"),
+			"unsupported_source_format"
+		),
+		"错误报告应说明来源格式不支持。"
+	)
 
 
 func test_pipeline_save_database_rejects_unsupported_output_format() -> void:
 	var database: GFConfigDatabaseResource = _build_items_database_from_csv("unsupported_output")
 	var output_path: String = _track_path("user://gf_config_pipeline_database_%d.gfconfig" % Time.get_ticks_usec())
 
-	var save_result: Dictionary = _call_pipeline(&"save_database", [database, output_path, {
-		"output_format": &"xml",
-	}])
+	var save_result: Dictionary = _call_pipeline(
+		&"save_database",
+		[
+			database,
+			output_path,
+			{ "output_format": &"xml", },
+		]
+	)
 
-	assert_false(GFVariantData.get_option_bool(save_result, "success"), "未知输出格式不应静默按 Resource 保存。")
-	assert_eq(GFVariantData.get_option_string_name(save_result, "format"), &"xml", "失败结果应保留调用方请求的格式。")
-	assert_true(GFVariantData.get_option_string(save_result, "error").contains("不支持的配置数据库输出格式"), "失败结果应说明输出格式不支持。")
+	assert_false(
+		GFVariantData.get_option_bool(save_result, "success"),
+		"未知输出格式不应静默按 Resource 保存。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(save_result, "format"),
+		&"xml",
+		"失败结果应保留调用方请求的格式。"
+	)
+	assert_true(
+		GFVariantData.get_option_string(save_result, "error").contains("不支持的配置数据库输出格式"),
+		"失败结果应说明输出格式不支持。"
+	)
 
 
 func test_pipeline_runner_rejects_tampered_manifest_digest() -> void:
-	var csv_path: String = _write_text("user://gf_config_pipeline_manifest_tamper_items_%d.csv" % Time.get_ticks_usec(), "id,name,power\n1,Potion,2.5\n")
+	var csv_path: String = _write_text(
+		"user://gf_config_pipeline_manifest_tamper_items_%d.csv" % Time.get_ticks_usec(),
+		"id,name,power\n1,Potion,2.5\n"
+	)
 	var profile_path: String = _track_path("user://gf_config_pipeline_manifest_tamper_profile_%d.tres" % Time.get_ticks_usec())
 	var output_path: String = _track_path("user://gf_config_pipeline_manifest_tamper_database_%d.json" % Time.get_ticks_usec())
 	var manifest_path: String = _track_path("user://gf_config_pipeline_manifest_tamper_database_%d.manifest.json" % Time.get_ticks_usec())
-	_save_runner_profile(&"manifest_tamper", csv_path, profile_path, output_path)
-	var options: Dictionary = {
-		"changed_only": true,
-		"manifest_path": manifest_path,
-	}
-	var first_result: Dictionary = _call_runner(&"export_profile_path", [profile_path, options])
+	_save_runner_profile(
+		&"manifest_tamper",
+		csv_path,
+		profile_path,
+		output_path
+	)
+	var options: Dictionary = { "changed_only": true, "manifest_path": manifest_path, }
+	var first_result: Dictionary = _call_runner(
+		&"export_profile_path",
+		[profile_path, options]
+	)
 	var manifest: Dictionary = _load_json_dictionary(manifest_path)
 	manifest["input_digest"] = "tampered"
-	var tampered_path: String = _write_text(manifest_path, JSON.stringify(manifest, "\t", true))
+	var tampered_path: String = _write_text(
+		manifest_path,
+		JSON.stringify(
+			manifest,
+			"\t",
+			true
+		)
+	)
 
-	var second_result: Dictionary = _call_runner(&"export_profile_path", [profile_path, options])
+	var second_result: Dictionary = _call_runner(
+		&"export_profile_path",
+		[profile_path, options]
+	)
 	var freshness_report: Dictionary = GFVariantData.get_option_dictionary(second_result, "freshness_report")
 	var load_result: Dictionary = GFVariantData.get_option_dictionary(freshness_report, "load_result")
 
-	assert_true(GFVariantData.get_option_bool(first_result, "success"), "测试前置导出应成功。")
-	assert_eq(tampered_path, manifest_path, "测试应篡改同一个 manifest。")
-	assert_false(GFVariantData.get_option_bool(second_result, "skipped"), "digest 被篡改的 manifest 不得命中 fresh 跳过。")
-	assert_false(GFVariantData.get_option_bool(load_result, "success"), "manifest digest 不匹配必须在 load 边界失败。")
-	assert_true(GFVariantData.get_option_string(load_result, "error").contains("manifest_digest"), "失败报告应明确指出 manifest_digest 不匹配。")
+	assert_true(
+		GFVariantData.get_option_bool(first_result, "success"),
+		"测试前置导出应成功。"
+	)
+	assert_eq(
+		tampered_path,
+		manifest_path,
+		"测试应篡改同一个 manifest。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(second_result, "skipped"),
+		"digest 被篡改的 manifest 不得命中 fresh 跳过。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(load_result, "success"),
+		"manifest digest 不匹配必须在 load 边界失败。"
+	)
+	assert_true(
+		GFVariantData.get_option_string(load_result, "error").contains("manifest_digest"),
+		"失败报告应明确指出 manifest_digest 不匹配。"
+	)
 
 
 func test_pipeline_rejects_overwriting_unowned_outputs_by_default() -> void:
 	var database: GFConfigDatabaseResource = _build_items_database_from_csv("unowned_output")
-	var json_path: String = _write_text("user://gf_config_pipeline_unowned_%d.json" % Time.get_ticks_usec(), "{\"manual\":true}\n")
-	var access_path: String = _write_text("user://gf_config_pipeline_unowned_%d.gd" % Time.get_ticks_usec(), "# manual script\n")
+	var json_path: String = _write_text(
+		"user://gf_config_pipeline_unowned_%d.json" % Time.get_ticks_usec(),
+		"{\"manual\":true}\n"
+	)
+	var access_path: String = _write_text(
+		"user://gf_config_pipeline_unowned_%d.gd" % Time.get_ticks_usec(),
+		"# manual script\n"
+	)
 
-	var save_result: Dictionary = _call_pipeline(&"save_database", [database, json_path])
-	var access_result: Dictionary = _call_pipeline(&"generate_access", [database, access_path, "UnownedConfigAccess"])
+	var save_result: Dictionary = _call_pipeline(
+		&"save_database",
+		[database, json_path]
+	)
+	var access_result: Dictionary = _call_pipeline(
+		&"generate_access",
+		[
+			database,
+			access_path,
+			"UnownedConfigAccess",
+		]
+	)
 
-	assert_false(GFVariantData.get_option_bool(save_result, "success"), "默认不得覆盖不属于 Config Pipeline 的数据库文件。")
-	assert_false(GFVariantData.get_option_bool(access_result, "success"), "默认不得覆盖不属于 Config Pipeline 的访问器脚本。")
-	assert_eq(_read_text(json_path), "{\"manual\":true}\n", "拒绝覆盖时必须保留原数据库文件。")
-	assert_eq(_read_text(access_path), "# manual script\n", "拒绝覆盖时必须保留原访问器脚本。")
+	assert_false(
+		GFVariantData.get_option_bool(save_result, "success"),
+		"默认不得覆盖不属于 Config Pipeline 的数据库文件。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(access_result, "success"),
+		"默认不得覆盖不属于 Config Pipeline 的访问器脚本。"
+	)
+	assert_eq(
+		_read_text(json_path),
+		"{\"manual\":true}\n",
+		"拒绝覆盖时必须保留原数据库文件。"
+	)
+	assert_eq(
+		_read_text(access_path),
+		"# manual script\n",
+		"拒绝覆盖时必须保留原访问器脚本。"
+	)
 
 
 func test_pipeline_export_profile_rolls_back_database_when_access_commit_fails() -> void:
-	var csv_path: String = _write_text("user://gf_config_pipeline_transaction_items_%d.csv" % Time.get_ticks_usec(), "id,name,power\n1,Potion,2.5\n")
+	var csv_path: String = _write_text(
+		"user://gf_config_pipeline_transaction_items_%d.csv" % Time.get_ticks_usec(),
+		"id,name,power\n1,Potion,2.5\n"
+	)
 	var output_path: String = _track_path("user://gf_config_pipeline_transaction_database_%d.json" % Time.get_ticks_usec())
 	var access_path: String = _track_path("user://gf_config_pipeline_transaction_access_%d.gd" % Time.get_ticks_usec())
 	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
@@ -2175,25 +4152,27 @@ func test_pipeline_export_profile_rolls_back_database_when_access_commit_fails()
 
 	var export_result: Dictionary = pipeline.export_profile(profile)
 
-	assert_false(GFVariantData.get_option_bool(export_result, "success"), "任一产物 commit 失败时整体导出必须失败。")
-	assert_false(FileAccess.file_exists(output_path), "access commit 失败后必须删除本次新建的数据库产物。")
-	assert_false(FileAccess.file_exists(access_path), "失败的 access commit 不应留下半成品。")
 	assert_false(
-		pipeline.actual_scan_filesystem,
-		"批量事务必须强制访问器 constituent 禁止独立 scan。"
+		GFVariantData.get_option_bool(export_result, "success"),
+		"任一产物 commit 失败时整体导出必须失败。"
 	)
+	assert_false(
+		FileAccess.file_exists(output_path),
+		"access commit 失败后必须删除本次新建的数据库产物。"
+	)
+	assert_false(
+		FileAccess.file_exists(access_path),
+		"失败的 access commit 不应留下半成品。"
+	)
+	assert_false(pipeline.actual_scan_filesystem, "批量事务必须强制访问器 constituent 禁止独立 scan。")
 
 
 func test_pipeline_export_scans_only_once_after_successful_batch() -> void:
 	var csv_path: String = _write_text(
-		"user://gf_config_pipeline_single_scan_items_%d.csv"
-		% Time.get_ticks_usec(),
+		"user://gf_config_pipeline_single_scan_items_%d.csv" % Time.get_ticks_usec(),
 		"id,name,power\n1,Potion,2.5\n"
 	)
-	var output_path: String = _track_path(
-		"user://gf_config_pipeline_single_scan_database_%d.json"
-		% Time.get_ticks_usec()
-	)
+	var output_path: String = _track_path("user://gf_config_pipeline_single_scan_database_%d.json" % Time.get_ticks_usec())
 	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
 	source.table_name = &"items"
 	source.source_path = csv_path
@@ -2220,14 +4199,10 @@ func test_pipeline_export_scans_only_once_after_successful_batch() -> void:
 
 func test_pipeline_export_profile_propagates_transaction_recovery_contract() -> void:
 	var csv_path: String = _write_text(
-		"user://gf_config_pipeline_recovery_items_%d.csv"
-		% Time.get_ticks_usec(),
+		"user://gf_config_pipeline_recovery_items_%d.csv" % Time.get_ticks_usec(),
 		"id,name,power\n1,Potion,2.5\n"
 	)
-	var output_path: String = _track_path(
-		"user://gf_config_pipeline_recovery_database_%d.json"
-		% Time.get_ticks_usec()
-	)
+	var output_path: String = _track_path("user://gf_config_pipeline_recovery_database_%d.json" % Time.get_ticks_usec())
 	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
 	source.table_name = &"items"
 	source.source_path = csv_path
@@ -2237,9 +4212,7 @@ func test_pipeline_export_profile_propagates_transaction_recovery_contract() -> 
 	profile.database_id = &"main"
 	profile.output_path = output_path
 	profile.sources = [source]
-	var commit_stage: _RecoveryReportingCommitStage = (
-		_RecoveryReportingCommitStage.new()
-	)
+	var commit_stage: _RecoveryReportingCommitStage = _RecoveryReportingCommitStage.new()
 	var pipeline: GFConfigPipeline = GFConfigPipeline.new()
 	pipeline = pipeline.configure_stages(
 		null,
@@ -2250,16 +4223,8 @@ func test_pipeline_export_profile_propagates_transaction_recovery_contract() -> 
 	)
 
 	var export_result: Dictionary = pipeline.export_profile(profile)
-	var transaction_result: Dictionary = GFVariantData.get_option_dictionary(
-		export_result,
-		"transaction_result"
-	)
-	var recovery_transaction: Dictionary = (
-		GFVariantData.get_option_dictionary(
-			export_result,
-			"recovery_transaction"
-		)
-	)
+	var transaction_result: Dictionary = GFVariantData.get_option_dictionary(export_result, "transaction_result")
+	var recovery_transaction: Dictionary = GFVariantData.get_option_dictionary(export_result, "recovery_transaction")
 
 	assert_false(
 		GFVariantData.get_option_bool(export_result, "success"),
@@ -2275,19 +4240,13 @@ func test_pipeline_export_profile_propagates_transaction_recovery_contract() -> 
 		"Pipeline 顶层结果必须透传恢复要求。"
 	)
 	assert_eq(
-		GFVariantData.get_option_string_name(
-			export_result,
-			"recovery_action"
-		),
+		GFVariantData.get_option_string_name(export_result, "recovery_action"),
 		GFArtifactWriteTransaction.RECOVERY_ACTION_COMPLETE,
 		"Pipeline 顶层结果必须透传稳定恢复动作。"
 	)
 	assert_eq(
 		recovery_transaction,
-		GFVariantData.get_option_dictionary(
-			transaction_result,
-			"recovery_transaction"
-		),
+		GFVariantData.get_option_dictionary(transaction_result, "recovery_transaction"),
 		"Pipeline 顶层恢复句柄必须与原始事务报告完全一致。"
 	)
 	assert_true(
@@ -2298,17 +4257,11 @@ func test_pipeline_export_profile_propagates_transaction_recovery_contract() -> 
 
 func test_pipeline_export_profile_propagates_begin_recovery_contract() -> void:
 	var csv_path: String = _write_text(
-		"user://gf_config_pipeline_begin_recovery_items_%d.csv"
-		% Time.get_ticks_usec(),
+		"user://gf_config_pipeline_begin_recovery_items_%d.csv" % Time.get_ticks_usec(),
 		"id,name,power\n1,Potion,2.5\n"
 	)
-	var output_path: String = _track_path(
-		"user://gf_config_pipeline_begin_recovery_database_%d.json"
-		% Time.get_ticks_usec()
-	)
-	var source: GFConfigPipelineTableSource = (
-		GFConfigPipelineTableSource.new()
-	)
+	var output_path: String = _track_path("user://gf_config_pipeline_begin_recovery_database_%d.json" % Time.get_ticks_usec())
+	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
 	source.table_name = &"items"
 	source.source_path = csv_path
 	source.schema = _make_item_schema()
@@ -2317,9 +4270,7 @@ func test_pipeline_export_profile_propagates_begin_recovery_contract() -> void:
 	profile.database_id = &"main"
 	profile.output_path = output_path
 	profile.sources = [source]
-	var commit_stage: _BeginRecoveryReportingCommitStage = (
-		_BeginRecoveryReportingCommitStage.new()
-	)
+	var commit_stage: _BeginRecoveryReportingCommitStage = _BeginRecoveryReportingCommitStage.new()
 	var pipeline: GFConfigPipeline = GFConfigPipeline.new()
 	pipeline = pipeline.configure_stages(
 		null,
@@ -2330,10 +4281,7 @@ func test_pipeline_export_profile_propagates_begin_recovery_contract() -> void:
 	)
 
 	var export_result: Dictionary = pipeline.export_profile(profile)
-	var transaction_result: Dictionary = GFVariantData.get_option_dictionary(
-		export_result,
-		"transaction_result"
-	)
+	var transaction_result: Dictionary = GFVariantData.get_option_dictionary(export_result, "transaction_result")
 
 	assert_false(GFVariantData.get_option_bool(export_result, "success"))
 	assert_true(
@@ -2341,21 +4289,12 @@ func test_pipeline_export_profile_propagates_begin_recovery_contract() -> void:
 		"begin cleanup 未终结时 Pipeline 顶层必须保留恢复要求。"
 	)
 	assert_eq(
-		GFVariantData.get_option_string_name(
-			export_result,
-			"recovery_action"
-		),
+		GFVariantData.get_option_string_name(export_result, "recovery_action"),
 		GFArtifactWriteTransaction.RECOVERY_ACTION_COMPLETE
 	)
 	assert_eq(
-		GFVariantData.get_option_dictionary(
-			export_result,
-			"recovery_transaction"
-		),
-		GFVariantData.get_option_dictionary(
-			transaction_result,
-			"recovery_transaction"
-		),
+		GFVariantData.get_option_dictionary(export_result, "recovery_transaction"),
+		GFVariantData.get_option_dictionary(transaction_result, "recovery_transaction"),
 		"begin failure 的 opaque recovery handle 不得在 Pipeline 丢失。"
 	)
 
@@ -2365,11 +4304,23 @@ func test_pipeline_json_export_rejects_non_finite_vector_components() -> void:
 	database.metadata["position"] = Vector2(NAN, 1.0)
 	var output_path: String = _track_path("user://gf_config_pipeline_non_finite_%d.json" % Time.get_ticks_usec())
 
-	var save_result: Dictionary = _call_pipeline(&"save_database", [database, output_path])
+	var save_result: Dictionary = _call_pipeline(
+		&"save_database",
+		[database, output_path]
+	)
 
-	assert_false(GFVariantData.get_option_bool(save_result, "success"), "Vector/Color 分量包含非有限值时 JSON 导出必须 fail-closed。")
-	assert_true(GFVariantData.get_option_string(save_result, "error").contains("NaN") or GFVariantData.get_option_string(save_result, "error").contains("Inf"), "失败报告应指出非有限数。")
-	assert_false(FileAccess.file_exists(output_path), "非有限数据不得产生 JSON 产物。")
+	assert_false(
+		GFVariantData.get_option_bool(save_result, "success"),
+		"Vector/Color 分量包含非有限值时 JSON 导出必须 fail-closed。"
+	)
+	assert_true(
+		GFVariantData.get_option_string(save_result, "error").contains("NaN") or GFVariantData.get_option_string(save_result, "error").contains("Inf"),
+		"失败报告应指出非有限数。"
+	)
+	assert_false(
+		FileAccess.file_exists(output_path),
+		"非有限数据不得产生 JSON 产物。"
+	)
 
 
 func test_pipeline_xlsx_rejects_missing_shared_string_index() -> void:
@@ -2379,16 +4330,37 @@ func test_pipeline_xlsx_rejects_missing_shared_string_index() -> void:
 	source.source_path = xlsx_path
 	source.source_format = GFConfigPipelineTableSource.FORMAT_XLSX
 
-	var result: Dictionary = _call_pipeline(&"build_table", [source])
+	var result: Dictionary = _call_pipeline(
+		&"build_table",
+		[source]
+	)
 
-	assert_false(GFVariantData.get_option_bool(result, "success"), "缺失 sharedStrings 或越界索引不得静默转为空字符串。")
-	assert_true(GFVariantData.get_option_string(result, "error").contains("shared string"), "XLSX 报告应定位 shared string 索引错误。")
+	assert_false(
+		GFVariantData.get_option_bool(result, "success"),
+		"缺失 sharedStrings 或越界索引不得静默转为空字符串。"
+	)
+	assert_true(
+		GFVariantData.get_option_string(result, "error").contains("shared string"),
+		"XLSX 报告应定位 shared string 索引错误。"
+	)
 
 
 func test_pipeline_xlsx_rejects_malformed_xml_tails_for_every_semantic_entry() -> void:
 	var rows: Array[PackedStringArray] = [
-		PackedStringArray(["id", "name", "power"]),
-		PackedStringArray(["1", "Potion", "2.5"]),
+		PackedStringArray(
+			[
+				"id",
+				"name",
+				"power",
+			]
+		),
+		PackedStringArray(
+			[
+				"1",
+				"Potion",
+				"2.5",
+			]
+		),
 	]
 	var malformed_cases: Array[Dictionary] = [
 		{
@@ -2417,18 +4389,11 @@ func test_pipeline_xlsx_rejects_malformed_xml_tails_for_every_semantic_entry() -
 		},
 	]
 	for malformed_case: Dictionary in malformed_cases:
-		var override_key: String = GFVariantData.get_option_string(
-			malformed_case,
-			"entry"
-		)
-		var overrides: Dictionary = {
-			override_key: GFVariantData.get_option_string(malformed_case, "xml"),
-		}
+		var override_key: String = GFVariantData.get_option_string(malformed_case, "entry")
+		var overrides: Dictionary = { override_key: GFVariantData.get_option_string(malformed_case, "xml"), }
 		var xlsx_path: String = _write_xlsx_with_xml_overrides(
-			"user://gf_config_pipeline_malformed_%s_%d.xlsx" % [
-				GFVariantData.get_option_string(malformed_case, "label"),
-				Time.get_ticks_usec(),
-			],
+			"user://gf_config_pipeline_malformed_%s_%d.xlsx"
+			% [GFVariantData.get_option_string(malformed_case, "label"), Time.get_ticks_usec(),],
 			"Items",
 			rows,
 			overrides
@@ -2437,15 +4402,16 @@ func test_pipeline_xlsx_rejects_malformed_xml_tails_for_every_semantic_entry() -
 		source.table_name = &"items"
 		source.source_path = xlsx_path
 		source.source_format = GFConfigPipelineTableSource.FORMAT_XLSX
-		var result: Dictionary = _call_pipeline(&"build_table", [source])
+		var result: Dictionary = _call_pipeline(
+			&"build_table",
+			[source]
+		)
 		assert_false(
 			GFVariantData.get_option_bool(result, "success"),
 			"%s 合法前缀后的损坏尾部必须 fail-closed。" % GFVariantData.get_option_string(malformed_case, "label")
 		)
 		assert_true(
-			GFVariantData.get_option_string(result, "error").contains(
-				GFVariantData.get_option_string(malformed_case, "expected")
-			),
+			GFVariantData.get_option_string(result, "error").contains(GFVariantData.get_option_string(malformed_case, "expected")),
 			"XLSX parse error 应定位损坏 entry。"
 		)
 
@@ -2453,66 +4419,111 @@ func test_pipeline_xlsx_rejects_malformed_xml_tails_for_every_semantic_entry() -
 func test_pipeline_command_rejects_next_option_as_missing_value() -> void:
 	var command_result: Dictionary = _call_command(PackedStringArray(["--profile", "--json"]))
 
-	assert_false(GFVariantData.get_option_bool(command_result, "success"), "需要值的 option 不得吞掉后续 option token。")
-	assert_true(GFVariantData.get_option_string(command_result, "error").contains("--profile"), "错误应指向缺少值的 option。")
+	assert_false(
+		GFVariantData.get_option_bool(command_result, "success"),
+		"需要值的 option 不得吞掉后续 option token。"
+	)
+	assert_true(
+		GFVariantData.get_option_string(command_result, "error").contains("--profile"),
+		"错误应指向缺少值的 option。"
+	)
 
 
 func test_pipeline_rejects_source_over_configured_byte_budget() -> void:
-	var source_path: String = _write_text("user://gf_config_pipeline_source_budget_%d.csv" % Time.get_ticks_usec(), "id,name,power\n1,Potion,2.5\n")
+	var source_path: String = _write_text(
+		"user://gf_config_pipeline_source_budget_%d.csv" % Time.get_ticks_usec(),
+		"id,name,power\n1,Potion,2.5\n"
+	)
 	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
 	source.table_name = &"items"
 	source.source_path = source_path
 	source.source_format = GFConfigPipelineTableSource.FORMAT_CSV
 	source.schema = _make_item_schema()
 
-	var result: Dictionary = _call_pipeline(&"build_table", [source, { "max_source_file_bytes": 8 }])
+	var result: Dictionary = _call_pipeline(
+		&"build_table",
+		[
+			source,
+			{ "max_source_file_bytes": 8 },
+		]
+	)
 
-	assert_false(GFVariantData.get_option_bool(result, "success"), "超过读取预算的文本来源必须在整体读取前拒绝。")
-	assert_true(GFVariantData.get_option_string(result, "error").contains("max_source_file_bytes"), "预算失败报告应包含稳定 option 名。")
+	assert_false(
+		GFVariantData.get_option_bool(result, "success"),
+		"超过读取预算的文本来源必须在整体读取前拒绝。"
+	)
+	assert_true(
+		GFVariantData.get_option_string(result, "error").contains("max_source_file_bytes"),
+		"预算失败报告应包含稳定 option 名。"
+	)
 
 
 func test_pipeline_rejects_statement_shaped_provider_accessor() -> void:
 	var database: GFConfigDatabaseResource = _build_items_database_from_csv("provider_accessor")
 	var output_path: String = _track_path("user://gf_config_pipeline_accessor_%d.gd" % Time.get_ticks_usec())
 
-	var result: Dictionary = _call_pipeline(&"generate_access", [
-		database,
-		output_path,
-		"UnsafeConfigAccess",
-		"null; push_error(\"unexpected\")",
-	])
+	var result: Dictionary = _call_pipeline(
+		&"generate_access",
+		[
+			database,
+			output_path,
+			"UnsafeConfigAccess",
+			"null; push_error(\"unexpected\")",
+		]
+	)
 
-	assert_false(GFVariantData.get_option_bool(result, "success"), "provider_accessor 必须收束为单一受信任表达式，不能包含语句分隔符。")
-	assert_eq(GFVariantData.get_option_int(result, "error_code"), ERR_INVALID_PARAMETER, "非法 accessor 应报告参数错误。")
-	assert_false(FileAccess.file_exists(output_path), "非法 accessor 不得生成脚本。")
+	assert_false(
+		GFVariantData.get_option_bool(result, "success"),
+		"provider_accessor 必须收束为单一受信任表达式，不能包含语句分隔符。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(result, "error_code"),
+		ERR_INVALID_PARAMETER,
+		"非法 accessor 应报告参数错误。"
+	)
+	assert_false(
+		FileAccess.file_exists(output_path),
+		"非法 accessor 不得生成脚本。"
+	)
 
 
 func test_pipeline_command_json_uses_report_codec_markers() -> void:
 	var command: GF_CONFIG_PIPELINE_COMMAND_SCRIPT = GF_CONFIG_PIPELINE_COMMAND_SCRIPT.new()
-	var output_text: String = command.make_output_text({
-		"json_report": true,
-		"not_a_number": NAN,
-	}, false)
+	var output_text: String = command.make_output_text(
+		{ "json_report": true, "not_a_number": NAN, },
+		false
+	)
 	var parsed: Dictionary = GFVariantData.as_dictionary(JSON.parse_string(output_text))
 	var encoded_float: Dictionary = GFVariantData.get_option_dictionary(parsed, "not_a_number")
 	var marker: Dictionary = GFVariantData.get_option_dictionary(encoded_float, "__gf_variant__")
 
-	assert_eq(GFVariantData.get_option_string(marker, "type"), "Float", "命令报告必须复用 GFReportValueCodec 的 typed marker，不能把 NaN 降级为 null。")
+	assert_eq(
+		GFVariantData.get_option_string(marker, "type"),
+		"Float",
+		"命令报告必须复用 GFReportValueCodec 的 typed marker，不能把 NaN 降级为 null。"
+	)
 
 
 # --- 私有/辅助方法 ---
 
 func _build_items_database_from_csv(label: String) -> GFConfigDatabaseResource:
-	var csv_path: String = _write_text("user://gf_config_pipeline_%s_items_%d.csv" % [label, Time.get_ticks_usec()], "id,name,power\n1,Potion,2.5\n2,Ether,3\n")
+	var csv_path: String = _write_text(
+		"user://gf_config_pipeline_%s_items_%d.csv"
+		% [label, Time.get_ticks_usec()],
+		"id,name,power\n1,Potion,2.5\n2,Ether,3\n"
+	)
 	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
 	source.table_name = &"items"
 	source.source_path = csv_path
 	source.source_format = GFConfigPipelineTableSource.FORMAT_CSV
 	source.schema = _make_item_schema()
-	var build_result: Dictionary = _call_pipeline(&"build_database", [[source], {
-		"database_id": &"main",
-		"version": "test",
-	}])
+	var build_result: Dictionary = _call_pipeline(
+		&"build_database",
+		[
+			[source],
+			{ "database_id": &"main", "version": "test", },
+		]
+	)
 	return _get_database_from_result(build_result)
 
 
@@ -2526,7 +4537,11 @@ func _make_item_schema() -> GFConfigTableSchema:
 	schema.id_field = &"id"
 	schema.require_unique_id = true
 	schema.coerce_values = true
-	schema.columns = [id_column, name_column, power_column]
+	schema.columns = [
+		id_column,
+		name_column,
+		power_column,
+	]
 	return schema
 
 
@@ -2534,7 +4549,8 @@ func _make_array_reference_sources(label: String, use_csv: bool = true) -> Array
 	var item_source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
 	item_source.table_name = &"items"
 	item_source.source_path = _write_text(
-		"user://gf_config_pipeline_array_%s_items_%d.csv" % [label, Time.get_ticks_usec()],
+		"user://gf_config_pipeline_array_%s_items_%d.csv"
+		% [label, Time.get_ticks_usec()],
 		"code\npotion\n"
 	)
 	item_source.schema = GFConfigTableSchema.new()
@@ -2560,17 +4576,28 @@ func _make_array_reference_sources(label: String, use_csv: bool = true) -> Array
 	var extension: String = "json"
 	if use_csv:
 		extension = "csv"
-		owner_source.parse_options = { "comment_prefixes": PackedStringArray(["#"]) }
-		owner_text = "\n".join([
-			"owner_key,note,#ignored,item_ids",
-			"keep,\"first",
-			"line\",ignored,\"[\"\"potion\"\"]\"",
-			"# ignored,ignored,ignored,ignored",
-			"bad,entry,ignored,\"[\"\"potion\"\",\"\"missing\"\",\"\"missing\"\"]\"",
-			"",
-		])
+		owner_source.parse_options = {
+			"comment_prefixes": PackedStringArray(["#"]),
+		}
+		owner_text = (
+			"\n".join(
+				[
+					"owner_key,note,#ignored,item_ids",
+					"keep,\"first",
+					"line\",ignored,\"[\"\"potion\"\"]\"",
+					"# ignored,ignored,ignored,ignored",
+					"bad,entry,ignored,\"[\"\"potion\"\",\"\"missing\"\",\"\"missing\"\"]\"",
+					"",
+				]
+			)
+		)
 	owner_source.source_path = _write_text(
-		"user://gf_config_pipeline_array_%s_owners_%d.%s" % [label, Time.get_ticks_usec(), extension],
+		"user://gf_config_pipeline_array_%s_owners_%d.%s"
+		% [
+			label,
+			Time.get_ticks_usec(),
+			extension,
+		],
 		owner_text
 	)
 	return [item_source, owner_source]
@@ -2588,7 +4615,10 @@ func _get_reference_issues(report: Dictionary) -> Array[Dictionary]:
 
 func _get_issue_int(issue: Dictionary, field_name: String) -> int:
 	var value: Variant = GFVariantData.get_option_value(issue, field_name)
-	assert_true(value is int, "问题字段 %s 必须保留真实 int 类型。" % field_name)
+	assert_true(
+		value is int,
+		"问题字段 %s 必须保留真实 int 类型。" % field_name
+	)
 	if value is int:
 		var integer: int = value
 		return integer
@@ -2615,7 +4645,12 @@ func _make_owner_schema() -> GFConfigTableSchema:
 	return schema
 
 
-func _save_runner_profile(profile_id: StringName, csv_path: String, profile_path: String, output_path: String) -> void:
+func _save_runner_profile(
+	profile_id: StringName,
+	csv_path: String,
+	profile_path: String,
+	output_path: String
+) -> void:
 	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
 	source.table_name = &"items"
 	source.source_path = csv_path
@@ -2626,7 +4661,11 @@ func _save_runner_profile(profile_id: StringName, csv_path: String, profile_path
 	profile.database_id = &"main"
 	profile.output_path = output_path
 	profile.sources = [source]
-	assert_eq(ResourceSaver.save(profile, profile_path), OK, "测试 Profile 应能保存为 .tres。")
+	assert_eq(
+		ResourceSaver.save(profile, profile_path),
+		OK,
+		"测试 Profile 应能保存为 .tres。"
+	)
 
 
 func _make_column(field_name: StringName, value_type: GFConfigTableColumn.ValueType) -> GFConfigTableColumn:
@@ -2646,17 +4685,49 @@ func _write_text(path: String, text: String) -> String:
 	return path
 
 
-func _write_xlsx(path: String, sheet_name: String, rows: Array[PackedStringArray]) -> String:
+func _write_xlsx(
+	path: String,
+	sheet_name: String,
+	rows: Array[PackedStringArray]
+) -> String:
 	var packer: ZIPPacker = ZIPPacker.new()
 	var open_result: Error = packer.open(path)
-	assert_eq(open_result, OK, "测试应能创建 xlsx zip。")
-	_zip_pack_text(packer, "[Content_Types].xml", _xlsx_content_types_xml())
-	_zip_pack_text(packer, "_rels/.rels", _xlsx_root_relationships_xml())
-	_zip_pack_text(packer, "xl/workbook.xml", _xlsx_workbook_xml(sheet_name))
-	_zip_pack_text(packer, "xl/_rels/workbook.xml.rels", _xlsx_workbook_relationships_xml())
-	_zip_pack_text(packer, "xl/worksheets/sheet1.xml", _xlsx_sheet_xml(rows))
+	assert_eq(
+		open_result,
+		OK,
+		"测试应能创建 xlsx zip。"
+	)
+	_zip_pack_text(
+		packer,
+		"[Content_Types].xml",
+		_xlsx_content_types_xml()
+	)
+	_zip_pack_text(
+		packer,
+		"_rels/.rels",
+		_xlsx_root_relationships_xml()
+	)
+	_zip_pack_text(
+		packer,
+		"xl/workbook.xml",
+		_xlsx_workbook_xml(sheet_name)
+	)
+	_zip_pack_text(
+		packer,
+		"xl/_rels/workbook.xml.rels",
+		_xlsx_workbook_relationships_xml()
+	)
+	_zip_pack_text(
+		packer,
+		"xl/worksheets/sheet1.xml",
+		_xlsx_sheet_xml(rows)
+	)
 	var close_result: Error = packer.close()
-	assert_eq(close_result, OK, "测试应能关闭 xlsx zip。")
+	assert_eq(
+		close_result,
+		OK,
+		"测试应能关闭 xlsx zip。"
+	)
 	_temporary_paths.append(path)
 	return path
 
@@ -2668,9 +4739,21 @@ func _write_xlsx_with_xml_overrides(
 	overrides: Dictionary
 ) -> String:
 	var packer: ZIPPacker = ZIPPacker.new()
-	assert_eq(packer.open(path), OK, "测试应能创建自定义 xlsx zip。")
-	_zip_pack_text(packer, "[Content_Types].xml", _xlsx_content_types_xml())
-	_zip_pack_text(packer, "_rels/.rels", _xlsx_root_relationships_xml())
+	assert_eq(
+		packer.open(path),
+		OK,
+		"测试应能创建自定义 xlsx zip。"
+	)
+	_zip_pack_text(
+		packer,
+		"[Content_Types].xml",
+		_xlsx_content_types_xml()
+	)
+	_zip_pack_text(
+		packer,
+		"_rels/.rels",
+		_xlsx_root_relationships_xml()
+	)
 	_zip_pack_text(
 		packer,
 		"xl/workbook.xml",
@@ -2704,7 +4787,11 @@ func _write_xlsx_with_xml_overrides(
 			"xl/sharedStrings.xml",
 			GFVariantData.get_option_string(overrides, "shared_strings")
 		)
-	assert_eq(packer.close(), OK, "测试应能关闭自定义 xlsx zip。")
+	assert_eq(
+		packer.close(),
+		OK,
+		"测试应能关闭自定义 xlsx zip。"
+	)
 	if not _temporary_paths.has(path):
 		_temporary_paths.append(path)
 	return path
@@ -2712,67 +4799,84 @@ func _write_xlsx_with_xml_overrides(
 
 func _write_xlsx_with_invalid_shared_string(path: String) -> String:
 	var packer: ZIPPacker = ZIPPacker.new()
-	assert_eq(packer.open(path), OK, "测试应能创建损坏 shared string 的 xlsx zip。")
-	_zip_pack_text(packer, "[Content_Types].xml", _xlsx_content_types_xml())
-	_zip_pack_text(packer, "_rels/.rels", _xlsx_root_relationships_xml())
-	_zip_pack_text(packer, "xl/workbook.xml", _xlsx_workbook_xml("items"))
-	_zip_pack_text(packer, "xl/_rels/workbook.xml.rels", _xlsx_workbook_relationships_xml())
+	assert_eq(
+		packer.open(path),
+		OK,
+		"测试应能创建损坏 shared string 的 xlsx zip。"
+	)
+	_zip_pack_text(
+		packer,
+		"[Content_Types].xml",
+		_xlsx_content_types_xml()
+	)
+	_zip_pack_text(
+		packer,
+		"_rels/.rels",
+		_xlsx_root_relationships_xml()
+	)
+	_zip_pack_text(
+		packer,
+		"xl/workbook.xml",
+		_xlsx_workbook_xml("items")
+	)
+	_zip_pack_text(
+		packer,
+		"xl/_rels/workbook.xml.rels",
+		_xlsx_workbook_relationships_xml()
+	)
 	_zip_pack_text(
 		packer,
 		"xl/worksheets/sheet1.xml",
 		"<?xml version=\"1.0\" encoding=\"UTF-8\"?><worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetData><row r=\"1\"><c r=\"A1\" t=\"s\"><v>1</v></c></row></sheetData></worksheet>"
 	)
-	assert_eq(packer.close(), OK, "测试应能关闭损坏 shared string 的 xlsx zip。")
+	assert_eq(
+		packer.close(),
+		OK,
+		"测试应能关闭损坏 shared string 的 xlsx zip。"
+	)
 	_temporary_paths.append(path)
 	return path
 
 
-func _zip_pack_text(packer: ZIPPacker, path: String, text: String) -> void:
+func _zip_pack_text(
+	packer: ZIPPacker,
+	path: String,
+	text: String
+) -> void:
 	var start_result: Error = packer.start_file(path)
-	assert_eq(start_result, OK, "测试应能写入 xlsx 条目。")
+	assert_eq(
+		start_result,
+		OK,
+		"测试应能写入 xlsx 条目。"
+	)
 	var write_result: Error = packer.write_file(text.to_utf8_buffer())
-	assert_eq(write_result, OK, "测试应能写入 xlsx 条目内容。")
+	assert_eq(
+		write_result,
+		OK,
+		"测试应能写入 xlsx 条目内容。"
+	)
 	var close_file_result: Error = packer.close_file()
-	assert_eq(close_file_result, OK, "测试应能关闭 xlsx 条目。")
+	assert_eq(
+		close_file_result,
+		OK,
+		"测试应能关闭 xlsx 条目。"
+	)
 
 
 func _xlsx_content_types_xml() -> String:
-	return (
-		"<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
-		+ "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">"
-		+ "<Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/>"
-		+ "<Default Extension=\"xml\" ContentType=\"application/xml\"/>"
-		+ "<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>"
-		+ "<Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>"
-		+ "</Types>"
-	)
+	return ("<?xml version=\"1.0\" encoding=\"UTF-8\"?>" + "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">" + "<Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/>" + "<Default Extension=\"xml\" ContentType=\"application/xml\"/>" + ("<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>") + ("<Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>") + "</Types>")
 
 
 func _xlsx_root_relationships_xml() -> String:
-	return (
-		"<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
-		+ "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">"
-		+ "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/>"
-		+ "</Relationships>"
-	)
+	return ("<?xml version=\"1.0\" encoding=\"UTF-8\"?>" + "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">" + ("<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/>") + "</Relationships>")
 
 
 func _xlsx_workbook_xml(sheet_name: String) -> String:
-	return (
-		"<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
-		+ "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">"
-		+ "<sheets><sheet name=\"%s\" sheetId=\"1\" r:id=\"rId1\"/></sheets>" % _xml_escape(sheet_name)
-		+ "</workbook>"
-	)
+	return ("<?xml version=\"1.0\" encoding=\"UTF-8\"?>" + ("<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">") + "<sheets><sheet name=\"%s\" sheetId=\"1\" r:id=\"rId1\"/></sheets>" % _xml_escape(sheet_name) + "</workbook>")
 
 
 func _xlsx_workbook_relationships_xml() -> String:
-	return (
-		"<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
-		+ "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">"
-		+ "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>"
-		+ "</Relationships>"
-	)
+	return ("<?xml version=\"1.0\" encoding=\"UTF-8\"?>" + "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">" + ("<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>") + "</Relationships>")
 
 
 func _xlsx_sheet_xml(rows: Array[PackedStringArray]) -> String:
@@ -2784,9 +4888,15 @@ func _xlsx_sheet_xml(rows: Array[PackedStringArray]) -> String:
 		var row_number: int = row_index + 1
 		var _row_start_appended: bool = lines.append("<row r=\"%d\">" % row_number)
 		for column_index: int in range(row.size()):
-			var cell_ref: String = "%s%d" % [_xlsx_column_name(column_index), row_number]
+			var cell_ref: String = (
+				"%s%d"
+				% [_xlsx_column_name(column_index), row_number]
+			)
 			var cell_text: String = _xml_escape(row[column_index])
-			var _cell_appended: bool = lines.append("<c r=\"%s\" t=\"inlineStr\"><is><t>%s</t></is></c>" % [cell_ref, cell_text])
+			var _cell_appended: bool = lines.append(
+				"<c r=\"%s\" t=\"inlineStr\"><is><t>%s</t></is></c>"
+				% [cell_ref, cell_text]
+			)
 		var _row_end_appended: bool = lines.append("</row>")
 	var _worksheet_end_appended: bool = lines.append("</sheetData></worksheet>")
 	return "".join(lines)
@@ -2803,7 +4913,7 @@ func _xlsx_column_name(column_index: int) -> String:
 
 
 func _xml_escape(text: String) -> String:
-	return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&apos;")
+	return (text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&apos;"))
 
 
 func _get_database_from_result(result: Dictionary) -> GFConfigDatabaseResource:
@@ -2823,7 +4933,11 @@ func _get_table_from_result(result: Dictionary) -> GFConfigTableResource:
 
 
 func _load_database_resource(path: String) -> GFConfigDatabaseResource:
-	var resource: Resource = ResourceLoader.load(path, "", ResourceLoader.CACHE_MODE_IGNORE)
+	var resource: Resource = ResourceLoader.load(
+		path,
+		"",
+		ResourceLoader.CACHE_MODE_IGNORE
+	)
 	if resource is GFConfigDatabaseResource:
 		var database: GFConfigDatabaseResource = resource
 		return database
@@ -2883,7 +4997,10 @@ func _track_path(path: String) -> String:
 
 func _has_digest_entry_path(entries: Array, expected_path: String) -> bool:
 	for entry_value: Variant in entries:
-		if GFVariantData.get_option_string(GFVariantData.as_dictionary(entry_value), "path") == expected_path:
+		if GFVariantData.get_option_string(
+			GFVariantData.as_dictionary(entry_value),
+			"path"
+		) == expected_path:
 			return true
 	return false
 
@@ -2892,17 +5009,11 @@ func _resign_artifact_manifest_for_test(manifest: Dictionary, include_compiler: 
 	var helper: Object = GFConfigPipelineArtifactManifest.new()
 	if include_compiler:
 		var compiler_fingerprint: Dictionary = GFVariantData.get_option_dictionary(manifest, "compiler_fingerprint")
-		var normalized_fingerprint: Dictionary = GFVariantData.as_dictionary(
-			helper.call(&"_normalize_compiler_fingerprint", compiler_fingerprint)
-		)
+		var normalized_fingerprint: Dictionary = GFVariantData.as_dictionary(helper.call(&"_normalize_compiler_fingerprint", compiler_fingerprint))
 		manifest["compiler_fingerprint"] = normalized_fingerprint
-		manifest["compiler_digest"] = GFVariantData.to_text(
-			helper.call(&"_sha256_variant", normalized_fingerprint)
-		)
+		manifest["compiler_digest"] = GFVariantData.to_text(helper.call(&"_sha256_variant", normalized_fingerprint))
 	var digest_projection: Variant = helper.call(&"_make_digest_projection", manifest)
-	manifest["manifest_digest"] = GFVariantData.to_text(
-		helper.call(&"_sha256_variant", digest_projection)
-	)
+	manifest["manifest_digest"] = GFVariantData.to_text(helper.call(&"_sha256_variant", digest_projection))
 
 
 func _has_issue_kind(issues: Array, kind: String) -> bool:
@@ -2922,7 +5033,11 @@ class _ArrayCellLayoutStage extends GFConfigPipelineLayoutStage:
 		read_result: Dictionary,
 		options: Dictionary = {}
 	) -> Dictionary:
-		var result: Dictionary = super.decode_source(source, read_result, options)
+		var result: Dictionary = super.decode_source(
+			source,
+			read_result,
+			options
+		)
 		if not GFVariantData.get_option_bool(result, "success"):
 			return result
 		# 仅作为项目数组单元格语法的测试适配，不改写内置 Layout 的来源映射。
@@ -2952,7 +5067,13 @@ class _FailingAccessCommitPipeline extends GFConfigPipeline:
 		options: Dictionary = {}
 	) -> Dictionary:
 		if GFVariantData.get_option_bool(options, "dry_run"):
-			return super.generate_access(database, output_path, access_class_name, provider_accessor, options)
+			return super.generate_access(
+				database,
+				output_path,
+				access_class_name,
+				provider_accessor,
+				options
+			)
 		actual_scan_filesystem = GFVariantData.get_option_bool(
 			options,
 			"scan_filesystem",
@@ -2976,16 +5097,14 @@ class _ScanCountingPipeline extends GFConfigPipeline:
 
 
 class _RecoveryReportingCommitStage extends GFConfigPipelineCommitStage:
-	func begin(
-		_paths: PackedStringArray,
-		_options: Dictionary = {}
-	) -> Dictionary:
+	func begin(_paths: PackedStringArray, _options: Dictionary = {}) -> Dictionary:
 		return {
 			"ok": true,
 			"format": "gf.artifact_write.transaction",
 			"state": "open",
 			"transaction_token": "opaque-test-token",
 		}
+
 
 	func complete(transaction: Dictionary) -> Dictionary:
 		return {
@@ -2995,18 +5114,13 @@ class _RecoveryReportingCommitStage extends GFConfigPipelineCommitStage:
 			"failed_paths": PackedStringArray(),
 			"issues": PackedStringArray(["injected cleanup failure"]),
 			"recovery_required": true,
-			"recovery_action": (
-				GFArtifactWriteTransaction.RECOVERY_ACTION_COMPLETE
-			),
+			"recovery_action": GFArtifactWriteTransaction.RECOVERY_ACTION_COMPLETE,
 			"recovery_transaction": transaction.duplicate(true),
 		}
 
 
 class _BeginRecoveryReportingCommitStage extends GFConfigPipelineCommitStage:
-	func begin(
-		_paths: PackedStringArray,
-		_options: Dictionary = {}
-	) -> Dictionary:
+	func begin(_paths: PackedStringArray, _options: Dictionary = {}) -> Dictionary:
 		var recovery_transaction: Dictionary = {
 			"ok": true,
 			"format": "gf.artifact_write.transaction",
@@ -3018,8 +5132,6 @@ class _BeginRecoveryReportingCommitStage extends GFConfigPipelineCommitStage:
 			"state": "failed",
 			"issues": PackedStringArray(["injected begin cleanup failure"]),
 			"recovery_required": true,
-			"recovery_action": (
-				GFArtifactWriteTransaction.RECOVERY_ACTION_COMPLETE
-			),
+			"recovery_action": GFArtifactWriteTransaction.RECOVERY_ACTION_COMPLETE,
 			"recovery_transaction": recovery_transaction,
 		}

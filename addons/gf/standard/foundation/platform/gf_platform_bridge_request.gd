@@ -157,7 +157,10 @@ func apply_dict(data: Dictionary) -> void:
 	contract_id = _normalize_id(GFVariantData.get_option_string_name(data, "contract_id"))
 	method_id = _normalize_id(GFVariantData.get_option_string_name(data, "method_id"))
 	payload = GFVariantData.get_option_dictionary(data, "payload")
-	timeout_msec = max(GFVariantData.get_option_int(data, "timeout_msec"), 0)
+	timeout_msec = max(
+		GFVariantData.get_option_int(data, "timeout_msec"),
+		0
+	)
 	metadata = GFVariantData.get_option_dictionary(data, "metadata")
 
 

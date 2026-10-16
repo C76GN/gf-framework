@@ -102,7 +102,11 @@ func configure(
 ## [br]
 ## @return 没有新增、修改和删除路径时返回 true。
 func is_empty() -> bool:
-	return created.is_empty() and modified.is_empty() and deleted.is_empty()
+	return (
+		created.is_empty()
+		and modified.is_empty()
+		and deleted.is_empty()
+	)
 
 
 ## 获取全部变化路径。
@@ -157,12 +161,14 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @return 新变化集。
 func duplicate_change_set() -> GFDirectoryChangeSet:
-	return GFDirectoryChangeSet.new().configure(
-		root_paths,
-		created,
-		modified,
-		deleted,
-		scanned_count,
-		snapshot_size,
-		truncated
+	return (
+		GFDirectoryChangeSet.new().configure(
+			root_paths,
+			created,
+			modified,
+			deleted,
+			scanned_count,
+			snapshot_size,
+			truncated
+		)
 	)

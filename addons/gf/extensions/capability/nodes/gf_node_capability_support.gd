@@ -84,7 +84,11 @@ static func get_utility(architecture_ref: WeakRef, utility_type: Script) -> Obje
 ## @param capability_type: 要查询、添加或移除的能力脚本类型。
 ## [br]
 ## @return: 能力实例；不存在时返回 null。
-static func get_capability(receiver: Object, architecture_ref: WeakRef, capability_type: Script) -> Object:
+static func get_capability(
+	receiver: Object,
+	architecture_ref: WeakRef,
+	capability_type: Script
+) -> Object:
 	if receiver == null:
 		return null
 

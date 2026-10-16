@@ -27,7 +27,7 @@
 | 方法 | [`load_sidecar`](#member-gftemplategenerationmanifest-methods-load_sidecar) | `static func load_sidecar(sidecar_path: String, defaults: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`validate_manifest`](#member-gftemplategenerationmanifest-methods-validate_manifest) | `static func validate_manifest(manifest: Dictionary) -> Dictionary:` |
 | 方法 | [`make_artifact_options`](#member-gftemplategenerationmanifest-methods-make_artifact_options) | `static func make_artifact_options(manifest: Dictionary, extra_options: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`save_text_from_manifest`](#member-gftemplategenerationmanifest-methods-save_text_from_manifest) | `static func save_text_from_manifest(manifest: Dictionary, text: String, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`save_text_from_manifest`](#member-gftemplategenerationmanifest-methods-save_text_from_manifest) | `static func save_text_from_manifest( manifest: Dictionary, text: String, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`summarize_manifests`](#member-gftemplategenerationmanifest-methods-summarize_manifests) | `static func summarize_manifests(manifests: Array[Dictionary], options: Dictionary = {}) -> Dictionary:` |
 
 ## 常量
@@ -285,7 +285,7 @@ static func make_artifact_options(manifest: Dictionary, extra_options: Dictionar
 - 首次版本：`6.0.0`
 
 ```gdscript
-static func save_text_from_manifest(manifest: Dictionary, text: String, options: Dictionary = {}) -> Dictionary:
+static func save_text_from_manifest( manifest: Dictionary, text: String, options: Dictionary = {} ) -> Dictionary:
 ```
 
 按清单保存文本产物。

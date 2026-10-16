@@ -16,8 +16,8 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 方法 | [`_capture_state`](#member-gfnetworksimulationadapter-methods-_capture_state) | `func _capture_state(_tick: int, _context: Dictionary) -> Dictionary:` |
-| 方法 | [`_validate_state`](#member-gfnetworksimulationadapter-methods-_validate_state) | `func _validate_state(_state: Dictionary, _tick: int, _context: Dictionary) -> Dictionary:` |
-| 方法 | [`_restore_state`](#member-gfnetworksimulationadapter-methods-_restore_state) | `func _restore_state(_state: Dictionary, _tick: int, _context: Dictionary) -> Dictionary:` |
+| 方法 | [`_validate_state`](#member-gfnetworksimulationadapter-methods-_validate_state) | `func _validate_state( _state: Dictionary, _tick: int, _context: Dictionary ) -> Dictionary:` |
+| 方法 | [`_restore_state`](#member-gfnetworksimulationadapter-methods-_restore_state) | `func _restore_state( _state: Dictionary, _tick: int, _context: Dictionary ) -> Dictionary:` |
 | 方法 | [`_validate_input`](#member-gfnetworksimulationadapter-methods-_validate_input) | `func _validate_input( _frame: GFNetworkInputFrame, _actual_peer_id: int, _context: Dictionary ) -> Dictionary:` |
 | 方法 | [`_simulate_tick`](#member-gfnetworksimulationadapter-methods-_simulate_tick) | `func _simulate_tick( _tick: int, _inputs: Array[GFNetworkInputFrame], _context: Dictionary ) -> Dictionary:` |
 | 方法 | [`_states_equal`](#member-gfnetworksimulationadapter-methods-_states_equal) | `func _states_equal( predicted_state: Dictionary, authoritative_state: Dictionary, _tick: int, _context: Dictionary ) -> bool:` |
@@ -59,7 +59,7 @@ func _capture_state(_tick: int, _context: Dictionary) -> Dictionary:
 - 首次版本：`10.0.0`
 
 ```gdscript
-func _validate_state(_state: Dictionary, _tick: int, _context: Dictionary) -> Dictionary:
+func _validate_state( _state: Dictionary, _tick: int, _context: Dictionary ) -> Dictionary:
 ```
 
 校验来自权威端的完整同步状态。 项目应在此执行字段 schema、范围和不变量校验；GF 的通用结构预算不能替代项目 schema。 该钩子必须无副作用，不得修改项目模拟状态。
@@ -88,7 +88,7 @@ func _validate_state(_state: Dictionary, _tick: int, _context: Dictionary) -> Di
 - 首次版本：`10.0.0`
 
 ```gdscript
-func _restore_state(_state: Dictionary, _tick: int, _context: Dictionary) -> Dictionary:
+func _restore_state( _state: Dictionary, _tick: int, _context: Dictionary ) -> Dictionary:
 ```
 
 恢复指定 tick 的完整同步状态。

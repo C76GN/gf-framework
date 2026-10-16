@@ -28,6 +28,6 @@ func install(architecture: GFArchitecture, _scope: GFAsyncScope) -> void:
 	if architecture == null:
 		return
 	if architecture.get_local_utility(_GF_SKILL_TARGETING_UTILITY_2D_SCRIPT) == null:
-		var _registered_skill_targeting: bool = await architecture.register_utility_instance(_GF_SKILL_TARGETING_UTILITY_2D_SCRIPT.new())
+		var _registered_skill_targeting: bool = await (architecture.register_utility_instance(_GF_SKILL_TARGETING_UTILITY_2D_SCRIPT.new()))
 	if architecture.get_local_system(_GF_COMBAT_SYSTEM_SCRIPT) == null:
-		var _registered_combat_system: bool = await architecture.register_system_instance(_GF_COMBAT_SYSTEM_SCRIPT.new())
+		var _registered_combat_system: bool = await (architecture.register_system_instance(_GF_COMBAT_SYSTEM_SCRIPT.new()))

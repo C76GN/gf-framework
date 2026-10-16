@@ -1,9 +1,9 @@
 @tool
 extends EditorPlugin
 
-
 # GF Framework 编辑器插件。
 # 在启用/禁用插件时自动注册/注销 Gf AutoLoad 单例，并装配 GF 编辑器工具。
+
 
 # --- 常量 ---
 
@@ -96,7 +96,7 @@ const GF_EDITOR_CONTRIBUTION_REGISTRY_SCRIPT = preload("res://addons/gf/kernel/e
 ## @api framework_internal
 ## [br]
 ## @layer plugin
-const STANDARD_EDITOR_CONTRIBUTIONS_MANIFEST_PATH: String = "res://addons/gf/standard/editor/gf_editor_contributions.json"
+const STANDARD_EDITOR_CONTRIBUTIONS_MANIFEST_PATH: String = ("res://addons/gf/standard/editor/gf_editor_contributions.json")
 
 ## 用于读取 data-only report 字段的 Variant 辅助脚本。
 ## [br]
@@ -108,9 +108,7 @@ const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_varian
 ## [br]
 ## @api private
 ## [br]
-const _GF_EDITOR_CONTRIBUTION_CATALOG_SCRIPT = preload(
-	"res://addons/gf/kernel/editor/gf_editor_contribution_catalog.gd"
-)
+const _GF_EDITOR_CONTRIBUTION_CATALOG_SCRIPT = preload("res://addons/gf/kernel/editor/gf_editor_contribution_catalog.gd")
 
 ## 编辑器贡献刷新状态机实现脚本。
 ## [br]
@@ -127,9 +125,7 @@ const _GF_PLUGIN_APPLY_REPORT_SCRIPT = preload("res://addons/gf/kernel/editor/gf
 ## [br]
 ## @api private
 ## [br]
-const _BUILTIN_TOOL_CONTRIBUTIONS_CATALOG_PATH: String = (
-	"res://addons/gf/gf_builtin_tool_contributions.json"
-)
+const _BUILTIN_TOOL_CONTRIBUTIONS_CATALOG_PATH: String = "res://addons/gf/gf_builtin_tool_contributions.json"
 
 ## 编辑器贡献刷新等待允许的最大毫秒数。
 ## [br]
@@ -263,7 +259,10 @@ func _enter_tree() -> void:
 	_gltf_document_tools = GFPluginGltfDocumentTools.new()
 	_gltf_document_tools.setup()
 	_apply_report = _GF_PLUGIN_APPLY_REPORT_SCRIPT.new()
-	_apply_report.request(0, _capture_extension_settings())
+	_apply_report.request(
+		0,
+		_capture_extension_settings()
+	)
 	call_deferred("_setup_dock_tools")
 
 
@@ -272,7 +271,10 @@ func _enter_tree() -> void:
 ## @api private
 func _exit_tree() -> void:
 	_plugin_active = false
-	_apply_report.fail(_refresh_state.get_requested_generation(), "plugin_disabled")
+	_apply_report.fail(
+		_refresh_state.get_requested_generation(),
+		"plugin_disabled"
+	)
 	_cancel_editor_contribution_refresh()
 	GFPluginAutoload.remove(self)
 
@@ -354,12 +356,40 @@ func _capture_extension_settings() -> Dictionary:
 func _collect_editor_apply_issues() -> Array[String]:
 	var issues: Array[String] = []
 	for report: Dictionary in [_standard_editor_contribution_report, _builtin_tool_editor_contribution_report]:
-		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "ok", false) or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "partial", false):
+		if (
+			not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+				report,
+				"ok",
+				false
+			)
+			or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+				report,
+				"partial",
+				false
+			)
+		):
 			issues.append("contribution_records_incomplete")
 	var selection_report: Dictionary = GFExtensionSettingsBase.get_extension_selection_report()
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(selection_report, "ok", false) or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(selection_report, "partial", false):
+	if (
+		not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			selection_report,
+			"ok",
+			false
+		)
+		or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			selection_report,
+			"partial",
+			false
+		)
+	):
 		issues.append("extension_selection_incomplete")
-	for helper: RefCounted in [_actions, _inspector_tools, _debugger_tools, _import_tools, _gltf_document_tools]:
+	for helper: RefCounted in [
+		_actions,
+		_inspector_tools,
+		_debugger_tools,
+		_import_tools,
+		_gltf_document_tools,
+	]:
 		if helper == null:
 			issues.append("registration_helper_unavailable")
 			continue
@@ -367,6 +397,7 @@ func _collect_editor_apply_issues() -> Array[String]:
 		for issue: String in _GF_VARIANT_ACCESS_SCRIPT.as_array(helper_issues):
 			issues.append(issue)
 	return issues
+
 
 ## 延迟创建工作区停靠面板，只在插件仍启用且工具对象存在时使用当前贡献记录，避免卸载后的延迟调用重建界面。
 ## [br]
@@ -378,12 +409,17 @@ func _setup_dock_tools() -> void:
 	var dock_records: Array[Dictionary] = []
 	dock_records.assign(_get_record_array(_editor_contribution_records, "dock_records"))
 	_dock_tools.setup(
-		self, dock_records,
+		self,
+		dock_records,
 		_get_record_array(_editor_contribution_records, "task_records"),
 		_get_record_array(_editor_contribution_records, "resource_action_records")
 	)
 	if _refresh_state.get_requested_generation() == 0:
-		_apply_report.complete(0, _capture_extension_settings(), _collect_editor_apply_issues())
+		_apply_report.complete(
+			0,
+			_capture_extension_settings(),
+			_collect_editor_apply_issues()
+		)
 
 
 ## 重建动作来源与菜单入口，复用动作对象并确保信号已连接；已有菜单先解除登记再安装新条目。
@@ -399,7 +435,11 @@ func _setup_actions_and_menu() -> void:
 		_menu = GFPluginMenu.new()
 	else:
 		_menu.cleanup(self)
-	_menu.setup(self, Callable(_actions, "handle_menu_id"), _actions.get_menu_entries())
+	_menu.setup(
+		self,
+		Callable(_actions, "handle_menu_id"),
+		_actions.get_menu_entries()
+	)
 
 
 ## 为动作对象的工作区与刷新请求安装去重信号连接，重复初始化不会追加相同 Callable。
@@ -425,13 +465,19 @@ func _connect_action_signals() -> void:
 ## @api private
 func _refresh_editor_contributions() -> void:
 	if not _plugin_active:
-		_apply_report.fail(_refresh_state.get_requested_generation(), "plugin_disabled")
+		_apply_report.fail(
+			_refresh_state.get_requested_generation(),
+			"plugin_disabled"
+		)
 		return
 	var start_batch: bool = _refresh_state.request(
 		_refresh_now_msec(),
 		_EDITOR_CONTRIBUTION_REFRESH_TIMEOUT_MSEC
 	)
-	_apply_report.request(_refresh_state.get_requested_generation(), _capture_extension_settings())
+	_apply_report.request(
+		_refresh_state.get_requested_generation(),
+		_capture_extension_settings()
+	)
 	if start_batch:
 		call_deferred("_begin_editor_contribution_refresh")
 
@@ -442,9 +488,7 @@ func _refresh_editor_contributions() -> void:
 func _begin_editor_contribution_refresh() -> void:
 	if not _plugin_active or not _refresh_state.is_pending():
 		return
-	_execute_editor_contribution_refresh_action(
-		_refresh_state.begin(_is_editor_filesystem_scanning())
-	)
+	_execute_editor_contribution_refresh_action(_refresh_state.begin(_is_editor_filesystem_scanning()))
 
 
 ## 以去重的一次性 process_frame 连接安排下一次轮询；无场景树或连接失败时记录问题并取消本轮刷新。
@@ -499,17 +543,22 @@ func _execute_editor_contribution_refresh_action(action: Dictionary) -> void:
 		_schedule_editor_contribution_refresh_poll()
 		return
 	if kind == _GF_PLUGIN_REFRESH_STATE_SCRIPT.ACTION_APPLY:
-		var generation: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(action, "generation", 0)
-		if not _apply_report.accepts(generation, _capture_extension_settings()):
+		var generation: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			action,
+			"generation",
+			0
+		)
+		if not _apply_report.accepts(
+			generation,
+			_capture_extension_settings()
+		):
 			_fail_editor_contribution_refresh("settings_changed_before_apply")
 			return
 		_apply_editor_contributions_refresh(generation)
 		if not _plugin_active:
 			_cancel_editor_contribution_refresh()
 			return
-		_execute_editor_contribution_refresh_action(
-			_refresh_state.after_applied(generation)
-		)
+		_execute_editor_contribution_refresh_action(_refresh_state.after_applied(generation))
 		return
 	if kind == _GF_PLUGIN_REFRESH_STATE_SCRIPT.ACTION_DONE:
 		return
@@ -553,7 +602,11 @@ func _apply_editor_contributions_refresh(generation: int) -> void:
 		_gltf_document_tools.setup()
 
 	_setup_dock_tools()
-	_apply_report.complete(generation, applied_settings, _collect_editor_apply_issues())
+	_apply_report.complete(
+		generation,
+		applied_settings,
+		_collect_editor_apply_issues()
+	)
 
 	print("[GF Framework] 已刷新 GF 编辑器贡献记录（generation=%d）。" % generation)
 
@@ -593,7 +646,10 @@ func _refresh_now_msec() -> int:
 ## [br]
 ## @api private
 func _fail_editor_contribution_refresh(kind: String) -> void:
-	_apply_report.fail(_refresh_state.get_requested_generation(), kind)
+	_apply_report.fail(
+		_refresh_state.get_requested_generation(),
+		kind
+	)
 	_report_editor_contribution_refresh_issue(
 		kind,
 		_refresh_state.get_requested_generation()
@@ -632,40 +688,28 @@ func _reload_editor_contribution_reports() -> void:
 		"records",
 		GF_EDITOR_CONTRIBUTION_REGISTRY_SCRIPT.empty_records()
 	)
-	_builtin_tool_editor_contribution_report = _collect_builtin_tool_editor_contribution_report(
-		standard_records
-	)
+	_builtin_tool_editor_contribution_report = _collect_builtin_tool_editor_contribution_report(standard_records)
 	_editor_contribution_records = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
 		_builtin_tool_editor_contribution_report,
 		"records",
 		standard_records
 	)
 	_publish_standard_editor_contribution_diagnostic(_standard_editor_contribution_report)
-	_publish_builtin_tool_editor_contribution_diagnostic(
-		_builtin_tool_editor_contribution_report
-	)
+	_publish_builtin_tool_editor_contribution_diagnostic(_builtin_tool_editor_contribution_report)
 
 
 ## 委托注册表读取 standard 编辑器贡献清单，保留加载状态及可用记录供后续合并与诊断。
 ## [br]
 ## @api private
-func _collect_standard_editor_contribution_report(
-	manifest_path: String = STANDARD_EDITOR_CONTRIBUTIONS_MANIFEST_PATH
-) -> Dictionary:
+func _collect_standard_editor_contribution_report(manifest_path: String = STANDARD_EDITOR_CONTRIBUTIONS_MANIFEST_PATH) -> Dictionary:
 	return GF_EDITOR_CONTRIBUTION_REGISTRY_SCRIPT.load_manifest_report(manifest_path)
 
 
 ## 以已有 standard 记录为基础读取工具贡献目录，返回目录加载报告及合并后的有效记录。
 ## [br]
 ## @api private
-func _collect_builtin_tool_editor_contribution_report(
-	base_records: Dictionary,
-	catalog_path: String = _BUILTIN_TOOL_CONTRIBUTIONS_CATALOG_PATH
-) -> Dictionary:
-	return _GF_EDITOR_CONTRIBUTION_CATALOG_SCRIPT.load_catalog_report(
-		catalog_path,
-		base_records
-	)
+func _collect_builtin_tool_editor_contribution_report(base_records: Dictionary, catalog_path: String = _BUILTIN_TOOL_CONTRIBUTIONS_CATALOG_PATH) -> Dictionary:
+	return _GF_EDITOR_CONTRIBUTION_CATALOG_SCRIPT.load_catalog_report(catalog_path, base_records)
 
 
 ## 对既非缺省也非有效的 standard 报告输出去重排序后的问题类别，按固定数量上限截断，不输出整个清单。
@@ -687,23 +731,26 @@ func _publish_standard_editor_contribution_diagnostic(report: Dictionary) -> voi
 	issue_kinds.sort()
 	var kinds_truncated: bool = issue_kinds.size() > _EDITOR_CONTRIBUTION_DIAGNOSTIC_KIND_LIMIT
 	if kinds_truncated:
-		var _resize_error: Error = issue_kinds.resize(
-			_EDITOR_CONTRIBUTION_DIAGNOSTIC_KIND_LIMIT
-		) as Error
+		var _resize_error: Error = issue_kinds.resize(_EDITOR_CONTRIBUTION_DIAGNOSTIC_KIND_LIMIT) as Error
 	var kinds_text: String = ",".join(PackedStringArray(issue_kinds))
 	if kinds_text.is_empty():
 		kinds_text = "unknown"
 	if kinds_truncated:
 		kinds_text += ",..."
 	push_warning(
-		(
-			"[GFPlugin][plugin.invalid_standard_contribution_manifest] Standard editor contribution manifest "
-			+ "state=%s issue_count=%d skipped_record_count=%d issue_kinds=%s."
-		)
+		("[GFPlugin][plugin.invalid_standard_contribution_manifest] Standard editor contribution manifest " + "state=%s issue_count=%d skipped_record_count=%d issue_kinds=%s.")
 		% [
 			state if not state.is_empty() else "invalid",
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(report, "issue_count", 0),
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(report, "skipped_record_count", 0),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+				report,
+				"issue_count",
+				0
+			),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+				report,
+				"skipped_record_count",
+				0
+			),
 			kinds_text,
 		]
 	)
@@ -721,10 +768,7 @@ func _publish_builtin_tool_editor_contribution_diagnostic(report: Dictionary) ->
 		issue_kinds,
 		_GF_VARIANT_ACCESS_SCRIPT.get_option_array(report, "issues")
 	)
-	for manifest_report_value: Variant in _GF_VARIANT_ACCESS_SCRIPT.get_option_array(
-		report,
-		"manifest_reports"
-	):
+	for manifest_report_value: Variant in _GF_VARIANT_ACCESS_SCRIPT.get_option_array(report, "manifest_reports"):
 		if not manifest_report_value is Dictionary:
 			continue
 		var manifest_report: Dictionary = manifest_report_value
@@ -741,26 +785,36 @@ func _publish_builtin_tool_editor_contribution_diagnostic(report: Dictionary) ->
 	issue_kinds.sort()
 	var kinds_truncated: bool = issue_kinds.size() > _EDITOR_CONTRIBUTION_DIAGNOSTIC_KIND_LIMIT
 	if kinds_truncated:
-		var _resize_error: Error = issue_kinds.resize(
-			_EDITOR_CONTRIBUTION_DIAGNOSTIC_KIND_LIMIT
-		) as Error
+		var _resize_error: Error = issue_kinds.resize(_EDITOR_CONTRIBUTION_DIAGNOSTIC_KIND_LIMIT) as Error
 	var kinds_text: String = ",".join(PackedStringArray(issue_kinds))
 	if kinds_text.is_empty():
 		kinds_text = "unknown"
 	if kinds_truncated:
 		kinds_text += ",..."
 	push_warning(
-		(
-			"[GFPlugin][plugin.invalid_builtin_tool_contribution_catalog] Built-in tool contribution catalog "
-			+ "state=%s issue_count=%d loaded_manifest_count=%d "
-			+ "absent_manifest_count=%d skipped_manifest_count=%d issue_kinds=%s."
-		)
+		("[GFPlugin][plugin.invalid_builtin_tool_contribution_catalog] Built-in tool contribution catalog " + "state=%s issue_count=%d loaded_manifest_count=%d " + "absent_manifest_count=%d skipped_manifest_count=%d issue_kinds=%s.")
 		% [
 			state if not state.is_empty() else "invalid",
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(report, "issue_count", 0),
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(report, "loaded_manifest_count", 0),
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(report, "absent_manifest_count", 0),
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(report, "skipped_manifest_count", 0),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+				report,
+				"issue_count",
+				0
+			),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+				report,
+				"loaded_manifest_count",
+				0
+			),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+				report,
+				"absent_manifest_count",
+				0
+			),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+				report,
+				"skipped_manifest_count",
+				0
+			),
 			kinds_text,
 		]
 	)

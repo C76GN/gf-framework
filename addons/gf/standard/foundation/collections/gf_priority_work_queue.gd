@@ -88,8 +88,17 @@ var _next_front_order: int = 0
 ## @return 参数有效且未超过 max_size 时返回 true。
 ## [br]
 ## @schema value: Variant，由调用方持有语义的工作载荷。
-func push(value: Variant, priority: float = 0.0, front: bool = false) -> bool:
-	return push_at(value, priority, Time.get_ticks_msec(), front)
+func push(
+	value: Variant,
+	priority: float = 0.0,
+	front: bool = false
+) -> bool:
+	return push_at(
+		value,
+		priority,
+		Time.get_ticks_msec(),
+		front
+	)
 
 
 ## 使用显式入队时间推入一个值，适合确定性模拟、恢复或测试。
@@ -120,12 +129,14 @@ func push_at(
 	if max_size > 0 and _entries.size() >= max_size:
 		return false
 	_reset_order_if_empty()
-	_entries.append({
-		"value": value,
-		"priority": priority,
-		"enqueued_msec": enqueued_msec,
-		"order": _make_order(front),
-	})
+	_entries.append(
+		{
+			"value": value,
+			"priority": priority,
+			"enqueued_msec": enqueued_msec,
+			"order": _make_order(front),
+		}
+	)
 	return true
 
 
@@ -143,7 +154,10 @@ func push_at(
 ## [br]
 ## @schema return: Variant，工作载荷或回退值。
 func pop(default_value: Variant = null) -> Variant:
-	return pop_at(Time.get_ticks_msec(), default_value)
+	return pop_at(
+		Time.get_ticks_msec(),
+		default_value
+	)
 
 
 ## 使用显式当前时间弹出有效优先级最高的值。
@@ -168,7 +182,11 @@ func pop_at(now_msec: int, default_value: Variant = null) -> Variant:
 	var entry: Dictionary = _entries[index]
 	_entries.remove_at(index)
 	_reset_order_if_empty()
-	return GFVariantData.get_option_value(entry, "value", default_value)
+	return GFVariantData.get_option_value(
+		entry,
+		"value",
+		default_value
+	)
 
 
 ## 使用当前单调时钟读取下一个值但不移除。
@@ -185,7 +203,10 @@ func pop_at(now_msec: int, default_value: Variant = null) -> Variant:
 ## [br]
 ## @schema return: Variant，工作载荷或回退值。
 func peek(default_value: Variant = null) -> Variant:
-	return peek_at(Time.get_ticks_msec(), default_value)
+	return peek_at(
+		Time.get_ticks_msec(),
+		default_value
+	)
 
 
 ## 使用显式当前时间读取下一个值但不移除。
@@ -207,7 +228,11 @@ func peek_at(now_msec: int, default_value: Variant = null) -> Variant:
 	var index: int = _find_best_index(now_msec)
 	if index < 0:
 		return default_value
-	return GFVariantData.get_option_value(_entries[index], "value", default_value)
+	return GFVariantData.get_option_value(
+		_entries[index],
+		"value",
+		default_value
+	)
 
 
 ## 移除第一个等于 value 的等待值。
@@ -223,7 +248,13 @@ func peek_at(now_msec: int, default_value: Variant = null) -> Variant:
 ## @schema value: Variant，要匹配的工作载荷。
 func remove_value(value: Variant) -> bool:
 	for index: int in range(_entries.size()):
-		if _values_equal(GFVariantData.get_option_value(_entries[index], "value"), value):
+		if _values_equal(
+			GFVariantData.get_option_value(
+				_entries[index],
+				"value"
+			),
+			value
+		):
 			_entries.remove_at(index)
 			_reset_order_if_empty()
 			return true
@@ -247,7 +278,10 @@ func set_priority(value: Variant, priority: float) -> bool:
 	if not is_finite(priority):
 		return false
 	for entry: Dictionary in _entries:
-		if _values_equal(GFVariantData.get_option_value(entry, "value"), value):
+		if _values_equal(
+			GFVariantData.get_option_value(entry, "value"),
+			value
+		):
 			entry["priority"] = priority
 			return true
 	return false
@@ -328,7 +362,10 @@ func to_entry_array(now_msec: int = -1, deep: bool = false) -> Array[Dictionary]
 		var entry: Dictionary = pending[index]
 		pending.remove_at(index)
 		var enqueued_msec: int = GFVariantData.get_option_int(entry, "enqueued_msec")
-		var waited_msec: int = maxi(effective_now - enqueued_msec, 0)
+		var waited_msec: int = maxi(
+			effective_now - enqueued_msec,
+			0
+		)
 		entry["effective_priority"] = _get_effective_priority(entry, effective_now)
 		entry["waited_msec"] = waited_msec
 		result.append(entry)
@@ -384,7 +421,10 @@ func _reset_order_if_empty() -> void:
 ## [br]
 ## @api private
 func _find_best_index(now_msec: int) -> int:
-	return _find_best_index_in(_entries, maxi(now_msec, 0))
+	return _find_best_index_in(
+		_entries,
+		maxi(now_msec, 0)
+	)
 
 
 ## 扫描给定条目列表并返回最先出队项的索引；列表为空时返回 -1。
@@ -394,8 +434,15 @@ func _find_best_index_in(entries: Array[Dictionary], now_msec: int) -> int:
 	if entries.is_empty():
 		return -1
 	var best_index: int = 0
-	for index: int in range(1, entries.size()):
-		if _entry_is_before(entries[index], entries[best_index], now_msec):
+	for index: int in range(
+		1,
+		entries.size()
+	):
+		if _entry_is_before(
+			entries[index],
+			entries[best_index],
+			now_msec
+		):
 			best_index = index
 	return best_index
 
@@ -403,7 +450,11 @@ func _find_best_index_in(entries: Array[Dictionary], now_msec: int) -> int:
 ## 使用共同尺度比较有效优先级；相等时 order 较小的条目在前。
 ## [br]
 ## @api private
-func _entry_is_before(left: Dictionary, right: Dictionary, now_msec: int) -> bool:
+func _entry_is_before(
+	left: Dictionary,
+	right: Dictionary,
+	now_msec: int
+) -> bool:
 	var scale: float = maxf(
 		maxf(
 			absf(GFVariantData.get_option_float(left, "priority")),
@@ -411,8 +462,16 @@ func _entry_is_before(left: Dictionary, right: Dictionary, now_msec: int) -> boo
 		),
 		aging_step
 	)
-	var left_priority: float = _get_scaled_effective_priority(left, now_msec, scale)
-	var right_priority: float = _get_scaled_effective_priority(right, now_msec, scale)
+	var left_priority: float = _get_scaled_effective_priority(
+		left,
+		now_msec,
+		scale
+	)
+	var right_priority: float = _get_scaled_effective_priority(
+		right,
+		now_msec,
+		scale
+	)
 	if left_priority != right_priority:
 		return left_priority > right_priority
 	return GFVariantData.get_option_int(left, "order") < GFVariantData.get_option_int(right, "order")
@@ -423,8 +482,15 @@ func _entry_is_before(left: Dictionary, right: Dictionary, now_msec: int) -> boo
 ## @api private
 func _get_effective_priority(entry: Dictionary, now_msec: int) -> float:
 	var priority: float = GFVariantData.get_option_float(entry, "priority")
-	var scale: float = maxf(absf(priority), aging_step)
-	var scaled_priority: float = _get_scaled_effective_priority(entry, now_msec, scale)
+	var scale: float = maxf(
+		absf(priority),
+		aging_step
+	)
+	var scaled_priority: float = _get_scaled_effective_priority(
+		entry,
+		now_msec,
+		scale
+	)
 	var scaled_limit: float = _MAX_FINITE_FLOAT / scale
 	if scaled_priority >= scaled_limit:
 		return _MAX_FINITE_FLOAT
@@ -454,7 +520,10 @@ func _get_scaled_effective_priority(
 ## @api private
 func _get_aging_intervals(entry: Dictionary, now_msec: int) -> int:
 	var enqueued_msec: int = GFVariantData.get_option_int(entry, "enqueued_msec")
-	var waited_msec: int = maxi(now_msec - enqueued_msec, 0)
+	var waited_msec: int = maxi(
+		now_msec - enqueued_msec,
+		0
+	)
 	return floori(float(waited_msec) / float(aging_interval_msec))
 
 
@@ -465,12 +534,14 @@ func _duplicate_entries(deep: bool) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for entry: Dictionary in _entries:
 		var value: Variant = GFVariantData.get_option_value(entry, "value")
-		result.append({
-			"value": GFVariantData.duplicate_variant(value) if deep else value,
-			"priority": GFVariantData.get_option_float(entry, "priority"),
-			"enqueued_msec": GFVariantData.get_option_int(entry, "enqueued_msec"),
-			"order": GFVariantData.get_option_int(entry, "order"),
-		})
+		result.append(
+			{
+				"value": GFVariantData.duplicate_variant(value) if deep else value,
+				"priority": GFVariantData.get_option_float(entry, "priority"),
+				"enqueued_msec": GFVariantData.get_option_int(entry, "enqueued_msec"),
+				"order": GFVariantData.get_option_int(entry, "order"),
+			}
+		)
 	return result
 
 

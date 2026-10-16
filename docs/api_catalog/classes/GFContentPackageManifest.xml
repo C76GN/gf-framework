@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFContentPackageManifest" path="addons/gf/extensions/content_package/resources/gf_content_package_manifest.gd" module="extensions/content_package" extends="Resource" classDigest="38b1bf4d81581cdb62044ee6926aee6b56bb40b5cc6de456d90f58c53d85114a">
+<class name="GFContentPackageManifest" path="addons/gf/extensions/content_package/resources/gf_content_package_manifest.gd" module="extensions/content_package" extends="Resource" classDigest="a456a5c4ddcb1bbb062cb7e404e4e28f4415f29d4f2f439bca076882fa55dc0c">
 	<description>GFContentPackageManifest: 通用内容包 manifest。
 描述一个内容包的稳定包 ID、版本、依赖和资源键映射。GF 只校验结构、路径安全和依赖关系，
 不解释内容类型的业务语义，也不负责下载、启用策略或具体玩法规则。</description>
@@ -158,7 +158,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="apply_dictionary">
-			<signature>func apply_dictionary(data: Dictionary, p_root_path: String = "", p_source_path: String = "") -&gt; void:</signature>
+			<signature>func apply_dictionary( data: Dictionary, p_root_path: String = "", p_source_path: String = "" ) -&gt; void:</signature>
 			<description>从字典应用 manifest 字段。</description>
 			<tags>
 				<tag name="api">public</tag>

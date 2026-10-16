@@ -57,18 +57,46 @@ const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_re
 ## [br]
 ## @schema return: Dictionary，包含 ok、error、source、grid_size、origin、step、sample_count、samples、min_value、max_value、average、normalized_samples 与 constant_range 字段。
 static func sample_grid_2d(grid_size: Vector2i, options: Dictionary = {}) -> Dictionary:
-	var origin: Vector2 = GFVariantData.get_option_vector2(options, "origin", Vector2.ZERO)
-	var step: Vector2 = GFVariantData.get_option_vector2(options, "step", Vector2.ONE)
+	var origin: Vector2 = GFVariantData.get_option_vector2(
+		options,
+		"origin",
+		Vector2.ZERO
+	)
+	var step: Vector2 = GFVariantData.get_option_vector2(
+		options,
+		"step",
+		Vector2.ONE
+	)
 	var max_samples: int = maxi(
-		GFVariantData.get_option_int(options, "max_samples", DEFAULT_MAX_GRID_SAMPLES),
+		GFVariantData.get_option_int(
+			options,
+			"max_samples",
+			DEFAULT_MAX_GRID_SAMPLES
+		),
 		0
 	)
-	var validation_error: String = _get_grid_input_error(grid_size, origin, step, max_samples)
+	var validation_error: String = _get_grid_input_error(
+		grid_size,
+		origin,
+		step,
+		max_samples
+	)
 	if not validation_error.is_empty():
-		return _make_grid_result(false, validation_error, "", grid_size, origin, step)
+		return _make_grid_result(
+			false,
+			validation_error,
+			"",
+			grid_size,
+			origin,
+			step
+		)
 
 	var source: Dictionary = _resolve_source(options)
-	if not GFVariantData.get_option_bool(source, "ok", false):
+	if not GFVariantData.get_option_bool(
+		source,
+		"ok",
+		false
+	):
 		return _make_grid_result(
 			false,
 			GFVariantData.get_option_string(source, "error"),
@@ -91,7 +119,10 @@ static func sample_grid_2d(grid_size: Vector2i, options: Dictionary = {}) -> Dic
 	for y: int in range(grid_size.y):
 		for x: int in range(grid_size.x):
 			var cell: Vector2i = Vector2i(x, y)
-			var position: Vector2 = origin + Vector2(float(x) * step.x, float(y) * step.y)
+			var position: Vector2 = origin + Vector2(
+				float(x) * step.x,
+				float(y) * step.y
+			)
 			if not _is_finite_vector2(position):
 				return _make_grid_result(
 					false,
@@ -101,7 +132,12 @@ static func sample_grid_2d(grid_size: Vector2i, options: Dictionary = {}) -> Dic
 					origin,
 					step
 				)
-			var sample_value: float = _sample_source(source, position, cell, metadata)
+			var sample_value: float = _sample_source(
+				source,
+				position,
+				cell,
+				metadata
+			)
 			if not _is_finite_float(sample_value):
 				return _make_grid_result(
 					false,
@@ -132,23 +168,42 @@ static func sample_grid_2d(grid_size: Vector2i, options: Dictionary = {}) -> Dic
 			sum += stored_sample_value
 			sample_index += 1
 
-	var result: Dictionary = _make_grid_result(true, "", source_name, grid_size, origin, step)
+	var result: Dictionary = _make_grid_result(
+		true,
+		"",
+		source_name,
+		grid_size,
+		origin,
+		step
+	)
 	result["samples"] = samples
 	result["sample_count"] = samples.size()
 	result["min_value"] = min_value
 	result["max_value"] = max_value
 	result["average"] = sum / float(samples.size())
 
-	if GFVariantData.get_option_bool(options, "include_normalized", true):
+	if GFVariantData.get_option_bool(
+		options,
+		"include_normalized",
+		true
+	):
 		var normalized_report: Dictionary = normalize_samples(
 			samples,
 			{
 				"minimum": min_value,
 				"maximum": max_value,
-				"constant_value": GFVariantData.get_option_float(options, "constant_value", 0.0),
+				"constant_value": GFVariantData.get_option_float(
+					options,
+					"constant_value",
+					0.0
+				),
 			}
 		)
-		if GFVariantData.get_option_bool(normalized_report, "ok", false):
+		if GFVariantData.get_option_bool(
+			normalized_report,
+			"ok",
+			false
+		):
 			result["normalized_samples"] = GFVariantData.get_option_value(
 				normalized_report,
 				"normalized_samples",
@@ -186,24 +241,44 @@ static func sample_grid_2d(grid_size: Vector2i, options: Dictionary = {}) -> Dic
 ## [br]
 ## @schema return: Dictionary，包含 ok、error、sample_count、min_value、max_value、constant_value、constant_range 与 normalized_samples 字段。
 static func normalize_samples(samples: PackedFloat32Array, options: Dictionary = {}) -> Dictionary:
-	var report: Dictionary = _make_normalize_result(false, "", samples.size())
+	var report: Dictionary = _make_normalize_result(
+		false,
+		"",
+		samples.size()
+	)
 	if samples.is_empty():
 		report["error"] = "samples must not be empty."
 		return report
 
 	var stats: Dictionary = _get_sample_stats(samples)
-	if not GFVariantData.get_option_bool(stats, "ok", false):
+	if not GFVariantData.get_option_bool(
+		stats,
+		"ok",
+		false
+	):
 		report["error"] = GFVariantData.get_option_string(stats, "error")
 		return report
 
 	var min_value: float = GFVariantData.get_option_float(stats, "min_value")
 	var max_value: float = GFVariantData.get_option_float(stats, "max_value")
 	if _has_option(options, "minimum"):
-		min_value = GFVariantData.get_option_float(options, "minimum", min_value)
+		min_value = GFVariantData.get_option_float(
+			options,
+			"minimum",
+			min_value
+		)
 	if _has_option(options, "maximum"):
-		max_value = GFVariantData.get_option_float(options, "maximum", max_value)
+		max_value = GFVariantData.get_option_float(
+			options,
+			"maximum",
+			max_value
+		)
 
-	var constant_value: float = GFVariantData.get_option_float(options, "constant_value", 0.0)
+	var constant_value: float = GFVariantData.get_option_float(
+		options,
+		"constant_value",
+		0.0
+	)
 	if not _is_finite_float(min_value) or not _is_finite_float(max_value):
 		report["error"] = "minimum and maximum must be finite."
 		return report
@@ -222,7 +297,10 @@ static func normalize_samples(samples: PackedFloat32Array, options: Dictionary =
 	var scaled_minimum: float = min_value
 	var scaled_span: float = span
 	if not constant_range and not _is_finite_float(span):
-		normalization_scale = maxf(absf(min_value), absf(max_value))
+		normalization_scale = maxf(
+			absf(min_value),
+			absf(max_value)
+		)
 		if normalization_scale <= 0.0 or not _is_finite_float(normalization_scale):
 			report["error"] = "sample range could not be normalized safely."
 			return report
@@ -231,18 +309,24 @@ static func normalize_samples(samples: PackedFloat32Array, options: Dictionary =
 		if scaled_span <= 0.0 or not _is_finite_float(scaled_span):
 			report["error"] = "sample range could not be normalized safely."
 			return report
-	var should_clamp: bool = GFVariantData.get_option_bool(options, "clamp", true)
+	var should_clamp: bool = GFVariantData.get_option_bool(
+		options,
+		"clamp",
+		true
+	)
 	for index: int in range(samples.size()):
 		var normalized_value: float = constant_value
 		if not constant_range:
 			if normalization_scale == 1.0:
 				normalized_value = (samples[index] - min_value) / span
 			else:
-				normalized_value = (
-					samples[index] / normalization_scale - scaled_minimum
-				) / scaled_span
+				normalized_value = ((samples[index] / normalization_scale - scaled_minimum) / scaled_span)
 			if should_clamp:
-				normalized_value = clampf(normalized_value, 0.0, 1.0)
+				normalized_value = clampf(
+					normalized_value,
+					0.0,
+					1.0
+				)
 		if not _is_finite_float(normalized_value):
 			report["error"] = "normalized samples must contain only finite values."
 			return report
@@ -314,30 +398,72 @@ static func _get_grid_input_error(
 ## [br]
 static func _resolve_source(options: Dictionary) -> Dictionary:
 	if _has_option(options, "sampler"):
-		var sampler_value: Variant = GFVariantData.get_option_value(options, "sampler", Callable())
+		var sampler_value: Variant = GFVariantData.get_option_value(
+			options,
+			"sampler",
+			Callable()
+		)
 		if not (sampler_value is Callable):
-			return { "ok": false, "source": "callable", "error": "sampler must be a Callable." }
+			return {
+				"ok": false,
+				"source": "callable",
+				"error": "sampler must be a Callable.",
+			}
 		var sampler: Callable = sampler_value
 		if not sampler.is_valid():
-			return { "ok": false, "source": "callable", "error": "sampler must be valid." }
-		return { "ok": true, "source": "callable", "error": "", "sampler": sampler }
+			return {
+				"ok": false,
+				"source": "callable",
+				"error": "sampler must be valid.",
+			}
+		return {
+			"ok": true,
+			"source": "callable",
+			"error": "",
+			"sampler": sampler,
+		}
 
 	if _has_option(options, "noise"):
 		var noise_value: Variant = GFVariantData.get_option_value(options, "noise")
 		if not (noise_value is FastNoiseLite):
-			return { "ok": false, "source": "fast_noise_lite", "error": "noise must be FastNoiseLite." }
+			return {
+				"ok": false,
+				"source": "fast_noise_lite",
+				"error": "noise must be FastNoiseLite.",
+			}
 		var provided_noise: FastNoiseLite = noise_value
-		return { "ok": true, "source": "fast_noise_lite", "error": "", "noise": provided_noise }
+		return {
+			"ok": true,
+			"source": "fast_noise_lite",
+			"error": "",
+			"noise": provided_noise,
+		}
 
-	var frequency: float = GFVariantData.get_option_float(options, "frequency", DEFAULT_NOISE_FREQUENCY)
+	var frequency: float = GFVariantData.get_option_float(
+		options,
+		"frequency",
+		DEFAULT_NOISE_FREQUENCY
+	)
 	if not _is_finite_float(frequency) or frequency <= 0.0:
-		return { "ok": false, "source": "fast_noise_lite", "error": "frequency must be a positive finite value." }
+		return {
+			"ok": false,
+			"source": "fast_noise_lite",
+			"error": "frequency must be a positive finite value.",
+		}
 
 	var noise: FastNoiseLite = FastNoiseLite.new()
-	noise.seed = GFVariantData.get_option_int(options, "seed", 0)
+	noise.seed = GFVariantData.get_option_int(
+		options,
+		"seed",
+		0
+	)
 	noise.frequency = frequency
 	if _has_option(options, "noise_type"):
-		var noise_type: int = GFVariantData.get_option_int(options, "noise_type", noise.noise_type)
+		var noise_type: int = GFVariantData.get_option_int(
+			options,
+			"noise_type",
+			noise.noise_type
+		)
 		if not _is_valid_noise_type(noise_type):
 			return {
 				"ok": false,
@@ -346,8 +472,20 @@ static func _resolve_source(options: Dictionary) -> Dictionary:
 			}
 		noise.noise_type = _to_noise_type(noise_type, noise.noise_type)
 	if _has_option(options, "fractal_octaves"):
-		noise.fractal_octaves = maxi(GFVariantData.get_option_int(options, "fractal_octaves", noise.fractal_octaves), 1)
-	return { "ok": true, "source": "fast_noise_lite", "error": "", "noise": noise }
+		noise.fractal_octaves = maxi(
+			GFVariantData.get_option_int(
+				options,
+				"fractal_octaves",
+				noise.fractal_octaves
+			),
+			1
+		)
+	return {
+		"ok": true,
+		"source": "fast_noise_lite",
+		"error": "",
+		"noise": noise,
+	}
 
 
 ## 从解析结果调用 sampler 或 FastNoiseLite 采样，并把不支持的值变为 NAN。
@@ -362,10 +500,20 @@ static func _sample_source(
 ) -> float:
 	var source_name: String = GFVariantData.get_option_string(source, "source")
 	if source_name == "callable":
-		var sampler_value: Variant = GFVariantData.get_option_value(source, "sampler", Callable())
+		var sampler_value: Variant = GFVariantData.get_option_value(
+			source,
+			"sampler",
+			Callable()
+		)
 		if sampler_value is Callable:
 			var sampler: Callable = sampler_value
-			return _variant_to_float_sample(sampler.call(position, cell, metadata))
+			return _variant_to_float_sample(
+				sampler.call(
+					position,
+					cell,
+					metadata
+				)
+			)
 		return NAN
 
 	var noise_value: Variant = GFVariantData.get_option_value(source, "noise")
@@ -438,7 +586,11 @@ static func _make_grid_result(
 ## [br]
 ## @api private
 ## [br]
-static func _make_normalize_result(ok: bool, error: String, sample_count: int) -> Dictionary:
+static func _make_normalize_result(
+	ok: bool,
+	error: String,
+	sample_count: int
+) -> Dictionary:
 	return {
 		"ok": ok,
 		"error": error,

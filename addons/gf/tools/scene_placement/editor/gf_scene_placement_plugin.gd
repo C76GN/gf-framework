@@ -289,7 +289,9 @@ func _update_pointer(camera: Camera3D, position: Vector2) -> void:
 		if distance_value is float:
 			distance = distance_value
 		var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(
-			origin, origin + direction * distance, _collision_mask
+			origin,
+			origin + direction * distance,
+			_collision_mask
 		)
 		query.collide_with_areas = false
 		if world != null and world.direct_space_state != null:
@@ -313,7 +315,11 @@ func _update_pointer(camera: Camera3D, position: Vector2) -> void:
 ## [br]
 ## @api private
 func _confirm_placement() -> void:
-	if _confirming or _operation == null or not _operation.can_apply():
+	if (
+		_confirming
+		or _operation == null
+		or not _operation.can_apply()
+	):
 		return
 	_confirming = true
 	_apply_placement(_operation)
@@ -364,10 +370,16 @@ func _apply_placement(operation: GFScenePlacementOperation) -> void:
 func _can_finish_confirmation(operation: GFScenePlacementOperation, node_value: Variant) -> bool:
 	if _operation != operation:
 		return false
-	if (not is_inside_tree() or is_queued_for_deletion() or not is_instance_valid(_panel)
-		or not _panel.is_visible_in_tree() or _panel.is_queued_for_deletion()
-		or _get_scene_root() != EditorInterface.get_edited_scene_root() or not operation.is_destination_valid()
-		or not is_instance_valid(node_value) or not node_value is Node3D
+	if (
+		not is_inside_tree()
+		or is_queued_for_deletion()
+		or not is_instance_valid(_panel)
+		or not _panel.is_visible_in_tree()
+		or _panel.is_queued_for_deletion()
+		or _get_scene_root() != EditorInterface.get_edited_scene_root()
+		or not operation.is_destination_valid()
+		or not is_instance_valid(node_value)
+		or not node_value is Node3D
 	):
 		cancel_placement()
 		return false
@@ -388,7 +400,12 @@ func _begin_operation() -> bool:
 		if parent_value is Node3D:
 			parent = parent_value
 	var operation: GFScenePlacementOperation = GFScenePlacementOperation.new()
-	var error: Error = operation.configure(_source, parent, _get_scene_root(), _options)
+	var error: Error = operation.configure(
+		_source,
+		parent,
+		_get_scene_root(),
+		_options
+	)
 	if error != OK:
 		cancel_placement()
 		_last_report = { "ok": false, "error_code": error }
@@ -411,10 +428,17 @@ func _draw_preview(camera: Camera3D, transform: Transform3D) -> void:
 		_preview_mesh = ImmediateMesh.new()
 		var material: StandardMaterial3D = StandardMaterial3D.new()
 		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		material.albedo_color = Color(0.2, 0.8, 1.0)
+		material.albedo_color = Color(
+			0.2,
+			0.8,
+			1.0
+		)
 		material.no_depth_test = true
 		_preview_mesh.surface_begin(Mesh.PRIMITIVE_LINES, material)
-		var bounds: AABB = AABB(-_proxy_size * 0.5, _proxy_size)
+		var bounds: AABB = AABB(
+			-_proxy_size * 0.5,
+			_proxy_size
+		)
 		for axis: int in range(3):
 			for corner: int in range(8):
 				var paired: int = corner ^ (1 << axis)
@@ -423,8 +447,14 @@ func _draw_preview(camera: Camera3D, transform: Transform3D) -> void:
 					_preview_mesh.surface_add_vertex(bounds.get_endpoint(paired))
 		_preview_mesh.surface_end()
 		_preview_instance = RenderingServer.instance_create()
-		RenderingServer.instance_set_base(_preview_instance, _preview_mesh.get_rid())
-	RenderingServer.instance_set_scenario(_preview_instance, camera.get_world_3d().scenario)
+		RenderingServer.instance_set_base(
+			_preview_instance,
+			_preview_mesh.get_rid()
+		)
+	RenderingServer.instance_set_scenario(
+		_preview_instance,
+		camera.get_world_3d().scenario
+	)
 	RenderingServer.instance_set_transform(_preview_instance, transform)
 
 
@@ -457,8 +487,12 @@ func _get_scene_root() -> Node:
 ## [br]
 ## @api private
 func _on_placement_requested() -> void:
-	if (not is_inside_tree() or is_queued_for_deletion() or not is_instance_valid(_panel)
-		or not _panel.is_visible_in_tree() or _panel.is_queued_for_deletion()
+	if (
+		not is_inside_tree()
+		or is_queued_for_deletion()
+		or not is_instance_valid(_panel)
+		or not _panel.is_visible_in_tree()
+		or _panel.is_queued_for_deletion()
 	):
 		return
 	cancel_placement()

@@ -15,7 +15,7 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 信号 | [`setting_changed`](#member-gfsettingsutility-signals-setting_changed) | `signal setting_changed(key: StringName, old_value: Variant, new_value: Variant)` |
+| 信号 | [`setting_changed`](#member-gfsettingsutility-signals-setting_changed) | `signal setting_changed( key: StringName, old_value: Variant, new_value: Variant )` |
 | 信号 | [`settings_load_completed`](#member-gfsettingsutility-signals-settings_load_completed) | `signal settings_load_completed(result: GFSettingsLoadResult)` |
 | 信号 | [`settings_saved`](#member-gfsettingsutility-signals-settings_saved) | `signal settings_saved(data: Dictionary)` |
 | 信号 | [`staged_setting_changed`](#member-gfsettingsutility-signals-staged_setting_changed) | `signal staged_setting_changed(key: StringName)` |
@@ -38,7 +38,7 @@
 | 方法 | [`register_definitions`](#member-gfsettingsutility-methods-register_definitions) | `func register_definitions(definitions: Array[GFSettingDefinition]) -> void:` |
 | 方法 | [`get_definition`](#member-gfsettingsutility-methods-get_definition) | `func get_definition(key: StringName) -> GFSettingDefinition:` |
 | 方法 | [`get_definitions`](#member-gfsettingsutility-methods-get_definitions) | `func get_definitions() -> Array[GFSettingDefinition]:` |
-| 方法 | [`set_value`](#member-gfsettingsutility-methods-set_value) | `func set_value(key: StringName, value: Variant, save_after_change: bool = true) -> void:` |
+| 方法 | [`set_value`](#member-gfsettingsutility-methods-set_value) | `func set_value( key: StringName, value: Variant, save_after_change: bool = true ) -> void:` |
 | 方法 | [`stage_value`](#member-gfsettingsutility-methods-stage_value) | `func stage_value(key: StringName, value: Variant) -> void:` |
 | 方法 | [`get_staged_value`](#member-gfsettingsutility-methods-get_staged_value) | `func get_staged_value(key: StringName, fallback: Variant = null) -> Variant:` |
 | 方法 | [`get_staged_or_value`](#member-gfsettingsutility-methods-get_staged_or_value) | `func get_staged_or_value(key: StringName, fallback: Variant = null) -> Variant:` |
@@ -61,7 +61,7 @@
 | 方法 | [`to_dict`](#member-gfsettingsutility-methods-to_dict) | `func to_dict(persistent_only: bool = true) -> Dictionary:` |
 | 方法 | [`replace_from_dict`](#member-gfsettingsutility-methods-replace_from_dict) | `func replace_from_dict(data: Dictionary, emit_changes: bool = true) -> void:` |
 | 方法 | [`merge_from_dict`](#member-gfsettingsutility-methods-merge_from_dict) | `func merge_from_dict(data: Dictionary, emit_changes: bool = true) -> void:` |
-| 方法 | [`load_settings`](#member-gfsettingsutility-methods-load_settings) | `func load_settings( file_name: String = "", recovery_policy: GFSettingsRecoveryPolicy = null ) -> GFSettingsLoadResult:` |
+| 方法 | [`load_settings`](#member-gfsettingsutility-methods-load_settings) | `func load_settings(file_name: String = "", recovery_policy: GFSettingsRecoveryPolicy = null) -> GFSettingsLoadResult:` |
 | 方法 | [`get_last_load_result`](#member-gfsettingsutility-methods-get_last_load_result) | `func get_last_load_result() -> GFSettingsLoadResult:` |
 | 方法 | [`save_settings`](#member-gfsettingsutility-methods-save_settings) | `func save_settings(file_name: String = "") -> Error:` |
 | 方法 | [`tick`](#member-gfsettingsutility-methods-tick) | `func tick(delta: float = 0.0) -> void:` |
@@ -75,9 +75,10 @@
 ### `setting_changed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal setting_changed(key: StringName, old_value: Variant, new_value: Variant)
+signal setting_changed( key: StringName, old_value: Variant, new_value: Variant )
 ```
 
 设置值变化时发出。
@@ -478,9 +479,10 @@ func get_definitions() -> Array[GFSettingDefinition]:
 ### `set_value`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func set_value(key: StringName, value: Variant, save_after_change: bool = true) -> void:
+func set_value( key: StringName, value: Variant, save_after_change: bool = true ) -> void:
 ```
 
 设置一个值。
@@ -956,7 +958,7 @@ func merge_from_dict(data: Dictionary, emit_changes: bool = true) -> void:
 - 首次版本：`3.17.0`
 
 ```gdscript
-func load_settings( file_name: String = "", recovery_policy: GFSettingsRecoveryPolicy = null ) -> GFSettingsLoadResult:
+func load_settings(file_name: String = "", recovery_policy: GFSettingsRecoveryPolicy = null) -> GFSettingsLoadResult:
 ```
 
 读取持久化设置并返回结构化终态。 默认策略严格失败；缺失、损坏、未来 schema、迁移失败或 IO 失败不会被 降级为空字典。只有显式恢复策略可以处理缺失或损坏，且加载本身从不保存。 非空策略会在 IO 前验证；合法加载请求会取消全部旧延迟/批处理保存请求， 防止新加载状态被旧保存目标重新序列化。

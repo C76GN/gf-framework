@@ -15,7 +15,7 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 信号 | [`item_changed`](#member-gfobservablearrayresource-signals-item_changed) | `signal item_changed(operation: StringName, index: int, old_value: Variant, new_value: Variant, metadata: Dictionary)` |
+| 信号 | [`item_changed`](#member-gfobservablearrayresource-signals-item_changed) | `signal item_changed( operation: StringName, index: int, old_value: Variant, new_value: Variant, metadata: Dictionary )` |
 | 信号 | [`items_changed`](#member-gfobservablearrayresource-signals-items_changed) | `signal items_changed(changes: Array[Dictionary], metadata: Dictionary)` |
 | 常量 | [`OPERATION_APPEND`](#member-gfobservablearrayresource-constants-operation_append) | `const OPERATION_APPEND: StringName = &"append"` |
 | 常量 | [`OPERATION_SET`](#member-gfobservablearrayresource-constants-operation_set) | `const OPERATION_SET: StringName = &"set"` |
@@ -24,10 +24,10 @@
 | 常量 | [`OPERATION_REPLACE`](#member-gfobservablearrayresource-constants-operation_replace) | `const OPERATION_REPLACE: StringName = &"replace"` |
 | 属性 | [`items`](#member-gfobservablearrayresource-properties-items) | `var items: Array = []` |
 | 属性 | [`metadata`](#member-gfobservablearrayresource-properties-metadata) | `var metadata: Dictionary = {}` |
-| 方法 | [`set_items`](#member-gfobservablearrayresource-methods-set_items) | `func set_items(values: Array, emit_change: bool = true, change_metadata: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`set_items`](#member-gfobservablearrayresource-methods-set_items) | `func set_items( values: Array, emit_change: bool = true, change_metadata: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`get_items`](#member-gfobservablearrayresource-methods-get_items) | `func get_items() -> Array:` |
 | 方法 | [`append_item`](#member-gfobservablearrayresource-methods-append_item) | `func append_item(value: Variant, change_metadata: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`set_item`](#member-gfobservablearrayresource-methods-set_item) | `func set_item(index: int, value: Variant, change_metadata: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`set_item`](#member-gfobservablearrayresource-methods-set_item) | `func set_item( index: int, value: Variant, change_metadata: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`erase_item_at`](#member-gfobservablearrayresource-methods-erase_item_at) | `func erase_item_at(index: int, change_metadata: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`clear_items`](#member-gfobservablearrayresource-methods-clear_items) | `func clear_items(change_metadata: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`begin_batch`](#member-gfobservablearrayresource-methods-begin_batch) | `func begin_batch(change_metadata: Dictionary = {}) -> void:` |
@@ -46,7 +46,7 @@
 - 首次版本：`6.0.0`
 
 ```gdscript
-signal item_changed(operation: StringName, index: int, old_value: Variant, new_value: Variant, metadata: Dictionary)
+signal item_changed( operation: StringName, index: int, old_value: Variant, new_value: Variant, metadata: Dictionary )
 ```
 
 非 batch 模式下单项变更后发出。batch 内变更只在 end_batch() 时汇总到 items_changed。
@@ -205,7 +205,7 @@ var metadata: Dictionary = {}
 - 首次版本：`6.0.0`
 
 ```gdscript
-func set_items(values: Array, emit_change: bool = true, change_metadata: Dictionary = {}) -> Dictionary:
+func set_items( values: Array, emit_change: bool = true, change_metadata: Dictionary = {} ) -> Dictionary:
 ```
 
 替换全部数组内容。
@@ -281,7 +281,7 @@ func append_item(value: Variant, change_metadata: Dictionary = {}) -> Dictionary
 - 首次版本：`6.0.0`
 
 ```gdscript
-func set_item(index: int, value: Variant, change_metadata: Dictionary = {}) -> Dictionary:
+func set_item( index: int, value: Variant, change_metadata: Dictionary = {} ) -> Dictionary:
 ```
 
 设置指定索引的元素。

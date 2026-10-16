@@ -9,11 +9,19 @@ func test_split_top_level_ignores_nested_quotes_and_brackets() -> void:
 		{ "trim_parts": true }
 	)
 
-	assert_true(GFVariantData.get_option_bool(report, "ok"), "匹配的引号和括号不应产生错误。")
+	assert_true(
+		GFVariantData.get_option_bool(report, "ok"),
+		"匹配的引号和括号不应产生错误。"
+	)
 	var parts: Array[String] = _get_string_array(report, "parts")
 	assert_eq(
 		parts,
-		["a", "call(1, 2)", "'x,y'", "[z,{w,q}]"],
+		[
+			"a",
+			"call(1, 2)",
+			"'x,y'",
+			"[z,{w,q}]",
+		],
 		"只应在顶层逗号处分割。"
 	)
 
@@ -28,7 +36,11 @@ func test_split_top_level_supports_multi_character_delimiter() -> void:
 
 	assert_eq(
 		parts,
-		["a", "b", "func(c || d)"],
+		[
+			"a",
+			"b",
+			"func(c || d)",
+		],
 		"多字符分隔符也应遵守顶层规则。"
 	)
 
@@ -37,30 +49,33 @@ func test_split_top_level_can_drop_empty_parts() -> void:
 	var report: Dictionary = GFDelimitedTextTools.split_top_level(
 		"a,, b,",
 		",",
-		{
-			"trim_parts": true,
-			"allow_empty": false,
-		}
+		{ "trim_parts": true, "allow_empty": false, }
 	)
 	var parts: Array[String] = _get_string_array(report, "parts")
 
-	assert_eq(parts, ["a", "b"], "禁用空片段时应过滤连续或尾部分隔符。")
+	assert_eq(
+		parts,
+		["a", "b"],
+		"禁用空片段时应过滤连续或尾部分隔符。"
+	)
 
 
 func test_split_top_level_whitespace_mode_groups_outer_whitespace() -> void:
 	var report: Dictionary = GFDelimitedTextTools.split_top_level(
 		"run  call(\"a b\")\tfinal [x y]",
 		"",
-		{
-			"delimiter_mode": GFDelimitedTextTools.DELIMITER_MODE_WHITESPACE,
-			"allow_empty": false,
-		}
+		{ "delimiter_mode": GFDelimitedTextTools.DELIMITER_MODE_WHITESPACE, "allow_empty": false, }
 	)
 	var parts: Array[String] = _get_string_array(report, "parts")
 
 	assert_eq(
 		parts,
-		["run", "call(\"a b\")", "final", "[x y]"],
+		[
+			"run",
+			"call(\"a b\")",
+			"final",
+			"[x y]",
+		],
 		"空白分隔模式不应拆开引号或括号内空白。"
 	)
 
@@ -68,7 +83,10 @@ func test_split_top_level_whitespace_mode_groups_outer_whitespace() -> void:
 func test_split_top_level_reports_unmatched_opening() -> void:
 	var report: Dictionary = GFDelimitedTextTools.split_top_level("a, func(1, 2", ",")
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "未闭合括号应进入结构化错误。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"未闭合括号应进入结构化错误。"
+	)
 	assert_eq(
 		GFVariantData.get_option_string_name(report, "error"),
 		GFDelimitedTextTools.ERROR_UNMATCHED_OPENING,
@@ -79,7 +97,10 @@ func test_split_top_level_reports_unmatched_opening() -> void:
 func test_split_top_level_reports_unmatched_closing() -> void:
 	var report: Dictionary = GFDelimitedTextTools.split_top_level("a, b]", ",")
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "多余关闭符应进入结构化错误。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"多余关闭符应进入结构化错误。"
+	)
 	assert_eq(
 		GFVariantData.get_option_string_name(report, "error"),
 		GFDelimitedTextTools.ERROR_UNMATCHED_CLOSING,

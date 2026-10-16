@@ -376,7 +376,10 @@ func mark_running() -> bool:
 ## @schema result: Variant，Image、ImageTexture 或 MeshLibrary 预览计划 Dictionary。
 func succeed(result: Variant = null) -> bool:
 	if is_cancel_requested():
-		return finish_cancelled(get_cancel_reason(), result)
+		return finish_cancelled(
+			get_cancel_reason(),
+			result
+		)
 	_running = false
 	return _completion.succeed(result)
 
@@ -412,7 +415,11 @@ func finish_cancelled(reason: StringName = &"cancelled", result: Variant = null)
 	if not _cancel_source.get_token().is_cancel_requested():
 		var _cancel_requested_now: bool = _cancel_source.cancel(reason)
 	_running = false
-	return _completion.cancel(reason, {}, result)
+	return _completion.cancel(
+		reason,
+		{},
+		result
+	)
 
 
 # --- 信号处理函数 ---

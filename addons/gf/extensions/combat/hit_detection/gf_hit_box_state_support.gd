@@ -35,7 +35,11 @@ static func collect_managed_nodes(
 		return result
 
 	var stack: Array[Node] = []
-	for child_index: int in range(root.get_child_count() - 1, -1, -1):
+	for child_index: int in range(
+		root.get_child_count() - 1,
+		-1,
+		-1
+	):
 		stack.append(root.get_child(child_index))
 	var scanned_count: int = 0
 	while not stack.is_empty() and scanned_count < _MAX_SCANNED_NODES:
@@ -45,6 +49,10 @@ static func collect_managed_nodes(
 			result.append(node)
 		if not recursive:
 			continue
-		for child_index: int in range(node.get_child_count() - 1, -1, -1):
+		for child_index: int in range(
+			node.get_child_count() - 1,
+			-1,
+			-1
+		):
 			stack.append(node.get_child(child_index))
 	return result

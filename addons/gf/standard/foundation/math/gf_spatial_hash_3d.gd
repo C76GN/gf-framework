@@ -79,7 +79,6 @@ var cell_size: float:
 		_cell_size = maxf(value, _MIN_CELL_SIZE)
 		_rebuild()
 
-
 ## 单个 AABB 或格子范围允许覆盖的最大哈希格子数。
 ##
 ## 超过上限的插入会返回 false；超过上限的查询会返回空结果，避免误用超大范围导致
@@ -176,7 +175,7 @@ func can_query_aabb(area: AABB) -> bool:
 	if not _SPATIAL_BOUNDS_MATH.is_finite_aabb(area):
 		return false
 	var normalized_area: AABB = _normalize_aabb(area)
-	return _aabb_can_map_to_cells(normalized_area) and _is_cell_span_within_limit(_get_cell_span_for_aabb(normalized_area))
+	return (_aabb_can_map_to_cells(normalized_area) and _is_cell_span_within_limit(_get_cell_span_for_aabb(normalized_area)))
 
 
 ## 插入实体。
@@ -208,7 +207,11 @@ func insert(entity: Variant, bounds: AABB) -> bool:
 
 	remove(entity)
 	var cells: Array[Vector3i] = _get_cells_for_span(span)
-	_entity_records[entity_key] = _make_entity_record(entity, normalized_bounds, cells)
+	_entity_records[entity_key] = _make_entity_record(
+		entity,
+		normalized_bounds,
+		cells
+	)
 	for cell_key: Vector3i in cells:
 		var bucket: Array = _get_or_create_bucket(cell_key)
 		if not bucket.has(entity_key):
@@ -381,9 +384,21 @@ func query_radius(center: Vector3, radius: float) -> Array[Variant]:
 			continue
 		var bounds: AABB = _get_record_bounds(record)
 		var closest: Vector3 = Vector3(
-			clampf(center.x, bounds.position.x, bounds.position.x + bounds.size.x),
-			clampf(center.y, bounds.position.y, bounds.position.y + bounds.size.y),
-			clampf(center.z, bounds.position.z, bounds.position.z + bounds.size.z)
+			clampf(
+				center.x,
+				bounds.position.x,
+				bounds.position.x + bounds.size.x
+			),
+			clampf(
+				center.y,
+				bounds.position.y,
+				bounds.position.y + bounds.size.y
+			),
+			clampf(
+				center.z,
+				bounds.position.z,
+				bounds.position.z + bounds.size.z
+			)
 		)
 		if center.distance_squared_to(closest) <= radius_sq:
 			result.append(entity)
@@ -407,7 +422,11 @@ func query_cell(cell: Vector3i) -> Array[Variant]:
 	prune_invalid_entities()
 	var result: Array[Variant] = []
 	var seen: Dictionary = {}
-	_append_cell_entities(cell, result, seen)
+	_append_cell_entities(
+		cell,
+		result,
+		seen
+	)
 	return result
 
 
@@ -437,10 +456,27 @@ func query_cell_range(center_cell: Vector3i, radius: Vector3i = Vector3i.ZERO) -
 	var min_cell: Vector3i = span[0]
 	var max_cell: Vector3i = span[1]
 	var seen: Dictionary = {}
-	for x: int in range(min_cell.x, max_cell.x + 1):
-		for y: int in range(min_cell.y, max_cell.y + 1):
-			for z: int in range(min_cell.z, max_cell.z + 1):
-				_append_cell_entities(Vector3i(x, y, z), result, seen)
+	for x: int in range(
+		min_cell.x,
+		max_cell.x + 1
+	):
+		for y: int in range(
+			min_cell.y,
+			max_cell.y + 1
+		):
+			for z: int in range(
+				min_cell.z,
+				max_cell.z + 1
+			):
+				_append_cell_entities(
+					Vector3i(
+						x,
+						y,
+						z
+					),
+					result,
+					seen
+				)
 	return result
 
 
@@ -485,7 +521,11 @@ func _get_or_create_bucket(cell_key: Vector3i) -> Array:
 ## @api private
 ## [br]
 func _get_bucket(cell_key: Vector3i) -> Array:
-	var bucket_value: Variant = GFVariantData.get_option_value(_bucket_entities, cell_key, [])
+	var bucket_value: Variant = GFVariantData.get_option_value(
+		_bucket_entities,
+		cell_key,
+		[]
+	)
 	if bucket_value is Array:
 		return GFVariantData.as_array(bucket_value)
 	return []
@@ -496,7 +536,13 @@ func _get_bucket(cell_key: Vector3i) -> Array:
 ## @api private
 ## [br]
 func _get_record_bounds(record: Dictionary) -> AABB:
-	return _variant_to_aabb(GFVariantData.get_option_value(record, "bounds", AABB()))
+	return _variant_to_aabb(
+		GFVariantData.get_option_value(
+			record,
+			"bounds",
+			AABB()
+		)
+	)
 
 
 ## 从实体记录提取 cells 数组中的 Vector3i 项。
@@ -505,7 +551,11 @@ func _get_record_bounds(record: Dictionary) -> AABB:
 ## [br]
 func _get_record_cells(record: Dictionary) -> Array[Vector3i]:
 	var result: Array[Vector3i] = []
-	var cells_value: Variant = GFVariantData.get_option_value(record, "cells", [])
+	var cells_value: Variant = GFVariantData.get_option_value(
+		record,
+		"cells",
+		[]
+	)
 	if not (cells_value is Array):
 		return result
 
@@ -577,10 +627,27 @@ func _query_point_candidates(point: Vector3) -> Array[Variant]:
 	var result: Array[Variant] = []
 	var seen: Dictionary = {}
 	# 占格使用半开最大端；闭区间点查询还需覆盖前一格的最大面、棱和角。
-	for x: int in range(min_cell.x, int(cell.x) + 1):
-		for y: int in range(min_cell.y, int(cell.y) + 1):
-			for z: int in range(min_cell.z, int(cell.z) + 1):
-				_append_cell_entities(Vector3i(x, y, z), result, seen)
+	for x: int in range(
+		min_cell.x,
+		int(cell.x) + 1
+	):
+		for y: int in range(
+			min_cell.y,
+			int(cell.y) + 1
+		):
+			for z: int in range(
+				min_cell.z,
+				int(cell.z) + 1
+			):
+				_append_cell_entities(
+					Vector3i(
+						x,
+						y,
+						z
+					),
+					result,
+					seen
+				)
 	return result
 
 
@@ -591,7 +658,10 @@ func _query_point_candidates(point: Vector3) -> Array[Variant]:
 func _get_point_min_cell(position: float, cell: int) -> int:
 	var lower_boundary: float = float(cell) * _cell_size
 	if position - lower_boundary <= _cell_size * _CELL_BOUNDARY_EPSILON_RATIO:
-		return maxi(cell - 1, _MIN_VECTOR3I_COMPONENT)
+		return maxi(
+			cell - 1,
+			_MIN_VECTOR3I_COMPONENT
+		)
 	return cell
 
 
@@ -620,7 +690,11 @@ func _query_candidate_keys(area: AABB) -> Array[String]:
 ## [br]
 ## @api private
 ## [br]
-func _append_cell_entities(cell_key: Vector3i, result: Array[Variant], seen: Dictionary) -> void:
+func _append_cell_entities(
+	cell_key: Vector3i,
+	result: Array[Variant],
+	seen: Dictionary
+) -> void:
 	var bucket: Array = _get_bucket(cell_key)
 	for entity_key: String in bucket:
 		if seen.has(entity_key):
@@ -653,10 +727,25 @@ func _get_cells_for_span(span: Array[Vector3i]) -> Array[Vector3i]:
 		return cells
 	var min_cell: Vector3i = span[0]
 	var max_cell: Vector3i = span[1]
-	for x: int in range(min_cell.x, max_cell.x + 1):
-		for y: int in range(min_cell.y, max_cell.y + 1):
-			for z: int in range(min_cell.z, max_cell.z + 1):
-				cells.append(Vector3i(x, y, z))
+	for x: int in range(
+		min_cell.x,
+		max_cell.x + 1
+	):
+		for y: int in range(
+			min_cell.y,
+			max_cell.y + 1
+		):
+			for z: int in range(
+				min_cell.z,
+				max_cell.z + 1
+			):
+				cells.append(
+					Vector3i(
+						x,
+						y,
+						z
+					)
+				)
 	return cells
 
 
@@ -683,7 +772,11 @@ func _is_cell_span_within_limit(span: Array[Vector3i]) -> bool:
 	var x_count: int = _get_limited_axis_cell_count(min_cell.x, max_cell.x)
 	var y_count: int = _get_limited_axis_cell_count(min_cell.y, max_cell.y)
 	var z_count: int = _get_limited_axis_cell_count(min_cell.z, max_cell.z)
-	if x_count <= 0 or y_count <= 0 or z_count <= 0:
+	if (
+		x_count <= 0
+		or y_count <= 0
+		or z_count <= 0
+	):
 		return false
 	if x_count > _divide_truncated(_max_covered_cells, y_count):
 		return false
@@ -715,8 +808,16 @@ func _get_cell_range_span(center_cell: Vector3i, radius: Vector3i) -> Array[Vect
 	):
 		return []
 	return [
-		Vector3i(min_x, min_y, min_z),
-		Vector3i(max_x, max_y, max_z),
+		Vector3i(
+			min_x,
+			min_y,
+			min_z
+		),
+		Vector3i(
+			max_x,
+			max_y,
+			max_z
+		),
 	]
 
 
@@ -738,7 +839,11 @@ func _world_to_cell(position: Vector3) -> Vector3i:
 ## [br]
 func _get_limited_axis_cell_count(minimum: int, maximum: int) -> int:
 	var count: float = float(maximum) - float(minimum) + 1.0
-	if not _SPATIAL_BOUNDS_MATH.is_finite_float(count) or count <= 0.0 or count > float(_max_covered_cells):
+	if (
+		not _SPATIAL_BOUNDS_MATH.is_finite_float(count)
+		or count <= 0.0
+		or count > float(_max_covered_cells)
+	):
 		return -1
 	return int(count)
 
@@ -788,7 +893,11 @@ func _make_entity_key(entity: Variant) -> String:
 ## [br]
 ## @api private
 ## [br]
-func _make_entity_record(entity: Variant, bounds: AABB, cells: Array[Vector3i]) -> Dictionary:
+func _make_entity_record(
+	entity: Variant,
+	bounds: AABB,
+	cells: Array[Vector3i]
+) -> Dictionary:
 	var identity: GFSpatialQueryIdentity = GFSpatialQueryIdentity.from_value(entity)
 	if identity.key.is_empty():
 		return {}
@@ -845,7 +954,11 @@ func _record_is_valid(record: Dictionary) -> bool:
 ## @api private
 ## [br]
 func _get_record(entity_key: String) -> Dictionary:
-	var record_variant: Variant = GFVariantData.get_option_value(_entity_records, entity_key, {})
+	var record_variant: Variant = GFVariantData.get_option_value(
+		_entity_records,
+		entity_key,
+		{}
+	)
 	if record_variant is Dictionary:
 		return GFVariantData.as_dictionary(record_variant)
 	return {}
@@ -900,8 +1013,14 @@ func _get_half_open_max_corner(bounds: AABB) -> Vector3:
 ## [br]
 func _get_half_open_axis_max(axis_min: float, axis_size: float) -> float:
 	var axis_max: float = axis_min + axis_size
-	var epsilon: float = minf(axis_size * 0.5, _cell_size * _CELL_BOUNDARY_EPSILON_RATIO)
-	return maxf(axis_min, axis_max - maxf(epsilon, 0.000000001))
+	var epsilon: float = minf(
+		axis_size * 0.5,
+		_cell_size * _CELL_BOUNDARY_EPSILON_RATIO
+	)
+	return maxf(
+		axis_min,
+		axis_max - maxf(epsilon, 0.000000001)
+	)
 
 
 ## 清空桶与索引后，按当前配置重新插入仍有效的旧实体记录。
@@ -916,4 +1035,7 @@ func _rebuild() -> void:
 		var record: Dictionary = GFVariantData.as_dictionary(record_variant)
 		if record.is_empty() or not _record_is_valid(record):
 			continue
-		var _inserted: bool = insert(_record_to_entity(record), _get_record_bounds(record))
+		var _inserted: bool = insert(
+			_record_to_entity(record),
+			_get_record_bounds(record)
+		)

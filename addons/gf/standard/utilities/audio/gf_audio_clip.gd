@@ -114,20 +114,36 @@ func resolve_bus(default_bus: String) -> String:
 ## [br]
 ## @return: 实际播放音高。
 func resolve_pitch(rng: RandomNumberGenerator = null) -> float:
-	var min_pitch: float = clampf(pitch_random_min, 0.01, 4.0)
-	var max_pitch: float = clampf(pitch_random_max, 0.01, 4.0)
+	var min_pitch: float = clampf(
+		pitch_random_min,
+		0.01,
+		4.0
+	)
+	var max_pitch: float = clampf(
+		pitch_random_max,
+		0.01,
+		4.0
+	)
 	if min_pitch > max_pitch:
 		var swapped: float = min_pitch
 		min_pitch = max_pitch
 		max_pitch = swapped
 	if rng == null:
-		return clampf(pitch_scale, 0.01, 16.0)
+		return clampf(
+			pitch_scale,
+			0.01,
+			16.0
+		)
 	var random_scale: float = 1.0
 	if not is_equal_approx(min_pitch, max_pitch):
 		random_scale = rng.randf_range(min_pitch, max_pitch)
 	else:
 		random_scale = min_pitch
-	return clampf(pitch_scale * random_scale, 0.01, 16.0)
+	return clampf(
+		pitch_scale * random_scale,
+		0.01,
+		16.0
+	)
 
 
 ## 检查指定元数据键是否存在。

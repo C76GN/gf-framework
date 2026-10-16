@@ -75,10 +75,7 @@ static var _cache_revision: int = 0
 ## @return manifest 发现快照。
 ## [br]
 ## @schema return: Dictionary，包含 ok、manifests、manifest_load_errors、manifest_validation_errors、invalid_manifests、external_roots、discovery_roots、signature、signature_hash、revision、manual、manifest_count、valid_manifest_count 和 invalid_manifest_count；错误条目包含 stage、extension_id、source_path 和 errors。
-static func get_snapshot(
-	extra_root_paths: Array[String] = [],
-	options: Dictionary = {}
-) -> Dictionary:
+static func get_snapshot(extra_root_paths: Array[String] = [], options: Dictionary = {}) -> Dictionary:
 	var external_roots: Array[String] = _normalize_extra_root_paths(extra_root_paths)
 	var budget_state: Dictionary = _GF_EXTENSION_JSON_FILE_READER_SCRIPT.make_budget_state(options)
 	var signature: Dictionary = make_discovery_signature(
@@ -86,11 +83,26 @@ static func get_snapshot(
 		options,
 		budget_state
 	)
-	var force_refresh: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "force_refresh", false)
-	if not force_refresh and _has_snapshot_cache and _snapshot_matches_signature(signature):
+	var force_refresh: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		options,
+		"force_refresh",
+		false
+	)
+	if (
+		not force_refresh
+		and _has_snapshot_cache
+		and _snapshot_matches_signature(signature)
+	):
 		return _duplicate_snapshot(_snapshot_cache)
 
-	_store_snapshot(_load_snapshot(external_roots, signature, options, budget_state))
+	_store_snapshot(
+		_load_snapshot(
+			external_roots,
+			signature,
+			options,
+			budget_state
+		)
+	)
 	return _duplicate_snapshot(_snapshot_cache)
 
 
@@ -120,15 +132,18 @@ static func clear_cache() -> void:
 ## @param options: 手动缓存选项。
 ## [br]
 ## @schema options: Dictionary，支持 external_roots，用于绑定手动快照对应的扩展集合根目录。
-static func set_cached_manifests(
-	manifests: Array[GFExtensionManifest],
-	options: Dictionary = {}
-) -> void:
-	var external_roots: Array[String] = _normalize_extra_root_paths(
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(options, "external_roots")
-	)
+static func set_cached_manifests(manifests: Array[GFExtensionManifest], options: Dictionary = {}) -> void:
+	var external_roots: Array[String] = _normalize_extra_root_paths(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(options, "external_roots"))
 	var signature: Dictionary = make_discovery_signature(external_roots)
-	_store_snapshot(_make_snapshot(manifests, [], external_roots, signature, true))
+	_store_snapshot(
+		_make_snapshot(
+			manifests,
+			[],
+			external_roots,
+			signature,
+			true
+		)
+	)
 
 
 ## 获取当前缓存中的 manifest 读取错误。
@@ -143,11 +158,13 @@ static func set_cached_manifests(
 static func get_cached_manifest_load_errors() -> Array[Dictionary]:
 	if not _has_snapshot_cache:
 		return []
-	return _get_issue_records_from_value(_GF_VARIANT_ACCESS_SCRIPT.get_option_value(
-		_snapshot_cache,
-		"manifest_load_errors",
-		[]
-	))
+	return _get_issue_records_from_value(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+			_snapshot_cache,
+			"manifest_load_errors",
+			[]
+		)
+	)
 
 
 ## 获取当前缓存中的 manifest 校验错误。
@@ -162,11 +179,13 @@ static func get_cached_manifest_load_errors() -> Array[Dictionary]:
 static func get_cached_manifest_validation_errors() -> Array[Dictionary]:
 	if not _has_snapshot_cache:
 		return []
-	return _get_issue_records_from_value(_GF_VARIANT_ACCESS_SCRIPT.get_option_value(
-		_snapshot_cache,
-		"manifest_validation_errors",
-		[]
-	))
+	return _get_issue_records_from_value(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+			_snapshot_cache,
+			"manifest_validation_errors",
+			[]
+		)
+	)
 
 
 ## 生成当前 manifest 发现签名。
@@ -238,12 +257,15 @@ static func _load_snapshot(
 ) -> Dictionary:
 	var catalog_options: Dictionary = options.duplicate(true)
 	catalog_options["json_budget_state"] = budget_state
-	var manifests: Array[GFExtensionManifest] = _GF_EXTENSION_CATALOG_SCRIPT.load_all_manifests(
-		external_roots,
-		catalog_options
-	)
+	var manifests: Array[GFExtensionManifest] = _GF_EXTENSION_CATALOG_SCRIPT.load_all_manifests(external_roots, catalog_options)
 	var load_errors: Array[Dictionary] = _GF_EXTENSION_CATALOG_SCRIPT.get_last_manifest_load_errors()
-	return _make_snapshot(manifests, load_errors, external_roots, signature, false)
+	return _make_snapshot(
+		manifests,
+		load_errors,
+		external_roots,
+		signature,
+		false
+	)
 
 
 ## 复制 manifest 资源并分别汇总加载与语义校验问题，计算有效及无效数量；新快照 revision 为零，缓存存储阶段再赋正式版本。
@@ -259,10 +281,7 @@ static func _make_snapshot(
 	var snapshot_manifests: Array[GFExtensionManifest] = _duplicate_manifest_array(manifests)
 	var load_issue_records: Array[Dictionary] = _make_manifest_load_issue_records(load_errors)
 	var validation_issue_records: Array[Dictionary] = _make_manifest_validation_issue_records(snapshot_manifests)
-	var invalid_manifest_records: Array[Dictionary] = _merge_issue_records(
-		load_issue_records,
-		validation_issue_records
-	)
+	var invalid_manifest_records: Array[Dictionary] = _merge_issue_records(load_issue_records, validation_issue_records)
 	var valid_manifest_count: int = snapshot_manifests.size() - validation_issue_records.size()
 	if valid_manifest_count < 0:
 		valid_manifest_count = 0
@@ -334,17 +353,35 @@ static func _normalize_extra_root_paths(root_paths: Array[String]) -> Array[Stri
 ## @api private
 static func _duplicate_snapshot(snapshot: Dictionary) -> Dictionary:
 	var result: Dictionary = snapshot.duplicate(true)
-	result["manifests"] = _duplicate_manifest_array(_get_manifest_array_from_value(
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(snapshot, "manifests", [])
-	))
+	result["manifests"] = _duplicate_manifest_array(
+		_get_manifest_array_from_value(
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+				snapshot,
+				"manifests",
+				[]
+			)
+		)
+	)
 	result["manifest_load_errors"] = _get_load_errors_from_value(
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(snapshot, "manifest_load_errors", [])
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+			snapshot,
+			"manifest_load_errors",
+			[]
+		)
 	)
 	result["manifest_validation_errors"] = _get_issue_records_from_value(
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(snapshot, "manifest_validation_errors", [])
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+			snapshot,
+			"manifest_validation_errors",
+			[]
+		)
 	)
 	result["invalid_manifests"] = _get_issue_records_from_value(
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(snapshot, "invalid_manifests", [])
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+			snapshot,
+			"invalid_manifests",
+			[]
+		)
 	)
 	result["external_roots"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(snapshot, "external_roots")
 	result["discovery_roots"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(snapshot, "discovery_roots")
@@ -408,12 +445,14 @@ static func _get_load_errors_from_value(value: Variant) -> Array[Dictionary]:
 static func _make_manifest_load_issue_records(load_errors: Array[Dictionary]) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for load_error: Dictionary in load_errors:
-		result.append(_make_issue_record(
-			"load",
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(load_error, "extension_id"),
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(load_error, "source_path"),
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(load_error, "errors")
-		))
+		result.append(
+			_make_issue_record(
+				"load",
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(load_error, "extension_id"),
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(load_error, "source_path"),
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(load_error, "errors")
+			)
+		)
 	return result
 
 
@@ -428,22 +467,21 @@ static func _make_manifest_validation_issue_records(manifests: Array[GFExtension
 		var errors: Array[String] = manifest.get_validation_errors()
 		if errors.is_empty():
 			continue
-		result.append(_make_issue_record(
-			"validation",
-			manifest.id,
-			manifest.source_path,
-			errors
-		))
+		result.append(
+			_make_issue_record(
+				"validation",
+				manifest.id,
+				manifest.source_path,
+				errors
+			)
+		)
 	return result
 
 
 ## 深复制第一组与第二组 issue record 并按原组内顺序连接。
 ## [br]
 ## @api private
-static func _merge_issue_records(
-	first_records: Array[Dictionary],
-	second_records: Array[Dictionary]
-) -> Array[Dictionary]:
+static func _merge_issue_records(first_records: Array[Dictionary], second_records: Array[Dictionary]) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for first_record: Dictionary in first_records:
 		result.append(first_record.duplicate(true))
@@ -464,12 +502,14 @@ static func _get_issue_records_from_value(value: Variant) -> Array[Dictionary]:
 	for item: Variant in values:
 		if item is Dictionary:
 			var issue: Dictionary = item
-			result.append(_make_issue_record(
-				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(issue, "stage"),
-				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(issue, "extension_id"),
-				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(issue, "source_path"),
-				_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(issue, "errors")
-			))
+			result.append(
+				_make_issue_record(
+					_GF_VARIANT_ACCESS_SCRIPT.get_option_string(issue, "stage"),
+					_GF_VARIANT_ACCESS_SCRIPT.get_option_string(issue, "extension_id"),
+					_GF_VARIANT_ACCESS_SCRIPT.get_option_string(issue, "source_path"),
+					_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(issue, "errors")
+				)
+			)
 	return result
 
 

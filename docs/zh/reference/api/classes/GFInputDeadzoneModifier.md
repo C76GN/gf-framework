@@ -18,8 +18,8 @@
 | 属性 | [`lower_threshold`](#member-gfinputdeadzonemodifier-properties-lower_threshold) | `var lower_threshold: float = 0.2:` |
 | 属性 | [`upper_threshold`](#member-gfinputdeadzonemodifier-properties-upper_threshold) | `var upper_threshold: float = 1.0:` |
 | 属性 | [`rescale_after_deadzone`](#member-gfinputdeadzonemodifier-properties-rescale_after_deadzone) | `var rescale_after_deadzone: bool = true` |
-| 方法 | [`modify`](#member-gfinputdeadzonemodifier-methods-modify) | `func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = null) -> Vector2:` |
-| 方法 | [`modify_3d`](#member-gfinputdeadzonemodifier-methods-modify_3d) | `func modify_3d(value: Vector3, _event: InputEvent = null, _action: GFInputAction = null) -> Vector3:` |
+| 方法 | [`modify`](#member-gfinputdeadzonemodifier-methods-modify) | `func modify( value: Vector2, _event: InputEvent = null, _action: GFInputAction = null ) -> Vector2:` |
+| 方法 | [`modify_3d`](#member-gfinputdeadzonemodifier-methods-modify_3d) | `func modify_3d( value: Vector3, _event: InputEvent = null, _action: GFInputAction = null ) -> Vector3:` |
 
 ## 属性
 
@@ -68,9 +68,10 @@ var rescale_after_deadzone: bool = true
 ### `modify`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = null) -> Vector2:
+func modify( value: Vector2, _event: InputEvent = null, _action: GFInputAction = null ) -> Vector2:
 ```
 
 修改二维输入值。
@@ -90,9 +91,10 @@ func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = 
 ### `modify_3d`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func modify_3d(value: Vector3, _event: InputEvent = null, _action: GFInputAction = null) -> Vector3:
+func modify_3d( value: Vector3, _event: InputEvent = null, _action: GFInputAction = null ) -> Vector3:
 ```
 
 修改三维输入值。

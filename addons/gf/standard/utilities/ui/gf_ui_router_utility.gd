@@ -18,6 +18,8 @@ extends GFUtility
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param route_id: 路由标识。
 ## [br]
 ## @param operation: 打开操作。
@@ -25,18 +27,28 @@ extends GFUtility
 ## @param params: 路由参数。
 ## [br]
 ## @schema params: Dictionary，本次打开路由携带的项目自定义参数。
-signal route_open_requested(route_id: StringName, operation: Operation, params: Dictionary)
+signal route_open_requested(
+	route_id: StringName,
+	operation: Operation,
+	params: Dictionary
+)
 
 ## 路由面板成功打开后触发。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param route_id: 路由标识。
 ## [br]
 ## @param panel: 面板实例。
 ## [br]
 ## @param operation: 打开操作。
-signal route_opened(route_id: StringName, panel: Node, operation: Operation)
+signal route_opened(
+	route_id: StringName,
+	panel: Node,
+	operation: Operation
+)
 
 ## 路由打开失败时触发。
 ## [br]
@@ -216,10 +228,7 @@ func configure(routes: Array[GFUIRoute] = [], ui_utility: GFUIUtility = null) ->
 ## @param ui_utility: UI 栈工具实例。
 func set_ui_utility(ui_utility: GFUIUtility) -> void:
 	var current_ui_utility: GFUIUtility = _get_ui_utility()
-	if (
-		not _pending_async_routes.is_empty()
-		and ui_utility != current_ui_utility
-	):
+	if (not _pending_async_routes.is_empty() and ui_utility != current_ui_utility):
 		push_warning("[GFUIRouterUtility][ui_router_utility.ui_utility_change_while_pending] Cannot replace GFUIUtility while asynchronous routing requests exist.")
 		return
 	_ui_utility_ref = weakref(ui_utility) if ui_utility != null else null
@@ -275,7 +284,10 @@ func clear_routes() -> void:
 ## @return 路由资源；不存在时返回 null。
 func get_route(route_id: StringName) -> GFUIRoute:
 	return _get_route_value(
-		GFVariantData.get_option_value(_routes, _normalize_route_id(route_id))
+		GFVariantData.get_option_value(
+			_routes,
+			_normalize_route_id(route_id)
+		)
 	)
 
 
@@ -361,7 +373,13 @@ func push_route(
 	option_overrides: Dictionary = {},
 	config_callback: Callable = Callable()
 ) -> Node:
-	return _open_route(route_id, Operation.PUSH, params, option_overrides, config_callback)
+	return _open_route(
+		route_id,
+		Operation.PUSH,
+		params,
+		option_overrides,
+		config_callback
+	)
 
 
 ## 替换路由所在层级。
@@ -387,7 +405,13 @@ func replace_route(
 	option_overrides: Dictionary = {},
 	config_callback: Callable = Callable()
 ) -> Node:
-	return _open_route(route_id, Operation.REPLACE, params, option_overrides, config_callback)
+	return _open_route(
+		route_id,
+		Operation.REPLACE,
+		params,
+		option_overrides,
+		config_callback
+	)
 
 
 ## 异步压入一个路由面板。
@@ -490,14 +514,25 @@ func back(layer: int = -1, do_free: bool = true) -> bool:
 	if ui_utility == null:
 		return false
 
-	var route_id: StringName = GFVariantData.get_option_string_name(entry, "route_id", &"")
-	var route_layer: int = GFVariantData.get_option_int(entry, "layer", GFUIUtility.Layer.POPUP)
+	var route_id: StringName = GFVariantData.get_option_string_name(
+		entry,
+		"route_id",
+		&""
+	)
+	var route_layer: int = GFVariantData.get_option_int(
+		entry,
+		"layer",
+		GFUIUtility.Layer.POPUP
+	)
 	var route_panel: Node = _get_history_panel(entry)
 	if route_panel == null or ui_utility.get_top_panel(_get_ui_layer(route_layer)) != route_panel:
 		push_warning("[GFUIRouterUtility][ui_router_utility.back_panel_not_top] Cannot go back: the route panel is not at the top of the current UI stack.")
 		return false
 
-	ui_utility.pop_panel(_get_ui_layer(route_layer), do_free)
+	ui_utility.pop_panel(
+		_get_ui_layer(route_layer),
+		do_free
+	)
 	_history.remove_at(history_index)
 	_prune_history()
 	route_back_completed.emit(route_id, route_layer)
@@ -516,7 +551,11 @@ func get_current_route_id(layer: int = -1) -> StringName:
 	var history_index: int = _find_top_history_index(layer)
 	if history_index < 0:
 		return &""
-	return GFVariantData.get_option_string_name(_history[history_index], "route_id", &"")
+	return GFVariantData.get_option_string_name(
+		_history[history_index],
+		"route_id",
+		&""
+	)
 
 
 ## 获取路由历史副本。
@@ -595,11 +634,12 @@ func _open_route(
 		_fail_route(normalized_route_id, "missing_ui_layer")
 		return null
 
-	route_open_requested.emit(normalized_route_id, operation, request_params.duplicate(true))
-	var options: Dictionary = route_snapshot.build_options(
-		request_params,
-		request_option_overrides
+	route_open_requested.emit(
+		normalized_route_id,
+		operation,
+		request_params.duplicate(true)
 	)
+	var options: Dictionary = route_snapshot.build_options(request_params, request_option_overrides)
 	var wrapped_callback: Callable = _make_route_config_callback(
 		route_snapshot,
 		request_params,
@@ -627,7 +667,12 @@ func _open_route(
 
 	if operation == Operation.REPLACE:
 		_remove_history_for_layer(route_snapshot.layer)
-	_record_route_open(route_snapshot, panel, request_params, operation)
+	_record_route_open(
+		route_snapshot,
+		panel,
+		request_params,
+		operation
+	)
 	return panel
 
 
@@ -717,10 +762,7 @@ func _open_route_async(
 	var route_snapshot: GFUIRoute = _make_route_request_snapshot(normalized_route_id, route)
 	var request_params: Dictionary = params.duplicate(true)
 	var request_option_overrides: Dictionary = option_overrides.duplicate(true)
-	var request_options: Dictionary = route_snapshot.build_options(
-		request_params,
-		request_option_overrides
-	)
+	var request_options: Dictionary = route_snapshot.build_options(request_params, request_option_overrides)
 	immediate_entry["layer"] = route_snapshot.layer
 	if not _is_valid_preload_policy(preload_policy):
 		_finish_route_entry(
@@ -753,10 +795,7 @@ func _open_route_async(
 		)
 		return operation_handle
 
-	var preload_plan_options: Dictionary = GFVariantData.get_option_dictionary(
-		async_options,
-		"preload_plan_options"
-	).duplicate(true)
+	var preload_plan_options: Dictionary = (GFVariantData.get_option_dictionary(async_options, "preload_plan_options").duplicate(true))
 	_prune_pending_route_lifecycles()
 	var pending_route: Dictionary = _find_pending_async_route(
 		route_snapshot.scene_path,
@@ -776,9 +815,7 @@ func _open_route_async(
 			GFVariantData.get_option_int(lifecycle, "owner_id"),
 			GFVariantData.get_option_int(lifecycle, "scope_id")
 		):
-			var pending_handle: GFUIRouteOperation = _get_route_operation_value(
-				pending_route.get("operation_handle")
-			)
+			var pending_handle: GFUIRouteOperation = _get_route_operation_value(pending_route.get("operation_handle"))
 			if pending_handle != null:
 				return pending_handle
 		_finish_route_entry(
@@ -797,32 +834,32 @@ func _open_route_async(
 	)
 	var request_id: int = operation_handle.get_request_id()
 	var pending_entry: Dictionary = immediate_entry.duplicate(true)
-	pending_entry.merge({
-		"route_id": normalized_route_id,
-		"route_snapshot": route_snapshot,
-		"path": route_snapshot.scene_path,
-		"layer": route_snapshot.layer,
-		"operation": operation,
-		"operation_handle": operation_handle,
-		"params": request_params,
-		"options": request_options,
-		"config_callback": config_callback,
-		"preload_policy": preload_policy,
-		"preload_plan_options": preload_plan_options,
-		"preload_route_snapshots": _make_preload_route_snapshots(
-			route_snapshot,
-			preload_plan_options
-		),
-		"metadata": metadata.duplicate(true),
-		"preload_plan_report": {},
-		"preload_result": null,
-		"preload_attempted": false,
-		"preload_successful": false,
-		"preload_degradation_reason": &"",
-		"owns_preload_group": false,
-		"preload_started": false,
-		"panel_submitted": false,
-	}, true)
+	pending_entry.merge(
+		{
+			"route_id": normalized_route_id,
+			"route_snapshot": route_snapshot,
+			"path": route_snapshot.scene_path,
+			"layer": route_snapshot.layer,
+			"operation": operation,
+			"operation_handle": operation_handle,
+			"params": request_params,
+			"options": request_options,
+			"config_callback": config_callback,
+			"preload_policy": preload_policy,
+			"preload_plan_options": preload_plan_options,
+			"preload_route_snapshots": _make_preload_route_snapshots(route_snapshot, preload_plan_options),
+			"metadata": metadata.duplicate(true),
+			"preload_plan_report": {},
+			"preload_result": null,
+			"preload_attempted": false,
+			"preload_successful": false,
+			"preload_degradation_reason": &"",
+			"owns_preload_group": false,
+			"preload_started": false,
+			"panel_submitted": false,
+		},
+		true
+	)
 	_pending_async_routes[pending_key] = pending_entry
 	_bind_pending_route_lifecycle(
 		pending_key,
@@ -832,7 +869,11 @@ func _open_route_async(
 	)
 	if not _pending_route_has_request_id(pending_key, request_id):
 		return operation_handle
-	route_open_requested.emit(normalized_route_id, operation, request_params.duplicate(true))
+	route_open_requested.emit(
+		normalized_route_id,
+		operation,
+		request_params.duplicate(true)
+	)
 	if not _pending_route_has_request_id(pending_key, request_id):
 		return operation_handle
 	if preload_policy == PRELOAD_NONE:
@@ -861,7 +902,10 @@ func _resolve_route_or_fail(route_id: StringName) -> GFUIRoute:
 ## @api private
 func _fail_route(route_id: StringName, reason: String) -> void:
 	route_open_failed.emit(route_id, reason)
-	push_warning("[GFUIRouterUtility][ui_router_utility.route_open_failed] Cannot open route: %s (%s)." % [String(route_id), reason])
+	push_warning(
+		"[GFUIRouterUtility][ui_router_utility.route_open_failed] Cannot open route: %s (%s)."
+		% [String(route_id), reason]
+	)
 
 
 ## 分配请求 ID 并创建供框架完成的异步路由操作句柄。
@@ -940,7 +984,11 @@ func _get_preload_policy(async_options: Dictionary) -> StringName:
 ## [br]
 ## @api private
 func _is_valid_preload_policy(preload_policy: StringName) -> bool:
-	return preload_policy in [PRELOAD_NONE, PRELOAD_BEST_EFFORT, PRELOAD_REQUIRED]
+	return preload_policy in [
+		PRELOAD_NONE,
+		PRELOAD_BEST_EFFORT,
+		PRELOAD_REQUIRED,
+	]
 
 
 ## 比较 pending 请求保存的路由、面板选项、回调和生命周期身份。
@@ -959,13 +1007,29 @@ func _pending_route_matches_request(
 	scope_id: int
 ) -> bool:
 	return (
-		GFVariantData.get_option_string_name(entry, "route_id", &"") == route_snapshot.get_route_id()
-		and GFVariantData.get_option_string(entry, "path", "") == route_snapshot.scene_path
-		and GFVariantData.get_option_int(entry, "layer", -1) == route_snapshot.layer
+		GFVariantData.get_option_string_name(
+			entry,
+			"route_id",
+			&""
+		) == route_snapshot.get_route_id()
+		and GFVariantData.get_option_string(
+			entry,
+			"path",
+			""
+		) == route_snapshot.scene_path
+		and GFVariantData.get_option_int(
+			entry,
+			"layer",
+			-1
+		) == route_snapshot.layer
 		and GFVariantData.get_option_dictionary(entry, "params") == params
 		and GFVariantData.get_option_dictionary(entry, "options") == options
 		and _get_callable_value(entry.get("config_callback")) == config_callback
-		and GFVariantData.get_option_string_name(entry, "preload_policy", PRELOAD_NONE) == preload_policy
+		and GFVariantData.get_option_string_name(
+			entry,
+			"preload_policy",
+			PRELOAD_NONE
+		) == preload_policy
 		and GFVariantData.get_option_dictionary(entry, "preload_plan_options") == preload_plan_options
 		and GFVariantData.get_option_dictionary(entry, "metadata") == metadata
 		and GFVariantData.get_option_int(entry, "owner_id") == owner_id
@@ -982,24 +1046,24 @@ func _parse_route_lifecycle_options(async_options: Dictionary) -> Dictionary:
 		var raw_owner: Variant = async_options.get("owner")
 		if raw_owner != null:
 			if not (raw_owner is Object):
-				return {"valid": false, "reason": &"invalid_owner"}
+				return { "valid": false, "reason": &"invalid_owner" }
 			owner = raw_owner
 			if not is_instance_valid(owner):
-				return {"valid": false, "reason": &"invalid_owner"}
+				return { "valid": false, "reason": &"invalid_owner" }
 			if owner is Node:
 				var owner_node: Node = owner
 				if not owner_node.is_inside_tree():
-					return {"valid": false, "reason": &"owner_not_in_tree"}
+					return { "valid": false, "reason": &"owner_not_in_tree" }
 
 	var scope: GFAsyncScope = null
 	if async_options.has("scope"):
 		var raw_scope: Variant = async_options.get("scope")
 		if raw_scope != null:
 			if not (raw_scope is GFAsyncScope):
-				return {"valid": false, "reason": &"invalid_scope"}
+				return { "valid": false, "reason": &"invalid_scope" }
 			scope = raw_scope
 			if scope.is_completed():
-				return {"valid": false, "reason": &"scope_completed"}
+				return { "valid": false, "reason": &"scope_completed" }
 			if scope.is_cancel_requested():
 				return {
 					"valid": true,
@@ -1054,17 +1118,16 @@ func _bind_pending_route_lifecycle(
 		)
 		return
 	if owner != null:
-		var owner_invocation: GFWeakMethodInvocation = GFWeakMethodInvocation.new(
-			self,
-			&"_on_pending_route_lifecycle_cancelled"
-		)
+		var owner_invocation: GFWeakMethodInvocation = GFWeakMethodInvocation.new(self, &"_on_pending_route_lifecycle_cancelled")
 		var owner_reason: StringName = &"owner_tree_exited" if owner is Node else &"owner_released"
 		var owner_callback: Callable = func() -> void:
-			var _invocation_result: Dictionary = owner_invocation.invoke([
-				pending_key,
-				request_id,
-				owner_reason,
-			])
+			var _invocation_result: Dictionary = owner_invocation.invoke(
+				[
+					pending_key,
+					request_id,
+					owner_reason,
+				]
+			)
 		var owner_lifetime: GFLifetimeSubscription = GFLifetimeSubscription.new(
 			owner,
 			owner_callback,
@@ -1082,16 +1145,15 @@ func _bind_pending_route_lifecycle(
 		entry["owner_lifetime"] = owner_lifetime
 
 	if scope != null:
-		var scope_invocation: GFWeakMethodInvocation = GFWeakMethodInvocation.new(
-			self,
-			&"_on_pending_route_lifecycle_cancelled"
-		)
+		var scope_invocation: GFWeakMethodInvocation = GFWeakMethodInvocation.new(self, &"_on_pending_route_lifecycle_cancelled")
 		var scope_callback: Callable = func(reason: StringName) -> void:
-			var _invocation_result: Dictionary = scope_invocation.invoke([
-				pending_key,
-				request_id,
-				reason if reason != &"" else &"scope_cancelled",
-			])
+			var _invocation_result: Dictionary = scope_invocation.invoke(
+				[
+					pending_key,
+					request_id,
+					reason if reason != &"" else &"scope_cancelled",
+				]
+			)
 		entry["scope_callback"] = scope_callback
 		var connect_error: Error = scope.cancel_requested.connect(scope_callback) as Error
 		if connect_error != OK:
@@ -1114,8 +1176,6 @@ func _bind_pending_route_lifecycle(
 		)
 
 
-
-
 ## 扫描尚未提交面板的请求，终结 owner 或 scope 已失效的条目。
 ## [br]
 ## @api private
@@ -1131,9 +1191,7 @@ func _prune_pending_route_lifecycles() -> void:
 		var expired_reason: StringName = _get_route_lifecycle_expired_reason(entry)
 		if expired_reason == &"":
 			continue
-		var operation_handle: GFUIRouteOperation = _get_route_operation_value(
-			entry.get("operation_handle")
-		)
+		var operation_handle: GFUIRouteOperation = _get_route_operation_value(entry.get("operation_handle"))
 		if operation_handle != null:
 			_on_pending_route_lifecycle_cancelled(
 				pending_key,
@@ -1187,7 +1245,13 @@ func _finish_pending_route_before_submit(
 	var session: GFAssetLoadSession = _get_asset_load_session_value(entry.get("preload_session"))
 	if session != null and not session.is_completed():
 		var _rolled_back: bool = session.rollback(reason)
-	_finish_route_entry(entry, status, reason, null, emit_legacy_failure)
+	_finish_route_entry(
+		entry,
+		status,
+		reason,
+		null,
+		emit_legacy_failure
+	)
 	return true
 
 
@@ -1244,7 +1308,11 @@ func _start_pending_route_preload(pending_key: String, request_id: int) -> void:
 		return
 	entry["preload_started"] = true
 	_pending_async_routes[pending_key] = entry
-	var route_id: StringName = GFVariantData.get_option_string_name(entry, "route_id", &"")
+	var route_id: StringName = GFVariantData.get_option_string_name(
+		entry,
+		"route_id",
+		&""
+	)
 	var operation_handle: GFUIRouteOperation = _get_route_operation_value(entry.get("operation_handle"))
 	if operation_handle == null or operation_handle.get_request_id() != request_id:
 		_complete_pending_route(
@@ -1260,20 +1328,26 @@ func _start_pending_route_preload(pending_key: String, request_id: int) -> void:
 	plan_options["include_source"] = true
 	if not plan_options.has("max_depth"):
 		plan_options["max_depth"] = 0
-	var group_id: StringName = GFVariantData.get_option_string_name(plan_options, "group_id", &"")
+	var group_id: StringName = GFVariantData.get_option_string_name(
+		plan_options,
+		"group_id",
+		&""
+	)
 	if group_id == &"":
 		group_id = StringName("_gf_ui_route_request_%d" % operation_handle.get_request_id())
 		plan_options["group_id"] = group_id
 		entry["owns_preload_group"] = true
-	if GFVariantData.get_option_string_name(plan_options, "plan_id", &"") == &"":
+	if GFVariantData.get_option_string_name(
+		plan_options,
+		"plan_id",
+		&""
+	) == &"":
 		plan_options["plan_id"] = StringName("ui_route_request:%d" % operation_handle.get_request_id())
 	var plan_metadata: Dictionary = GFVariantData.get_option_dictionary(plan_options, "metadata")
 	plan_metadata["_gf_route_request_id"] = operation_handle.get_request_id()
 	plan_metadata["_gf_route_id"] = route_id
 	plan_options["metadata"] = plan_metadata
-	var preload_routes: Array[GFUIRoute] = _get_route_array(
-		entry.get("preload_route_snapshots")
-	)
+	var preload_routes: Array[GFUIRoute] = _get_route_array(entry.get("preload_route_snapshots"))
 	var _erased_preload_routes: bool = entry.erase("preload_route_snapshots")
 	_pending_async_routes[pending_key] = entry
 
@@ -1293,17 +1367,31 @@ func _start_pending_route_preload(pending_key: String, request_id: int) -> void:
 
 	var plan_ok: bool = GFVariantData.get_option_bool(raw_plan_report, "ok")
 	var plan_healthy: bool = GFVariantData.get_option_bool(raw_plan_report, "healthy")
-	var plan_usable: bool = plan_ok and asset_plan != null and not asset_plan.is_empty()
+	var plan_usable: bool = (
+		plan_ok
+		and asset_plan != null
+		and not asset_plan.is_empty()
+	)
 	var preload_policy: StringName = GFVariantData.get_option_string_name(
 		entry,
 		"preload_policy",
 		PRELOAD_NONE
 	)
-	if preload_policy == PRELOAD_REQUIRED and (not plan_usable or not plan_healthy):
+	if (
+		preload_policy == PRELOAD_REQUIRED
+		and (
+			not plan_usable
+			or not plan_healthy
+		)
+	):
 		var plan_reason: StringName = &"preload_plan_failed"
 		if plan_usable and not plan_healthy:
 			plan_reason = &"preload_plan_unhealthy"
-		elif plan_ok and asset_plan != null and asset_plan.is_empty():
+		elif (
+			plan_ok
+			and asset_plan != null
+			and asset_plan.is_empty()
+		):
 			plan_reason = &"preload_plan_empty"
 		_complete_pending_route(
 			pending_key,
@@ -1354,10 +1442,7 @@ func _start_pending_route_preload(pending_key: String, request_id: int) -> void:
 	session_metadata["route_id"] = route_id
 	var session: GFAssetLoadSession = asset_utility.start_preload_session(
 		asset_plan,
-		{
-			"auto_commit": true,
-			"metadata": session_metadata,
-		}
+		{ "auto_commit": true, "metadata": session_metadata, }
 	)
 	if not _pending_route_has_request_id(pending_key, request_id):
 		if session != null and not session.is_completed():
@@ -1370,9 +1455,7 @@ func _start_pending_route_preload(pending_key: String, request_id: int) -> void:
 	var attached: bool = operation_handle.attach_preload_session_for_framework(session)
 	if not attached:
 		if session != null and not session.is_completed():
-			var _unattached_session_rolled_back: bool = session.rollback(
-				&"preload_session_attach_failed"
-			)
+			var _unattached_session_rolled_back: bool = session.rollback(&"preload_session_attach_failed")
 		_complete_pending_route(
 			pending_key,
 			request_id,
@@ -1391,15 +1474,20 @@ func _start_pending_route_preload(pending_key: String, request_id: int) -> void:
 	entry["preload_attempted"] = true
 	_pending_async_routes[pending_key] = entry
 	if session == null:
-		_on_pending_route_preload_completed(null, pending_key, request_id)
+		_on_pending_route_preload_completed(
+			null,
+			pending_key,
+			request_id
+		)
 		return
 	if session.is_completed():
-		_on_pending_route_preload_completed(session.get_result(), pending_key, request_id)
+		_on_pending_route_preload_completed(
+			session.get_result(),
+			pending_key,
+			request_id
+		)
 		return
-	var preload_callback: Callable = _on_pending_route_preload_completed.bind(
-		pending_key,
-		request_id
-	)
+	var preload_callback: Callable = _on_pending_route_preload_completed.bind(pending_key, request_id)
 	var connect_error: Error = session.completed.connect(
 		preload_callback,
 		CONNECT_ONE_SHOT as Object.ConnectFlags
@@ -1428,8 +1516,6 @@ func _start_pending_route_preload(pending_key: String, request_id: int) -> void:
 		entry = GFVariantData.get_option_dictionary(_pending_async_routes, pending_key)
 		entry["preload_callback"] = preload_callback
 		_pending_async_routes[pending_key] = entry
-
-
 
 
 ## 将预加载降级标记和原因写入匹配的 pending 请求条目。
@@ -1493,8 +1579,16 @@ func _submit_pending_panel_open(pending_key: String, request_id: int) -> void:
 			true
 		)
 		return
-	var path: String = GFVariantData.get_option_string(entry, "path", "")
-	var declared_layer: int = GFVariantData.get_option_int(entry, "layer", -1)
+	var path: String = GFVariantData.get_option_string(
+		entry,
+		"path",
+		""
+	)
+	var declared_layer: int = GFVariantData.get_option_int(
+		entry,
+		"layer",
+		-1
+	)
 	var route_layer: int = _get_ui_layer(declared_layer)
 	if not ui_utility.has_layer(route_layer):
 		_complete_pending_route(
@@ -1507,7 +1601,12 @@ func _submit_pending_panel_open(pending_key: String, request_id: int) -> void:
 		)
 		return
 	var operation: Operation = _get_route_operation(entry)
-	if _ui_has_matching_pending_request(ui_utility, path, route_layer, operation):
+	if _ui_has_matching_pending_request(
+		ui_utility,
+		path,
+		route_layer,
+		operation
+	):
 		_complete_pending_route(
 			pending_key,
 			request_id,
@@ -1536,18 +1635,15 @@ func _submit_pending_panel_open(pending_key: String, request_id: int) -> void:
 	_pending_async_routes[pending_key] = entry
 	_disconnect_entry_lifecycle(entry)
 	_pending_async_routes[pending_key] = entry
-	var completion_invocation: GFWeakMethodInvocation = GFWeakMethodInvocation.new(
-		self,
-		&"_on_ui_panel_async_operation_completed"
-	)
-	var completion_callback: Callable = func(
-		completed_ui_operation: GFUIPanelAsyncOperation
-	) -> void:
-		var _invocation_result: Dictionary = completion_invocation.invoke([
-			completed_ui_operation,
-			pending_key,
-			request_id,
-		])
+	var completion_invocation: GFWeakMethodInvocation = GFWeakMethodInvocation.new(self, &"_on_ui_panel_async_operation_completed")
+	var completion_callback: Callable = func(completed_ui_operation: GFUIPanelAsyncOperation) -> void:
+		var _invocation_result: Dictionary = completion_invocation.invoke(
+			[
+				completed_ui_operation,
+				pending_key,
+				request_id,
+			]
+		)
 	var ui_operation: GFUIPanelAsyncOperation = null
 	if operation == Operation.REPLACE:
 		ui_operation = ui_utility.replace_layer_async_with_options(
@@ -1580,9 +1676,7 @@ func _submit_pending_panel_open(pending_key: String, request_id: int) -> void:
 	entry = GFVariantData.get_option_dictionary(_pending_async_routes, pending_key)
 	if entry.is_empty():
 		return
-	var latched_ui_operation: GFUIPanelAsyncOperation = _get_ui_panel_async_operation_value(
-		entry.get("ui_operation")
-	)
+	var latched_ui_operation: GFUIPanelAsyncOperation = _get_ui_panel_async_operation_value(entry.get("ui_operation"))
 	if latched_ui_operation != null and latched_ui_operation != ui_operation:
 		_complete_pending_route(
 			pending_key,
@@ -1597,7 +1691,11 @@ func _submit_pending_panel_open(pending_key: String, request_id: int) -> void:
 	entry["ui_completion_callback"] = completion_callback
 	_pending_async_routes[pending_key] = entry
 	if ui_operation.is_completed():
-		_on_ui_panel_async_operation_completed(ui_operation, pending_key, request_id)
+		_on_ui_panel_async_operation_completed(
+			ui_operation,
+			pending_key,
+			request_id
+		)
 
 
 ## 查询 UI 工具是否已有相同路径与操作的未完成面板请求。
@@ -1612,8 +1710,16 @@ func _ui_has_matching_pending_request(
 	var operation_name: StringName = _operation_to_name(operation)
 	for request: Dictionary in ui_utility.get_pending_async_panel_requests(layer):
 		if (
-			GFVariantData.get_option_string(request, "path", "") == path
-			and GFVariantData.get_option_string_name(request, "operation", &"") == operation_name
+			GFVariantData.get_option_string(
+				request,
+				"path",
+				""
+			) == path
+			and GFVariantData.get_option_string_name(
+				request,
+				"operation",
+				&""
+			) == operation_name
 		):
 			return true
 	return false
@@ -1636,7 +1742,13 @@ func _complete_pending_route(
 	if entry.is_empty():
 		return
 	var _erased: bool = _pending_async_routes.erase(pending_key)
-	_finish_route_entry(entry, status, reason, panel, emit_legacy_failure)
+	_finish_route_entry(
+		entry,
+		status,
+		reason,
+		panel,
+		emit_legacy_failure
+	)
 
 
 ## 终结成功请求，按 replace 语义清理历史，再记录新打开的面板。
@@ -1651,10 +1763,7 @@ func _complete_pending_route_opened(
 ) -> void:
 	if not _pending_route_has_request_id(pending_key, request_id):
 		return
-	var entry: Dictionary = GFVariantData.get_option_dictionary(
-		_pending_async_routes,
-		pending_key
-	)
+	var entry: Dictionary = GFVariantData.get_option_dictionary(_pending_async_routes, pending_key)
 	if entry.is_empty():
 		return
 	var _erased: bool = _pending_async_routes.erase(pending_key)
@@ -1712,7 +1821,11 @@ func _finish_route_entry(
 		operation_handle.get_operation(),
 		status,
 		final_reason,
-		GFVariantData.get_option_int(entry, "layer", -1),
+		GFVariantData.get_option_int(
+			entry,
+			"layer",
+			-1
+		),
 		panel,
 		operation_handle.get_preload_policy(),
 		preload_attempted,
@@ -1732,7 +1845,10 @@ func _finish_route_entry(
 		return
 	route_operation_completed.emit(result.duplicate_result())
 	if emit_legacy_failure:
-		_fail_route(operation_handle.get_route_id(), String(final_reason))
+		_fail_route(
+			operation_handle.get_route_id(),
+			String(final_reason)
+		)
 
 
 ## 释放时快照并清空 pending 表，回滚未提交会话并终结全部请求。
@@ -1751,7 +1867,11 @@ func _finish_pending_routes_for_dispose() -> void:
 		_disconnect_entry_preload_callback(entry)
 		var panel_submitted: bool = GFVariantData.get_option_bool(entry, "panel_submitted")
 		var session: GFAssetLoadSession = _get_asset_load_session_value(entry.get("preload_session"))
-		if not panel_submitted and session != null and not session.is_completed():
+		if (
+			not panel_submitted
+			and session != null
+			and not session.is_completed()
+		):
 			var _rolled_back: bool = session.rollback(&"router_disposed")
 		_finish_route_entry(
 			entry,
@@ -1768,7 +1888,11 @@ func _finish_pending_routes_for_dispose() -> void:
 func _disconnect_entry_preload_callback(entry: Dictionary) -> void:
 	var session: GFAssetLoadSession = _get_asset_load_session_value(entry.get("preload_session"))
 	var callback: Callable = _get_callable_value(entry.get("preload_callback"))
-	if session != null and callback.is_valid() and session.completed.is_connected(callback):
+	if (
+		session != null
+		and callback.is_valid()
+		and session.completed.is_connected(callback)
+	):
 		session.completed.disconnect(callback)
 
 
@@ -1776,14 +1900,16 @@ func _disconnect_entry_preload_callback(entry: Dictionary) -> void:
 ## [br]
 ## @api private
 func _disconnect_entry_lifecycle(entry: Dictionary) -> void:
-	var owner_lifetime: GFLifetimeSubscription = _get_lifetime_subscription_value(
-		entry.get("owner_lifetime")
-	)
+	var owner_lifetime: GFLifetimeSubscription = _get_lifetime_subscription_value(entry.get("owner_lifetime"))
 	if owner_lifetime != null and owner_lifetime.is_active():
 		var _cancelled_subscription: bool = owner_lifetime.cancel()
 	var scope: GFAsyncScope = _get_async_scope_value(entry.get("scope"))
 	var scope_callback: Callable = _get_callable_value(entry.get("scope_callback"))
-	if scope != null and scope_callback.is_valid() and scope.cancel_requested.is_connected(scope_callback):
+	if (
+		scope != null
+		and scope_callback.is_valid()
+		and scope.cancel_requested.is_connected(scope_callback)
+	):
 		scope.cancel_requested.disconnect(scope_callback)
 	entry["owner_lifetime"] = null
 	entry["scope"] = null
@@ -1794,12 +1920,8 @@ func _disconnect_entry_lifecycle(entry: Dictionary) -> void:
 ## [br]
 ## @api private
 func _disconnect_entry_ui_completion_callback(entry: Dictionary) -> void:
-	var ui_operation: GFUIPanelAsyncOperation = _get_ui_panel_async_operation_value(
-		entry.get("ui_operation")
-	)
-	var completion_callback: Callable = _get_callable_value(
-		entry.get("ui_completion_callback")
-	)
+	var ui_operation: GFUIPanelAsyncOperation = _get_ui_panel_async_operation_value(entry.get("ui_operation"))
+	var completion_callback: Callable = _get_callable_value(entry.get("ui_completion_callback"))
 	if (
 		ui_operation != null
 		and completion_callback.is_valid()
@@ -1813,10 +1935,7 @@ func _disconnect_entry_ui_completion_callback(entry: Dictionary) -> void:
 ## 仅当本路由拥有且结果成功时卸载其预加载组。
 ## [br]
 ## @api private
-func _release_owned_preload_group(
-	entry: Dictionary,
-	preload_result: GFAssetLoadSessionResult
-) -> void:
+func _release_owned_preload_group(entry: Dictionary, preload_result: GFAssetLoadSessionResult) -> void:
 	if (
 		not GFVariantData.get_option_bool(entry, "owns_preload_group")
 		or preload_result == null
@@ -1825,16 +1944,17 @@ func _release_owned_preload_group(
 		return
 	var asset_utility: GFAssetUtility = _get_asset_utility()
 	if asset_utility != null:
-		asset_utility.unload_group(preload_result.get_group_id(), false)
+		asset_utility.unload_group(
+			preload_result.get_group_id(),
+			false
+		)
 
 
 ## 优先读取条目缓存的结果，否则从已完成的预加载会话取结果。
 ## [br]
 ## @api private
 func _get_entry_preload_result(entry: Dictionary) -> GFAssetLoadSessionResult:
-	var result: GFAssetLoadSessionResult = _get_asset_load_session_result_value(
-		entry.get("preload_result")
-	)
+	var result: GFAssetLoadSessionResult = _get_asset_load_session_result_value(entry.get("preload_result"))
 	if result != null:
 		return result
 	var session: GFAssetLoadSession = _get_asset_load_session_value(entry.get("preload_session"))
@@ -1844,10 +1964,7 @@ func _get_entry_preload_result(entry: Dictionary) -> GFAssetLoadSessionResult:
 ## 移除报告中的资源对象，加入计划描述并编码为报告字典。
 ## [br]
 ## @api private
-func _make_json_safe_preload_plan_report(
-	raw_report: Dictionary,
-	asset_plan: GFAssetPreloadPlan
-) -> Dictionary:
+func _make_json_safe_preload_plan_report(raw_report: Dictionary, asset_plan: GFAssetPreloadPlan) -> Dictionary:
 	var report: Dictionary = raw_report.duplicate(true)
 	var _erased_asset_plan: bool = report.erase("asset_plan")
 	if asset_plan != null:
@@ -1862,21 +1979,17 @@ func _get_pending_route_snapshots() -> Array[Dictionary]:
 	var snapshots: Array[Dictionary] = []
 	for pending_key: Variant in _pending_async_routes.keys():
 		var entry: Dictionary = GFVariantData.get_option_dictionary(_pending_async_routes, pending_key)
-		var operation_handle: GFUIRouteOperation = _get_route_operation_value(
-			entry.get("operation_handle")
-		)
+		var operation_handle: GFUIRouteOperation = _get_route_operation_value(entry.get("operation_handle"))
 		if operation_handle != null:
 			var snapshot: Dictionary = operation_handle.get_debug_snapshot()
 			snapshot["panel_submitted"] = GFVariantData.get_option_bool(entry, "panel_submitted")
 			snapshot["has_owner"] = GFVariantData.get_option_int(entry, "owner_id") != 0
 			snapshot["has_scope"] = GFVariantData.get_option_int(entry, "scope_id") != 0
-			snapshot["lifecycle_cancellation_open"] = not GFVariantData.get_option_bool(
-				entry,
-				"panel_submitted"
-			)
+			snapshot["lifecycle_cancellation_open"] = not (GFVariantData.get_option_bool(entry, "panel_submitted"))
 			snapshots.append(snapshot)
-	snapshots.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
-		return GFVariantData.get_option_int(left, "request_id") < GFVariantData.get_option_int(right, "request_id")
+	snapshots.sort_custom(
+		func(left: Dictionary, right: Dictionary) -> bool:
+			return GFVariantData.get_option_int(left, "request_id") < GFVariantData.get_option_int(right, "request_id")
 	)
 	return snapshots
 
@@ -1884,15 +1997,34 @@ func _get_pending_route_snapshots() -> Array[Dictionary]:
 ## 以层级、操作和场景路径组合 pending 路由索引键。
 ## [br]
 ## @api private
-func _make_pending_async_route_key(path: String, layer: int, operation: Operation) -> String:
-	return "%d:%d:%s" % [layer, int(operation), path]
+func _make_pending_async_route_key(
+	path: String,
+	layer: int,
+	operation: Operation
+) -> String:
+	return (
+		"%d:%d:%s"
+		% [
+			layer,
+			int(operation),
+			path,
+		]
+	)
 
 
 ## 按面板路径、层级和操作查找对应的 pending 路由条目。
 ## [br]
 ## @api private
-func _find_pending_async_route(path: String, layer: int, operation: Operation) -> Dictionary:
-	var key: String = _make_pending_async_route_key(path, layer, operation)
+func _find_pending_async_route(
+	path: String,
+	layer: int,
+	operation: Operation
+) -> Dictionary:
+	var key: String = _make_pending_async_route_key(
+		path,
+		layer,
+		operation
+	)
 	return GFVariantData.get_option_dictionary(_pending_async_routes, key)
 
 
@@ -1900,18 +2032,18 @@ func _find_pending_async_route(path: String, layer: int, operation: Operation) -
 ## [br]
 ## @api private
 func _operation_to_name(operation: Operation) -> StringName:
-	return (
-		GFUIRouteOperation.OPERATION_REPLACE
-		if operation == Operation.REPLACE
-		else GFUIRouteOperation.OPERATION_PUSH
-	)
+	return (GFUIRouteOperation.OPERATION_REPLACE if operation == Operation.REPLACE else GFUIRouteOperation.OPERATION_PUSH)
 
 
 ## 从请求条目读取操作值；未知值按 PUSH 处理。
 ## [br]
 ## @api private
 func _get_route_operation(entry: Dictionary) -> Operation:
-	if GFVariantData.get_option_int(entry, "operation", int(Operation.PUSH)) == int(Operation.REPLACE):
+	if GFVariantData.get_option_int(
+		entry,
+		"operation",
+		int(Operation.PUSH)
+	) == int(Operation.REPLACE):
 		return Operation.REPLACE
 	return Operation.PUSH
 
@@ -1925,7 +2057,11 @@ func _make_route_config_callback(
 	config_callback: Callable
 ) -> Callable:
 	return func(panel: Node) -> void:
-		_apply_route_params(panel, route, params)
+		_apply_route_params(
+			panel,
+			route,
+			params
+		)
 		if config_callback.is_valid():
 			config_callback.call(panel)
 
@@ -1947,10 +2083,7 @@ func _make_route_request_snapshot(route_id: StringName, route: GFUIRoute) -> GFU
 ## 按预加载目录上限取得注册路由快照，并用请求路由替换同 ID 项。
 ## [br]
 ## @api private
-func _make_preload_route_snapshots(
-	source_route: GFUIRoute,
-	options: Dictionary
-) -> Array[GFUIRoute]:
+func _make_preload_route_snapshots(source_route: GFUIRoute, options: Dictionary) -> Array[GFUIRoute]:
 	var max_catalog_routes: int = maxi(
 		GFVariantData.get_option_int(
 			options,
@@ -1971,28 +2104,34 @@ func _make_preload_route_snapshots(
 		var registered_route: GFUIRoute = _get_route_value(_routes[route_key])
 		if registered_route == null:
 			continue
-		var registered_route_id: StringName = _normalize_route_id(
-			GFVariantData.to_string_name(route_key)
-		)
+		var registered_route_id: StringName = _normalize_route_id(GFVariantData.to_string_name(route_key))
 		if registered_route_id == source_route.get_route_id():
 			snapshots.append(source_route)
 		else:
-			snapshots.append(
-				_make_route_request_snapshot(registered_route_id, registered_route)
-			)
+			snapshots.append(_make_route_request_snapshot(registered_route_id, registered_route))
 	return snapshots
 
 
 ## 面板支持相应方法时，传入路由参数与路由元数据的深复制。
 ## [br]
 ## @api private
-func _apply_route_params(panel: Node, route: GFUIRoute, params: Dictionary) -> void:
+func _apply_route_params(
+	panel: Node,
+	route: GFUIRoute,
+	params: Dictionary
+) -> void:
 	if not is_instance_valid(panel):
 		return
 	if panel.has_method("set_route_params"):
-		panel.call("set_route_params", params.duplicate(true))
+		panel.call(
+			"set_route_params",
+			params.duplicate(true)
+		)
 	if panel.has_method("set_route_metadata"):
-		panel.call("set_route_metadata", route.metadata.duplicate(true))
+		panel.call(
+			"set_route_metadata",
+			route.metadata.duplicate(true)
+		)
 
 
 ## 依最大历史数记录路由、层级、弱面板引用及参数，并发出打开信号。
@@ -2005,20 +2144,30 @@ func _record_route_open(
 	operation: Operation
 ) -> void:
 	if max_history <= 0:
-		route_opened.emit(route.get_route_id(), panel, operation)
+		route_opened.emit(
+			route.get_route_id(),
+			panel,
+			operation
+		)
 		return
 
 	_prune_history()
-	_history.append({
-		"route_id": route.get_route_id(),
-		"layer": route.layer,
-		"panel_ref": weakref(panel),
-		"params": params.duplicate(true),
-		"metadata": route.metadata.duplicate(true),
-	})
+	_history.append(
+		{
+			"route_id": route.get_route_id(),
+			"layer": route.layer,
+			"panel_ref": weakref(panel),
+			"params": params.duplicate(true),
+			"metadata": route.metadata.duplicate(true),
+		}
+	)
 	while _history.size() > max_history:
 		_history.remove_at(0)
-	route_opened.emit(route.get_route_id(), panel, operation)
+	route_opened.emit(
+		route.get_route_id(),
+		panel,
+		operation
+	)
 
 
 ## 移除已释放或已不在对应 UI 层栈中的历史面板。
@@ -2026,11 +2175,25 @@ func _record_route_open(
 ## @api private
 func _prune_history() -> void:
 	var ui_utility: GFUIUtility = _get_ui_utility()
-	for index: int in range(_history.size() - 1, -1, -1):
+	for index: int in range(
+		_history.size() - 1,
+		-1,
+		-1
+	):
 		var entry: Dictionary = _history[index]
 		var panel: Node = _get_history_panel(entry)
-		var layer: int = GFVariantData.get_option_int(entry, "layer", GFUIUtility.Layer.POPUP)
-		if panel == null or (ui_utility != null and not ui_utility.is_panel_open(panel, layer)):
+		var layer: int = GFVariantData.get_option_int(
+			entry,
+			"layer",
+			GFUIUtility.Layer.POPUP
+		)
+		if (
+			panel == null
+			or (
+				ui_utility != null
+				and not ui_utility.is_panel_open(panel, layer)
+			)
+		):
 			_history.remove_at(index)
 
 
@@ -2038,8 +2201,16 @@ func _prune_history() -> void:
 ## [br]
 ## @api private
 func _find_top_history_index(layer: int = -1) -> int:
-	for index: int in range(_history.size() - 1, -1, -1):
-		if layer < 0 or GFVariantData.get_option_int(_history[index], "layer", -1) == layer:
+	for index: int in range(
+		_history.size() - 1,
+		-1,
+		-1
+	):
+		if layer < 0 or GFVariantData.get_option_int(
+			_history[index],
+			"layer",
+			-1
+		) == layer:
 			return index
 	return -1
 
@@ -2048,8 +2219,16 @@ func _find_top_history_index(layer: int = -1) -> int:
 ## [br]
 ## @api private
 func _remove_history_for_layer(layer: int) -> void:
-	for index: int in range(_history.size() - 1, -1, -1):
-		if GFVariantData.get_option_int(_history[index], "layer", -1) == layer:
+	for index: int in range(
+		_history.size() - 1,
+		-1,
+		-1
+	):
+		if GFVariantData.get_option_int(
+			_history[index],
+			"layer",
+			-1
+		) == layer:
 			_history.remove_at(index)
 
 
@@ -2068,8 +2247,16 @@ func _get_history_panel(entry: Dictionary) -> Node:
 ## @api private
 func _make_public_history_entry(entry: Dictionary) -> Dictionary:
 	return {
-		"route_id": GFVariantData.get_option_string_name(entry, "route_id", &""),
-		"layer": GFVariantData.get_option_int(entry, "layer", GFUIUtility.Layer.POPUP),
+		"route_id": GFVariantData.get_option_string_name(
+			entry,
+			"route_id",
+			&""
+		),
+		"layer": GFVariantData.get_option_int(
+			entry,
+			"layer",
+			GFUIUtility.Layer.POPUP
+		),
 		"panel": _get_history_panel(entry),
 		"params": GFVariantData.get_option_dictionary(entry, "params"),
 		"metadata": GFVariantData.get_option_dictionary(entry, "metadata"),
@@ -2295,15 +2482,10 @@ func _on_ui_panel_async_operation_completed(
 		return
 	if not _pending_route_has_request_id(pending_key, request_id):
 		return
-	var route_entry: Dictionary = GFVariantData.get_option_dictionary(
-		_pending_async_routes,
-		pending_key
-	)
+	var route_entry: Dictionary = GFVariantData.get_option_dictionary(_pending_async_routes, pending_key)
 	if route_entry.is_empty() or not GFVariantData.get_option_bool(route_entry, "panel_submitted"):
 		return
-	var latched_ui_operation: GFUIPanelAsyncOperation = _get_ui_panel_async_operation_value(
-		route_entry.get("ui_operation")
-	)
+	var latched_ui_operation: GFUIPanelAsyncOperation = _get_ui_panel_async_operation_value(route_entry.get("ui_operation"))
 	if latched_ui_operation != null and latched_ui_operation != ui_operation:
 		return
 	var route_snapshot: GFUIRoute = _get_route_value(route_entry.get("route_snapshot"))
@@ -2379,8 +2561,6 @@ func _on_pending_route_lifecycle_cancelled(
 		final_reason,
 		false
 	)
-
-
 
 
 ## 先验证请求身份与生命周期，再存下预载结果并移除回调记录。

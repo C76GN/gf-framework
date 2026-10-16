@@ -117,12 +117,18 @@ func init() -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param world_bounds: 世界边界矩形。
 ## [br]
 ## @param depth: 最大递归深度。
 ## [br]
 ## @param entities_per_node: 每节点最大实体数。
-func setup(world_bounds: Rect2, depth: int = DEFAULT_MAX_DEPTH, entities_per_node: int = DEFAULT_MAX_ENTITIES) -> void:
+func setup(
+	world_bounds: Rect2,
+	depth: int = DEFAULT_MAX_DEPTH,
+	entities_per_node: int = DEFAULT_MAX_ENTITIES
+) -> void:
 	var normalized_bounds: Rect2 = _normalize_rect(world_bounds)
 	if not _is_finite_rect(normalized_bounds):
 		push_error("[GFQuadTreeUtility][quad_tree_utility.bounds_non_finite] bounds must contain only finite values.")
@@ -181,7 +187,11 @@ func insert(entity_id: int, rect: Rect2) -> bool:
 ## @param hit_test: 可选精确命中测试，签名为 `(entity_id, point, rect) -> bool`。
 ## [br]
 ## @return: 插入和命中测试注册都成功时返回 true。
-func insert_with_hit_test(entity_id: int, rect: Rect2, hit_test: Callable) -> bool:
+func insert_with_hit_test(
+	entity_id: int,
+	rect: Rect2,
+	hit_test: Callable
+) -> bool:
 	if not insert(entity_id, rect):
 		return false
 	return set_entity_hit_test(entity_id, hit_test)
@@ -212,7 +222,13 @@ func update(entity_id: int, new_rect: Rect2) -> bool:
 	if not _is_indexable_rect(normalized_rect):
 		return false
 
-	var hit_test: Callable = _variant_to_callable(GFVariantData.get_option_value(_entity_hit_tests, entity_id, Callable()))
+	var hit_test: Callable = _variant_to_callable(
+		GFVariantData.get_option_value(
+			_entity_hit_tests,
+			entity_id,
+			Callable()
+		)
+	)
 	_remove_entity(entity_id, false)
 	var inserted: bool = _insert_normalized_rect(entity_id, normalized_rect)
 	if hit_test.is_valid():
@@ -261,7 +277,13 @@ func clear_entity_hit_test(entity_id: int) -> bool:
 ## [br]
 ## @return 实体矩形；不存在时返回空 Rect2。
 func get_entity_rect(entity_id: int) -> Rect2:
-	return _variant_to_rect2(GFVariantData.get_option_value(_entity_rects, entity_id, Rect2()))
+	return _variant_to_rect2(
+		GFVariantData.get_option_value(
+			_entity_rects,
+			entity_id,
+			Rect2()
+		)
+	)
 
 
 ## 矩形范围查询：返回与查询区域有交集的所有实体 ID。
@@ -275,7 +297,11 @@ func query_rect(area: Rect2) -> Array[int]:
 	_ensure_root()
 	var result: Array[int] = []
 	var visited: Dictionary = {}
-	_root._query_rect(_normalize_rect(area), result, visited)
+	_root._query_rect(
+		_normalize_rect(area),
+		result,
+		visited
+	)
 	return result
 
 
@@ -292,7 +318,13 @@ func query_radius(center: Vector2, radius: float) -> Array[int]:
 	if radius < 0.0:
 		return []
 
-	var query_bounds: Rect2 = Rect2(center - Vector2(radius, radius), Vector2(radius * 2.0, radius * 2.0))
+	var query_bounds: Rect2 = Rect2(
+		center - Vector2(radius, radius),
+		Vector2(
+			radius * 2.0,
+			radius * 2.0
+		)
+	)
 	var candidates: Array[int] = query_rect(query_bounds)
 	var result: Array[int] = []
 	var radius_sq: float = radius * radius
@@ -301,8 +333,16 @@ func query_radius(center: Vector2, radius: float) -> Array[int]:
 		if _entity_rects.has(entity_id):
 			var rect: Rect2 = _variant_to_rect2(_entity_rects[entity_id])
 			var closest: Vector2 = Vector2(
-				clampf(center.x, rect.position.x, rect.position.x + rect.size.x),
-				clampf(center.y, rect.position.y, rect.position.y + rect.size.y),
+				clampf(
+					center.x,
+					rect.position.x,
+					rect.position.x + rect.size.x
+				),
+				clampf(
+					center.y,
+					rect.position.y,
+					rect.position.y + rect.size.y
+				),
 			)
 			if center.distance_squared_to(closest) <= radius_sq:
 				result.append(entity_id)
@@ -323,7 +363,11 @@ func query_point(point: Vector2, use_exact_hit_tests: bool = true) -> Array[int]
 	_ensure_root()
 	var candidates: Array[int] = []
 	var visited: Dictionary = {}
-	_root._query_point(point, candidates, visited)
+	_root._query_point(
+		point,
+		candidates,
+		visited
+	)
 	if not use_exact_hit_tests:
 		return candidates
 
@@ -425,7 +469,12 @@ func get_debug_snapshot() -> Dictionary:
 ## [br]
 ## @schema return: Dictionary safe for JSON.stringify().
 func get_json_compatible_debug_snapshot(options: Dictionary = {}) -> Dictionary:
-	return GFVariantData.as_dictionary(_GF_REPORT_VALUE_CODEC_SCRIPT.to_json_compatible(get_debug_snapshot(), options))
+	return GFVariantData.as_dictionary(
+		_GF_REPORT_VALUE_CODEC_SCRIPT.to_json_compatible(
+			get_debug_snapshot(),
+			options
+		)
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -449,7 +498,12 @@ func _ensure_root() -> void:
 func _rebuild_root() -> void:
 	var _limits_changed: bool = _normalize_tree_limits()
 	_bounds = _normalize_rect(_bounds)
-	_root = _QTNode.new(_bounds, 0, max_depth, max_entities_per_node)
+	_root = _QTNode.new(
+		_bounds,
+		0,
+		max_depth,
+		max_entities_per_node
+	)
 
 
 ## 将最大深度限制为非负数、节点容量限制为至少 1，并返回是否改变。
@@ -517,9 +571,21 @@ func _passes_point_hit_test(entity_id: int, point: Vector2) -> bool:
 		return false
 
 	var rect: Rect2 = _variant_to_rect2(_entity_rects[entity_id])
-	var hit_test: Callable = _variant_to_callable(GFVariantData.get_option_value(_entity_hit_tests, entity_id, Callable()))
+	var hit_test: Callable = _variant_to_callable(
+		GFVariantData.get_option_value(
+			_entity_hit_tests,
+			entity_id,
+			Callable()
+		)
+	)
 	if hit_test.is_valid():
-		return GFVariantData.to_bool(hit_test.call(entity_id, point, rect))
+		return GFVariantData.to_bool(
+			hit_test.call(
+				entity_id,
+				point,
+				rect
+			)
+		)
 	return _rect_contains_point(rect, point)
 
 
@@ -579,7 +645,10 @@ func _rect_contains_rect(container: Rect2, rect: Rect2) -> bool:
 	return (
 		_is_finite_rect(container)
 		and _rect_contains_point(container, rect.position)
-		and _rect_contains_point(container, rect.position + rect.size)
+		and _rect_contains_point(
+			container,
+			rect.position + rect.size
+		)
 	)
 
 
@@ -625,7 +694,10 @@ static func _variant_to_rect2(value: Variant) -> Rect2:
 ## @api private
 ## [br]
 class _QTNode:
+
+
 	# --- 私有变量 ---
+
 	## 本节点覆盖的固定矩形，子节点由其四等分产生。
 	## [br]
 	## @api private
@@ -695,7 +767,11 @@ class _QTNode:
 			_entities.append(entity_id)
 		_entity_rects[entity_id] = rect
 
-		if not _is_split and _entities.size() > _max_entities_limit and _depth < _max_depth_limit:
+		if (
+			not _is_split
+			and _entities.size() > _max_entities_limit
+			and _depth < _max_depth_limit
+		):
 			_split()
 
 
@@ -715,27 +791,51 @@ class _QTNode:
 	## 不相交子树直接剪枝；先查本地再递归子树，共享 visited 防止跨象限实体重复返回。
 	## [br]
 	## @api private
-	func _query_rect(query: Rect2, result: Array[int], visited: Dictionary) -> void:
+	func _query_rect(
+		query: Rect2,
+		result: Array[int],
+		visited: Dictionary
+	) -> void:
 		if not _node_bounds.intersects(query):
 			return
 
-		_query_local_rect(query, result, visited)
+		_query_local_rect(
+			query,
+			result,
+			visited
+		)
 		if _is_split:
 			for child: _QTNode in _children:
-				child._query_rect(query, result, visited)
+				child._query_rect(
+					query,
+					result,
+					visited
+				)
 
 
 	## 使用包含边界的点测试剪枝，先查本地再查子树；共享 visited 对分界线上的重复候选去重。
 	## [br]
 	## @api private
-	func _query_point(point: Vector2, result: Array[int], visited: Dictionary) -> void:
+	func _query_point(
+		point: Vector2,
+		result: Array[int],
+		visited: Dictionary
+	) -> void:
 		if not _contains_point(_node_bounds, point):
 			return
 
-		_query_local_point(point, result, visited)
+		_query_local_point(
+			point,
+			result,
+			visited
+		)
 		if _is_split:
 			for child: _QTNode in _children:
-				child._query_point(point, result, visited)
+				child._query_point(
+					point,
+					result,
+					visited
+				)
 
 
 	## 统计自身及所有已分裂后代，用于结构调试；空节点仍计入。
@@ -758,10 +858,45 @@ class _QTNode:
 		var next_depth: int = _depth + 1
 
 		_children = [
-			_QTNode.new(Rect2(pos, half_size), next_depth, _max_depth_limit, _max_entities_limit),
-			_QTNode.new(Rect2(Vector2(pos.x + half_size.x, pos.y), half_size), next_depth, _max_depth_limit, _max_entities_limit),
-			_QTNode.new(Rect2(Vector2(pos.x, pos.y + half_size.y), half_size), next_depth, _max_depth_limit, _max_entities_limit),
-			_QTNode.new(Rect2(pos + half_size, half_size), next_depth, _max_depth_limit, _max_entities_limit),
+			_QTNode.new(
+				Rect2(pos, half_size),
+				next_depth,
+				_max_depth_limit,
+				_max_entities_limit
+			),
+			_QTNode.new(
+				Rect2(
+					Vector2(
+						pos.x + half_size.x,
+						pos.y
+					),
+					half_size
+				),
+				next_depth,
+				_max_depth_limit,
+				_max_entities_limit
+			),
+			_QTNode.new(
+				Rect2(
+					Vector2(
+						pos.x,
+						pos.y + half_size.y
+					),
+					half_size
+				),
+				next_depth,
+				_max_depth_limit,
+				_max_entities_limit
+			),
+			_QTNode.new(
+				Rect2(
+					pos + half_size,
+					half_size
+				),
+				next_depth,
+				_max_depth_limit,
+				_max_entities_limit
+			),
 		]
 		_is_split = true
 
@@ -772,7 +907,10 @@ class _QTNode:
 
 		for entity_id: int in old_entities:
 			if old_rects.has(entity_id):
-				_insert(entity_id, GFQuadTreeUtility._variant_to_rect2(old_rects[entity_id]))
+				_insert(
+					entity_id,
+					GFQuadTreeUtility._variant_to_rect2(old_rects[entity_id])
+				)
 
 
 	## 向每个相交子节点插入同一实体；返回是否至少有一处接纳，不要求矩形完整落入单个子节点。
@@ -790,7 +928,11 @@ class _QTNode:
 	## 只把本地矩形与查询相交且尚未返回的实体加入结果，并同步登记 visited。
 	## [br]
 	## @api private
-	func _query_local_rect(query: Rect2, result: Array[int], visited: Dictionary) -> void:
+	func _query_local_rect(
+		query: Rect2,
+		result: Array[int],
+		visited: Dictionary
+	) -> void:
 		for entity_id: int in _entities:
 			if visited.has(entity_id) or not _entity_rects.has(entity_id):
 				continue
@@ -804,7 +946,11 @@ class _QTNode:
 	## 按包含边界的矩形测试加入本地候选，并登记 visited；精确形状命中由外层随后处理。
 	## [br]
 	## @api private
-	func _query_local_point(point: Vector2, result: Array[int], visited: Dictionary) -> void:
+	func _query_local_point(
+		point: Vector2,
+		result: Array[int],
+		visited: Dictionary
+	) -> void:
 		for entity_id: int in _entities:
 			if visited.has(entity_id) or not _entity_rects.has(entity_id):
 				continue

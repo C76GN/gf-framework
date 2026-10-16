@@ -238,8 +238,14 @@ func configure_for_framework(
 	if (
 		_operation != &""
 		or operation not in [OPERATION_LOAD, OPERATION_FLUSH]
-		or (strict_recovery and operation != OPERATION_LOAD)
-		or (manager_permit != null and operation != OPERATION_LOAD)
+		or (
+			strict_recovery
+			and operation != OPERATION_LOAD
+		)
+		or (
+			manager_permit != null
+			and operation != OPERATION_LOAD
+		)
 	):
 		return false
 	_operation = operation

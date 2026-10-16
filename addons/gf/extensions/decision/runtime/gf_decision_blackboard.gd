@@ -18,6 +18,8 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
+## @since 4.3.0
+## [br]
 ## @param key: 值键。
 ## [br]
 ## @param old_value: 旧值。
@@ -27,7 +29,11 @@ extends RefCounted
 ## @param new_value: 新值。
 ## [br]
 ## @schema new_value: 黑板中的任意项目值。
-signal value_changed(key: StringName, old_value: Variant, new_value: Variant)
+signal value_changed(
+	key: StringName,
+	old_value: Variant,
+	new_value: Variant
+)
 
 ## 当黑板值被移除时发出。
 ## [br]
@@ -79,7 +85,11 @@ func set_value(key: StringName, value: Variant) -> void:
 	var _string_key_erased: bool = values.erase(String(key))
 	var _string_name_key_erased: bool = values.erase(key)
 	values[key] = value
-	value_changed.emit(key, old_value, value)
+	value_changed.emit(
+		key,
+		old_value,
+		value
+	)
 
 
 ## 获取黑板值。
@@ -158,7 +168,10 @@ func merge(source_values: Dictionary, overwrite: bool = true) -> void:
 			continue
 		if not overwrite and has_value(key):
 			continue
-		set_value(key, source_values[key_variant])
+		set_value(
+			key,
+			source_values[key_variant]
+		)
 
 
 ## 转换为值表副本。

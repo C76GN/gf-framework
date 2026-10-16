@@ -37,7 +37,11 @@ const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/g
 ## @return 最终筛选出的目标数组。
 ## [br]
 ## @schema p_available_entities: Array，元素为候选实体 Object；无效实例会被跳过。
-func find_targets(p_center: Vector2, p_rule: GFSkillTargetingRule2D, p_available_entities: Array) -> Array[Object]:
+func find_targets(
+	p_center: Vector2,
+	p_rule: GFSkillTargetingRule2D,
+	p_available_entities: Array
+) -> Array[Object]:
 	if (
 		p_rule == null
 		or not p_rule.is_configuration_valid()
@@ -55,7 +59,11 @@ func find_targets(p_center: Vector2, p_rule: GFSkillTargetingRule2D, p_available
 		if not position_value is Vector2:
 			continue
 		var position: Vector2 = position_value
-		if not _is_position_in_shape(position, p_center, p_rule):
+		if not _is_position_in_shape(
+			position,
+			p_center,
+			p_rule
+		):
 			continue
 
 		if not is_instance_valid(entity) or not _check_tags(entity, p_rule):
@@ -63,17 +71,27 @@ func find_targets(p_center: Vector2, p_rule: GFSkillTargetingRule2D, p_available
 		if not is_instance_valid(entity):
 			continue
 
-		candidates.append({
-			"entity": entity,
-			"position": position,
-			"instance_id": entity.get_instance_id(),
-		})
+		candidates.append(
+			{
+				"entity": entity,
+				"position": position,
+				"instance_id": entity.get_instance_id(),
+			}
+		)
 
 	if candidates.is_empty():
 		return []
 
-	_sort_candidates(candidates, p_center, p_rule)
-	for index: int in range(candidates.size() - 1, -1, -1):
+	_sort_candidates(
+		candidates,
+		p_center,
+		p_rule
+	)
+	for index: int in range(
+		candidates.size() - 1,
+		-1,
+		-1
+	):
 		if _get_candidate_entity(candidates[index]) == null:
 			candidates.remove_at(index)
 
@@ -93,7 +111,11 @@ func find_targets(p_center: Vector2, p_rule: GFSkillTargetingRule2D, p_available
 ## 按矩形、圆形、单体或扇形规则判断位置；非有限偏移不命中。
 ## [br]
 ## @api private
-func _is_position_in_shape(position: Vector2, p_center: Vector2, p_rule: GFSkillTargetingRule2D) -> bool:
+func _is_position_in_shape(
+	position: Vector2,
+	p_center: Vector2,
+	p_rule: GFSkillTargetingRule2D
+) -> bool:
 	var offset: Vector2 = position - p_center
 	if not _GF_COMBAT_FINITE_MATH.is_finite_vector2(offset):
 		return false
@@ -117,7 +139,13 @@ func _is_position_in_shape(position: Vector2, p_center: Vector2, p_rule: GFSkill
 			if forward == Vector2.ZERO:
 				forward = Vector2.RIGHT
 
-			var half_angle_radians: float = deg_to_rad(clampf(p_rule.sector_angle_degrees, 0.0, 360.0) * 0.5)
+			var half_angle_radians: float = deg_to_rad(
+				clampf(
+					p_rule.sector_angle_degrees,
+					0.0,
+					360.0
+				) * 0.5
+			)
 			if half_angle_radians >= PI:
 				return true
 
@@ -166,33 +194,35 @@ func _sort_candidates(
 			GFSkillTargetingRule2D.SortRule.DISTANCE_CLOSEST, GFSkillTargetingRule2D.SortRule.DISTANCE_FURTHEST:
 				candidate["sort_value"] = _get_distance_sort_value(
 					center,
-					GFVariantData.get_option_vector2(candidate, "position", center)
+					GFVariantData.get_option_vector2(
+						candidate,
+						"position",
+						center
+					)
 				)
 			GFSkillTargetingRule2D.SortRule.ATTRIBUTE_LOWEST, GFSkillTargetingRule2D.SortRule.ATTRIBUTE_HIGHEST:
 				candidate["sort_value"] = _get_entity_attribute_value(entity, rule.sort_attribute_name)
 			GFSkillTargetingRule2D.SortRule.RANDOM:
 				candidate["sort_value"] = _get_random_sort_key(entity, rule.random_seed)
 
-	var descending: bool = rule.sort_rule in [
-		GFSkillTargetingRule2D.SortRule.DISTANCE_FURTHEST,
-		GFSkillTargetingRule2D.SortRule.ATTRIBUTE_HIGHEST,
-	]
+	var descending: bool = (rule.sort_rule in [GFSkillTargetingRule2D.SortRule.DISTANCE_FURTHEST, GFSkillTargetingRule2D.SortRule.ATTRIBUTE_HIGHEST,])
 	var random_order: bool = rule.sort_rule == GFSkillTargetingRule2D.SortRule.RANDOM
-	candidates.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
-		var left_id: int = GFVariantData.get_option_int(left, "instance_id")
-		var right_id: int = GFVariantData.get_option_int(right, "instance_id")
-		if random_order:
-			var left_key: int = GFVariantData.get_option_int(left, "sort_value")
-			var right_key: int = GFVariantData.get_option_int(right, "sort_value")
-			if left_key != right_key:
-				return left_key < right_key
-			return left_id < right_id
+	candidates.sort_custom(
+		func(left: Dictionary, right: Dictionary) -> bool:
+			var left_id: int = GFVariantData.get_option_int(left, "instance_id")
+			var right_id: int = GFVariantData.get_option_int(right, "instance_id")
+			if random_order:
+				var left_key: int = GFVariantData.get_option_int(left, "sort_value")
+				var right_key: int = GFVariantData.get_option_int(right, "sort_value")
+				if left_key != right_key:
+					return left_key < right_key
+				return left_id < right_id
 
-		var left_value: float = GFVariantData.get_option_float(left, "sort_value")
-		var right_value: float = GFVariantData.get_option_float(right, "sort_value")
-		if left_value != right_value:
-			return left_value > right_value if descending else left_value < right_value
-		return left_id < right_id
+			var left_value: float = GFVariantData.get_option_float(left, "sort_value")
+			var right_value: float = GFVariantData.get_option_float(right, "sort_value")
+			if left_value != right_value:
+				return left_value > right_value if descending else left_value < right_value
+			return left_id < right_id
 	)
 
 
@@ -204,7 +234,10 @@ func _get_entity_position(p_entity: Object) -> Variant:
 	if p_entity is Node and not p_entity is Node2D:
 		return null
 
-	var position: Variant = GFObjectPropertyTools.read_property(p_entity, NodePath("global_position"))
+	var position: Variant = GFObjectPropertyTools.read_property(
+		p_entity,
+		NodePath("global_position")
+	)
 	if position is Vector2:
 		var position_2d: Vector2 = position
 		if _GF_COMBAT_FINITE_MATH.is_finite_vector2(position_2d):
@@ -249,7 +282,10 @@ func _get_entity_attribute_value(p_entity: Object, p_attr_name: StringName) -> f
 			var attribute_value: float = attribute.current_value.get_value()
 			return attribute_value if _GF_COMBAT_FINITE_MATH.is_finite_float(attribute_value) else 0.0
 
-	var value: Variant = GFObjectPropertyTools.read_property(p_entity, NodePath(String(p_attr_name)))
+	var value: Variant = GFObjectPropertyTools.read_property(
+		p_entity,
+		NodePath(String(p_attr_name))
+	)
 	if value is float or value is int:
 		var numeric_value: float = GFVariantData.to_float(value)
 		return numeric_value if _GF_COMBAT_FINITE_MATH.is_finite_float(numeric_value) else 0.0
@@ -263,7 +299,10 @@ func _get_entity_attribute_value(p_entity: Object, p_attr_name: StringName) -> f
 func _get_random_sort_key(entity: Object, random_seed: int) -> int:
 	if not is_instance_valid(entity):
 		return 0
-	return ("%d:%d" % [random_seed, entity.get_instance_id()]).hash()
+	return (
+		"%d:%d"
+		% [random_seed, entity.get_instance_id()]
+	).hash()
 
 
 ## 从候选字典读取仍有效的 entity Object。

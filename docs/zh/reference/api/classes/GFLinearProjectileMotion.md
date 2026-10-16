@@ -20,8 +20,8 @@
 | 属性 | [`direction_3d`](#member-gflinearprojectilemotion-properties-direction_3d) | `var direction_3d: Vector3 = Vector3.FORWARD` |
 | 属性 | [`use_local_direction`](#member-gflinearprojectilemotion-properties-use_local_direction) | `var use_local_direction: bool = true` |
 | 属性 | [`normalize_direction`](#member-gflinearprojectilemotion-properties-normalize_direction) | `var normalize_direction: bool = true` |
-| 方法 | [`_create_state_2d`](#member-gflinearprojectilemotion-methods-_create_state_2d) | `func _create_state_2d( _launch_input: GFProjectileLaunchInput2D, initial_body: GFProjectileBodyResult2D ) -> GFProjectileMotionState:` |
-| 方法 | [`_create_state_3d`](#member-gflinearprojectilemotion-methods-_create_state_3d) | `func _create_state_3d( _launch_input: GFProjectileLaunchInput3D, initial_body: GFProjectileBodyResult3D ) -> GFProjectileMotionState:` |
+| 方法 | [`_create_state_2d`](#member-gflinearprojectilemotion-methods-_create_state_2d) | `func _create_state_2d(_launch_input: GFProjectileLaunchInput2D, initial_body: GFProjectileBodyResult2D) -> GFProjectileMotionState:` |
+| 方法 | [`_create_state_3d`](#member-gflinearprojectilemotion-methods-_create_state_3d) | `func _create_state_3d(_launch_input: GFProjectileLaunchInput3D, initial_body: GFProjectileBodyResult3D) -> GFProjectileMotionState:` |
 | 方法 | [`_compute_intent_2d`](#member-gflinearprojectilemotion-methods-_compute_intent_2d) | `func _compute_intent_2d( state: GFProjectileMotionState, _current_body: GFProjectileBodyResult2D, delta: float ) -> GFProjectileMotionIntent2D:` |
 | 方法 | [`_compute_intent_3d`](#member-gflinearprojectilemotion-methods-_compute_intent_3d) | `func _compute_intent_3d( state: GFProjectileMotionState, _current_body: GFProjectileBodyResult3D, delta: float ) -> GFProjectileMotionIntent3D:` |
 
@@ -102,7 +102,7 @@ var normalize_direction: bool = true
 - 首次版本：`11.0.0`
 
 ```gdscript
-func _create_state_2d( _launch_input: GFProjectileLaunchInput2D, initial_body: GFProjectileBodyResult2D ) -> GFProjectileMotionState:
+func _create_state_2d(_launch_input: GFProjectileLaunchInput2D, initial_body: GFProjectileBodyResult2D) -> GFProjectileMotionState:
 ```
 
 以初始二维 body 的基向量和当前配置计算并锁定本次 session 的 world-space 速度。 可选的方向单位化发生在局部方向转换之后；之后修改策略配置不会重算该状态的速度。
@@ -124,7 +124,7 @@ func _create_state_2d( _launch_input: GFProjectileLaunchInput2D, initial_body: G
 - 首次版本：`11.0.0`
 
 ```gdscript
-func _create_state_3d( _launch_input: GFProjectileLaunchInput3D, initial_body: GFProjectileBodyResult3D ) -> GFProjectileMotionState:
+func _create_state_3d(_launch_input: GFProjectileLaunchInput3D, initial_body: GFProjectileBodyResult3D) -> GFProjectileMotionState:
 ```
 
 以初始三维 body 的基向量和当前配置计算并锁定本次 session 的 world-space 速度。 可选的方向单位化发生在局部方向转换之后；之后修改策略配置不会重算该状态的速度。

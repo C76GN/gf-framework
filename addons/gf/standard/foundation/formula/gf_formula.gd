@@ -50,13 +50,19 @@ func calculate(_parameter: GFFormulaParameter = null) -> Variant:
 func calculate_float(parameter: GFFormulaParameter = null, fallback: float = 0.0) -> float:
 	var result: Variant = calculate(parameter)
 	if typeof(result) == TYPE_INT or typeof(result) == TYPE_FLOAT:
-		return _finite_or_fallback(GFVariantData.to_float(result), fallback)
+		return _finite_or_fallback(
+			GFVariantData.to_float(result),
+			fallback
+		)
 	if typeof(result) == TYPE_BOOL:
 		return 1.0 if result else 0.0
 	if typeof(result) == TYPE_STRING or typeof(result) == TYPE_STRING_NAME:
 		var text: String = GFVariantData.to_text(result).strip_edges()
 		if text.is_valid_float():
-			return _finite_or_fallback(text.to_float(), fallback)
+			return _finite_or_fallback(
+				text.to_float(),
+				fallback
+			)
 		return fallback
 	return fallback
 
@@ -71,7 +77,14 @@ func calculate_float(parameter: GFFormulaParameter = null, fallback: float = 0.0
 ## [br]
 ## @return int 结果。
 func calculate_int(parameter: GFFormulaParameter = null, fallback: int = 0) -> int:
-	return GFVariantData.to_int(round(calculate_float(parameter, float(fallback))))
+	return GFVariantData.to_int(
+		round(
+			calculate_float(
+				parameter,
+				float(fallback)
+			)
+		)
+	)
 
 
 ## 以 bool 形式执行公式。
@@ -94,9 +107,17 @@ func calculate_bool(parameter: GFFormulaParameter = null, fallback: bool = false
 		return numeric_value != 0.0
 	if typeof(result) == TYPE_STRING or typeof(result) == TYPE_STRING_NAME:
 		var text: String = GFVariantData.to_text(result).to_lower()
-		if text == "true" or text == "yes" or text == "1":
+		if (
+			text == "true"
+			or text == "yes"
+			or text == "1"
+		):
 			return true
-		if text == "false" or text == "no" or text == "0":
+		if (
+			text == "false"
+			or text == "no"
+			or text == "0"
+		):
 			return false
 	return fallback
 

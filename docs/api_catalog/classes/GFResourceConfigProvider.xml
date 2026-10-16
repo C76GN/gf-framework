@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFResourceConfigProvider" path="addons/gf/standard/utilities/config/gf_resource_config_provider.gd" module="standard" extends="GFConfigProvider" classDigest="80b35654312cbef5fd84b793f05d10d189d1eaa32ccebea3878365650a2e2b9a">
+<class name="GFResourceConfigProvider" path="addons/gf/standard/utilities/config/gf_resource_config_provider.gd" module="standard" extends="GFConfigProvider" classDigest="4ac8250ef4dc41bed446b7d3a3cd7bec12d306654cd11b3c30dcc0d8338504ba">
 	<description>GFResourceConfigProvider: 读取 GFConfigTableResource 的运行时配置 Provider。
 用于把导表工具生成的 `.tres` / `.res` 表资源接入 `GFConfigProvider` 查询协议。
 它只处理通用表资源注册、表查询和记录查询，不绑定业务字段、构建 profile 或热更新策略。</description>
@@ -142,7 +142,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="make_index_key">
-			<signature>func make_index_key(table_name: StringName, index_id: StringName, record: Dictionary) -&gt; String:</signature>
+			<signature>func make_index_key( table_name: StringName, index_id: StringName, record: Dictionary ) -&gt; String:</signature>
 			<description>根据表名和索引声明构建索引键。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -155,7 +155,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="has_index_key">
-			<signature>func has_index_key(table_name: StringName, index_id: StringName, index_key: String) -&gt; bool:</signature>
+			<signature>func has_index_key( table_name: StringName, index_id: StringName, index_key: String ) -&gt; bool:</signature>
 			<description>检查表资源中的命名索引键是否存在。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -167,7 +167,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="get_index_records">
-			<signature>func get_index_records(table_name: StringName, index_id: StringName, index_key: String) -&gt; Array[Dictionary]:</signature>
+			<signature>func get_index_records( table_name: StringName, index_id: StringName, index_key: String ) -&gt; Array[Dictionary]:</signature>
 			<description>根据表名和命名索引获取记录列表。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -180,7 +180,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="get_index_record">
-			<signature>func get_index_record(table_name: StringName, index_id: StringName, index_key: String) -&gt; Variant:</signature>
+			<signature>func get_index_record( table_name: StringName, index_id: StringName, index_key: String ) -&gt; Variant:</signature>
 			<description>根据表名和命名索引获取第一条记录。</description>
 			<tags>
 				<tag name="api">public</tag>

@@ -20,8 +20,16 @@ func test_offset_cube_roundtrip_for_supported_layouts() -> void:
 		var cube: Vector3i = GF_HEX_GRID_MATH.offset_to_cube(cell, layout)
 		var roundtrip: Vector2i = GF_HEX_GRID_MATH.cube_to_offset(cube, layout)
 
-		assert_eq(cube.x + cube.y + cube.z, 0, "cube 坐标三轴和应为 0。")
-		assert_eq(roundtrip, cell, "offset/cube 转换应可往返。")
+		assert_eq(
+			cube.x + cube.y + cube.z,
+			0,
+			"cube 坐标三轴和应为 0。"
+		)
+		assert_eq(
+			roundtrip,
+			cell,
+			"offset/cube 转换应可往返。"
+		)
 
 
 func test_pixel_roundtrip_pointy_and_flat() -> void:
@@ -68,7 +76,11 @@ func test_neighbors_and_distance_use_hex_topology() -> void:
 		GF_HEX_GRID_MATH.OffsetLayout.ODD_R
 	)
 
-	assert_eq(neighbors.size(), 6, "内部六边形格子应有 6 个邻居。")
+	assert_eq(
+		neighbors.size(),
+		6,
+		"内部六边形格子应有 6 个邻居。"
+	)
 	assert_eq(
 		GF_HEX_GRID_MATH.distance(
 			Vector2i(0, 0),
@@ -94,10 +106,23 @@ func test_range_and_ring_filter_bounds() -> void:
 		GF_HEX_GRID_MATH.OffsetLayout.ODD_R
 	)
 
-	assert_eq(range_cells.size(), 7, "半径 1 范围应包含中心和 6 个邻居。")
-	assert_true(range_cells.has(Vector2i(2, 2)), "范围应包含中心。")
-	assert_true(ring_cells.size() < 6, "边界附近的外环应被 grid_size 过滤。")
-	assert_false(ring_cells.has(Vector2i(-1, 0)), "越界外环坐标不应进入结果。")
+	assert_eq(
+		range_cells.size(),
+		7,
+		"半径 1 范围应包含中心和 6 个邻居。"
+	)
+	assert_true(
+		range_cells.has(Vector2i(2, 2)),
+		"范围应包含中心。"
+	)
+	assert_true(
+		ring_cells.size() < 6,
+		"边界附近的外环应被 grid_size 过滤。"
+	)
+	assert_false(
+		ring_cells.has(Vector2i(-1, 0)),
+		"越界外环坐标不应进入结果。"
+	)
 
 
 func test_line_of_sight_respects_blocking_cells() -> void:
@@ -106,12 +131,21 @@ func test_line_of_sight_respects_blocking_cells() -> void:
 		Vector2i(3, 0),
 		GF_HEX_GRID_MATH.OffsetLayout.ODD_R
 	)
-	var blocked: Dictionary = {
-		line[1]: true,
-	}
+	var blocked: Dictionary = { line[1]: true, }
 
-	assert_eq(_vector2i_at(line, 0), Vector2i.ZERO, "直线应从起点开始。")
-	assert_eq(_vector2i_at(line, line.size() - 1), Vector2i(3, 0), "直线应抵达终点。")
+	assert_eq(
+		_vector2i_at(line, 0),
+		Vector2i.ZERO,
+		"直线应从起点开始。"
+	)
+	assert_eq(
+		_vector2i_at(
+			line,
+			line.size() - 1
+		),
+		Vector2i(3, 0),
+		"直线应抵达终点。"
+	)
 	assert_false(
 		GF_HEX_GRID_MATH.has_line_of_sight(
 			Vector2i(0, 0),
@@ -125,9 +159,7 @@ func test_line_of_sight_respects_blocking_cells() -> void:
 
 
 func test_find_path_a_star_avoids_blocked_hex() -> void:
-	var blocked: Dictionary = {
-		Vector2i(1, 0): true,
-	}
+	var blocked: Dictionary = { Vector2i(1, 0): true, }
 	var path: Array[Vector2i] = GF_HEX_GRID_MATH.find_path_a_star(
 		Vector2i(4, 4),
 		Vector2i.ZERO,
@@ -137,16 +169,31 @@ func test_find_path_a_star_avoids_blocked_hex() -> void:
 		GF_HEX_GRID_MATH.OffsetLayout.ODD_R
 	)
 
-	assert_false(path.is_empty(), "A* 应能绕过阻挡格。")
-	assert_eq(_vector2i_at(path, 0), Vector2i.ZERO, "路径应从起点开始。")
-	assert_eq(_vector2i_at(path, path.size() - 1), Vector2i(2, 0), "路径应抵达终点。")
-	assert_false(path.has(Vector2i(1, 0)), "路径不应穿过阻挡格。")
+	assert_false(
+		path.is_empty(),
+		"A* 应能绕过阻挡格。"
+	)
+	assert_eq(
+		_vector2i_at(path, 0),
+		Vector2i.ZERO,
+		"路径应从起点开始。"
+	)
+	assert_eq(
+		_vector2i_at(
+			path,
+			path.size() - 1
+		),
+		Vector2i(2, 0),
+		"路径应抵达终点。"
+	)
+	assert_false(
+		path.has(Vector2i(1, 0)),
+		"路径不应穿过阻挡格。"
+	)
 
 
 func test_begin_path_a_star_search_reaches_goal_with_budget() -> void:
-	var blocked: Dictionary = {
-		Vector2i(1, 0): true,
-	}
+	var blocked: Dictionary = { Vector2i(1, 0): true, }
 	var sync_path: Array[Vector2i] = GF_HEX_GRID_MATH.find_path_a_star(
 		Vector2i(4, 4),
 		Vector2i.ZERO,
@@ -170,18 +217,45 @@ func test_begin_path_a_star_search_reaches_goal_with_budget() -> void:
 		guard += 1
 
 	var path: Array = GFVariantData.get_option_array(report, "path")
-	assert_true(GFVariantData.get_option_bool(report, "found"), "分步 Hex A* 应能找到路径。")
-	assert_eq(path, sync_path, "分步 Hex A* 路径应与同步 A* 对齐。")
-	assert_eq(GFVariantData.get_option_float(report, "cost", -1.0), _path_step_cost(path), "分步 Hex A* 成本应与路径步数对齐。")
-	assert_eq(_array_vector2i(path, 0), Vector2i.ZERO, "路径应从起点开始。")
-	assert_eq(_array_vector2i(path, path.size() - 1), Vector2i(2, 0), "路径应抵达终点。")
-	assert_false(path.has(Vector2i(1, 0)), "分步路径不应穿过阻挡格。")
+	assert_true(
+		GFVariantData.get_option_bool(report, "found"),
+		"分步 Hex A* 应能找到路径。"
+	)
+	assert_eq(
+		path,
+		sync_path,
+		"分步 Hex A* 路径应与同步 A* 对齐。"
+	)
+	assert_eq(
+		GFVariantData.get_option_float(
+			report,
+			"cost",
+			-1.0
+		),
+		_path_step_cost(path),
+		"分步 Hex A* 成本应与路径步数对齐。"
+	)
+	assert_eq(
+		_array_vector2i(path, 0),
+		Vector2i.ZERO,
+		"路径应从起点开始。"
+	)
+	assert_eq(
+		_array_vector2i(
+			path,
+			path.size() - 1
+		),
+		Vector2i(2, 0),
+		"路径应抵达终点。"
+	)
+	assert_false(
+		path.has(Vector2i(1, 0)),
+		"分步路径不应穿过阻挡格。"
+	)
 
 
 func test_begin_path_a_star_search_matches_sync_custom_cost_path() -> void:
-	var expensive: Dictionary = {
-		Vector2i(1, 0): true,
-	}
+	var expensive: Dictionary = { Vector2i(1, 0): true, }
 	var sync_path: Array[Vector2i] = GF_HEX_GRID_MATH.find_path_a_star(
 		Vector2i(4, 4),
 		Vector2i.ZERO,
@@ -209,9 +283,19 @@ func test_begin_path_a_star_search_matches_sync_custom_cost_path() -> void:
 		guard += 1
 
 	var step_path: Array = GFVariantData.get_option_array(report, "path")
-	assert_true(GFVariantData.get_option_bool(report, "found"), "自定义代价下分步 Hex A* 应找到路径。")
-	assert_eq(step_path, sync_path, "自定义代价下分步 Hex A* 路径应与同步 A* 对齐。")
-	assert_false(step_path.has(Vector2i(1, 0)), "自定义代价下 Hex A* 应避开高代价格子。")
+	assert_true(
+		GFVariantData.get_option_bool(report, "found"),
+		"自定义代价下分步 Hex A* 应找到路径。"
+	)
+	assert_eq(
+		step_path,
+		sync_path,
+		"自定义代价下分步 Hex A* 路径应与同步 A* 对齐。"
+	)
+	assert_false(
+		step_path.has(Vector2i(1, 0)),
+		"自定义代价下 Hex A* 应避开高代价格子。"
+	)
 
 
 func test_simplify_path_line_of_sight_respects_hex_blocking() -> void:
@@ -223,9 +307,7 @@ func test_simplify_path_line_of_sight_respects_hex_blocking() -> void:
 		GF_HEX_GRID_MATH.OffsetLayout.ODD_R
 	)
 	var blocked_cell: Vector2i = _vector2i_at(direct_line, 1)
-	var blocked: Dictionary = {
-		blocked_cell: true,
-	}
+	var blocked: Dictionary = { blocked_cell: true, }
 	var path: Array[Vector2i] = GF_HEX_GRID_MATH.find_path_a_star(
 		Vector2i(5, 5),
 		start,
@@ -246,12 +328,36 @@ func test_simplify_path_line_of_sight_respects_hex_blocking() -> void:
 		GF_HEX_GRID_MATH.OffsetLayout.ODD_R
 	)
 
-	assert_false(path.is_empty(), "测试路径应能绕过阻挡格。")
-	assert_eq(_vector2i_at(simplified, 0), start, "抽稀后仍应保留起点。")
-	assert_eq(_vector2i_at(simplified, simplified.size() - 1), goal, "抽稀后仍应保留终点。")
-	assert_false(simplified.has(blocked_cell), "抽稀后路径不应包含阻挡格。")
-	assert_true(simplified.size() > 2, "阻挡直线时不能直接抽稀为起终点。")
-	assert_eq(open_simplified, [start, goal], "无阻挡时可直接抽稀为起终点。")
+	assert_false(
+		path.is_empty(),
+		"测试路径应能绕过阻挡格。"
+	)
+	assert_eq(
+		_vector2i_at(simplified, 0),
+		start,
+		"抽稀后仍应保留起点。"
+	)
+	assert_eq(
+		_vector2i_at(
+			simplified,
+			simplified.size() - 1
+		),
+		goal,
+		"抽稀后仍应保留终点。"
+	)
+	assert_false(
+		simplified.has(blocked_cell),
+		"抽稀后路径不应包含阻挡格。"
+	)
+	assert_true(
+		simplified.size() > 2,
+		"阻挡直线时不能直接抽稀为起终点。"
+	)
+	assert_eq(
+		open_simplified,
+		[start, goal],
+		"无阻挡时可直接抽稀为起终点。"
+	)
 
 
 func test_flow_field_and_reachable_report_costs() -> void:
@@ -262,8 +368,16 @@ func test_flow_field_and_reachable_report_costs() -> void:
 			return true,
 		GF_HEX_GRID_MATH.OffsetLayout.ODD_R
 	)
-	var costs: Dictionary = GFVariantData.get_option_dictionary(field, "costs", {})
-	var directions: Dictionary = GFVariantData.get_option_dictionary(field, "directions", {})
+	var costs: Dictionary = GFVariantData.get_option_dictionary(
+		field,
+		"costs",
+		{}
+	)
+	var directions: Dictionary = GFVariantData.get_option_dictionary(
+		field,
+		"directions",
+		{}
+	)
 	var reachable: Dictionary = GF_HEX_GRID_MATH.find_reachable(
 		Vector2i(4, 4),
 		Vector2i.ZERO,
@@ -273,10 +387,27 @@ func test_flow_field_and_reachable_report_costs() -> void:
 		GF_HEX_GRID_MATH.OffsetLayout.ODD_R
 	)
 
-	assert_eq(GFVariantData.get_option_float(costs, Vector2i(2, 0), 0.0), 0.0, "目标格代价应为 0。")
-	assert_true(GFVariantData.get_option_value(directions, Vector2i.ZERO) != null, "Flow Field 应为可达格提供方向。")
-	assert_true(reachable.has(Vector2i.ZERO), "可达结果应包含起点。")
-	assert_true(reachable.size() <= 7, "移动代价 1 最多包含中心和一圈邻居。")
+	assert_eq(
+		GFVariantData.get_option_float(
+			costs,
+			Vector2i(2, 0),
+			0.0
+		),
+		0.0,
+		"目标格代价应为 0。"
+	)
+	assert_true(
+		GFVariantData.get_option_value(directions, Vector2i.ZERO) != null,
+		"Flow Field 应为可达格提供方向。"
+	)
+	assert_true(
+		reachable.has(Vector2i.ZERO),
+		"可达结果应包含起点。"
+	)
+	assert_true(
+		reachable.size() <= 7,
+		"移动代价 1 最多包含中心和一圈邻居。"
+	)
 
 
 func _vector2i_at(cells: Array[Vector2i], index: int) -> Vector2i:
@@ -296,4 +427,7 @@ func _array_vector2i(cells: Array, index: int) -> Vector2i:
 
 
 func _path_step_cost(cells: Array) -> float:
-	return maxf(0.0, float(cells.size() - 1))
+	return maxf(
+		0.0,
+		float(cells.size() - 1)
+	)

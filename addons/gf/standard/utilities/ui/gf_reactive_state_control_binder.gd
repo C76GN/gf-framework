@@ -96,8 +96,16 @@ func bind_control(
 	}
 	_bindings.append(binding)
 
-	if GFVariantData.get_option_bool(options, "sync_initial", true):
-		if GFVariantData.get_option_bool(options, "write_initial_to_store", false):
+	if GFVariantData.get_option_bool(
+		options,
+		"sync_initial",
+		true
+	):
+		if GFVariantData.get_option_bool(
+			options,
+			"write_initial_to_store",
+			false
+		):
 			var initial_value: Variant = GFControlValueAdapter.get_value(control, default_value)
 			var _set_initial_result: Variant = state_store.set_value(path_segments, initial_value)
 		else:
@@ -113,10 +121,7 @@ func bind_control(
 		path_segments,
 		func(change: Dictionary, _store: RefCounted) -> void:
 			_apply_store_change_to_control(binding, change),
-		{
-			"mode": _GF_REACTIVE_STATE_STORE_SCRIPT.SUBSCRIBE_EXACT,
-			"owner": control,
-		}
+		{ "mode": _GF_REACTIVE_STATE_STORE_SCRIPT.SUBSCRIBE_EXACT, "owner": control, }
 	)
 	if not unsubscribe.is_valid():
 		var _removed_failed: bool = _remove_binding(binding)
@@ -155,7 +160,11 @@ func unbind_control(control: Control) -> bool:
 		return false
 
 	var removed: bool = false
-	for index: int in range(_bindings.size() - 1, -1, -1):
+	for index: int in range(
+		_bindings.size() - 1,
+		-1,
+		-1
+	):
 		var binding: Dictionary = _bindings[index]
 		var bound_control: Control = _get_binding_control(binding)
 		if bound_control == control:
@@ -184,7 +193,11 @@ func unbind_path(store: RefCounted, path: Variant) -> int:
 	var state_store: _GF_REACTIVE_STATE_STORE_SCRIPT = _as_state_store(store)
 	var path_text: String = _GF_REACTIVE_STATE_STORE_SCRIPT.format_path(path)
 	var removed_count: int = 0
-	for index: int in range(_bindings.size() - 1, -1, -1):
+	for index: int in range(
+		_bindings.size() - 1,
+		-1,
+		-1
+	):
 		var binding: Dictionary = _bindings[index]
 		if _get_binding_store(binding) == state_store and GFVariantData.get_option_string(binding, "path") == path_text:
 			_disconnect_binding(binding)
@@ -242,7 +255,11 @@ func _apply_store_change_to_control(binding: Dictionary, change: Dictionary) -> 
 		"new_value",
 		GFVariantData.get_option_value(binding, "default_value")
 	)
-	if not GFVariantData.get_option_bool(change, "new_exists", true):
+	if not GFVariantData.get_option_bool(
+		change,
+		"new_exists",
+		true
+	):
 		value = GFVariantData.get_option_value(binding, "default_value")
 	var _set_control_result: Variant = GFControlValueAdapter.set_value(control, value)
 	binding["updating_control"] = false
@@ -252,7 +269,11 @@ func _apply_store_change_to_control(binding: Dictionary, change: Dictionary) -> 
 ## [br]
 ## @api private
 func _apply_control_change_to_store(binding: Dictionary) -> void:
-	if GFVariantData.get_option_bool(binding, "updating_control", false):
+	if GFVariantData.get_option_bool(
+		binding,
+		"updating_control",
+		false
+	):
 		return
 
 	var store: _GF_REACTIVE_STATE_STORE_SCRIPT = _get_binding_store(binding)
@@ -273,12 +294,24 @@ func _apply_control_change_to_store(binding: Dictionary) -> void:
 ## [br]
 ## @api private
 func _remove_binding(binding: Dictionary) -> bool:
-	var binding_id: int = GFVariantData.get_option_int(binding, "binding_id", -1)
+	var binding_id: int = GFVariantData.get_option_int(
+		binding,
+		"binding_id",
+		-1
+	)
 	if binding_id == -1:
 		return false
 
-	for index: int in range(_bindings.size() - 1, -1, -1):
-		if GFVariantData.get_option_int(_bindings[index], "binding_id", -1) == binding_id:
+	for index: int in range(
+		_bindings.size() - 1,
+		-1,
+		-1
+	):
+		if GFVariantData.get_option_int(
+			_bindings[index],
+			"binding_id",
+			-1
+		) == binding_id:
 			_disconnect_binding(_bindings[index])
 			_bindings.remove_at(index)
 			return true
@@ -355,7 +388,11 @@ func _get_binding_weak_ref(binding: Dictionary, key: String) -> WeakRef:
 ## [br]
 ## @api private
 func _get_binding_callable(binding: Dictionary, key: String) -> Callable:
-	var value: Variant = GFVariantData.get_option_value(binding, key, Callable())
+	var value: Variant = GFVariantData.get_option_value(
+		binding,
+		key,
+		Callable()
+	)
 	if value is Callable:
 		var callback: Callable = value
 		return callback
@@ -366,13 +403,15 @@ func _get_binding_callable(binding: Dictionary, key: String) -> Callable:
 ## [br]
 ## @api private
 func _prune_invalid_bindings() -> void:
-	for index: int in range(_bindings.size() - 1, -1, -1):
+	for index: int in range(
+		_bindings.size() - 1,
+		-1,
+		-1
+	):
 		var binding: Dictionary = _bindings[index]
 		if _get_binding_store(binding) == null or _get_binding_control(binding) == null:
 			_disconnect_binding(binding)
 			_bindings.remove_at(index)
-
-
 
 
 # --- 信号处理函数 ---
@@ -381,7 +420,15 @@ func _prune_invalid_bindings() -> void:
 ## [br]
 ## @api private
 func _on_control_tree_exited(binding_id: int) -> void:
-	for index: int in range(_bindings.size() - 1, -1, -1):
-		if GFVariantData.get_option_int(_bindings[index], "binding_id", -1) == binding_id:
+	for index: int in range(
+		_bindings.size() - 1,
+		-1,
+		-1
+	):
+		if GFVariantData.get_option_int(
+			_bindings[index],
+			"binding_id",
+			-1
+		) == binding_id:
 			var _removed_exited_binding: bool = _remove_binding(_bindings[index])
 			return

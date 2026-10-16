@@ -159,14 +159,30 @@ func configure(
 ## @return 步骤记录副本。
 ## [br]
 ## @schema return: Dictionary，包含 step_id、label、status、target、kind、error_code、error 和 metadata。
-func add_step(step_id: StringName, step_label: String = "", options: Dictionary = {}) -> Dictionary:
+func add_step(
+	step_id: StringName,
+	step_label: String = "",
+	options: Dictionary = {}
+) -> Dictionary:
 	var step: Dictionary = {
 		"step_id": step_id,
 		"label": step_label,
-		"status": _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(options, "status", STATUS_PLANNED),
+		"status": _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+			options,
+			"status",
+			STATUS_PLANNED
+		),
 		"target": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "target"),
-		"kind": _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(options, "kind", &""),
-		"error_code": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, "error_code", OK),
+		"kind": _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+			options,
+			"kind",
+			&""
+		),
+		"error_code": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			options,
+			"error_code",
+			OK
+		),
 		"error": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "error"),
 		"metadata": _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(options, "metadata").duplicate(true),
 	}
@@ -208,7 +224,12 @@ func mark_step(
 		step["error_code"] = error_code
 		step["error"] = error
 		var step_metadata: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(step, "metadata")
-		var _merged_metadata: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.merge_dictionary(step_metadata, extra_metadata, true, true)
+		var _merged_metadata: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.merge_dictionary(
+			step_metadata,
+			extra_metadata,
+			true,
+			true
+		)
 		step["metadata"] = step_metadata
 		_steps[index] = step
 		return true
@@ -282,9 +303,17 @@ func summarize(options: Dictionary = {}) -> Dictionary:
 	var failed_count: int = 0
 	var skipped_count: int = 0
 	for step: Dictionary in _steps:
-		var status: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(step, "status", STATUS_PLANNED)
+		var status: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+			step,
+			"status",
+			STATUS_PLANNED
+		)
 		var status_key: String = String(status)
-		status_counts[status_key] = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(status_counts, status_key, 0) + 1
+		status_counts[status_key] = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			status_counts,
+			status_key,
+			0
+		) + 1
 		if status == STATUS_FAILED:
 			failed_count += 1
 		elif status == STATUS_SKIPPED:
@@ -293,13 +322,28 @@ func summarize(options: Dictionary = {}) -> Dictionary:
 	var artifact_summary: Dictionary = _GF_GENERATED_ARTIFACT_REPORT_SCRIPT.summarize_reports(
 		_artifact_reports,
 		label,
-		{ "include_reports": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "include_artifacts", false) }
+		{
+			"include_reports": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+				options,
+				"include_artifacts",
+				false
+			),
+		}
 	)
 	var extra_metadata: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(options, "metadata")
 	var summary_metadata: Dictionary = metadata.duplicate(true)
-	var _merged_summary_metadata: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.merge_dictionary(summary_metadata, extra_metadata, true, true)
+	var _merged_summary_metadata: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.merge_dictionary(
+		summary_metadata,
+		extra_metadata,
+		true,
+		true
+	)
 	var result: Dictionary = {
-		"success": failed_count == 0 and _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(artifact_summary, "success", true),
+		"success": failed_count == 0 and _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			artifact_summary,
+			"success",
+			true
+		),
 		"operation_id": operation_id,
 		"label": label,
 		"dry_run": dry_run,
@@ -310,7 +354,11 @@ func summarize(options: Dictionary = {}) -> Dictionary:
 		"artifact_summary": artifact_summary,
 		"metadata": summary_metadata,
 	}
-	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "include_steps", false):
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		options,
+		"include_steps",
+		false
+	):
 		result["steps"] = get_steps()
 	return result
 
@@ -337,5 +385,8 @@ func _sort_dictionary_by_key(data: Dictionary) -> Dictionary:
 	keys.sort()
 	var result: Dictionary = {}
 	for key: String in keys:
-		result[key] = _GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(data.get(key), true)
+		result[key] = _GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(
+			data.get(key),
+			true
+		)
 	return result

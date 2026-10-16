@@ -175,7 +175,12 @@ var _max_debug_named_queue_entries: int = 64
 ## [br]
 ## @api public
 func init() -> void:
-	if is_processing or is_instance_valid(_current_action) or not _queue.is_empty() or not _named_queues.is_empty():
+	if (
+		is_processing
+		or is_instance_valid(_current_action)
+		or not _queue.is_empty()
+		or not _named_queues.is_empty()
+	):
 		clear_queue(true)
 		_dispose_all_named_queues()
 
@@ -341,7 +346,11 @@ func clear_queue(stop_current: bool = false) -> void:
 		_set_paused(false)
 		_cancel_current_action()
 		is_processing = false
-		if was_processing and not _has_queued_actions() and not _is_disposed:
+		if (
+			was_processing
+			and not _has_queued_actions()
+			and not _is_disposed
+		):
 			queue_drained.emit()
 		_try_start_processing()
 	_publish_diagnostics_contribution()
@@ -637,7 +646,11 @@ func finish_current_action() -> void:
 	if finishing_serial != _processing_serial:
 		return
 	is_processing = false
-	if was_processing and not _has_queued_actions() and not _is_disposed:
+	if (
+		was_processing
+		and not _has_queued_actions()
+		and not _is_disposed
+	):
 		queue_drained.emit()
 	_try_start_processing()
 
@@ -692,7 +705,10 @@ func _build_debug_snapshot(remaining_depth: int) -> Dictionary:
 		queue_names.append(GFVariantData.to_string_name(queue_name_value))
 	queue_names.sort()
 	var named_queues_truncated: bool = remaining_depth <= 0 and not queue_names.is_empty()
-	var snapshot_count: int = mini(queue_names.size(), max_debug_named_queue_entries)
+	var snapshot_count: int = mini(
+		queue_names.size(),
+		max_debug_named_queue_entries
+	)
 	if snapshot_count < queue_names.size():
 		named_queues_truncated = true
 	if remaining_depth > 0:
@@ -705,7 +721,10 @@ func _build_debug_snapshot(remaining_depth: int) -> Dictionary:
 	return {
 		"is_processing": is_processing,
 		"is_paused": _is_paused,
-		"queued_count": maxi(_queue.size() - _queue_head_index, 0),
+		"queued_count": maxi(
+			_queue.size() - _queue_head_index,
+			0
+		),
 		"has_current_action": is_instance_valid(_current_action),
 		"processing_serial": _processing_serial,
 		"max_immediate_actions_per_slice": max_immediate_actions_per_slice,
@@ -716,6 +735,7 @@ func _build_debug_snapshot(remaining_depth: int) -> Dictionary:
 		"linked_node_alive": _linked_node_ref != null and _linked_node_ref.get_ref() != null,
 		"interceptor_count": _interceptors.size(),
 	}
+
 
 ## 在队列未释放时启动消费协程，并刷新诊断贡献。
 ## [br]
@@ -741,7 +761,11 @@ func _process_queue() -> void:
 	var current_serial: int = _processing_serial
 	var immediate_action_count: int = 0
 
-	while not _is_disposed and current_serial == _processing_serial and _has_queued_actions():
+	while (
+		not _is_disposed
+		and current_serial == _processing_serial
+		and _has_queued_actions()
+	):
 		if immediate_action_count >= max_immediate_actions_per_slice:
 			var resumed: bool = await _wait_for_next_processing_slice(current_serial)
 			if not resumed:
@@ -793,12 +817,14 @@ func _process_queue() -> void:
 		if _is_disposed or current_serial != _processing_serial:
 			return
 		if should_wait:
-			await _ACTION_PROTOCOL.await_result_safely(
-				action,
-				result,
-				_is_processing_serial_current.bind(current_serial),
-				_is_wait_timeout_paused.bind(current_serial),
-				_get_architecture_or_null()
+			await (
+				_ACTION_PROTOCOL.await_result_safely(
+					action,
+					result,
+					_is_processing_serial_current.bind(current_serial),
+					_is_wait_timeout_paused.bind(current_serial),
+					_get_architecture_or_null()
+				)
 			)
 			immediate_action_count = 0
 
@@ -869,7 +895,10 @@ func _compact_queue_if_needed() -> void:
 ## [br]
 ## @api private
 func _inject_action_dependencies(action: Object) -> void:
-	_ACTION_PROTOCOL.inject_dependencies(action, _get_architecture_or_null())
+	_ACTION_PROTOCOL.inject_dependencies(
+		action,
+		_get_architecture_or_null()
+	)
 
 
 ## 在拦截器支持依赖注入时传入当前架构。
@@ -877,21 +906,25 @@ func _inject_action_dependencies(action: Object) -> void:
 ## @api private
 func _inject_interceptor_dependencies(interceptor: GFActionInterceptor) -> void:
 	if interceptor != null and interceptor.has_method("inject_dependencies"):
-		interceptor.call("inject_dependencies", _get_architecture_or_null())
+		interceptor.call(
+			"inject_dependencies",
+			_get_architecture_or_null()
+		)
 
 
 ## 按优先级降序排序拦截器，并以注册序稳定同优先级顺序。
 ## [br]
 ## @api private
 func _sort_interceptors() -> void:
-	_interceptors.sort_custom(func(left: GFActionInterceptor, right: GFActionInterceptor) -> bool:
-		if left == null:
-			return false
-		if right == null:
-			return true
-		if left.priority != right.priority:
-			return left.priority > right.priority
-		return _get_interceptor_registration_order(left) < _get_interceptor_registration_order(right)
+	_interceptors.sort_custom(
+		func(left: GFActionInterceptor, right: GFActionInterceptor) -> bool:
+			if left == null:
+				return false
+			if right == null:
+				return true
+			if left.priority != right.priority:
+				return left.priority > right.priority
+			return _get_interceptor_registration_order(left) < _get_interceptor_registration_order(right)
 	)
 
 
@@ -909,18 +942,21 @@ func _apply_before_interceptors(action: Object) -> GFActionInterceptionResult:
 			continue
 		if not result.is_continue():
 			return result
-	return GFActionInterceptionResult.replace_with(current_action) if current_action != action else GFActionInterceptionResult.continue_action()
+	return (GFActionInterceptionResult.replace_with(current_action) if current_action != action else GFActionInterceptionResult.continue_action())
 
 
 ## 依序运行启用的后置拦截器，并在要求停止时返回该结果。
 ## [br]
 ## @api private
-func _apply_after_interceptors(
-	action: Object,
-	execute_result: Variant
-) -> GFActionInterceptionResult:
+func _apply_after_interceptors(action: Object, execute_result: Variant) -> GFActionInterceptionResult:
 	for interceptor: GFActionInterceptor in _get_enabled_interceptors():
-		var result: GFActionInterceptionResult = _normalize_interception_result(interceptor._after_execute(action, self, execute_result))
+		var result: GFActionInterceptionResult = _normalize_interception_result(
+			interceptor._after_execute(
+				action,
+				self,
+				execute_result
+			)
+		)
 		if result.is_stop_queue():
 			return result
 	return GFActionInterceptionResult.continue_action()
@@ -1099,10 +1135,11 @@ func _register_diagnostics_contribution() -> void:
 	if diagnostics == null:
 		return
 
-	var _monitor_registered: bool = diagnostics.register_monitor(self, &"tools.action_queue", {
-		"label": "Action Queue",
-		"group": "Tools",
-	})
+	var _monitor_registered: bool = diagnostics.register_monitor(
+		self,
+		&"tools.action_queue",
+		{ "label": "Action Queue", "group": "Tools", }
+	)
 	var _preset_updated: bool = diagnostics.add_monitor_to_preset(&"tools", &"tools.action_queue")
 	_publish_diagnostics_contribution()
 
@@ -1127,7 +1164,11 @@ func _publish_diagnostics_contribution() -> void:
 	if diagnostics == null:
 		return
 	var snapshot: Dictionary = get_debug_snapshot()
-	var _tool_snapshot_published: bool = diagnostics.publish_tool_snapshot(self, &"action_queue", snapshot)
+	var _tool_snapshot_published: bool = diagnostics.publish_tool_snapshot(
+		self,
+		&"action_queue",
+		snapshot
+	)
 	var _monitor_sample_published: bool = diagnostics.publish_monitor_sample(
 		self,
 		&"tools.action_queue",

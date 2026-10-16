@@ -15,9 +15,9 @@ GF 内部和项目工具可复用的路径规范化辅助。 只处理字符串�
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 方法 | [`normalize_path`](#member-gfpathtools-methods-normalize_path) | `static func normalize_path(path: String, fallback: String = "", simplify: bool = true) -> String:` |
-| 方法 | [`normalize_resource_path`](#member-gfpathtools-methods-normalize_resource_path) | `static func normalize_resource_path(path: String, fallback: String = "", simplify: bool = true) -> String:` |
-| 方法 | [`normalize_root_path`](#member-gfpathtools-methods-normalize_root_path) | `static func normalize_root_path(path: String, fallback: String = "", simplify: bool = true) -> String:` |
+| 方法 | [`normalize_path`](#member-gfpathtools-methods-normalize_path) | `static func normalize_path( path: String, fallback: String = "", simplify: bool = true ) -> String:` |
+| 方法 | [`normalize_resource_path`](#member-gfpathtools-methods-normalize_resource_path) | `static func normalize_resource_path( path: String, fallback: String = "", simplify: bool = true ) -> String:` |
+| 方法 | [`normalize_root_path`](#member-gfpathtools-methods-normalize_root_path) | `static func normalize_root_path( path: String, fallback: String = "", simplify: bool = true ) -> String:` |
 | 方法 | [`normalize_root_paths`](#member-gfpathtools-methods-normalize_root_paths) | `static func normalize_root_paths(paths: PackedStringArray, simplify: bool = true) -> PackedStringArray:` |
 | 方法 | [`make_relative_path`](#member-gfpathtools-methods-make_relative_path) | `static func make_relative_path(path: String, base_path: String) -> String:` |
 | 方法 | [`is_path_under_root`](#member-gfpathtools-methods-is_path_under_root) | `static func is_path_under_root( path: String, root_path: String, allow_equal: bool = true, empty_root_matches: bool = false ) -> bool:` |
@@ -30,9 +30,10 @@ GF 内部和项目工具可复用的路径规范化辅助。 只处理字符串�
 ### `normalize_path`
 
 - API：`public`
+- 首次版本：`4.4.0`
 
 ```gdscript
-static func normalize_path(path: String, fallback: String = "", simplify: bool = true) -> String:
+static func normalize_path( path: String, fallback: String = "", simplify: bool = true ) -> String:
 ```
 
 规范化普通路径文本。
@@ -52,9 +53,10 @@ static func normalize_path(path: String, fallback: String = "", simplify: bool =
 ### `normalize_resource_path`
 
 - API：`public`
+- 首次版本：`4.4.0`
 
 ```gdscript
-static func normalize_resource_path(path: String, fallback: String = "", simplify: bool = true) -> String:
+static func normalize_resource_path( path: String, fallback: String = "", simplify: bool = true ) -> String:
 ```
 
 规范化 Godot 资源路径文本。
@@ -74,9 +76,10 @@ static func normalize_resource_path(path: String, fallback: String = "", simplif
 ### `normalize_root_path`
 
 - API：`public`
+- 首次版本：`4.4.0`
 
 ```gdscript
-static func normalize_root_path(path: String, fallback: String = "", simplify: bool = true) -> String:
+static func normalize_root_path( path: String, fallback: String = "", simplify: bool = true ) -> String:
 ```
 
 规范化根目录路径，并移除多余尾随斜杠。

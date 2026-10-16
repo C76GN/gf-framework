@@ -210,19 +210,29 @@ func add_step(
 		or not apply_callback.is_valid()
 	):
 		return false
-	_steps.append({
-		"step_id": step_id,
-		"label": GFVariantData.get_option_string(options, "label", String(step_id)),
-		"metadata": GFVariantData.get_option_dictionary(options, "metadata"),
-		"validate_callback": _get_callable_option(options, "validate_callback"),
-		"apply_callback": apply_callback,
-		"rollback_callback": rollback_callback,
-		"rollback_required": GFVariantData.get_option_bool(options, "rollback_required", true),
-		"state": STATE_PENDING,
-		"applied": false,
-		"rolled_back": false,
-		"last_result": {},
-	})
+	_steps.append(
+		{
+			"step_id": step_id,
+			"label": GFVariantData.get_option_string(
+				options,
+				"label",
+				String(step_id)
+			),
+			"metadata": GFVariantData.get_option_dictionary(options, "metadata"),
+			"validate_callback": _get_callable_option(options, "validate_callback"),
+			"apply_callback": apply_callback,
+			"rollback_callback": rollback_callback,
+			"rollback_required": GFVariantData.get_option_bool(
+				options,
+				"rollback_required",
+				true
+			),
+			"state": STATE_PENDING,
+			"applied": false,
+			"rolled_back": false,
+			"last_result": {},
+		}
+	)
 	return true
 
 
@@ -244,17 +254,11 @@ func add_step(
 ## @schema return: Dictionary with ok, healthy, transaction_id, state, transition_state, steps, issues, summary, and next_action.
 func prepare(context: Dictionary = {}) -> Dictionary:
 	if _transition_state != _TRANSITION_IDLE:
-		return _make_operation_rejected_report(
-			&"transition_in_progress",
-			"activation transaction operation cannot be nested inside an active transition"
-		)
+		return _make_operation_rejected_report(&"transition_in_progress", "activation transaction operation cannot be nested inside an active transition")
 	if state == STATE_PREPARED:
 		return get_report()
 	if state != STATE_PENDING:
-		return _make_operation_rejected_report(
-			&"transaction_not_reusable",
-			"activation transaction must be cleared before it can be prepared again"
-		)
+		return _make_operation_rejected_report(&"transaction_not_reusable", "activation transaction must be cleared before it can be prepared again")
 
 	_transition_state = _TRANSITION_PREPARING
 	var _prepared: bool = _prepare_steps(context)
@@ -277,22 +281,13 @@ func prepare(context: Dictionary = {}) -> Dictionary:
 ## @schema return: Dictionary with ok, healthy, transaction_id, state, transition_state, steps, issues, summary, and next_action.
 func commit(context: Dictionary = {}) -> Dictionary:
 	if _transition_state != _TRANSITION_IDLE:
-		return _make_operation_rejected_report(
-			&"transition_in_progress",
-			"activation transaction operation cannot be nested inside an active transition"
-		)
+		return _make_operation_rejected_report(&"transition_in_progress", "activation transaction operation cannot be nested inside an active transition")
 	if state == STATE_COMMITTED:
 		return get_report()
 	if state == STATE_ROLLED_BACK or state == STATE_FAILED:
-		return _make_operation_rejected_report(
-			&"transaction_not_reusable",
-			"activation transaction must be cleared before it can be committed again"
-		)
+		return _make_operation_rejected_report(&"transaction_not_reusable", "activation transaction must be cleared before it can be committed again")
 	if state != STATE_PENDING and state != STATE_PREPARED:
-		return _make_operation_rejected_report(
-			&"transaction_not_reusable",
-			"activation transaction is not in a committable state"
-		)
+		return _make_operation_rejected_report(&"transaction_not_reusable", "activation transaction is not in a committable state")
 
 	_transition_state = _TRANSITION_COMMITTING
 	if state == STATE_PENDING and not _prepare_steps(context):
@@ -302,15 +297,32 @@ func commit(context: Dictionary = {}) -> Dictionary:
 	for index: int in range(_steps.size()):
 		var step: Dictionary = _steps[index]
 		var apply_callback: Callable = _get_step_callable(step, "apply_callback")
-		var result: Dictionary = _call_step(apply_callback, context, step, &"apply")
-		if not GFVariantData.get_option_bool(result, "ok", true):
-			_steps[index] = _set_step_result(step, STATE_FAILED, result)
+		var result: Dictionary = _call_step(
+			apply_callback,
+			context,
+			step,
+			&"apply"
+		)
+		if not GFVariantData.get_option_bool(
+			result,
+			"ok",
+			true
+		):
+			_steps[index] = _set_step_result(
+				step,
+				STATE_FAILED,
+				result
+			)
 			_rollback_applied_steps(context)
 			state = STATE_ROLLED_BACK if _all_applied_steps_rolled_back() else STATE_FAILED
 			_transition_state = _TRANSITION_IDLE
 			return get_report()
 		step["applied"] = true
-		_steps[index] = _set_step_result(step, STATE_COMMITTED, result)
+		_steps[index] = _set_step_result(
+			step,
+			STATE_COMMITTED,
+			result
+		)
 	state = STATE_COMMITTED
 	_transition_state = _TRANSITION_IDLE
 	return get_report()
@@ -331,10 +343,7 @@ func commit(context: Dictionary = {}) -> Dictionary:
 ## @schema return: Dictionary with ok, healthy, transaction_id, state, transition_state, steps, issues, summary, and next_action.
 func rollback(context: Dictionary = {}) -> Dictionary:
 	if _transition_state != _TRANSITION_IDLE:
-		return _make_operation_rejected_report(
-			&"transition_in_progress",
-			"activation transaction operation cannot be nested inside an active transition"
-		)
+		return _make_operation_rejected_report(&"transition_in_progress", "activation transaction operation cannot be nested inside an active transition")
 	if state == STATE_ROLLED_BACK:
 		return get_report()
 
@@ -359,7 +368,10 @@ func rollback(context: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @schema return: Dictionary with ok, healthy, transaction_id, state, transition_state, steps, issues, summary, and next_action.
 func get_report(options: Dictionary = {}) -> Dictionary:
-	return _finalize_report(_make_report_data(), options)
+	return _finalize_report(
+		_make_report_data(),
+		options
+	)
 
 
 ## 检查步骤是否已应用。
@@ -391,12 +403,29 @@ func _prepare_steps(context: Dictionary) -> bool:
 		var validate_callback: Callable = _get_step_callable(step, "validate_callback")
 		if not validate_callback.is_valid():
 			continue
-		var result: Dictionary = _call_step(validate_callback, context, step, &"validate")
-		if not GFVariantData.get_option_bool(result, "ok", true):
+		var result: Dictionary = _call_step(
+			validate_callback,
+			context,
+			step,
+			&"validate"
+		)
+		if not GFVariantData.get_option_bool(
+			result,
+			"ok",
+			true
+		):
 			state = STATE_FAILED
-			_steps[index] = _set_step_result(step, STATE_FAILED, result)
+			_steps[index] = _set_step_result(
+				step,
+				STATE_FAILED,
+				result
+			)
 			return false
-		_steps[index] = _set_step_result(step, STATE_PREPARED, result)
+		_steps[index] = _set_step_result(
+			step,
+			STATE_PREPARED,
+			result
+		)
 	state = STATE_PREPARED
 	return true
 
@@ -421,11 +450,27 @@ func _make_report_data() -> Dictionary:
 ## [br]
 ## @api private
 func _finalize_report(report: Dictionary, options: Dictionary = {}) -> Dictionary:
-	return GFValidationReportDictionary.finalize_report(report, subject, {
-		"fallback_action": GFVariantData.get_option_string(options, "fallback_action", "Review the first activation transaction issue."),
-		"no_action": GFVariantData.get_option_string(options, "no_action", "Activation transaction is healthy."),
-		"warnings_as_errors": GFVariantData.get_option_bool(options, "warnings_as_errors", false),
-	})
+	return GFValidationReportDictionary.finalize_report(
+		report,
+		subject,
+		{
+			"fallback_action": GFVariantData.get_option_string(
+				options,
+				"fallback_action",
+				"Review the first activation transaction issue."
+			),
+			"no_action": GFVariantData.get_option_string(
+				options,
+				"no_action",
+				"Activation transaction is healthy."
+			),
+			"warnings_as_errors": GFVariantData.get_option_bool(
+				options,
+				"warnings_as_errors",
+				false
+			),
+		}
+	)
 
 
 ## 基于当前事务报告附加拒绝原因与阶段元数据，再生成最终报告。
@@ -453,17 +498,38 @@ func _make_operation_rejected_report(error: StringName, message: String) -> Dict
 ## [br]
 ## @api private
 func _rollback_applied_steps(context: Dictionary) -> void:
-	for index: int in range(_steps.size() - 1, -1, -1):
+	for index: int in range(
+		_steps.size() - 1,
+		-1,
+		-1
+	):
 		var step: Dictionary = _steps[index]
 		if not GFVariantData.get_option_bool(step, "applied") or GFVariantData.get_option_bool(step, "rolled_back"):
 			continue
 		var rollback_callback: Callable = _get_step_callable(step, "rollback_callback")
 		if rollback_callback.is_valid():
-			var result: Dictionary = _call_step(rollback_callback, context, step, &"rollback")
-			if not GFVariantData.get_option_bool(result, "ok", true):
-				_steps[index] = _set_step_result(step, STATE_FAILED, result)
+			var result: Dictionary = _call_step(
+				rollback_callback,
+				context,
+				step,
+				&"rollback"
+			)
+			if not GFVariantData.get_option_bool(
+				result,
+				"ok",
+				true
+			):
+				_steps[index] = _set_step_result(
+					step,
+					STATE_FAILED,
+					result
+				)
 				continue
-		elif GFVariantData.get_option_bool(step, "rollback_required", true):
+		elif GFVariantData.get_option_bool(
+			step,
+			"rollback_required",
+			true
+		):
 			var missing_result: Dictionary = _make_step_result(
 				false,
 				&"missing_rollback_callback",
@@ -472,7 +538,11 @@ func _rollback_applied_steps(context: Dictionary) -> void:
 				&"rollback"
 			)
 			_merge_result_issues(missing_result)
-			_steps[index] = _set_step_result(step, STATE_FAILED, missing_result)
+			_steps[index] = _set_step_result(
+				step,
+				STATE_FAILED,
+				missing_result
+			)
 			continue
 		step["rolled_back"] = true
 		step["state"] = STATE_ROLLED_BACK
@@ -483,13 +553,28 @@ func _rollback_applied_steps(context: Dictionary) -> void:
 ## 无效回调会生成失败结果。
 ## [br]
 ## @api private
-func _call_step(callback: Callable, context: Dictionary, step: Dictionary, phase: StringName) -> Dictionary:
+func _call_step(
+	callback: Callable,
+	context: Dictionary,
+	step: Dictionary,
+	phase: StringName
+) -> Dictionary:
 	if not callback.is_valid():
-		var invalid_result: Dictionary = _make_step_result(false, &"invalid_callback", "activation transaction callback is invalid", step, phase)
+		var invalid_result: Dictionary = _make_step_result(
+			false,
+			&"invalid_callback",
+			"activation transaction callback is invalid",
+			step,
+			phase
+		)
 		_merge_result_issues(invalid_result)
 		return invalid_result
 	var value: Variant = callback.call(context.duplicate(true))
-	var result: Dictionary = _normalize_callback_result(value, step, phase)
+	var result: Dictionary = _normalize_callback_result(
+		value,
+		step,
+		phase
+	)
 	_merge_result_issues(result)
 	return result
 
@@ -498,7 +583,11 @@ func _call_step(callback: Callable, context: Dictionary, step: Dictionary, phase
 ## 字典结果缺少字段时补入成功标志、阶段和步骤 ID。
 ## [br]
 ## @api private
-func _normalize_callback_result(value: Variant, step: Dictionary, phase: StringName) -> Dictionary:
+func _normalize_callback_result(
+	value: Variant,
+	step: Dictionary,
+	phase: StringName
+) -> Dictionary:
 	if _is_async_callback_result(value):
 		return _make_step_result(
 			false,
@@ -509,39 +598,81 @@ func _normalize_callback_result(value: Variant, step: Dictionary, phase: StringN
 			_make_async_callback_data(value)
 		)
 	if value == null:
-		return _make_step_result(true, &"ok", "", step, phase)
+		return _make_step_result(
+			true,
+			&"ok",
+			"",
+			step,
+			phase
+		)
 	if value is bool:
 		var bool_value: bool = value
-		return _make_step_result(bool_value, &"ok" if bool_value else &"callback_failed", "", step, phase)
+		return _make_step_result(
+			bool_value,
+			&"ok" if bool_value else &"callback_failed",
+			"",
+			step,
+			phase
+		)
 	if value is int:
 		var error_code: int = value
-		return _make_step_result(error_code == OK, &"ok" if error_code == OK else &"callback_error", error_string(error_code), step, phase, {
-			"error_code": error_code,
-		})
+		return _make_step_result(
+			error_code == OK,
+			&"ok" if error_code == OK else &"callback_error",
+			error_string(error_code),
+			step,
+			phase,
+			{ "error_code": error_code, }
+		)
 	if value is Dictionary:
 		var value_dictionary: Dictionary = value
 		var result: Dictionary = value_dictionary.duplicate(true)
 		if not result.has("ok"):
-			result["ok"] = GFVariantData.get_option_bool(result, "success", true)
+			result["ok"] = GFVariantData.get_option_bool(
+				result,
+				"success",
+				true
+			)
 		if not result.has("phase"):
 			result["phase"] = phase
 		if not result.has("step_id"):
 			result["step_id"] = GFVariantData.get_option_string_name(step, "step_id")
-		if not GFVariantData.get_option_bool(result, "ok", true) and GFVariantData.get_option_array(result, "issues").is_empty():
+		if (
+			not GFVariantData.get_option_bool(
+				result,
+				"ok",
+				true
+			)
+			and GFVariantData.get_option_array(result, "issues").is_empty()
+		):
 			var _issue: Dictionary = GFValidationReportDictionary.append_issue(
 				result,
-				GFVariantData.get_option_string_name(result, "severity", &"error"),
-				GFVariantData.get_option_string_name(result, "kind", &"callback_failed"),
-				GFVariantData.get_option_string(result, "message", "activation transaction callback failed"),
-				{
-					"step_id": GFVariantData.get_option_string_name(step, "step_id"),
-					"phase": phase,
-				}
+				GFVariantData.get_option_string_name(
+					result,
+					"severity",
+					&"error"
+				),
+				GFVariantData.get_option_string_name(
+					result,
+					"kind",
+					&"callback_failed"
+				),
+				GFVariantData.get_option_string(
+					result,
+					"message",
+					"activation transaction callback failed"
+				),
+				{ "step_id": GFVariantData.get_option_string_name(step, "step_id"), "phase": phase, }
 			)
 		return result
-	return _make_step_result(true, &"ok", "", step, phase, {
-		"value": GFVariantData.duplicate_variant(value),
-	})
+	return _make_step_result(
+		true,
+		&"ok",
+		"",
+		step,
+		phase,
+		{ "value": GFVariantData.duplicate_variant(value), }
+	)
 
 
 ## 识别 Signal、GDScriptFunctionState，以及同时具有 resume 方法和 completed 信号的对象。
@@ -564,9 +695,7 @@ static func _is_async_callback_result(value: Variant) -> bool:
 ## [br]
 ## @api private
 static func _make_async_callback_data(value: Variant) -> Dictionary:
-	var data: Dictionary = {
-		"value_type": type_string(typeof(value)),
-	}
+	var data: Dictionary = { "value_type": type_string(typeof(value)), }
 	if value is Object:
 		var object_value: Object = value
 		if is_instance_valid(object_value):
@@ -598,10 +727,7 @@ func _make_step_result(
 			"error",
 			kind,
 			message if not message.is_empty() else "activation transaction step failed",
-			{
-				"step_id": GFVariantData.get_option_string_name(step, "step_id"),
-				"phase": phase,
-			}
+			{ "step_id": GFVariantData.get_option_string_name(step, "step_id"), "phase": phase, }
 		)
 	return result
 
@@ -620,7 +746,11 @@ func _merge_result_issues(result: Dictionary) -> void:
 ## 深拷贝步骤字典并更新状态及最近一次结果。
 ## [br]
 ## @api private
-func _set_step_result(step: Dictionary, next_state: StringName, result: Dictionary) -> Dictionary:
+func _set_step_result(
+	step: Dictionary,
+	next_state: StringName,
+	result: Dictionary
+) -> Dictionary:
 	var updated: Dictionary = step.duplicate(true)
 	updated["state"] = next_state
 	updated["last_result"] = result.duplicate(true)
@@ -633,16 +763,26 @@ func _set_step_result(step: Dictionary, next_state: StringName, result: Dictiona
 func _copy_step_summaries() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for step: Dictionary in _steps:
-		result.append({
-			"step_id": GFVariantData.get_option_string_name(step, "step_id"),
-			"label": GFVariantData.get_option_string(step, "label"),
-			"state": GFVariantData.get_option_string_name(step, "state", STATE_PENDING),
-			"applied": GFVariantData.get_option_bool(step, "applied"),
-			"rolled_back": GFVariantData.get_option_bool(step, "rolled_back"),
-			"rollback_required": GFVariantData.get_option_bool(step, "rollback_required", true),
-			"metadata": GFVariantData.get_option_dictionary(step, "metadata"),
-			"last_result": GFVariantData.get_option_dictionary(step, "last_result"),
-		})
+		result.append(
+			{
+				"step_id": GFVariantData.get_option_string_name(step, "step_id"),
+				"label": GFVariantData.get_option_string(step, "label"),
+				"state": GFVariantData.get_option_string_name(
+					step,
+					"state",
+					STATE_PENDING
+				),
+				"applied": GFVariantData.get_option_bool(step, "applied"),
+				"rolled_back": GFVariantData.get_option_bool(step, "rolled_back"),
+				"rollback_required": GFVariantData.get_option_bool(
+					step,
+					"rollback_required",
+					true
+				),
+				"metadata": GFVariantData.get_option_dictionary(step, "metadata"),
+				"last_result": GFVariantData.get_option_dictionary(step, "last_result"),
+			}
+		)
 	return result
 
 
@@ -670,7 +810,11 @@ func _all_applied_steps_rolled_back() -> bool:
 ## [br]
 ## @api private
 static func _get_callable_option(options: Dictionary, key: String) -> Callable:
-	var value: Variant = GFVariantData.get_option_value(options, key, Callable())
+	var value: Variant = GFVariantData.get_option_value(
+		options,
+		key,
+		Callable()
+	)
 	if value is Callable:
 		var callback: Callable = value
 		return callback
@@ -681,7 +825,11 @@ static func _get_callable_option(options: Dictionary, key: String) -> Callable:
 ## [br]
 ## @api private
 static func _get_step_callable(step: Dictionary, key: String) -> Callable:
-	var value: Variant = GFVariantData.get_option_value(step, key, Callable())
+	var value: Variant = GFVariantData.get_option_value(
+		step,
+		key,
+		Callable()
+	)
 	if value is Callable:
 		var callback: Callable = value
 		return callback

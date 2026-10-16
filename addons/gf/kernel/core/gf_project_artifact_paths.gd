@@ -169,7 +169,11 @@ static func validate_policy_file(policy_path: String = POLICY_FILE_PATH) -> Pack
 		var _parse_appended: bool = issues.append("项目产物路径策略镜像不是合法 JSON Dictionary：%s" % policy_path)
 		return issues
 	var actual: Dictionary = parser.data
-	if actual.size() != 2 or not actual.has("schema_version") or not actual.has("paths"):
+	if (
+		actual.size() != 2
+		or not actual.has("schema_version")
+		or not actual.has("paths")
+	):
 		var _root_appended: bool = issues.append("项目产物路径策略镜像根字段不完整或包含未知字段：%s" % policy_path)
 		return issues
 	var schema_version: Variant = actual.get("schema_version")
@@ -188,11 +192,17 @@ static func validate_policy_file(policy_path: String = POLICY_FILE_PATH) -> Pack
 	for key_value: Variant in expected_paths.keys():
 		var key: String = str(key_value)
 		if not actual_paths.has(key) or actual_paths.get(key) != expected_paths.get(key):
-			var _mismatch_appended: bool = issues.append("项目产物路径策略镜像字段不一致：%s (%s)" % [key, policy_path])
+			var _mismatch_appended: bool = issues.append(
+				"项目产物路径策略镜像字段不一致：%s (%s)"
+				% [key, policy_path]
+			)
 	for key_value: Variant in actual_paths.keys():
 		var key: String = str(key_value)
 		if not expected_paths.has(key):
-			var _unknown_appended: bool = issues.append("项目产物路径策略镜像包含未知字段：%s (%s)" % [key, policy_path])
+			var _unknown_appended: bool = issues.append(
+				"项目产物路径策略镜像包含未知字段：%s (%s)"
+				% [key, policy_path]
+			)
 	return issues
 
 
@@ -207,5 +217,8 @@ static func _is_supported_schema_version(value: Variant) -> bool:
 		return integer_value == POLICY_SCHEMA_VERSION
 	if value is float:
 		var float_value: float = value
-		return is_equal_approx(float_value, float(POLICY_SCHEMA_VERSION))
+		return is_equal_approx(
+			float_value,
+			float(POLICY_SCHEMA_VERSION)
+		)
 	return false

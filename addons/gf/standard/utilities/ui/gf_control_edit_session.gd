@@ -77,7 +77,12 @@ func begin_edit(control: Control) -> int:
 ## [br]
 ## @return 控件仍有效且令牌属于活动会话时返回 true。
 func is_current(token: int) -> bool:
-	return token > 0 and token == _generation and _active and _get_control() != null
+	return (
+		token > 0
+		and token == _generation
+		and _active
+		and _get_control() != null
+	)
 
 
 ## 返回本次输入最初的快照，不因重复开始或当前输入变化而更新。
@@ -174,10 +179,20 @@ func cancel_edit(token: int) -> bool:
 	var baseline: Dictionary = _baseline.duplicate(true)
 	_active = false
 	_restoring = true
-	var restored: bool = _can_restore_selection(control, baseline["value"])
+	var restored: bool = _can_restore_selection(
+		control,
+		baseline["value"]
+	)
 	if restored:
-		restored = GFControlValueAdapter.set_value(control, baseline["value"])
-	if restored and is_instance_valid(control) and _is_restore_current(token, control):
+		restored = GFControlValueAdapter.set_value(
+			control,
+			baseline["value"]
+		)
+	if (
+		restored
+		and is_instance_valid(control)
+		and _is_restore_current(token, control)
+	):
 		restored = GFControlValueAdapter.get_value(control) == baseline["value"]
 	else:
 		restored = false
@@ -190,7 +205,8 @@ func cancel_edit(token: int) -> bool:
 				restored = false
 		if restored:
 			restored = (
-				is_instance_valid(control) and _is_restore_current(token, control)
+				is_instance_valid(control)
+				and _is_restore_current(token, control)
 				and _capture(control) == baseline
 			)
 	_restoring = false
@@ -198,7 +214,9 @@ func cancel_edit(token: int) -> bool:
 		clear()
 		if restored and control is SpinBox:
 			_restore_spin_box_text.call_deferred(
-				weakref(control), _generation, GFVariantData.get_option_float(baseline, "value"),
+				weakref(control),
+				_generation,
+				GFVariantData.get_option_float(baseline, "value"),
 				GFVariantData.get_option_string(baseline, "raw_text")
 			)
 	return restored
@@ -246,7 +264,9 @@ func _can_restore_selection(control: Control, value: Variant) -> bool:
 ## @api private
 func _is_restore_current(token: int, control: Control) -> bool:
 	return (
-		token == _generation and _restoring and is_instance_valid(control)
+		token == _generation
+		and _restoring
+		and is_instance_valid(control)
 		and _get_control() == control
 	)
 
@@ -258,12 +278,17 @@ func _capture(control: Control) -> Dictionary:
 	if not is_instance_valid(control):
 		return {}
 	if not (
-		control is LineEdit or control is TextEdit or control is SpinBox
-		or control is Range or control is OptionButton or control is BaseButton
-		or control is ColorPickerButton or control is ItemList
+		control is LineEdit
+		or control is TextEdit
+		or control is SpinBox
+		or control is Range
+		or control is OptionButton
+		or control is BaseButton
+		or control is ColorPickerButton
+		or control is ItemList
 	):
 		return {}
-	var snapshot: Dictionary = {"value": GFControlValueAdapter.get_value(control)}
+	var snapshot: Dictionary = { "value": GFControlValueAdapter.get_value(control) }
 	var editor: LineEdit = _get_line_edit(control)
 	if editor != null:
 		snapshot["raw_text"] = editor.text
@@ -304,7 +329,10 @@ func _get_line_edit(control: Control) -> LineEdit:
 ## [br]
 ## @api private
 func _restore_spin_box_text(
-	control_ref: WeakRef, generation: int, baseline_value: float, text: String
+	control_ref: WeakRef,
+	generation: int,
+	baseline_value: float,
+	text: String
 ) -> void:
 	if generation != _generation or _active:
 		return

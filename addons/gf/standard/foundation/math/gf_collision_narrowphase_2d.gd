@@ -117,15 +117,24 @@ static func make_box(
 	rotation_radians: float = 0.0,
 	metadata: Dictionary = {}
 ) -> Dictionary:
-	var half_size: Vector2 = Vector2(absf(size.x), absf(size.y)) * 0.5
-	var local_points: PackedVector2Array = PackedVector2Array([
-		Vector2(-half_size.x, -half_size.y),
-		Vector2(half_size.x, -half_size.y),
-		Vector2(half_size.x, half_size.y),
-		Vector2(-half_size.x, half_size.y),
-	])
+	var half_size: Vector2 = Vector2(
+		absf(size.x),
+		absf(size.y)
+	) * 0.5
+	var local_points: PackedVector2Array = PackedVector2Array(
+		[
+			Vector2(-half_size.x, -half_size.y),
+			Vector2(half_size.x, -half_size.y),
+			Vector2(half_size.x, half_size.y),
+			Vector2(-half_size.x, half_size.y),
+		]
+	)
 	var transform: Transform2D = Transform2D(rotation_radians, center)
-	return make_polygon(local_points, transform, metadata)
+	return make_polygon(
+		local_points,
+		transform,
+		metadata
+	)
 
 
 ## 检查点序列是否构成凸多边形。
@@ -179,15 +188,28 @@ static func is_convex_polygon(points: PackedVector2Array, epsilon: float = DEFAU
 static func project_polygon(points: PackedVector2Array, axis: Vector2) -> Dictionary:
 	var normalized_axis: Vector2 = axis.normalized()
 	if points.size() == 0 or normalized_axis == Vector2.ZERO:
-		return _make_projection(false, 0.0, 0.0, Vector2.ZERO)
+		return _make_projection(
+			false,
+			0.0,
+			0.0,
+			Vector2.ZERO
+		)
 
 	var minimum: float = points[0].dot(normalized_axis)
 	var maximum: float = minimum
-	for index: int in range(1, points.size()):
+	for index: int in range(
+		1,
+		points.size()
+	):
 		var projection: float = points[index].dot(normalized_axis)
 		minimum = minf(minimum, projection)
 		maximum = maxf(maximum, projection)
-	return _make_projection(true, minimum, maximum, normalized_axis)
+	return _make_projection(
+		true,
+		minimum,
+		maximum,
+		normalized_axis
+	)
 
 
 ## 使用 SAT 检查两个凸多边形是否重叠。
@@ -214,13 +236,29 @@ static func test_polygon_overlap(
 ) -> Dictionary:
 	var epsilon: float = _get_epsilon(options)
 	if not is_convex_polygon(a_points, epsilon) or not is_convex_polygon(b_points, epsilon):
-		return _make_result(false, false, REASON_INVALID_SHAPE)
+		return _make_result(
+			false,
+			false,
+			REASON_INVALID_SHAPE
+		)
 
-	var axes: PackedVector2Array = _collect_sat_axes(a_points, b_points, epsilon)
+	var axes: PackedVector2Array = _collect_sat_axes(
+		a_points,
+		b_points,
+		epsilon
+	)
 	if axes.size() == 0:
-		return _make_result(false, false, REASON_INVALID_SHAPE)
+		return _make_result(
+			false,
+			false,
+			REASON_INVALID_SHAPE
+		)
 
-	var include_touching: bool = GFVariantData.get_option_bool(options, "include_touching", false)
+	var include_touching: bool = GFVariantData.get_option_bool(
+		options,
+		"include_touching",
+		false
+	)
 	var best_axis: Vector2 = Vector2.ZERO
 	var minimum_overlap: float = INF
 	var touching: bool = false
@@ -232,13 +270,29 @@ static func test_polygon_overlap(
 		var b_minimum: float = GFVariantData.get_option_float(b_projection, "min")
 		var b_maximum: float = GFVariantData.get_option_float(b_projection, "max")
 		if a_maximum < b_minimum - epsilon or b_maximum < a_minimum - epsilon:
-			return _make_result(false, false, REASON_SEPARATED, 0.0, axis, Vector2.ZERO, axes.size())
+			return _make_result(
+				false,
+				false,
+				REASON_SEPARATED,
+				0.0,
+				axis,
+				Vector2.ZERO,
+				axes.size()
+			)
 
 		var axis_overlap: float = minf(a_maximum, b_maximum) - maxf(a_minimum, b_minimum)
 		if axis_overlap <= epsilon:
 			touching = true
 			if not include_touching:
-				return _make_result(false, true, REASON_TOUCHING, 0.0, axis, Vector2.ZERO, axes.size())
+				return _make_result(
+					false,
+					true,
+					REASON_TOUCHING,
+					0.0,
+					axis,
+					Vector2.ZERO,
+					axes.size()
+				)
 			axis_overlap = 0.0
 
 		if axis_overlap < minimum_overlap:
@@ -250,7 +304,11 @@ static func test_polygon_overlap(
 	if best_axis == Vector2.ZERO:
 		best_axis = Vector2.RIGHT
 
-	best_axis = _orient_axis_from_a_to_b(best_axis, a_points, b_points)
+	best_axis = _orient_axis_from_a_to_b(
+		best_axis,
+		a_points,
+		b_points
+	)
 	var minimum_translation: Vector2 = best_axis * minimum_overlap
 	return _make_result(
 		true,
@@ -289,11 +347,12 @@ static func test_shapes_overlap(
 	b_shape: Dictionary,
 	options: Dictionary = {}
 ) -> Dictionary:
-	if (
-		GFVariantData.get_option_string_name(a_shape, "type") != SHAPE_POLYGON
-		or GFVariantData.get_option_string_name(b_shape, "type") != SHAPE_POLYGON
-	):
-		return _make_result(false, false, REASON_INVALID_SHAPE)
+	if (GFVariantData.get_option_string_name(a_shape, "type") != SHAPE_POLYGON or GFVariantData.get_option_string_name(b_shape, "type") != SHAPE_POLYGON):
+		return _make_result(
+			false,
+			false,
+			REASON_INVALID_SHAPE
+		)
 
 	return test_polygon_overlap(
 		_get_shape_points(a_shape),
@@ -308,13 +367,25 @@ static func test_shapes_overlap(
 ## [br]
 ## @api private
 static func _get_epsilon(options: Dictionary) -> float:
-	return maxf(GFVariantData.get_option_float(options, "epsilon", DEFAULT_EPSILON), 0.0)
+	return maxf(
+		GFVariantData.get_option_float(
+			options,
+			"epsilon",
+			DEFAULT_EPSILON
+		),
+		0.0
+	)
 
 
 ## 组装包含有效标记、投影区间和归一化轴的投影字典。
 ## [br]
 ## @api private
-static func _make_projection(valid: bool, minimum: float, maximum: float, axis: Vector2) -> Dictionary:
+static func _make_projection(
+	valid: bool,
+	minimum: float,
+	maximum: float,
+	axis: Vector2
+) -> Dictionary:
 	return {
 		"valid": valid,
 		"min": minimum,
@@ -367,8 +438,16 @@ static func _collect_sat_axes(
 	epsilon: float
 ) -> PackedVector2Array:
 	var axes: PackedVector2Array = PackedVector2Array()
-	_append_polygon_axes(a_points, axes, epsilon)
-	_append_polygon_axes(b_points, axes, epsilon)
+	_append_polygon_axes(
+		a_points,
+		axes,
+		epsilon
+	)
+	_append_polygon_axes(
+		b_points,
+		axes,
+		epsilon
+	)
 	return axes
 
 
@@ -388,14 +467,22 @@ static func _append_polygon_axes(
 			continue
 
 		var axis: Vector2 = Vector2(-edge.y, edge.x).normalized()
-		if not _has_equivalent_axis(axes, axis, epsilon):
+		if not _has_equivalent_axis(
+			axes,
+			axis,
+			epsilon
+		):
 			var _axis_appended: bool = axes.append(axis)
 
 
 ## 用绝对点积阈值判断轴是否与已有轴平行或反向平行。
 ## [br]
 ## @api private
-static func _has_equivalent_axis(axes: PackedVector2Array, axis: Vector2, epsilon: float) -> bool:
+static func _has_equivalent_axis(
+	axes: PackedVector2Array,
+	axis: Vector2,
+	epsilon: float
+) -> bool:
 	for existing_axis: Vector2 in axes:
 		if absf(existing_axis.dot(axis)) >= 1.0 - epsilon:
 			return true
@@ -433,7 +520,11 @@ static func _polygon_centroid(points: PackedVector2Array) -> Vector2:
 ## [br]
 ## @api private
 static func _get_shape_points(shape: Dictionary) -> PackedVector2Array:
-	var points_value: Variant = GFVariantData.get_option_value(shape, "points", PackedVector2Array())
+	var points_value: Variant = GFVariantData.get_option_value(
+		shape,
+		"points",
+		PackedVector2Array()
+	)
 	if points_value is PackedVector2Array:
 		var packed_points: PackedVector2Array = points_value
 		return packed_points

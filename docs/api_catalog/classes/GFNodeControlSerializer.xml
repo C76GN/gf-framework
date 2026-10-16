@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNodeControlSerializer" path="addons/gf/extensions/save/serializers/gf_node_control_serializer.gd" module="extensions/save" extends="GFNodeSerializer" classDigest="2b63369b5441efe43a064c13e13e8ec6b066fe4098d3b462fed9070b032d094a">
+<class name="GFNodeControlSerializer" path="addons/gf/extensions/save/serializers/gf_node_control_serializer.gd" module="extensions/save" extends="GFNodeSerializer" classDigest="a474b967156ce9a7e55afadc606856a165777e4fa8674319611b7777b4c3ac0a">
 	<description>GFNodeControlSerializer: Control 通用布局状态序列化器。
 保存 Control 的锚点、偏移、尺寸和交互开关，适合简单 UI 状态恢复。</description>
 	<tags>
@@ -34,7 +34,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="apply">
-			<signature>func apply(node: Node, payload: Dictionary, _context: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>func apply( node: Node, payload: Dictionary, _context: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>将序列化数据应用到节点。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -45,6 +45,7 @@
 				<tag name="schema">payload: Dictionary，可包含 anchor_*、offset_*、pivot_offset、rotation、scale、mouse_filter 与 focus_mode。</tag>
 				<tag name="schema">_context: Dictionary，调用方附加上下文；当前实现不读取。</tag>
 				<tag name="schema">return: Dictionary，包含 ok: bool 与 error: String。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

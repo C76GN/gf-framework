@@ -90,6 +90,8 @@ var _cameras: Array[Node] = []
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param root: 承载布局的 Control。
 ## [br]
 ## @param viewport_count: 目标 viewport 数量；小于等于 0 时只清理。
@@ -99,17 +101,29 @@ var _cameras: Array[Node] = []
 ## @return 当前 SubViewport 列表副本。
 ## [br]
 ## @schema options: Dictionary，包含 viewport_size: Vector2i 或 Vector2、columns: int、disable_3d: bool、transparent_bg: bool 和 stretch: bool。
-func setup_split_screen(root: Control, viewport_count: int, options: Dictionary = {}) -> Array[SubViewport]:
+func setup_split_screen(
+	root: Control,
+	viewport_count: int,
+	options: Dictionary = {}
+) -> Array[SubViewport]:
 	clear_split_screen(false)
 	if not is_instance_valid(root) or viewport_count <= 0:
 		return []
 
-	var count: int = clampi(viewport_count, 1, 4)
+	var count: int = clampi(
+		viewport_count,
+		1,
+		4
+	)
 	_root_ref = weakref(root)
 	_grid = GridContainer.new()
 	_grid.name = "GFViewportGrid"
 	var default_columns: int = _get_default_columns(count)
-	_grid.columns = GFVariantData.get_option_int(options, "columns", default_columns)
+	_grid.columns = GFVariantData.get_option_int(
+		options,
+		"columns",
+		default_columns
+	)
 	_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_grid.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -132,7 +146,13 @@ func clear_split_screen(free_cameras: bool = false) -> void:
 		if not is_instance_valid(camera):
 			continue
 		var camera_parent: Node = camera.get_parent()
-		if camera_parent != null and (camera_parent in _viewports or free_cameras):
+		if (
+			camera_parent != null
+			and (
+				camera_parent in _viewports
+				or free_cameras
+			)
+		):
 			camera_parent.remove_child(camera)
 		if free_cameras:
 			camera.queue_free()
@@ -213,7 +233,11 @@ func set_viewport_camera(index: int, camera: Node) -> bool:
 		return false
 
 	var previous: Node = _get_camera_at(index)
-	if is_instance_valid(previous) and previous != camera and previous.get_parent() == viewport:
+	if (
+		is_instance_valid(previous)
+		and previous != camera
+		and previous.get_parent() == viewport
+	):
 		viewport.remove_child(previous)
 
 	if camera.get_parent() == null:
@@ -300,7 +324,11 @@ func raycast_from_screen_3d(
 	length: float = 1000.0,
 	exclude: Array[RID] = []
 ) -> Dictionary:
-	var ray: Dictionary = screen_to_world_ray_3d(camera, screen_position, length)
+	var ray: Dictionary = screen_to_world_ray_3d(
+		camera,
+		screen_position,
+		length
+	)
 	ray["hit"] = false
 	ray["result"] = {}
 	if not GFVariantData.get_option_bool(ray, "ok"):
@@ -439,8 +467,19 @@ func calculate_control_window_rect(
 			options
 		)
 	var content_rect: Rect2i = _resolve_control_window_content_rect(options, window_size)
-	var report: Dictionary = _make_control_window_rect_report(control_rect, viewport_size, window_size, content_rect, options)
-	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0 or content_rect.size.x <= 0 or content_rect.size.y <= 0:
+	var report: Dictionary = _make_control_window_rect_report(
+		control_rect,
+		viewport_size,
+		window_size,
+		content_rect,
+		options
+	)
+	if (
+		viewport_size.x <= 0.0
+		or viewport_size.y <= 0.0
+		or content_rect.size.x <= 0
+		or content_rect.size.y <= 0
+	):
 		return report
 
 	var scale_x: float = float(content_rect.size.x) / viewport_size.x
@@ -450,8 +489,14 @@ func calculate_control_window_rect(
 		content_rect.position.y + roundi(control_rect.position.y * scale_y)
 	)
 	var physical_size: Vector2i = Vector2i(
-		maxi(roundi(control_rect.size.x * scale_x), 0),
-		maxi(roundi(control_rect.size.y * scale_y), 0)
+		maxi(
+			roundi(control_rect.size.x * scale_x),
+			0
+		),
+		maxi(
+			roundi(control_rect.size.y * scale_y),
+			0
+		)
 	)
 
 	report["ok"] = true
@@ -478,7 +523,13 @@ func calculate_control_window_rect(
 ## @schema return: Dictionary，包含 ok、rect、position、size、scale_x、scale_y、mapping_mode、content_rect、viewport_offset、control_rect、viewport_size 和 window_size。
 func get_control_window_rect(control: Control, viewport: Viewport = null) -> Dictionary:
 	if not is_instance_valid(control):
-		return _make_control_window_rect_report(Rect2(), Vector2.ZERO, Vector2i.ZERO, Rect2i(), {})
+		return _make_control_window_rect_report(
+			Rect2(),
+			Vector2.ZERO,
+			Vector2i.ZERO,
+			Rect2i(),
+			{}
+		)
 
 	var target_viewport: Viewport = viewport
 	if target_viewport == null:
@@ -486,7 +537,11 @@ func get_control_window_rect(control: Control, viewport: Viewport = null) -> Dic
 	var viewport_size: Vector2 = Vector2.ZERO
 	if is_instance_valid(target_viewport):
 		viewport_size = target_viewport.get_visible_rect().size
-	return calculate_control_window_rect(control.get_global_rect(), viewport_size, DisplayServer.window_get_size())
+	return calculate_control_window_rect(
+		control.get_global_rect(),
+		viewport_size,
+		DisplayServer.window_get_size()
+	)
 
 
 ## 根据物理屏幕安全区计算 Viewport 逻辑坐标中的边距。
@@ -521,36 +576,69 @@ func calculate_safe_area_margins(
 	if normalized_safe_area.size.x <= 0 or normalized_safe_area.size.y <= 0:
 		normalized_safe_area = Rect2i(Vector2i.ZERO, window_size)
 
-	var report: Dictionary = _make_safe_area_report(normalized_safe_area, window_size, viewport_size)
+	var report: Dictionary = _make_safe_area_report(
+		normalized_safe_area,
+		window_size,
+		viewport_size
+	)
 	if (
 		window_size.x <= 0
 		or window_size.y <= 0
 		or not _is_finite_vector2(viewport_size)
 		or viewport_size.x <= 0.0
 		or viewport_size.y <= 0.0
-		or not _float_options_are_finite(extra_margins, PackedStringArray([
-			"top",
-			"left",
-			"bottom",
-			"right",
-		]))
+		or not _float_options_are_finite(
+			extra_margins,
+			PackedStringArray(
+				[
+					"top",
+					"left",
+					"bottom",
+					"right",
+				]
+			)
+		)
 	):
 		return report
 
 	var scale_x: float = viewport_size.x / float(window_size.x)
 	var scale_y: float = viewport_size.y / float(window_size.y)
-	var top_margin: float = maxf(float(normalized_safe_area.position.y) * scale_y, 0.0)
-	var left_margin: float = maxf(float(normalized_safe_area.position.x) * scale_x, 0.0)
+	var top_margin: float = maxf(
+		float(normalized_safe_area.position.y) * scale_y,
+		0.0
+	)
+	var left_margin: float = maxf(
+		float(normalized_safe_area.position.x) * scale_x,
+		0.0
+	)
 	var bottom_physical: int = window_size.y - (normalized_safe_area.position.y + normalized_safe_area.size.y)
 	var right_physical: int = window_size.x - (normalized_safe_area.position.x + normalized_safe_area.size.x)
-	var bottom_margin: float = maxf(float(bottom_physical) * scale_y, 0.0)
-	var right_margin: float = maxf(float(right_physical) * scale_x, 0.0)
+	var bottom_margin: float = maxf(
+		float(bottom_physical) * scale_y,
+		0.0
+	)
+	var right_margin: float = maxf(
+		float(right_physical) * scale_x,
+		0.0
+	)
 
 	report["ok"] = true
-	report["top"] = top_margin + maxf(GFVariantData.get_option_float(extra_margins, "top"), 0.0)
-	report["left"] = left_margin + maxf(GFVariantData.get_option_float(extra_margins, "left"), 0.0)
-	report["bottom"] = bottom_margin + maxf(GFVariantData.get_option_float(extra_margins, "bottom"), 0.0)
-	report["right"] = right_margin + maxf(GFVariantData.get_option_float(extra_margins, "right"), 0.0)
+	report["top"] = top_margin + maxf(
+		GFVariantData.get_option_float(extra_margins, "top"),
+		0.0
+	)
+	report["left"] = left_margin + maxf(
+		GFVariantData.get_option_float(extra_margins, "left"),
+		0.0
+	)
+	report["bottom"] = bottom_margin + maxf(
+		GFVariantData.get_option_float(extra_margins, "bottom"),
+		0.0
+	)
+	report["right"] = right_margin + maxf(
+		GFVariantData.get_option_float(extra_margins, "right"),
+		0.0
+	)
 	report["scale_x"] = scale_x
 	report["scale_y"] = scale_y
 	return report
@@ -577,7 +665,12 @@ func get_display_safe_area_margins(viewport: Viewport = null, extra_margins: Dic
 	var viewport_size: Vector2 = Vector2(window_size)
 	if is_instance_valid(viewport):
 		viewport_size = viewport.get_visible_rect().size
-	return calculate_safe_area_margins(safe_area, window_size, viewport_size, extra_margins)
+	return calculate_safe_area_margins(
+		safe_area,
+		window_size,
+		viewport_size,
+		extra_margins
+	)
 
 
 ## 将边距字典应用到 MarginContainer。
@@ -596,13 +689,32 @@ func get_display_safe_area_margins(viewport: Viewport = null, extra_margins: Dic
 func apply_safe_area_margins(container: MarginContainer, margins: Dictionary) -> bool:
 	if not is_instance_valid(container):
 		return false
-	var margin_names: PackedStringArray = PackedStringArray(["top", "left", "bottom", "right"])
+	var margin_names: PackedStringArray = PackedStringArray(
+		[
+			"top",
+			"left",
+			"bottom",
+			"right",
+		]
+	)
 	if not _float_options_are_finite(margins, margin_names):
 		return false
-	var top: int = maxi(roundi(GFVariantData.get_option_float(margins, "top")), 0)
-	var left: int = maxi(roundi(GFVariantData.get_option_float(margins, "left")), 0)
-	var bottom: int = maxi(roundi(GFVariantData.get_option_float(margins, "bottom")), 0)
-	var right: int = maxi(roundi(GFVariantData.get_option_float(margins, "right")), 0)
+	var top: int = maxi(
+		roundi(GFVariantData.get_option_float(margins, "top")),
+		0
+	)
+	var left: int = maxi(
+		roundi(GFVariantData.get_option_float(margins, "left")),
+		0
+	)
+	var bottom: int = maxi(
+		roundi(GFVariantData.get_option_float(margins, "bottom")),
+		0
+	)
+	var right: int = maxi(
+		roundi(GFVariantData.get_option_float(margins, "right")),
+		0
+	)
 	container.add_theme_constant_override("margin_top", top)
 	container.add_theme_constant_override("margin_left", left)
 	container.add_theme_constant_override("margin_bottom", bottom)
@@ -686,8 +798,16 @@ func _create_viewport_slot(index: int, options: Dictionary) -> void:
 	viewport.size = resolved_size
 	container.stretch = GFVariantData.get_option_bool(options, "stretch")
 	viewport.name = "Viewport%d" % index
-	viewport.disable_3d = GFVariantData.get_option_bool(options, "disable_3d", default_disable_3d)
-	viewport.transparent_bg = GFVariantData.get_option_bool(options, "transparent_bg", default_transparent_bg)
+	viewport.disable_3d = GFVariantData.get_option_bool(
+		options,
+		"disable_3d",
+		default_disable_3d
+	)
+	viewport.transparent_bg = GFVariantData.get_option_bool(
+		options,
+		"transparent_bg",
+		default_transparent_bg
+	)
 	container.add_child(viewport)
 	viewport.size = resolved_size
 
@@ -711,15 +831,28 @@ func _get_camera_at(index: int) -> Node:
 ## @api private
 ## [br]
 func _resolve_viewport_size(options: Dictionary) -> Vector2i:
-	var configured_size: Variant = GFVariantData.get_option_value(options, "viewport_size", Vector2i.ZERO)
+	var configured_size: Variant = GFVariantData.get_option_value(
+		options,
+		"viewport_size",
+		Vector2i.ZERO
+	)
 	if configured_size is Vector2i:
 		var size_2i: Vector2i = configured_size
 		if size_2i.x > 0 and size_2i.y > 0:
 			return _scale_size(size_2i)
 	if configured_size is Vector2:
 		var size_2: Vector2 = configured_size
-		if _is_finite_vector2(size_2) and size_2.x > 0.0 and size_2.y > 0.0:
-			return _scale_size(Vector2i(roundi(size_2.x), roundi(size_2.y)))
+		if (
+			_is_finite_vector2(size_2)
+			and size_2.x > 0.0
+			and size_2.y > 0.0
+		):
+			return _scale_size(
+				Vector2i(
+					roundi(size_2.x),
+					roundi(size_2.y)
+				)
+			)
 	return _scale_size(Vector2i(640, 360))
 
 
@@ -729,8 +862,14 @@ func _resolve_viewport_size(options: Dictionary) -> Vector2i:
 ## [br]
 func _scale_size(size: Vector2i) -> Vector2i:
 	return Vector2i(
-		maxi(roundi(float(size.x) * viewport_resolution_scale), 1),
-		maxi(roundi(float(size.y) * viewport_resolution_scale), 1)
+		maxi(
+			roundi(float(size.x) * viewport_resolution_scale),
+			1
+		),
+		maxi(
+			roundi(float(size.y) * viewport_resolution_scale),
+			1
+		)
 	)
 
 
@@ -759,7 +898,11 @@ func _activate_camera(camera: Node) -> void:
 ## [br]
 ## @api private
 ## [br]
-func _make_safe_area_report(safe_area: Rect2i, window_size: Vector2i, viewport_size: Vector2) -> Dictionary:
+func _make_safe_area_report(
+	safe_area: Rect2i,
+	window_size: Vector2i,
+	viewport_size: Vector2
+) -> Dictionary:
 	return {
 		"ok": false,
 		"top": 0.0,
@@ -807,8 +950,16 @@ func _make_control_window_rect_report(
 ## [br]
 func _resolve_control_window_content_rect(options: Dictionary, window_size: Vector2i) -> Rect2i:
 	if options.has("content_rect"):
-		return _get_option_rect2i(options, "content_rect", Rect2i())
-	var viewport_offset: Vector2i = _get_option_vector2i(options, "viewport_offset", Vector2i.ZERO)
+		return _get_option_rect2i(
+			options,
+			"content_rect",
+			Rect2i()
+		)
+	var viewport_offset: Vector2i = _get_option_vector2i(
+		options,
+		"viewport_offset",
+		Vector2i.ZERO
+	)
 	return Rect2i(viewport_offset, window_size)
 
 
@@ -816,8 +967,16 @@ func _resolve_control_window_content_rect(options: Dictionary, window_size: Vect
 ## [br]
 ## @api private
 ## [br]
-func _get_option_vector2i(options: Dictionary, key: String, default_value: Vector2i) -> Vector2i:
-	var value: Variant = GFVariantData.get_option_value(options, key, default_value)
+func _get_option_vector2i(
+	options: Dictionary,
+	key: String,
+	default_value: Vector2i
+) -> Vector2i:
+	var value: Variant = GFVariantData.get_option_value(
+		options,
+		key,
+		default_value
+	)
 	if value is Vector2i:
 		var vector_2i: Vector2i = value
 		return vector_2i
@@ -825,7 +984,10 @@ func _get_option_vector2i(options: Dictionary, key: String, default_value: Vecto
 		var vector_2: Vector2 = value
 		if not _is_finite_vector2(vector_2):
 			return default_value
-		return Vector2i(roundi(vector_2.x), roundi(vector_2.y))
+		return Vector2i(
+			roundi(vector_2.x),
+			roundi(vector_2.y)
+		)
 	return default_value
 
 
@@ -833,8 +995,16 @@ func _get_option_vector2i(options: Dictionary, key: String, default_value: Vecto
 ## [br]
 ## @api private
 ## [br]
-func _get_option_rect2i(options: Dictionary, key: String, default_value: Rect2i) -> Rect2i:
-	var value: Variant = GFVariantData.get_option_value(options, key, default_value)
+func _get_option_rect2i(
+	options: Dictionary,
+	key: String,
+	default_value: Rect2i
+) -> Rect2i:
+	var value: Variant = GFVariantData.get_option_value(
+		options,
+		key,
+		default_value
+	)
 	if value is Rect2i:
 		var rect_2i: Rect2i = value
 		return rect_2i
@@ -843,8 +1013,14 @@ func _get_option_rect2i(options: Dictionary, key: String, default_value: Rect2i)
 		if not _is_finite_rect2(rect_2):
 			return default_value
 		return Rect2i(
-			Vector2i(roundi(rect_2.position.x), roundi(rect_2.position.y)),
-			Vector2i(roundi(rect_2.size.x), roundi(rect_2.size.y))
+			Vector2i(
+				roundi(rect_2.position.x),
+				roundi(rect_2.position.y)
+			),
+			Vector2i(
+				roundi(rect_2.size.x),
+				roundi(rect_2.size.y)
+			)
 		)
 	return default_value
 

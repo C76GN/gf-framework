@@ -44,6 +44,8 @@ func _before_gather_scope(_scope: GFSaveScope, _context: Dictionary = {}) -> voi
 ## [br]
 ## @api protected
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param _scope: 当前 Scope。
 ## [br]
 ## @param payload: 当前 Scope 载荷。
@@ -57,13 +59,19 @@ func _before_gather_scope(_scope: GFSaveScope, _context: Dictionary = {}) -> voi
 ## @schema _context: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。
 ## [br]
 ## @schema return: Variant，返回 Dictionary 会替换当前 payload；返回 null 或非 Dictionary 表示保持不变。
-func _after_gather_scope(_scope: GFSaveScope, payload: Dictionary, _context: Dictionary = {}) -> Variant:
+func _after_gather_scope(
+	_scope: GFSaveScope,
+	payload: Dictionary,
+	_context: Dictionary = {}
+) -> Variant:
 	return payload
 
 
 ## 应用 Scope 前调用。返回 Dictionary 时会替换当前 payload。
 ## [br]
 ## @api protected
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param _scope: 当前 Scope。
 ## [br]
@@ -78,7 +86,11 @@ func _after_gather_scope(_scope: GFSaveScope, payload: Dictionary, _context: Dic
 ## @schema _context: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。
 ## [br]
 ## @schema return: Variant，返回 Dictionary 会替换当前 payload；返回 null 或非 Dictionary 表示保持不变。
-func _before_apply_scope(_scope: GFSaveScope, payload: Dictionary, _context: Dictionary = {}) -> Variant:
+func _before_apply_scope(
+	_scope: GFSaveScope,
+	payload: Dictionary,
+	_context: Dictionary = {}
+) -> Variant:
 	return payload
 
 

@@ -89,7 +89,11 @@ signal pointer_wheel(context: GFInteractionContext, event: InputEventMouseButton
 ## @param report: 结果报告。
 ## [br]
 ## @schema report: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。
-signal pointer_interaction_sent(context: GFInteractionContext, receiver: Object, report: Dictionary)
+signal pointer_interaction_sent(
+	context: GFInteractionContext,
+	receiver: Object,
+	report: Dictionary
+)
 
 
 # --- 常量 ---
@@ -102,9 +106,7 @@ const _MESSAGE_DISPATCH_SUPPORT = preload("res://addons/gf/standard/common/gf_me
 ## 将交互报告投影为安全诊断字典的工具脚本。
 ## [br]
 ## @api private
-const _REPORT_SCHEMA_PROJECTION = preload(
-	"res://addons/gf/kernel/core/gf_report_schema_projection.gd"
-)
+const _REPORT_SCHEMA_PROJECTION = preload("res://addons/gf/kernel/core/gf_report_schema_projection.gd")
 
 ## 交互运行时使用的可拾取所有者数量元数据常量。
 ## [br]
@@ -416,7 +418,12 @@ func build_context(
 			continue
 		context_payload[key] = GFVariantData.duplicate_variant(pointer_data[key])
 
-	return GFInteractionContext.new(_resolve_sender(), effective_receiver, context_payload, group_name)
+	return GFInteractionContext.new(
+		_resolve_sender(),
+		effective_receiver,
+		context_payload,
+		group_name
+	)
 
 
 ## 发送一次指针交互。
@@ -442,23 +449,26 @@ func send_pointer_interaction(
 	interaction_id_override: StringName = &""
 ) -> Dictionary:
 	var receiver: Object = _resolve_receiver()
-	var context: GFInteractionContext = build_context(pointer_event, pointer_data, receiver)
-	var effective_interaction_id: StringName = interaction_id_override if interaction_id_override != &"" else interaction_id
+	var context: GFInteractionContext = build_context(
+		pointer_event,
+		pointer_data,
+		receiver
+	)
+	var effective_interaction_id: StringName = (interaction_id_override if interaction_id_override != &"" else interaction_id)
 	var report: Dictionary = {}
 	if enabled and receiver is GFInteractionReceiver:
 		var interaction_receiver: GFInteractionReceiver = receiver
-		report = interaction_receiver.receive_interaction_raw_for_framework(
-			context,
-			effective_interaction_id
-		)
+		report = interaction_receiver.receive_interaction_raw_for_framework(context, effective_interaction_id)
 	elif (
 		enabled
 		and receiver != null
 		and receiver.has_method(&"receive_interaction")
-		and not GFInteractions.is_method_call_compatible_for_framework(
-			receiver,
-			&"receive_interaction",
-			[context, effective_interaction_id]
+		and not (
+			GFInteractions.is_method_call_compatible_for_framework(
+				receiver,
+				&"receive_interaction",
+				[context, effective_interaction_id]
+			)
 		)
 	):
 		report = _make_raw_report(
@@ -484,7 +494,11 @@ func send_pointer_interaction(
 			false
 		)
 	report = _normalize_report(report, receiver)
-	pointer_interaction_sent.emit(context, receiver, report)
+	pointer_interaction_sent.emit(
+		context,
+		receiver,
+		report
+	)
 	return report
 
 
@@ -520,9 +534,10 @@ func _normalize_report(report: Dictionary, default_receiver: Object) -> Dictiona
 	var receiver_value: Variant = GFVariantData.get_option_value(raw_report, "receiver")
 	if default_receiver != null and not receiver_value is Object:
 		raw_report["receiver"] = default_receiver
-	return _REPORT_SCHEMA_PROJECTION.to_report_dictionary(raw_report, {
-		"path_redaction": "basename",
-	})
+	return _REPORT_SCHEMA_PROJECTION.to_report_dictionary(
+		raw_report,
+		{ "path_redaction": "basename", }
+	)
 
 
 ## 按路径解析碰撞对象；路径为空时尝试父节点。
@@ -584,7 +599,10 @@ func _resolve_receiver() -> Object:
 		var receiver: Node = get_node_or_null(receiver_path)
 		if receiver != null:
 			return receiver
-	return _MESSAGE_DISPATCH_SUPPORT._resolve_receiver(get_collision_object(), &"receive_interaction")
+	return _MESSAGE_DISPATCH_SUPPORT._resolve_receiver(
+		get_collision_object(),
+		&"receive_interaction"
+	)
 
 
 ## 按 sender_path 解析发送者；未配置时使用当前指针桥接器。
@@ -638,7 +656,14 @@ func _make_mouse_button_data(
 	normal: Vector3,
 	shape_idx: int
 ) -> Dictionary:
-	var data: Dictionary = _make_pointer_data(event_name, camera, event, position, normal, shape_idx)
+	var data: Dictionary = _make_pointer_data(
+		event_name,
+		camera,
+		event,
+		position,
+		normal,
+		shape_idx
+	)
 	data["pointer_button_index"] = event.button_index
 	data["pointer_pressed"] = event.pressed
 	data["pointer_factor"] = event.factor
@@ -671,7 +696,14 @@ func _emit_or_send_button_event(
 	shape_idx: int,
 	should_send: bool
 ) -> GFInteractionContext:
-	var data: Dictionary = _make_mouse_button_data(event_name, camera, event, position, normal, shape_idx)
+	var data: Dictionary = _make_mouse_button_data(
+		event_name,
+		camera,
+		event,
+		position,
+		normal,
+		shape_idx
+	)
 	var context: GFInteractionContext = build_context(event_name, data)
 	match event_name:
 		&"pressed":
@@ -691,7 +723,12 @@ func _emit_or_send_button_event(
 ## [br]
 ## @api private
 func _is_wheel_button(button_index: int) -> bool:
-	return button_index == MOUSE_BUTTON_WHEEL_UP or button_index == MOUSE_BUTTON_WHEEL_DOWN or button_index == MOUSE_BUTTON_WHEEL_LEFT or button_index == MOUSE_BUTTON_WHEEL_RIGHT
+	return (
+		button_index == MOUSE_BUTTON_WHEEL_UP
+		or button_index == MOUSE_BUTTON_WHEEL_DOWN
+		or button_index == MOUSE_BUTTON_WHEEL_LEFT
+		or button_index == MOUSE_BUTTON_WHEEL_RIGHT
+	)
 
 
 ## 维护悬停所有者栈并设置、恢复全局光标形状。
@@ -706,17 +743,19 @@ func _set_hover_cursor(active: bool) -> void:
 			if _cursor_owner_stack.is_empty():
 				_cursor_base_shape = Input.get_current_cursor_shape()
 				_has_cursor_base_shape = true
-			_cursor_owner_stack.append({
-				"owner_id": owner_id,
-				"shape": cursor_shape,
-			})
+			_cursor_owner_stack.append({ "owner_id": owner_id, "shape": cursor_shape, })
 			_has_previous_cursor_shape = true
 		Input.set_default_cursor_shape(cursor_shape)
 		return
 	var removed_entry: Dictionary = _remove_cursor_stack_owner(owner_id)
 	_has_previous_cursor_shape = false
 	if not _cursor_owner_stack.is_empty():
-		Input.set_default_cursor_shape(_get_cursor_shape_from_entry(_cursor_owner_stack[_cursor_owner_stack.size() - 1], Input.CURSOR_ARROW))
+		Input.set_default_cursor_shape(
+			_get_cursor_shape_from_entry(
+				_cursor_owner_stack[_cursor_owner_stack.size() - 1],
+				Input.CURSOR_ARROW
+			)
+		)
 	elif not removed_entry.is_empty() and _has_cursor_base_shape:
 		Input.set_default_cursor_shape(_cursor_base_shape)
 		_has_cursor_base_shape = false
@@ -728,7 +767,13 @@ func _set_hover_cursor(active: bool) -> void:
 ## @api private
 func _reset_pointer_state(reset_cursor: bool) -> void:
 	_pointer_generation += 1
-	var should_reset_cursor: bool = reset_cursor and (_is_hovered or _has_previous_cursor_shape)
+	var should_reset_cursor: bool = (
+		reset_cursor
+		and (
+			_is_hovered
+			or _has_previous_cursor_shape
+		)
+	)
 	_is_hovered = false
 	_pressed_buttons.clear()
 	_pressed_button = 0
@@ -747,17 +792,32 @@ func _sync_legacy_pressed_state() -> void:
 		return
 	var pressed_button_keys: Array = _pressed_buttons.keys()
 	var state: Dictionary = GFVariantData.as_dictionary(
-		_pressed_buttons.get(pressed_button_keys[pressed_button_keys.size() - 1], {})
+		_pressed_buttons.get(
+			pressed_button_keys[pressed_button_keys.size() - 1],
+			{}
+		)
 	)
-	_pressed_button = GFVariantData.get_option_int(state, "button_index", 0)
-	_pressed_shape_idx = GFVariantData.get_option_int(state, "shape_idx", -1)
+	_pressed_button = GFVariantData.get_option_int(
+		state,
+		"button_index",
+		0
+	)
+	_pressed_shape_idx = GFVariantData.get_option_int(
+		state,
+		"shape_idx",
+		-1
+	)
 
 
 ## 用窗口 ID、设备 ID 和按钮索引组成按键状态键。
 ## [br]
 ## @api private
 func _pressed_button_key(event: InputEventMouseButton) -> Vector3i:
-	return Vector3i(event.window_id, event.device, event.button_index)
+	return Vector3i(
+		event.window_id,
+		event.device,
+		event.button_index
+	)
 
 
 ## 释放当前共享输入射线可拾取所有权。
@@ -790,7 +850,10 @@ func _retain_input_ray_pickable(collision_object: CollisionObject3D) -> void:
 		collision_object.set_meta(_PICKABLE_ORIGINAL_META, collision_object.input_ray_pickable)
 	_bound_input_ray_pickable_original = _get_pickable_original(collision_object, collision_object.input_ray_pickable)
 	_bound_input_ray_pickable_changed = true
-	collision_object.set_meta(_PICKABLE_OWNER_COUNT_META, owner_count + 1)
+	collision_object.set_meta(
+		_PICKABLE_OWNER_COUNT_META,
+		owner_count + 1
+	)
 	collision_object.input_ray_pickable = true
 
 
@@ -806,7 +869,10 @@ func _release_input_ray_pickable(collision_object: CollisionObject3D) -> void:
 		if collision_object.has_meta(_PICKABLE_ORIGINAL_META):
 			collision_object.remove_meta(_PICKABLE_ORIGINAL_META)
 		return
-	collision_object.set_meta(_PICKABLE_OWNER_COUNT_META, owner_count - 1)
+	collision_object.set_meta(
+		_PICKABLE_OWNER_COUNT_META,
+		owner_count - 1
+	)
 
 
 ## 读取碰撞对象记录的共享可拾取所有者数。
@@ -815,7 +881,10 @@ func _release_input_ray_pickable(collision_object: CollisionObject3D) -> void:
 func _get_pickable_owner_count(collision_object: CollisionObject3D) -> int:
 	if collision_object == null or not collision_object.has_meta(_PICKABLE_OWNER_COUNT_META):
 		return 0
-	return GFVariantData.to_int(collision_object.get_meta(_PICKABLE_OWNER_COUNT_META), 0)
+	return GFVariantData.to_int(
+		collision_object.get_meta(_PICKABLE_OWNER_COUNT_META),
+		0
+	)
 
 
 ## 读取首次绑定前的可拾取值，缺失时使用后备值。
@@ -824,7 +893,10 @@ func _get_pickable_owner_count(collision_object: CollisionObject3D) -> int:
 func _get_pickable_original(collision_object: CollisionObject3D, fallback: bool) -> bool:
 	if collision_object == null or not collision_object.has_meta(_PICKABLE_ORIGINAL_META):
 		return fallback
-	return GFVariantData.to_bool(collision_object.get_meta(_PICKABLE_ORIGINAL_META), fallback)
+	return GFVariantData.to_bool(
+		collision_object.get_meta(_PICKABLE_ORIGINAL_META),
+		fallback
+	)
 
 
 ## 判断字段名是否由指针桥接器保留。
@@ -839,7 +911,11 @@ func _is_reserved_pointer_payload_key(key: Variant) -> bool:
 ## @api private
 func _cursor_stack_has_owner(owner_id: int) -> bool:
 	for entry: Dictionary in _cursor_owner_stack:
-		if GFVariantData.get_option_int(entry, "owner_id", 0) == owner_id:
+		if GFVariantData.get_option_int(
+			entry,
+			"owner_id",
+			0
+		) == owner_id:
 			return true
 	return false
 
@@ -848,9 +924,17 @@ func _cursor_stack_has_owner(owner_id: int) -> bool:
 ## [br]
 ## @api private
 func _remove_cursor_stack_owner(owner_id: int) -> Dictionary:
-	for index: int in range(_cursor_owner_stack.size() - 1, -1, -1):
+	for index: int in range(
+		_cursor_owner_stack.size() - 1,
+		-1,
+		-1
+	):
 		var entry: Dictionary = _cursor_owner_stack[index]
-		if GFVariantData.get_option_int(entry, "owner_id", 0) != owner_id:
+		if GFVariantData.get_option_int(
+			entry,
+			"owner_id",
+			0
+		) != owner_id:
 			continue
 		_cursor_owner_stack.remove_at(index)
 		return entry
@@ -860,11 +944,12 @@ func _remove_cursor_stack_owner(owner_id: int) -> Dictionary:
 ## 从光标所有者记录读取光标形状。
 ## [br]
 ## @api private
-func _get_cursor_shape_from_entry(
-	entry: Dictionary,
-	fallback: Input.CursorShape
-) -> Input.CursorShape:
-	var shape: int = GFVariantData.get_option_int(entry, "shape", fallback)
+func _get_cursor_shape_from_entry(entry: Dictionary, fallback: Input.CursorShape) -> Input.CursorShape:
+	var shape: int = GFVariantData.get_option_int(
+		entry,
+		"shape",
+		fallback
+	)
 	return shape as Input.CursorShape
 
 
@@ -931,35 +1016,67 @@ func _on_collision_input_event(
 	var mouse_event: InputEventMouseButton = _get_mouse_button_event(event)
 	if _is_wheel_button(mouse_event.button_index):
 		if mouse_event.pressed:
-			var _emit_or_send_button_event_result_464: Variant = _emit_or_send_button_event(&"wheel", camera, mouse_event, position, normal, shape_idx, send_on_wheel)
+			var _emit_or_send_button_event_result_464: Variant = _emit_or_send_button_event(
+				&"wheel",
+				camera,
+				mouse_event,
+				position,
+				normal,
+				shape_idx,
+				send_on_wheel
+			)
 		return
 
 	if mouse_event.pressed:
 		var press_button_key: Vector3i = _pressed_button_key(mouse_event)
-		if (
-			_pressed_buttons.has(press_button_key)
-			or _pressed_buttons.size() < _MAX_ACTIVE_PRESSED_BUTTONS
-		):
-			_pressed_buttons[press_button_key] = {
-				"button_index": mouse_event.button_index,
-				"shape_idx": shape_idx,
-			}
+		if (_pressed_buttons.has(press_button_key) or _pressed_buttons.size() < _MAX_ACTIVE_PRESSED_BUTTONS):
+			_pressed_buttons[press_button_key] = { "button_index": mouse_event.button_index, "shape_idx": shape_idx, }
 			_pressed_button = mouse_event.button_index
 			_pressed_shape_idx = shape_idx
-		var _emit_or_send_button_event_result_470: Variant = _emit_or_send_button_event(&"pressed", camera, mouse_event, position, normal, shape_idx, send_on_pressed)
+		var _emit_or_send_button_event_result_470: Variant = _emit_or_send_button_event(
+			&"pressed",
+			camera,
+			mouse_event,
+			position,
+			normal,
+			shape_idx,
+			send_on_pressed
+		)
 		return
 
 	var release_button_key: Vector3i = _pressed_button_key(mouse_event)
-	var pressed_state: Dictionary = GFVariantData.as_dictionary(
-		_pressed_buttons.get(release_button_key, {})
-	)
+	var pressed_state: Dictionary = GFVariantData.as_dictionary(_pressed_buttons.get(release_button_key, {}))
 	var was_matching_press: bool = (
 		not pressed_state.is_empty()
-		and GFVariantData.get_option_int(pressed_state, "shape_idx", -1) == shape_idx
+		and GFVariantData.get_option_int(
+			pressed_state,
+			"shape_idx",
+			-1
+		) == shape_idx
 	)
 	var _pressed_button_erased: bool = _pressed_buttons.erase(release_button_key)
 	_sync_legacy_pressed_state()
 	var release_generation: int = _pointer_generation
-	var _emit_or_send_button_event_result_476: Variant = _emit_or_send_button_event(&"released", camera, mouse_event, position, normal, shape_idx, send_on_released)
-	if was_matching_press and enabled and release_generation == _pointer_generation:
-		var _emit_or_send_button_event_result_478: Variant = _emit_or_send_button_event(&"clicked", camera, mouse_event, position, normal, shape_idx, send_on_clicked)
+	var _emit_or_send_button_event_result_476: Variant = _emit_or_send_button_event(
+		&"released",
+		camera,
+		mouse_event,
+		position,
+		normal,
+		shape_idx,
+		send_on_released
+	)
+	if (
+		was_matching_press
+		and enabled
+		and release_generation == _pointer_generation
+	):
+		var _emit_or_send_button_event_result_478: Variant = _emit_or_send_button_event(
+			&"clicked",
+			camera,
+			mouse_event,
+			position,
+			normal,
+			shape_idx,
+			send_on_clicked
+		)

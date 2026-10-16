@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDiagnosticsUtility" path="addons/gf/standard/utilities/debug/gf_diagnostics_utility.gd" module="standard" extends="GFUtility" classDigest="715b334a4a36ae9f969982447916ff96b0c5e5e50e5a4c51c360f3ac7df0bb32">
+<class name="GFDiagnosticsUtility" path="addons/gf/standard/utilities/debug/gf_diagnostics_utility.gd" module="standard" extends="GFUtility" classDigest="4d80be9d412059b158e75b6409df220a4324c0522e50bd684a34d26de8dbe7a1">
 	<description>GFDiagnosticsUtility: 运行时诊断聚合工具。
 提供架构生命周期、事件系统、性能、日志和外部贡献诊断的统一快照。
 外部监控和快照贡献采用 owner-bound 发布模型；普通采集只读取已验证缓存。
@@ -310,13 +310,14 @@
 			</tags>
 		</member>
 		<member kind="method" name="set_all_commands_enabled">
-			<signature>func set_all_commands_enabled( enabled: bool, command_names: PackedStringArray = PackedStringArray() ) -&gt; int:</signature>
+			<signature>func set_all_commands_enabled(enabled: bool, command_names: PackedStringArray = PackedStringArray()) -&gt; int:</signature>
 			<description>批量设置命令是否启用。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">enabled: 是否启用。</tag>
 				<tag name="param">command_names: 指定命令；为空时作用于全部已注册命令。</tag>
 				<tag name="return">实际处理的命令数量。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_command_enabled">
@@ -347,7 +348,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="register_monitor">
-			<signature>func register_monitor(owner: Object, monitor_id: StringName, options: Dictionary = {}) -&gt; bool:</signature>
+			<signature>func register_monitor( owner: Object, monitor_id: StringName, options: Dictionary = {} ) -&gt; bool:</signature>
 			<description>注册一个由 owner 主动发布采样值的诊断监控项。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -452,7 +453,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="publish_snapshot_section">
-			<signature>func publish_snapshot_section(owner: Object, section_id: StringName, section: Dictionary) -&gt; bool:</signature>
+			<signature>func publish_snapshot_section( owner: Object, section_id: StringName, section: Dictionary ) -&gt; bool:</signature>
 			<description>发布快照分区。用于扩展或项目把自己的诊断数据贡献到 collect_snapshot() 顶层字段。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -486,7 +487,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="register_diagnostic_provider">
-			<signature>func register_diagnostic_provider( owner: Object, provider: GFDiagnosticSnapshotProvider ) -&gt; bool:</signature>
+			<signature>func register_diagnostic_provider(owner: Object, provider: GFDiagnosticSnapshotProvider) -&gt; bool:</signature>
 			<description>注册一个仅在显式请求时执行的诊断 Provider。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -528,7 +529,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="collect_diagnostic_providers">
-			<signature>func collect_diagnostic_providers( provider_ids: PackedStringArray, request: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<signature>func collect_diagnostic_providers(provider_ids: PackedStringArray, request: Dictionary = {}) -&gt; Dictionary:</signature>
 			<description>显式采集一组惰性诊断 Provider。
 空列表不会执行任何 Provider；重复 ID 只执行一次。原始列表最多包含 1024 项，
 超限会在去重和项目回调前整体拒绝。不存在、失效、重入或输出被预算拒绝
@@ -544,7 +545,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="publish_tool_snapshot">
-			<signature>func publish_tool_snapshot(owner: Object, tool_id: StringName, snapshot: Dictionary) -&gt; bool:</signature>
+			<signature>func publish_tool_snapshot( owner: Object, tool_id: StringName, snapshot: Dictionary ) -&gt; bool:</signature>
 			<description>发布工具快照。用于扩展或项目把 get_debug_snapshot() 风格数据贡献到 tools 字段。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -578,7 +579,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="collect_monitor_snapshot">
-			<signature>func collect_monitor_snapshot( monitor_ids: PackedStringArray = PackedStringArray(), include_hidden: bool = false ) -&gt; Dictionary:</signature>
+			<signature>func collect_monitor_snapshot(monitor_ids: PackedStringArray = PackedStringArray(), include_hidden: bool = false) -&gt; Dictionary:</signature>
 			<description>采集诊断监控快照。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -586,6 +587,7 @@
 				<tag name="param">include_hidden: 为 true 时包含 visible=false 的监控项。</tag>
 				<tag name="return">监控快照字典。</tag>
 				<tag name="schema">return: Dictionary，包含 timestamp_unix、monitor_count 和 monitors。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="collect_monitor_preset">

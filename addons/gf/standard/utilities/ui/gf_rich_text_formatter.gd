@@ -54,7 +54,11 @@ const _STRIP_RIGHT_BRACKET_PLACEHOLDER: String = "__GF_ESCAPED_RIGHT_BRACKET__"
 ## [br]
 ## @schema options: Dictionary，支持 markup、variables、variable_resolver、variable_prefix、variable_suffix、escape_variable_values、missing_variable_text、token_resolver、token_prefix、token_suffix、escape_token_values。
 static func to_bbcode(text: String, options: Dictionary = {}) -> String:
-	var markup: StringName = _get_option_string_name(options, "markup", MARKUP_BBCODE)
+	var markup: StringName = _get_option_string_name(
+		options,
+		"markup",
+		MARKUP_BBCODE
+	)
 	var result: String = text
 
 	match markup:
@@ -65,15 +69,28 @@ static func to_bbcode(text: String, options: Dictionary = {}) -> String:
 		_:
 			pass
 
-	var raw_variables: Variant = GFVariantData.get_option_value(options, "variables", {})
+	var raw_variables: Variant = GFVariantData.get_option_value(
+		options,
+		"variables",
+		{}
+	)
 	var variables: Dictionary = GFVariantData.as_dictionary(raw_variables)
 	var variable_resolver: Callable = _get_callable_option(options, "variable_resolver")
 	if not variables.is_empty() or variable_resolver.is_valid():
-		result = replace_variables(result, variables, variable_resolver, options)
+		result = replace_variables(
+			result,
+			variables,
+			variable_resolver,
+			options
+		)
 
 	var token_resolver: Callable = _get_callable_option(options, "token_resolver")
 	if token_resolver.is_valid():
-		result = replace_tokens(result, token_resolver, options)
+		result = replace_tokens(
+			result,
+			token_resolver,
+			options
+		)
 
 	return result
 
@@ -86,31 +103,27 @@ static func to_bbcode(text: String, options: Dictionary = {}) -> String:
 ## [br]
 ## @return BBCode 文本。
 static func markdown_to_bbcode(text: String) -> String:
-	var pattern: String = (
-		"!\\[([^\\]]*)\\]\\(([^\\)]+)\\)"
-		+ "|\\[([^\\]]+)\\]\\(([^\\)]+)\\)"
-		+ "|`([^`]+)`"
-		+ "|\\*\\*([^\\*]+)\\*\\*"
-		+ "|\\*([^\\*]+)\\*"
-		+ "|~~([^~]+)~~"
-	)
-	return _replace_regex_matches(text, pattern, func(match_result: RegExMatch) -> String:
-		if not match_result.get_string(2).is_empty():
-			return "[img]%s[/img]" % escape_bbcode(match_result.get_string(2))
-		if not match_result.get_string(4).is_empty():
-			return "[url=%s]%s[/url]" % [
-				escape_bbcode(match_result.get_string(4)),
-				escape_bbcode(match_result.get_string(3)),
-			]
-		if not match_result.get_string(5).is_empty():
-			return "[code]%s[/code]" % escape_bbcode(match_result.get_string(5))
-		if not match_result.get_string(6).is_empty():
-			return "[b]%s[/b]" % escape_bbcode(match_result.get_string(6))
-		if not match_result.get_string(7).is_empty():
-			return "[i]%s[/i]" % escape_bbcode(match_result.get_string(7))
-		if not match_result.get_string(8).is_empty():
-			return "[s]%s[/s]" % escape_bbcode(match_result.get_string(8))
-		return escape_bbcode(match_result.get_string(0))
+	var pattern: String = ("!\\[([^\\]]*)\\]\\(([^\\)]+)\\)" + "|\\[([^\\]]+)\\]\\(([^\\)]+)\\)" + "|`([^`]+)`" + "|\\*\\*([^\\*]+)\\*\\*" + "|\\*([^\\*]+)\\*" + "|~~([^~]+)~~")
+	return _replace_regex_matches(
+		text,
+		pattern,
+		func(match_result: RegExMatch) -> String:
+			if not match_result.get_string(2).is_empty():
+				return "[img]%s[/img]" % escape_bbcode(match_result.get_string(2))
+			if not match_result.get_string(4).is_empty():
+				return (
+					"[url=%s]%s[/url]"
+					% [escape_bbcode(match_result.get_string(4)), escape_bbcode(match_result.get_string(3)),]
+				)
+			if not match_result.get_string(5).is_empty():
+				return "[code]%s[/code]" % escape_bbcode(match_result.get_string(5))
+			if not match_result.get_string(6).is_empty():
+				return "[b]%s[/b]" % escape_bbcode(match_result.get_string(6))
+			if not match_result.get_string(7).is_empty():
+				return "[i]%s[/i]" % escape_bbcode(match_result.get_string(7))
+			if not match_result.get_string(8).is_empty():
+				return "[s]%s[/s]" % escape_bbcode(match_result.get_string(8))
+			return escape_bbcode(match_result.get_string(0))
 	)
 
 
@@ -137,10 +150,26 @@ static func replace_variables(
 	resolver: Callable = Callable(),
 	options: Dictionary = {}
 ) -> String:
-	var prefix: String = _get_option_text(options, "variable_prefix", "{{")
-	var suffix: String = _get_option_text(options, "variable_suffix", "}}")
-	var escape_values: bool = _get_option_bool(options, "escape_variable_values", true)
-	var missing_text: String = _get_option_text(options, "missing_variable_text", "")
+	var prefix: String = _get_option_text(
+		options,
+		"variable_prefix",
+		"{{"
+	)
+	var suffix: String = _get_option_text(
+		options,
+		"variable_suffix",
+		"}}"
+	)
+	var escape_values: bool = _get_option_bool(
+		options,
+		"escape_variable_values",
+		true
+	)
+	var missing_text: String = _get_option_text(
+		options,
+		"missing_variable_text",
+		""
+	)
 	return _replace_wrapped_segments(
 		text,
 		prefix,
@@ -166,6 +195,8 @@ static func replace_variables(
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param text: 输入文本。
 ## [br]
 ## @param resolver: token 解析回调，签名为 func(token: String) -> String。
@@ -175,13 +206,29 @@ static func replace_variables(
 ## @return 替换后的文本。
 ## [br]
 ## @schema options: Dictionary，支持 token_prefix、token_suffix、escape_token_values。
-static func replace_tokens(text: String, resolver: Callable, options: Dictionary = {}) -> String:
+static func replace_tokens(
+	text: String,
+	resolver: Callable,
+	options: Dictionary = {}
+) -> String:
 	if not resolver.is_valid():
 		return text
 
-	var prefix: String = _get_option_text(options, "token_prefix", ":")
-	var suffix: String = _get_option_text(options, "token_suffix", ":")
-	var escape_values: bool = _get_option_bool(options, "escape_token_values", false)
+	var prefix: String = _get_option_text(
+		options,
+		"token_prefix",
+		":"
+	)
+	var suffix: String = _get_option_text(
+		options,
+		"token_suffix",
+		":"
+	)
+	var escape_values: bool = _get_option_bool(
+		options,
+		"escape_token_values",
+		false
+	)
 	return _replace_wrapped_segments(
 		text,
 		prefix,
@@ -237,7 +284,11 @@ static func strip_bbcode(text: String) -> String:
 	var protected_text: String = text
 	protected_text = protected_text.replace("[lb]", _STRIP_LEFT_BRACKET_PLACEHOLDER)
 	protected_text = protected_text.replace("[rb]", _STRIP_RIGHT_BRACKET_PLACEHOLDER)
-	var stripped: String = regex.sub(protected_text, "", true)
+	var stripped: String = regex.sub(
+		protected_text,
+		"",
+		true
+	)
 	stripped = stripped.replace(_STRIP_LEFT_BRACKET_PLACEHOLDER, "[")
 	stripped = stripped.replace(_STRIP_RIGHT_BRACKET_PLACEHOLDER, "]")
 	return stripped
@@ -249,7 +300,11 @@ static func strip_bbcode(text: String) -> String:
 ## [br]
 ## @api private
 static func _get_callable_option(options: Dictionary, key: String) -> Callable:
-	var value: Variant = GFVariantData.get_option_value(options, key, Callable())
+	var value: Variant = GFVariantData.get_option_value(
+		options,
+		key,
+		Callable()
+	)
 	if value is Callable:
 		return value
 	return Callable()
@@ -258,34 +313,59 @@ static func _get_callable_option(options: Dictionary, key: String) -> Callable:
 ## 从 options 读取文本选项，并在缺键时返回 fallback。
 ## [br]
 ## @api private
-static func _get_option_text(options: Dictionary, key: String, fallback: String) -> String:
+static func _get_option_text(
+	options: Dictionary,
+	key: String,
+	fallback: String
+) -> String:
 	if not options.has(key):
 		return fallback
-	return GFVariantData.to_text(options[key], fallback)
+	return GFVariantData.to_text(
+		options[key],
+		fallback
+	)
 
 
 ## 从 options 读取布尔选项，并在缺键时返回 fallback。
 ## [br]
 ## @api private
-static func _get_option_bool(options: Dictionary, key: String, fallback: bool) -> bool:
+static func _get_option_bool(
+	options: Dictionary,
+	key: String,
+	fallback: bool
+) -> bool:
 	if not options.has(key):
 		return fallback
-	return GFVariantData.to_bool(options[key], fallback)
+	return GFVariantData.to_bool(
+		options[key],
+		fallback
+	)
 
 
 ## 从 options 读取 StringName 选项，并在缺键时返回 fallback。
 ## [br]
 ## @api private
-static func _get_option_string_name(options: Dictionary, key: String, fallback: StringName) -> StringName:
+static func _get_option_string_name(
+	options: Dictionary,
+	key: String,
+	fallback: StringName
+) -> StringName:
 	if not options.has(key):
 		return fallback
-	return GFVariantData.to_string_name(options[key], fallback)
+	return GFVariantData.to_string_name(
+		options[key],
+		fallback
+	)
 
 
 ## 编译正则表达式并逐个构建替换片段；编译失败或 builder 无效时原样返回输入。
 ## [br]
 ## @api private
-static func _replace_regex_matches(text: String, pattern: String, replacement_builder: Callable) -> String:
+static func _replace_regex_matches(
+	text: String,
+	pattern: String,
+	replacement_builder: Callable
+) -> String:
 	var regex: RegEx = RegEx.new()
 	var error: Error = regex.compile(pattern)
 	if error != OK or not replacement_builder.is_valid():
@@ -299,7 +379,12 @@ static func _replace_regex_matches(text: String, pattern: String, replacement_bu
 		if start < cursor:
 			continue
 
-		result += escape_bbcode(text.substr(cursor, start - cursor))
+		result += escape_bbcode(
+			text.substr(
+				cursor,
+				start - cursor
+			)
+		)
 		result += GFVariantData.to_text(replacement_builder.call(match_result))
 		cursor = end
 
@@ -316,7 +401,11 @@ static func _replace_wrapped_segments(
 	suffix: String,
 	resolver: Callable
 ) -> String:
-	if prefix.is_empty() or suffix.is_empty() or not resolver.is_valid():
+	if (
+		prefix.is_empty()
+		or suffix.is_empty()
+		or not resolver.is_valid()
+	):
 		return text
 
 	var result: String = ""
@@ -333,8 +422,14 @@ static func _replace_wrapped_segments(
 			result += text.substr(cursor)
 			break
 
-		result += text.substr(cursor, start - cursor)
-		var token: String = text.substr(token_start, end - token_start)
+		result += text.substr(
+			cursor,
+			start - cursor
+		)
+		var token: String = text.substr(
+			token_start,
+			end - token_start
+		)
 		result += GFVariantData.to_text(resolver.call(token))
 		cursor = end + suffix.length()
 
@@ -360,9 +455,18 @@ static func _is_safe_token(token: String) -> bool:
 ## @api private
 static func _is_safe_token_character(character: String) -> bool:
 	return (
-		(character >= "a" and character <= "z")
-		or (character >= "A" and character <= "Z")
-		or (character >= "0" and character <= "9")
+		(
+			character >= "a"
+			and character <= "z"
+		)
+		or (
+			character >= "A"
+			and character <= "Z"
+		)
+		or (
+			character >= "0"
+			and character <= "9"
+		)
 		or character == "_"
 		or character == "-"
 		or character == "."

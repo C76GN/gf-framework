@@ -10,7 +10,6 @@
 class_name GFProjectileLifetimePolicy
 extends Resource
 
-
 ## 最大活动时长；不大于零表示不限制。
 ## [br]
 ## @api public

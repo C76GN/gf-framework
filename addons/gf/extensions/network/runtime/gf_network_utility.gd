@@ -26,6 +26,8 @@ signal message_received(peer_id: int, message: GFNetworkMessage)
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param peer_id: 关联 peer 标识。
 ## [br]
 ## @param reason: 拒绝原因。
@@ -33,7 +35,11 @@ signal message_received(peer_id: int, message: GFNetworkMessage)
 ## @param details: 校验或解码详情。
 ## [br]
 ## @schema details: Dictionary，包含 ok、errors 或 error/data 等诊断字段。
-signal message_rejected(peer_id: int, reason: String, details: Dictionary)
+signal message_rejected(
+	peer_id: int,
+	reason: String,
+	details: Dictionary
+)
 
 ## 后端连接成功后发出。
 ## [br]
@@ -341,6 +347,8 @@ func disconnect_network() -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param peer_id: 目标 peer；后端可约定 -1 表示广播。
 ## [br]
 ## @param message: 消息载体。
@@ -350,10 +358,19 @@ func disconnect_network() -> void:
 ## @return Godot 错误码。
 ## [br]
 ## @schema options: Dictionary，传给 backend.send_bytes() 的发送选项。
-func send_message(peer_id: int, message: GFNetworkMessage, options: Dictionary = {}) -> Error:
+func send_message(
+	peer_id: int,
+	message: GFNetworkMessage,
+	options: Dictionary = {}
+) -> Error:
 	var channel: GFNetworkChannel = _resolve_primary_outbound_channel(message)
 	var send_options: Dictionary = channel.build_send_options(options) if channel != null else options
-	return _send_message_internal(peer_id, message, send_options, channel)
+	return _send_message_internal(
+		peer_id,
+		message,
+		send_options,
+		channel
+	)
 
 
 ## 通过指定通道发送消息。
@@ -381,7 +398,12 @@ func send_message_on_channel(
 	if channel == null:
 		return ERR_DOES_NOT_EXIST
 	var channel_message: GFNetworkMessage = _copy_message_for_channel(message, channel_id)
-	return _send_message_internal(peer_id, channel_message, channel.build_send_options(options), channel)
+	return _send_message_internal(
+		peer_id,
+		channel_message,
+		channel.build_send_options(options),
+		channel
+	)
 
 
 ## 立即采集一次当前 Backend 的传输指标。
@@ -452,11 +474,7 @@ func get_debug_snapshot() -> Dictionary:
 		"session": session.get_debug_snapshot() if session != null else {},
 		"channels": _describe_channels(),
 		"validator": validator.get_debug_snapshot() if validator != null else {},
-		"transport_metrics": (
-			backend.get_transport_metrics().to_dict()
-			if backend != null
-			else {}
-		),
+		"transport_metrics": (backend.get_transport_metrics().to_dict() if backend != null else {}),
 		"transport_metric_sample_count": _transport_metric_samples.size(),
 		"transport_metrics_sample_interval_msec": transport_metrics_sample_interval_msec,
 		"max_transport_metric_samples": max_transport_metric_samples,
@@ -484,8 +502,16 @@ func _send_message_internal(
 		return ERR_UNCONFIGURED
 	if validator != null:
 		var message_report: Dictionary = validator.validate_message(message)
-		if not GFVariantData.get_option_bool(message_report, "ok", false):
-			message_rejected.emit(peer_id, "invalid_message", message_report)
+		if not GFVariantData.get_option_bool(
+			message_report,
+			"ok",
+			false
+		):
+			message_rejected.emit(
+				peer_id,
+				"invalid_message",
+				message_report
+			)
 			return ERR_INVALID_DATA
 
 	var bytes: PackedByteArray = serializer.serialize_message(message)
@@ -493,20 +519,44 @@ func _send_message_internal(
 		return ERR_INVALID_DATA
 	if validator != null:
 		var bytes_report: Dictionary = validator.validate_bytes(bytes)
-		if not GFVariantData.get_option_bool(bytes_report, "ok", false):
-			message_rejected.emit(peer_id, "invalid_packet", bytes_report)
+		if not GFVariantData.get_option_bool(
+			bytes_report,
+			"ok",
+			false
+		):
+			message_rejected.emit(
+				peer_id,
+				"invalid_packet",
+				bytes_report
+			)
 			return ERR_INVALID_DATA
 		var policy_channels: Array[GFNetworkChannel] = _resolve_inbound_channels(message)
 		if channel != null and not policy_channels.has(channel):
 			policy_channels.append(channel)
 		for policy_channel: GFNetworkChannel in policy_channels:
 			var channel_bytes_report: Dictionary = validator.validate_bytes(bytes, policy_channel)
-			if not GFVariantData.get_option_bool(channel_bytes_report, "ok", false):
-				message_rejected.emit(peer_id, "invalid_packet", channel_bytes_report)
+			if not GFVariantData.get_option_bool(
+				channel_bytes_report,
+				"ok",
+				false
+			):
+				message_rejected.emit(
+					peer_id,
+					"invalid_packet",
+					channel_bytes_report
+				)
 				return ERR_INVALID_DATA
-	elif _message_exceeds_channel_limit(bytes, message, channel):
+	elif _message_exceeds_channel_limit(
+		bytes,
+		message,
+		channel
+	):
 		return ERR_INVALID_DATA
-	var error: Error = backend.send_bytes(peer_id, bytes, options)
+	var error: Error = backend.send_bytes(
+		peer_id,
+		bytes,
+		options
+	)
 	_publish_diagnostics_contribution()
 	return error
 
@@ -576,9 +626,7 @@ func _trim_transport_metric_samples() -> void:
 		_transport_metric_samples.clear()
 		return
 	while _transport_metric_samples.size() > _max_transport_metric_samples:
-		var _removed_sample: GFNetworkTransportMetrics = (
-			_transport_metric_samples.pop_front()
-		)
+		var _removed_sample: GFNetworkTransportMetrics = _transport_metric_samples.pop_front()
 
 
 ## 仅在无活动会话时根据后端接管信息启动主机或客户端会话。
@@ -586,7 +634,11 @@ func _trim_transport_metric_samples() -> void:
 ## @api private
 ## [br]
 func _apply_backend_session_bootstrap(target_backend: GFNetworkBackend) -> void:
-	if target_backend == null or session == null or session.is_active:
+	if (
+		target_backend == null
+		or session == null
+		or session.is_active
+	):
 		return
 	var bootstrap: Dictionary = target_backend.get_session_bootstrap()
 	var mode: int = GFVariantData.get_option_int(
@@ -601,7 +653,11 @@ func _apply_backend_session_bootstrap(target_backend: GFNetworkBackend) -> void:
 	)
 	var options: Dictionary = {
 		"endpoint": endpoint,
-		"local_peer_id": GFVariantData.get_option_int(bootstrap, "local_peer_id", -1),
+		"local_peer_id": GFVariantData.get_option_int(
+			bootstrap,
+			"local_peer_id",
+			-1
+		),
 		"metadata": GFVariantData.get_option_dictionary(bootstrap, "metadata"),
 	}
 	match mode:
@@ -706,14 +762,21 @@ func _end_connect_timeout() -> void:
 func _update_connect_timeout(delta: float) -> void:
 	if not _connect_timeout_active or connect_timeout_msec <= 0:
 		return
-	if session == null or not session.is_active or session.mode != GFNetworkSession.Mode.CLIENT:
+	if (
+		session == null
+		or not session.is_active
+		or session.mode != GFNetworkSession.Mode.CLIENT
+	):
 		_end_connect_timeout()
 		return
 	if session.has_connection:
 		_end_connect_timeout()
 		return
 
-	_connect_timeout_elapsed_msec += maxi(roundi(delta * 1000.0), 0)
+	_connect_timeout_elapsed_msec += maxi(
+		roundi(delta * 1000.0),
+		0
+	)
 	if _connect_timeout_elapsed_msec < connect_timeout_msec:
 		return
 
@@ -739,7 +802,10 @@ func _update_transport_metrics(delta: float) -> void:
 		or delta <= 0.0
 	):
 		return
-	_transport_metric_elapsed_msec += maxi(roundi(delta * 1000.0), 0)
+	_transport_metric_elapsed_msec += maxi(
+		roundi(delta * 1000.0),
+		0
+	)
 	if _transport_metric_elapsed_msec < transport_metrics_sample_interval_msec:
 		return
 	_transport_metric_elapsed_msec %= transport_metrics_sample_interval_msec
@@ -906,32 +972,68 @@ func _on_backend_message_received(peer_id: int, bytes: PackedByteArray) -> void:
 		return
 	if validator != null:
 		var bytes_report: Dictionary = validator.validate_bytes(bytes)
-		if not GFVariantData.get_option_bool(bytes_report, "ok", false):
-			message_rejected.emit(peer_id, "invalid_packet", bytes_report)
+		if not GFVariantData.get_option_bool(
+			bytes_report,
+			"ok",
+			false
+		):
+			message_rejected.emit(
+				peer_id,
+				"invalid_packet",
+				bytes_report
+			)
 			return
 
 	var message_result: Dictionary = serializer.deserialize_message_result(bytes)
-	if not GFVariantData.get_option_bool(message_result, "ok", false):
-		message_rejected.emit(peer_id, "decode_failed", message_result)
+	if not GFVariantData.get_option_bool(
+		message_result,
+		"ok",
+		false
+	):
+		message_rejected.emit(
+			peer_id,
+			"decode_failed",
+			message_result
+		)
 		return
 	var message: GFNetworkMessage = _get_network_message_value(GFVariantData.get_option_value(message_result, "data"))
 	if message == null:
-		message_rejected.emit(peer_id, "decode_failed", {
-			"ok": false,
-			"data": null,
-			"error": "message_is_null",
-		})
+		message_rejected.emit(
+			peer_id,
+			"decode_failed",
+			{
+				"ok": false,
+				"data": null,
+				"error": "message_is_null",
+			}
+		)
 		return
 	message.sender_id = peer_id
 	if validator != null:
 		for channel: GFNetworkChannel in _resolve_inbound_channels(message):
 			var channel_bytes_report: Dictionary = validator.validate_bytes(bytes, channel)
-			if not GFVariantData.get_option_bool(channel_bytes_report, "ok", false):
-				message_rejected.emit(peer_id, "invalid_packet", channel_bytes_report)
+			if not GFVariantData.get_option_bool(
+				channel_bytes_report,
+				"ok",
+				false
+			):
+				message_rejected.emit(
+					peer_id,
+					"invalid_packet",
+					channel_bytes_report
+				)
 				return
 		var message_report: Dictionary = validator.validate_message_for_peer(message, peer_id)
-		if not GFVariantData.get_option_bool(message_report, "ok", false):
-			message_rejected.emit(peer_id, "invalid_message", message_report)
+		if not GFVariantData.get_option_bool(
+			message_report,
+			"ok",
+			false
+		):
+			message_rejected.emit(
+				peer_id,
+				"invalid_message",
+				message_report
+			)
 			return
 	_publish_diagnostics_contribution()
 	message_received.emit(peer_id, message)

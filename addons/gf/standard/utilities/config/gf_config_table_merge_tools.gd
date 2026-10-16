@@ -48,21 +48,49 @@ static func merge_tables(
 	var resolved_policy: GFConfigTableMergePolicy = policy if policy != null else GFConfigTableMergePolicy.new()
 	var base_rows_variant: Variant = _normalize_table(base_table)
 	var patch_rows_variant: Variant = _normalize_table(patch_table)
-	var report: Dictionary = _make_result(_is_dictionary_table(base_table), base_table)
+	var report: Dictionary = _make_result(
+		_is_dictionary_table(base_table),
+		base_table
+	)
 	if base_rows_variant == null:
-		_add_issue(report, "error", "invalid_base_table", null, "base_table 必须是 Array[Dictionary] 或 Dictionary。")
+		_add_issue(
+			report,
+			"error",
+			"invalid_base_table",
+			null,
+			"base_table 必须是 Array[Dictionary] 或 Dictionary。"
+		)
 		_finalize_result(report)
 		return report
 	if patch_rows_variant == null:
-		_add_issue(report, "error", "invalid_patch_table", null, "patch_table 必须是 Array[Dictionary] 或 Dictionary。")
+		_add_issue(
+			report,
+			"error",
+			"invalid_patch_table",
+			null,
+			"patch_table 必须是 Array[Dictionary] 或 Dictionary。"
+		)
 		_finalize_result(report)
 		return report
 
 	var base_rows: Array[Dictionary] = _collect_row_entries(base_rows_variant)
 	var patch_rows: Array[Dictionary] = _collect_row_entries(patch_rows_variant)
-	var state: Dictionary = _build_base_state(base_rows, resolved_policy, report)
-	_apply_patch_rows(state, patch_rows, resolved_policy, report)
-	report["data"] = _build_output_data(state, GFVariantData.get_option_bool(report, "dictionary_output"), resolved_policy)
+	var state: Dictionary = _build_base_state(
+		base_rows,
+		resolved_policy,
+		report
+	)
+	_apply_patch_rows(
+		state,
+		patch_rows,
+		resolved_policy,
+		report
+	)
+	report["data"] = _build_output_data(
+		state,
+		GFVariantData.get_option_bool(report, "dictionary_output"),
+		resolved_policy
+	)
 	_finalize_result(report)
 	return report
 
@@ -82,10 +110,7 @@ static func _normalize_table(table_data: Variant) -> Variant:
 			if not (row_variant is Dictionary):
 				return null
 			var row: Dictionary = row_variant
-			rows.append({
-				"outer_key": index,
-				"record": row.duplicate(true),
-			})
+			rows.append({ "outer_key": index, "record": row.duplicate(true), })
 		return rows
 	if table_data is Dictionary:
 		var dictionary_table: Dictionary = table_data
@@ -94,10 +119,7 @@ static func _normalize_table(table_data: Variant) -> Variant:
 			if not (row_variant is Dictionary):
 				return null
 			var row: Dictionary = row_variant
-			rows.append({
-				"outer_key": key,
-				"record": row.duplicate(true),
-			})
+			rows.append({ "outer_key": key, "record": row.duplicate(true), })
 		return rows
 	return null
 
@@ -139,7 +161,11 @@ static func _make_result(dictionary_output: bool, base_table: Variant) -> Dictio
 ## [br]
 ## @api private
 ## [br]
-static func _build_base_state(rows: Array[Dictionary], policy: GFConfigTableMergePolicy, report: Dictionary) -> Dictionary:
+static func _build_base_state(
+	rows: Array[Dictionary],
+	policy: GFConfigTableMergePolicy,
+	report: Dictionary
+) -> Dictionary:
 	var state: Dictionary = {
 		"order": [],
 		"records": {},
@@ -154,10 +180,22 @@ static func _build_base_state(rows: Array[Dictionary], policy: GFConfigTableMerg
 		var outer_key: Variant = _get_row_outer_key(row_entry)
 		var key: String = policy.make_record_key(record, outer_key)
 		if key.is_empty():
-			_add_issue(report, "error", "missing_base_key", outer_key, "基础记录缺少合并键。")
+			_add_issue(
+				report,
+				"error",
+				"missing_base_key",
+				outer_key,
+				"基础记录缺少合并键。"
+			)
 			continue
 		if records.has(key):
-			_add_issue(report, "error", "duplicate_base_key", outer_key, "基础记录合并键重复。")
+			_add_issue(
+				report,
+				"error",
+				"duplicate_base_key",
+				outer_key,
+				"基础记录合并键重复。"
+			)
 			continue
 		order.append(key)
 		records[key] = record
@@ -182,14 +220,40 @@ static func _apply_patch_rows(
 		var outer_key: Variant = _get_row_outer_key(row_entry)
 		var key: String = policy.make_record_key(record, outer_key)
 		if key.is_empty():
-			_add_issue(report, "error", "missing_patch_key", outer_key, "补丁记录缺少合并键。")
+			_add_issue(
+				report,
+				"error",
+				"missing_patch_key",
+				outer_key,
+				"补丁记录缺少合并键。"
+			)
 			continue
 		if policy.is_delete_record(record):
-			_apply_delete(state, key, outer_key, policy, report)
+			_apply_delete(
+				state,
+				key,
+				outer_key,
+				policy,
+				report
+			)
 		elif records.has(key):
-			_apply_update(state, key, record, outer_key, policy, report)
+			_apply_update(
+				state,
+				key,
+				record,
+				outer_key,
+				policy,
+				report
+			)
 		else:
-			_apply_insert(state, key, record, outer_key, policy, report)
+			_apply_insert(
+				state,
+				key,
+				record,
+				outer_key,
+				policy,
+				report
+			)
 
 
 ## 从合并状态删除匹配的记录。
@@ -204,11 +268,23 @@ static func _apply_delete(
 	report: Dictionary
 ) -> void:
 	if not policy.allow_delete:
-		_add_issue(report, "error", "delete_not_allowed", row_key, "当前合并策略不允许删除记录。")
+		_add_issue(
+			report,
+			"error",
+			"delete_not_allowed",
+			row_key,
+			"当前合并策略不允许删除记录。"
+		)
 		return
 	var records: Dictionary = _get_state_dictionary(state, "records")
 	if not records.has(key):
-		_add_issue(report, "warning", "delete_missing_record", row_key, "删除标记没有命中已有记录。")
+		_add_issue(
+			report,
+			"warning",
+			"delete_missing_record",
+			row_key,
+			"删除标记没有命中已有记录。"
+		)
 		return
 	var _record_removed: bool = records.erase(key)
 	_increment_report_count(report, "deleted_count")
@@ -227,10 +303,19 @@ static func _apply_update(
 	report: Dictionary
 ) -> void:
 	if not policy.allow_update:
-		_add_issue(report, "error", "update_not_allowed", row_key, "当前合并策略不允许更新记录。")
+		_add_issue(
+			report,
+			"error",
+			"update_not_allowed",
+			row_key,
+			"当前合并策略不允许更新记录。"
+		)
 		return
 	var records: Dictionary = _get_state_dictionary(state, "records")
-	records[key] = policy.merge_record(_get_record_by_key(records, key), record)
+	records[key] = policy.merge_record(
+		_get_record_by_key(records, key),
+		record
+	)
 	_increment_report_count(report, "updated_count")
 
 
@@ -247,13 +332,25 @@ static func _apply_insert(
 	report: Dictionary
 ) -> void:
 	if not policy.allow_insert:
-		_add_issue(report, "error", "insert_not_allowed", row_key, "当前合并策略不允许插入记录。")
+		_add_issue(
+			report,
+			"error",
+			"insert_not_allowed",
+			row_key,
+			"当前合并策略不允许插入记录。"
+		)
 		return
 	var outer_key_owners: Dictionary = _get_state_dictionary(state, "outer_key_owners")
 	if GFVariantData.get_option_bool(report, "dictionary_output") and outer_key_owners.has(row_key):
 		var existing_key: Variant = outer_key_owners[row_key]
 		if _get_state_dictionary(state, "records").has(existing_key):
-			_add_issue(report, "error", "outer_key_collision", row_key, "外层键已属于另一条逻辑记录。")
+			_add_issue(
+				report,
+				"error",
+				"outer_key_collision",
+				row_key,
+				"外层键已属于另一条逻辑记录。"
+			)
 			return
 	_get_state_dictionary(state, "records")[key] = record.duplicate(true)
 	_get_state_dictionary(state, "outer_keys")[key] = row_key
@@ -268,19 +365,35 @@ static func _apply_insert(
 ## [br]
 ## @api private
 ## [br]
-static func _build_output_data(state: Dictionary, dictionary_output: bool, policy: GFConfigTableMergePolicy) -> Variant:
+static func _build_output_data(
+	state: Dictionary,
+	dictionary_output: bool,
+	policy: GFConfigTableMergePolicy
+) -> Variant:
 	var records: Dictionary = _get_state_dictionary(state, "records")
 	var order: Array = _get_state_array(state, "order")
 	var outer_keys: Dictionary = _get_state_dictionary(state, "outer_keys")
 	if dictionary_output:
 		var dictionary_result: Dictionary = {}
-		for key: String in _ordered_keys(order, records, policy.preserve_base_order):
-			var outer_key: Variant = GFVariantData.get_option_value(outer_keys, key, key)
+		for key: String in _ordered_keys(
+			order,
+			records,
+			policy.preserve_base_order
+		):
+			var outer_key: Variant = GFVariantData.get_option_value(
+				outer_keys,
+				key,
+				key
+			)
 			dictionary_result[outer_key] = _get_record_by_key(records, key).duplicate(true)
 		return dictionary_result
 
 	var array_result: Array[Dictionary] = []
-	for key: String in _ordered_keys(order, records, policy.preserve_base_order):
+	for key: String in _ordered_keys(
+		order,
+		records,
+		policy.preserve_base_order
+	):
 		array_result.append(_get_record_by_key(records, key).duplicate(true))
 	return array_result
 
@@ -289,7 +402,11 @@ static func _build_output_data(state: Dictionary, dictionary_output: bool, polic
 ## [br]
 ## @api private
 ## [br]
-static func _ordered_keys(order: Array, records: Dictionary, preserve_base_order: bool) -> PackedStringArray:
+static func _ordered_keys(
+	order: Array,
+	records: Dictionary,
+	preserve_base_order: bool
+) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	if preserve_base_order:
 		for key_variant: Variant in order:
@@ -311,8 +428,22 @@ static func _ordered_keys(order: Array, records: Dictionary, preserve_base_order
 ## [br]
 ## @api private
 ## [br]
-static func _add_issue(report: Dictionary, severity: String, kind: String, row_key: Variant, message: String) -> void:
-	_CONFIG_VALIDATION_REPORT.new().add_issue(report, severity, kind, &"", row_key, &"", message)
+static func _add_issue(
+	report: Dictionary,
+	severity: String,
+	kind: String,
+	row_key: Variant,
+	message: String
+) -> void:
+	_CONFIG_VALIDATION_REPORT.new().add_issue(
+		report,
+		severity,
+		kind,
+		&"",
+		row_key,
+		&"",
+		message
+	)
 
 
 ## 完成合并报告的计数与汇总字段。
@@ -343,7 +474,11 @@ static func _collect_row_entries(value: Variant) -> Array[Dictionary]:
 ## @api private
 ## [br]
 static func _get_state_array(state: Dictionary, key: String) -> Array:
-	var value: Variant = GFVariantData.get_option_value(state, key, [])
+	var value: Variant = GFVariantData.get_option_value(
+		state,
+		key,
+		[]
+	)
 	if value is Array:
 		return value
 	var created: Array = []
@@ -356,7 +491,11 @@ static func _get_state_array(state: Dictionary, key: String) -> Array:
 ## @api private
 ## [br]
 static func _get_state_dictionary(state: Dictionary, key: String) -> Dictionary:
-	var value: Variant = GFVariantData.get_option_value(state, key, {})
+	var value: Variant = GFVariantData.get_option_value(
+		state,
+		key,
+		{}
+	)
 	if value is Dictionary:
 		return value
 	var created: Dictionary = {}
@@ -369,7 +508,13 @@ static func _get_state_dictionary(state: Dictionary, key: String) -> Dictionary:
 ## @api private
 ## [br]
 static func _get_row_record(row_entry: Dictionary) -> Dictionary:
-	return GFVariantData.as_dictionary(GFVariantData.get_option_value(row_entry, "record", {}))
+	return GFVariantData.as_dictionary(
+		GFVariantData.get_option_value(
+			row_entry,
+			"record",
+			{}
+		)
+	)
 
 
 ## 从标准化行条目读取字典表外层键。
@@ -385,7 +530,13 @@ static func _get_row_outer_key(row_entry: Dictionary) -> Variant:
 ## @api private
 ## [br]
 static func _get_record_by_key(records: Dictionary, key: String) -> Dictionary:
-	return GFVariantData.as_dictionary(GFVariantData.get_option_value(records, key, {}))
+	return GFVariantData.as_dictionary(
+		GFVariantData.get_option_value(
+			records,
+			key,
+			{}
+		)
+	)
 
 
 ## 将报告中的指定计数增加一。

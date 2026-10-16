@@ -147,15 +147,17 @@ func draw_line_2d(
 	channel: StringName = &"default",
 	width: float = 1.0
 ) -> int:
-	return push_item({
-		"type": PrimitiveType.LINE_2D,
-		"channel": channel,
-		"from": from,
-		"to": to,
-		"color": color,
-		"width": maxf(width, 0.0),
-		"lifetime_seconds": lifetime_seconds,
-	})
+	return push_item(
+		{
+			"type": PrimitiveType.LINE_2D,
+			"channel": channel,
+			"from": from,
+			"to": to,
+			"color": color,
+			"width": maxf(width, 0.0),
+			"lifetime_seconds": lifetime_seconds,
+		}
+	)
 
 
 ## 绘制 2D 向量。
@@ -196,17 +198,61 @@ func draw_vector_2d(
 	var begin: Vector2 = origin - half_vector if centered else origin
 	var end: Vector2 = origin + half_vector if centered else origin + resolved_vector
 	var result: Array[int] = []
-	result.append(draw_line_2d(begin, end, color, lifetime_seconds, channel, width))
+	result.append(
+		draw_line_2d(
+			begin,
+			end,
+			color,
+			lifetime_seconds,
+			channel,
+			width
+		)
+	)
 
 	if GFVariantData.get_option_bool(options, "draw_components"):
 		var corner: Vector2 = begin + Vector2(resolved_vector.x, 0.0)
-		var x_color: Color = _get_debug_color_option(options, "x_color", Color.RED)
-		var y_color: Color = _get_debug_color_option(options, "y_color", Color.GREEN)
-		result.append(draw_line_2d(begin, corner, x_color, lifetime_seconds, channel, width))
-		result.append(draw_line_2d(corner, end, y_color, lifetime_seconds, channel, width))
+		var x_color: Color = _get_debug_color_option(
+			options,
+			"x_color",
+			Color.RED
+		)
+		var y_color: Color = _get_debug_color_option(
+			options,
+			"y_color",
+			Color.GREEN
+		)
+		result.append(
+			draw_line_2d(
+				begin,
+				corner,
+				x_color,
+				lifetime_seconds,
+				channel,
+				width
+			)
+		)
+		result.append(
+			draw_line_2d(
+				corner,
+				end,
+				y_color,
+				lifetime_seconds,
+				channel,
+				width
+			)
+		)
 
 	if GFVariantData.get_option_bool(options, "arrowhead"):
-		_append_vector_arrowhead_2d(result, begin, end, color, lifetime_seconds, channel, width, options)
+		_append_vector_arrowhead_2d(
+			result,
+			begin,
+			end,
+			color,
+			lifetime_seconds,
+			channel,
+			width,
+			options
+		)
 	return result
 
 
@@ -235,15 +281,17 @@ func draw_rect_2d(
 	filled: bool = false,
 	width: float = 1.0
 ) -> int:
-	return push_item({
-		"type": PrimitiveType.RECT_2D,
-		"channel": channel,
-		"rect": rect,
-		"color": color,
-		"filled": filled,
-		"width": maxf(width, 0.0),
-		"lifetime_seconds": lifetime_seconds,
-	})
+	return push_item(
+		{
+			"type": PrimitiveType.RECT_2D,
+			"channel": channel,
+			"rect": rect,
+			"color": color,
+			"filled": filled,
+			"width": maxf(width, 0.0),
+			"lifetime_seconds": lifetime_seconds,
+		}
+	)
 
 
 ## 绘制 2D 圆。
@@ -274,16 +322,18 @@ func draw_circle_2d(
 	filled: bool = false,
 	width: float = 1.0
 ) -> int:
-	return push_item({
-		"type": PrimitiveType.CIRCLE_2D,
-		"channel": channel,
-		"center": center,
-		"radius": maxf(radius, 0.0),
-		"color": color,
-		"filled": filled,
-		"width": maxf(width, 0.0),
-		"lifetime_seconds": lifetime_seconds,
-	})
+	return push_item(
+		{
+			"type": PrimitiveType.CIRCLE_2D,
+			"channel": channel,
+			"center": center,
+			"radius": maxf(radius, 0.0),
+			"color": color,
+			"filled": filled,
+			"width": maxf(width, 0.0),
+			"lifetime_seconds": lifetime_seconds,
+		}
+	)
 
 
 ## 绘制 2D 文本。
@@ -311,15 +361,17 @@ func draw_text_2d(
 	channel: StringName = &"default",
 	font_size: int = 16
 ) -> int:
-	return push_item({
-		"type": PrimitiveType.TEXT_2D,
-		"channel": channel,
-		"position": position,
-		"text": text,
-		"color": color,
-		"font_size": maxi(font_size, 1),
-		"lifetime_seconds": lifetime_seconds,
-	})
+	return push_item(
+		{
+			"type": PrimitiveType.TEXT_2D,
+			"channel": channel,
+			"position": position,
+			"text": text,
+			"color": color,
+			"font_size": maxi(font_size, 1),
+			"lifetime_seconds": lifetime_seconds,
+		}
+	)
 
 
 ## 绘制 3D 线段。
@@ -347,15 +399,17 @@ func draw_line_3d(
 	channel: StringName = &"default",
 	width: float = 1.0
 ) -> int:
-	return push_item({
-		"type": PrimitiveType.LINE_3D,
-		"channel": channel,
-		"from": from,
-		"to": to,
-		"color": color,
-		"width": maxf(width, 0.0),
-		"lifetime_seconds": lifetime_seconds,
-	})
+	return push_item(
+		{
+			"type": PrimitiveType.LINE_3D,
+			"channel": channel,
+			"from": from,
+			"to": to,
+			"color": color,
+			"width": maxf(width, 0.0),
+			"lifetime_seconds": lifetime_seconds,
+		}
+	)
 
 
 ## 绘制 3D 向量。
@@ -396,17 +450,73 @@ func draw_vector_3d(
 	var begin: Vector3 = origin - half_vector if centered else origin
 	var end: Vector3 = origin + half_vector if centered else origin + resolved_vector
 	var result: Array[int] = []
-	result.append(draw_line_3d(begin, end, color, lifetime_seconds, channel, width))
+	result.append(
+		draw_line_3d(
+			begin,
+			end,
+			color,
+			lifetime_seconds,
+			channel,
+			width
+		)
+	)
 
 	if GFVariantData.get_option_bool(options, "draw_components"):
-		var x_end: Vector3 = begin + Vector3(resolved_vector.x, 0.0, 0.0)
-		var y_end: Vector3 = x_end + Vector3(0.0, resolved_vector.y, 0.0)
-		var x_color: Color = _get_debug_color_option(options, "x_color", Color.RED)
-		var y_color: Color = _get_debug_color_option(options, "y_color", Color.GREEN)
-		var z_color: Color = _get_debug_color_option(options, "z_color", Color.BLUE)
-		result.append(draw_line_3d(begin, x_end, x_color, lifetime_seconds, channel, width))
-		result.append(draw_line_3d(x_end, y_end, y_color, lifetime_seconds, channel, width))
-		result.append(draw_line_3d(y_end, end, z_color, lifetime_seconds, channel, width))
+		var x_end: Vector3 = begin + Vector3(
+			resolved_vector.x,
+			0.0,
+			0.0
+		)
+		var y_end: Vector3 = x_end + Vector3(
+			0.0,
+			resolved_vector.y,
+			0.0
+		)
+		var x_color: Color = _get_debug_color_option(
+			options,
+			"x_color",
+			Color.RED
+		)
+		var y_color: Color = _get_debug_color_option(
+			options,
+			"y_color",
+			Color.GREEN
+		)
+		var z_color: Color = _get_debug_color_option(
+			options,
+			"z_color",
+			Color.BLUE
+		)
+		result.append(
+			draw_line_3d(
+				begin,
+				x_end,
+				x_color,
+				lifetime_seconds,
+				channel,
+				width
+			)
+		)
+		result.append(
+			draw_line_3d(
+				x_end,
+				y_end,
+				y_color,
+				lifetime_seconds,
+				channel,
+				width
+			)
+		)
+		result.append(
+			draw_line_3d(
+				y_end,
+				end,
+				z_color,
+				lifetime_seconds,
+				channel,
+				width
+			)
+		)
 	return result
 
 
@@ -435,15 +545,17 @@ func draw_box_3d(
 	filled: bool = false,
 	width: float = 1.0
 ) -> int:
-	return push_item({
-		"type": PrimitiveType.BOX_3D,
-		"channel": channel,
-		"box": box,
-		"color": color,
-		"filled": filled,
-		"width": maxf(width, 0.0),
-		"lifetime_seconds": lifetime_seconds,
-	})
+	return push_item(
+		{
+			"type": PrimitiveType.BOX_3D,
+			"channel": channel,
+			"box": box,
+			"color": color,
+			"filled": filled,
+			"width": maxf(width, 0.0),
+			"lifetime_seconds": lifetime_seconds,
+		}
+	)
 
 
 ## 绘制 3D 文本。
@@ -471,15 +583,17 @@ func draw_text_3d(
 	channel: StringName = &"default",
 	font_size: int = 16
 ) -> int:
-	return push_item({
-		"type": PrimitiveType.TEXT_3D,
-		"channel": channel,
-		"position": position,
-		"text": text,
-		"color": color,
-		"font_size": maxi(font_size, 1),
-		"lifetime_seconds": lifetime_seconds,
-	})
+	return push_item(
+		{
+			"type": PrimitiveType.TEXT_3D,
+			"channel": channel,
+			"position": position,
+			"text": text,
+			"color": color,
+			"font_size": maxi(font_size, 1),
+			"lifetime_seconds": lifetime_seconds,
+		}
+	)
 
 
 ## 推入自定义调试绘制命令。
@@ -505,7 +619,11 @@ func push_item(item: Dictionary) -> int:
 		return 0
 	var item_id: int = _next_item_id
 	stored_item["id"] = item_id
-	stored_item["channel"] = GFVariantData.get_option_string_name(stored_item, "channel", &"default")
+	stored_item["channel"] = GFVariantData.get_option_string_name(
+		stored_item,
+		"channel",
+		&"default"
+	)
 	stored_item["created_at_msec"] = Time.get_ticks_msec()
 	stored_item["lifetime_seconds"] = resolved_lifetime
 	stored_item["remaining_seconds"] = resolved_lifetime
@@ -531,7 +649,11 @@ func clear(channel: StringName = &"") -> void:
 		return
 
 	var changed: bool = false
-	for index: int in range(_items.size() - 1, -1, -1):
+	for index: int in range(
+		_items.size() - 1,
+		-1,
+		-1
+	):
 		if _get_item_channel(_items[index]) == channel:
 			_items.remove_at(index)
 			changed = true
@@ -559,7 +681,11 @@ func set_channel_enabled(channel: StringName, channel_enabled: bool) -> void:
 ## [br]
 ## @return 启用返回 true。
 func is_channel_enabled(channel: StringName) -> bool:
-	return GFVariantData.get_option_bool(_channels_enabled, channel, true)
+	return GFVariantData.get_option_bool(
+		_channels_enabled,
+		channel,
+		true
+	)
 
 
 ## 获取绘制命令。
@@ -636,7 +762,11 @@ func get_debug_snapshot() -> Dictionary:
 ## @api private
 ## [br]
 func _resolve_debug_vector_2d(vector: Vector2, options: Dictionary) -> Vector2:
-	var scale: float = GFVariantData.get_option_float(options, "scale", 1.0)
+	var scale: float = GFVariantData.get_option_float(
+		options,
+		"scale",
+		1.0
+	)
 	var scaled: Vector2 = vector * scale
 	return _apply_debug_vector_length_mode_2d(scaled, options)
 
@@ -646,7 +776,11 @@ func _resolve_debug_vector_2d(vector: Vector2, options: Dictionary) -> Vector2:
 ## @api private
 ## [br]
 func _resolve_debug_vector_3d(vector: Vector3, options: Dictionary) -> Vector3:
-	var scale: float = GFVariantData.get_option_float(options, "scale", 1.0)
+	var scale: float = GFVariantData.get_option_float(
+		options,
+		"scale",
+		1.0
+	)
 	var scaled: Vector3 = vector * scale
 	return _apply_debug_vector_length_mode_3d(scaled, options)
 
@@ -656,13 +790,17 @@ func _resolve_debug_vector_3d(vector: Vector3, options: Dictionary) -> Vector3:
 ## @api private
 ## [br]
 func _apply_debug_vector_length_mode_2d(vector: Vector2, options: Dictionary) -> Vector2:
-	var length_mode: String = GFVariantData.get_option_string(options, "length_mode", "normal").to_lower()
+	var length_mode: String = GFVariantData.get_option_string(
+		options,
+		"length_mode",
+		"normal"
+	).to_lower()
 	var max_length: float = GFVariantData.get_option_float(options, "max_length")
 	match length_mode:
 		"clamp":
 			return vector.limit_length(max_length) if max_length > 0.0 else vector
 		"normalize":
-			return vector.normalized() * max_length if max_length > 0.0 and not vector.is_zero_approx() else Vector2.ZERO
+			return (vector.normalized() * max_length if max_length > 0.0 and not vector.is_zero_approx() else Vector2.ZERO)
 		_:
 			return vector
 
@@ -672,13 +810,17 @@ func _apply_debug_vector_length_mode_2d(vector: Vector2, options: Dictionary) ->
 ## @api private
 ## [br]
 func _apply_debug_vector_length_mode_3d(vector: Vector3, options: Dictionary) -> Vector3:
-	var length_mode: String = GFVariantData.get_option_string(options, "length_mode", "normal").to_lower()
+	var length_mode: String = GFVariantData.get_option_string(
+		options,
+		"length_mode",
+		"normal"
+	).to_lower()
 	var max_length: float = GFVariantData.get_option_float(options, "max_length")
 	match length_mode:
 		"clamp":
 			return vector.limit_length(max_length) if max_length > 0.0 else vector
 		"normalize":
-			return vector.normalized() * max_length if max_length > 0.0 and not vector.is_zero_approx() else Vector3.ZERO
+			return (vector.normalized() * max_length if max_length > 0.0 and not vector.is_zero_approx() else Vector3.ZERO)
 		_:
 			return vector
 
@@ -700,19 +842,48 @@ func _append_vector_arrowhead_2d(
 	var direction: Vector2 = end - begin
 	if direction.is_zero_approx():
 		return
-	var size: float = maxf(GFVariantData.get_option_float(options, "arrowhead_size", width * 4.0), 0.0)
+	var size: float = maxf(
+		GFVariantData.get_option_float(
+			options,
+			"arrowhead_size",
+			width * 4.0
+		),
+		0.0
+	)
 	if size <= 0.0:
 		return
 	var normal: Vector2 = direction.normalized()
-	result.append(draw_line_2d(end, end - normal.rotated(PI / 6.0) * size, color, lifetime_seconds, channel, width))
-	result.append(draw_line_2d(end, end - normal.rotated(-PI / 6.0) * size, color, lifetime_seconds, channel, width))
+	result.append(
+		draw_line_2d(
+			end,
+			end - normal.rotated(PI / 6.0) * size,
+			color,
+			lifetime_seconds,
+			channel,
+			width
+		)
+	)
+	result.append(
+		draw_line_2d(
+			end,
+			end - normal.rotated(-PI / 6.0) * size,
+			color,
+			lifetime_seconds,
+			channel,
+			width
+		)
+	)
 
 
 ## 仅在选项值为 Color 时采用它，否则返回给定颜色回退值。
 ## [br]
 ## @api private
 ## [br]
-func _get_debug_color_option(options: Dictionary, key: String, fallback: Color) -> Color:
+func _get_debug_color_option(
+	options: Dictionary,
+	key: String,
+	fallback: Color
+) -> Color:
 	if not options.has(key):
 		return fallback
 	var value: Variant = options[key]
@@ -746,12 +917,23 @@ func _expire_items(delta: float) -> void:
 		return
 
 	var changed: bool = false
-	for index: int in range(_items.size() - 1, -1, -1):
+	for index: int in range(
+		_items.size() - 1,
+		-1,
+		-1
+	):
 		var item: Dictionary = _items[index]
 		var lifetime_seconds: float = GFVariantData.get_option_float(item, "lifetime_seconds")
 		if lifetime_seconds < 0.0:
 			continue
-		var remaining_seconds: float = GFVariantData.get_option_float(item, "remaining_seconds", lifetime_seconds) - maxf(delta, 0.0)
+		var remaining_seconds: float = (
+			GFVariantData.get_option_float(
+				item,
+				"remaining_seconds",
+				lifetime_seconds
+			)
+			- maxf(delta, 0.0)
+		)
 		_items[index]["remaining_seconds"] = remaining_seconds
 		if remaining_seconds <= 0.0:
 			_items.remove_at(index)
@@ -784,7 +966,11 @@ func _trim_to_max_items() -> void:
 ## @api private
 ## [br]
 func _get_item_channel(item: Dictionary) -> StringName:
-	return GFVariantData.get_option_string_name(item, "channel", &"default")
+	return GFVariantData.get_option_string_name(
+		item,
+		"channel",
+		&"default"
+	)
 
 
 ## 从绘制项读取图元类型，字段缺失时使用 CUSTOM。
@@ -792,7 +978,11 @@ func _get_item_channel(item: Dictionary) -> StringName:
 ## @api private
 ## [br]
 func _get_item_primitive_type(item: Dictionary) -> int:
-	return GFVariantData.get_option_int(item, "type", PrimitiveType.CUSTOM)
+	return GFVariantData.get_option_int(
+		item,
+		"type",
+		PrimitiveType.CUSTOM
+	)
 
 
 ## 将字典中指定键的整数值加一，缺失或不可转为整数时从零开始。

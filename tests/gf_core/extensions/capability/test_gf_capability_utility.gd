@@ -3,7 +3,7 @@ extends GutTest
 
 # --- 常量 ---
 
-const GF_CAPABILITY_INSPECTOR_PLUGIN_PATH: String = "res://addons/gf/extensions/capability/editor/gf_capability_inspector_plugin.gd"
+const GF_CAPABILITY_INSPECTOR_PLUGIN_PATH: String = ("res://addons/gf/extensions/capability/editor/gf_capability_inspector_plugin.gd")
 const GF_CONTROL_CAPABILITY_SCRIPT_PATH: String = "res://addons/gf/extensions/capability/nodes/gf_control_capability.gd"
 const GF_AUTOLOAD_NODE_SCRIPT = preload("res://addons/gf/kernel/core/gf.gd")
 
@@ -17,6 +17,7 @@ class HealthCapability extends GFCapability:
 	func on_gf_capability_added(target: Object) -> void:
 		super.on_gf_capability_added(target)
 		added_receiver = target
+
 
 	func on_gf_capability_removed(target: Object) -> void:
 		removed_receiver = target
@@ -36,9 +37,11 @@ class NoSuperDamageCapability extends GFCapability:
 	func _init() -> void:
 		required_capabilities = [HealthCapability]
 
+
 	func on_gf_capability_added(_target: Object) -> void:
 		receiver_during_added = receiver
 		health_during_added = get_capability(HealthCapability)
+
 
 	func on_gf_capability_removed(_target: Object) -> void:
 		receiver_during_removed = receiver
@@ -145,6 +148,7 @@ class CapabilityNode extends Node:
 	func on_gf_capability_added(target: Object) -> void:
 		added_receiver = target
 
+
 	func on_gf_capability_removed(target: Object) -> void:
 		removed_receiver = target
 
@@ -163,19 +167,14 @@ class ReentrantLifecycleCapability extends GFCapability:
 	var removed_calls: int = 0
 
 	func on_gf_capability_added(target: Object) -> void:
-		present_during_added = utility != null and utility.has_capability(
-			target,
-			ReentrantLifecycleCapability
-		)
+		present_during_added = (utility != null and (utility.has_capability(target, ReentrantLifecycleCapability)))
 		if utility != null:
 			utility.remove_capability(target, ReentrantLifecycleCapability)
 
+
 	func on_gf_capability_removed(target: Object) -> void:
 		removed_calls += 1
-		present_during_removed = utility != null and utility.has_capability(
-			target,
-			ReentrantLifecycleCapability
-		)
+		present_during_removed = (utility != null and (utility.has_capability(target, ReentrantLifecycleCapability)))
 		if utility != null:
 			utility.remove_capability(target, ReentrantLifecycleCapability)
 
@@ -196,11 +195,20 @@ class EnterTreeRemoveContainer extends Node:
 	var capability: Node = null
 
 	func _enter_tree() -> void:
-		if utility == null or receiver == null or capability == null:
+		if (
+			utility == null
+			or receiver == null
+			or capability == null
+		):
 			return
 		var capability_script: Script = _capability_script()
-		var _add_capability_instance_result: Object = utility.add_capability_instance(receiver, capability, capability_script)
+		var _add_capability_instance_result: Object = utility.add_capability_instance(
+			receiver,
+			capability,
+			capability_script
+		)
 		utility.remove_capability(receiver, capability_script)
+
 
 	func _capability_script() -> Script:
 		var script_value: Variant = capability.get_script()
@@ -287,9 +295,20 @@ func test_add_and_get_capability() -> void:
 	var capability: HealthCapability = _utility.add_capability(receiver, HealthCapability)
 
 	assert_not_null(capability, "应能挂载能力。")
-	assert_true(_utility.has_capability(receiver, HealthCapability), "has_capability 应能识别已挂载能力。")
-	assert_eq(_utility.get_capability(receiver, HealthCapability), capability, "get_capability 应返回同一能力实例。")
-	assert_eq(capability.added_receiver, receiver, "挂载后应调用 added hook。")
+	assert_true(
+		_utility.has_capability(receiver, HealthCapability),
+		"has_capability 应能识别已挂载能力。"
+	)
+	assert_eq(
+		_utility.get_capability(receiver, HealthCapability),
+		capability,
+		"get_capability 应返回同一能力实例。"
+	)
+	assert_eq(
+		capability.added_receiver,
+		receiver,
+		"挂载后应调用 added hook。"
+	)
 
 
 func test_same_capability_instance_cannot_attach_to_multiple_receivers() -> void:
@@ -297,12 +316,27 @@ func test_same_capability_instance_cannot_attach_to_multiple_receivers() -> void
 	var receiver_b: RefCounted = RefCounted.new()
 	var capability: HealthCapability = HealthCapability.new()
 
-	var first: Object = _utility.add_capability_instance(receiver_a, capability, HealthCapability)
-	var second: Object = _utility.add_capability_instance(receiver_b, capability, HealthCapability)
+	var first: Object = _utility.add_capability_instance(
+		receiver_a,
+		capability,
+		HealthCapability
+	)
+	var second: Object = _utility.add_capability_instance(
+		receiver_b,
+		capability,
+		HealthCapability
+	)
 
-	assert_eq(first, capability, "能力实例应能挂载到第一个 receiver。")
+	assert_eq(
+		first,
+		capability,
+		"能力实例应能挂载到第一个 receiver。"
+	)
 	assert_null(second, "同一个能力实例不应挂载到第二个 receiver。")
-	assert_false(_utility.has_capability(receiver_b, HealthCapability), "第二个 receiver 不应留下能力记录。")
+	assert_false(
+		_utility.has_capability(receiver_b, HealthCapability),
+		"第二个 receiver 不应留下能力记录。"
+	)
 	assert_push_error("[GFCapabilityUtility][capability_utility.instance_already_attached] The same capability instance cannot be attached to multiple receivers.")
 
 
@@ -310,11 +344,21 @@ func test_add_capability_instance_rejects_mismatched_declared_type() -> void:
 	var receiver: RefCounted = RefCounted.new()
 	var capability: HealthCapability = HealthCapability.new()
 
-	var result: Object = _utility.add_capability_instance(receiver, capability, DamageCapability)
+	var result: Object = _utility.add_capability_instance(
+		receiver,
+		capability,
+		DamageCapability
+	)
 
 	assert_null(result, "能力实例脚本不继承声明类型时应拒绝注册。")
-	assert_false(_utility.has_capability(receiver, DamageCapability), "错误声明类型不应污染 receiver。")
-	assert_false(_utility.has_capability(receiver, HealthCapability), "失败后不应按实例原始类型注册。")
+	assert_false(
+		_utility.has_capability(receiver, DamageCapability),
+		"错误声明类型不应污染 receiver。"
+	)
+	assert_false(
+		_utility.has_capability(receiver, HealthCapability),
+		"失败后不应按实例原始类型注册。"
+	)
 	assert_null(capability.receiver, "失败注册不应写入 receiver。")
 	assert_push_error("[GFCapabilityUtility][capability_utility.incompatible_registration_script] add_capability_instance failed: capability instance script")
 
@@ -323,11 +367,21 @@ func test_adopt_capability_instance_rejects_mismatched_instance_type() -> void:
 	var receiver: RefCounted = RefCounted.new()
 	var capability: HealthCapability = HealthCapability.new()
 
-	var result: Object = _utility.adopt_capability_instance(receiver, capability, DamageCapability)
+	var result: Object = _utility.adopt_capability_instance(
+		receiver,
+		capability,
+		DamageCapability
+	)
 
 	assert_null(result, "adopt 的实例类型不匹配时应拒绝注册。")
-	assert_false(_utility.has_capability(receiver, DamageCapability), "错误 adopt 不应按声明类型注册。")
-	assert_false(_utility.has_capability(receiver, HealthCapability), "错误 adopt 不应按实例类型回退注册。")
+	assert_false(
+		_utility.has_capability(receiver, DamageCapability),
+		"错误 adopt 不应按声明类型注册。"
+	)
+	assert_false(
+		_utility.has_capability(receiver, HealthCapability),
+		"错误 adopt 不应按实例类型回退注册。"
+	)
 	assert_null(capability.receiver, "失败 adopt 不应写入 receiver 或接管所有权。")
 	assert_push_error("[GFCapabilityUtility][capability_utility.incompatible_registration_script] adopt_capability_instance failed: capability instance script")
 
@@ -345,11 +399,18 @@ func test_capability_lifecycle_hooks_observe_committed_boundaries_and_cannot_ree
 
 	assert_eq(registered, capability)
 	assert_true(capability.present_during_added, "added hook 应看到已经提交的注册记录。")
-	assert_true(_utility.has_capability(receiver, ReentrantLifecycleCapability), "added hook 的重入移除不得拆散外层注册事务。")
+	assert_true(
+		_utility.has_capability(receiver, ReentrantLifecycleCapability),
+		"added hook 的重入移除不得拆散外层注册事务。"
+	)
 
 	_utility.remove_capability(receiver, ReentrantLifecycleCapability)
 
-	assert_eq(capability.removed_calls, 1, "removed hook 重入不得重复执行 hook。")
+	assert_eq(
+		capability.removed_calls,
+		1,
+		"removed hook 重入不得重复执行 hook。"
+	)
 	assert_false(capability.present_during_removed, "removed hook 执行前注册记录应已摘除。")
 	assert_false(_utility.has_capability(receiver, ReentrantLifecycleCapability))
 	assert_null(capability.receiver)
@@ -361,22 +422,28 @@ func test_added_hook_that_frees_receiver_releases_registration_transition() -> v
 	var registered: Object = _utility.add_capability(receiver, FreesReceiverOnAddedCapability)
 
 	assert_null(registered, "added hook 释放 receiver 后不得返回失效能力。")
-	assert_true(_utility._registration_states.is_empty(), "receiver 失效后仍必须按不可变事务令牌清理注册状态。")
+	assert_true(
+		_utility._registration_states.is_empty(),
+		"receiver 失效后仍必须按不可变事务令牌清理注册状态。"
+	)
 	assert_push_error("[GFCapabilityUtility][capability_utility.added_hook_released_instance] add_capability failed: the added hook freed receiver or capability.")
 
 
 func test_removed_hook_that_frees_receiver_releases_registration_transition() -> void:
 	var receiver: Object = Object.new()
-	var capability: FreesReceiverOnRemovedCapability = _utility.add_capability(
-		receiver,
-		FreesReceiverOnRemovedCapability
-	)
+	var capability: FreesReceiverOnRemovedCapability = _utility.add_capability(receiver, FreesReceiverOnRemovedCapability)
 	assert_not_null(capability)
 
 	_utility.remove_capability(receiver, FreesReceiverOnRemovedCapability)
 
-	assert_false(is_instance_valid(receiver), "removed hook 应已释放测试 receiver。")
-	assert_true(_utility._registration_states.is_empty(), "removed hook 释放 receiver 后仍必须清理注册事务状态。")
+	assert_false(
+		is_instance_valid(receiver),
+		"removed hook 应已释放测试 receiver。"
+	)
+	assert_true(
+		_utility._registration_states.is_empty(),
+		"removed hook 释放 receiver 后仍必须清理注册事务状态。"
+	)
 
 
 func test_required_capabilities_are_created_first() -> void:
@@ -387,7 +454,11 @@ func test_required_capabilities_are_created_first() -> void:
 
 	assert_not_null(damage, "主能力应挂载成功。")
 	assert_not_null(health, "依赖能力应自动补齐。")
-	assert_eq(damage.get_capability(HealthCapability), health, "能力基类应能访问同一 receiver 上的依赖能力。")
+	assert_eq(
+		damage.get_capability(HealthCapability),
+		health,
+		"能力基类应能访问同一 receiver 上的依赖能力。"
+	)
 
 
 func test_dynamic_required_capability_hook_is_supported_at_runtime() -> void:
@@ -406,7 +477,11 @@ func test_required_capability_export_property_is_used_by_default_hook() -> void:
 	var capability: ExportDependencyCapability = ExportDependencyCapability.new()
 	capability.required_capabilities = [HealthCapability]
 
-	var _add_capability_instance_result_264: Variant = _utility.add_capability_instance(receiver, capability, ExportDependencyCapability)
+	var _add_capability_instance_result_264: Variant = _utility.add_capability_instance(
+		receiver,
+		capability,
+		ExportDependencyCapability
+	)
 	var health: HealthCapability = _utility.get_capability(receiver, HealthCapability)
 
 	assert_not_null(health, "默认依赖 Hook 应读取 required_capabilities 导出属性。")
@@ -423,13 +498,29 @@ func test_capability_receiver_does_not_depend_on_super_hook_call() -> void:
 
 	assert_not_null(damage, "未调用 super 的能力也应能挂载。")
 	assert_not_null(health, "未调用 super 的能力也应先补齐依赖能力。")
-	assert_eq(damage.receiver, receiver, "框架应主动维护能力 receiver。")
-	assert_eq(damage.receiver_during_added, receiver, "added hook 内应能读取当前 receiver。")
-	assert_eq(damage.health_during_added, health, "added hook 内应能通过 get_capability() 读取依赖能力。")
+	assert_eq(
+		damage.receiver,
+		receiver,
+		"框架应主动维护能力 receiver。"
+	)
+	assert_eq(
+		damage.receiver_during_added,
+		receiver,
+		"added hook 内应能读取当前 receiver。"
+	)
+	assert_eq(
+		damage.health_during_added,
+		health,
+		"added hook 内应能通过 get_capability() 读取依赖能力。"
+	)
 
 	_utility.remove_capability(receiver, NoSuperDamageCapability)
 
-	assert_eq(damage.receiver_during_removed, receiver, "removed hook 内应仍能读取移除前 receiver。")
+	assert_eq(
+		damage.receiver_during_removed,
+		receiver,
+		"removed hook 内应仍能读取移除前 receiver。"
+	)
 	assert_null(damage.receiver, "移除后框架应清空 receiver，即使 Hook 未调用 super。")
 
 
@@ -448,8 +539,14 @@ func test_auto_dependency_cleanup_removes_unused_auto_dependency() -> void:
 	var _add_capability_result_294: Variant = _utility.add_capability(receiver, DamageCapability)
 	_utility.remove_capability(receiver, DamageCapability)
 
-	assert_false(_utility.has_capability(receiver, DamageCapability), "主能力应被移除。")
-	assert_false(_utility.has_capability(receiver, HealthCapability), "仅由主能力自动补齐的依赖应被清理。")
+	assert_false(
+		_utility.has_capability(receiver, DamageCapability),
+		"主能力应被移除。"
+	)
+	assert_false(
+		_utility.has_capability(receiver, HealthCapability),
+		"仅由主能力自动补齐的依赖应被清理。"
+	)
 
 
 func test_remove_required_dependency_is_rejected_while_owner_exists() -> void:
@@ -458,8 +555,14 @@ func test_remove_required_dependency_is_rejected_while_owner_exists() -> void:
 	var _add_capability_result: Variant = _utility.add_capability(receiver, DamageCapability)
 	_utility.remove_capability(receiver, HealthCapability)
 
-	assert_true(_utility.has_capability(receiver, DamageCapability), "依赖能力移除失败不应影响 owner 能力。")
-	assert_true(_utility.has_capability(receiver, HealthCapability), "仍被依赖的能力不能被直接移除。")
+	assert_true(
+		_utility.has_capability(receiver, DamageCapability),
+		"依赖能力移除失败不应影响 owner 能力。"
+	)
+	assert_true(
+		_utility.has_capability(receiver, HealthCapability),
+		"仍被依赖的能力不能被直接移除。"
+	)
 	assert_push_error("[GFCapabilityUtility][capability_utility.capability_still_required] remove_capability failed: capability")
 
 
@@ -470,7 +573,10 @@ func test_auto_dependency_cleanup_keeps_explicit_dependency() -> void:
 	var _add_capability_result_305: Variant = _utility.add_capability(receiver, DamageCapability)
 	_utility.remove_capability(receiver, DamageCapability)
 
-	assert_true(_utility.has_capability(receiver, HealthCapability), "用户显式添加的依赖能力不应被级联清理。")
+	assert_true(
+		_utility.has_capability(receiver, HealthCapability),
+		"用户显式添加的依赖能力不应被级联清理。"
+	)
 
 
 func test_base_type_add_promotes_registered_subclass_dependency() -> void:
@@ -481,8 +587,15 @@ func test_base_type_add_promotes_registered_subclass_dependency() -> void:
 	var promoted: Object = _utility.add_capability(receiver, BaseCapability)
 	_utility.remove_capability(receiver, RequiresConcreteCapabilityA)
 
-	assert_eq(promoted, concrete, "按基类添加时应复用唯一子类能力。")
-	assert_true(_utility.has_capability(receiver, ConcreteCapabilityA), "基类添加应把真实注册子类提升为 top-level，后续移除 owner 不应级联删除。")
+	assert_eq(
+		promoted,
+		concrete,
+		"按基类添加时应复用唯一子类能力。"
+	)
+	assert_true(
+		_utility.has_capability(receiver, ConcreteCapabilityA),
+		"基类添加应把真实注册子类提升为 top-level，后续移除 owner 不应级联删除。"
+	)
 
 
 func test_keep_dependency_policy_preserves_auto_dependency() -> void:
@@ -491,8 +604,14 @@ func test_keep_dependency_policy_preserves_auto_dependency() -> void:
 	var _add_capability_result_314: Variant = _utility.add_capability(receiver, KeepDependencyDamageCapability)
 	_utility.remove_capability(receiver, KeepDependencyDamageCapability)
 
-	assert_false(_utility.has_capability(receiver, KeepDependencyDamageCapability), "主能力应被移除。")
-	assert_true(_utility.has_capability(receiver, HealthCapability), "显式 KEEP_DEPENDENCIES 应保留自动补齐的依赖。")
+	assert_false(
+		_utility.has_capability(receiver, KeepDependencyDamageCapability),
+		"主能力应被移除。"
+	)
+	assert_true(
+		_utility.has_capability(receiver, HealthCapability),
+		"显式 KEEP_DEPENDENCIES 应保留自动补齐的依赖。"
+	)
 
 
 func test_dependency_creation_failure_rolls_back_auto_created_dependencies() -> void:
@@ -501,8 +620,14 @@ func test_dependency_creation_failure_rolls_back_auto_created_dependencies() -> 
 	var capability: Object = _utility.add_capability(receiver, RollbackRootCapability)
 
 	assert_null(capability, "依赖链创建失败时主能力不应挂载。")
-	assert_false(_utility.has_capability(receiver, HealthCapability), "失败前自动补齐的依赖应被回滚。")
-	assert_false(_utility.has_capability(receiver, RollbackCycleCapability), "失败的循环依赖能力不应残留。")
+	assert_false(
+		_utility.has_capability(receiver, HealthCapability),
+		"失败前自动补齐的依赖应被回滚。"
+	)
+	assert_false(
+		_utility.has_capability(receiver, RollbackCycleCapability),
+		"失败的循环依赖能力不应残留。"
+	)
 	assert_push_error("[GFCapabilityUtility][capability_utility.cyclic_dependency] Detected a capability dependency cycle: ")
 
 
@@ -511,7 +636,11 @@ func test_capability_receives_architecture_injection() -> void:
 
 	var capability: InjectedCapability = _utility.add_capability(receiver, InjectedCapability)
 
-	assert_eq(capability.injected_architecture, _arch, "能力应收到当前架构注入。")
+	assert_eq(
+		capability.injected_architecture,
+		_arch,
+		"能力应收到当前架构注入。"
+	)
 
 
 func test_node_capability_child_tree_receives_architecture_injection() -> void:
@@ -521,9 +650,17 @@ func test_node_capability_child_tree_receives_architecture_injection() -> void:
 	var child: InjectedChildNode = InjectedChildNode.new()
 	capability.add_child(child)
 
-	var _add_capability_instance_result_347: Variant = _utility.add_capability_instance(receiver, capability, ActiveNodeCapability)
+	var _add_capability_instance_result_347: Variant = _utility.add_capability_instance(
+		receiver,
+		capability,
+		ActiveNodeCapability
+	)
 
-	assert_eq(child.injected_architecture, _arch, "场景能力子节点也应收到当前架构注入。")
+	assert_eq(
+		child.injected_architecture,
+		_arch,
+		"场景能力子节点也应收到当前架构注入。"
+	)
 
 	receiver.queue_free()
 	await get_tree().process_frame
@@ -535,8 +672,15 @@ func test_remove_capability_calls_hook_and_clears_storage() -> void:
 
 	_utility.remove_capability(receiver, HealthCapability)
 
-	assert_eq(capability.removed_receiver, receiver, "移除前应调用 removed hook。")
-	assert_false(_utility.has_capability(receiver, HealthCapability), "移除后不应再查询到能力。")
+	assert_eq(
+		capability.removed_receiver,
+		receiver,
+		"移除前应调用 removed hook。"
+	)
+	assert_false(
+		_utility.has_capability(receiver, HealthCapability),
+		"移除后不应再查询到能力。"
+	)
 
 
 func test_get_capability_prunes_freed_meta_instance_without_cast_error() -> void:
@@ -545,17 +689,47 @@ func test_get_capability_prunes_freed_meta_instance_without_cast_error() -> void
 	var capability: CapabilityNode = CapabilityNode.new()
 	var capability_types: Array[Script] = _utility._get_capability_type_list(receiver)
 	capability_types.append(CapabilityNode)
-	receiver.set_meta(_utility._get_capability_meta_name(CapabilityNode), capability)
-	_utility._mark_capability_top_level(receiver, CapabilityNode, false)
-	_utility._mark_capability_owned(receiver, CapabilityNode, false)
-	_utility._record_dependency(receiver, DamageCapability, CapabilityNode)
+	receiver.set_meta(
+		_utility._get_capability_meta_name(CapabilityNode),
+		capability
+	)
+	_utility._mark_capability_top_level(
+		receiver,
+		CapabilityNode,
+		false
+	)
+	_utility._mark_capability_owned(
+		receiver,
+		CapabilityNode,
+		false
+	)
+	_utility._record_dependency(
+		receiver,
+		DamageCapability,
+		CapabilityNode
+	)
 	capability.free()
 
-	assert_null(_utility.get_capability(receiver, CapabilityNode), "能力元数据里的已释放实例应被清理。")
-	assert_false(receiver.has_meta(_utility._get_capability_meta_name(CapabilityNode)), "清理后 receiver 不应保留失效能力元数据。")
-	assert_false(capability_types.has(CapabilityNode), "清理后能力类型列表不应保留失效能力类型。")
-	assert_false(receiver.has_meta(&"_gf_capability_dependencies"), "清理 stale 能力时应同步清理依赖正向索引。")
-	assert_false(receiver.has_meta(&"_gf_capability_dependency_of"), "清理 stale 能力时应同步清理依赖反向索引。")
+	assert_null(
+		_utility.get_capability(receiver, CapabilityNode),
+		"能力元数据里的已释放实例应被清理。"
+	)
+	assert_false(
+		receiver.has_meta(_utility._get_capability_meta_name(CapabilityNode)),
+		"清理后 receiver 不应保留失效能力元数据。"
+	)
+	assert_false(
+		capability_types.has(CapabilityNode),
+		"清理后能力类型列表不应保留失效能力类型。"
+	)
+	assert_false(
+		receiver.has_meta(&"_gf_capability_dependencies"),
+		"清理 stale 能力时应同步清理依赖正向索引。"
+	)
+	assert_false(
+		receiver.has_meta(&"_gf_capability_dependency_of"),
+		"清理 stale 能力时应同步清理依赖反向索引。"
+	)
 
 	receiver.queue_free()
 	await get_tree().process_frame
@@ -567,8 +741,15 @@ func test_unregister_capability_keeps_instance_detached_from_lifecycle() -> void
 
 	_utility.unregister_capability(receiver, HealthCapability)
 
-	assert_false(_utility.has_capability(receiver, HealthCapability), "注销后不应再查询到能力。")
-	assert_eq(capability.removed_receiver, receiver, "注销前应调用 removed hook。")
+	assert_false(
+		_utility.has_capability(receiver, HealthCapability),
+		"注销后不应再查询到能力。"
+	)
+	assert_eq(
+		capability.removed_receiver,
+		receiver,
+		"注销前应调用 removed hook。"
+	)
 	assert_null(capability.receiver, "注销后应清空能力 receiver。")
 
 
@@ -580,9 +761,21 @@ func test_node_capability_is_attached_to_container() -> void:
 	await get_tree().process_frame
 
 	assert_not_null(capability, "Node 能力应创建成功。")
-	assert_eq(capability.get_parent().name, "GFCapabilityContainer", "Node 能力应被挂入能力容器。")
-	assert_eq(capability.get_parent().get_parent(), receiver, "能力容器应挂在 receiver 下。")
-	assert_eq(capability.added_receiver, receiver, "Node 能力也应收到 added hook。")
+	assert_eq(
+		capability.get_parent().name,
+		"GFCapabilityContainer",
+		"Node 能力应被挂入能力容器。"
+	)
+	assert_eq(
+		capability.get_parent().get_parent(),
+		receiver,
+		"能力容器应挂在 receiver 下。"
+	)
+	assert_eq(
+		capability.added_receiver,
+		receiver,
+		"Node 能力也应收到 added hook。"
+	)
 
 	receiver.queue_free()
 	await get_tree().process_frame
@@ -599,8 +792,14 @@ func test_removing_last_node_capability_cleans_generated_container() -> void:
 	_utility.remove_capability(receiver, CapabilityNode)
 	await get_tree().process_frame
 
-	assert_false(_utility.has_capability(receiver, CapabilityNode), "移除 Node 能力后 receiver 不应保留能力。")
-	assert_false(is_instance_valid(container), "自动生成的空能力容器应被释放。")
+	assert_false(
+		_utility.has_capability(receiver, CapabilityNode),
+		"移除 Node 能力后 receiver 不应保留能力。"
+	)
+	assert_false(
+		is_instance_valid(container),
+		"自动生成的空能力容器应被释放。"
+	)
 
 	receiver.queue_free()
 	await get_tree().process_frame
@@ -622,7 +821,10 @@ func test_remove_node_capability_during_enter_tree_tolerates_receiver_free() -> 
 	await get_tree().process_frame
 	await get_tree().process_frame
 
-	assert_false(is_instance_valid(receiver), "同帧移除能力并释放 receiver 后不应留下 receiver。")
+	assert_false(
+		is_instance_valid(receiver),
+		"同帧移除能力并释放 receiver 后不应留下 receiver。"
+	)
 	assert_push_error_count(0, "延迟移除能力节点时不应对已释放父节点调用 remove_child。")
 
 
@@ -634,9 +836,20 @@ func test_node2d_capability_uses_node2d_container() -> void:
 	await get_tree().process_frame
 
 	assert_not_null(capability, "Node2D 能力应创建成功。")
-	assert_true(capability.get_parent() is Node2D, "Node2D 能力应挂入 Node2D 容器以保留空间继承。")
-	assert_eq(capability.get_parent().get_parent(), receiver, "Node2D 能力容器应挂在 receiver 下。")
-	assert_eq(capability.added_receiver, receiver, "Node2D 能力应收到 added hook。")
+	assert_true(
+		capability.get_parent() is Node2D,
+		"Node2D 能力应挂入 Node2D 容器以保留空间继承。"
+	)
+	assert_eq(
+		capability.get_parent().get_parent(),
+		receiver,
+		"Node2D 能力容器应挂在 receiver 下。"
+	)
+	assert_eq(
+		capability.added_receiver,
+		receiver,
+		"Node2D 能力应收到 added hook。"
+	)
 
 	receiver.queue_free()
 	await get_tree().process_frame
@@ -650,11 +863,29 @@ func test_node2d_capability_base_uses_node2d_container_and_helpers() -> void:
 	await get_tree().process_frame
 
 	assert_not_null(capability, "GFNode2DCapability 子类应创建成功。")
-	assert_true(capability is Node2D, "GFNode2DCapability 子类应保留 Node2D 类型。")
-	assert_true(capability.get_parent() is Node2D, "GFNode2DCapability 应挂入 Node2D 容器。")
-	assert_eq(capability.receiver, receiver, "GFNode2DCapability 应记录 receiver。")
-	assert_eq(capability.added_receiver, receiver, "GFNode2DCapability 应收到 added hook。")
-	assert_eq(capability.get_utility(GFCapabilityUtility), _utility, "GFNode2DCapability 应保留架构 helper。")
+	assert_true(
+		capability is Node2D,
+		"GFNode2DCapability 子类应保留 Node2D 类型。"
+	)
+	assert_true(
+		capability.get_parent() is Node2D,
+		"GFNode2DCapability 应挂入 Node2D 容器。"
+	)
+	assert_eq(
+		capability.receiver,
+		receiver,
+		"GFNode2DCapability 应记录 receiver。"
+	)
+	assert_eq(
+		capability.added_receiver,
+		receiver,
+		"GFNode2DCapability 应收到 added hook。"
+	)
+	assert_eq(
+		capability.get_utility(GFCapabilityUtility),
+		_utility,
+		"GFNode2DCapability 应保留架构 helper。"
+	)
 
 	receiver.queue_free()
 	await get_tree().process_frame
@@ -668,10 +899,24 @@ func test_node3d_capability_base_uses_node3d_container() -> void:
 	await get_tree().process_frame
 
 	assert_not_null(capability, "GFNode3DCapability 子类应创建成功。")
-	assert_true(capability is Node3D, "GFNode3DCapability 子类应保留 Node3D 类型。")
-	assert_true(capability.get_parent() is Node3D, "GFNode3DCapability 应挂入 Node3D 容器。")
-	assert_eq(capability.receiver, receiver, "GFNode3DCapability 应记录 receiver。")
-	assert_eq(capability.added_receiver, receiver, "GFNode3DCapability 应收到 added hook。")
+	assert_true(
+		capability is Node3D,
+		"GFNode3DCapability 子类应保留 Node3D 类型。"
+	)
+	assert_true(
+		capability.get_parent() is Node3D,
+		"GFNode3DCapability 应挂入 Node3D 容器。"
+	)
+	assert_eq(
+		capability.receiver,
+		receiver,
+		"GFNode3DCapability 应记录 receiver。"
+	)
+	assert_eq(
+		capability.added_receiver,
+		receiver,
+		"GFNode3DCapability 应收到 added hook。"
+	)
 
 	receiver.queue_free()
 	await get_tree().process_frame
@@ -692,10 +937,24 @@ func test_control_capability_base_uses_control_container() -> void:
 
 	assert_not_null(control_capability, "GFControlCapability 应创建为 Control。")
 	if control_capability != null:
-		assert_true(control_capability.is_class("Control"), "GFControlCapability 应保留 Control 类型。")
-		assert_true(control_capability.get_parent().is_class("Control"), "GFControlCapability 应挂入 Control 容器。")
-		assert_eq(control_capability.get_parent().get_parent(), receiver, "GFControlCapability 容器应挂在 receiver 下。")
-		assert_eq(_object_value(control_capability.call(&"get", &"receiver")), receiver, "GFControlCapability 应记录 receiver。")
+		assert_true(
+			control_capability.is_class("Control"),
+			"GFControlCapability 应保留 Control 类型。"
+		)
+		assert_true(
+			control_capability.get_parent().is_class("Control"),
+			"GFControlCapability 应挂入 Control 容器。"
+		)
+		assert_eq(
+			control_capability.get_parent().get_parent(),
+			receiver,
+			"GFControlCapability 容器应挂在 receiver 下。"
+		)
+		assert_eq(
+			_object_value(control_capability.call(&"get", &"receiver")),
+			receiver,
+			"GFControlCapability 应记录 receiver。"
+		)
 
 	receiver.queue_free()
 	await get_tree().process_frame
@@ -712,8 +971,16 @@ func test_scene_container_registers_child_capabilities() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 
-	assert_eq(_utility.get_capability(receiver, CapabilityNode), child_capability, "场景容器应把子节点注册为父节点能力。")
-	assert_eq(child_capability.added_receiver, receiver, "容器注册也应触发 added hook。")
+	assert_eq(
+		_utility.get_capability(receiver, CapabilityNode),
+		child_capability,
+		"场景容器应把子节点注册为父节点能力。"
+	)
+	assert_eq(
+		child_capability.added_receiver,
+		receiver,
+		"容器注册也应触发 added hook。"
+	)
 
 	receiver.queue_free()
 	await get_tree().process_frame
@@ -729,8 +996,16 @@ func test_scene_container_registers_child_capabilities_before_ready_frame() -> v
 
 	add_child(receiver)
 
-	assert_eq(_utility.get_capability(receiver, CapabilityNode), child_capability, "场景容器进树时应立即注册子节点能力。")
-	assert_eq(child_capability.added_receiver, receiver, "立即注册也应触发 added hook。")
+	assert_eq(
+		_utility.get_capability(receiver, CapabilityNode),
+		child_capability,
+		"场景容器进树时应立即注册子节点能力。"
+	)
+	assert_eq(
+		child_capability.added_receiver,
+		receiver,
+		"立即注册也应触发 added hook。"
+	)
 
 	receiver.queue_free()
 	await get_tree().process_frame
@@ -748,8 +1023,16 @@ func test_scene_spatial_container_keeps_existing_plain_node_capability() -> void
 
 	add_child(receiver)
 
-	assert_eq(_utility.get_capability(receiver, CapabilityNode), child_capability, "空间容器中已有的普通 Node 能力也应注册。")
-	assert_eq(child_capability.get_parent(), container, "场景中已摆放的能力不应在进树注册时被重挂到新容器。")
+	assert_eq(
+		_utility.get_capability(receiver, CapabilityNode),
+		child_capability,
+		"空间容器中已有的普通 Node 能力也应注册。"
+	)
+	assert_eq(
+		child_capability.get_parent(),
+		container,
+		"场景中已摆放的能力不应在进树注册时被重挂到新容器。"
+	)
 
 	await get_tree().process_frame
 
@@ -767,8 +1050,16 @@ func test_meta_only_spatial_container_lazily_registers_child_capability_on_query
 	receiver.add_child(container)
 	add_child(receiver)
 
-	assert_eq(_utility.get_capability(receiver, Node2DCapability), child_capability, "只有元数据标记的 2D 容器也应在查询时同步注册子能力。")
-	assert_eq(child_capability.added_receiver, receiver, "懒同步注册也应触发 added hook。")
+	assert_eq(
+		_utility.get_capability(receiver, Node2DCapability),
+		child_capability,
+		"只有元数据标记的 2D 容器也应在查询时同步注册子能力。"
+	)
+	assert_eq(
+		child_capability.added_receiver,
+		receiver,
+		"懒同步注册也应触发 added hook。"
+	)
 
 	receiver.queue_free()
 	await get_tree().process_frame
@@ -801,8 +1092,16 @@ func test_named_spatial_container_lazily_registers_plain_node_child_capability_o
 	receiver.add_child(container)
 	add_child(receiver)
 
-	assert_eq(_utility.get_capability(receiver, CapabilityNode), child_capability, "旧场景中仅保留容器命名的 2D 容器也应能同步注册普通 Node 能力。")
-	assert_eq(child_capability.get_parent(), container, "查询同步不应把已摆放能力重挂到其他容器。")
+	assert_eq(
+		_utility.get_capability(receiver, CapabilityNode),
+		child_capability,
+		"旧场景中仅保留容器命名的 2D 容器也应能同步注册普通 Node 能力。"
+	)
+	assert_eq(
+		child_capability.get_parent(),
+		container,
+		"查询同步不应把已摆放能力重挂到其他容器。"
+	)
 
 	receiver.queue_free()
 	await get_tree().process_frame
@@ -816,13 +1115,24 @@ func test_add_capability_during_receiver_enter_tree_defers_container_attachment(
 	add_child(receiver)
 
 	assert_not_null(receiver.added_capability, "receiver _enter_tree 中添加能力应立即返回实例。")
-	assert_eq(_utility.get_capability(receiver, CapabilityNode), receiver.added_capability, "即使容器延迟挂树，能力也应立即可查询。")
+	assert_eq(
+		_utility.get_capability(receiver, CapabilityNode),
+		receiver.added_capability,
+		"即使容器延迟挂树，能力也应立即可查询。"
+	)
 
 	await get_tree().process_frame
 
 	var capability: CapabilityNode = receiver.added_capability
-	assert_not_null(capability.get_parent(), "延迟后能力应挂入容器。")
-	assert_eq(capability.get_parent().get_parent(), receiver, "延迟创建的容器应挂在 receiver 下。")
+	assert_not_null(
+		capability.get_parent(),
+		"延迟后能力应挂入容器。"
+	)
+	assert_eq(
+		capability.get_parent().get_parent(),
+		receiver,
+		"延迟创建的容器应挂在 receiver 下。"
+	)
 
 	receiver.queue_free()
 	await get_tree().process_frame
@@ -842,10 +1152,23 @@ func test_scene_container_unregisters_children_when_removed() -> void:
 	receiver.remove_child(container)
 	await get_tree().process_frame
 
-	assert_false(_utility.has_capability(receiver, CapabilityNode), "场景容器离树时应注销已注册子能力。")
-	assert_true(is_instance_valid(child_capability), "容器离树只注销登记，不应释放原场景子能力。")
-	assert_false(child_capability.is_queued_for_deletion(), "容器离树不应把原场景子能力标记为释放。")
-	assert_eq(child_capability.get_parent(), container, "容器离树后子能力仍应留在原容器场景结构中。")
+	assert_false(
+		_utility.has_capability(receiver, CapabilityNode),
+		"场景容器离树时应注销已注册子能力。"
+	)
+	assert_true(
+		is_instance_valid(child_capability),
+		"容器离树只注销登记，不应释放原场景子能力。"
+	)
+	assert_false(
+		child_capability.is_queued_for_deletion(),
+		"容器离树不应把原场景子能力标记为释放。"
+	)
+	assert_eq(
+		child_capability.get_parent(),
+		container,
+		"容器离树后子能力仍应留在原容器场景结构中。"
+	)
 
 	container.queue_free()
 	receiver.queue_free()
@@ -863,15 +1186,32 @@ func test_remove_existing_scene_capability_does_not_free_non_owned_node() -> voi
 	await get_tree().process_frame
 	await get_tree().process_frame
 
-	assert_eq(_utility.get_capability(receiver, CapabilityNode), child_capability, "场景中已有能力应先被注册。")
+	assert_eq(
+		_utility.get_capability(receiver, CapabilityNode),
+		child_capability,
+		"场景中已有能力应先被注册。"
+	)
 
 	_utility.remove_capability(receiver, CapabilityNode)
 	await get_tree().process_frame
 
-	assert_false(_utility.has_capability(receiver, CapabilityNode), "移除后 Utility 不应继续登记外部能力。")
-	assert_true(is_instance_valid(child_capability), "非 Utility 拥有的能力节点不应被 remove_capability 释放。")
-	assert_false(child_capability.is_queued_for_deletion(), "非拥有能力节点不应进入释放队列。")
-	assert_eq(child_capability.get_parent(), container, "非拥有能力节点应留在原场景结构中。")
+	assert_false(
+		_utility.has_capability(receiver, CapabilityNode),
+		"移除后 Utility 不应继续登记外部能力。"
+	)
+	assert_true(
+		is_instance_valid(child_capability),
+		"非 Utility 拥有的能力节点不应被 remove_capability 释放。"
+	)
+	assert_false(
+		child_capability.is_queued_for_deletion(),
+		"非拥有能力节点不应进入释放队列。"
+	)
+	assert_eq(
+		child_capability.get_parent(),
+		container,
+		"非拥有能力节点应留在原场景结构中。"
+	)
 
 	receiver.queue_free()
 	await get_tree().process_frame
@@ -882,15 +1222,30 @@ func test_add_scene_capability_frees_ignored_duplicate_instance() -> void:
 	add_child(receiver)
 	var existing: CountingCapabilityNode = CountingCapabilityNode.new()
 	CountingCapabilityNode.created_nodes.clear()
-	var _add_capability_instance_result_660: Variant = _utility.add_capability_instance(receiver, existing, CountingCapabilityNode)
+	var _add_capability_instance_result_660: Variant = _utility.add_capability_instance(
+		receiver,
+		existing,
+		CountingCapabilityNode
+	)
 	var scene: PackedScene = _make_counting_capability_scene()
 
-	var result: Object = _utility.add_scene_capability(receiver, scene, CountingCapabilityNode)
+	var result: Object = _utility.add_scene_capability(
+		receiver,
+		scene,
+		CountingCapabilityNode
+	)
 	assert_push_warning("[GFCapabilityUtility][capability_utility.duplicate_capability] add_scene_capability: the target already has this capability; the new instance was ignored.")
 	var duplicate_node: CountingCapabilityNode = CountingCapabilityNode.created_nodes.back()
 
-	assert_eq(result, existing, "重复挂载场景能力时应返回已有实例。")
-	assert_true(duplicate_node.is_queued_for_deletion(), "被忽略的新场景能力实例应被释放。")
+	assert_eq(
+		result,
+		existing,
+		"重复挂载场景能力时应返回已有实例。"
+	)
+	assert_true(
+		duplicate_node.is_queued_for_deletion(),
+		"被忽略的新场景能力实例应被释放。"
+	)
 
 	receiver.queue_free()
 	await get_tree().process_frame
@@ -901,12 +1256,22 @@ func test_add_scene_capability_rejects_mismatched_declared_type_and_frees_instan
 	add_child(receiver)
 	var scene: PackedScene = _make_counting_capability_scene()
 
-	var result: Object = _utility.add_scene_capability(receiver, scene, HealthCapability)
+	var result: Object = _utility.add_scene_capability(
+		receiver,
+		scene,
+		HealthCapability
+	)
 	var created_node: CountingCapabilityNode = CountingCapabilityNode.created_nodes.back()
 
 	assert_null(result, "场景根节点脚本不继承声明类型时应拒绝注册。")
-	assert_false(_utility.has_capability(receiver, HealthCapability), "错误场景能力不应污染 receiver。")
-	assert_true(created_node.is_queued_for_deletion(), "被拒绝的场景能力实例应被释放。")
+	assert_false(
+		_utility.has_capability(receiver, HealthCapability),
+		"错误场景能力不应污染 receiver。"
+	)
+	assert_true(
+		created_node.is_queued_for_deletion(),
+		"被拒绝的场景能力实例应被释放。"
+	)
 	assert_push_error("[GFCapabilityUtility][capability_utility.incompatible_registration_script] add_scene_capability failed: capability instance script")
 
 	receiver.queue_free()
@@ -928,7 +1293,10 @@ func test_adopt_capability_instance_transfers_node_lifecycle_ownership() -> void
 	_utility.remove_capability(receiver, CapabilityNode)
 	await get_tree().process_frame
 
-	assert_false(is_instance_valid(capability), "adopt 成功后 Utility 应负责释放能力节点。")
+	assert_false(
+		is_instance_valid(capability),
+		"adopt 成功后 Utility 应负责释放能力节点。"
+	)
 	receiver.queue_free()
 	await get_tree().process_frame
 
@@ -939,9 +1307,16 @@ func test_dispose_clears_ref_counted_capability_state() -> void:
 
 	_utility.dispose()
 
-	assert_eq(capability.removed_receiver, receiver, "dispose 应触发 removed hook。")
+	assert_eq(
+		capability.removed_receiver,
+		receiver,
+		"dispose 应触发 removed hook。"
+	)
 	assert_null(capability.receiver, "dispose 后能力不应继续指向 receiver。")
-	assert_false(receiver.has_meta(_utility._get_capability_meta_name(HealthCapability)), "dispose 应清理 receiver 上的能力实例元数据。")
+	assert_false(
+		receiver.has_meta(_utility._get_capability_meta_name(HealthCapability)),
+		"dispose 应清理 receiver 上的能力实例元数据。"
+	)
 
 
 func test_dispose_releases_owned_runtime_node_capability() -> void:
@@ -953,13 +1328,29 @@ func test_dispose_releases_owned_runtime_node_capability() -> void:
 
 	_utility.dispose()
 
-	assert_eq(capability.removed_receiver, receiver, "dispose 应触发 Node 能力 removed hook。")
-	assert_true(capability.is_queued_for_deletion(), "Utility 创建的 Node 能力应在 dispose 中进入释放队列。")
+	assert_eq(
+		capability.removed_receiver,
+		receiver,
+		"dispose 应触发 Node 能力 removed hook。"
+	)
+	assert_true(
+		capability.is_queued_for_deletion(),
+		"Utility 创建的 Node 能力应在 dispose 中进入释放队列。"
+	)
 	await get_tree().process_frame
 
-	assert_false(is_instance_valid(capability), "Utility 创建的 Node 能力应随 dispose 释放。")
-	assert_false(is_instance_valid(container), "Utility 创建的空能力容器应随 dispose 释放。")
-	assert_false(receiver.has_meta(_utility._get_capability_meta_name(CapabilityNode)), "dispose 应清理 receiver 上的 Node 能力元数据。")
+	assert_false(
+		is_instance_valid(capability),
+		"Utility 创建的 Node 能力应随 dispose 释放。"
+	)
+	assert_false(
+		is_instance_valid(container),
+		"Utility 创建的空能力容器应随 dispose 释放。"
+	)
+	assert_false(
+		receiver.has_meta(_utility._get_capability_meta_name(CapabilityNode)),
+		"dispose 应清理 receiver 上的 Node 能力元数据。"
+	)
 
 	receiver.queue_free()
 	await get_tree().process_frame
@@ -977,16 +1368,39 @@ func test_real_autoload_tree_exit_defers_owned_capability_detach() -> void:
 
 	receiver.remove_child(autoload_node)
 
-	assert_false(GFAutoload.is_tree_exit_in_progress(), "真实 _exit_tree 返回后应结束退出作用域。")
-	assert_eq(capability.get_parent(), container, "AutoLoad 退出期间不应同步拆除能力节点。")
-	assert_eq(container.get_parent(), receiver, "AutoLoad 退出期间不应同步拆除能力容器。")
-	assert_true(capability.is_queued_for_deletion(), "AutoLoad 退出期间能力节点应登记延迟释放。")
-	assert_true(container.is_queued_for_deletion(), "仅包含待释放节点的自动容器应一并登记延迟释放。")
+	assert_false(
+		GFAutoload.is_tree_exit_in_progress(),
+		"真实 _exit_tree 返回后应结束退出作用域。"
+	)
+	assert_eq(
+		capability.get_parent(),
+		container,
+		"AutoLoad 退出期间不应同步拆除能力节点。"
+	)
+	assert_eq(
+		container.get_parent(),
+		receiver,
+		"AutoLoad 退出期间不应同步拆除能力容器。"
+	)
+	assert_true(
+		capability.is_queued_for_deletion(),
+		"AutoLoad 退出期间能力节点应登记延迟释放。"
+	)
+	assert_true(
+		container.is_queued_for_deletion(),
+		"仅包含待释放节点的自动容器应一并登记延迟释放。"
+	)
 	autoload_node.free()
 
 	await get_tree().process_frame
-	assert_false(is_instance_valid(capability), "AutoLoad 退出后能力节点应完成释放。")
-	assert_false(is_instance_valid(container), "AutoLoad 退出后空能力容器应完成释放。")
+	assert_false(
+		is_instance_valid(capability),
+		"AutoLoad 退出后能力节点应完成释放。"
+	)
+	assert_false(
+		is_instance_valid(container),
+		"AutoLoad 退出后空能力容器应完成释放。"
+	)
 
 
 func test_dispose_unregisters_external_scene_capability_without_freeing_node() -> void:
@@ -1000,15 +1414,33 @@ func test_dispose_unregisters_external_scene_capability_without_freeing_node() -
 	await get_tree().process_frame
 	await get_tree().process_frame
 
-	assert_eq(_utility.get_capability(receiver, CapabilityNode), child_capability, "场景中已有的能力应先注册成功。")
+	assert_eq(
+		_utility.get_capability(receiver, CapabilityNode),
+		child_capability,
+		"场景中已有的能力应先注册成功。"
+	)
 
 	_utility.dispose()
 	await get_tree().process_frame
 
-	assert_eq(child_capability.removed_receiver, receiver, "dispose 应注销外部场景能力。")
-	assert_true(is_instance_valid(child_capability), "外部场景能力不应被 Utility dispose 释放。")
-	assert_eq(child_capability.get_parent(), container, "外部场景能力应留在原容器中。")
-	assert_false(receiver.has_meta(_utility._get_capability_meta_name(CapabilityNode)), "dispose 应清理 receiver 上的外部能力元数据。")
+	assert_eq(
+		child_capability.removed_receiver,
+		receiver,
+		"dispose 应注销外部场景能力。"
+	)
+	assert_true(
+		is_instance_valid(child_capability),
+		"外部场景能力不应被 Utility dispose 释放。"
+	)
+	assert_eq(
+		child_capability.get_parent(),
+		container,
+		"外部场景能力应留在原容器中。"
+	)
+	assert_false(
+		receiver.has_meta(_utility._get_capability_meta_name(CapabilityNode)),
+		"dispose 应清理 receiver 上的外部能力元数据。"
+	)
 
 	receiver.queue_free()
 	await get_tree().process_frame
@@ -1018,13 +1450,20 @@ func test_base_type_lookup_requires_unique_match() -> void:
 	var receiver: RefCounted = RefCounted.new()
 	var capability_a: ConcreteCapabilityA = _utility.add_capability(receiver, ConcreteCapabilityA)
 
-	assert_eq(_utility.get_capability(receiver, BaseCapability), capability_a, "单个子类能力可通过基类查询。")
+	assert_eq(
+		_utility.get_capability(receiver, BaseCapability),
+		capability_a,
+		"单个子类能力可通过基类查询。"
+	)
 
 	var _add_capability_result_736: Variant = _utility.add_capability(receiver, ConcreteCapabilityB)
 	var ambiguous: Variant = _utility.get_capability(receiver, BaseCapability)
 
 	assert_push_warning("[GFCapabilityUtility][capability_utility.ambiguous_capability] get_capability(")
-	assert_true(ambiguous == null, "多个子类能力匹配同一基类时应返回 null。")
+	assert_true(
+		ambiguous == null,
+		"多个子类能力匹配同一基类时应返回 null。"
+	)
 
 
 func test_required_base_capability_rejects_ambiguous_existing_subclasses() -> void:
@@ -1035,7 +1474,10 @@ func test_required_base_capability_rejects_ambiguous_existing_subclasses() -> vo
 	var capability: Object = _utility.add_capability(receiver, RequiresBaseCapability)
 
 	assert_null(capability, "基类依赖匹配到多个已存在实现时应拒绝挂载。")
-	assert_false(_utility.has_capability(receiver, RequiresBaseCapability), "依赖歧义失败后主能力不应残留。")
+	assert_false(
+		_utility.has_capability(receiver, RequiresBaseCapability),
+		"依赖歧义失败后主能力不应残留。"
+	)
 	assert_push_error("[GFCapabilityUtility][capability_utility.ambiguous_dependency] Multiple implementations match capability dependency")
 
 
@@ -1043,16 +1485,35 @@ func test_capability_active_state_updates_property_and_hook() -> void:
 	var receiver: RefCounted = RefCounted.new()
 	var capability: ActiveCapability = _utility.add_capability(receiver, ActiveCapability)
 
-	_utility.set_capability_active(receiver, ActiveCapability, false)
+	_utility.set_capability_active(
+		receiver,
+		ActiveCapability,
+		false
+	)
 
 	assert_false(capability.active, "停用能力后 active 属性应同步。")
-	assert_false(_utility.is_capability_active(receiver, ActiveCapability), "Utility 应能查询到停用状态。")
-	assert_eq(capability.active_events, [false], "停用能力时应触发 active hook。")
+	assert_false(
+		_utility.is_capability_active(receiver, ActiveCapability),
+		"Utility 应能查询到停用状态。"
+	)
+	assert_eq(
+		capability.active_events,
+		[false],
+		"停用能力时应触发 active hook。"
+	)
 
-	_utility.set_capability_active(receiver, ActiveCapability, true)
+	_utility.set_capability_active(
+		receiver,
+		ActiveCapability,
+		true
+	)
 
 	assert_true(capability.active, "重新启用后 active 属性应恢复。")
-	assert_eq(capability.active_events, [false, true], "重新启用时应再次触发 active hook。")
+	assert_eq(
+		capability.active_events,
+		[false, true],
+		"重新启用时应再次触发 active hook。"
+	)
 
 
 func test_node_capability_active_state_disables_processing() -> void:
@@ -1063,16 +1524,36 @@ func test_node_capability_active_state_disables_processing() -> void:
 	await get_tree().process_frame
 
 	var original_process_mode: int = capability.process_mode
-	_utility.set_capability_active(receiver, ActiveNodeCapability, false)
+	_utility.set_capability_active(
+		receiver,
+		ActiveNodeCapability,
+		false
+	)
 
 	assert_false(capability.active, "Node 能力停用后 active 属性应同步。")
-	assert_eq(capability.process_mode, Node.PROCESS_MODE_DISABLED, "Node 能力停用后应停止处理。")
-	assert_eq(capability.active_events, [false], "Node 能力停用时应触发 active hook。")
+	assert_eq(
+		capability.process_mode,
+		Node.PROCESS_MODE_DISABLED,
+		"Node 能力停用后应停止处理。"
+	)
+	assert_eq(
+		capability.active_events,
+		[false],
+		"Node 能力停用时应触发 active hook。"
+	)
 
-	_utility.set_capability_active(receiver, ActiveNodeCapability, true)
+	_utility.set_capability_active(
+		receiver,
+		ActiveNodeCapability,
+		true
+	)
 
 	assert_true(capability.active, "Node 能力重新启用后 active 属性应恢复。")
-	assert_eq(capability.process_mode, original_process_mode, "Node 能力重新启用后应恢复原 process_mode。")
+	assert_eq(
+		capability.process_mode,
+		original_process_mode,
+		"Node 能力重新启用后应恢复原 process_mode。"
+	)
 
 	receiver.queue_free()
 	await get_tree().process_frame
@@ -1085,11 +1566,23 @@ func test_node_capability_active_restore_preserves_runtime_process_mode_change()
 	var capability: ActiveNodeCapability = _utility.add_capability(receiver, ActiveNodeCapability)
 	await get_tree().process_frame
 
-	_utility.set_capability_active(receiver, ActiveNodeCapability, false)
+	_utility.set_capability_active(
+		receiver,
+		ActiveNodeCapability,
+		false
+	)
 	capability.process_mode = Node.PROCESS_MODE_ALWAYS as Node.ProcessMode
-	_utility.set_capability_active(receiver, ActiveNodeCapability, true)
+	_utility.set_capability_active(
+		receiver,
+		ActiveNodeCapability,
+		true
+	)
 
-	assert_eq(capability.process_mode, Node.PROCESS_MODE_ALWAYS, "停用期间项目层修改 process_mode 时，重新启用不应覆盖该修改。")
+	assert_eq(
+		capability.process_mode,
+		Node.PROCESS_MODE_ALWAYS,
+		"停用期间项目层修改 process_mode 时，重新启用不应覆盖该修改。"
+	)
 
 	receiver.queue_free()
 	await get_tree().process_frame
@@ -1106,26 +1599,53 @@ func test_capability_active_tree_budget_failure_is_atomic_and_silent() -> void:
 	capability.add_child(second_child)
 	_utility.max_capability_tree_nodes = 2
 	var emitted_states: Array[bool] = []
-	var connect_error: Error = _utility.capability_active_changed.connect(
-		func(
-			_receiver: Object,
-			_capability_type: Script,
-			_capability: Object,
-			active: bool
-		) -> void:
-			emitted_states.append(active)
-	) as Error
+	var connect_error: Error = (
+		_utility.capability_active_changed.connect(
+			func(
+				_receiver: Object,
+				_capability_type: Script,
+				_capability: Object,
+				active: bool
+			) -> void:
+				emitted_states.append(active),
+		) as Error
+	)
 	assert_eq(connect_error, OK)
 
-	_utility.set_capability_active(receiver, ActiveNodeCapability, false)
+	_utility.set_capability_active(
+		receiver,
+		ActiveNodeCapability,
+		false
+	)
 
 	assert_true(capability.active, "超预算时 active 属性必须保持原值。")
-	assert_true(_utility.is_capability_active(receiver, ActiveNodeCapability), "超预算时状态元数据不得先行提交。")
-	assert_ne(capability.process_mode, Node.PROCESS_MODE_DISABLED, "超预算时根节点处理模式不得改变。")
-	assert_ne(first_child.process_mode, Node.PROCESS_MODE_DISABLED, "超预算时子节点处理模式不得部分改变。")
-	assert_ne(second_child.process_mode, Node.PROCESS_MODE_DISABLED, "超预算时子节点处理模式不得部分改变。")
-	assert_true(capability.active_events.is_empty(), "失败的状态事务不得调用 active hook。")
-	assert_true(emitted_states.is_empty(), "失败的状态事务不得发出成功信号。")
+	assert_true(
+		_utility.is_capability_active(receiver, ActiveNodeCapability),
+		"超预算时状态元数据不得先行提交。"
+	)
+	assert_ne(
+		capability.process_mode,
+		Node.PROCESS_MODE_DISABLED,
+		"超预算时根节点处理模式不得改变。"
+	)
+	assert_ne(
+		first_child.process_mode,
+		Node.PROCESS_MODE_DISABLED,
+		"超预算时子节点处理模式不得部分改变。"
+	)
+	assert_ne(
+		second_child.process_mode,
+		Node.PROCESS_MODE_DISABLED,
+		"超预算时子节点处理模式不得部分改变。"
+	)
+	assert_true(
+		capability.active_events.is_empty(),
+		"失败的状态事务不得调用 active hook。"
+	)
+	assert_true(
+		emitted_states.is_empty(),
+		"失败的状态事务不得发出成功信号。"
+	)
 	assert_push_error("[GFCapabilityUtility][capability_utility.capability_tree_limit_exceeded] set active state failed: the capability node tree exceeds")
 
 	receiver.queue_free()
@@ -1147,7 +1667,10 @@ func test_capability_node_tree_budget_rejects_registration_without_partial_recor
 	)
 
 	assert_null(registered)
-	assert_false(_utility.has_capability(receiver, CapabilityNode), "超预算节点树不得留下部分注册记录。")
+	assert_false(
+		_utility.has_capability(receiver, CapabilityNode),
+		"超预算节点树不得留下部分注册记录。"
+	)
 	assert_push_error("[GFCapabilityUtility][capability_utility.capability_tree_limit_exceeded] register capability failed: the capability node tree exceeds")
 
 	capability.free()
@@ -1170,13 +1693,35 @@ func test_capability_reverse_index_and_groups() -> void:
 	var target_receivers: Array[Object] = _utility.get_receivers_in_group(&"targets")
 	var boss_base_receivers: Array[Object] = _utility.get_receivers_in_group_with(&"bosses", BaseCapability)
 
-	assert_true(receivers.has(receiver_a), "基类反向查询应包含第一个 receiver。")
-	assert_true(receivers.has(receiver_b), "基类反向查询应包含第二个 receiver。")
-	assert_true(capabilities.has(capability_a), "能力实例查询应包含第一个能力。")
-	assert_true(capabilities.has(capability_b), "能力实例查询应包含第二个能力。")
-	assert_true(target_receivers.has(receiver_a), "分组查询应包含第一个 receiver。")
-	assert_true(target_receivers.has(receiver_b), "分组查询应包含第二个 receiver。")
-	assert_eq(boss_base_receivers, [receiver_b], "分组能力交集查询应只返回匹配 receiver。")
+	assert_true(
+		receivers.has(receiver_a),
+		"基类反向查询应包含第一个 receiver。"
+	)
+	assert_true(
+		receivers.has(receiver_b),
+		"基类反向查询应包含第二个 receiver。"
+	)
+	assert_true(
+		capabilities.has(capability_a),
+		"能力实例查询应包含第一个能力。"
+	)
+	assert_true(
+		capabilities.has(capability_b),
+		"能力实例查询应包含第二个能力。"
+	)
+	assert_true(
+		target_receivers.has(receiver_a),
+		"分组查询应包含第一个 receiver。"
+	)
+	assert_true(
+		target_receivers.has(receiver_b),
+		"分组查询应包含第二个 receiver。"
+	)
+	assert_eq(
+		boss_base_receivers,
+		[receiver_b],
+		"分组能力交集查询应只返回匹配 receiver。"
+	)
 
 
 func test_group_capability_query_prunes_invalid_receivers_once() -> void:
@@ -1188,8 +1733,15 @@ func test_group_capability_query_prunes_invalid_receivers_once() -> void:
 
 	var receivers: Array[Object] = utility.get_receivers_in_group_with(&"targets", HealthCapability)
 
-	assert_eq(receivers, [receiver])
-	assert_eq(utility.full_prune_calls, 1, "一次分组能力查询只应执行一次全量失效 receiver 清理。")
+	assert_eq(
+		receivers,
+		[receiver]
+	)
+	assert_eq(
+		utility.full_prune_calls,
+		1,
+		"一次分组能力查询只应执行一次全量失效 receiver 清理。"
+	)
 	utility.dispose()
 
 
@@ -1223,9 +1775,20 @@ func test_capability_multi_condition_query_filters_required_rejected_and_group()
 		false
 	)
 
-	assert_eq(base_with_health_without_damage, [receiver_a], "多条件查询应要求全部 required，并排除任一 rejected。")
-	assert_eq(target_without_base, [receiver_c], "空 required 时应能在分组内按 rejected 能力筛选。")
-	assert_true(exact_base_only.is_empty(), "关闭子类匹配时，基类条件不应匹配已注册子类能力。")
+	assert_eq(
+		base_with_health_without_damage,
+		[receiver_a],
+		"多条件查询应要求全部 required，并排除任一 rejected。"
+	)
+	assert_eq(
+		target_without_base,
+		[receiver_c],
+		"空 required 时应能在分组内按 rejected 能力筛选。"
+	)
+	assert_true(
+		exact_base_only.is_empty(),
+		"关闭子类匹配时，基类条件不应匹配已注册子类能力。"
+	)
 
 
 func test_capability_query_candidate_planner_intersects_group_and_required_index() -> void:
@@ -1252,10 +1815,22 @@ func test_capability_query_candidate_planner_intersects_group_and_required_index
 		&"targets"
 	)
 
-	assert_eq(candidate_ids.size(), 1, "同时指定分组和 required 能力时，应取索引交集作为候选。")
+	assert_eq(
+		candidate_ids.size(),
+		1,
+		"同时指定分组和 required 能力时，应取索引交集作为候选。"
+	)
 	if not candidate_ids.is_empty():
-		assert_eq(GFVariantData.to_int(candidate_ids[0]), health_inside_group.get_instance_id(), "候选集不应包含分组外 receiver。")
-	assert_eq(receivers, [health_inside_group], "优化后的候选集仍应返回同一查询结果。")
+		assert_eq(
+			GFVariantData.to_int(candidate_ids[0]),
+			health_inside_group.get_instance_id(),
+			"候选集不应包含分组外 receiver。"
+		)
+	assert_eq(
+		receivers,
+		[health_inside_group],
+		"优化后的候选集仍应返回同一查询结果。"
+	)
 
 
 func test_capability_query_resource_filters_receivers_and_matches_single_receiver() -> void:
@@ -1278,11 +1853,29 @@ func test_capability_query_resource_filters_receivers_and_matches_single_receive
 	var receivers: Array[Object] = _utility.get_receivers_matching_query(query)
 	var duplicated_query: GFCapabilityQuery = query.duplicate_query()
 
-	assert_eq(receivers, [receiver_a], "资源化查询应复用 required/rejected/group 条件。")
-	assert_true(query.matches_receiver(_utility, receiver_a), "匹配 receiver 应返回 true。")
-	assert_false(query.matches_receiver(_utility, receiver_b), "包含 rejected 能力的 receiver 应返回 false。")
-	assert_eq(duplicated_query.group_name, &"targets", "查询拷贝应保留分组。")
-	assert_eq(GFVariantData.get_option_string(duplicated_query.metadata, "owner"), "test", "查询拷贝应保留 metadata。")
+	assert_eq(
+		receivers,
+		[receiver_a],
+		"资源化查询应复用 required/rejected/group 条件。"
+	)
+	assert_true(
+		query.matches_receiver(_utility, receiver_a),
+		"匹配 receiver 应返回 true。"
+	)
+	assert_false(
+		query.matches_receiver(_utility, receiver_b),
+		"包含 rejected 能力的 receiver 应返回 false。"
+	)
+	assert_eq(
+		duplicated_query.group_name,
+		&"targets",
+		"查询拷贝应保留分组。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(duplicated_query.metadata, "owner"),
+		"test",
+		"查询拷贝应保留 metadata。"
+	)
 
 
 func test_capability_query_rejects_null_required_types_without_broadening_results() -> void:
@@ -1304,17 +1897,37 @@ func test_capability_query_rejects_null_required_types_without_broadening_result
 	assert_push_error("[GFCapabilityUtility][capability_utility.null_rejected_capability_type] get_receivers_matching_capabilities failed: rejected_capability_types contains null.")
 	var empty_result: Array[Object] = _utility.get_receivers_matching_capabilities()
 
-	assert_true(null_only_result.is_empty(), "[null] 不得退化为空条件并匹配所有 receiver。")
-	assert_true(mixed_result.is_empty(), "[valid, null] 必须整体失败关闭，不得忽略非法项。")
-	assert_eq(duplicate_result, [receiver_a], "重复的有效类型仍应稳定去重。")
-	assert_true(rejected_result.is_empty(), "非法 rejected 列表同样必须失败关闭。")
-	assert_eq(empty_result.size(), 2, "真正的空 required 列表仍表示无必需条件。")
+	assert_true(
+		null_only_result.is_empty(),
+		"[null] 不得退化为空条件并匹配所有 receiver。"
+	)
+	assert_true(
+		mixed_result.is_empty(),
+		"[valid, null] 必须整体失败关闭，不得忽略非法项。"
+	)
+	assert_eq(
+		duplicate_result,
+		[receiver_a],
+		"重复的有效类型仍应稳定去重。"
+	)
+	assert_true(
+		rejected_result.is_empty(),
+		"非法 rejected 列表同样必须失败关闭。"
+	)
+	assert_eq(
+		empty_result.size(),
+		2,
+		"真正的空 required 列表仍表示无必需条件。"
+	)
 	assert_true(empty_result.has(receiver_a))
 	assert_true(empty_result.has(receiver_b))
 
 	var query: GFCapabilityQuery = GFCapabilityQuery.new()
 	query.required_capability_types = null_only
-	assert_false(_utility.receiver_matches_query(receiver_a, query), "资源化查询也必须对 null required 失败关闭。")
+	assert_false(
+		_utility.receiver_matches_query(receiver_a, query),
+		"资源化查询也必须对 null required 失败关闭。"
+	)
 	assert_push_error("[GFCapabilityUtility][capability_utility.null_required_capability_type] receiver_matches_query failed: required_capability_types contains null.")
 
 
@@ -1328,8 +1941,14 @@ func test_read_only_capability_queries_do_not_write_receiver_metadata() -> void:
 
 	assert_true(types.is_empty())
 	assert_null(capability)
-	assert_eq(GFVariantData.get_option_int(inspection, "capability_count"), 0)
-	assert_false(receiver.has_meta(&"_gf_capability_types"), "只读查询不得给未注册 receiver 写入空能力元数据。")
+	assert_eq(
+		GFVariantData.get_option_int(inspection, "capability_count"),
+		0
+	)
+	assert_false(
+		receiver.has_meta(&"_gf_capability_types"),
+		"只读查询不得给未注册 receiver 写入空能力元数据。"
+	)
 
 	var packed_scene: PackedScene = PackedScene.new()
 	var pack_error: Error = packed_scene.pack(receiver)
@@ -1337,7 +1956,10 @@ func test_read_only_capability_queries_do_not_write_receiver_metadata() -> void:
 	var restored: Node = _get_node_value(packed_scene.instantiate())
 	assert_not_null(restored)
 	if restored != null:
-		assert_false(restored.has_meta(&"_gf_capability_types"), "只读查询不得通过场景序列化留下隐式状态。")
+		assert_false(
+			restored.has_meta(&"_gf_capability_types"),
+			"只读查询不得通过场景序列化留下隐式状态。"
+		)
 		restored.free()
 	receiver.free()
 
@@ -1350,7 +1972,10 @@ func test_prune_invalid_receivers_removes_stale_indices() -> void:
 	receiver.free()
 	_utility.prune_invalid_receivers()
 
-	assert_false(_utility._receiver_refs.has(receiver_id), "主动清理应移除已释放 receiver 的弱引用。")
+	assert_false(
+		_utility._receiver_refs.has(receiver_id),
+		"主动清理应移除已释放 receiver 的弱引用。"
+	)
 
 
 func test_tick_prune_invalid_receivers_uses_budget() -> void:
@@ -1364,11 +1989,19 @@ func test_tick_prune_invalid_receivers_uses_budget() -> void:
 	receiver_b.free()
 	_utility.tick(1.0)
 
-	assert_eq(_utility._receiver_refs.size(), 1, "tick 自动清理应遵守单次预算。")
+	assert_eq(
+		_utility._receiver_refs.size(),
+		1,
+		"tick 自动清理应遵守单次预算。"
+	)
 
 	_utility.tick(1.0)
 
-	assert_eq(_utility._receiver_refs.size(), 0, "后续 tick 应继续从游标位置清理剩余失效 receiver。")
+	assert_eq(
+		_utility._receiver_refs.size(),
+		0,
+		"后续 tick 应继续从游标位置清理剩余失效 receiver。"
+	)
 
 
 func test_property_bag_capability_stores_typed_values() -> void:
@@ -1377,13 +2010,34 @@ func test_property_bag_capability_stores_typed_values() -> void:
 
 	bag.set_property_value(&"count", 3)
 	bag.set_property_value(&"title", "hello")
-	bag.set_property_value(&"offset", Vector2(2.0, 4.0))
+	bag.set_property_value(
+		&"offset",
+		Vector2(2.0, 4.0)
+	)
 
-	assert_eq(bag.get_int(&"count"), 3, "属性包应能按 int 读取。")
-	assert_eq(bag.get_string(&"title"), "hello", "属性包应能按 String 读取。")
-	assert_eq(bag.get_vector2(&"offset"), Vector2(2.0, 4.0), "属性包应能按 Vector2 读取。")
-	assert_true(bag.remove_property_value(&"title"), "属性包应能移除已有属性。")
-	assert_false(bag.has_property_value(&"title"), "移除后属性不应继续存在。")
+	assert_eq(
+		bag.get_int(&"count"),
+		3,
+		"属性包应能按 int 读取。"
+	)
+	assert_eq(
+		bag.get_string(&"title"),
+		"hello",
+		"属性包应能按 String 读取。"
+	)
+	assert_eq(
+		bag.get_vector2(&"offset"),
+		Vector2(2.0, 4.0),
+		"属性包应能按 Vector2 读取。"
+	)
+	assert_true(
+		bag.remove_property_value(&"title"),
+		"属性包应能移除已有属性。"
+	)
+	assert_false(
+		bag.has_property_value(&"title"),
+		"移除后属性不应继续存在。"
+	)
 
 
 func test_property_bag_typed_getters_return_default_on_type_mismatch() -> void:
@@ -1392,8 +2046,15 @@ func test_property_bag_typed_getters_return_default_on_type_mismatch() -> void:
 	bag.set_property_value(&"count", "3")
 	bag.set_property_value(&"enabled", 1)
 
-	assert_eq(bag.get_int(&"count", 7), 7, "int getter 遇到字符串时应返回默认值。")
-	assert_false(bag.get_bool(&"enabled", false), "bool getter 遇到数字时应返回默认值。")
+	assert_eq(
+		bag.get_int(&"count", 7),
+		7,
+		"int getter 遇到字符串时应返回默认值。"
+	)
+	assert_false(
+		bag.get_bool(&"enabled", false),
+		"bool getter 遇到数字时应返回默认值。"
+	)
 
 
 func test_property_bag_rejects_raw_keys_and_defensively_copies_collections() -> void:
@@ -1401,16 +2062,17 @@ func test_property_bag_rejects_raw_keys_and_defensively_copies_collections() -> 
 	var source: Dictionary = {
 		"items": [1],
 	}
-	bag.values = {
-		&"valid": source,
-		42: "invalid",
-	}
+	bag.values = { &"valid": source, 42: "invalid", }
 	assert_push_warning("[GFPropertyBagCapability][property_bag_capability.invalid_key_type] values accepts only String or StringName keys")
 
 	var source_items: Array = GFVariantData.get_option_array(source, "items")
 	source_items.append(2)
 	var stored: Dictionary = GFVariantData.as_dictionary(bag.get_property_value(&"valid"))
-	assert_eq(GFVariantData.get_option_array(stored, "items"), [1], "写入后修改源集合不得旁路属性包。")
+	assert_eq(
+		GFVariantData.get_option_array(stored, "items"),
+		[1],
+		"写入后修改源集合不得旁路属性包。"
+	)
 
 	var exported_values: Dictionary = bag.values
 	var exported_value: Dictionary = GFVariantData.as_dictionary(exported_values[&"valid"])
@@ -1426,7 +2088,10 @@ func test_property_bag_rejects_raw_keys_and_defensively_copies_collections() -> 
 	)
 
 	bag.clear_properties()
-	assert_true(bag.values.is_empty(), "clear_properties 应清空全部规范化属性。")
+	assert_true(
+		bag.values.is_empty(),
+		"clear_properties 应清空全部规范化属性。"
+	)
 
 
 func test_inspect_receiver_reports_dependencies_and_groups() -> void:
@@ -1438,20 +2103,51 @@ func test_inspect_receiver_reports_dependencies_and_groups() -> void:
 	var validation: Dictionary = _utility.validate_receiver_dependencies(receiver)
 	var dependency_report: Dictionary = _find_capability_report_with_dependencies(report)
 
-	assert_true(GFVariantData.get_option_bool(report, "ok"), "自动补齐依赖后 receiver 诊断应为 ok。")
-	assert_true(GFVariantData.get_option_bool(validation, "ok"), "依赖校验应复用诊断结果。")
-	assert_eq(GFVariantData.get_option_int(report, "capability_count"), 2, "诊断应包含主能力和自动补齐的依赖能力。")
-	assert_true(GFVariantData.get_option_array(report, "groups").has(&"targets"), "诊断应包含 receiver 分组。")
-	assert_false(dependency_report.is_empty(), "诊断应标出拥有依赖的能力。")
-	assert_eq(GFVariantData.get_option_packed_string_array(dependency_report, "registered_dependencies").size(), 1, "主能力应记录一个已注册依赖。")
+	assert_true(
+		GFVariantData.get_option_bool(report, "ok"),
+		"自动补齐依赖后 receiver 诊断应为 ok。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(validation, "ok"),
+		"依赖校验应复用诊断结果。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(report, "capability_count"),
+		2,
+		"诊断应包含主能力和自动补齐的依赖能力。"
+	)
+	assert_true(
+		GFVariantData.get_option_array(report, "groups").has(&"targets"),
+		"诊断应包含 receiver 分组。"
+	)
+	assert_false(
+		dependency_report.is_empty(),
+		"诊断应标出拥有依赖的能力。"
+	)
+	assert_eq(
+		GFVariantData.get_option_packed_string_array(dependency_report, "registered_dependencies").size(),
+		1,
+		"主能力应记录一个已注册依赖。"
+	)
 
 
 func test_inspect_invalid_receiver_returns_error_report() -> void:
 	var report: Dictionary = _utility.inspect_receiver(null)
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "无效 receiver 的诊断应失败。")
-	assert_eq(GFVariantData.get_option_int(report, "receiver_id"), -1, "无效 receiver 应返回哨兵 id。")
-	assert_eq(GFVariantData.get_option_string(report, "error"), "Receiver is invalid.", "无效 receiver 应返回错误原因。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"无效 receiver 的诊断应失败。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(report, "receiver_id"),
+		-1,
+		"无效 receiver 应返回哨兵 id。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(report, "error"),
+		"Receiver is invalid.",
+		"无效 receiver 应返回错误原因。"
+	)
 
 
 func test_capability_recipe_applies_entries_and_groups() -> void:
@@ -1466,16 +2162,37 @@ func test_capability_recipe_applies_entries_and_groups() -> void:
 
 	var result: Dictionary = _utility.apply_recipe(receiver, recipe)
 
-	assert_true(GFVariantData.get_option_bool(result, "ok"), "有效 Recipe 应应用成功。")
-	assert_true(_utility.has_capability(receiver, ActiveCapability), "Recipe 应挂载能力。")
-	assert_false(_utility.is_capability_active(receiver, ActiveCapability), "Recipe 应应用默认启停状态。")
-	assert_true(_utility.get_receivers_in_group(&"targets").has(receiver), "Recipe 应添加分组。")
+	assert_true(
+		GFVariantData.get_option_bool(result, "ok"),
+		"有效 Recipe 应应用成功。"
+	)
+	assert_true(
+		_utility.has_capability(receiver, ActiveCapability),
+		"Recipe 应挂载能力。"
+	)
+	assert_false(
+		_utility.is_capability_active(receiver, ActiveCapability),
+		"Recipe 应应用默认启停状态。"
+	)
+	assert_true(
+		_utility.get_receivers_in_group(&"targets").has(receiver),
+		"Recipe 应添加分组。"
+	)
 
 	var removed: Dictionary = _utility.remove_recipe(receiver, recipe)
 
-	assert_true(GFVariantData.get_option_bool(removed, "ok"), "移除 Recipe 应成功。")
-	assert_false(_utility.has_capability(receiver, ActiveCapability), "remove_recipe 应移除能力。")
-	assert_false(_utility.get_receivers_in_group(&"targets").has(receiver), "remove_recipe 应移除分组。")
+	assert_true(
+		GFVariantData.get_option_bool(removed, "ok"),
+		"移除 Recipe 应成功。"
+	)
+	assert_false(
+		_utility.has_capability(receiver, ActiveCapability),
+		"remove_recipe 应移除能力。"
+	)
+	assert_false(
+		_utility.get_receivers_in_group(&"targets").has(receiver),
+		"remove_recipe 应移除分组。"
+	)
 
 
 func test_recipe_propagates_rejected_active_state_change() -> void:
@@ -1510,10 +2227,22 @@ func test_capability_recipe_rolls_back_added_entries_and_groups_on_failure() -> 
 
 	var result: Dictionary = _utility.apply_recipe(receiver, recipe)
 
-	assert_false(GFVariantData.get_option_bool(result, "ok"), "事务化 Recipe 中任一条目失败时整体应失败。")
-	assert_true(GFVariantData.get_option_bool(result, "rolled_back"), "默认 transactional=true 时应执行回滚。")
-	assert_false(_utility.has_capability(receiver, ActiveCapability), "失败前已新增的能力应被移除。")
-	assert_false(_utility.get_receivers_in_group(&"targets").has(receiver), "失败前新增的分组也应回滚。")
+	assert_false(
+		GFVariantData.get_option_bool(result, "ok"),
+		"事务化 Recipe 中任一条目失败时整体应失败。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(result, "rolled_back"),
+		"默认 transactional=true 时应执行回滚。"
+	)
+	assert_false(
+		_utility.has_capability(receiver, ActiveCapability),
+		"失败前已新增的能力应被移除。"
+	)
+	assert_false(
+		_utility.get_receivers_in_group(&"targets").has(receiver),
+		"失败前新增的分组也应回滚。"
+	)
 	assert_push_error("[GFCapabilityUtility][capability_utility.cyclic_dependency] Detected a capability dependency cycle: ")
 
 
@@ -1527,10 +2256,22 @@ func test_capability_recipe_rolls_back_auto_dependencies_on_failure() -> void:
 
 	var result: Dictionary = _utility.apply_recipe(receiver, recipe)
 
-	assert_false(GFVariantData.get_option_bool(result, "ok"), "Recipe 后续条目失败时应触发事务回滚。")
-	assert_true(GFVariantData.get_option_bool(result, "rolled_back"), "失败事务应报告 rolled_back。")
-	assert_false(_utility.has_capability(receiver, DamageCapability), "失败前新增的主能力应被移除。")
-	assert_false(_utility.has_capability(receiver, HealthCapability), "失败前自动补齐的依赖也应被移除。")
+	assert_false(
+		GFVariantData.get_option_bool(result, "ok"),
+		"Recipe 后续条目失败时应触发事务回滚。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(result, "rolled_back"),
+		"失败事务应报告 rolled_back。"
+	)
+	assert_false(
+		_utility.has_capability(receiver, DamageCapability),
+		"失败前新增的主能力应被移除。"
+	)
+	assert_false(
+		_utility.has_capability(receiver, HealthCapability),
+		"失败前自动补齐的依赖也应被移除。"
+	)
 
 
 func test_failed_recipe_restores_reused_dependency_ownership_and_active_state() -> void:
@@ -1541,16 +2282,26 @@ func test_failed_recipe_restores_reused_dependency_ownership_and_active_state() 
 	var reused_entry: GFCapabilityRecipeEntry = GFCapabilityRecipeEntry.new()
 	reused_entry.capability_type = HealthCapability
 	reused_entry.active = false
-	recipe.entries = [reused_entry, reused_entry, GFCapabilityRecipeEntry.new()]
+	recipe.entries = [
+		reused_entry,
+		reused_entry,
+		GFCapabilityRecipeEntry.new(),
+	]
 
 	var result: Dictionary = _utility.apply_recipe(receiver, recipe)
 
 	assert_false(GFVariantData.get_option_bool(result, "ok"))
 	assert_true(GFVariantData.get_option_bool(result, "rolled_back"))
-	assert_same(_utility.get_capability(receiver, HealthCapability), dependency)
+	assert_same(
+		_utility.get_capability(receiver, HealthCapability),
+		dependency
+	)
 	assert_true(_utility.is_capability_active(receiver, HealthCapability))
 	_utility.remove_capability(receiver, DamageCapability)
-	assert_false(_utility.has_capability(receiver, HealthCapability), "失败 Recipe 不得把自动依赖永久提升为显式能力。")
+	assert_false(
+		_utility.has_capability(receiver, HealthCapability),
+		"失败 Recipe 不得把自动依赖永久提升为显式能力。"
+	)
 
 
 func test_failed_recipe_restores_concrete_dependency_reused_through_base_type() -> void:
@@ -1565,7 +2316,10 @@ func test_failed_recipe_restores_concrete_dependency_reused_through_base_type() 
 
 	assert_true(GFVariantData.get_option_bool(result, "rolled_back"))
 	_utility.remove_capability(receiver, RequiresConcreteCapabilityA)
-	assert_false(_utility.has_capability(receiver, ConcreteCapabilityA), "回滚必须恢复真实注册子类的所有权，而不是创建基类标记。")
+	assert_false(
+		_utility.has_capability(receiver, ConcreteCapabilityA),
+		"回滚必须恢复真实注册子类的所有权，而不是创建基类标记。"
+	)
 
 
 func test_recipe_ownership_promotion_commits_on_success_and_non_transactional_failure() -> void:
@@ -1579,12 +2333,22 @@ func test_recipe_ownership_promotion_commits_on_success_and_non_transactional_fa
 		if not transactional:
 			recipe.entries.append(GFCapabilityRecipeEntry.new())
 
-		var result: Dictionary = _utility.apply_recipe(receiver, recipe, { "transactional": transactional })
+		var result: Dictionary = _utility.apply_recipe(
+			receiver,
+			recipe,
+			{ "transactional": transactional }
+		)
 
-		assert_eq(GFVariantData.get_option_bool(result, "ok"), transactional)
+		assert_eq(
+			GFVariantData.get_option_bool(result, "ok"),
+			transactional
+		)
 		assert_false(GFVariantData.get_option_bool(result, "rolled_back"))
 		_utility.remove_capability(receiver, DamageCapability)
-		assert_true(_utility.has_capability(receiver, HealthCapability), "成功应用或显式尽力应用应保留顶层所有权提升。")
+		assert_true(
+			_utility.has_capability(receiver, HealthCapability),
+			"成功应用或显式尽力应用应保留顶层所有权提升。"
+		)
 
 
 func test_failed_recipe_preserves_preexisting_explicit_dependency_ownership() -> void:
@@ -1600,19 +2364,36 @@ func test_failed_recipe_preserves_preexisting_explicit_dependency_ownership() ->
 
 	assert_true(GFVariantData.get_option_bool(result, "rolled_back"))
 	_utility.remove_capability(receiver, DamageCapability)
-	assert_true(_utility.has_capability(receiver, HealthCapability), "回滚不得撤销应用前已有的显式所有权。")
+	assert_true(
+		_utility.has_capability(receiver, HealthCapability),
+		"回滚不得撤销应用前已有的显式所有权。"
+	)
 
 
 func test_failed_recipe_does_not_restore_old_state_into_callback_replacement() -> void:
 	var receiver: RefCounted = RefCounted.new()
 	var original: Object = _utility.add_capability(receiver, ActiveCapability)
 	var replacement_instances: Array[Object] = []
-	var replace_on_disable: Callable = func(target: Object, capability_type: Script, capability: Object, active: bool) -> void:
-		if target != receiver or capability_type != ActiveCapability or capability != original or active:
+	var replace_on_disable: Callable = func(
+		target: Object,
+		capability_type: Script,
+		capability: Object,
+		active: bool
+	) -> void:
+		if (
+			target != receiver
+			or capability_type != ActiveCapability
+			or capability != original
+			or active
+		):
 			return
 		_utility.remove_capability(receiver, ActiveCapability)
 		replacement_instances.append(_utility.add_capability(receiver, ActiveCapability))
-		_utility.set_capability_active(receiver, ActiveCapability, false)
+		_utility.set_capability_active(
+			receiver,
+			ActiveCapability,
+			false
+		)
 	var _connect_result: Error = _utility.capability_active_changed.connect(replace_on_disable) as Error
 	var recipe: GFCapabilityRecipe = GFCapabilityRecipe.new()
 	var reused_entry: GFCapabilityRecipeEntry = GFCapabilityRecipeEntry.new()
@@ -1624,9 +2405,18 @@ func test_failed_recipe_does_not_restore_old_state_into_callback_replacement() -
 	_utility.capability_active_changed.disconnect(replace_on_disable)
 
 	assert_true(GFVariantData.get_option_bool(result, "rolled_back"))
-	assert_eq(replacement_instances.size(), 1)
-	assert_ne(_utility.get_capability(receiver, ActiveCapability), original)
-	assert_false(_utility.is_capability_active(receiver, ActiveCapability), "回滚只能恢复快照所属实例，不能把旧 active 写入项目回调创建的新实例。")
+	assert_eq(
+		replacement_instances.size(),
+		1
+	)
+	assert_ne(
+		_utility.get_capability(receiver, ActiveCapability),
+		original
+	)
+	assert_false(
+		_utility.is_capability_active(receiver, ActiveCapability),
+		"回滚只能恢复快照所属实例，不能把旧 active 写入项目回调创建的新实例。"
+	)
 
 
 func test_remove_recipe_reports_dependency_blocked_removal_as_skipped() -> void:
@@ -1642,11 +2432,27 @@ func test_remove_recipe_reports_dependency_blocked_removal_as_skipped() -> void:
 	var skipped: Array = GFVariantData.get_option_array(result, "skipped")
 	var first_skipped: Dictionary = GFVariantData.as_dictionary(skipped[0])
 
-	assert_false(GFVariantData.get_option_bool(result, "ok"), "remove_recipe 删除被依赖能力失败时应报告失败。")
-	assert_true(removed.is_empty(), "删除失败不应误报 removed。")
-	assert_eq(GFVariantData.get_option_string(first_skipped, "kind"), "remove_failed", "删除失败应进入 skipped 详情。")
-	assert_true(_utility.has_capability(receiver, HealthCapability), "被依赖能力应仍然存在。")
-	assert_true(_utility.has_capability(receiver, DamageCapability), "依赖 owner 也应保持不变。")
+	assert_false(
+		GFVariantData.get_option_bool(result, "ok"),
+		"remove_recipe 删除被依赖能力失败时应报告失败。"
+	)
+	assert_true(
+		removed.is_empty(),
+		"删除失败不应误报 removed。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(first_skipped, "kind"),
+		"remove_failed",
+		"删除失败应进入 skipped 详情。"
+	)
+	assert_true(
+		_utility.has_capability(receiver, HealthCapability),
+		"被依赖能力应仍然存在。"
+	)
+	assert_true(
+		_utility.has_capability(receiver, DamageCapability),
+		"依赖 owner 也应保持不变。"
+	)
 	assert_push_error("[GFCapabilityUtility][capability_utility.capability_still_required] remove_capability failed: capability")
 
 
@@ -1656,26 +2462,65 @@ func test_capability_recipe_validation_reports_invalid_entries() -> void:
 
 	var report: Dictionary = recipe.validate_recipe()
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "无效条目应使 Recipe 校验失败。")
-	assert_true(_has_issue(report, "invalid_entry"), "Recipe 校验应报告 invalid_entry。")
-	assert_eq(_find_issue_path(report, "invalid_entry"), "entries[0]", "Recipe 校验应保留条目路径。")
-	assert_false(GFVariantData.get_option_string(report, "next_action").is_empty(), "Recipe 校验应提供下一步建议。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"无效条目应使 Recipe 校验失败。"
+	)
+	assert_true(
+		_has_issue(report, "invalid_entry"),
+		"Recipe 校验应报告 invalid_entry。"
+	)
+	assert_eq(
+		_find_issue_path(report, "invalid_entry"),
+		"entries[0]",
+		"Recipe 校验应保留条目路径。"
+	)
+	assert_false(
+		GFVariantData.get_option_string(report, "next_action").is_empty(),
+		"Recipe 校验应提供下一步建议。"
+	)
 
 
 func test_capability_recipe_validation_report_reports_group_issues() -> void:
 	var recipe: GFCapabilityRecipe = GFCapabilityRecipe.new()
 	recipe.recipe_id = &"group_recipe"
-	recipe.groups = [&"targets", &"", &"targets"]
+	recipe.groups = [
+		&"targets",
+		&"",
+		&"targets",
+	]
 
 	var report: GFValidationReport = recipe.validate_recipe_report()
 	var serialized_report: Dictionary = recipe.validate_recipe()
 
-	assert_true(report.is_ok(), "空分组和重复分组只应作为 warning。")
-	assert_false(report.is_healthy(), "存在 warning 时报告不应视为完全健康。")
-	assert_eq(report.get_warning_count(), 2, "应报告空分组和重复分组两个 warning。")
-	assert_eq(GFVariantData.get_option_string(serialized_report, "recipe_id"), "group_recipe", "字典报告应保留 recipe_id。")
-	assert_eq(_find_issue_path(serialized_report, "empty_group"), "groups[1]", "空分组应保留路径。")
-	assert_eq(_find_issue_path(serialized_report, "duplicate_group"), "groups[2]", "重复分组应保留路径。")
+	assert_true(
+		report.is_ok(),
+		"空分组和重复分组只应作为 warning。"
+	)
+	assert_false(
+		report.is_healthy(),
+		"存在 warning 时报告不应视为完全健康。"
+	)
+	assert_eq(
+		report.get_warning_count(),
+		2,
+		"应报告空分组和重复分组两个 warning。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(serialized_report, "recipe_id"),
+		"group_recipe",
+		"字典报告应保留 recipe_id。"
+	)
+	assert_eq(
+		_find_issue_path(serialized_report, "empty_group"),
+		"groups[1]",
+		"空分组应保留路径。"
+	)
+	assert_eq(
+		_find_issue_path(serialized_report, "duplicate_group"),
+		"groups[2]",
+		"重复分组应保留路径。"
+	)
 
 
 func test_capability_recipe_validation_reports_empty_recipe_as_healthy() -> void:
@@ -1683,30 +2528,37 @@ func test_capability_recipe_validation_reports_empty_recipe_as_healthy() -> void
 
 	var report: Dictionary = recipe.validate_recipe()
 
-	assert_true(GFVariantData.get_option_bool(report, "ok"), "空 Recipe 没有结构错误时应通过校验。")
-	assert_true(GFVariantData.get_option_bool(report, "healthy"), "空 Recipe 没有警告时应视为健康。")
-	assert_eq(GFVariantData.get_option_int(report, "entry_count"), 0, "报告应保留条目数量。")
-	assert_eq(GFVariantData.get_option_string(report, "summary"), "Capability recipe is healthy.", "健康报告应提供稳定摘要。")
+	assert_true(
+		GFVariantData.get_option_bool(report, "ok"),
+		"空 Recipe 没有结构错误时应通过校验。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(report, "healthy"),
+		"空 Recipe 没有警告时应视为健康。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(report, "entry_count"),
+		0,
+		"报告应保留条目数量。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(report, "summary"),
+		"Capability recipe is healthy.",
+		"健康报告应提供稳定摘要。"
+	)
 
 
 func test_capability_query_and_recipe_report_dictionaries_are_json_safe() -> void:
 	var query: GFCapabilityQuery = GFCapabilityQuery.new()
 	query.required_capability_types = [HealthCapability]
-	query.metadata = {
-		"resource": Resource.new(),
-		"heat": NAN,
-	}
+	query.metadata = { "resource": Resource.new(), "heat": NAN, }
 	var entry: GFCapabilityRecipeEntry = GFCapabilityRecipeEntry.new()
 	entry.capability_type = HealthCapability
-	entry.metadata = {
-		"scene_hint": Resource.new(),
-	}
+	entry.metadata = { "scene_hint": Resource.new(), }
 	var recipe: GFCapabilityRecipe = GFCapabilityRecipe.new()
 	recipe.recipe_id = &"safe_recipe"
 	recipe.entries = [entry]
-	recipe.metadata = {
-		"heat": INF,
-	}
+	recipe.metadata = { "heat": INF, }
 	var receiver: RefCounted = RefCounted.new()
 
 	var query_text: String = JSON.stringify(query.to_report_dictionary())
@@ -1714,12 +2566,31 @@ func test_capability_query_and_recipe_report_dictionaries_are_json_safe() -> voi
 	var apply_text: String = JSON.stringify(_utility.apply_recipe(receiver, recipe))
 	var inspect_text: String = JSON.stringify(_utility.inspect_receiver(receiver))
 
-	assert_true(query_text.contains("__gf_report_value__"), "查询报告应把 Script/Resource 元数据转成报告 marker。")
-	assert_true(query_text.contains("__gf_variant__"), "查询报告应把 NaN 转成 GF Variant marker。")
-	assert_true(recipe_text.contains("__gf_report_value__"), "Recipe 报告应把 Resource 元数据转成报告 marker。")
-	assert_true(recipe_text.contains("__gf_variant__"), "Recipe 报告应把 INF 转成 GF Variant marker。")
-	assert_true(apply_text.contains("__gf_report_value__"), "Utility 应用报告应在最外层统一编码 Object 元数据。")
-	assert_ne(inspect_text, "", "Utility 诊断报告应可直接 JSON 编码。")
+	assert_true(
+		query_text.contains("__gf_report_value__"),
+		"查询报告应把 Script/Resource 元数据转成报告 marker。"
+	)
+	assert_true(
+		query_text.contains("__gf_variant__"),
+		"查询报告应把 NaN 转成 GF Variant marker。"
+	)
+	assert_true(
+		recipe_text.contains("__gf_report_value__"),
+		"Recipe 报告应把 Resource 元数据转成报告 marker。"
+	)
+	assert_true(
+		recipe_text.contains("__gf_variant__"),
+		"Recipe 报告应把 INF 转成 GF Variant marker。"
+	)
+	assert_true(
+		apply_text.contains("__gf_report_value__"),
+		"Utility 应用报告应在最外层统一编码 Object 元数据。"
+	)
+	assert_ne(
+		inspect_text,
+		"",
+		"Utility 诊断报告应可直接 JSON 编码。"
+	)
 
 
 func test_capability_inspector_reads_required_property_without_calling_capability_method() -> void:
@@ -1732,7 +2603,11 @@ func test_capability_inspector_reads_required_property_without_calling_capabilit
 	var required_types: Array[Script] = _collect_required_capability_types(inspector_plugin, capability)
 
 	assert_false(capability.get_required_capabilities_called, "编辑器 Inspector 不应调用能力脚本方法。")
-	assert_eq(required_types, [HealthCapability], "编辑器 Inspector 应从 required_capabilities 读取依赖。")
+	assert_eq(
+		required_types,
+		[HealthCapability],
+		"编辑器 Inspector 应从 required_capabilities 读取依赖。"
+	)
 
 	capability.free()
 
@@ -1752,13 +2627,20 @@ func test_capability_inspector_reports_ambiguous_required_base_type() -> void:
 	container.add_child(ConcreteNodeCapabilityB.new())
 	container.add_child(RequiresBaseNodeCapability.new())
 
-	var report: Dictionary = GFVariantData.as_dictionary(
-		inspector_script.call(&"_build_editor_capability_report", target)
-	)
+	var report: Dictionary = GFVariantData.as_dictionary(inspector_script.call(&"_build_editor_capability_report", target))
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "多个子类满足同一基类依赖时编辑器校验必须失败。")
-	assert_true(_has_issue(report, "ambiguous_required_capability"), "编辑器应显式报告依赖歧义，而不是接受首个子类。")
-	assert_false(_has_issue(report, "missing_required_capability"), "歧义不是缺失，不应混淆两种状态。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"多个子类满足同一基类依赖时编辑器校验必须失败。"
+	)
+	assert_true(
+		_has_issue(report, "ambiguous_required_capability"),
+		"编辑器应显式报告依赖歧义，而不是接受首个子类。"
+	)
+	assert_false(
+		_has_issue(report, "missing_required_capability"),
+		"歧义不是缺失，不应混淆两种状态。"
+	)
 	remove_child(target)
 	target.free()
 
@@ -1774,11 +2656,22 @@ func test_capability_inspector_rejects_recipe_scene_script_mismatch() -> void:
 	entry.scene = _make_plain_capability_scene()
 	var report: GFValidationReport = GFValidationReport.new("Recipe scene type")
 	var created: Node = _get_node_value(
-		inspector_script.call(&"_create_capability_node_from_recipe_entry", entry, report, 0)
+		inspector_script.call(
+			&"_create_capability_node_from_recipe_entry",
+			entry,
+			report,
+			0
+		)
 	)
 
 	assert_null(created, "场景根脚本不继承声明能力类型时不得加入编辑器计划。")
-	assert_true(_has_issue(report.to_dict(), "scene_script_type_mismatch"), "类型冒充应给出稳定的 scene_script_type_mismatch。")
+	assert_true(
+		_has_issue(
+			report.to_dict(),
+			"scene_script_type_mismatch"
+		),
+		"类型冒充应给出稳定的 scene_script_type_mismatch。"
+	)
 	if created != null:
 		created.free()
 
@@ -1796,12 +2689,20 @@ func test_capability_inspector_active_tree_budget_failure_is_atomic() -> void:
 	capability.add_child(second_child)
 
 	var applied: bool = GFVariantData.to_bool(
-		inspector_script.call(&"_apply_editor_capability_active_state", capability, false, 2)
+		inspector_script.call(
+			&"_apply_editor_capability_active_state",
+			capability,
+			false,
+			2
+		)
 	)
 
 	assert_false(applied)
 	assert_true(capability.active, "编辑器超预算时 active 属性不得先行写入。")
-	assert_false(capability.has_meta(&"_gf_capability_active"), "编辑器超预算时不得留下新状态元数据。")
+	assert_false(
+		capability.has_meta(&"_gf_capability_active"),
+		"编辑器超预算时不得留下新状态元数据。"
+	)
 	assert_ne(capability.process_mode, Node.PROCESS_MODE_DISABLED)
 	assert_ne(first_child.process_mode, Node.PROCESS_MODE_DISABLED)
 	assert_ne(second_child.process_mode, Node.PROCESS_MODE_DISABLED)
@@ -1821,21 +2722,55 @@ func test_capability_inspector_add_plan_reuses_pending_container_and_names() -> 
 	var planned: Array[Dictionary] = []
 
 	var first_plan: Dictionary = GFVariantData.as_dictionary(
-		inspector_script.call(&"_make_capability_add_plan", target, first, "SharedCapability", planned)
+		inspector_script.call(
+			&"_make_capability_add_plan",
+			target,
+			first,
+			"SharedCapability",
+			planned
+		)
 	)
 	planned.append(first_plan)
 	var second_plan: Dictionary = GFVariantData.as_dictionary(
-		inspector_script.call(&"_make_capability_add_plan", target, second, "SharedCapability", planned)
+		inspector_script.call(
+			&"_make_capability_add_plan",
+			target,
+			second,
+			"SharedCapability",
+			planned
+		)
 	)
 	var first_container: Node = _get_node_value(first_plan.get("container", null))
 	var second_container: Node = _get_node_value(second_plan.get("container", null))
 
-	assert_true(GFVariantData.get_option_bool(first_plan, "container_is_new"), "第一条待添加能力应准备新容器。")
-	assert_false(GFVariantData.get_option_bool(second_plan, "container_is_new"), "同类待添加能力应复用已计划的新容器。")
-	assert_eq(first_container, second_container, "批量添加计划应复用同一个能力容器。")
-	assert_eq(String(first.name), "SharedCapability", "第一条能力应使用请求名称。")
-	assert_eq(String(second.name), "SharedCapability2", "第二条同名能力应生成稳定唯一名称。")
-	assert_eq(GFVariantData.get_option_int(second_plan, "node_index"), 1, "第二条能力应排在同容器下一位。")
+	assert_true(
+		GFVariantData.get_option_bool(first_plan, "container_is_new"),
+		"第一条待添加能力应准备新容器。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(second_plan, "container_is_new"),
+		"同类待添加能力应复用已计划的新容器。"
+	)
+	assert_eq(
+		first_container,
+		second_container,
+		"批量添加计划应复用同一个能力容器。"
+	)
+	assert_eq(
+		String(first.name),
+		"SharedCapability",
+		"第一条能力应使用请求名称。"
+	)
+	assert_eq(
+		String(second.name),
+		"SharedCapability2",
+		"第二条同名能力应生成稳定唯一名称。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(second_plan, "node_index"),
+		1,
+		"第二条能力应排在同容器下一位。"
+	)
 
 	first.free()
 	second.free()
@@ -1896,7 +2831,11 @@ func _load_capability_inspector_plugin() -> Script:
 
 
 func _load_script(script_path: String) -> Script:
-	var resource: Resource = ResourceLoader.load(script_path, "", ResourceLoader.CACHE_MODE_IGNORE)
+	var resource: Resource = ResourceLoader.load(
+		script_path,
+		"",
+		ResourceLoader.CACHE_MODE_IGNORE
+	)
 	if resource is Script:
 		var script: Script = resource
 		return script

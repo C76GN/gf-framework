@@ -17,8 +17,8 @@
 |---|---|---|
 | 枚举 | [`SwizzleOrder`](#member-gfinputswizzlemodifier-enums-swizzleorder) | `enum SwizzleOrder` |
 | 属性 | [`order`](#member-gfinputswizzlemodifier-properties-order) | `var order: SwizzleOrder = SwizzleOrder.XYZ` |
-| 方法 | [`modify`](#member-gfinputswizzlemodifier-methods-modify) | `func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = null) -> Vector2:` |
-| 方法 | [`modify_3d`](#member-gfinputswizzlemodifier-methods-modify_3d) | `func modify_3d(value: Vector3, _event: InputEvent = null, _action: GFInputAction = null) -> Vector3:` |
+| 方法 | [`modify`](#member-gfinputswizzlemodifier-methods-modify) | `func modify( value: Vector2, _event: InputEvent = null, _action: GFInputAction = null ) -> Vector2:` |
+| 方法 | [`modify_3d`](#member-gfinputswizzlemodifier-methods-modify_3d) | `func modify_3d( value: Vector3, _event: InputEvent = null, _action: GFInputAction = null ) -> Vector3:` |
 
 ## 枚举
 
@@ -68,9 +68,10 @@ var order: SwizzleOrder = SwizzleOrder.XYZ
 ### `modify`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = null) -> Vector2:
+func modify( value: Vector2, _event: InputEvent = null, _action: GFInputAction = null ) -> Vector2:
 ```
 
 修改二维输入值。
@@ -90,9 +91,10 @@ func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = 
 ### `modify_3d`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func modify_3d(value: Vector3, _event: InputEvent = null, _action: GFInputAction = null) -> Vector3:
+func modify_3d( value: Vector3, _event: InputEvent = null, _action: GFInputAction = null ) -> Vector3:
 ```
 
 修改三维输入值。

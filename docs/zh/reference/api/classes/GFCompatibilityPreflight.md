@@ -33,7 +33,7 @@
 | 方法 | [`require_features`](#member-gfcompatibilitypreflight-methods-require_features) | `func require_features( required_features: PackedStringArray, mode: StringName = MATCH_ALL, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`require_package`](#member-gfcompatibilitypreflight-methods-require_package) | `func require_package( package_id: StringName, minimum_version: String = "", maximum_version_exclusive: String = "", options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`require_artifact`](#member-gfcompatibilitypreflight-methods-require_artifact) | `func require_artifact(artifact_id: StringName, options: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`add_check`](#member-gfcompatibilitypreflight-methods-add_check) | `func add_check(check_id: StringName, ok: bool, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`add_check`](#member-gfcompatibilitypreflight-methods-add_check) | `func add_check( check_id: StringName, ok: bool, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`merge_report`](#member-gfcompatibilitypreflight-methods-merge_report) | `func merge_report(report: Dictionary, options: Dictionary = {}) -> GFCompatibilityPreflight:` |
 | 方法 | [`get_report`](#member-gfcompatibilitypreflight-methods-get_report) | `func get_report(options: Dictionary = {}) -> Dictionary:` |
 
@@ -409,7 +409,7 @@ func require_artifact(artifact_id: StringName, options: Dictionary = {}) -> Dict
 - 首次版本：`7.0.0`
 
 ```gdscript
-func add_check(check_id: StringName, ok: bool, options: Dictionary = {}) -> Dictionary:
+func add_check( check_id: StringName, ok: bool, options: Dictionary = {} ) -> Dictionary:
 ```
 
 添加自定义检查结果。

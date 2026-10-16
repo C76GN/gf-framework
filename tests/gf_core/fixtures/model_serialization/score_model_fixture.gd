@@ -20,12 +20,17 @@ func get_save_key() -> StringName:
 
 
 func to_dict() -> Dictionary:
-	return {
-		"score": score,
-		"level": level,
-	}
+	return { "score": score, "level": level, }
 
 
 func from_dict(data: Dictionary) -> void:
-	score = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(data, "score", 0)
-	level = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(data, "level", 1)
+	score = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+		data,
+		"score",
+		0
+	)
+	level = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+		data,
+		"level",
+		1
+	)

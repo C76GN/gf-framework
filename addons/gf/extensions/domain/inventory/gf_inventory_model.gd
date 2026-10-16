@@ -25,6 +25,8 @@ var _stacks: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param item_id: 物品 ID。
 ## [br]
 ## @param amount: 增加数量。
@@ -32,7 +34,11 @@ var _stacks: Dictionary = {}
 ## @param metadata: 可选元数据；首次加入时保存。
 ## [br]
 ## @schema metadata: Dictionary，首次加入物品时保存的项目自定义元数据。
-func add_item(item_id: StringName, amount: int = 1, metadata: Dictionary = {}) -> void:
+func add_item(
+	item_id: StringName,
+	amount: int = 1,
+	metadata: Dictionary = {}
+) -> void:
 	if item_id == &"" or amount <= 0:
 		return
 
@@ -53,7 +59,11 @@ func add_item(item_id: StringName, amount: int = 1, metadata: Dictionary = {}) -
 ## [br]
 ## @return: 成功移除完整数量时返回 true。
 func remove_item(item_id: StringName, amount: int = 1) -> bool:
-	if item_id == &"" or amount <= 0 or not _stacks.has(item_id):
+	if (
+		item_id == &""
+		or amount <= 0
+		or not _stacks.has(item_id)
+	):
 		return false
 
 	var stack: Dictionary = _get_stack_record(item_id)
@@ -101,7 +111,10 @@ func set_item_amount(item_id: StringName, amount: int) -> void:
 func get_item_amount(item_id: StringName) -> int:
 	if not _stacks.has(item_id):
 		return 0
-	return GFVariantData.get_option_int(_get_stack_record(item_id), "amount")
+	return GFVariantData.get_option_int(
+		_get_stack_record(item_id),
+		"amount"
+	)
 
 
 ## 检查是否拥有足够数量。
@@ -129,7 +142,10 @@ func has_item(item_id: StringName, amount: int = 1) -> bool:
 func get_item_metadata(item_id: StringName) -> Dictionary:
 	if not _stacks.has(item_id):
 		return {}
-	return GFVariantData.get_option_dictionary(_get_stack_record(item_id), "metadata")
+	return GFVariantData.get_option_dictionary(
+		_get_stack_record(item_id),
+		"metadata"
+	)
 
 
 ## 获取库存快照。
@@ -182,10 +198,7 @@ func from_dict(data: Dictionary) -> void:
 		var amount: int = GFVariantData.get_option_int(stack, "amount")
 		if amount <= 0:
 			continue
-		_stacks[item_id] = {
-			"amount": amount,
-			"metadata": GFVariantData.get_option_dictionary(stack, "metadata"),
-		}
+		_stacks[item_id] = { "amount": amount, "metadata": GFVariantData.get_option_dictionary(stack, "metadata"), }
 
 
 # --- 私有/辅助方法 ---
@@ -194,7 +207,13 @@ func from_dict(data: Dictionary) -> void:
 ## [br]
 ## @api private
 func _get_stack_record(item_id: StringName) -> Dictionary:
-	return GFVariantData.as_dictionary(GFVariantData.get_option_value(_stacks, item_id, {}))
+	return GFVariantData.as_dictionary(
+		GFVariantData.get_option_value(
+			_stacks,
+			item_id,
+			{}
+		)
+	)
 
 
 ## 移除指定物品记录；找不到记录时不执行其他操作。

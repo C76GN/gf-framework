@@ -315,7 +315,10 @@ func is_timeout() -> bool:
 func get_elapsed_msec() -> int:
 	if _started_msec < 0:
 		return 0
-	return maxi(_clock.get_monotonic_msec() - _started_msec, 0)
+	return maxi(
+		_clock.get_monotonic_msec() - _started_msec,
+		0
+	)
 
 
 ## 释放当前计划和连接。
@@ -364,10 +367,14 @@ func _replace_source() -> void:
 	_source = GFCancellationSource.new()
 	_source_identity = _source.get_instance_id()
 	_source_callback = Callable(self, "_on_token_cancelled").bind(_source_identity)
-	var _connect_error: Error = _source.get_token().cancel_requested.connect(
-		_source_callback,
-		CONNECT_ONE_SHOT as Object.ConnectFlags
-	) as Error
+	var _connect_error: Error = (
+		(
+			_source.get_token().cancel_requested.connect(
+				_source_callback,
+				CONNECT_ONE_SHOT as Object.ConnectFlags
+			)
+		) as Error
+	)
 	if _connect_error != OK:
 		_source_callback = Callable()
 		push_warning("[GFTimeoutController][timeout_controller.cancellation_connect_failed] Cannot connect the cancellation token; timeout state will not update automatically.")
@@ -417,4 +424,7 @@ func _on_token_cancelled(reason: StringName, cancelled_source_identity: int) -> 
 	if not cancelled_by_timeout:
 		return
 	_timed_out = true
-	timed_out.emit(reason, metadata.duplicate(true))
+	timed_out.emit(
+		reason,
+		metadata.duplicate(true)
+	)

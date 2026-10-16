@@ -111,7 +111,10 @@ func cancel(reason: StringName = &"cancelled", metadata: Dictionary = {}) -> boo
 	_disconnect_timeout()
 	_disconnect_linked_tokens()
 	_disconnect_node_lifetime_callbacks()
-	cancel_requested.emit(_token.get_cancel_reason(), _token.get_cancel_metadata())
+	cancel_requested.emit(
+		_token.get_cancel_reason(),
+		_token.get_cancel_metadata()
+	)
 	return true
 
 
@@ -141,7 +144,11 @@ func is_cancel_requested() -> bool:
 ## @return 成功连接或上游已经触发取消时返回 true；重复、自连接、非主线程或终态 source 返回 false。
 ## [br]
 ## @schema metadata: Dictionary，包含调用方定义的取消上下文。
-func link_token(token: GFCancellationToken, reason: StringName = &"", metadata: Dictionary = {}) -> bool:
+func link_token(
+	token: GFCancellationToken,
+	reason: StringName = &"",
+	metadata: Dictionary = {}
+) -> bool:
 	if not _can_mutate_on_current_thread("link_token"):
 		return false
 	if _disposed or is_cancel_requested():
@@ -162,10 +169,12 @@ func link_token(token: GFCancellationToken, reason: StringName = &"", metadata: 
 		)
 		return cancel(immediate_reason, immediate_metadata)
 
-	var callback: Callable = Callable(self, &"_on_linked_token_cancelled").bind(
-		weakref(token),
-		reason,
-		metadata_snapshot
+	var callback: Callable = (
+		Callable(self, &"_on_linked_token_cancelled").bind(
+			weakref(token),
+			reason,
+			metadata_snapshot
+		)
 	)
 	var connect_error: Error = token.cancel_requested.connect(
 		callback,
@@ -174,10 +183,7 @@ func link_token(token: GFCancellationToken, reason: StringName = &"", metadata: 
 	if connect_error != OK:
 		return false
 
-	_linked_tokens[token_key] = {
-		"token": token,
-		"callback": callback,
-	}
+	_linked_tokens[token_key] = { "token": token, "callback": callback, }
 	return true
 
 
@@ -205,7 +211,11 @@ func cancel_when_node_exits(
 		return false
 	if _disposed or is_cancel_requested():
 		return false
-	if node == null or not is_instance_valid(node) or not node.is_inside_tree():
+	if (
+		node == null
+		or not is_instance_valid(node)
+		or not node.is_inside_tree()
+	):
 		return false
 
 	var node_key: int = node.get_instance_id()
@@ -213,10 +223,7 @@ func cancel_when_node_exits(
 		return false
 
 	var metadata_snapshot: Dictionary = _snapshot_metadata(metadata)
-	var callback: Callable = Callable(self, &"_on_node_tree_exited").bind(
-		reason,
-		metadata_snapshot
-	)
+	var callback: Callable = (Callable(self, &"_on_node_tree_exited").bind(reason, metadata_snapshot))
 	var connect_error: Error = node.tree_exited.connect(
 		callback,
 		CONNECT_ONE_SHOT as Object.ConnectFlags
@@ -224,10 +231,7 @@ func cancel_when_node_exits(
 	if connect_error != OK:
 		return false
 
-	_node_lifetime_callbacks[node_key] = {
-		"node_ref": weakref(node),
-		"callback": callback,
-	}
+	_node_lifetime_callbacks[node_key] = { "node_ref": weakref(node), "callback": callback, }
 	return true
 
 
@@ -278,7 +282,12 @@ func cancel_after_seconds(
 		return false
 
 	_disconnect_timeout()
-	_timeout_timer = target_tree.create_timer(seconds, process_always, process_in_physics, ignore_time_scale)
+	_timeout_timer = target_tree.create_timer(
+		seconds,
+		process_always,
+		process_in_physics,
+		ignore_time_scale
+	)
 	if _timeout_timer == null:
 		return false
 	_timeout_callback = Callable(self, &"_on_timeout_elapsed").bind(reason, metadata_snapshot)
@@ -359,7 +368,11 @@ static func create_linked(
 			source.dispose()
 			return null
 		var token: GFCancellationToken = token_value
-		if not source.link_token(token, reason, metadata):
+		if not source.link_token(
+			token,
+			reason,
+			metadata
+		):
 			source.dispose()
 			return null
 		if source.is_cancel_requested():
@@ -390,13 +403,19 @@ func _disconnect_timeout() -> void:
 func _disconnect_linked_tokens() -> void:
 	for entry_value: Variant in _linked_tokens.values():
 		var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(entry_value)
-		var token: GFCancellationToken = _variant_to_cancel_token(
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_value(entry, "token")
-		)
+		var token: GFCancellationToken = _variant_to_cancel_token(_GF_VARIANT_ACCESS_SCRIPT.get_option_value(entry, "token"))
 		var callback: Callable = _variant_to_callable(
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_value(entry, "callback", Callable())
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+				entry,
+				"callback",
+				Callable()
+			)
 		)
-		if token != null and callback.is_valid() and token.cancel_requested.is_connected(callback):
+		if (
+			token != null
+			and callback.is_valid()
+			and token.cancel_requested.is_connected(callback)
+		):
 			token.cancel_requested.disconnect(callback)
 	_linked_tokens.clear()
 
@@ -407,14 +426,20 @@ func _disconnect_linked_tokens() -> void:
 func _disconnect_node_lifetime_callbacks() -> void:
 	for entry_value: Variant in _node_lifetime_callbacks.values():
 		var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(entry_value)
-		var node_ref: WeakRef = _variant_to_weak_ref(
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_value(entry, "node_ref")
-		)
+		var node_ref: WeakRef = _variant_to_weak_ref(_GF_VARIANT_ACCESS_SCRIPT.get_option_value(entry, "node_ref"))
 		var node: Node = _weak_ref_to_node(node_ref)
 		var callback: Callable = _variant_to_callable(
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_value(entry, "callback", Callable())
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+				entry,
+				"callback",
+				Callable()
+			)
 		)
-		if node != null and callback.is_valid() and node.tree_exited.is_connected(callback):
+		if (
+			node != null
+			and callback.is_valid()
+			and node.tree_exited.is_connected(callback)
+		):
 			node.tree_exited.disconnect(callback)
 	_node_lifetime_callbacks.clear()
 

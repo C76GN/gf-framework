@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFLinearProjectileMotion" path="addons/gf/extensions/combat/projectiles/gf_linear_projectile_motion.gd" module="extensions/combat" extends="GFProjectileMotion" classDigest="3d55cd831c1199be9e16e45902e06755180278825bec1449e49e3e244e0f57d3">
+<class name="GFLinearProjectileMotion" path="addons/gf/extensions/combat/projectiles/gf_linear_projectile_motion.gd" module="extensions/combat" extends="GFProjectileMotion" classDigest="a66c1ef6147da5c2f574874e48425d0a6d54fb1b9dc05493e7e627b2a2b9bf22">
 	<description>GFLinearProjectileMotion: 2D/3D 对称的直线 intent 策略。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -53,7 +53,7 @@
 	</properties>
 	<methods>
 		<member kind="method" name="_create_state_2d">
-			<signature>func _create_state_2d( _launch_input: GFProjectileLaunchInput2D, initial_body: GFProjectileBodyResult2D ) -&gt; GFProjectileMotionState:</signature>
+			<signature>func _create_state_2d(_launch_input: GFProjectileLaunchInput2D, initial_body: GFProjectileBodyResult2D) -&gt; GFProjectileMotionState:</signature>
 			<description>以初始二维 body 的基向量和当前配置计算并锁定本次 session 的 world-space 速度。
 可选的方向单位化发生在局部方向转换之后；之后修改策略配置不会重算该状态的速度。</description>
 			<tags>
@@ -65,7 +65,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="_create_state_3d">
-			<signature>func _create_state_3d( _launch_input: GFProjectileLaunchInput3D, initial_body: GFProjectileBodyResult3D ) -&gt; GFProjectileMotionState:</signature>
+			<signature>func _create_state_3d(_launch_input: GFProjectileLaunchInput3D, initial_body: GFProjectileBodyResult3D) -&gt; GFProjectileMotionState:</signature>
 			<description>以初始三维 body 的基向量和当前配置计算并锁定本次 session 的 world-space 速度。
 可选的方向单位化发生在局部方向转换之后；之后修改策略配置不会重算该状态的速度。</description>
 			<tags>

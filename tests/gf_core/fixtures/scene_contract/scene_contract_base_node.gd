@@ -1,7 +1,6 @@
 extends Node2D
 
 signal contract_ready(value: int)
-
 var contract_value: int = 0
 
 

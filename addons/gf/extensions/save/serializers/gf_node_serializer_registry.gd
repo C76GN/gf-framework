@@ -113,16 +113,15 @@ func gather_node(node: Node, context: Dictionary = {}) -> Array[Dictionary]:
 		var data: Dictionary = serializer.gather(node, context)
 		if data.is_empty():
 			continue
-		result.append({
-			"id": serializer.get_serializer_id(),
-			"data": data,
-		})
+		result.append({ "id": serializer.get_serializer_id(), "data": data, })
 	return result
 
 
 ## 应用节点序列化片段。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param node: 目标节点。
 ## [br]
@@ -137,7 +136,11 @@ func gather_node(node: Node, context: Dictionary = {}) -> Array[Dictionary]:
 ## @schema context: Dictionary，传递给各序列化器的调用上下文，可包含项目自定义字段。
 ## [br]
 ## @schema return: Dictionary，包含 ok: bool、applied: int 与 errors: Array[String]。
-func apply_node(node: Node, serializer_payloads: Array, context: Dictionary = {}) -> Dictionary:
+func apply_node(
+	node: Node,
+	serializer_payloads: Array,
+	context: Dictionary = {}
+) -> Dictionary:
 	var errors: Array[String] = []
 	var applied: int = 0
 	for payload_index: int in range(serializer_payloads.size()):
@@ -156,17 +159,35 @@ func apply_node(node: Node, serializer_payloads: Array, context: Dictionary = {}
 			errors.append("Serializer does not support node: %s" % String(serializer_id))
 			continue
 
-		var payload_data: Variant = GFVariantData.get_option_value(payload, "data", {})
+		var payload_data: Variant = GFVariantData.get_option_value(
+			payload,
+			"data",
+			{}
+		)
 		if not (payload_data is Dictionary):
 			errors.append("Serializer data must be a Dictionary: %s" % String(serializer_id))
 			continue
 
 		var data: Dictionary = GFVariantData.as_dictionary(payload_data)
-		var result: Dictionary = serializer.apply(node, data, context)
-		if GFVariantData.get_option_bool(result, "ok", false):
+		var result: Dictionary = serializer.apply(
+			node,
+			data,
+			context
+		)
+		if GFVariantData.get_option_bool(
+			result,
+			"ok",
+			false
+		):
 			applied += 1
 		else:
-			errors.append(GFVariantData.get_option_string(result, "error", "Apply failed: %s" % String(serializer_id)))
+			errors.append(
+				GFVariantData.get_option_string(
+					result,
+					"error",
+					"Apply failed: %s" % String(serializer_id)
+				)
+			)
 
 	return {
 		"ok": errors.is_empty(),

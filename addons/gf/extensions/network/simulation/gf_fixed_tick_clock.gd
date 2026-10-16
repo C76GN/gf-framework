@@ -17,23 +17,35 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param previous_tick: 推进前 tick。
 ## [br]
 ## @param current_tick: 推进后 tick。
 ## [br]
 ## @param step_count: 本轮推进 tick 数。
-signal ticks_advanced(previous_tick: int, current_tick: int, step_count: int)
+signal ticks_advanced(
+	previous_tick: int,
+	current_tick: int,
+	step_count: int
+)
 
 ## 固定 tick 循环开始时发出。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param previous_tick: 循环前 tick。
 ## [br]
 ## @param target_tick: 本轮预算内预计推进到的 tick。
 ## [br]
 ## @param step_count: 本轮要处理的 tick 数。
-signal tick_loop_started(previous_tick: int, target_tick: int, step_count: int)
+signal tick_loop_started(
+	previous_tick: int,
+	target_tick: int,
+	step_count: int
+)
 
 ## 单个固定 tick 开始时发出。
 ## [br]
@@ -57,23 +69,35 @@ signal tick_finished(tick: int, tick_seconds: float)
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param previous_tick: 循环前 tick。
 ## [br]
 ## @param current_tick: 循环后 tick。
 ## [br]
 ## @param step_count: 本轮实际处理的 tick 数。
-signal tick_loop_finished(previous_tick: int, current_tick: int, step_count: int)
+signal tick_loop_finished(
+	previous_tick: int,
+	current_tick: int,
+	step_count: int
+)
 
 ## 由于单次预算限制而未处理所有可用 tick 时发出。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param available_steps: 本轮可用 tick 数。
 ## [br]
 ## @param processed_steps: 本轮实际处理 tick 数。
 ## [br]
 ## @param remaining_seconds: 预算处理后的累积剩余秒数。
-signal tick_budget_exhausted(available_steps: int, processed_steps: int, remaining_seconds: float)
+signal tick_budget_exhausted(
+	available_steps: int,
+	processed_steps: int,
+	remaining_seconds: float
+)
 
 
 # --- 公共变量 ---
@@ -99,7 +123,11 @@ var current_tick: int = 0
 ## @since 3.17.0
 var accumulator_seconds: float = 0.0:
 	set(value):
-		accumulator_seconds = value if value >= 0.0 and not is_nan(value) and not is_inf(value) else 0.0
+		accumulator_seconds = value if (
+			value >= 0.0
+			and not is_nan(value)
+			and not is_inf(value)
+		) else 0.0
 
 ## 单次 advance() 最多推进的 tick 数；小于等于 0 表示不限制。
 ## [br]
@@ -165,7 +193,11 @@ func reset(start_tick: int = 0) -> void:
 func advance(delta_seconds: float) -> int:
 	if _operation_active:
 		return 0
-	if delta_seconds <= 0.0 or is_nan(delta_seconds) or is_inf(delta_seconds):
+	if (
+		delta_seconds <= 0.0
+		or is_nan(delta_seconds)
+		or is_inf(delta_seconds)
+	):
 		return 0
 
 	accumulator_seconds += delta_seconds
@@ -189,9 +221,17 @@ func advance(delta_seconds: float) -> int:
 	):
 		accumulator_seconds = minf(accumulator_seconds, tick_seconds)
 
-	ticks_advanced.emit(previous_tick, current_tick, step_count)
+	ticks_advanced.emit(
+		previous_tick,
+		current_tick,
+		step_count
+	)
 	if available_steps > step_count:
-		tick_budget_exhausted.emit(available_steps, step_count, accumulator_seconds)
+		tick_budget_exhausted.emit(
+			available_steps,
+			step_count,
+			accumulator_seconds
+		)
 	_operation_active = false
 	return step_count
 
@@ -208,8 +248,15 @@ func step_once() -> int:
 		return current_tick
 	var previous_tick: int = current_tick
 	_operation_active = true
-	_advance_steps(1, get_tick_seconds())
-	ticks_advanced.emit(previous_tick, current_tick, 1)
+	_advance_steps(
+		1,
+		get_tick_seconds()
+	)
+	ticks_advanced.emit(
+		previous_tick,
+		current_tick,
+		1
+	)
 	_operation_active = false
 	return current_tick
 
@@ -229,7 +276,11 @@ func get_tick_seconds() -> float:
 ## [br]
 ## @return 0 到 1 的累积时间比例。
 func get_interpolation_alpha() -> float:
-	return clampf(accumulator_seconds / get_tick_seconds(), 0.0, 1.0)
+	return clampf(
+		accumulator_seconds / get_tick_seconds(),
+		0.0,
+		1.0
+	)
 
 
 ## 获取当前 tick 插值比例。
@@ -276,12 +327,24 @@ func to_dict() -> Dictionary:
 ## @schema data: Dictionary，包含 tick_rate、current_tick、accumulator_seconds、max_steps_per_update、drop_excess_time_on_budget_hit。
 func from_dict(data: Dictionary) -> void:
 	tick_rate = _normalize_positive_finite(
-		GFVariantData.get_option_float(data, "tick_rate", tick_rate),
+		GFVariantData.get_option_float(
+			data,
+			"tick_rate",
+			tick_rate
+		),
 		tick_rate
 	)
-	current_tick = GFVariantData.get_option_int(data, "current_tick", current_tick)
+	current_tick = GFVariantData.get_option_int(
+		data,
+		"current_tick",
+		current_tick
+	)
 	accumulator_seconds = _normalize_non_negative_finite(
-		GFVariantData.get_option_float(data, "accumulator_seconds", accumulator_seconds),
+		GFVariantData.get_option_float(
+			data,
+			"accumulator_seconds",
+			accumulator_seconds
+		),
 		accumulator_seconds
 	)
 	max_steps_per_update = GFVariantData.get_option_int(
@@ -324,13 +387,21 @@ func _advance_steps(step_count: int, tick_seconds: float) -> void:
 
 	var previous_tick: int = current_tick
 	var target_tick: int = current_tick + step_count
-	tick_loop_started.emit(previous_tick, target_tick, step_count)
+	tick_loop_started.emit(
+		previous_tick,
+		target_tick,
+		step_count
+	)
 	for _step_index: int in range(step_count):
 		var next_tick: int = current_tick + 1
 		tick_started.emit(next_tick, tick_seconds)
 		current_tick = next_tick
 		tick_finished.emit(current_tick, tick_seconds)
-	tick_loop_finished.emit(previous_tick, current_tick, step_count)
+	tick_loop_finished.emit(
+		previous_tick,
+		current_tick,
+		step_count
+	)
 
 
 ## 接受有限正数，否则使用有限正回退值或 30.0。
@@ -338,9 +409,17 @@ func _advance_steps(step_count: int, tick_seconds: float) -> void:
 ## @api private
 ## [br]
 func _normalize_positive_finite(value: float, fallback: float) -> float:
-	if value > 0.0 and not is_nan(value) and not is_inf(value):
+	if (
+		value > 0.0
+		and not is_nan(value)
+		and not is_inf(value)
+	):
 		return value
-	if fallback > 0.0 and not is_nan(fallback) and not is_inf(fallback):
+	if (
+		fallback > 0.0
+		and not is_nan(fallback)
+		and not is_inf(fallback)
+	):
 		return fallback
 	return 30.0
 
@@ -350,8 +429,16 @@ func _normalize_positive_finite(value: float, fallback: float) -> float:
 ## @api private
 ## [br]
 func _normalize_non_negative_finite(value: float, fallback: float) -> float:
-	if value >= 0.0 and not is_nan(value) and not is_inf(value):
+	if (
+		value >= 0.0
+		and not is_nan(value)
+		and not is_inf(value)
+	):
 		return value
-	if fallback >= 0.0 and not is_nan(fallback) and not is_inf(fallback):
+	if (
+		fallback >= 0.0
+		and not is_nan(fallback)
+		and not is_inf(fallback)
+	):
 		return fallback
 	return 0.0

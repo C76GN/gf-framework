@@ -34,6 +34,7 @@ enum SnapMode {
 	EIGHT_WAY,
 }
 
+
 ## 二维离散方向。
 ## [br]
 ## @api public
@@ -145,7 +146,11 @@ static func apply_radial_deadzone(
 	rescale_after_deadzone: bool = true
 ) -> Vector2:
 	var magnitude: float = raw_direction.length()
-	var threshold: float = clampf(deadzone, 0.0, 0.99)
+	var threshold: float = clampf(
+		deadzone,
+		0.0,
+		0.99
+	)
 	if magnitude <= threshold:
 		return Vector2.ZERO
 	if magnitude <= _EPSILON:
@@ -154,7 +159,11 @@ static func apply_radial_deadzone(
 		return raw_direction.limit_length(1.0)
 
 	var remapped_magnitude: float = (minf(magnitude, 1.0) - threshold) / (1.0 - threshold)
-	return raw_direction.normalized() * clampf(remapped_magnitude, 0.0, 1.0)
+	return raw_direction.normalized() * clampf(
+		remapped_magnitude,
+		0.0,
+		1.0
+	)
 
 
 ## 按指定模式把二维输入吸附到连续或离散方向。
@@ -179,18 +188,32 @@ static func snap_vector(
 	rescale_analog_after_deadzone: bool = false
 ) -> Vector2:
 	if mode == SnapMode.ANALOG:
-		return apply_radial_deadzone(raw_direction, deadzone, rescale_analog_after_deadzone)
+		return apply_radial_deadzone(
+			raw_direction,
+			deadzone,
+			rescale_analog_after_deadzone
+		)
 
 	var magnitude: float = raw_direction.length()
-	if magnitude <= clampf(deadzone, 0.0, 0.99) or magnitude <= _EPSILON:
+	if magnitude <= clampf(
+		deadzone,
+		0.0,
+		0.99
+	) or magnitude <= _EPSILON:
 		return Vector2.ZERO
 
 	var direction: Vector2 = raw_direction / magnitude
 	match mode:
 		SnapMode.HORIZONTAL_2:
-			return Vector2(signf(direction.x), 0.0) if absf(direction.x) > _EPSILON else Vector2.ZERO
+			return Vector2(
+				signf(direction.x),
+				0.0
+			) if absf(direction.x) > _EPSILON else Vector2.ZERO
 		SnapMode.VERTICAL_2:
-			return Vector2(0.0, signf(direction.y)) if absf(direction.y) > _EPSILON else Vector2.ZERO
+			return Vector2(
+				0.0,
+				signf(direction.y)
+			) if absf(direction.y) > _EPSILON else Vector2.ZERO
 		SnapMode.CARDINAL_4:
 			return _snap_cardinal(direction)
 		SnapMode.EIGHT_WAY:
@@ -209,7 +232,11 @@ static func snap_vector(
 ## [br]
 ## @return 方向名称；NONE 返回空 StringName。
 static func get_direction_name(direction: Direction2D) -> StringName:
-	var raw_name: Variant = GFVariantData.get_option_value(_DIRECTION_NAMES, direction, &"")
+	var raw_name: Variant = GFVariantData.get_option_value(
+		_DIRECTION_NAMES,
+		direction,
+		&""
+	)
 	if raw_name is StringName:
 		var direction_name: StringName = raw_name
 		return direction_name
@@ -227,10 +254,7 @@ static func get_direction_name(direction: Direction2D) -> StringName:
 ## @param default_direction: 未找到名称时返回的默认方向。
 ## [br]
 ## @return 方向枚举。
-static func get_direction_from_name(
-	direction_name: StringName,
-	default_direction: Direction2D = Direction2D.NONE
-) -> Direction2D:
+static func get_direction_from_name(direction_name: StringName, default_direction: Direction2D = Direction2D.NONE) -> Direction2D:
 	for direction_value: Variant in _DIRECTION_NAMES:
 		var candidate: Direction2D = _to_direction(direction_value)
 		var candidate_name: StringName = get_direction_name(candidate)
@@ -249,7 +273,11 @@ static func get_direction_from_name(
 ## [br]
 ## @return 方向向量；对角方向保留 -1/1 分量而不归一化。
 static func get_direction_vector(direction: Direction2D) -> Vector2:
-	var raw_vector: Variant = GFVariantData.get_option_value(_DIRECTION_VECTORS, direction, Vector2.ZERO)
+	var raw_vector: Variant = GFVariantData.get_option_value(
+		_DIRECTION_VECTORS,
+		direction,
+		Vector2.ZERO
+	)
 	if raw_vector is Vector2:
 		var direction_vector: Vector2 = raw_vector
 		return direction_vector
@@ -279,7 +307,11 @@ static func get_closest_direction(
 
 	var mode: SnapMode = SnapMode.EIGHT_WAY if include_diagonal else SnapMode.CARDINAL_4
 	var snapped_vector: Vector2 = snap_vector(raw_direction, mode)
-	return get_direction_from_vector(snapped_vector, include_diagonal, default_direction)
+	return get_direction_from_vector(
+		snapped_vector,
+		include_diagonal,
+		default_direction
+	)
 
 
 ## 按离散向量获取方向枚举。
@@ -323,7 +355,11 @@ static func get_direction_from_vector(
 ## [br]
 ## @return 反向方向。
 static func get_opposite_direction(direction: Direction2D) -> Direction2D:
-	var raw_direction: Variant = GFVariantData.get_option_value(_OPPOSITE_DIRECTIONS, direction, Direction2D.NONE)
+	var raw_direction: Variant = GFVariantData.get_option_value(
+		_OPPOSITE_DIRECTIONS,
+		direction,
+		Direction2D.NONE
+	)
 	return _to_direction(raw_direction)
 
 
@@ -348,8 +384,14 @@ static func get_opposite_vector(direction_vector: Vector2) -> Vector2:
 ## [br]
 static func _snap_cardinal(direction: Vector2) -> Vector2:
 	if absf(direction.x) >= absf(direction.y):
-		return Vector2(signf(direction.x), 0.0)
-	return Vector2(0.0, signf(direction.y))
+		return Vector2(
+			signf(direction.x),
+			0.0
+		)
+	return Vector2(
+		0.0,
+		signf(direction.y)
+	)
 
 
 ## 按对角阈值分别离散两个分量；两者都未达阈值时回退到四方向吸附。

@@ -20,7 +20,7 @@
 | 方法 | [`record_miss`](#member-gfcachediagnostics-methods-record_miss) | `func record_miss(key: Variant = null) -> void:` |
 | 方法 | [`record_write`](#member-gfcachediagnostics-methods-record_write) | `func record_write(key: Variant = null) -> void:` |
 | 方法 | [`record_eviction`](#member-gfcachediagnostics-methods-record_eviction) | `func record_eviction(reason: StringName = &"evicted", key: Variant = null) -> void:` |
-| 方法 | [`record_invalidation`](#member-gfcachediagnostics-methods-record_invalidation) | `func record_invalidation(reason: StringName = &"invalidated", key: Variant = null, amount: int = 1) -> void:` |
+| 方法 | [`record_invalidation`](#member-gfcachediagnostics-methods-record_invalidation) | `func record_invalidation( reason: StringName = &"invalidated", key: Variant = null, amount: int = 1 ) -> void:` |
 | 方法 | [`reset`](#member-gfcachediagnostics-methods-reset) | `func reset() -> void:` |
 | 方法 | [`get_hit_ratio`](#member-gfcachediagnostics-methods-get_hit_ratio) | `func get_hit_ratio() -> float:` |
 | 方法 | [`get_debug_snapshot`](#member-gfcachediagnostics-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
@@ -143,7 +143,7 @@ func record_eviction(reason: StringName = &"evicted", key: Variant = null) -> vo
 - 首次版本：`6.0.0`
 
 ```gdscript
-func record_invalidation(reason: StringName = &"invalidated", key: Variant = null, amount: int = 1) -> void:
+func record_invalidation( reason: StringName = &"invalidated", key: Variant = null, amount: int = 1 ) -> void:
 ```
 
 记录缓存失效。

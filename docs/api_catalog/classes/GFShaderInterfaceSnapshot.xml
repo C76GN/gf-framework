@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFShaderInterfaceSnapshot" path="addons/gf/standard/utilities/display/gf_shader_interface_snapshot.gd" module="standard" extends="Resource" classDigest="dace11bbd780001807d76a4550f586c58f14dc28facc2038e09a0043695c2342">
+<class name="GFShaderInterfaceSnapshot" path="addons/gf/standard/utilities/display/gf_shader_interface_snapshot.gd" module="standard" extends="Resource" classDigest="0881237d0b4b11b2b20f41575f1cd4d06788b471373fb7076fb6b0d57fd7538c">
 	<description>GFShaderInterfaceSnapshot: 可持久化的 Shader uniform 接口快照。
 从 Shader 反射结果捕获稳定排序的 uniform 声明，并用同一份数据校验参数集合
 或比较接口漂移。快照只保存公开接口字段，不保存 shader 源码、材质当前值、
@@ -134,7 +134,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="validate_parameters">
-			<signature>func validate_parameters( parameters: Dictionary, options: Dictionary = {} ) -&gt; GFValidationReport:</signature>
+			<signature>func validate_parameters(parameters: Dictionary, options: Dictionary = {}) -&gt; GFValidationReport:</signature>
 			<description>根据快照校验参数字典。
 Profile 默认按部分覆盖处理，因此缺失 uniform 默认忽略；未知参数和错型值默认报错。</description>
 			<tags>
@@ -148,7 +148,7 @@ Profile 默认按部分覆盖处理，因此缺失 uniform 默认忽略；未知
 			</tags>
 		</member>
 		<member kind="method" name="compare_with">
-			<signature>func compare_with( actual: GFShaderInterfaceSnapshot, options: Dictionary = {} ) -&gt; GFValidationReport:</signature>
+			<signature>func compare_with(actual: GFShaderInterfaceSnapshot, options: Dictionary = {}) -&gt; GFValidationReport:</signature>
 			<description>比较期望快照与实际快照。
 当前快照作为 expected；actual 缺失和签名变化默认报错，新增 uniform 默认 warning。</description>
 			<tags>
@@ -161,7 +161,7 @@ Profile 默认按部分覆盖处理，因此缺失 uniform 默认忽略；未知
 			</tags>
 		</member>
 		<member kind="method" name="validate_shader">
-			<signature>func validate_shader( shader: Shader, options: Dictionary = {} ) -&gt; GFValidationReport:</signature>
+			<signature>func validate_shader(shader: Shader, options: Dictionary = {}) -&gt; GFValidationReport:</signature>
 			<description>将 Shader 当前接口与本快照比较。</description>
 			<tags>
 				<tag name="api">public</tag>

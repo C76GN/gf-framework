@@ -16,14 +16,14 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 信号 | [`state_changed`](#member-gfstatemachine-signals-state_changed) | `signal state_changed(from_state: StringName, to_state: StringName)` |
-| 信号 | [`transition_blocked`](#member-gfstatemachine-signals-transition_blocked) | `signal transition_blocked(from_state: StringName, to_state: StringName, msg: Dictionary, reason: StringName)` |
-| 信号 | [`state_event_handled`](#member-gfstatemachine-signals-state_event_handled) | `signal state_event_handled(event_id: StringName, handler_state: StringName, payload: Variant)` |
+| 信号 | [`transition_blocked`](#member-gfstatemachine-signals-transition_blocked) | `signal transition_blocked( from_state: StringName, to_state: StringName, msg: Dictionary, reason: StringName )` |
+| 信号 | [`state_event_handled`](#member-gfstatemachine-signals-state_event_handled) | `signal state_event_handled( event_id: StringName, handler_state: StringName, payload: Variant )` |
 | 属性 | [`current_state_name`](#member-gfstatemachine-properties-current_state_name) | `var current_state_name: StringName = &""` |
 | 属性 | [`blackboard`](#member-gfstatemachine-properties-blackboard) | `var blackboard: Dictionary = {}` |
 | 方法 | [`_init`](#member-gfstatemachine-methods-_init) | `func _init(context: Object = null) -> void:` |
-| 方法 | [`add_state`](#member-gfstatemachine-methods-add_state) | `func add_state(state_name: StringName, state: GFState, parent_state_name: StringName = &"") -> void:` |
+| 方法 | [`add_state`](#member-gfstatemachine-methods-add_state) | `func add_state( state_name: StringName, state: GFState, parent_state_name: StringName = &"" ) -> void:` |
 | 方法 | [`set_state_parent`](#member-gfstatemachine-methods-set_state_parent) | `func set_state_parent(state_name: StringName, parent_state_name: StringName = &"") -> bool:` |
-| 方法 | [`start`](#member-gfstatemachine-methods-start) | `func start(initial_state_name: StringName, msg: Dictionary = {}, emit_changed: bool = true) -> void:` |
+| 方法 | [`start`](#member-gfstatemachine-methods-start) | `func start( initial_state_name: StringName, msg: Dictionary = {}, emit_changed: bool = true ) -> void:` |
 | 方法 | [`change_state`](#member-gfstatemachine-methods-change_state) | `func change_state(state_name: StringName, msg: Dictionary = {}) -> void:` |
 | 方法 | [`update`](#member-gfstatemachine-methods-update) | `func update(delta: float, include_ancestors: bool = false) -> void:` |
 | 方法 | [`dispatch_state_event`](#member-gfstatemachine-methods-dispatch_state_event) | `func dispatch_state_event(event_id: StringName, payload: Variant = null) -> bool:` |
@@ -46,12 +46,12 @@
 | 方法 | [`send_query`](#member-gfstatemachine-methods-send_query) | `func send_query(query: Object) -> Variant:` |
 | 方法 | [`send_event`](#member-gfstatemachine-methods-send_event) | `func send_event(event_instance: Object) -> void:` |
 | 方法 | [`send_simple_event`](#member-gfstatemachine-methods-send_simple_event) | `func send_simple_event(event_id: StringName, payload: Variant = null) -> void:` |
-| 方法 | [`register_event_owned`](#member-gfstatemachine-methods-register_event_owned) | `func register_event_owned(owner: Object, event_type: Script, listener: GFEventListener, priority: int = 0) -> void:` |
-| 方法 | [`unregister_event`](#member-gfstatemachine-methods-unregister_event) | `func unregister_event(event_type: Script, listener: GFEventListener, owner: Object = null) -> void:` |
+| 方法 | [`register_event_owned`](#member-gfstatemachine-methods-register_event_owned) | `func register_event_owned( owner: Object, event_type: Script, listener: GFEventListener, priority: int = 0 ) -> void:` |
+| 方法 | [`unregister_event`](#member-gfstatemachine-methods-unregister_event) | `func unregister_event( event_type: Script, listener: GFEventListener, owner: Object = null ) -> void:` |
 | 方法 | [`register_assignable_event_owned`](#member-gfstatemachine-methods-register_assignable_event_owned) | `func register_assignable_event_owned( owner: Object, base_event_type: Script, listener: GFEventListener, priority: int = 0 ) -> void:` |
-| 方法 | [`unregister_assignable_event`](#member-gfstatemachine-methods-unregister_assignable_event) | `func unregister_assignable_event(base_event_type: Script, listener: GFEventListener, owner: Object = null) -> void:` |
-| 方法 | [`register_simple_event_owned`](#member-gfstatemachine-methods-register_simple_event_owned) | `func register_simple_event_owned(owner: Object, event_id: StringName, listener: GFEventListener) -> void:` |
-| 方法 | [`unregister_simple_event`](#member-gfstatemachine-methods-unregister_simple_event) | `func unregister_simple_event(event_id: StringName, listener: GFEventListener, owner: Object = null) -> void:` |
+| 方法 | [`unregister_assignable_event`](#member-gfstatemachine-methods-unregister_assignable_event) | `func unregister_assignable_event( base_event_type: Script, listener: GFEventListener, owner: Object = null ) -> void:` |
+| 方法 | [`register_simple_event_owned`](#member-gfstatemachine-methods-register_simple_event_owned) | `func register_simple_event_owned( owner: Object, event_id: StringName, listener: GFEventListener ) -> void:` |
+| 方法 | [`unregister_simple_event`](#member-gfstatemachine-methods-unregister_simple_event) | `func unregister_simple_event( event_id: StringName, listener: GFEventListener, owner: Object = null ) -> void:` |
 | 方法 | [`unregister_owner_events`](#member-gfstatemachine-methods-unregister_owner_events) | `func unregister_owner_events(owner: Object) -> void:` |
 
 ## 信号
@@ -80,9 +80,10 @@ signal state_changed(from_state: StringName, to_state: StringName)
 ### `transition_blocked`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal transition_blocked(from_state: StringName, to_state: StringName, msg: Dictionary, reason: StringName)
+signal transition_blocked( from_state: StringName, to_state: StringName, msg: Dictionary, reason: StringName )
 ```
 
 当状态守卫阻止切换时发出。
@@ -105,9 +106,10 @@ signal transition_blocked(from_state: StringName, to_state: StringName, msg: Dic
 ### `state_event_handled`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal state_event_handled(event_id: StringName, handler_state: StringName, payload: Variant)
+signal state_event_handled( event_id: StringName, handler_state: StringName, payload: Variant )
 ```
 
 当状态事件被某个激活状态处理后发出。
@@ -179,9 +181,10 @@ func _init(context: Object = null) -> void:
 ### `add_state`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func add_state(state_name: StringName, state: GFState, parent_state_name: StringName = &"") -> void:
+func add_state( state_name: StringName, state: GFState, parent_state_name: StringName = &"" ) -> void:
 ```
 
 注册一个状态。注册后，状态机会自动注入自身引用。
@@ -220,9 +223,10 @@ func set_state_parent(state_name: StringName, parent_state_name: StringName = &"
 ### `start`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func start(initial_state_name: StringName, msg: Dictionary = {}, emit_changed: bool = true) -> void:
+func start( initial_state_name: StringName, msg: Dictionary = {}, emit_changed: bool = true ) -> void:
 ```
 
 启动状态机并进入初始状态。
@@ -672,7 +676,7 @@ func send_simple_event(event_id: StringName, payload: Variant = null) -> void:
 - 首次版本：`8.0.0`
 
 ```gdscript
-func register_event_owned(owner: Object, event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
+func register_event_owned( owner: Object, event_type: Script, listener: GFEventListener, priority: int = 0 ) -> void:
 ```
 
 注册带拥有者的类型事件监听器。
@@ -694,7 +698,7 @@ func register_event_owned(owner: Object, event_type: Script, listener: GFEventLi
 - 首次版本：`5.0.0`
 
 ```gdscript
-func unregister_event(event_type: Script, listener: GFEventListener, owner: Object = null) -> void:
+func unregister_event( event_type: Script, listener: GFEventListener, owner: Object = null ) -> void:
 ```
 
 注销类型事件监听器。
@@ -737,7 +741,7 @@ func register_assignable_event_owned( owner: Object, base_event_type: Script, li
 - 首次版本：`5.0.0`
 
 ```gdscript
-func unregister_assignable_event(base_event_type: Script, listener: GFEventListener, owner: Object = null) -> void:
+func unregister_assignable_event( base_event_type: Script, listener: GFEventListener, owner: Object = null ) -> void:
 ```
 
 注销可赋值类型事件监听器。
@@ -758,7 +762,7 @@ func unregister_assignable_event(base_event_type: Script, listener: GFEventListe
 - 首次版本：`8.0.0`
 
 ```gdscript
-func register_simple_event_owned(owner: Object, event_id: StringName, listener: GFEventListener) -> void:
+func register_simple_event_owned( owner: Object, event_id: StringName, listener: GFEventListener ) -> void:
 ```
 
 注册带拥有者的轻量级 StringName 事件监听器。
@@ -779,7 +783,7 @@ func register_simple_event_owned(owner: Object, event_id: StringName, listener: 
 - 首次版本：`5.0.0`
 
 ```gdscript
-func unregister_simple_event(event_id: StringName, listener: GFEventListener, owner: Object = null) -> void:
+func unregister_simple_event( event_id: StringName, listener: GFEventListener, owner: Object = null ) -> void:
 ```
 
 注销轻量级 StringName 事件监听器。

@@ -147,7 +147,10 @@ func _init(p_owner: Object = null) -> void:
 ## @param p_delta: 本次更新经过的时间。
 func update(p_delta: float) -> void:
 	if cooldown_left > 0.0:
-		cooldown_left = max(0.0, cooldown_left - p_delta)
+		cooldown_left = max(
+			0.0,
+			cooldown_left - p_delta
+		)
 
 
 ## 注入当前技能执行所在的架构实例。
@@ -217,7 +220,11 @@ func get_activation_report(context: RefCounted = null) -> Dictionary:
 		return report
 	if not _resolve_activation_targets(activation_context):
 		return _context_to_report(activation_context)
-	report = _run_activation_callbacks(activation_context, activation_checks, &"activation_check_failed")
+	report = _run_activation_callbacks(
+		activation_context,
+		activation_checks,
+		&"activation_check_failed"
+	)
 	if not _report_ok(report):
 		return report
 
@@ -226,7 +233,11 @@ func get_activation_report(context: RefCounted = null) -> Dictionary:
 		return _context_to_report(activation_context)
 	var transaction_report: Dictionary = transaction.prepare(_make_transaction_context(activation_context))
 	if not _report_ok(transaction_report):
-		return _fail_from_transaction(activation_context, transaction_report, &"activation_prepare_failed")
+		return _fail_from_transaction(
+			activation_context,
+			transaction_report,
+			&"activation_prepare_failed"
+		)
 	return _context_to_report(activation_context)
 
 
@@ -255,12 +266,21 @@ func execute(
 	activation_metadata: Dictionary = {}
 ) -> bool:
 	if _activation_in_progress:
-		return _reject_reentrant_execution(manual_target, cast_center, activation_metadata)
+		return _reject_reentrant_execution(
+			manual_target,
+			cast_center,
+			activation_metadata
+		)
 
 	_activation_in_progress = true
-	var executed: bool = _execute_once(manual_target, cast_center, activation_metadata)
+	var executed: bool = _execute_once(
+		manual_target,
+		cast_center,
+		activation_metadata
+	)
 	_activation_in_progress = false
 	return executed
+
 
 # --- 可重写钩子 / 虚方法 ---
 
@@ -326,7 +346,11 @@ func _execute_once(
 	cast_center: Variant,
 	activation_metadata: Dictionary
 ) -> bool:
-	var context: RefCounted = build_activation_context(manual_target, cast_center, activation_metadata)
+	var context: RefCounted = build_activation_context(
+		manual_target,
+		cast_center,
+		activation_metadata
+	)
 	var report: Dictionary = _validate_activation_context(context, false)
 	if not _report_ok(report):
 		activation_failed.emit(self, context)
@@ -336,7 +360,11 @@ func _execute_once(
 		activation_failed.emit(self, context)
 		return false
 
-	report = _run_activation_callbacks(context, activation_checks, &"activation_check_failed")
+	report = _run_activation_callbacks(
+		context,
+		activation_checks,
+		&"activation_check_failed"
+	)
 	if not _report_ok(report):
 		activation_failed.emit(self, context)
 		return false
@@ -358,9 +386,11 @@ func _execute_once(
 
 	if not _try_activate(context):
 		var rollback_report: Dictionary = transaction.rollback(transaction_context)
-		var _execute_failed_report: Dictionary = _fail_activation_context(context, &"execute_failed", {
-			"activation_transaction": rollback_report,
-		})
+		var _execute_failed_report: Dictionary = _fail_activation_context(
+			context,
+			&"execute_failed",
+			{ "activation_transaction": rollback_report, }
+		)
 		activation_failed.emit(self, context)
 		return false
 	cooldown_left = cooldown_max
@@ -396,6 +426,7 @@ func _reject_reentrant_execution(
 	_reporting_reentrant_failure = false
 	return false
 
+
 ## 检查上下文、冷却、owner、标签、query 与自定义钩子，并可选运行检查回调。
 ## [br]
 ## @api private
@@ -420,13 +451,19 @@ func _validate_activation_context(context: RefCounted, include_callbacks: bool) 
 		return _context_to_report(context)
 	if activation_query != null and not activation_query.matches(tag_source):
 		var query_report: Dictionary = activation_query.get_match_report(tag_source)
-		return _fail_activation_context(context, &"activation_query_failed", {
-			"query_report": query_report,
-		})
+		return _fail_activation_context(
+			context,
+			&"activation_query_failed",
+			{ "query_report": query_report, }
+		)
 	if not _custom_can_execute():
 		return _fail_activation_context(context, &"custom_check_failed")
 	if include_callbacks:
-		return _run_activation_callbacks(context, activation_checks, &"activation_check_failed")
+		return _run_activation_callbacks(
+			context,
+			activation_checks,
+			&"activation_check_failed"
+		)
 	return _context_to_report(context)
 
 
@@ -436,9 +473,11 @@ func _validate_activation_context(context: RefCounted, include_callbacks: bool) 
 func _validate_required_tags(context: RefCounted, tag_source: Variant) -> bool:
 	for tag: StringName in require_tags:
 		if not GFTagSourceAdapter.source_has_tag(tag_source, tag):
-			var _missing_tag_report: Dictionary = _fail_activation_context(context, &"missing_required_tag", {
-				"tag": tag,
-			})
+			var _missing_tag_report: Dictionary = _fail_activation_context(
+				context,
+				&"missing_required_tag",
+				{ "tag": tag, }
+			)
 			return false
 	return true
 
@@ -449,9 +488,11 @@ func _validate_required_tags(context: RefCounted, tag_source: Variant) -> bool:
 func _validate_blocked_tags(context: RefCounted, tag_source: Variant) -> bool:
 	for tag: StringName in ignore_tags:
 		if GFTagSourceAdapter.source_has_tag(tag_source, tag):
-			var _blocked_tag_report: Dictionary = _fail_activation_context(context, &"blocked_tag", {
-				"tag": tag,
-			})
+			var _blocked_tag_report: Dictionary = _fail_activation_context(
+				context,
+				&"blocked_tag",
+				{ "tag": tag, }
+			)
 			return false
 	return true
 
@@ -462,7 +503,11 @@ func _validate_blocked_tags(context: RefCounted, tag_source: Variant) -> bool:
 func _resolve_activation_targets(context: RefCounted) -> bool:
 	var final_targets: Array[Object] = []
 	var manual_target: Object = _get_context_object(context, "manual_target")
-	var resolved_center: Vector2 = _get_context_vector2(context, "resolved_center", Vector2.ZERO)
+	var resolved_center: Vector2 = _get_context_vector2(
+		context,
+		"resolved_center",
+		Vector2.ZERO
+	)
 
 	if manual_target != null:
 		if targeting_rule != null:
@@ -472,7 +517,11 @@ func _resolve_activation_targets(context: RefCounted) -> bool:
 				var _missing_utility_report: Dictionary = _fail_activation_context(context, &"targeting_utility_missing")
 				return false
 
-			var valid_targets: Array[Object] = utility.find_targets(resolved_center, targeting_rule, [manual_target])
+			var valid_targets: Array[Object] = utility.find_targets(
+				resolved_center,
+				targeting_rule,
+				[manual_target]
+			)
 			if not valid_targets.is_empty():
 				final_targets.append(manual_target)
 			else:
@@ -494,9 +543,17 @@ func _resolve_activation_targets(context: RefCounted) -> bool:
 			var _missing_utility_report: Dictionary = _fail_activation_context(context, &"targeting_utility_missing")
 			return false
 
-		final_targets = utility.find_targets(resolved_center, targeting_rule, candidates)
+		final_targets = utility.find_targets(
+			resolved_center,
+			targeting_rule,
+			candidates
+		)
 
-	if targeting_rule != null and targeting_rule.max_count > 0 and final_targets.is_empty():
+	if (
+		targeting_rule != null
+		and targeting_rule.max_count > 0
+		and final_targets.is_empty()
+	):
 		var _no_targets_report: Dictionary = _fail_activation_context(context, &"no_targets")
 		return false
 
@@ -516,7 +573,11 @@ func _run_activation_callbacks(
 		if not callback.is_valid():
 			continue
 		var result: Variant = callback.call(context)
-		var report: Dictionary = _apply_activation_callback_result(context, result, default_reason)
+		var report: Dictionary = _apply_activation_callback_result(
+			context,
+			result,
+			default_reason
+		)
 		if not _report_ok(report):
 			return report
 	return _context_to_report(context)
@@ -535,10 +596,16 @@ func _build_activation_transaction(context: RefCounted) -> GFActivationTransacti
 	)
 	var used_step_ids: Dictionary = {}
 	for step: GFSkillActivationStep in activation_steps:
-		if step == null or step.step_id == &"" or used_step_ids.has(step.step_id):
-			var _invalid_step_report: Dictionary = _fail_activation_context(context, &"invalid_activation_step", {
-				"step_id": step.step_id if step != null else &"",
-			})
+		if (
+			step == null
+			or step.step_id == &""
+			or used_step_ids.has(step.step_id)
+		):
+			var _invalid_step_report: Dictionary = _fail_activation_context(
+				context,
+				&"invalid_activation_step",
+				{ "step_id": step.step_id if step != null else &"", }
+			)
 			return null
 		used_step_ids[step.step_id] = true
 		var rollback_callback: Callable = Callable()
@@ -548,15 +615,14 @@ func _build_activation_transaction(context: RefCounted) -> GFActivationTransacti
 			step.step_id,
 			_invoke_activation_step.bind(step, &"apply"),
 			rollback_callback,
-			{
-				"validate_callback": _invoke_activation_step.bind(step, &"validate"),
-				"rollback_required": step.rollback_required,
-			}
+			{ "validate_callback": _invoke_activation_step.bind(step, &"validate"), "rollback_required": step.rollback_required, }
 		)
 		if not added:
-			var _step_add_failed_report: Dictionary = _fail_activation_context(context, &"invalid_activation_step", {
-				"step_id": step.step_id,
-			})
+			var _step_add_failed_report: Dictionary = _fail_activation_context(
+				context,
+				&"invalid_activation_step",
+				{ "step_id": step.step_id, }
+			)
 			return null
 	return transaction
 
@@ -571,10 +637,7 @@ func _invoke_activation_step(
 ) -> Variant:
 	var context: GFSkillActivationContext = _get_transaction_activation_context(transaction_context)
 	if context == null or step == null:
-		return {
-			"ok": false,
-			"reason": &"invalid_activation_context",
-		}
+		return { "ok": false, "reason": &"invalid_activation_context", }
 	var result: Variant = null
 	match phase:
 		&"validate":
@@ -584,10 +647,7 @@ func _invoke_activation_step(
 		&"rollback":
 			result = step._rollback_activation(context)
 		_:
-			return {
-				"ok": false,
-				"reason": &"invalid_activation_phase",
-			}
+			return { "ok": false, "reason": &"invalid_activation_phase", }
 	return _normalize_activation_step_result(context, result)
 
 
@@ -602,7 +662,11 @@ func _normalize_activation_step_result(context: RefCounted, result: Variant) -> 
 	var metadata: Dictionary = GFVariantData.get_option_dictionary(normalized, "metadata")
 	if not metadata.is_empty():
 		_merge_activation_metadata(context, metadata)
-	if not GFVariantData.get_option_bool(normalized, "ok", true) and not normalized.has("kind"):
+	if not GFVariantData.get_option_bool(
+		normalized,
+		"ok",
+		true
+	) and not normalized.has("kind"):
 		normalized["kind"] = GFVariantData.get_option_string_name(
 			normalized,
 			"reason",
@@ -615,9 +679,7 @@ func _normalize_activation_step_result(context: RefCounted, result: Variant) -> 
 ## [br]
 ## @api private
 func _make_transaction_context(context: RefCounted) -> Dictionary:
-	return {
-		"activation_context": context,
-	}
+	return { "activation_context": context, }
 
 
 ## 从事务字典取出并收窄为 GFSkillActivationContext。
@@ -642,10 +704,16 @@ func _fail_from_transaction(
 	var issues: Array = GFVariantData.get_option_array(transaction_report, "issues")
 	if not issues.is_empty():
 		var first_issue: Dictionary = GFVariantData.as_dictionary(issues[0])
-		reason = GFVariantData.get_option_string_name(first_issue, "kind", default_reason)
-	return _fail_activation_context(context, reason, {
-		"activation_transaction": transaction_report,
-	})
+		reason = GFVariantData.get_option_string_name(
+			first_issue,
+			"kind",
+			default_reason
+		)
+	return _fail_activation_context(
+		context,
+		reason,
+		{ "activation_transaction": transaction_report, }
+	)
 
 
 ## 解释回调返回的字典或 false，并将失败或 metadata 合并到上下文报告。
@@ -658,13 +726,29 @@ func _apply_activation_callback_result(
 ) -> Dictionary:
 	if result is Dictionary:
 		var result_data: Dictionary = result
-		var metadata_value: Variant = GFVariantData.get_option_value(result_data, "metadata", {})
+		var metadata_value: Variant = GFVariantData.get_option_value(
+			result_data,
+			"metadata",
+			{}
+		)
 		var metadata: Dictionary = GFVariantData.as_dictionary(metadata_value)
-		if GFVariantData.get_option_bool(result_data, "ok", true):
+		if GFVariantData.get_option_bool(
+			result_data,
+			"ok",
+			true
+		):
 			_merge_activation_metadata(context, metadata)
 			return _context_to_report(context)
-		var reason: StringName = GFVariantData.get_option_string_name(result_data, "reason", default_reason)
-		return _fail_activation_context(context, reason, metadata)
+		var reason: StringName = GFVariantData.get_option_string_name(
+			result_data,
+			"reason",
+			default_reason
+		)
+		return _fail_activation_context(
+			context,
+			reason,
+			metadata
+		)
 	if result is bool and not GFVariantData.to_bool(result):
 		return _fail_activation_context(context, default_reason)
 	return _context_to_report(context)
@@ -674,7 +758,11 @@ func _apply_activation_callback_result(
 ## [br]
 ## @api private
 func _merge_activation_metadata(context: RefCounted, extra_metadata: Dictionary) -> void:
-	var metadata_value: Variant = GFObjectPropertyTools.read_property(context, NodePath("metadata"), {})
+	var metadata_value: Variant = GFObjectPropertyTools.read_property(
+		context,
+		NodePath("metadata"),
+		{}
+	)
 	var metadata: Dictionary = GFVariantData.as_dictionary(metadata_value)
 	for key: Variant in extra_metadata.keys():
 		metadata[key] = GFVariantData.duplicate_variant(extra_metadata[key])
@@ -690,7 +778,11 @@ func _fail_activation_context(
 	extra_metadata: Dictionary = {}
 ) -> Dictionary:
 	if context != null and context.has_method("fail"):
-		context.call("fail", reason, extra_metadata)
+		context.call(
+			"fail",
+			reason,
+			extra_metadata
+		)
 	if context != null and context.has_method("to_report"):
 		return _context_to_report(context)
 	return {
@@ -706,9 +798,14 @@ func _fail_activation_context(
 func _get_owner_tag_source(valid_owner: Object) -> Variant:
 	if valid_owner.has_method("get_tag_component"):
 		return valid_owner.call("get_tag_component")
-	if valid_owner.has_method("get_tags") or valid_owner.has_method("has_tag") or valid_owner.has_method("get_tag_count"):
+	if (
+		valid_owner.has_method("get_tags")
+		or valid_owner.has_method("has_tag")
+		or valid_owner.has_method("get_tag_count")
+	):
 		return valid_owner
 	return null
+
 
 ## 使用显式 Vector2 施法中心，或从 owner.global_position 读取，最后回退到零向量。
 ## [br]
@@ -719,7 +816,10 @@ func _resolve_cast_center(cast_center: Variant) -> Vector2:
 
 	var valid_owner: Object = _get_valid_owner()
 	if valid_owner != null:
-		var owner_position: Variant = GFObjectPropertyTools.read_property(valid_owner, NodePath("global_position"))
+		var owner_position: Variant = GFObjectPropertyTools.read_property(
+			valid_owner,
+			NodePath("global_position")
+		)
 		if owner_position is Vector2:
 			return owner_position
 
@@ -761,7 +861,11 @@ func _get_architecture_or_null() -> GFArchitecture:
 ## [br]
 ## @api private
 func _report_ok(report: Dictionary) -> bool:
-	return GFVariantData.get_option_bool(report, "ok", false)
+	return GFVariantData.get_option_bool(
+		report,
+		"ok",
+		false
+	)
 
 
 ## 通过上下文的 to_report 转换为 Dictionary；协议不可用时返回空字典。
@@ -779,16 +883,29 @@ func _context_to_report(context: RefCounted) -> Dictionary:
 func _get_context_object(context: RefCounted, key: String) -> Object:
 	if context == null:
 		return null
-	return _variant_to_object(GFObjectPropertyTools.read_property(context, NodePath(key)))
+	return _variant_to_object(
+		GFObjectPropertyTools.read_property(
+			context,
+			NodePath(key)
+		)
+	)
 
 
 ## 读取上下文属性；值不是 Vector2 时返回调用方默认值。
 ## [br]
 ## @api private
-func _get_context_vector2(context: RefCounted, key: String, default_value: Vector2) -> Vector2:
+func _get_context_vector2(
+	context: RefCounted,
+	key: String,
+	default_value: Vector2
+) -> Vector2:
 	if context == null:
 		return default_value
-	var value: Variant = GFObjectPropertyTools.read_property(context, NodePath(key), default_value)
+	var value: Variant = GFObjectPropertyTools.read_property(
+		context,
+		NodePath(key),
+		default_value
+	)
 	if value is Vector2:
 		return value
 	return default_value
@@ -800,7 +917,13 @@ func _get_context_vector2(context: RefCounted, key: String, default_value: Vecto
 func _get_context_array(context: RefCounted, key: String) -> Array:
 	if context == null:
 		return []
-	return GFVariantData.as_array(GFObjectPropertyTools.read_property(context, NodePath(key), []))
+	return GFVariantData.as_array(
+		GFObjectPropertyTools.read_property(
+			context,
+			NodePath(key),
+			[]
+		)
+	)
 
 
 ## 将有效 Variant 对象收窄为 Object。

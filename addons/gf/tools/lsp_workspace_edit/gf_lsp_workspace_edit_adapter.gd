@@ -125,25 +125,19 @@ const _MAX_PATH_SPELLING_ENTRIES: int = 65_536
 ## [br]
 ## @api private
 ## [br]
-const _PLAN_SCRIPT = preload(
-	"res://addons/gf/tools/lsp_workspace_edit/gf_lsp_workspace_edit_plan.gd"
-)
+const _PLAN_SCRIPT = preload("res://addons/gf/tools/lsp_workspace_edit/gf_lsp_workspace_edit_plan.gd")
 
 ## 提供文本产物预检与一次性写事务的内部脚本。
 ## [br]
 ## @api private
 ## [br]
-const _ARTIFACT_TRANSACTION_SCRIPT = preload(
-	"res://addons/gf/kernel/editor/gf_artifact_write_transaction.gd"
-)
+const _ARTIFACT_TRANSACTION_SCRIPT = preload("res://addons/gf/kernel/editor/gf_artifact_write_transaction.gd")
 
 ## 提供带范围和重叠检查的源码文本编辑应用工具。
 ## [br]
 ## @api private
 ## [br]
-const _SOURCE_TEXT_PATCH_TOOLS_SCRIPT = preload(
-	"res://addons/gf/standard/foundation/text/gf_source_text_patch_tools.gd"
-)
+const _SOURCE_TEXT_PATCH_TOOLS_SCRIPT = preload("res://addons/gf/standard/foundation/text/gf_source_text_patch_tools.gd")
 
 
 # --- 私有变量 ---
@@ -217,13 +211,14 @@ static func build_plan(
 	if not option_issues.is_empty():
 		return _make_invalid_plan(option_issues)
 
-	var snapshot_report: Dictionary = _normalize_workspace_snapshot(
-		workspace_snapshot,
-		option_report
-	)
+	var snapshot_report: Dictionary = _normalize_workspace_snapshot(workspace_snapshot, option_report)
 	var snapshot_issues: Array[Dictionary] = _get_issue_array(snapshot_report)
 	if not snapshot_issues.is_empty():
-		return _make_invalid_plan(snapshot_issues, snapshot_report, option_report)
+		return _make_invalid_plan(
+			snapshot_issues,
+			snapshot_report,
+			option_report
+		)
 
 	var edit_report: Dictionary = _normalize_workspace_edit(
 		workspace_edit,
@@ -232,38 +227,32 @@ static func build_plan(
 	)
 	var edit_issues: Array[Dictionary] = _get_issue_array(edit_report)
 	if not edit_issues.is_empty():
-		return _make_invalid_plan(edit_issues, snapshot_report, option_report)
+		return _make_invalid_plan(
+			edit_issues,
+			snapshot_report,
+			option_report
+		)
 
 	var documents: Array[Dictionary] = _get_dictionary_array(edit_report, "documents")
 	var entries: Array[Dictionary] = []
 	for document: Dictionary in documents:
-		entries.append(_ARTIFACT_TRANSACTION_SCRIPT.make_text_entry(
-			GFVariantData.get_option_string(document, "path"),
-			GFVariantData.get_option_string(document, "result_text"),
-			{
-				"overwrite": true,
-				"expected_sha256": GFVariantData.get_option_string(
-					document,
-					"result_sha256"
-				),
-				"preflight_existing_sha256": GFVariantData.get_option_string(
-					document,
-					"source_sha256"
-				),
-				"artifact_id": "lsp-workspace-edit",
-			}
-		))
+		entries.append(
+			_ARTIFACT_TRANSACTION_SCRIPT.make_text_entry(
+				GFVariantData.get_option_string(document, "path"),
+				GFVariantData.get_option_string(document, "result_text"),
+				{
+					"overwrite": true,
+					"expected_sha256": GFVariantData.get_option_string(document, "result_sha256"),
+					"preflight_existing_sha256": GFVariantData.get_option_string(document, "source_sha256"),
+					"artifact_id": "lsp-workspace-edit",
+				}
+			)
+		)
 	var transaction_options: Dictionary = _make_transaction_options(option_report)
-	var preflight: Dictionary = _ARTIFACT_TRANSACTION_SCRIPT.get_preflight_report(
-		entries,
-		transaction_options
-	)
+	var preflight: Dictionary = _ARTIFACT_TRANSACTION_SCRIPT.get_preflight_report(entries, transaction_options)
 	if not GFVariantData.get_option_bool(preflight, "ok"):
 		var preflight_issues: Array[Dictionary] = []
-		for message: String in GFVariantData.get_option_packed_string_array(
-			preflight,
-			"issues"
-		):
+		for message: String in GFVariantData.get_option_packed_string_array(preflight, "issues"):
 			_append_issue(
 				preflight_issues,
 				&"artifact_preflight_failed",
@@ -278,22 +267,10 @@ static func build_plan(
 	var payload: Dictionary = {
 		"format": _FORMAT,
 		"format_version": _FORMAT_VERSION,
-		"workspace_uri": GFVariantData.get_option_string(
-			snapshot_report,
-			"workspace_uri"
-		),
-		"workspace_root_sha256": GFVariantData.get_option_string(
-			snapshot_report,
-			"workspace_root_sha256"
-		),
-		"workspace_version": GFVariantData.get_option_int(
-			snapshot_report,
-			"workspace_version"
-		),
-		"position_encoding": GFVariantData.get_option_string(
-			option_report,
-			"position_encoding"
-		),
+		"workspace_uri": GFVariantData.get_option_string(snapshot_report, "workspace_uri"),
+		"workspace_root_sha256": GFVariantData.get_option_string(snapshot_report, "workspace_root_sha256"),
+		"workspace_version": GFVariantData.get_option_int(snapshot_report, "workspace_version"),
+		"position_encoding": GFVariantData.get_option_string(option_report, "position_encoding"),
 		"budgets": _extract_budgets(option_report),
 		"documents": documents,
 	}
@@ -305,7 +282,11 @@ static func build_plan(
 			&"plan_hash_failed",
 			"WorkspaceEdit plan SHA-256 could not be computed."
 		)
-		return _make_invalid_plan(hash_issues, snapshot_report, option_report)
+		return _make_invalid_plan(
+			hash_issues,
+			snapshot_report,
+			option_report
+		)
 
 	var public_documents: Array[Dictionary] = []
 	for document: Dictionary in documents:
@@ -364,15 +345,9 @@ static func build_plan(
 ## @schema workspace_snapshot: 与 build_plan() 的 workspace_snapshot 相同，且工作区身份/版本、目标集合、文档版本与来源 SHA-256 必须仍匹配计划。
 ## [br]
 ## @schema return: closed Dictionary，仅包含 ok、status、plan_sha256、written_count、unchanged_count、recovery_required、recovery_action、recovery_transaction、issues、artifact_report；recovery_required=true 时调用方必须按 recovery_action 将 recovery_transaction 原样交给 GFArtifactWriteTransaction.rollback() 或 complete()。
-static func commit_plan(
-	plan: GFLspWorkspaceEditPlan,
-	workspace_snapshot: Dictionary
-) -> Dictionary:
+static func commit_plan(plan: GFLspWorkspaceEditPlan, workspace_snapshot: Dictionary) -> Dictionary:
 	if plan == null:
-		return _make_commit_failure(
-			"invalid_plan",
-			"WorkspaceEdit plan is null."
-		)
+		return _make_commit_failure("invalid_plan", "WorkspaceEdit plan is null.")
 	if plan.is_consumed():
 		return _make_commit_failure(
 			"plan_consumed",
@@ -397,24 +372,15 @@ static func commit_plan(
 			payload_issues
 		)
 	var recalculated_sha256: String = _hash_canonical(payload)
-	if (
-		not _is_sha256(recalculated_sha256)
-		or recalculated_sha256 != plan.get_plan_sha256()
-	):
+	if (not _is_sha256(recalculated_sha256) or recalculated_sha256 != plan.get_plan_sha256()):
 		return _make_commit_failure(
 			"plan_hash_mismatch",
 			"WorkspaceEdit plan payload no longer matches its SHA-256.",
 			plan.get_plan_sha256()
 		)
 
-	var budgets: Dictionary = GFVariantData.get_option_dictionary(
-		payload,
-		"budgets"
-	)
-	var snapshot_report: Dictionary = _normalize_workspace_snapshot(
-		workspace_snapshot,
-		budgets
-	)
+	var budgets: Dictionary = GFVariantData.get_option_dictionary(payload, "budgets")
+	var snapshot_report: Dictionary = _normalize_workspace_snapshot(workspace_snapshot, budgets)
 	var snapshot_issues: Array[Dictionary] = _get_issue_array(snapshot_report)
 	if not snapshot_issues.is_empty():
 		return _make_commit_report(
@@ -423,10 +389,7 @@ static func commit_plan(
 			plan.get_plan_sha256(),
 			snapshot_issues
 		)
-	var freshness_issues: Array[Dictionary] = _validate_fresh_state(
-		payload,
-		snapshot_report
-	)
+	var freshness_issues: Array[Dictionary] = _validate_fresh_state(payload, snapshot_report)
 	if not freshness_issues.is_empty():
 		return _make_commit_report(
 			false,
@@ -448,36 +411,30 @@ static func commit_plan(
 
 	var entries: Array[Dictionary] = []
 	for document: Dictionary in _get_dictionary_array(payload, "documents"):
-		entries.append(_ARTIFACT_TRANSACTION_SCRIPT.make_text_entry(
-			GFVariantData.get_option_string(document, "path"),
-			GFVariantData.get_option_string(document, "result_text"),
-			{
-				"overwrite": true,
-				"expected_sha256": GFVariantData.get_option_string(
-					document,
-					"result_sha256"
-				),
-				"preflight_existing_sha256": GFVariantData.get_option_string(
-					document,
-					"source_sha256"
-				),
-				"artifact_id": "lsp-workspace-edit",
-			}
-		))
+		entries.append(
+			_ARTIFACT_TRANSACTION_SCRIPT.make_text_entry(
+				GFVariantData.get_option_string(document, "path"),
+				GFVariantData.get_option_string(document, "result_text"),
+				{
+					"overwrite": true,
+					"expected_sha256": GFVariantData.get_option_string(document, "result_sha256"),
+					"preflight_existing_sha256": GFVariantData.get_option_string(document, "source_sha256"),
+					"artifact_id": "lsp-workspace-edit",
+				}
+			)
+		)
 	var artifact_report: Dictionary = _ARTIFACT_TRANSACTION_SCRIPT.commit(
 		entries,
 		_make_transaction_options(budgets)
 	)
-	var artifact_ok: bool = GFVariantData.get_option_bool(
-		artifact_report,
-		"ok"
-	)
+	var artifact_ok: bool = GFVariantData.get_option_bool(artifact_report, "ok")
 	var issues: Array[Dictionary] = []
-	for message: String in GFVariantData.get_option_packed_string_array(
-		artifact_report,
-		"issues"
-	):
-		_append_issue(issues, &"artifact_transaction_failed", message)
+	for message: String in GFVariantData.get_option_packed_string_array(artifact_report, "issues"):
+		_append_issue(
+			issues,
+			&"artifact_transaction_failed",
+			message
+		)
 	return _make_commit_report(
 		artifact_ok,
 		"committed" if artifact_ok else "transaction_failed",
@@ -497,14 +454,16 @@ static func _normalize_options(options: Dictionary) -> Dictionary:
 	var issues: Array[Dictionary] = []
 	_require_closed_dictionary(
 		options,
-		PackedStringArray([
-			"position_encoding",
-			"max_file_count",
-			"max_edits_per_file",
-			"max_file_bytes",
-			"max_total_bytes",
-			"max_workspace_edit_bytes",
-		]),
+		PackedStringArray(
+			[
+				"position_encoding",
+				"max_file_count",
+				"max_edits_per_file",
+				"max_file_bytes",
+				"max_total_bytes",
+				"max_workspace_edit_bytes",
+			]
+		),
 		"options",
 		issues
 	)
@@ -516,13 +475,8 @@ static func _normalize_options(options: Dictionary) -> Dictionary:
 			"options.position_encoding must be an exact String."
 		)
 	else:
-		position_encoding = GFVariantData.get_option_string(
-			options,
-			"position_encoding"
-		)
-		if not [POSITION_ENCODING_UTF8, POSITION_ENCODING_UTF16].has(
-			position_encoding
-		):
+		position_encoding = GFVariantData.get_option_string(options, "position_encoding")
+		if not ([POSITION_ENCODING_UTF8, POSITION_ENCODING_UTF16].has(position_encoding)):
 			_append_issue(
 				issues,
 				&"invalid_position_encoding",
@@ -574,18 +528,17 @@ static func _normalize_options(options: Dictionary) -> Dictionary:
 ## 准入闭合快照字段并要求 URI 精确对应当前项目根；只接受已保存、有版本和摘要的文档，以可移植路径身份拒绝重复目标，返回独立规范文档及索引。
 ## [br]
 ## @api private
-static func _normalize_workspace_snapshot(
-	snapshot: Dictionary,
-	budgets: Dictionary
-) -> Dictionary:
+static func _normalize_workspace_snapshot(snapshot: Dictionary, budgets: Dictionary) -> Dictionary:
 	var issues: Array[Dictionary] = []
 	_require_closed_dictionary(
 		snapshot,
-		PackedStringArray([
-			"workspace_uri",
-			"workspace_version",
-			"documents",
-		]),
+		PackedStringArray(
+			[
+				"workspace_uri",
+				"workspace_version",
+				"documents",
+			]
+		),
 		"workspace_snapshot",
 		issues
 	)
@@ -619,10 +572,7 @@ static func _normalize_workspace_snapshot(
 			"issues": issues,
 		}
 
-	var workspace_uri: String = GFVariantData.get_option_string(
-		snapshot,
-		"workspace_uri"
-	)
+	var workspace_uri: String = GFVariantData.get_option_string(snapshot, "workspace_uri")
 	var uri_report: Dictionary = _decode_file_uri(workspace_uri)
 	if not GFVariantData.get_option_bool(uri_report, "ok"):
 		_append_issue(
@@ -630,27 +580,16 @@ static func _normalize_workspace_snapshot(
 			&"invalid_workspace_uri",
 			GFVariantData.get_option_string(uri_report, "message")
 		)
-	var actual_root: String = _normalize_absolute_path(
-		ProjectSettings.globalize_path("res://")
-	)
-	var workspace_root: String = GFVariantData.get_option_string(
-		uri_report,
-		"absolute_path"
-	)
-	if (
-		GFVariantData.get_option_bool(uri_report, "ok")
-		and workspace_root != actual_root
-	):
+	var actual_root: String = _normalize_absolute_path(ProjectSettings.globalize_path("res://"))
+	var workspace_root: String = GFVariantData.get_option_string(uri_report, "absolute_path")
+	if (GFVariantData.get_option_bool(uri_report, "ok") and workspace_root != actual_root):
 		_append_issue(
 			issues,
 			&"workspace_identity_mismatch",
 			"workspace_uri does not identify the current res:// root."
 		)
 
-	var raw_documents: Array = GFVariantData.get_option_array(
-		snapshot,
-		"documents"
-	)
+	var raw_documents: Array = GFVariantData.get_option_array(snapshot, "documents")
 	var max_file_count: int = GFVariantData.get_option_int(
 		budgets,
 		"max_file_count",
@@ -665,10 +604,7 @@ static func _normalize_workspace_snapshot(
 		return {
 			"ok": false,
 			"workspace_uri": workspace_uri,
-			"workspace_version": GFVariantData.get_option_int(
-				snapshot,
-				"workspace_version"
-			),
+			"workspace_version": GFVariantData.get_option_int(snapshot, "workspace_version"),
 			"workspace_root": actual_root,
 			"workspace_root_sha256": actual_root.sha256_text(),
 			"documents": [],
@@ -691,7 +627,14 @@ static func _normalize_workspace_snapshot(
 		var before_count: int = issues.size()
 		_require_closed_dictionary(
 			document,
-			PackedStringArray(["uri", "version", "saved", "source_sha256"]),
+			PackedStringArray(
+				[
+					"uri",
+					"version",
+					"saved",
+					"source_sha256",
+				]
+			),
 			"workspace_snapshot.documents[%d]" % index,
 			issues
 		)
@@ -723,13 +666,7 @@ static func _normalize_workspace_snapshot(
 				"WorkspaceEdit targets with unsaved buffers are not accepted.",
 				{ "index": index }
 			)
-		if (
-			not _has_exact_string(document, "source_sha256")
-			or not _is_sha256(GFVariantData.get_option_string(
-				document,
-				"source_sha256"
-			))
-		):
+		if (not _has_exact_string(document, "source_sha256") or not _is_sha256(GFVariantData.get_option_string(document, "source_sha256"))):
 			_append_issue(
 				issues,
 				&"invalid_source_sha256",
@@ -754,10 +691,7 @@ static func _normalize_workspace_snapshot(
 				{ "index": index }
 			)
 			continue
-		var path: String = GFVariantData.get_option_string(
-			target_report,
-			"path"
-		)
+		var path: String = GFVariantData.get_option_string(target_report, "path")
 		var identity: String = _portable_path_identity(path)
 		if document_map.has(identity):
 			_append_issue(
@@ -771,25 +705,16 @@ static func _normalize_workspace_snapshot(
 			"uri": GFVariantData.get_option_string(document, "uri"),
 			"version": GFVariantData.get_option_int(document, "version"),
 			"saved": true,
-			"source_sha256": GFVariantData.get_option_string(
-				document,
-				"source_sha256"
-			),
+			"source_sha256": GFVariantData.get_option_string(document, "source_sha256"),
 			"path": path,
-			"absolute_path": GFVariantData.get_option_string(
-				target_report,
-				"absolute_path"
-			),
+			"absolute_path": GFVariantData.get_option_string(target_report, "absolute_path"),
 		}
 		documents.append(normalized_document)
 		document_map[identity] = normalized_document
 	return {
 		"ok": issues.is_empty(),
 		"workspace_uri": workspace_uri,
-		"workspace_version": GFVariantData.get_option_int(
-			snapshot,
-			"workspace_version"
-		),
+		"workspace_version": GFVariantData.get_option_int(snapshot, "workspace_version"),
 		"workspace_root": actual_root,
 		"workspace_root_sha256": actual_root.sha256_text(),
 		"documents": documents,
@@ -828,14 +753,8 @@ static func _normalize_workspace_edit(
 	if not issues.is_empty():
 		return _make_edit_normalization_failure(issues)
 
-	var changes: Array = GFVariantData.get_option_array(
-		workspace_edit,
-		"documentChanges"
-	)
-	var max_file_count: int = GFVariantData.get_option_int(
-		budgets,
-		"max_file_count"
-	)
+	var changes: Array = GFVariantData.get_option_array(workspace_edit, "documentChanges")
+	var max_file_count: int = GFVariantData.get_option_int(budgets, "max_file_count")
 	if changes.is_empty() or changes.size() > max_file_count:
 		_append_issue(
 			issues,
@@ -844,14 +763,8 @@ static func _normalize_workspace_edit(
 		)
 		return _make_edit_normalization_failure(issues)
 
-	var snapshot_map: Dictionary = GFVariantData.get_option_dictionary(
-		snapshot,
-		"document_map"
-	)
-	var workspace_root: String = GFVariantData.get_option_string(
-		snapshot,
-		"workspace_root"
-	)
+	var snapshot_map: Dictionary = GFVariantData.get_option_dictionary(snapshot, "document_map")
+	var workspace_root: String = GFVariantData.get_option_string(snapshot, "workspace_root")
 	var seen_targets: Dictionary = {}
 	var documents: Array[Dictionary] = []
 	var edit_count: int = 0
@@ -901,10 +814,7 @@ static func _normalize_workspace_edit(
 			)
 		if issues.size() != before_count:
 			continue
-		var text_document: Dictionary = GFVariantData.get_option_dictionary(
-			change,
-			"textDocument"
-		)
+		var text_document: Dictionary = GFVariantData.get_option_dictionary(change, "textDocument")
 		_require_closed_dictionary(
 			text_document,
 			PackedStringArray(["uri", "version"]),
@@ -928,14 +838,8 @@ static func _normalize_workspace_edit(
 		if issues.size() != before_count:
 			continue
 
-		var target_uri: String = GFVariantData.get_option_string(
-			text_document,
-			"uri"
-		)
-		var target_report: Dictionary = _resolve_target_uri(
-			target_uri,
-			workspace_root
-		)
+		var target_uri: String = GFVariantData.get_option_string(text_document, "uri")
+		var target_report: Dictionary = _resolve_target_uri(target_uri, workspace_root)
 		if not GFVariantData.get_option_bool(target_report, "ok"):
 			_append_issue(
 				issues,
@@ -967,9 +871,7 @@ static func _normalize_workspace_edit(
 				{ "index": index, "path": path }
 			)
 			continue
-		var document_state: Dictionary = GFVariantData.as_dictionary(
-			snapshot_map[identity]
-		)
+		var document_state: Dictionary = GFVariantData.as_dictionary(snapshot_map[identity])
 		if GFVariantData.get_option_string(document_state, "uri") != target_uri:
 			_append_issue(
 				issues,
@@ -978,14 +880,8 @@ static func _normalize_workspace_edit(
 				{ "index": index, "path": path }
 			)
 			continue
-		var document_version: int = GFVariantData.get_option_int(
-			text_document,
-			"version"
-		)
-		if document_version != GFVariantData.get_option_int(
-			document_state,
-			"version"
-		):
+		var document_version: int = GFVariantData.get_option_int(text_document, "version")
+		if (document_version != (GFVariantData.get_option_int(document_state, "version"))):
 			_append_issue(
 				issues,
 				&"document_version_mismatch",
@@ -1010,14 +906,8 @@ static func _normalize_workspace_edit(
 				{ "index": index, "path": path }
 			)
 			continue
-		var source_sha256: String = GFVariantData.get_option_string(
-			source_report,
-			"sha256"
-		)
-		if source_sha256 != GFVariantData.get_option_string(
-			document_state,
-			"source_sha256"
-		):
+		var source_sha256: String = GFVariantData.get_option_string(source_report, "sha256")
+		if (source_sha256 != (GFVariantData.get_option_string(document_state, "source_sha256"))):
 			_append_issue(
 				issues,
 				&"source_sha256_mismatch",
@@ -1032,9 +922,7 @@ static func _normalize_workspace_edit(
 			GFVariantData.get_option_string(budgets, "position_encoding"),
 			GFVariantData.get_option_int(budgets, "max_edits_per_file")
 		)
-		var conversion_issues: Array[Dictionary] = _get_issue_array(
-			converted_report
-		)
+		var conversion_issues: Array[Dictionary] = _get_issue_array(converted_report)
 		if not conversion_issues.is_empty():
 			for issue: Dictionary in conversion_issues:
 				var annotated_issue: Dictionary = issue.duplicate(true)
@@ -1042,28 +930,16 @@ static func _normalize_workspace_edit(
 				annotated_issue["path"] = path
 				issues.append(annotated_issue)
 			continue
-		replacement_bytes += GFVariantData.get_option_int(
-			converted_report,
-			"replacement_bytes"
-		)
-		if replacement_bytes > GFVariantData.get_option_int(
-			budgets,
-			"max_workspace_edit_bytes"
-		):
+		replacement_bytes += (GFVariantData.get_option_int(converted_report, "replacement_bytes"))
+		if (replacement_bytes > (GFVariantData.get_option_int(budgets, "max_workspace_edit_bytes"))):
 			_append_issue(
 				issues,
 				&"workspace_edit_budget_exceeded",
 				"WorkspaceEdit replacement text exceeds max_workspace_edit_bytes."
 			)
 			continue
-		var source_text: String = GFVariantData.get_option_string(
-			source_report,
-			"text"
-		)
-		var converted_edits: Array[Dictionary] = _get_dictionary_array(
-			converted_report,
-			"edits"
-		)
+		var source_text: String = GFVariantData.get_option_string(source_report, "text")
+		var converted_edits: Array[Dictionary] = _get_dictionary_array(converted_report, "edits")
 		var patch_report: Dictionary = _SOURCE_TEXT_PATCH_TOOLS_SCRIPT.apply_text_edits(
 			source_text,
 			converted_edits,
@@ -1082,19 +958,10 @@ static func _normalize_workspace_edit(
 				{ "index": index, "path": path }
 			)
 			continue
-		var result_text: String = GFVariantData.get_option_string(
-			patch_report,
-			"text"
-		)
-		var document_source_bytes: int = GFVariantData.get_option_int(
-			source_report,
-			"size_bytes"
-		)
+		var result_text: String = GFVariantData.get_option_string(patch_report, "text")
+		var document_source_bytes: int = GFVariantData.get_option_int(source_report, "size_bytes")
 		var document_result_bytes: int = result_text.to_utf8_buffer().size()
-		if document_result_bytes > GFVariantData.get_option_int(
-			budgets,
-			"max_file_bytes"
-		):
+		if (document_result_bytes > (GFVariantData.get_option_int(budgets, "max_file_bytes"))):
 			_append_issue(
 				issues,
 				&"result_file_budget_exceeded",
@@ -1104,13 +971,7 @@ static func _normalize_workspace_edit(
 			continue
 		source_bytes += document_source_bytes
 		result_bytes += document_result_bytes
-		if (
-			source_bytes > GFVariantData.get_option_int(budgets, "max_total_bytes")
-			or result_bytes > GFVariantData.get_option_int(
-				budgets,
-				"max_total_bytes"
-			)
-		):
+		if (source_bytes > GFVariantData.get_option_int(budgets, "max_total_bytes") or (result_bytes > (GFVariantData.get_option_int(budgets, "max_total_bytes")))):
 			_append_issue(
 				issues,
 				&"total_byte_budget_exceeded",
@@ -1121,18 +982,20 @@ static func _normalize_workspace_edit(
 		if changed:
 			changed_count += 1
 		edit_count += edit_values.size()
-		documents.append({
-			"path": path,
-			"uri": target_uri,
-			"version": document_version,
-			"source_sha256": source_sha256,
-			"result_sha256": result_text.sha256_text(),
-			"source_bytes": document_source_bytes,
-			"result_bytes": document_result_bytes,
-			"edit_count": edit_values.size(),
-			"changed": changed,
-			"result_text": result_text,
-		})
+		documents.append(
+			{
+				"path": path,
+				"uri": target_uri,
+				"version": document_version,
+				"source_sha256": source_sha256,
+				"result_sha256": result_text.sha256_text(),
+				"source_bytes": document_source_bytes,
+				"result_bytes": document_result_bytes,
+				"edit_count": edit_values.size(),
+				"changed": changed,
+				"result_text": result_text,
+			}
+		)
 
 	if seen_targets.size() != snapshot_map.size():
 		_append_issue(
@@ -1141,15 +1004,14 @@ static func _normalize_workspace_edit(
 			"workspace_snapshot.documents must exactly match WorkspaceEdit targets."
 		)
 	if issues.is_empty():
-		var serialized_bytes: int = JSON.stringify(
-			workspace_edit,
-			"",
-			true
-		).to_utf8_buffer().size()
-		if serialized_bytes > GFVariantData.get_option_int(
-			budgets,
-			"max_workspace_edit_bytes"
-		):
+		var serialized_bytes: int = (
+			JSON.stringify(
+				workspace_edit,
+				"",
+				true
+			).to_utf8_buffer().size()
+		)
+		if (serialized_bytes > (GFVariantData.get_option_int(budgets, "max_workspace_edit_bytes"))):
 			_append_issue(
 				issues,
 				&"workspace_edit_budget_exceeded",
@@ -1183,7 +1045,12 @@ static func _convert_text_edits(
 			&"edit_count_budget_exceeded",
 			"Each TextDocumentEdit must contain between 1 and max_edits_per_file edits."
 		)
-		return { "ok": false, "edits": [], "replacement_bytes": 0, "issues": issues }
+		return {
+			"ok": false,
+			"edits": [],
+			"replacement_bytes": 0,
+			"issues": issues,
+		}
 	var lines: Array[Dictionary] = _build_line_map(source_text)
 	var converted: Array[Dictionary] = []
 	var replacement_bytes: int = 0
@@ -1221,10 +1088,7 @@ static func _convert_text_edits(
 			)
 		if issues.size() != before_count:
 			continue
-		var range_data: Dictionary = GFVariantData.get_option_dictionary(
-			edit,
-			"range"
-		)
+		var range_data: Dictionary = GFVariantData.get_option_dictionary(edit, "range")
 		_require_closed_dictionary(
 			range_data,
 			PackedStringArray(["start", "end"]),
@@ -1247,16 +1111,20 @@ static func _convert_text_edits(
 			)
 		if issues.size() != before_count:
 			continue
-		var start: Dictionary = GFVariantData.get_option_dictionary(
-			range_data,
-			"start"
+		var start: Dictionary = GFVariantData.get_option_dictionary(range_data, "start")
+		var finish: Dictionary = GFVariantData.get_option_dictionary(range_data, "end")
+		_validate_position_shape(
+			start,
+			"start",
+			index,
+			issues
 		)
-		var finish: Dictionary = GFVariantData.get_option_dictionary(
-			range_data,
-			"end"
+		_validate_position_shape(
+			finish,
+			"end",
+			index,
+			issues
 		)
-		_validate_position_shape(start, "start", index, issues)
-		_validate_position_shape(finish, "end", index, issues)
 		if issues.size() != before_count:
 			continue
 		var start_report: Dictionary = _lsp_position_to_godot_character(
@@ -1305,25 +1173,15 @@ static func _convert_text_edits(
 			)
 			continue
 		replacement_bytes += replacement.to_utf8_buffer().size()
-		converted.append({
-			"range": {
-				"start": {
-					"line": GFVariantData.get_option_int(start, "line"),
-					"character": GFVariantData.get_option_int(
-						start_report,
-						"character"
-					),
+		converted.append(
+			{
+				"range": {
+					"start": { "line": GFVariantData.get_option_int(start, "line"), "character": GFVariantData.get_option_int(start_report, "character"), },
+					"end": { "line": GFVariantData.get_option_int(finish, "line"), "character": GFVariantData.get_option_int(end_report, "character"), },
 				},
-				"end": {
-					"line": GFVariantData.get_option_int(finish, "line"),
-					"character": GFVariantData.get_option_int(
-						end_report,
-						"character"
-					),
-				},
-			},
-			"newText": replacement,
-		})
+				"newText": replacement,
+			}
+		)
 	return {
 		"ok": issues.is_empty(),
 		"edits": converted,
@@ -1375,12 +1233,20 @@ static func _build_line_map(source_text: String) -> Array[Dictionary]:
 	while index < source_text.length():
 		var character: String = source_text.substr(index, 1)
 		if character == "\r":
-			lines.append({
-				"text": source_text.substr(line_start, index - line_start),
-			})
+			lines.append(
+				{
+					"text": source_text.substr(
+						line_start,
+						index - line_start
+					),
+				}
+			)
 			if (
 				index + 1 < source_text.length()
-				and source_text.substr(index + 1, 1) == "\n"
+				and source_text.substr(
+					index + 1,
+					1
+				) == "\n"
 			):
 				index += 2
 			else:
@@ -1388,16 +1254,19 @@ static func _build_line_map(source_text: String) -> Array[Dictionary]:
 			line_start = index
 			continue
 		if character == "\n":
-			lines.append({
-				"text": source_text.substr(line_start, index - line_start),
-			})
+			lines.append(
+				{
+					"text": source_text.substr(
+						line_start,
+						index - line_start
+					),
+				}
+			)
 			index += 1
 			line_start = index
 			continue
 		index += 1
-	lines.append({
-		"text": source_text.substr(line_start),
-	})
+	lines.append({ "text": source_text.substr(line_start), })
 	return lines
 
 
@@ -1460,10 +1329,7 @@ static func _get_line_position_boundaries(
 	position_encoding: String
 ) -> PackedInt32Array:
 	var line_data: Dictionary = lines[line]
-	if GFVariantData.get_option_string(
-		line_data,
-		"boundary_encoding"
-	) == position_encoding:
+	if ((GFVariantData.get_option_string(line_data, "boundary_encoding")) == position_encoding):
 		var cached_value: Variant = line_data.get("boundaries")
 		if cached_value is PackedInt32Array:
 			var cached_boundaries: PackedInt32Array = cached_value
@@ -1544,23 +1410,14 @@ static func _read_strict_utf8_source(path: String, max_file_bytes: int) -> Dicti
 ## @api private
 static func _read_bounded_source_bytes(path: String, max_file_bytes: int) -> Dictionary:
 	if not FileAccess.file_exists(path):
-		return _make_source_failure(
-			&"source_not_found",
-			"WorkspaceEdit target no longer exists."
-		)
+		return _make_source_failure(&"source_not_found", "WorkspaceEdit target no longer exists.")
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
-		return _make_source_failure(
-			&"source_read_failed",
-			"WorkspaceEdit target could not be opened for strict UTF-8 reading."
-		)
+		return _make_source_failure(&"source_read_failed", "WorkspaceEdit target could not be opened for strict UTF-8 reading.")
 	var size_bytes: int = file.get_length()
 	if size_bytes < 0 or size_bytes > max_file_bytes:
 		file.close()
-		return _make_source_failure(
-			&"source_file_budget_exceeded",
-			"WorkspaceEdit target exceeds max_file_bytes."
-		)
+		return _make_source_failure(&"source_file_budget_exceeded", "WorkspaceEdit target exceeds max_file_bytes.")
 	if _test_source_read_tracking:
 		_test_source_read_sizes.append(size_bytes)
 	var bytes: PackedByteArray = file.get_buffer(size_bytes)
@@ -1568,15 +1425,9 @@ static func _read_bounded_source_bytes(path: String, max_file_bytes: int) -> Dic
 	var size_after: int = file.get_length()
 	file.close()
 	if read_error != OK or bytes.size() != size_bytes:
-		return _make_source_failure(
-			&"source_read_failed",
-			"WorkspaceEdit target bytes could not be read completely."
-		)
+		return _make_source_failure(&"source_read_failed", "WorkspaceEdit target bytes could not be read completely.")
 	if size_after != size_bytes:
-		return _make_source_failure(
-			&"source_changed_during_read",
-			"WorkspaceEdit target changed while it was being read."
-		)
+		return _make_source_failure(&"source_changed_during_read", "WorkspaceEdit target changed while it was being read.")
 	return { "ok": true, "bytes": bytes }
 
 
@@ -1591,14 +1442,8 @@ static func _resolve_target_uri(uri: String, workspace_root: String) -> Dictiona
 			"kind": &"invalid_document_uri",
 			"message": GFVariantData.get_option_string(uri_report, "message"),
 		}
-	var absolute_path: String = GFVariantData.get_option_string(
-		uri_report,
-		"absolute_path"
-	)
-	if (
-		absolute_path == workspace_root
-		or not absolute_path.begins_with(workspace_root + "/")
-	):
+	var absolute_path: String = GFVariantData.get_option_string(uri_report, "absolute_path")
+	if (absolute_path == workspace_root or not absolute_path.begins_with(workspace_root + "/")):
 		return {
 			"ok": false,
 			"kind": &"target_outside_workspace",
@@ -1618,10 +1463,7 @@ static func _resolve_target_uri(uri: String, workspace_root: String) -> Dictiona
 			"kind": &"unsupported_target_type",
 			"message": "WorkspaceEdit target must be an existing .gd file.",
 		}
-	if (
-		not FileAccess.file_exists(resource_path)
-		or DirAccess.dir_exists_absolute(absolute_path)
-	):
+	if (not FileAccess.file_exists(resource_path) or DirAccess.dir_exists_absolute(absolute_path)):
 		return {
 			"ok": false,
 			"kind": &"source_not_found",
@@ -1686,10 +1528,18 @@ static func _decode_file_uri(uri: String) -> Dictionary:
 		return _make_uri_failure("file URI exceeds the URI byte budget.")
 	if not uri.begins_with("file://"):
 		return _make_uri_failure("Only lowercase file:// URIs are accepted.")
-	if uri.contains("\\") or uri.contains("?") or uri.contains("#"):
+	if (
+		uri.contains("\\")
+		or uri.contains("?")
+		or uri.contains("#")
+	):
 		return _make_uri_failure("file URI must not contain backslashes, query, or fragment.")
 	var body: String = uri.substr(7)
-	if body.is_empty() or not body.begins_with("/") or body.begins_with("//"):
+	if (
+		body.is_empty()
+		or not body.begins_with("/")
+		or body.begins_with("//")
+	):
 		return _make_uri_failure("file URI must identify a local absolute path without authority.")
 	if not _has_valid_percent_encoding(body):
 		return _make_uri_failure("file URI contains an invalid percent escape.")
@@ -1699,7 +1549,11 @@ static func _decode_file_uri(uri: String) -> Dictionary:
 	var decoded: String = body.uri_decode()
 	if decoded.contains("\\") or _string_contains_nul(decoded):
 		return _make_uri_failure("file URI decodes to an invalid local path.")
-	if decoded.length() >= 4 and decoded.substr(0, 1) == "/" and decoded.substr(2, 2) == ":/":
+	if (
+		decoded.length() >= 4
+		and decoded.substr(0, 1) == "/"
+		and decoded.substr(2, 2) == ":/"
+	):
 		decoded = decoded.substr(1)
 	var components: PackedStringArray = decoded.split("/", false)
 	for component: String in components:
@@ -1722,79 +1576,92 @@ static func _validate_plan_payload(payload: Dictionary) -> Dictionary:
 	var issues: Array[Dictionary] = []
 	_require_closed_dictionary(
 		payload,
-		PackedStringArray([
-			"format",
-			"format_version",
-			"workspace_uri",
-			"workspace_root_sha256",
-			"workspace_version",
-			"position_encoding",
-			"budgets",
-			"documents",
-		]),
+		PackedStringArray(
+			[
+				"format",
+				"format_version",
+				"workspace_uri",
+				"workspace_root_sha256",
+				"workspace_version",
+				"position_encoding",
+				"budgets",
+				"documents",
+			]
+		),
 		"plan",
 		issues
 	)
-	if not _has_exact_string(payload, "format") or GFVariantData.get_option_string(
-		payload,
-		"format"
-	) != _FORMAT:
-		_append_issue(issues, &"invalid_plan", "Plan format is invalid.")
-	if not _has_exact_int(payload, "format_version") or GFVariantData.get_option_int(
-		payload,
-		"format_version"
-	) != _FORMAT_VERSION:
-		_append_issue(issues, &"invalid_plan", "Plan format_version is invalid.")
-	if not _has_exact_string(payload, "workspace_uri"):
-		_append_issue(issues, &"invalid_plan", "Plan workspace_uri is invalid.")
-	if (
-		not _has_exact_string(payload, "workspace_root_sha256")
-		or not _is_sha256(GFVariantData.get_option_string(
-			payload,
-			"workspace_root_sha256"
-		))
-	):
-		_append_issue(issues, &"invalid_plan", "Plan workspace identity is invalid.")
-	if not _has_nonnegative_int(payload, "workspace_version"):
-		_append_issue(issues, &"invalid_plan", "Plan workspace_version is invalid.")
-	if (
-		not _has_exact_string(payload, "position_encoding")
-		or not [POSITION_ENCODING_UTF8, POSITION_ENCODING_UTF16].has(
-			GFVariantData.get_option_string(payload, "position_encoding")
+	if (not _has_exact_string(payload, "format") or ((GFVariantData.get_option_string(payload, "format")) != _FORMAT)):
+		_append_issue(
+			issues,
+			&"invalid_plan",
+			"Plan format is invalid."
 		)
-	):
-		_append_issue(issues, &"invalid_plan", "Plan position_encoding is invalid.")
+	if (not _has_exact_int(payload, "format_version") or ((GFVariantData.get_option_int(payload, "format_version")) != _FORMAT_VERSION)):
+		_append_issue(
+			issues,
+			&"invalid_plan",
+			"Plan format_version is invalid."
+		)
+	if not _has_exact_string(payload, "workspace_uri"):
+		_append_issue(
+			issues,
+			&"invalid_plan",
+			"Plan workspace_uri is invalid."
+		)
+	if (not _has_exact_string(payload, "workspace_root_sha256") or not _is_sha256(GFVariantData.get_option_string(payload, "workspace_root_sha256"))):
+		_append_issue(
+			issues,
+			&"invalid_plan",
+			"Plan workspace identity is invalid."
+		)
+	if not _has_nonnegative_int(payload, "workspace_version"):
+		_append_issue(
+			issues,
+			&"invalid_plan",
+			"Plan workspace_version is invalid."
+		)
+	if (not _has_exact_string(payload, "position_encoding") or not ([POSITION_ENCODING_UTF8, POSITION_ENCODING_UTF16].has(GFVariantData.get_option_string(payload, "position_encoding")))):
+		_append_issue(
+			issues,
+			&"invalid_plan",
+			"Plan position_encoding is invalid."
+		)
 	if not payload.has("budgets") or not payload["budgets"] is Dictionary:
-		_append_issue(issues, &"invalid_plan", "Plan budgets are invalid.")
+		_append_issue(
+			issues,
+			&"invalid_plan",
+			"Plan budgets are invalid."
+		)
 	if not payload.has("documents") or not payload["documents"] is Array:
-		_append_issue(issues, &"invalid_plan", "Plan documents are invalid.")
+		_append_issue(
+			issues,
+			&"invalid_plan",
+			"Plan documents are invalid."
+		)
 	if not issues.is_empty():
 		return { "ok": false, "issues": issues }
 
-	var raw_budgets: Dictionary = GFVariantData.get_option_dictionary(
-		payload,
-		"budgets"
-	)
+	var raw_budgets: Dictionary = GFVariantData.get_option_dictionary(payload, "budgets")
 	_require_closed_dictionary(
 		raw_budgets,
-		PackedStringArray([
-			"position_encoding",
-			"max_file_count",
-			"max_edits_per_file",
-			"max_file_bytes",
-			"max_total_bytes",
-			"max_workspace_edit_bytes",
-		]),
+		PackedStringArray(
+			[
+				"position_encoding",
+				"max_file_count",
+				"max_edits_per_file",
+				"max_file_bytes",
+				"max_total_bytes",
+				"max_workspace_edit_bytes",
+			]
+		),
 		"plan.budgets",
 		issues
 	)
 	var budget_report: Dictionary = _normalize_options(raw_budgets)
 	for issue: Dictionary in _get_issue_array(budget_report):
 		issues.append(issue)
-	if GFVariantData.get_option_string(
-		budget_report,
-		"position_encoding"
-	) != GFVariantData.get_option_string(payload, "position_encoding"):
+	if ((GFVariantData.get_option_string(budget_report, "position_encoding")) != GFVariantData.get_option_string(payload, "position_encoding")):
 		_append_issue(
 			issues,
 			&"invalid_plan",
@@ -1805,13 +1672,22 @@ static func _validate_plan_payload(payload: Dictionary) -> Dictionary:
 	if (
 		documents.is_empty()
 		or documents.size() != raw_documents.size()
-		or documents.size() > GFVariantData.get_option_int(
-			budget_report,
-			"max_file_count",
-			0
+		or (
+			documents.size()
+			> (
+				GFVariantData.get_option_int(
+					budget_report,
+					"max_file_count",
+					0
+				)
+			)
 		)
 	):
-		_append_issue(issues, &"invalid_plan", "Plan document count is invalid.")
+		_append_issue(
+			issues,
+			&"invalid_plan",
+			"Plan document count is invalid."
+		)
 	var seen: Dictionary = {}
 	var source_total: int = 0
 	var result_total: int = 0
@@ -1819,55 +1695,67 @@ static func _validate_plan_payload(payload: Dictionary) -> Dictionary:
 		var document: Dictionary = documents[index]
 		_require_closed_dictionary(
 			document,
-			PackedStringArray([
-				"path",
-				"uri",
-				"version",
-				"source_sha256",
-				"result_sha256",
-				"source_bytes",
-				"result_bytes",
-				"edit_count",
-				"changed",
-				"result_text",
-			]),
+			PackedStringArray(
+				[
+					"path",
+					"uri",
+					"version",
+					"source_sha256",
+					"result_sha256",
+					"source_bytes",
+					"result_bytes",
+					"edit_count",
+					"changed",
+					"result_text",
+				]
+			),
 			"plan.documents[%d]" % index,
 			issues
 		)
 		if (
 			not _has_exact_string(document, "path")
-			or not GFVariantData.get_option_string(document, "path").begins_with(
-				"res://"
-			)
-			or not GFVariantData.get_option_string(document, "path").to_lower().ends_with(
-				".gd"
-			)
+			or not (GFVariantData.get_option_string(document, "path").begins_with("res://"))
+			or not (GFVariantData.get_option_string(document, "path").to_lower().ends_with(".gd"))
 		):
-			_append_issue(issues, &"invalid_plan", "Plan target path is invalid.")
+			_append_issue(
+				issues,
+				&"invalid_plan",
+				"Plan target path is invalid."
+			)
 			continue
 		var path: String = GFVariantData.get_option_string(document, "path")
 		var identity: String = _portable_path_identity(path)
 		if seen.has(identity):
-			_append_issue(issues, &"invalid_plan", "Plan targets collide under portable identity.")
+			_append_issue(
+				issues,
+				&"invalid_plan",
+				"Plan targets collide under portable identity."
+			)
 		else:
 			seen[identity] = true
 		if not _has_exact_string(document, "uri"):
-			_append_issue(issues, &"invalid_plan", "Plan target uri is invalid.")
+			_append_issue(
+				issues,
+				&"invalid_plan",
+				"Plan target uri is invalid."
+			)
 		if not _has_nonnegative_int(document, "version"):
-			_append_issue(issues, &"invalid_plan", "Plan document version is invalid.")
+			_append_issue(
+				issues,
+				&"invalid_plan",
+				"Plan document version is invalid."
+			)
 		if (
 			not _has_exact_string(document, "source_sha256")
-			or not _is_sha256(GFVariantData.get_option_string(
-				document,
-				"source_sha256"
-			))
+			or not _is_sha256(GFVariantData.get_option_string(document, "source_sha256"))
 			or not _has_exact_string(document, "result_sha256")
-			or not _is_sha256(GFVariantData.get_option_string(
-				document,
-				"result_sha256"
-			))
+			or not _is_sha256(GFVariantData.get_option_string(document, "result_sha256"))
 		):
-			_append_issue(issues, &"invalid_plan", "Plan document hashes are invalid.")
+			_append_issue(
+				issues,
+				&"invalid_plan",
+				"Plan document hashes are invalid."
+			)
 		if (
 			not _has_nonnegative_int(document, "source_bytes")
 			or not _has_nonnegative_int(document, "result_bytes")
@@ -1875,99 +1763,113 @@ static func _validate_plan_payload(payload: Dictionary) -> Dictionary:
 			or not _has_exact_bool(document, "changed")
 			or not _has_exact_string(document, "result_text")
 		):
-			_append_issue(issues, &"invalid_plan", "Plan document metadata is invalid.")
+			_append_issue(
+				issues,
+				&"invalid_plan",
+				"Plan document metadata is invalid."
+			)
 			continue
-		var result_text: String = GFVariantData.get_option_string(
-			document,
-			"result_text"
-		)
+		var result_text: String = GFVariantData.get_option_string(document, "result_text")
 		var source_size: int = GFVariantData.get_option_int(document, "source_bytes")
 		var result_size: int = GFVariantData.get_option_int(document, "result_bytes")
 		if (
 			result_text.to_utf8_buffer().size() != result_size
-			or result_text.sha256_text() != GFVariantData.get_option_string(
-				document,
-				"result_sha256"
+			or (result_text.sha256_text() != (GFVariantData.get_option_string(document, "result_sha256")))
+			or (
+				source_size
+				> (
+					GFVariantData.get_option_int(
+						budget_report,
+						"max_file_bytes",
+						0
+					)
+				)
 			)
-			or source_size > GFVariantData.get_option_int(
-				budget_report,
-				"max_file_bytes",
-				0
-			)
-			or result_size > GFVariantData.get_option_int(
-				budget_report,
-				"max_file_bytes",
-				0
+			or (
+				result_size
+				> (
+					GFVariantData.get_option_int(
+						budget_report,
+						"max_file_bytes",
+						0
+					)
+				)
 			)
 			or GFVariantData.get_option_int(document, "edit_count") <= 0
-			or GFVariantData.get_option_int(document, "edit_count") > GFVariantData.get_option_int(
-				budget_report,
-				"max_edits_per_file",
-				0
+			or (
+				GFVariantData.get_option_int(document, "edit_count")
+				> (
+					GFVariantData.get_option_int(
+						budget_report,
+						"max_edits_per_file",
+						0
+					)
+				)
 			)
 		):
-			_append_issue(issues, &"invalid_plan", "Plan document content or budgets are invalid.")
+			_append_issue(
+				issues,
+				&"invalid_plan",
+				"Plan document content or budgets are invalid."
+			)
 		source_total += source_size
 		result_total += result_size
 	if (
-		source_total > GFVariantData.get_option_int(budget_report, "max_total_bytes", 0)
-		or result_total > GFVariantData.get_option_int(
+		source_total > GFVariantData.get_option_int(
 			budget_report,
 			"max_total_bytes",
 			0
 		)
+		or (
+			result_total
+			> (
+				GFVariantData.get_option_int(
+					budget_report,
+					"max_total_bytes",
+					0
+				)
+			)
+		)
 	):
-		_append_issue(issues, &"invalid_plan", "Plan total byte budget is invalid.")
-	var current_root_sha256: String = _normalize_absolute_path(
-		ProjectSettings.globalize_path("res://")
-	).sha256_text()
-	if current_root_sha256 != GFVariantData.get_option_string(
-		payload,
-		"workspace_root_sha256"
-	):
-		_append_issue(issues, &"workspace_identity_mismatch", "Plan belongs to another workspace.")
+		_append_issue(
+			issues,
+			&"invalid_plan",
+			"Plan total byte budget is invalid."
+		)
+	var current_root_sha256: String = (_normalize_absolute_path(ProjectSettings.globalize_path("res://")).sha256_text())
+	if (current_root_sha256 != (GFVariantData.get_option_string(payload, "workspace_root_sha256"))):
+		_append_issue(
+			issues,
+			&"workspace_identity_mismatch",
+			"Plan belongs to another workspace."
+		)
 	return { "ok": issues.is_empty(), "issues": issues }
 
 
 ## 逐项比较审阅计划与当前快照的工作区、文档集合、URI、版本和源摘要，再重读磁盘长度与摘要并核对 changed 标志；不消费计划或写入文件。
 ## [br]
 ## @api private
-static func _validate_fresh_state(
-	payload: Dictionary,
-	snapshot: Dictionary
-) -> Array[Dictionary]:
+static func _validate_fresh_state(payload: Dictionary, snapshot: Dictionary) -> Array[Dictionary]:
 	var issues: Array[Dictionary] = []
-	if GFVariantData.get_option_string(payload, "workspace_uri") != GFVariantData.get_option_string(
-		snapshot,
-		"workspace_uri"
-	):
+	if (GFVariantData.get_option_string(payload, "workspace_uri") != (GFVariantData.get_option_string(snapshot, "workspace_uri"))):
 		_append_issue(
 			issues,
 			&"workspace_identity_mismatch",
 			"Commit snapshot workspace_uri differs from the reviewed plan."
 		)
-	if GFVariantData.get_option_int(payload, "workspace_version") != GFVariantData.get_option_int(
-		snapshot,
-		"workspace_version"
-	):
+	if (GFVariantData.get_option_int(payload, "workspace_version") != (GFVariantData.get_option_int(snapshot, "workspace_version"))):
 		_append_issue(
 			issues,
 			&"workspace_version_mismatch",
 			"Commit snapshot workspace_version differs from the reviewed plan."
 		)
-	if GFVariantData.get_option_string(payload, "workspace_root_sha256") != GFVariantData.get_option_string(
-		snapshot,
-		"workspace_root_sha256"
-	):
+	if (GFVariantData.get_option_string(payload, "workspace_root_sha256") != (GFVariantData.get_option_string(snapshot, "workspace_root_sha256"))):
 		_append_issue(
 			issues,
 			&"workspace_identity_mismatch",
 			"Commit snapshot resolves to another workspace root."
 		)
-	var snapshot_map: Dictionary = GFVariantData.get_option_dictionary(
-		snapshot,
-		"document_map"
-	)
+	var snapshot_map: Dictionary = GFVariantData.get_option_dictionary(snapshot, "document_map")
 	var documents: Array[Dictionary] = _get_dictionary_array(payload, "documents")
 	if snapshot_map.size() != documents.size():
 		_append_issue(
@@ -1992,12 +1894,9 @@ static func _validate_fresh_state(
 			continue
 		var state: Dictionary = GFVariantData.as_dictionary(snapshot_map[identity])
 		if (
-			GFVariantData.get_option_string(state, "uri")
-			!= GFVariantData.get_option_string(document, "uri")
-			or GFVariantData.get_option_int(state, "version")
-			!= GFVariantData.get_option_int(document, "version")
-			or GFVariantData.get_option_string(state, "source_sha256")
-			!= GFVariantData.get_option_string(document, "source_sha256")
+			GFVariantData.get_option_string(state, "uri") != GFVariantData.get_option_string(document, "uri")
+			or GFVariantData.get_option_int(state, "version") != GFVariantData.get_option_int(document, "version")
+			or (GFVariantData.get_option_string(state, "source_sha256") != GFVariantData.get_option_string(document, "source_sha256"))
 		):
 			_append_issue(
 				issues,
@@ -2006,10 +1905,7 @@ static func _validate_fresh_state(
 				{ "path": path }
 			)
 			continue
-		var source_report: Dictionary = _read_strict_utf8_source(
-			path,
-			max_file_bytes
-		)
+		var source_report: Dictionary = _read_strict_utf8_source(path, max_file_bytes)
 		if not GFVariantData.get_option_bool(source_report, "ok"):
 			_append_issue(
 				issues,
@@ -2022,12 +1918,7 @@ static func _validate_fresh_state(
 				{ "path": path }
 			)
 			continue
-		if (
-			GFVariantData.get_option_string(source_report, "sha256")
-			!= GFVariantData.get_option_string(document, "source_sha256")
-			or GFVariantData.get_option_int(source_report, "size_bytes")
-			!= GFVariantData.get_option_int(document, "source_bytes")
-		):
+		if ((GFVariantData.get_option_string(source_report, "sha256") != GFVariantData.get_option_string(document, "source_sha256")) or (GFVariantData.get_option_int(source_report, "size_bytes") != GFVariantData.get_option_int(document, "source_bytes"))):
 			_append_issue(
 				issues,
 				&"source_sha256_mismatch",
@@ -2035,10 +1926,7 @@ static func _validate_fresh_state(
 				{ "path": path }
 			)
 			continue
-		var expected_changed: bool = (
-			GFVariantData.get_option_string(document, "source_sha256")
-			!= GFVariantData.get_option_string(document, "result_sha256")
-		)
+		var expected_changed: bool = (GFVariantData.get_option_string(document, "source_sha256") != GFVariantData.get_option_string(document, "result_sha256"))
 		if GFVariantData.get_option_bool(document, "changed") != expected_changed:
 			_append_issue(
 				issues,
@@ -2072,7 +1960,12 @@ static func _make_invalid_plan(
 		0
 	)
 	var plan: GFLspWorkspaceEditPlan = _PLAN_SCRIPT.new()
-	var _initialized: bool = plan.initialize_for_adapter(false, "", report, {})
+	var _initialized: bool = plan.initialize_for_adapter(
+		false,
+		"",
+		report,
+		{}
+	)
 	return plan
 
 
@@ -2097,18 +1990,9 @@ static func _make_plan_report(
 		"ok": ok,
 		"status": status,
 		"plan_sha256": plan_sha256,
-		"workspace_uri": GFVariantData.get_option_string(
-			snapshot,
-			"workspace_uri"
-		),
-		"workspace_version": GFVariantData.get_option_int(
-			snapshot,
-			"workspace_version"
-		),
-		"position_encoding": GFVariantData.get_option_string(
-			options,
-			"position_encoding"
-		),
+		"workspace_uri": GFVariantData.get_option_string(snapshot, "workspace_uri"),
+		"workspace_version": GFVariantData.get_option_int(snapshot, "workspace_version"),
+		"position_encoding": GFVariantData.get_option_string(options, "position_encoding"),
 		"document_count": documents.size(),
 		"edit_count": edit_count,
 		"changed_count": changed_count,
@@ -2129,14 +2013,8 @@ static func _make_public_document_report(document: Dictionary) -> Dictionary:
 		"path": GFVariantData.get_option_string(document, "path"),
 		"uri": GFVariantData.get_option_string(document, "uri"),
 		"version": GFVariantData.get_option_int(document, "version"),
-		"source_sha256": GFVariantData.get_option_string(
-			document,
-			"source_sha256"
-		),
-		"result_sha256": GFVariantData.get_option_string(
-			document,
-			"result_sha256"
-		),
+		"source_sha256": GFVariantData.get_option_string(document, "source_sha256"),
+		"result_sha256": GFVariantData.get_option_string(document, "result_sha256"),
 		"source_bytes": GFVariantData.get_option_int(document, "source_bytes"),
 		"result_bytes": GFVariantData.get_option_int(document, "result_bytes"),
 		"edit_count": GFVariantData.get_option_int(document, "edit_count"),
@@ -2154,8 +2032,17 @@ static func _make_commit_failure(
 	plan_sha256: String = ""
 ) -> Dictionary:
 	var issues: Array[Dictionary] = []
-	_append_issue(issues, StringName(status), message)
-	return _make_commit_report(false, status, plan_sha256, issues)
+	_append_issue(
+		issues,
+		StringName(status),
+		message
+	)
+	return _make_commit_report(
+		false,
+		status,
+		plan_sha256,
+		issues
+	)
 
 
 ## 组装提交结果，并从 artifact_report 投影计数、恢复信息和事务报告。
@@ -2173,26 +2060,11 @@ static func _make_commit_report(
 		"ok": ok,
 		"status": status,
 		"plan_sha256": plan_sha256,
-		"written_count": GFVariantData.get_option_int(
-			artifact_report,
-			"written_count"
-		),
-		"unchanged_count": GFVariantData.get_option_int(
-			artifact_report,
-			"unchanged_count"
-		),
-		"recovery_required": GFVariantData.get_option_bool(
-			artifact_report,
-			"recovery_required"
-		),
-		"recovery_action": str(GFVariantData.get_option_string_name(
-			artifact_report,
-			"recovery_action"
-		)),
-		"recovery_transaction": GFVariantData.get_option_dictionary(
-			artifact_report,
-			"recovery_transaction"
-		).duplicate(true),
+		"written_count": GFVariantData.get_option_int(artifact_report, "written_count"),
+		"unchanged_count": GFVariantData.get_option_int(artifact_report, "unchanged_count"),
+		"recovery_required": GFVariantData.get_option_bool(artifact_report, "recovery_required"),
+		"recovery_action": str(GFVariantData.get_option_string_name(artifact_report, "recovery_action")),
+		"recovery_transaction": (GFVariantData.get_option_dictionary(artifact_report, "recovery_transaction").duplicate(true)),
 		"issues": issues.duplicate(true),
 		"artifact_report": artifact_report.duplicate(true),
 	}
@@ -2202,9 +2074,7 @@ static func _make_commit_report(
 ## [br]
 ## @api private
 ## [br]
-static func _make_edit_normalization_failure(
-	issues: Array[Dictionary]
-) -> Dictionary:
+static func _make_edit_normalization_failure(issues: Array[Dictionary]) -> Dictionary:
 	return {
 		"ok": false,
 		"documents": [],
@@ -2251,22 +2121,10 @@ static func _make_transaction_options(budgets: Dictionary) -> Dictionary:
 	return {
 		"allowed_roots": PackedStringArray(["res://"]),
 		"overwrite_existing": true,
-		"max_file_count": GFVariantData.get_option_int(
-			budgets,
-			"max_file_count"
-		),
-		"max_file_bytes": GFVariantData.get_option_int(
-			budgets,
-			"max_file_bytes"
-		),
-		"max_total_bytes": GFVariantData.get_option_int(
-			budgets,
-			"max_total_bytes"
-		),
-		"max_backup_bytes": GFVariantData.get_option_int(
-			budgets,
-			"max_total_bytes"
-		),
+		"max_file_count": GFVariantData.get_option_int(budgets, "max_file_count"),
+		"max_file_bytes": GFVariantData.get_option_int(budgets, "max_file_bytes"),
+		"max_total_bytes": GFVariantData.get_option_int(budgets, "max_total_bytes"),
+		"max_backup_bytes": GFVariantData.get_option_int(budgets, "max_total_bytes"),
 		"scan_filesystem": false,
 	}
 
@@ -2277,30 +2135,12 @@ static func _make_transaction_options(budgets: Dictionary) -> Dictionary:
 ## [br]
 static func _extract_budgets(options: Dictionary) -> Dictionary:
 	return {
-		"position_encoding": GFVariantData.get_option_string(
-			options,
-			"position_encoding"
-		),
-		"max_file_count": GFVariantData.get_option_int(
-			options,
-			"max_file_count"
-		),
-		"max_edits_per_file": GFVariantData.get_option_int(
-			options,
-			"max_edits_per_file"
-		),
-		"max_file_bytes": GFVariantData.get_option_int(
-			options,
-			"max_file_bytes"
-		),
-		"max_total_bytes": GFVariantData.get_option_int(
-			options,
-			"max_total_bytes"
-		),
-		"max_workspace_edit_bytes": GFVariantData.get_option_int(
-			options,
-			"max_workspace_edit_bytes"
-		),
+		"position_encoding": GFVariantData.get_option_string(options, "position_encoding"),
+		"max_file_count": GFVariantData.get_option_int(options, "max_file_count"),
+		"max_edits_per_file": GFVariantData.get_option_int(options, "max_edits_per_file"),
+		"max_file_bytes": GFVariantData.get_option_int(options, "max_file_bytes"),
+		"max_total_bytes": GFVariantData.get_option_int(options, "max_total_bytes"),
+		"max_workspace_edit_bytes": GFVariantData.get_option_int(options, "max_workspace_edit_bytes"),
 	}
 
 
@@ -2360,7 +2200,8 @@ static func _require_closed_dictionary(
 			_append_issue(
 				issues,
 				&"unsupported_field",
-				"%s contains unsupported field: %s." % [context, key],
+				"%s contains unsupported field: %s."
+				% [context, key],
 				{ "field": key }
 			)
 
@@ -2396,7 +2237,11 @@ static func _has_exact_int(data: Dictionary, key: String) -> bool:
 static func _has_nonnegative_int(data: Dictionary, key: String) -> bool:
 	if not _has_exact_int(data, key):
 		return false
-	var value: int = GFVariantData.get_option_int(data, key, -1)
+	var value: int = GFVariantData.get_option_int(
+		data,
+		key,
+		-1
+	)
 	return value >= 0 and value <= _MAX_LSP_INTEGER
 
 
@@ -2412,10 +2257,7 @@ static func _get_issue_array(report: Dictionary) -> Array[Dictionary]:
 ## [br]
 ## @api private
 ## [br]
-static func _get_dictionary_array(
-	report: Dictionary,
-	key: String
-) -> Array[Dictionary]:
+static func _get_dictionary_array(report: Dictionary, key: String) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for value: Variant in GFVariantData.get_option_array(report, key):
 		if value is Dictionary:
@@ -2434,12 +2276,12 @@ static func _append_issue(
 	message: String,
 	fields: Dictionary = {}
 ) -> void:
-	var issue: Dictionary = {
-		"kind": kind,
-		"message": message,
-	}
+	var issue: Dictionary = { "kind": kind, "message": message, }
 	for key: Variant in fields.keys():
-		issue[key] = GFVariantData.duplicate_variant(fields[key], true)
+		issue[key] = GFVariantData.duplicate_variant(
+			fields[key],
+			true
+		)
 	issues.append(issue)
 
 
@@ -2448,7 +2290,11 @@ static func _append_issue(
 ## @api private
 ## [br]
 static func _hash_canonical(value: Variant) -> String:
-	return JSON.stringify(value, "", true).sha256_text()
+	return JSON.stringify(
+		value,
+		"",
+		true
+	).sha256_text()
 
 
 ## 计算字节数组的 SHA-256 小写十六进制摘要；上下文启动或更新失败时返回空串。
@@ -2491,8 +2337,14 @@ static func _has_valid_percent_encoding(value: String) -> bool:
 			continue
 		if index + 2 >= value.length():
 			return false
-		var first: String = value.substr(index + 1, 1).to_lower()
-		var second: String = value.substr(index + 2, 1).to_lower()
+		var first: String = value.substr(
+			index + 1,
+			1
+		).to_lower()
+		var second: String = value.substr(
+			index + 2,
+			1
+		).to_lower()
 		if "0123456789abcdef".find(first) < 0 or "0123456789abcdef".find(second) < 0:
 			return false
 		index += 3
@@ -2574,9 +2426,7 @@ static func _path_component_is_link(path: String) -> bool:
 ## @api private
 ## [br]
 static func _compare_documents(left: Dictionary, right: Dictionary) -> bool:
-	return _portable_path_identity(
-		GFVariantData.get_option_string(left, "path")
-	) < _portable_path_identity(GFVariantData.get_option_string(right, "path"))
+	return (_portable_path_identity(GFVariantData.get_option_string(left, "path")) < _portable_path_identity(GFVariantData.get_option_string(right, "path")))
 
 
 ## 设置适配器在调用产物事务前消费的一次性测试回调。
@@ -2601,7 +2451,11 @@ static func _configure_test_position_line_scan_tracking(enabled: bool) -> void:
 ## @api private
 ## [br]
 static func _get_test_position_line_scan_count(line: int) -> int:
-	return GFVariantData.get_option_int(_test_position_line_scan_counts, line, 0)
+	return GFVariantData.get_option_int(
+		_test_position_line_scan_counts,
+		line,
+		0
+	)
 
 
 ## 仅在测试跟踪开启时递增指定行的位置边界表计算次数。
@@ -2612,8 +2466,11 @@ static func _record_test_position_line_scan(line: int) -> void:
 	if not _test_track_position_line_scans:
 		return
 	_test_position_line_scan_counts[line] = (
-		GFVariantData.get_option_int(_test_position_line_scan_counts, line, 0)
-		+ 1
+		GFVariantData.get_option_int(
+			_test_position_line_scan_counts,
+			line,
+			0
+		) + 1
 	)
 
 

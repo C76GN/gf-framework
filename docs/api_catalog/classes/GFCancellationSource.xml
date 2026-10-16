@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCancellationSource" path="addons/gf/kernel/core/gf_cancellation_source.gd" module="kernel" extends="RefCounted" classDigest="2744fbf5d29347ad94ec6e59d25a256209b7d2f4c3c93063f5b783f7d7defc0a">
+<class name="GFCancellationSource" path="addons/gf/kernel/core/gf_cancellation_source.gd" module="kernel" extends="RefCounted" classDigest="7421abf2b1e009e957cccf18480d84128824c7c4fcc6d6dd8008ea2eb7561d8a">
 	<description>GFCancellationSource: 可触发取消的拥有者句柄。
 source 负责创建和触发 [GFCancellationToken]，并可把上游 token、节点生命周期或
 SceneTree 超时连接为统一取消请求。它不执行具体任务，也不假定取消后的业务回滚策略。
@@ -58,7 +58,7 @@ SceneTree 超时连接为统一取消请求。它不执行具体任务，也不�
 			</tags>
 		</member>
 		<member kind="method" name="link_token">
-			<signature>func link_token(token: GFCancellationToken, reason: StringName = &amp;"", metadata: Dictionary = {}) -&gt; bool:</signature>
+			<signature>func link_token( token: GFCancellationToken, reason: StringName = &amp;"", metadata: Dictionary = {} ) -&gt; bool:</signature>
 			<description>连接上游 token；上游取消时当前 source 也会取消。</description>
 			<tags>
 				<tag name="api">public</tag>

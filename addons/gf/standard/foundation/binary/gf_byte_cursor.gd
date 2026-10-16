@@ -112,7 +112,11 @@ func _init(source_bytes: PackedByteArray = PackedByteArray(), p_little_endian: b
 ## @param p_little_endian: 是否使用小端。
 ## [br]
 ## @return 新游标。
-static func from_bytes(source_bytes: PackedByteArray, offset: int = 0, p_little_endian: bool = false) -> GFByteCursor:
+static func from_bytes(
+	source_bytes: PackedByteArray,
+	offset: int = 0,
+	p_little_endian: bool = false
+) -> GFByteCursor:
 	var cursor: GFByteCursor = GFByteCursor.new(source_bytes, p_little_endian)
 	if not cursor.set_position(offset):
 		cursor._position = cursor.size()
@@ -192,7 +196,10 @@ func size() -> int:
 ## [br]
 ## @return 剩余长度。
 func remaining() -> int:
-	return maxi(_bytes.size() - _position, 0)
+	return maxi(
+		_bytes.size() - _position,
+		0
+	)
 
 
 ## 是否已经到达末尾。
@@ -216,7 +223,11 @@ func is_eof() -> bool:
 ## [br]
 ## @return 可读取返回 true。
 func has_bytes(byte_count: int) -> bool:
-	return byte_count >= 0 and _within_read_limit(byte_count) and byte_count <= remaining()
+	return (
+		byte_count >= 0
+		and _within_read_limit(byte_count)
+		and byte_count <= remaining()
+	)
 
 
 ## 读取一个无符号 8 位整数。
@@ -441,8 +452,20 @@ func try_read_var_uint() -> Dictionary:
 	var value: int = read_var_uint()
 	if _last_error != OK:
 		_position = start_position
-		return _make_read_report(false, 0, _last_error, start_position, start_position)
-	return _make_read_report(true, value, OK, start_position, _position)
+		return _make_read_report(
+			false,
+			0,
+			_last_error,
+			start_position,
+			start_position
+		)
+	return _make_read_report(
+		true,
+		value,
+		OK,
+		start_position,
+		_position
+	)
 
 
 ## 读取指定长度的字节。
@@ -463,7 +486,10 @@ func read_bytes(byte_count: int) -> PackedByteArray:
 		return PackedByteArray()
 	if not _require(byte_count):
 		return PackedByteArray()
-	var result: PackedByteArray = _bytes.slice(_position, _position + byte_count)
+	var result: PackedByteArray = _bytes.slice(
+		_position,
+		_position + byte_count
+	)
 	_position += byte_count
 	_last_error = OK
 	return result
@@ -485,8 +511,20 @@ func try_read_bytes(byte_count: int) -> Dictionary:
 	var value: PackedByteArray = read_bytes(byte_count)
 	if _last_error != OK:
 		_position = start_position
-		return _make_read_report(false, PackedByteArray(), _last_error, start_position, start_position)
-	return _make_read_report(true, value, OK, start_position, _position)
+		return _make_read_report(
+			false,
+			PackedByteArray(),
+			_last_error,
+			start_position,
+			start_position
+		)
+	return _make_read_report(
+		true,
+		value,
+		OK,
+		start_position,
+		_position
+	)
 
 
 ## 将读取报告转换为 JSON.stringify() 安全的诊断报告。
@@ -530,7 +568,10 @@ func read_utf8(byte_count: int) -> String:
 		return ""
 	if not _require(byte_count):
 		return ""
-	var slice: PackedByteArray = _bytes.slice(_position, _position + byte_count)
+	var slice: PackedByteArray = _bytes.slice(
+		_position,
+		_position + byte_count
+	)
 	if not _is_valid_utf8(slice):
 		_last_error = ERR_PARSE_ERROR
 		return ""
@@ -555,8 +596,20 @@ func try_read_utf8(byte_count: int) -> Dictionary:
 	var value: String = read_utf8(byte_count)
 	if _last_error != OK:
 		_position = start_position
-		return _make_read_report(false, "", _last_error, start_position, start_position)
-	return _make_read_report(true, value, OK, start_position, _position)
+		return _make_read_report(
+			false,
+			"",
+			_last_error,
+			start_position,
+			start_position
+		)
+	return _make_read_report(
+		true,
+		value,
+		OK,
+		start_position,
+		_position
+	)
 
 
 ## 读取 varuint 长度前缀的 UTF-8 字符串。
@@ -591,7 +644,13 @@ func try_read_var_utf8() -> Dictionary:
 		if raw_length_error is int:
 			length_error = raw_length_error
 		_last_error = length_error
-		return _make_read_report(false, "", length_error, start_position, start_position)
+		return _make_read_report(
+			false,
+			"",
+			length_error,
+			start_position,
+			start_position
+		)
 
 	var raw_length: Variant = length_report.get("value", 0)
 	var byte_count: int = raw_length if raw_length is int else 0
@@ -613,11 +672,23 @@ func try_read_var_utf8() -> Dictionary:
 		if raw_value_error is int:
 			value_error = raw_value_error
 		_last_error = value_error
-		return _make_read_report(false, "", value_error, start_position, start_position)
+		return _make_read_report(
+			false,
+			"",
+			value_error,
+			start_position,
+			start_position
+		)
 
 	var raw_value: Variant = value_report.get("value", "")
 	var value: String = raw_value if raw_value is String else ""
-	return _make_read_report(true, value, OK, start_position, _position)
+	return _make_read_report(
+		true,
+		value,
+		OK,
+		start_position,
+		_position
+	)
 
 
 ## 写入一个无符号 8 位整数。
@@ -853,14 +924,32 @@ func _try_read_uint(byte_count: int) -> Dictionary:
 	var value: int = _read_uint(byte_count)
 	if _last_error != OK:
 		_position = start_position
-		return _make_read_report(false, 0, _last_error, start_position, start_position)
-	return _make_read_report(true, value, OK, start_position, _position)
+		return _make_read_report(
+			false,
+			0,
+			_last_error,
+			start_position,
+			start_position
+		)
+	return _make_read_report(
+		true,
+		value,
+		OK,
+		start_position,
+		_position
+	)
 
 
 ## 创建标准读取报告并同步最近错误码。
 ## [br]
 ## @api private
-func _make_read_report(ok: bool, value: Variant, error: Error, start_position: int, next_position: int) -> Dictionary:
+func _make_read_report(
+	ok: bool,
+	value: Variant,
+	error: Error,
+	start_position: int,
+	next_position: int
+) -> Dictionary:
 	_last_error = error
 	return {
 		"ok": ok,
@@ -956,15 +1045,16 @@ func _within_read_limit(byte_count: int) -> bool:
 ## [br]
 ## @api private
 func _within_read_operation_limit(start_position: int, additional_byte_count: int) -> bool:
-	if start_position < 0 or _position < start_position or additional_byte_count < 0:
+	if (
+		start_position < 0
+		or _position < start_position
+		or additional_byte_count < 0
+	):
 		return false
 	if max_read_byte_count <= 0:
 		return true
 	var consumed_byte_count: int = _position - start_position
-	return (
-		consumed_byte_count <= max_read_byte_count
-		and additional_byte_count <= max_read_byte_count - consumed_byte_count
-	)
+	return (consumed_byte_count <= max_read_byte_count and additional_byte_count <= max_read_byte_count - consumed_byte_count)
 
 
 ## 判断单次写入字节数是否超过配置上限。
@@ -1004,35 +1094,73 @@ static func _is_valid_utf8(bytes: PackedByteArray) -> bool:
 		if byte_value <= 0x7f:
 			index += 1
 		elif byte_value >= 0xc2 and byte_value <= 0xdf:
-			if not _has_continuation_bytes(bytes, index, 1):
+			if not _has_continuation_bytes(
+				bytes,
+				index,
+				1
+			):
 				return false
 			index += 2
 		elif byte_value == 0xe0:
-			if index + 2 >= bytes.size() or bytes[index + 1] < 0xa0 or bytes[index + 1] > 0xbf or not _is_continuation_byte(bytes[index + 2]):
+			if (
+				index + 2 >= bytes.size()
+				or bytes[index + 1] < 0xa0
+				or bytes[index + 1] > 0xbf
+				or not _is_continuation_byte(bytes[index + 2])
+			):
 				return false
 			index += 3
 		elif byte_value >= 0xe1 and byte_value <= 0xec:
-			if not _has_continuation_bytes(bytes, index, 2):
+			if not _has_continuation_bytes(
+				bytes,
+				index,
+				2
+			):
 				return false
 			index += 3
 		elif byte_value == 0xed:
-			if index + 2 >= bytes.size() or bytes[index + 1] < 0x80 or bytes[index + 1] > 0x9f or not _is_continuation_byte(bytes[index + 2]):
+			if (
+				index + 2 >= bytes.size()
+				or bytes[index + 1] < 0x80
+				or bytes[index + 1] > 0x9f
+				or not _is_continuation_byte(bytes[index + 2])
+			):
 				return false
 			index += 3
 		elif byte_value >= 0xee and byte_value <= 0xef:
-			if not _has_continuation_bytes(bytes, index, 2):
+			if not _has_continuation_bytes(
+				bytes,
+				index,
+				2
+			):
 				return false
 			index += 3
 		elif byte_value == 0xf0:
-			if index + 3 >= bytes.size() or bytes[index + 1] < 0x90 or bytes[index + 1] > 0xbf or not _is_continuation_byte(bytes[index + 2]) or not _is_continuation_byte(bytes[index + 3]):
+			if (
+				index + 3 >= bytes.size()
+				or bytes[index + 1] < 0x90
+				or bytes[index + 1] > 0xbf
+				or not _is_continuation_byte(bytes[index + 2])
+				or not _is_continuation_byte(bytes[index + 3])
+			):
 				return false
 			index += 4
 		elif byte_value >= 0xf1 and byte_value <= 0xf3:
-			if not _has_continuation_bytes(bytes, index, 3):
+			if not _has_continuation_bytes(
+				bytes,
+				index,
+				3
+			):
 				return false
 			index += 4
 		elif byte_value == 0xf4:
-			if index + 3 >= bytes.size() or bytes[index + 1] < 0x80 or bytes[index + 1] > 0x8f or not _is_continuation_byte(bytes[index + 2]) or not _is_continuation_byte(bytes[index + 3]):
+			if (
+				index + 3 >= bytes.size()
+				or bytes[index + 1] < 0x80
+				or bytes[index + 1] > 0x8f
+				or not _is_continuation_byte(bytes[index + 2])
+				or not _is_continuation_byte(bytes[index + 3])
+			):
 				return false
 			index += 4
 		else:
@@ -1043,10 +1171,17 @@ static func _is_valid_utf8(bytes: PackedByteArray) -> bool:
 ## 检查给定起点之后是否存在指定数量的 continuation 字节。
 ## [br]
 ## @api private
-static func _has_continuation_bytes(bytes: PackedByteArray, start_index: int, count: int) -> bool:
+static func _has_continuation_bytes(
+	bytes: PackedByteArray,
+	start_index: int,
+	count: int
+) -> bool:
 	if start_index + count >= bytes.size():
 		return false
-	for offset: int in range(1, count + 1):
+	for offset: int in range(
+		1,
+		count + 1
+	):
 		if not _is_continuation_byte(bytes[start_index + offset]):
 			return false
 	return true

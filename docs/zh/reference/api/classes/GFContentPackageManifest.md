@@ -32,7 +32,7 @@
 | 属性 | [`root_path`](#member-gfcontentpackagemanifest-properties-root_path) | `var root_path: String = ""` |
 | 属性 | [`source_path`](#member-gfcontentpackagemanifest-properties-source_path) | `var source_path: String = ""` |
 | 方法 | [`configure`](#member-gfcontentpackagemanifest-methods-configure) | `func configure( p_package_id: StringName, p_version: String, p_resources: Array[Dictionary] = [], p_display_name: String = "", p_content_types: PackedStringArray = PackedStringArray(), p_dependencies: PackedStringArray = PackedStringArray(), p_metadata: Dictionary = {}, p_root_path: String = "", p_source_path: String = "", p_safety_kind: StringName = SAFETY_KIND_DATA_ONLY, p_forbidden_resource_extensions: PackedStringArray = PackedStringArray() ) -> GFContentPackageManifest:` |
-| 方法 | [`apply_dictionary`](#member-gfcontentpackagemanifest-methods-apply_dictionary) | `func apply_dictionary(data: Dictionary, p_root_path: String = "", p_source_path: String = "") -> void:` |
+| 方法 | [`apply_dictionary`](#member-gfcontentpackagemanifest-methods-apply_dictionary) | `func apply_dictionary( data: Dictionary, p_root_path: String = "", p_source_path: String = "" ) -> void:` |
 | 方法 | [`to_dictionary`](#member-gfcontentpackagemanifest-methods-to_dictionary) | `func to_dictionary() -> Dictionary:` |
 | 方法 | [`to_report_dictionary`](#member-gfcontentpackagemanifest-methods-to_report_dictionary) | `func to_report_dictionary(options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`duplicate_manifest`](#member-gfcontentpackagemanifest-methods-duplicate_manifest) | `func duplicate_manifest() -> GFContentPackageManifest:` |
@@ -300,7 +300,7 @@ func configure( p_package_id: StringName, p_version: String, p_resources: Array[
 - 首次版本：`4.4.0`
 
 ```gdscript
-func apply_dictionary(data: Dictionary, p_root_path: String = "", p_source_path: String = "") -> void:
+func apply_dictionary( data: Dictionary, p_root_path: String = "", p_source_path: String = "" ) -> void:
 ```
 
 从字典应用 manifest 字段。

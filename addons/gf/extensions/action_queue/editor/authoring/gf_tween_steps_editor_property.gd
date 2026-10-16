@@ -191,7 +191,11 @@ func _enter_tree() -> void:
 ## @api private
 func _update_property() -> void:
 	var target: Object = get_edited_object()
-	if _keep_owned_controls and _owns_native_merge(target) and target.get(get_edited_property()) == _steps:
+	if (
+		_keep_owned_controls
+		and _owns_native_merge(target)
+		and target.get(get_edited_property()) == _steps
+	):
 		_keep_owned_controls = false
 		return
 	_undo_can_merge = false
@@ -210,7 +214,14 @@ func _update_property() -> void:
 			elif step_value is GFTweenActionStep:
 				_steps.append(step_value)
 	_ensure_preview_context(target)
-	_selected = clampi(_selected, 0, maxi(0, _steps.size() - 1))
+	_selected = clampi(
+		_selected,
+		0,
+		maxi(
+			0,
+			_steps.size() - 1
+		)
+	)
 	_rebuild()
 
 
@@ -284,7 +295,7 @@ func _ensure_preview_context(target: Object) -> void:
 func _connect_preview_context() -> void:
 	if _preview_context != null and not _preview_context.changed.is_connected(_on_preview_context_changed):
 		var _connected: int = _preview_context.changed.connect(_on_preview_context_changed)
-	if _preview_context != null and not _preview_context.step_selection_requested.is_connected(_on_navigation_requested):
+	if (_preview_context != null and not _preview_context.step_selection_requested.is_connected(_on_navigation_requested)):
 		var _connected: int = _preview_context.step_selection_requested.connect(_on_navigation_requested)
 
 
@@ -292,9 +303,16 @@ func _connect_preview_context() -> void:
 ## [br]
 ## @api private
 func _preview_identity(target: Dictionary) -> Dictionary:
-	return {"id": target.get("id"), "kind": target.get("kind"), "adapter_id": target.get("adapter_id"),
-		"initial_values": target.get("initial_values"), "lease": target.get("lease"),
-		"binding_lease": target.get("binding_lease"), "revision": target.get("revision")}
+	return {
+		"id": target.get("id"),
+		"kind": target.get("kind"),
+		"adapter_id": target.get("adapter_id"),
+		"initial_values": target.get("initial_values"),
+		"lease": target.get("lease"),
+		"binding_lease": target.get("binding_lease"),
+		"revision": target.get("revision"),
+	}
+
 
 ## 按当前草稿重建工具栏和选中步骤表单，旧子控件先离树再排队释放。
 ## 写操作回调绑定当前代次；空、超限或非原生步骤只呈现对应提示与允许的操作。
@@ -309,7 +327,11 @@ func _rebuild() -> void:
 		child.queue_free()
 	var toolbar: HBoxContainer = HBoxContainer.new()
 	_root.add_child(toolbar)
-	_add_label(_root, "", "PreviewTarget")
+	_add_label(
+		_root,
+		"",
+		"PreviewTarget"
+	)
 	_refresh_preview_target()
 	var presets: OptionButton = OptionButton.new()
 	presets.name = "TweenPresets"
@@ -318,14 +340,25 @@ func _rebuild() -> void:
 		for record: Dictionary in _PRESETS_SCRIPT.get_records(_kind):
 			var preset_label: String = record["label"]
 			presets.add_item(preset_label)
-			presets.set_item_metadata(presets.item_count - 1, record["id"])
+			presets.set_item_metadata(
+				presets.item_count - 1,
+				record["id"]
+			)
 			var description: String = record["description"]
-			presets.set_item_tooltip(presets.item_count - 1, description)
+			presets.set_item_tooltip(
+				presets.item_count - 1,
+				description
+			)
 	presets.disabled = _read_only or _kind < 0
 	presets.tooltip_text = "原生预设沿用上方预览目标；项目属性使用目录选择或手动编辑。"
 	toolbar.add_child(presets)
 	var _preset_connected: int = presets.item_selected.connect(_on_preset_selected.bind(presets, _generation))
-	_add_button(toolbar, "添加", _on_add_step.bind(_generation), _steps.size() >= _MAX_STEPS)
+	_add_button(
+		toolbar,
+		"添加",
+		_on_add_step.bind(_generation),
+		_steps.size() >= _MAX_STEPS
+	)
 	var toggle: CheckButton = CheckButton.new()
 	toggle.text = "高级步骤字段"
 	toggle.button_pressed = _advanced
@@ -345,11 +378,17 @@ func _rebuild() -> void:
 	picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	for index: int in range(_steps.size()):
 		var step: GFTweenActionStep = _steps[index]
-		var step_label: String = "%d · %s" % [index + 1, "空步骤" if step == null else "自定义步骤"]
+		var step_label: String = (
+			"%d · %s"
+			% [index + 1, "空步骤" if step == null else "自定义步骤"]
+		)
 		if step != null and step.get_script() == _STEP_SCRIPT:
 			step_label = _step_caption(index)
 		picker.add_item(step_label)
-		picker.set_item_tooltip(index, step_label.left(256))
+		picker.set_item_tooltip(
+			index,
+			step_label.left(256)
+		)
 	picker.select(_selected)
 	_root.add_child(picker)
 	var _selection_connected: int = picker.item_selected.connect(_on_step_selected.bind(picker, _generation))
@@ -358,44 +397,128 @@ func _rebuild() -> void:
 	var unsupported_step: bool = current == null or current.get_script() != _STEP_SCRIPT
 	var actions: HBoxContainer = HBoxContainer.new()
 	_root.add_child(actions)
-	_add_button(actions, "上移", _on_move.bind(-1, _generation), _selected == 0)
-	_add_button(actions, "下移", _on_move.bind(1, _generation), _selected == _steps.size() - 1)
-	_add_button(actions, "复制", _on_duplicate.bind(_generation), _steps.size() >= _MAX_STEPS or unsupported_step, "只支持复制原生 GFTweenActionStep，且步骤数不能超过 128。")
-	_add_button(actions, "删除", _on_remove.bind(_generation))
+	_add_button(
+		actions,
+		"上移",
+		_on_move.bind(-1, _generation),
+		_selected == 0
+	)
+	_add_button(
+		actions,
+		"下移",
+		_on_move.bind(1, _generation),
+		_selected == _steps.size() - 1
+	)
+	_add_button(
+		actions,
+		"复制",
+		_on_duplicate.bind(_generation),
+		_steps.size() >= _MAX_STEPS or unsupported_step,
+		"只支持复制原生 GFTweenActionStep，且步骤数不能超过 128。"
+	)
+	_add_button(
+		actions,
+		"删除",
+		_on_remove.bind(_generation)
+	)
 	if unsupported_step:
 		_add_label(_root, "该步骤为空或使用自定义脚本，无法在此复制；保留原值，可删除或在原生 Inspector 中编辑。原生编辑会影响共享此步骤的其他资源。")
 		if current != null:
-			_add_button(_root, "原生编辑共享步骤", _on_inspect.bind(_generation))
+			_add_button(
+				_root,
+				"原生编辑共享步骤",
+				_on_inspect.bind(_generation)
+			)
 		return
 	if _displayed_navigation.is_empty():
-		_add_label(_root, "名称超过 256 字符时，时间块联动和连续合并暂停；可在当前名称字段输入较短名称，或打开原生共享步骤修复。", "NameBudgetFeedback")
-		_add_button(_root, "原生编辑共享步骤", _on_inspect.bind(_generation))
+		_add_label(
+			_root,
+			"名称超过 256 字符时，时间块联动和连续合并暂停；可在当前名称字段输入较短名称，或打开原生共享步骤修复。",
+			"NameBudgetFeedback"
+		)
+		_add_button(
+			_root,
+			"原生编辑共享步骤",
+			_on_inspect.bind(_generation)
+		)
 	var provenance: Dictionary = _PRESETS_SCRIPT.get_provenance(current)
 	if not provenance.is_empty():
 		var overrides: Array[StringName] = _PRESETS_SCRIPT.get_overrides(current)
-		_add_label(_root, "%s v%d · %s" % [provenance["preset_id"], provenance["preset_version"], "预设值" if overrides.is_empty() else "覆盖：" + ", ".join(overrides)], "PresetSource")
-		_add_button(_root, "恢复此步骤受管字段", _on_restore.bind(&"", _generation), overrides.is_empty(), "", "RestoreAll")
+		_add_label(
+			_root,
+			"%s v%d · %s"
+			% [
+				provenance["preset_id"],
+				provenance["preset_version"],
+				"预设值" if overrides.is_empty() else "覆盖：" + ", ".join(overrides),
+			],
+			"PresetSource"
+		)
+		_add_button(
+			_root,
+			"恢复此步骤受管字段",
+			_on_restore.bind(&"", _generation),
+			overrides.is_empty(),
+			"",
+			"RestoreAll"
+		)
 		var recipe_id: String = provenance["preset_id"]
 		for record: Dictionary in _PRESETS_SCRIPT.get_records(_kind):
 			if record["id"] != recipe_id:
 				continue
 			var description: String = record["description"]
-			_add_label(_root, description, "RecipeDescription")
+			_add_label(
+				_root,
+				description,
+				"RecipeDescription"
+			)
 			var initial_values: Dictionary = record["initial_values"]
 			if not initial_values.is_empty():
-				_add_button(_root, "使用建议样机初值", _on_recipe_initial_pressed.bind(recipe_id, _generation), false, "仅调整隔离样机；真实运行目标仍由项目明确设置。不会清除资源声明中的未知字段。", "ApplyRecipeInitial")
+				_add_button(
+					_root,
+					"使用建议样机初值",
+					_on_recipe_initial_pressed.bind(recipe_id, _generation),
+					false,
+					"仅调整隔离样机；真实运行目标仍由项目明确设置。不会清除资源声明中的未知字段。",
+					"ApplyRecipeInitial"
+				)
 	elif current.has_meta(&"_gf_tween_preset"):
 		_add_label(_root, "预设来源版本未知或记录无效；可继续编辑，恢复预设不可用。")
-	_add_label(_root, "", "FieldFocusFeedback")
-	var fields: Array[StringName] = [&"resource_name", &"property_name", &"target_value", &"duration", &"transition_type", &"ease_type"]
+	_add_label(
+		_root,
+		"",
+		"FieldFocusFeedback"
+	)
+	var fields: Array[StringName] = [
+		&"resource_name",
+		&"property_name",
+		&"target_value",
+		&"duration",
+		&"transition_type",
+		&"ease_type",
+	]
 	if _advanced:
-		fields.append_array([&"delay", &"as_relative", &"parallel", &"marker_id"])
+		fields.append_array(
+			[
+				&"delay",
+				&"as_relative",
+				&"parallel",
+				&"marker_id",
+			]
+		)
 	for field: StringName in fields:
 		_add_field(current, field)
 	_add_property_picker(current)
 	if _advanced:
 		_add_label(_root, "原生入口直接编辑当前步骤和 Curve，会影响共享引用。步骤表单的“复制”会生成独立步骤与曲线。修改曲线后重新预览。")
-		_add_button(_root, "原生编辑共享步骤 / Curve", _on_inspect.bind(_generation), false, "", "InspectStep")
+		_add_button(
+			_root,
+			"原生编辑共享步骤 / Curve",
+			_on_inspect.bind(_generation),
+			false,
+			"",
+			"InspectStep"
+		)
 
 
 ## 用现有名称与一基组号展示串并行关系；自定义步骤不读取项目属性。
@@ -404,12 +527,23 @@ func _rebuild() -> void:
 func _step_caption(index: int) -> String:
 	var step: GFTweenActionStep = _steps[index]
 	var group: int = _step_group(index)
-	var caption: String = "%d · 组 %d" % [index + 1, group]
+	var caption: String = (
+		"%d · 组 %d"
+		% [index + 1, group]
+	)
 	if group == 0:
 		caption = "%d · 分组待确认" % (index + 1)
 	if not step.resource_name.is_empty():
 		caption += " · " + _display_step_name(step)
-	return "%s · %s · %s · %.2fs" % [caption, String(step.property_name), "并行" if index > 0 and step.parallel else "串行", step.duration]
+	return (
+		"%s · %s · %s · %.2fs"
+		% [
+			caption,
+			String(step.property_name),
+			"并行" if index > 0 and step.parallel else "串行",
+			step.duration,
+		]
+	)
 
 
 ## 首步骤始终开启第一组，后续非 parallel 步骤开启下一串行组。
@@ -452,7 +586,10 @@ func _add_group_overview() -> void:
 			group = next_group
 			row = HFlowContainer.new()
 			groups.add_child(row)
-			_add_label(row, "组 %d →" % group)
+			_add_label(
+				row,
+				"组 %d →" % group
+			)
 		var step: GFTweenActionStep = _steps[index]
 		var caption: String = "步骤 %d" % (index + 1)
 		if step != null and step.get_script() == _STEP_SCRIPT:
@@ -460,7 +597,14 @@ func _add_group_overview() -> void:
 				caption += " · " + step.resource_name.left(16) + ("…" if step.resource_name.length() > 16 else "")
 			if index > 0 and step.parallel:
 				caption += "（并行）"
-		_add_button(row, caption, _on_group_step_selected.bind(index, _generation), false, "选择此步骤，不修改播放配置。", "GroupStep_%d" % index)
+		_add_button(
+			row,
+			caption,
+			_on_group_step_selected.bind(index, _generation),
+			false,
+			"选择此步骤，不修改播放配置。",
+			"GroupStep_%d" % index
+		)
 
 
 ## 从原生步骤元数据构造一个表单字段；target_value 使用当前值的实际类型，提交绑定当前代次。
@@ -488,7 +632,12 @@ func _add_field(step: GFTweenActionStep, field_name: StringName) -> void:
 	if field_name == &"resource_name":
 		field.set_label("步骤名称")
 		field.tooltip_text = "Resource.resource_name：供作者识别步骤，不参与播放或步骤标记。"
-		for child: Node in field.find_children("*", "LineEdit", true, false):
+		for child: Node in field.find_children(
+			"*",
+			"LineEdit",
+			true,
+			false
+		):
 			if child is LineEdit:
 				var input: LineEdit = child
 				input.max_length = _SNAPSHOT_SCRIPT.NAME_LENGTH_LIMIT
@@ -497,7 +646,14 @@ func _add_field(step: GFTweenActionStep, field_name: StringName) -> void:
 	row.add_child(field)
 	var _connected: int = field.value_changed.connect(_on_field_changed.bind(field_name, _generation))
 	if field_name != &"resource_name" and not _PRESETS_SCRIPT.get_provenance(step).is_empty():
-		_add_button(row, "恢复", _on_restore.bind(field_name, _generation), not _PRESETS_SCRIPT.get_overrides(step).has(field_name), "", "Restore_%s" % field_name)
+		_add_button(
+			row,
+			"恢复",
+			_on_restore.bind(field_name, _generation),
+			not _PRESETS_SCRIPT.get_overrides(step).has(field_name),
+			"",
+			"Restore_%s" % field_name
+		)
 
 
 ## 搜索共享目标的有限目录；原始 property_name 字段继续保留不支持的合法运行时路径。
@@ -516,9 +672,19 @@ func _add_property_picker(step: GFTweenActionStep) -> void:
 	choices.disabled = _read_only
 	_root.add_child(choices)
 	_refresh_property_choices("", choices)
-	var _search_connected: int = search.text_changed.connect(_on_property_search_changed.bind(search, choices, _generation))
+	var _search_connected: int = search.text_changed.connect(
+		_on_property_search_changed.bind(
+			search,
+			choices,
+			_generation
+		)
+	)
 	var _choice_connected: int = choices.item_selected.connect(_on_property_choice_selected.bind(choices, _generation))
-	_add_label(_root, "", "PropertySupport")
+	_add_label(
+		_root,
+		"",
+		"PropertySupport"
+	)
 	_refresh_property_support(step)
 
 
@@ -526,7 +692,11 @@ func _add_property_picker(step: GFTweenActionStep) -> void:
 ## [br]
 ## @api private
 func _refresh_property_support(step: GFTweenActionStep) -> void:
-	var support_node: Node = _root.find_child("PropertySupport", true, false)
+	var support_node: Node = _root.find_child(
+		"PropertySupport",
+		true,
+		false
+	)
 	if not support_node is Label:
 		return
 	var supported: bool = false
@@ -551,7 +721,11 @@ func _property_records(query: String) -> Array[Dictionary]:
 ## [br]
 ## @api private
 func _refresh_preview_target() -> void:
-	var target_node: Node = _root.find_child("PreviewTarget", true, false)
+	var target_node: Node = _root.find_child(
+		"PreviewTarget",
+		true,
+		false
+	)
 	if not target_node is Label:
 		return
 	var target_label: Label = target_node
@@ -574,14 +748,24 @@ func _refresh_property_choices(query: String, choices: OptionButton) -> void:
 	for record: Dictionary in records:
 		var property_name: String = record["name"]
 		choices.add_item(property_name)
-		choices.set_item_metadata(choices.item_count - 1, record)
+		choices.set_item_metadata(
+			choices.item_count - 1,
+			record
+		)
 	choices.select(0)
 
 
 ## 将按钮归属指定父节点并连接回调；局部禁用条件与编辑器只读状态共同决定可用性。
 ## [br]
 ## @api private
-func _add_button(parent: Node, text: String, callback: Callable, disabled: bool = false, tooltip: String = "", node_name: String = "") -> void:
+func _add_button(
+	parent: Node,
+	text: String,
+	callback: Callable,
+	disabled: bool = false,
+	tooltip: String = "",
+	node_name: String = ""
+) -> void:
 	var button: Button = Button.new()
 	if not node_name.is_empty():
 		button.name = node_name
@@ -608,7 +792,11 @@ func _add_button(parent: Node, text: String, callback: Callable, disabled: bool 
 ## 在指定父节点下创建自动换行提示，可指定稳定名称供后续反馈刷新查找。
 ## [br]
 ## @api private
-func _add_label(parent: Node, text: String, node_name: String = "") -> void:
+func _add_label(
+	parent: Node,
+	text: String,
+	node_name: String = ""
+) -> void:
 	var message_label: Label = Label.new()
 	if not node_name.is_empty():
 		message_label.name = node_name
@@ -622,7 +810,12 @@ func _add_label(parent: Node, text: String, node_name: String = "") -> void:
 ## [br]
 ## @api private
 func _can_edit(generation: int) -> bool:
-	if _read_only or generation != _generation or not is_inside_tree() or not is_instance_valid(get_edited_object()):
+	if (
+		_read_only
+		or generation != _generation
+		or not is_inside_tree()
+		or not is_instance_valid(get_edited_object())
+	):
 		return false
 	if not _has_native_binding(get_edited_object()):
 		return false
@@ -638,12 +831,21 @@ func _submit(next_steps: Array[GFTweenActionStep], changing: bool = false) -> vo
 	var target: Object = get_edited_object()
 	var property_name: StringName = get_edited_property()
 	var undo_manager: EditorUndoRedoManager = EditorInterface.get_editor_undo_redo()
-	if not is_instance_valid(target) or not _has_native_binding(target) or undo_manager == null or undo_manager.is_committing_action():
+	if (
+		not is_instance_valid(target)
+		or not _has_native_binding(target)
+		or undo_manager == null
+		or undo_manager.is_committing_action()
+	):
 		return
 	var history_id: int = undo_manager.get_object_history_id(target)
 	var merge_mode: UndoRedo.MergeMode = UndoRedo.MERGE_DISABLE
 	var before_count: int = -1
-	if changing and history_id == _undo_history_id and _owns_native_merge(target):
+	if (
+		changing
+		and history_id == _undo_history_id
+		and _owns_native_merge(target)
+	):
 		merge_mode = UndoRedo.MERGE_ENDS
 		var previous_history_value: Variant = _undo_history.get_ref()
 		if previous_history_value is UndoRedo:
@@ -658,35 +860,70 @@ func _submit(next_steps: Array[GFTweenActionStep], changing: bool = false) -> vo
 	else:
 		_generation += 1
 	# 外层动作界定当前提交；Inspector 作为嵌套动作添加完整原生属性及刷新操作。
-	undo_manager.create_action("修改 GF Tween 步骤", merge_mode, target)
+	undo_manager.create_action(
+		"修改 GF Tween 步骤",
+		merge_mode,
+		target
+	)
 	var history: UndoRedo = undo_manager.get_history_undo_redo(history_id)
 	_observe_native_history(history, history_id)
 	var epoch: int = _undo_epoch
 	var generation: int = _generation
 	var before_version: int = history.get_version()
 	var editor_reference: WeakRef = weakref(self)
-	emit_changed(property_name, next_steps, &"", changing)
+	emit_changed(
+		property_name,
+		next_steps,
+		&"",
+		changing
+	)
 	undo_manager.commit_action()
 	# 提交可能同步释放、换绑或重建控件；不通过失效 self 继续访问草稿。
 	var editor_value: Variant = editor_reference.get_ref()
 	if editor_value is EditorProperty:
 		var editor: EditorProperty = editor_value
-		editor.call(&"_confirm_owned_native_commit", target, property_name, history, epoch, generation, before_version, before_count, changing)
+		editor.call(
+			&"_confirm_owned_native_commit",
+			target,
+			property_name,
+			history,
+			epoch,
+			generation,
+			before_version,
+			before_count,
+			changing
+		)
 
 
 ## 检查连续合并资格的完整绑定与历史事件代次；版本相同本身不代表同一写入者。
 ## [br]
 ## @api private
 func _owns_native_merge(target: Object) -> bool:
-	if not _undo_can_merge or _read_only or not is_inside_tree() or _undo_generation != _generation:
+	if (
+		not _undo_can_merge
+		or _read_only
+		or not is_inside_tree()
+		or _undo_generation != _generation
+	):
 		return false
-	if not is_instance_valid(target) or not _has_native_binding(target) or _undo_target == null or _undo_target.get_ref() != target or _undo_property != get_edited_property():
+	if (
+		not is_instance_valid(target)
+		or not _has_native_binding(target)
+		or _undo_target == null
+		or _undo_target.get_ref() != target
+		or _undo_property != get_edited_property()
+	):
 		return false
 	var history_value: Variant = _undo_history.get_ref() if _undo_history != null else null
 	if not (history_value is UndoRedo):
 		return false
 	var history: UndoRedo = history_value
-	return _undo_owned_epoch == _undo_epoch and history.get_version() == _undo_version and not _undo_payload.is_empty() and _capture_native_merge_payload(target) == _undo_payload
+	return (
+		_undo_owned_epoch == _undo_epoch
+		and history.get_version() == _undo_version
+		and not _undo_payload.is_empty()
+		and _capture_native_merge_payload(target) == _undo_payload
+	)
 
 
 ## 只观察当前历史；断连或换历史时撤销全部连续资格，避免历史 ID 或版本重用产生 ABA。
@@ -715,14 +952,35 @@ func _observe_native_history(history: UndoRedo, history_id: int) -> void:
 ## [br]
 ## @api private
 func _confirm_owned_native_commit(
-	target: Object, property_name: StringName, history: UndoRedo, epoch: int,
-	generation: int, before_version: int, before_count: int, changing: bool
+	target: Object,
+	property_name: StringName,
+	history: UndoRedo,
+	epoch: int,
+	generation: int,
+	before_version: int,
+	before_count: int,
+	changing: bool
 ) -> void:
-	if not changing or not is_inside_tree() or _read_only or _generation != generation or _undo_epoch != epoch + 1:
+	if (
+		not changing
+		or not is_inside_tree()
+		or _read_only
+		or _generation != generation
+		or _undo_epoch != epoch + 1
+	):
 		return
-	if not is_instance_valid(target) or not _has_native_binding(target) or get_edited_object() != target or get_edited_property() != property_name:
+	if (
+		not is_instance_valid(target)
+		or not _has_native_binding(target)
+		or get_edited_object() != target
+		or get_edited_property() != property_name
+	):
 		return
-	if _undo_history == null or _undo_history.get_ref() != history or target.get(property_name) != _steps:
+	if (
+		_undo_history == null
+		or _undo_history.get_ref() != history
+		or target.get(property_name) != _steps
+	):
 		return
 	# 原生合并保持版本，800ms 窗口过期则建立新动作；只用公开计数验证实际发生的结果。
 	var expected_version: int = before_version + 1
@@ -805,35 +1063,80 @@ func _replace_selected(step: GFTweenActionStep, changing: bool = false) -> void:
 ## @api private
 func _refresh_field_feedback(step: GFTweenActionStep) -> void:
 	_refresh_property_support(step)
-	var picker_node: Node = _root.find_child("StepPicker", true, false)
+	var picker_node: Node = _root.find_child(
+		"StepPicker",
+		true,
+		false
+	)
 	if picker_node is OptionButton:
 		var picker: OptionButton = picker_node
-		picker.set_item_text(_selected, _step_caption(_selected))
-		picker.set_item_tooltip(_selected, _step_caption(_selected).left(256))
-	var group_node: Node = _root.find_child("GroupStep_%d" % _selected, true, false)
+		picker.set_item_text(
+			_selected,
+			_step_caption(_selected)
+		)
+		picker.set_item_tooltip(
+			_selected,
+			_step_caption(_selected).left(256)
+		)
+	var group_node: Node = _root.find_child(
+		"GroupStep_%d" % _selected,
+		true,
+		false
+	)
 	if group_node is Button:
 		var group_button: Button = group_node
 		var displayed_name: String = step.resource_name.left(16) + ("…" if step.resource_name.length() > 16 else "")
-		group_button.text = "步骤 %d%s%s" % [_selected + 1, " · " + displayed_name if not step.resource_name.is_empty() else "", "（并行）" if _selected > 0 and step.parallel else ""]
+		group_button.text = (
+			"步骤 %d%s%s"
+			% [
+				_selected + 1,
+				" · " + displayed_name if not step.resource_name.is_empty() else "",
+				"（并行）" if _selected > 0 and step.parallel else "",
+			]
+		)
 		group_button.tooltip_text = _step_caption(_selected).left(256)
 	_displayed_navigation = _preview_context.get_navigation_snapshot() if _preview_context != null else {}
 	var provenance: Dictionary = _PRESETS_SCRIPT.get_provenance(step)
 	var overrides: Array[StringName] = _PRESETS_SCRIPT.get_overrides(step)
-	var status_node: Node = _root.find_child("PresetSource", true, false)
+	var status_node: Node = _root.find_child(
+		"PresetSource",
+		true,
+		false
+	)
 	if status_node is Label and not provenance.is_empty():
 		var status_label: Label = status_node
-		status_label.text = "%s v%d · %s" % [provenance["preset_id"], provenance["preset_version"], "预设值" if overrides.is_empty() else "覆盖：" + ", ".join(overrides)]
-	var restore_all_node: Node = _root.find_child("RestoreAll", true, false)
+		status_label.text = (
+			"%s v%d · %s"
+			% [
+				provenance["preset_id"],
+				provenance["preset_version"],
+				"预设值" if overrides.is_empty() else "覆盖：" + ", ".join(overrides),
+			]
+		)
+	var restore_all_node: Node = _root.find_child(
+		"RestoreAll",
+		true,
+		false
+	)
 	if restore_all_node is Button:
 		var restore_all: Button = restore_all_node
 		restore_all.disabled = _read_only or overrides.is_empty()
-	for restore_node: Node in _root.find_children("Restore_*", "Button", true, false):
+	for restore_node: Node in _root.find_children(
+		"Restore_*",
+		"Button",
+		true,
+		false
+	):
 		if not restore_node is Button:
 			continue
 		var restore_button: Button = restore_node
 		var field_name: StringName = String(restore_button.name).trim_prefix("Restore_")
 		restore_button.disabled = _read_only or not overrides.has(field_name)
-	var target_node: Node = _root.find_child("Field_target_value", true, false)
+	var target_node: Node = _root.find_child(
+		"Field_target_value",
+		true,
+		false
+	)
 	if target_node is GFEditorValueField:
 		var target_field: GFEditorValueField = target_node
 		var info: Dictionary = target_field.get_property_info()
@@ -876,15 +1179,30 @@ func _on_preview_context_changed() -> void:
 		_rebuild()
 	else:
 		_refresh_preview_target()
-		if _selected >= 0 and _selected < _steps.size() and _steps[_selected] != null:
+		if (
+			_selected >= 0
+			and _selected < _steps.size()
+			and _steps[_selected] != null
+		):
 			_refresh_property_support(_steps[_selected])
 
 
 ## 搜索输入必须仍属于当前表单代次，退役控件不能覆盖新目录。
 ## [br]
 ## @api private
-func _on_property_search_changed(query: String, search: LineEdit, choices: OptionButton, generation: int) -> void:
-	if generation != _generation or not is_instance_valid(search) or not is_instance_valid(choices) or search.get_parent() != _root or choices.get_parent() != _root:
+func _on_property_search_changed(
+	query: String,
+	search: LineEdit,
+	choices: OptionButton,
+	generation: int
+) -> void:
+	if (
+		generation != _generation
+		or not is_instance_valid(search)
+		or not is_instance_valid(choices)
+		or search.get_parent() != _root
+		or choices.get_parent() != _root
+	):
 		return
 	_refresh_property_choices(query, choices)
 
@@ -892,8 +1210,17 @@ func _on_property_search_changed(query: String, search: LineEdit, choices: Optio
 ## 选择声明属性沿用独立步骤复制与 Inspector Undo；必要时同步目标值类型。
 ## [br]
 ## @api private
-func _on_property_choice_selected(index: int, choices: OptionButton, generation: int) -> void:
-	if index < 1 or not _can_edit(generation) or not is_instance_valid(choices) or choices.get_parent() != _root:
+func _on_property_choice_selected(
+	index: int,
+	choices: OptionButton,
+	generation: int
+) -> void:
+	if (
+		index < 1
+		or not _can_edit(generation)
+		or not is_instance_valid(choices)
+		or choices.get_parent() != _root
+	):
 		return
 	var value: Variant = choices.get_item_metadata(index)
 	if not (value is Dictionary):
@@ -911,6 +1238,7 @@ func _on_property_choice_selected(index: int, choices: OptionButton, generation:
 		step.target_value = record["initial"]
 	_replace_selected(step)
 
+
 ## 切换高级字段可见性并重建表单，使旧字段和待确认操作的代次失效。
 ## [br]
 ## @api private
@@ -923,8 +1251,16 @@ func _on_advanced_toggled(enabled: bool) -> void:
 ## 切换当前步骤并递增代次，防止上一选择的字段或确认回调继续写入。
 ## [br]
 ## @api private
-func _on_step_selected(index: int, picker: OptionButton, generation: int) -> void:
-	if generation != _generation or not is_instance_valid(picker) or picker.get_parent() != _root:
+func _on_step_selected(
+	index: int,
+	picker: OptionButton,
+	generation: int
+) -> void:
+	if (
+		generation != _generation
+		or not is_instance_valid(picker)
+		or picker.get_parent() != _root
+	):
 		return
 	_on_group_step_selected(index, generation)
 
@@ -933,10 +1269,19 @@ func _on_step_selected(index: int, picker: OptionButton, generation: int) -> voi
 ## [br]
 ## @api private
 func _on_group_step_selected(index: int, generation: int) -> void:
-	if generation != _generation or not is_inside_tree() or index < 0 or index >= _steps.size():
+	if (
+		generation != _generation
+		or not is_inside_tree()
+		or index < 0
+		or index >= _steps.size()
+	):
 		return
 	var target: Object = get_edited_object()
-	if not is_instance_valid(target) or not _has_native_binding(target) or target.get(get_edited_property()) != _steps:
+	if (
+		not is_instance_valid(target)
+		or not _has_native_binding(target)
+		or target.get(get_edited_property()) != _steps
+	):
 		return
 	_selected = index
 	_undo_can_merge = false
@@ -950,7 +1295,11 @@ func _on_group_step_selected(index: int, generation: int) -> void:
 ## @api private
 func _on_navigation_requested(request: Dictionary) -> void:
 	var context: GFTweenPreviewContext = _preview_context
-	if context == null or not is_inside_tree() or not context.is_navigation_request_current(request):
+	if (
+		context == null
+		or not is_inside_tree()
+		or not context.is_navigation_request_current(request)
+	):
 		return
 	var target: Object = get_edited_object()
 	var snapshot_value: Variant = request.get("snapshot")
@@ -966,24 +1315,53 @@ func _on_navigation_requested(request: Dictionary) -> void:
 	var index: int = index_value
 	var field_name: StringName = field_value
 	update_property()
-	if not is_instance_valid(self) or _preview_context != context or not context.is_navigation_request_current(request) or index < 0 or index >= _steps.size():
+	if (
+		not is_instance_valid(self)
+		or _preview_context != context
+		or not context.is_navigation_request_current(request)
+		or index < 0
+		or index >= _steps.size()
+	):
 		return
 	_selected = index
-	if field_name in [&"delay", &"as_relative", &"parallel", &"marker_id", &"easing_curve"]:
+	if field_name in [
+		&"delay",
+		&"as_relative",
+		&"parallel",
+		&"marker_id",
+		&"easing_curve",
+	]:
 		_advanced = true
 	_undo_can_merge = false
 	_keep_owned_controls = false
 	_generation += 1
 	var generation: int = _generation
 	_rebuild()
-	if not is_instance_valid(self) or _preview_context != context or generation != _generation or not context.is_navigation_request_current(request):
+	if (
+		not is_instance_valid(self)
+		or _preview_context != context
+		or generation != _generation
+		or not context.is_navigation_request_current(request)
+	):
 		return
-	var field_node: Node = _root.find_child("Field_%s" % field_name, true, false)
+	var field_node: Node = _root.find_child(
+		"Field_%s" % field_name,
+		true,
+		false
+	)
 	var focus_control: Control = null
 	if field_node is GFEditorValueField:
 		var field: GFEditorValueField = field_node
-		field.tooltip_text = "已定位步骤 %d · %s" % [index + 1, field_name]
-		for child: Node in field.find_children("*", "Control", true, false):
+		field.tooltip_text = (
+			"已定位步骤 %d · %s"
+			% [index + 1, field_name]
+		)
+		for child: Node in field.find_children(
+			"*",
+			"Control",
+			true,
+			false
+		):
 			if not child is Control:
 				continue
 			var control: Control = child
@@ -991,24 +1369,48 @@ func _on_navigation_requested(request: Dictionary) -> void:
 				focus_control = control
 				break
 	if focus_control == null:
-		var picker_node: Node = _root.find_child("InspectStep" if field_name == &"easing_curve" else "StepPicker", true, false)
+		var picker_node: Node = _root.find_child(
+			"InspectStep" if field_name == &"easing_curve" else "StepPicker",
+			true,
+			false
+		)
 		if picker_node is Control:
 			focus_control = picker_node
 	if focus_control != null:
 		focus_control.grab_focus()
-	if not is_instance_valid(self) or _preview_context != context or generation != _generation or not context.is_navigation_request_current(request):
+	if (
+		not is_instance_valid(self)
+		or _preview_context != context
+		or generation != _generation
+		or not context.is_navigation_request_current(request)
+	):
 		return
-	var feedback_node: Node = _root.find_child("FieldFocusFeedback", true, false)
+	var feedback_node: Node = _root.find_child(
+		"FieldFocusFeedback",
+		true,
+		false
+	)
 	if feedback_node is Label:
 		var feedback: Label = feedback_node
-		feedback.text = "已定位步骤 %d%s" % [index + 1, " · " + String(field_name) if field_name != &"" else ""]
+		feedback.text = (
+			"已定位步骤 %d%s"
+			% [index + 1, " · " + String(field_name) if field_name != &"" else ""]
+		)
 
 
 ## 验证控件代次后记录待确认的预设与代次，仅打开替换确认框，不修改步骤数组。
 ## [br]
 ## @api private
-func _on_preset_selected(index: int, picker: OptionButton, generation: int) -> void:
-	if index == 0 or _kind < 0 or not _can_edit(generation):
+func _on_preset_selected(
+	index: int,
+	picker: OptionButton,
+	generation: int
+) -> void:
+	if (
+		index == 0
+		or _kind < 0
+		or not _can_edit(generation)
+	):
 		return
 	var value: Variant = picker.get_item_metadata(index)
 	if not value is String:
@@ -1036,7 +1438,11 @@ func _on_preset_confirmed() -> void:
 ## [br]
 ## @api private
 func _on_recipe_initial_pressed(recipe_id: String, generation: int) -> void:
-	if generation != _generation or _preview_context == null or not _can_edit(generation):
+	if (
+		generation != _generation
+		or _preview_context == null
+		or not _can_edit(generation)
+	):
 		return
 	var context: GFTweenPreviewContext = _preview_context
 	for record: Dictionary in _PRESETS_SCRIPT.get_records(_kind):
@@ -1050,10 +1456,21 @@ func _on_recipe_initial_pressed(recipe_id: String, generation: int) -> void:
 		if not key_value is String:
 			return
 		var property_name: String = key_value
-		var accepted: bool = context.set_initial_value(StringName(property_name), initial_values[property_name])
-		if not is_instance_valid(self) or _preview_context != context or generation != _generation:
+		var accepted: bool = context.set_initial_value(
+			StringName(property_name),
+			initial_values[property_name]
+		)
+		if (
+			not is_instance_valid(self)
+			or _preview_context != context
+			or generation != _generation
+		):
 			return
-		var feedback_node: Node = _root.find_child("RecipeDescription", true, false)
+		var feedback_node: Node = _root.find_child(
+			"RecipeDescription",
+			true,
+			false
+		)
 		if feedback_node is Label and not accepted:
 			var feedback: Label = feedback_node
 			feedback.text = "建议初值未接纳；请检查当前场景及资源声明，原初值未改动。"
@@ -1103,7 +1520,10 @@ func _on_duplicate(generation: int) -> void:
 	if copied == null:
 		return
 	var next_steps: Array[GFTweenActionStep] = _steps.duplicate()
-	var _inserted: int = next_steps.insert(_selected + 1, copied)
+	var _inserted: int = next_steps.insert(
+		_selected + 1,
+		copied
+	)
 	_selected += 1
 	_submit(next_steps)
 
@@ -1129,7 +1549,11 @@ func _on_move(offset: int, generation: int) -> void:
 ## 此处只调整值类型，属性路径是否可预览仍由预览准入检查决定。
 ## [br]
 ## @api private
-func _on_field_changed(value: Variant, field: StringName, generation: int) -> void:
+func _on_field_changed(
+	value: Variant,
+	field: StringName,
+	generation: int
+) -> void:
 	if not _can_edit(generation):
 		return
 	if field == &"resource_name":
@@ -1149,10 +1573,17 @@ func _on_field_changed(value: Variant, field: StringName, generation: int) -> vo
 			var baseline: Variant = properties[String(path)]
 			if typeof(step.target_value) != typeof(baseline):
 				step.target_value = baseline
-		elif path.get_name_count() == 1 and path.get_subname_count() == 1 and properties.has(String(path.get_name(0))):
+		elif (
+			path.get_name_count() == 1
+			and path.get_subname_count() == 1
+			and properties.has(String(path.get_name(0)))
+		):
 			# 向量与颜色分量是标量；属性路径仍由预览准入逐项校验。
 			step.target_value = 0.0
-	_replace_selected(step, field != &"parallel")
+	_replace_selected(
+		step,
+		field != &"parallel"
+	)
 
 
 ## 仅在当前编辑资格有效时用独立恢复副本替换选中步骤；空字段表示恢复全部受管字段。
@@ -1160,7 +1591,12 @@ func _on_field_changed(value: Variant, field: StringName, generation: int) -> vo
 ## @api private
 func _on_restore(field: StringName, generation: int) -> void:
 	if _can_edit(generation):
-		_replace_selected(_PRESETS_SCRIPT.restore_step(_steps[_selected], field))
+		_replace_selected(
+			_PRESETS_SCRIPT.restore_step(
+				_steps[_selected],
+				field
+			)
+		)
 
 
 ## 将仍属于当前选择的共享步骤交给原生 Inspector；该入口不会先复制资源，编辑会影响其他引用者。

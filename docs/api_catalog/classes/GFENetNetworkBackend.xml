@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFENetNetworkBackend" path="addons/gf/extensions/network/backends/gf_enet_network_backend.gd" module="extensions/network" extends="GFNetworkBackend" classDigest="d4f4bbb1fcea125a97159cb3beb75a4761ff9eabe17cc5dfcea4edb1893cb84c">
+<class name="GFENetNetworkBackend" path="addons/gf/extensions/network/backends/gf_enet_network_backend.gd" module="extensions/network" extends="GFNetworkBackend" classDigest="68652167f42868ea200bd58638f1f0055f203b365168a578606dff0bed03b7f0">
 	<description>GFENetNetworkBackend: 基于 Godot ENetMultiplayerPeer 的网络后端。
 该后端只实现 GFNetworkBackend 的 bytes 传输边界，不定义房间、同步、
 RPC 或任何项目消息语义。需要更复杂协议时可以继续继承 GFNetworkBackend。</description>
@@ -60,7 +60,7 @@ endpoint 可传 "host:port"，或通过 options.port 传端口。</description>
 			</tags>
 		</member>
 		<member kind="method" name="send_bytes">
-			<signature>func send_bytes(peer_id: int, bytes: PackedByteArray, options: Dictionary = {}) -&gt; Error:</signature>
+			<signature>func send_bytes( peer_id: int, bytes: PackedByteArray, options: Dictionary = {} ) -&gt; Error:</signature>
 			<description>发送 bytes。
 options 支持 reliable, transfer_mode, channel。</description>
 			<tags>
@@ -70,6 +70,7 @@ options 支持 reliable, transfer_mode, channel。</description>
 				<tag name="param">options: 操作选项字典。</tag>
 				<tag name="return">Godot 错误码。</tag>
 				<tag name="schema">options: Dictionary，支持 reliable、transfer_mode、channel。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="poll">

@@ -72,14 +72,30 @@ const _CAPABILITY_BASE_SCRIPTS: Array[Script] = [
 func append_access_records(records: Array[Dictionary]) -> void:
 	var existing_paths: Dictionary = {}
 	for record: Dictionary in records:
-		var existing_path: String = GFVariantData.get_option_string(record, "path", "")
+		var existing_path: String = GFVariantData.get_option_string(
+			record,
+			"path",
+			""
+		)
 		if not existing_path.is_empty():
 			existing_paths[existing_path] = true
 
 	for global_class: Dictionary in ProjectSettings.get_global_class_list():
-		var class_name_value: String = GFVariantData.get_option_string(global_class, "class", "")
-		var path: String = GFVariantData.get_option_string(global_class, "path", "")
-		if class_name_value.is_empty() or path.is_empty() or existing_paths.has(path):
+		var class_name_value: String = GFVariantData.get_option_string(
+			global_class,
+			"class",
+			""
+		)
+		var path: String = GFVariantData.get_option_string(
+			global_class,
+			"path",
+			""
+		)
+		if (
+			class_name_value.is_empty()
+			or path.is_empty()
+			or existing_paths.has(path)
+		):
 			continue
 
 		var script: Script = _load_script(path)

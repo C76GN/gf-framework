@@ -102,7 +102,11 @@ func to_dict() -> Dictionary:
 ## @schema data: Dictionary { tick: int, peer_id: int, sequence: int, payload: Dictionary }.
 func from_dict(data: Dictionary) -> void:
 	tick = GFVariantData.get_option_int(data, "tick")
-	peer_id = GFVariantData.get_option_int(data, "peer_id", -1)
+	peer_id = GFVariantData.get_option_int(
+		data,
+		"peer_id",
+		-1
+	)
 	sequence = GFVariantData.get_option_int(data, "sequence")
 	payload = GFVariantData.get_option_dictionary(data, "payload")
 
@@ -115,7 +119,12 @@ func from_dict(data: Dictionary) -> void:
 ## [br]
 ## @return 独立输入帧副本。
 func duplicate_frame() -> GFNetworkInputFrame:
-	return GFNetworkInputFrame.new(tick, peer_id, sequence, payload)
+	return GFNetworkInputFrame.new(
+		tick,
+		peer_id,
+		sequence,
+		payload
+	)
 
 
 ## 校验值对象的基础字段和载荷预算。
@@ -148,10 +157,24 @@ func validate_frame(options: Dictionary = {}) -> Dictionary:
 			GFVariantData.get_option_string(value_report, "path")
 		)
 	var payload_bytes: int = var_to_bytes(payload).size()
-	var max_payload_bytes: int = GFVariantData.get_option_int(options, "max_payload_bytes", 64 * 1024)
+	var max_payload_bytes: int = GFVariantData.get_option_int(
+		options,
+		"max_payload_bytes",
+		64 * 1024
+	)
 	if max_payload_bytes <= 0 or payload_bytes > max_payload_bytes:
-		return _make_validation_report(false, "payload_budget_exceeded", "", payload_bytes)
-	return _make_validation_report(true, "", "", payload_bytes)
+		return _make_validation_report(
+			false,
+			"payload_budget_exceeded",
+			"",
+			payload_bytes
+		)
+	return _make_validation_report(
+		true,
+		"",
+		"",
+		payload_bytes
+	)
 
 
 # --- 私有/辅助方法 ---

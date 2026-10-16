@@ -56,11 +56,21 @@ func compile_table(
 	options: Dictionary = {}
 ) -> Dictionary:
 	if source == null:
-		return _make_compile_failure(&"", "invalid_table_source", "表来源声明为空。")
+		return _make_compile_failure(
+			&"",
+			"invalid_table_source",
+			"表来源声明为空。"
+		)
 	var table_name: StringName = source.get_table_key()
 	var resolved_format: StringName = source.get_resolved_format()
 	if table_name == &"":
-		return _make_compile_failure(&"", "empty_table_name", "无法确定配置表名。", source.source_path, resolved_format)
+		return _make_compile_failure(
+			&"",
+			"empty_table_name",
+			"无法确定配置表名。",
+			source.source_path,
+			resolved_format
+		)
 	if not GFVariantData.get_option_bool(layout_result, "success"):
 		var failure_context: Dictionary = GFVariantData.get_option_dictionary(layout_result, "context")
 		failure_context["source"] = source.source_path
@@ -69,7 +79,11 @@ func compile_table(
 		failure_context["actual_value"] = resolved_format
 		return _make_compile_failure(
 			table_name,
-			GFVariantData.get_option_string(layout_result, "error_kind", "parse_failed"),
+			GFVariantData.get_option_string(
+				layout_result,
+				"error_kind",
+				"parse_failed"
+			),
 			GFVariantData.get_option_string(layout_result, "error"),
 			source.source_path,
 			resolved_format,
@@ -78,7 +92,11 @@ func compile_table(
 
 	var working_layout: Dictionary = layout_result.duplicate(false)
 	working_layout["row_locations"] = _duplicate_row_locations(
-		GFVariantData.get_option_value(layout_result, "row_locations", [])
+		GFVariantData.get_option_value(
+			layout_result,
+			"row_locations",
+			[]
+		)
 	)
 	var records_result: Dictionary = _normalize_records(GFVariantData.get_option_value(working_layout, "data"))
 	if not GFVariantData.get_option_bool(records_result, "success"):
@@ -96,13 +114,26 @@ func compile_table(
 		)
 
 	var records: Array[Dictionary] = _get_result_records(records_result)
-	var typed_header_result: Dictionary = _apply_typed_header_schema(source, table_name, records, working_layout)
-	if not GFVariantData.get_option_bool(typed_header_result, "success", true):
+	var typed_header_result: Dictionary = _apply_typed_header_schema(
+		source,
+		table_name,
+		records,
+		working_layout
+	)
+	if not GFVariantData.get_option_bool(
+		typed_header_result,
+		"success",
+		true
+	):
 		var typed_header_context: Dictionary = GFVariantData.get_option_dictionary(typed_header_result, "context")
 		typed_header_context["source"] = source.source_path
 		return _make_compile_failure(
 			table_name,
-			GFVariantData.get_option_string(typed_header_result, "kind", "invalid_typed_header"),
+			GFVariantData.get_option_string(
+				typed_header_result,
+				"kind",
+				"invalid_typed_header"
+			),
 			GFVariantData.get_option_string(typed_header_result, "error"),
 			source.source_path,
 			resolved_format,
@@ -111,8 +142,20 @@ func compile_table(
 
 	records = _get_result_records(typed_header_result)
 	var declared_schema: GFConfigTableSchema = _get_schema_from_result(typed_header_result)
-	var schema: GFConfigTableSchema = _resolve_schema(source, table_name, records, declared_schema)
-	var report: Dictionary = _validate_table_source(source, table_name, records, schema, working_layout, options)
+	var schema: GFConfigTableSchema = _resolve_schema(
+		source,
+		table_name,
+		records,
+		declared_schema
+	)
+	var report: Dictionary = _validate_table_source(
+		source,
+		table_name,
+		records,
+		schema,
+		working_layout,
+		options
+	)
 	if not GFVariantData.get_option_bool(report, "ok"):
 		return {
 			"success": false,
@@ -124,7 +167,11 @@ func compile_table(
 			"error_kind": "validation_failed",
 			"error": "配置表语义校验失败：%s。" % String(table_name),
 		}
-	if schema != null and schema.coerce_values and source.coerce_records:
+	if (
+		schema != null
+		and schema.coerce_values
+		and source.coerce_records
+	):
 		records = _coerce_records(records, schema)
 
 	var source_map: Dictionary = _make_source_map(working_layout)
@@ -172,7 +219,8 @@ func get_stage_descriptor() -> Dictionary:
 		"stage_id": STAGE_ID,
 		"implementation_version": IMPLEMENTATION_VERSION,
 		"input_contract": "gf.config_pipeline.layout_result@2",
-		"output_contract": "%s@%d" % [GFConfigPipelineTableIR.FORMAT, GFConfigPipelineTableIR.FORMAT_VERSION],
+		"output_contract": "%s@%d"
+		% [GFConfigPipelineTableIR.FORMAT, GFConfigPipelineTableIR.FORMAT_VERSION],
 		"implementation_dependencies": [
 			"res://addons/gf/tools/config_pipeline/gf_config_pipeline_table_ir.gd",
 			"res://addons/gf/tools/config_pipeline/gf_config_pipeline_table_source.gd",
@@ -237,7 +285,11 @@ func _resolve_schema(
 	if schema == null and declared_schema != null:
 		schema = declared_schema.duplicate_schema()
 	if schema == null and source.infer_schema:
-		schema = GFConfigTableSchema.infer_from_records(table_name, records, source.schema_options)
+		schema = GFConfigTableSchema.infer_from_records(
+			table_name,
+			records,
+			source.schema_options
+		)
 	if schema != null and schema.table_name == &"":
 		schema.table_name = table_name
 	return schema
@@ -255,7 +307,10 @@ func _validate_table_source(
 	options: Dictionary
 ) -> Dictionary:
 	var report_builder: GFConfigValidationReport = GFConfigValidationReport.new()
-	var report: Dictionary = report_builder.make_report(table_name, records.size())
+	var report: Dictionary = report_builder.make_report(
+		table_name,
+		records.size()
+	)
 	if schema == null:
 		report_builder.add_issue(
 			report,
@@ -279,8 +334,16 @@ func _validate_table_source(
 		validation_options["source"] = source.source_path
 	if parse_result.has("row_locations"):
 		validation_options["row_locations"] = GFVariantData.get_option_value(parse_result, "row_locations")
-	report_builder.merge_report(report, schema.validate_definition(validation_options), false)
-	report_builder.merge_report(report, schema.validate_table(records, validation_options), false)
+	report_builder.merge_report(
+		report,
+		schema.validate_definition(validation_options),
+		false
+	)
+	report_builder.merge_report(
+		report,
+		schema.validate_table(records, validation_options),
+		false
+	)
 	report_builder.finalize_report(report)
 	return report
 
@@ -294,7 +357,11 @@ func _apply_typed_header_schema(
 	records: Array[Dictionary],
 	parse_result: Dictionary
 ) -> Dictionary:
-	if not GFVariantData.get_option_bool(source.schema_options, "typed_headers", false):
+	if not GFVariantData.get_option_bool(
+		source.schema_options,
+		"typed_headers",
+		false
+	):
 		return {
 			"success": true,
 			"records": records,
@@ -305,9 +372,17 @@ func _apply_typed_header_schema(
 	var raw_fields: Array[StringName] = []
 	var header_names: Array[StringName] = _collect_header_field_names(GFVariantData.get_option_value(parse_result, "header"))
 	var declaration_location: Dictionary = GFVariantData.get_option_dictionary(parse_result, "header_location")
-	if GFVariantData.get_option_bool(source.schema_options, "typed_header_type_row", false):
+	if GFVariantData.get_option_bool(
+		source.schema_options,
+		"typed_header_type_row",
+		false
+	):
 		var type_row_result: Dictionary = _collect_typed_header_type_row_field_names(parse_result, records)
-		if not GFVariantData.get_option_bool(type_row_result, "success", true):
+		if not GFVariantData.get_option_bool(
+			type_row_result,
+			"success",
+			true
+		):
 			return _locate_header_failure(type_row_result, declaration_location)
 		var locations: Array = GFVariantData.get_option_array(parse_result, "row_locations")
 		if not locations.is_empty():
@@ -323,9 +398,10 @@ func _apply_typed_header_schema(
 	var seen_fields: Dictionary = {}
 	for field_index: int in range(raw_fields.size()):
 		var raw_field_name: StringName = raw_fields[field_index]
-		var location_key: StringName = header_names[field_index] if field_index < header_names.size() else raw_field_name
+		var location_key: StringName = (header_names[field_index] if field_index < header_names.size() else raw_field_name)
 		var field_location: Dictionary = GFVariantData.get_option_dictionary(
-			GFVariantData.get_option_dictionary(declaration_location, "fields"), location_key
+			GFVariantData.get_option_dictionary(declaration_location, "fields"),
+			location_key
 		)
 		var header_result: Dictionary = _parse_typed_header_column(raw_field_name)
 		if not GFVariantData.get_option_bool(header_result, "success"):
@@ -333,19 +409,25 @@ func _apply_typed_header_schema(
 
 		var column: GFConfigTableColumn = _get_column_from_result(header_result)
 		if column == null:
-			return _locate_header_failure(_make_typed_header_failure(
-				"invalid_typed_header",
-				"类型化表头声明无效：%s。" % String(raw_field_name),
-				raw_field_name
-			), field_location)
+			return _locate_header_failure(
+				_make_typed_header_failure(
+					"invalid_typed_header",
+					"类型化表头声明无效：%s。" % String(raw_field_name),
+					raw_field_name
+				),
+				field_location
+			)
 
 		var field_name: StringName = column.get_field_key()
 		if seen_fields.has(field_name):
-			return _locate_header_failure(_make_typed_header_failure(
-				"duplicate_typed_header_field",
-				"类型化表头声明了重复字段：%s。" % String(field_name),
-				raw_field_name
-			), field_location)
+			return _locate_header_failure(
+				_make_typed_header_failure(
+					"duplicate_typed_header_field",
+					"类型化表头声明了重复字段：%s。" % String(field_name),
+					raw_field_name
+				),
+				field_location
+			)
 
 		seen_fields[field_name] = true
 		field_name_map[raw_field_name] = field_name
@@ -375,7 +457,12 @@ func _collect_typed_header_field_names(parse_result: Dictionary, records: Array[
 ## @api private
 func _locate_header_failure(result: Dictionary, location: Dictionary) -> Dictionary:
 	var context: Dictionary = GFVariantData.get_option_dictionary(result, "context")
-	for key: String in ["source", "line", "column", "column_index"]:
+	for key: String in [
+		"source",
+		"line",
+		"column",
+		"column_index",
+	]:
 		if location.has(key):
 			context[key] = location[key]
 	result["context"] = context
@@ -392,11 +479,19 @@ func _collect_header_field_names(header_value: Variant) -> Array[StringName]:
 	if header_value is PackedStringArray:
 		var packed_header: PackedStringArray = header_value
 		for column_name: String in packed_header:
-			_append_header_field_name(result, seen_fields, column_name)
+			_append_header_field_name(
+				result,
+				seen_fields,
+				column_name
+			)
 	elif header_value is Array:
 		var header_array: Array = header_value
 		for column_value: Variant in header_array:
-			_append_header_field_name(result, seen_fields, GFVariantData.to_text(column_value))
+			_append_header_field_name(
+				result,
+				seen_fields,
+				GFVariantData.to_text(column_value)
+			)
 	return result
 
 
@@ -404,7 +499,11 @@ func _collect_header_field_names(header_value: Variant) -> Array[StringName]:
 ## [br]
 ## @api private
 ## [br]
-func _append_header_field_name(target: Array[StringName], seen_fields: Dictionary, column_name: String) -> void:
+func _append_header_field_name(
+	target: Array[StringName],
+	seen_fields: Dictionary,
+	column_name: String
+) -> void:
 	var field_name: StringName = StringName(column_name.strip_edges())
 	if field_name == &"" or seen_fields.has(field_name):
 		return
@@ -432,10 +531,7 @@ func _collect_record_field_names(records: Array[Dictionary]) -> Array[StringName
 ## 优先使用解析表头顺序，否则收集记录字段；将首条记录的类型文本附到字段名，空类型保留裸字段交由后续按 any 解析。
 ## [br]
 ## @api private
-func _collect_typed_header_type_row_field_names(
-	parse_result: Dictionary,
-	records: Array[Dictionary]
-) -> Dictionary:
+func _collect_typed_header_type_row_field_names(parse_result: Dictionary, records: Array[Dictionary]) -> Dictionary:
 	if records.is_empty():
 		return _make_typed_header_failure(
 			"missing_typed_header_type_row",
@@ -459,15 +555,17 @@ func _collect_typed_header_type_row_field_names(
 		var field_text: String = String(raw_field_name).strip_edges()
 		if field_text.is_empty():
 			continue
-		var type_text: String = GFVariantData.to_text(_get_record_field_value(type_record, raw_field_name)).strip_edges()
+		var type_text: String = (GFVariantData.to_text(_get_record_field_value(type_record, raw_field_name)).strip_edges())
 		if type_text.is_empty():
 			result.append(StringName(field_text))
 		else:
-			result.append(StringName("%s:%s" % [field_text, type_text]))
-	return {
-		"success": true,
-		"fields": result,
-	}
+			result.append(
+				StringName(
+					"%s:%s"
+					% [field_text, type_text]
+				)
+			)
+	return { "success": true, "fields": result, }
 
 
 ## 将结果字典的 fields 数组转为 StringName，并跳过空名称。
@@ -502,7 +600,10 @@ func _get_record_field_value(record: Dictionary, field_name: StringName) -> Vari
 ## [br]
 func _drop_first_record(records: Array[Dictionary]) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
-	for index: int in range(1, records.size()):
+	for index: int in range(
+		1,
+		records.size()
+	):
 		result.append(records[index])
 	return result
 
@@ -512,7 +613,11 @@ func _drop_first_record(records: Array[Dictionary]) -> Array[Dictionary]:
 ## @api private
 ## [br]
 func _drop_first_parse_result_row_location(parse_result: Dictionary) -> void:
-	var row_locations_value: Variant = GFVariantData.get_option_value(parse_result, "row_locations", [])
+	var row_locations_value: Variant = GFVariantData.get_option_value(
+		parse_result,
+		"row_locations",
+		[]
+	)
 	if not (row_locations_value is Array):
 		return
 	var row_locations: Array = row_locations_value
@@ -529,16 +634,37 @@ func _drop_first_parse_result_row_location(parse_result: Dictionary) -> void:
 func _make_typed_header_schema(table_name: StringName, schema_options: Dictionary) -> GFConfigTableSchema:
 	var schema: GFConfigTableSchema = GFConfigTableSchema.new()
 	schema.table_name = table_name
-	schema.id_field = GFVariantData.get_option_string_name(schema_options, "id_field", &"id")
-	schema.allow_extra_fields = GFVariantData.get_option_bool(schema_options, "allow_extra_fields", false)
-	schema.coerce_values = GFVariantData.get_option_bool(schema_options, "coerce_values", true)
-	schema.fail_on_coerce_error = GFVariantData.get_option_bool(schema_options, "fail_on_coerce_error", true)
-	schema.require_unique_id = GFVariantData.get_option_bool(schema_options, "require_unique_id", false)
-	var uses_type_row: bool = GFVariantData.get_option_bool(schema_options, "typed_header_type_row", false)
-	schema.metadata = {
-		"schema_source": "typed_header_type_row" if uses_type_row else "typed_headers",
-		"header_syntax": "gf.typed_header_type_row.v1" if uses_type_row else "gf.typed_headers.v1",
-	}
+	schema.id_field = GFVariantData.get_option_string_name(
+		schema_options,
+		"id_field",
+		&"id"
+	)
+	schema.allow_extra_fields = GFVariantData.get_option_bool(
+		schema_options,
+		"allow_extra_fields",
+		false
+	)
+	schema.coerce_values = GFVariantData.get_option_bool(
+		schema_options,
+		"coerce_values",
+		true
+	)
+	schema.fail_on_coerce_error = GFVariantData.get_option_bool(
+		schema_options,
+		"fail_on_coerce_error",
+		true
+	)
+	schema.require_unique_id = GFVariantData.get_option_bool(
+		schema_options,
+		"require_unique_id",
+		false
+	)
+	var uses_type_row: bool = GFVariantData.get_option_bool(
+		schema_options,
+		"typed_header_type_row",
+		false
+	)
+	schema.metadata = { "schema_source": "typed_header_type_row" if uses_type_row else "typed_headers", "header_syntax": "gf.typed_header_type_row.v1" if uses_type_row else "gf.typed_headers.v1", }
 	return schema
 
 
@@ -548,7 +674,11 @@ func _make_typed_header_schema(table_name: StringName, schema_options: Dictionar
 func _parse_typed_header_column(raw_field_name: StringName) -> Dictionary:
 	var raw_text: String = String(raw_field_name).strip_edges()
 	if raw_text.is_empty():
-		return _make_typed_header_failure("empty_typed_header", "类型化表头字段名为空。", raw_field_name)
+		return _make_typed_header_failure(
+			"empty_typed_header",
+			"类型化表头字段名为空。",
+			raw_field_name
+		)
 
 	var separator_index: int = raw_text.rfind(":")
 	var field_text: String = raw_text
@@ -559,19 +689,32 @@ func _parse_typed_header_column(raw_field_name: StringName) -> Dictionary:
 
 	var markers: Dictionary = _strip_typed_header_markers(field_text, type_text)
 	field_text = GFVariantData.get_option_string(markers, "field_text")
-	type_text = GFVariantData.get_option_string(markers, "type_text", "any")
+	type_text = GFVariantData.get_option_string(
+		markers,
+		"type_text",
+		"any"
+	)
 	if field_text.is_empty():
-		return _make_typed_header_failure("empty_typed_header_field", "类型化表头字段名为空：%s。" % raw_text, raw_field_name)
+		return _make_typed_header_failure(
+			"empty_typed_header_field",
+			"类型化表头字段名为空：%s。" % raw_text,
+			raw_field_name
+		)
 
 	var column: GFConfigTableColumn = GFConfigTableColumn.new()
 	column.field_name = StringName(field_text)
 	column.required = GFVariantData.get_option_bool(markers, "required")
-	column.allow_null = GFVariantData.get_option_bool(markers, "allow_null", true) and not column.required
+	column.allow_null = GFVariantData.get_option_bool(
+		markers,
+		"allow_null",
+		true
+	) and not column.required
 	column.metadata = { "source_header": raw_text }
 	if not _assign_typed_header_value_type(column, type_text):
 		return _make_typed_header_failure(
 			"unsupported_typed_header_type",
-			"类型化表头字段 %s 使用了不支持的类型：%s。" % [field_text, type_text],
+			"类型化表头字段 %s 使用了不支持的类型：%s。"
+			% [field_text, type_text],
 			raw_field_name
 		)
 
@@ -594,14 +737,20 @@ func _strip_typed_header_markers(field_text: String, type_text: String) -> Dicti
 			allow_null = false
 		else:
 			allow_null = true
-		field_text = field_text.substr(0, field_text.length() - 1).strip_edges()
+		field_text = field_text.substr(
+			0,
+			field_text.length() - 1
+		).strip_edges()
 	while type_text.ends_with("!") or type_text.ends_with("?"):
 		if type_text.ends_with("!"):
 			required = true
 			allow_null = false
 		else:
 			allow_null = true
-		type_text = type_text.substr(0, type_text.length() - 1).strip_edges()
+		type_text = type_text.substr(
+			0,
+			type_text.length() - 1
+		).strip_edges()
 	if type_text.is_empty():
 		type_text = "any"
 	return {
@@ -654,7 +803,11 @@ func _remap_record_fields(records: Array[Dictionary], field_name_map: Dictionary
 		var remapped_record: Dictionary = {}
 		for field_key: Variant in record.keys():
 			var raw_field_name: StringName = GFVariantData.to_string_name(field_key)
-			var target_field_name: StringName = GFVariantData.get_option_string_name(field_name_map, raw_field_name, raw_field_name)
+			var target_field_name: StringName = GFVariantData.get_option_string_name(
+				field_name_map,
+				raw_field_name,
+				raw_field_name
+			)
 			if target_field_name == &"":
 				continue
 			remapped_record[target_field_name] = GFVariantData.duplicate_variant(record[field_key])
@@ -666,7 +819,11 @@ func _remap_record_fields(records: Array[Dictionary], field_name_map: Dictionary
 ## [br]
 ## @api private
 func _remap_parse_result_field_locations(parse_result: Dictionary, field_name_map: Dictionary) -> void:
-	var raw_locations: Variant = GFVariantData.get_option_value(parse_result, "row_locations", [])
+	var raw_locations: Variant = GFVariantData.get_option_value(
+		parse_result,
+		"row_locations",
+		[]
+	)
 	if not (raw_locations is Array):
 		return
 
@@ -675,16 +832,27 @@ func _remap_parse_result_field_locations(parse_result: Dictionary, field_name_ma
 		if not (row_location_value is Dictionary):
 			continue
 		var row_location: Dictionary = row_location_value
-		var raw_fields: Variant = GFVariantData.get_option_value(row_location, "fields", {})
+		var raw_fields: Variant = GFVariantData.get_option_value(
+			row_location,
+			"fields",
+			{}
+		)
 		if not (raw_fields is Dictionary):
 			continue
 		var fields: Dictionary = raw_fields
 		for raw_key_variant: Variant in field_name_map.keys():
 			var raw_field_name: StringName = GFVariantData.to_string_name(raw_key_variant)
-			var target_field_name: StringName = GFVariantData.get_option_string_name(field_name_map, raw_field_name, raw_field_name)
+			var target_field_name: StringName = GFVariantData.get_option_string_name(
+				field_name_map,
+				raw_field_name,
+				raw_field_name
+			)
 			var field_location: Variant = GFVariantData.get_option_value(fields, raw_field_name)
 			if not (field_location is Dictionary):
-				field_location = GFVariantData.get_option_value(fields, String(raw_field_name))
+				field_location = GFVariantData.get_option_value(
+					fields,
+					String(raw_field_name)
+				)
 			if field_location is Dictionary:
 				fields[target_field_name] = field_location
 				fields[String(target_field_name)] = field_location
@@ -706,19 +874,21 @@ func _make_typed_header_failure(
 		"context": {
 			"field": raw_field_name,
 			"actual_value": String(raw_field_name),
-			"supported_values": PackedStringArray([
-				"any",
-				"bool",
-				"int",
-				"float",
-				"string",
-				"string_name",
-				"vector2",
-				"vector2i",
-				"color",
-				"dictionary",
-				"array",
-			]),
+			"supported_values": PackedStringArray(
+				[
+					"any",
+					"bool",
+					"int",
+					"float",
+					"string",
+					"string_name",
+					"vector2",
+					"vector2i",
+					"color",
+					"dictionary",
+					"array",
+				]
+			),
 		},
 	}
 
@@ -753,7 +923,11 @@ func _make_source_map(layout_result: Dictionary) -> Dictionary:
 	var result: Dictionary = {
 		"source": GFVariantData.get_option_string(layout_result, "source"),
 		"row_locations": _duplicate_row_locations(
-			GFVariantData.get_option_value(layout_result, "row_locations", [])
+			GFVariantData.get_option_value(
+				layout_result,
+				"row_locations",
+				[]
+			)
 		),
 	}
 	for key: String in ["header", "sections"]:
@@ -787,7 +961,14 @@ func _make_compile_failure(
 	var failure_context: Dictionary = context.duplicate(true)
 	if not source_path.is_empty():
 		failure_context["source"] = source_path
-	var report: Dictionary = GFConfigValidationReport.new().make_error_report(table_name, kind, message, failure_context)
+	var report: Dictionary = (
+		GFConfigValidationReport.new().make_error_report(
+			table_name,
+			kind,
+			message,
+			failure_context
+		)
+	)
 	return {
 		"success": false,
 		"phase": "validation",
@@ -818,7 +999,11 @@ func _make_records_failure(table_data: Variant) -> Dictionary:
 ## [br]
 func _get_result_records(result: Dictionary) -> Array[Dictionary]:
 	var records: Array[Dictionary] = []
-	var raw_records: Variant = GFVariantData.get_option_value(result, "records", [])
+	var raw_records: Variant = GFVariantData.get_option_value(
+		result,
+		"records",
+		[]
+	)
 	if not (raw_records is Array):
 		return records
 	var raw_array: Array = raw_records

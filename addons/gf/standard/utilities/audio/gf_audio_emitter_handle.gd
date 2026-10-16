@@ -301,7 +301,12 @@ func fade_to(volume_db: float, fade_seconds: float) -> void:
 
 	var tween: Tween = player.create_tween()
 	_fade_tween_ref = weakref(tween)
-	var _tween_property_result_209: Variant = tween.tween_property(player, "volume_db", volume_db, maxf(fade_seconds, 0.0))
+	var _tween_property_result_209: Variant = tween.tween_property(
+		player,
+		"volume_db",
+		volume_db,
+		maxf(fade_seconds, 0.0)
+	)
 
 
 ## 设置当前音量。
@@ -373,8 +378,6 @@ func get_debug_snapshot() -> Dictionary:
 	}
 
 
-
-
 # --- 框架内部方法 ---
 
 ## 由音频工具绑定池播放器的本次会话身份及校验器，阻止旧句柄控制复用后的播放器。
@@ -387,8 +390,6 @@ func get_debug_snapshot() -> Dictionary:
 func _set_playback_session(session_id: int, validator: Callable) -> void:
 	_playback_session_id = maxi(session_id, 0)
 	_session_validator = validator
-
-
 
 
 ## 仅接受当前正数会话标识的自然完成通知；进入终态时不额外发送主动停止信号。
@@ -449,10 +450,6 @@ func _emit_stopped_once() -> void:
 		return
 	_stopped_emitted = true
 	stopped.emit(self)
-
-
-
-
 
 
 ## 首次进入终态时清理淡出、播放器会话与 owner 连接，并可选发信号。
@@ -580,8 +577,6 @@ func _disconnect_owner_exit() -> void:
 	_owner_ref = null
 	_owner_exit_callback = Callable()
 	_owner_stop_fade_seconds = 0.0
-
-
 
 
 ## 有限值夹到零以上；NaN 或无穷值转换为零。

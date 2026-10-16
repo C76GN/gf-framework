@@ -19,7 +19,7 @@
 | 方法 | [`get_token`](#member-gfcancellationsource-methods-get_token) | `func get_token() -> GFCancellationToken:` |
 | 方法 | [`cancel`](#member-gfcancellationsource-methods-cancel) | `func cancel(reason: StringName = &"cancelled", metadata: Dictionary = {}) -> bool:` |
 | 方法 | [`is_cancel_requested`](#member-gfcancellationsource-methods-is_cancel_requested) | `func is_cancel_requested() -> bool:` |
-| 方法 | [`link_token`](#member-gfcancellationsource-methods-link_token) | `func link_token(token: GFCancellationToken, reason: StringName = &"", metadata: Dictionary = {}) -> bool:` |
+| 方法 | [`link_token`](#member-gfcancellationsource-methods-link_token) | `func link_token( token: GFCancellationToken, reason: StringName = &"", metadata: Dictionary = {} ) -> bool:` |
 | 方法 | [`cancel_when_node_exits`](#member-gfcancellationsource-methods-cancel_when_node_exits) | `func cancel_when_node_exits( node: Node, reason: StringName = &"node_exited", metadata: Dictionary = {} ) -> bool:` |
 | 方法 | [`cancel_after_seconds`](#member-gfcancellationsource-methods-cancel_after_seconds) | `func cancel_after_seconds( seconds: float, tree: SceneTree = null, reason: StringName = &"timeout", metadata: Dictionary = {}, process_always: bool = true, process_in_physics: bool = false, ignore_time_scale: bool = false ) -> bool:` |
 | 方法 | [`dispose`](#member-gfcancellationsource-methods-dispose) | `func dispose() -> void:` |
@@ -118,7 +118,7 @@ func is_cancel_requested() -> bool:
 - 首次版本：`8.0.0`
 
 ```gdscript
-func link_token(token: GFCancellationToken, reason: StringName = &"", metadata: Dictionary = {}) -> bool:
+func link_token( token: GFCancellationToken, reason: StringName = &"", metadata: Dictionary = {} ) -> bool:
 ```
 
 连接上游 token；上游取消时当前 source 也会取消。

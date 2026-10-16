@@ -19,11 +19,11 @@
 | 常量 | [`DEFAULT_ROOT_MERGE_EPSILON`](#member-gfpolynomialmath-constants-default_root_merge_epsilon) | `const DEFAULT_ROOT_MERGE_EPSILON: float = 0.00001` |
 | 常量 | [`DEFAULT_MAX_ITERATIONS`](#member-gfpolynomialmath-constants-default_max_iterations) | `const DEFAULT_MAX_ITERATIONS: int = 96` |
 | 常量 | [`DEFAULT_MAX_DEGREE`](#member-gfpolynomialmath-constants-default_max_degree) | `const DEFAULT_MAX_DEGREE: int = 12` |
-| 方法 | [`normalize_coefficients`](#member-gfpolynomialmath-methods-normalize_coefficients) | `static func normalize_coefficients( coefficients: PackedFloat64Array, epsilon: float = DEFAULT_EPSILON ) -> PackedFloat64Array:` |
+| 方法 | [`normalize_coefficients`](#member-gfpolynomialmath-methods-normalize_coefficients) | `static func normalize_coefficients(coefficients: PackedFloat64Array, epsilon: float = DEFAULT_EPSILON) -> PackedFloat64Array:` |
 | 方法 | [`evaluate`](#member-gfpolynomialmath-methods-evaluate) | `static func evaluate(coefficients: PackedFloat64Array, x: float) -> float:` |
-| 方法 | [`derivative`](#member-gfpolynomialmath-methods-derivative) | `static func derivative( coefficients: PackedFloat64Array, epsilon: float = DEFAULT_EPSILON ) -> PackedFloat64Array:` |
-| 方法 | [`from_roots`](#member-gfpolynomialmath-methods-from_roots) | `static func from_roots( roots: PackedFloat64Array, leading_coefficient: float = 1.0 ) -> PackedFloat64Array:` |
-| 方法 | [`real_roots`](#member-gfpolynomialmath-methods-real_roots) | `static func real_roots( coefficients: PackedFloat64Array, options: Dictionary = {} ) -> PackedFloat64Array:` |
+| 方法 | [`derivative`](#member-gfpolynomialmath-methods-derivative) | `static func derivative(coefficients: PackedFloat64Array, epsilon: float = DEFAULT_EPSILON) -> PackedFloat64Array:` |
+| 方法 | [`from_roots`](#member-gfpolynomialmath-methods-from_roots) | `static func from_roots(roots: PackedFloat64Array, leading_coefficient: float = 1.0) -> PackedFloat64Array:` |
+| 方法 | [`real_roots`](#member-gfpolynomialmath-methods-real_roots) | `static func real_roots(coefficients: PackedFloat64Array, options: Dictionary = {}) -> PackedFloat64Array:` |
 
 ## 常量
 
@@ -82,9 +82,10 @@ const DEFAULT_MAX_DEGREE: int = 12
 ### `normalize_coefficients`
 
 - API：`public`
+- 首次版本：`4.4.0`
 
 ```gdscript
-static func normalize_coefficients( coefficients: PackedFloat64Array, epsilon: float = DEFAULT_EPSILON ) -> PackedFloat64Array:
+static func normalize_coefficients(coefficients: PackedFloat64Array, epsilon: float = DEFAULT_EPSILON) -> PackedFloat64Array:
 ```
 
 移除前导近零系数。
@@ -132,9 +133,10 @@ static func evaluate(coefficients: PackedFloat64Array, x: float) -> float:
 ### `derivative`
 
 - API：`public`
+- 首次版本：`4.4.0`
 
 ```gdscript
-static func derivative( coefficients: PackedFloat64Array, epsilon: float = DEFAULT_EPSILON ) -> PackedFloat64Array:
+static func derivative(coefficients: PackedFloat64Array, epsilon: float = DEFAULT_EPSILON) -> PackedFloat64Array:
 ```
 
 计算导函数系数。
@@ -157,9 +159,10 @@ static func derivative( coefficients: PackedFloat64Array, epsilon: float = DEFAU
 ### `from_roots`
 
 - API：`public`
+- 首次版本：`4.4.0`
 
 ```gdscript
-static func from_roots( roots: PackedFloat64Array, leading_coefficient: float = 1.0 ) -> PackedFloat64Array:
+static func from_roots(roots: PackedFloat64Array, leading_coefficient: float = 1.0) -> PackedFloat64Array:
 ```
 
 根据实根生成多项式系数。
@@ -178,9 +181,10 @@ static func from_roots( roots: PackedFloat64Array, leading_coefficient: float = 
 ### `real_roots`
 
 - API：`public`
+- 首次版本：`4.4.0`
 
 ```gdscript
-static func real_roots( coefficients: PackedFloat64Array, options: Dictionary = {} ) -> PackedFloat64Array:
+static func real_roots(coefficients: PackedFloat64Array, options: Dictionary = {}) -> PackedFloat64Array:
 ```
 
 求多项式的实根。

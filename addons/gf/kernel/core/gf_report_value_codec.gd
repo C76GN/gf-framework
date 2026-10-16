@@ -13,7 +13,6 @@ class_name GFReportValueCodec
 extends RefCounted
 
 
-
 # --- 常量 ---
 
 ## 复用 Variant 字典访问与安全复制入口，统一报告选项的类型转换规则。
@@ -111,8 +110,6 @@ const _DEFAULT_MAX_TOTAL_BYTES: int = 1024 * 1024
 ## @api private
 const _COMPACT_TRUNCATION_MARKER: String = "<gf_truncated>"
 
-
-
 ## 本地调试报告配置，保留对象 id、Node 名称和路径，路径不脱敏。
 ## [br]
 ## @api public
@@ -198,8 +195,18 @@ static func to_json_compatible(value: Variant, options: Dictionary = {}) -> Vari
 		"exhausted": false,
 		"reason": "",
 	}
-	var sanitized: Variant = _sanitize_report_value(value, effective_options, [], 0, budget_state)
-	var encoded: Variant = _variant_to_json_compatible(sanitized, _make_variant_json_options(effective_options), [])
+	var sanitized: Variant = _sanitize_report_value(
+		value,
+		effective_options,
+		[],
+		0,
+		budget_state
+	)
+	var encoded: Variant = _variant_to_json_compatible(
+		sanitized,
+		_make_variant_json_options(effective_options),
+		[]
+	)
 	return _apply_final_byte_budget(encoded, effective_options)
 
 
@@ -254,7 +261,11 @@ static func stringify_json_compatible(
 	options: Dictionary = {}
 ) -> String:
 	var encoded: Variant = to_json_compatible(value, options)
-	var text: String = JSON.stringify(encoded, indent, sort_keys)
+	var text: String = JSON.stringify(
+		encoded,
+		indent,
+		sort_keys
+	)
 	var effective_options: Dictionary = _normalize_options(options)
 	var max_total_bytes: int = _option_int(
 		effective_options,
@@ -302,9 +313,24 @@ static func make_collection_summary(value: Variant, options: Dictionary = {}) ->
 		}
 
 	var effective_options: Dictionary = _normalize_options(options)
-	var sample_count: int = maxi(_option_int(effective_options, "sample_count", _DEFAULT_SUMMARY_SAMPLE_COUNT), 0)
-	var sample: Array = _make_collection_sample(value, mini(sample_count, collection_size))
-	var encoded_preview_text: String = stringify_json_compatible(value, "", true, effective_options)
+	var sample_count: int = maxi(
+		_option_int(
+			effective_options,
+			"sample_count",
+			_DEFAULT_SUMMARY_SAMPLE_COUNT
+		),
+		0
+	)
+	var sample: Array = _make_collection_sample(
+		value,
+		mini(sample_count, collection_size)
+	)
+	var encoded_preview_text: String = stringify_json_compatible(
+		value,
+		"",
+		true,
+		effective_options
+	)
 	return {
 		"ok": true,
 		"collection_type": type_string(typeof(value)),
@@ -329,20 +355,36 @@ static func _sanitize_report_value(
 ) -> Variant:
 	if _is_budget_exhausted(budget_state):
 		return _make_budget_exhaustion_marker(budget_state, options)
-	var max_depth: int = _option_int(options, "max_depth", _DEFAULT_MAX_DEPTH)
+	var max_depth: int = _option_int(
+		options,
+		"max_depth",
+		_DEFAULT_MAX_DEPTH
+	)
 	if max_depth >= 0 and depth > max_depth:
 		_mark_budget_truncated(budget_state)
-		return _make_marker("MaxDepth", {
-			"depth": depth,
-			"max_depth": max_depth,
-		})
-	var max_total_nodes: int = _option_int(options, "max_total_nodes", _DEFAULT_MAX_TOTAL_NODES)
-	var node_count: int = _option_int(budget_state, "node_count", 0)
+		return _make_marker(
+			"MaxDepth",
+			{ "depth": depth, "max_depth": max_depth, }
+		)
+	var max_total_nodes: int = _option_int(
+		options,
+		"max_total_nodes",
+		_DEFAULT_MAX_TOTAL_NODES
+	)
+	var node_count: int = _option_int(
+		budget_state,
+		"node_count",
+		0
+	)
 	if max_total_nodes >= 0 and node_count >= max_total_nodes:
 		_exhaust_budget(budget_state, "NodeBudget")
 		return _make_budget_exhaustion_marker(budget_state, options)
 	budget_state["node_count"] = node_count + 1
-	if not _consume_value_work_budget(value, options, budget_state):
+	if not _consume_value_work_budget(
+		value,
+		options,
+		budget_state
+	):
 		return _make_budget_exhaustion_marker(budget_state, options)
 
 	match typeof(value):
@@ -363,18 +405,34 @@ static func _sanitize_report_value(
 			visited.append(value)
 			var array_value: Array = value
 			var array_result: Array = []
-			var array_limit: int = _get_collection_limit(array_value.size(), options)
+			var array_limit: int = _get_collection_limit(
+				array_value.size(),
+				options
+			)
 			for index: int in range(array_limit):
-				array_result.append(_sanitize_report_value(array_value[index], options, visited, depth + 1, budget_state))
+				array_result.append(
+					_sanitize_report_value(
+						array_value[index],
+						options,
+						visited,
+						depth + 1,
+						budget_state
+					)
+				)
 				if _is_budget_exhausted(budget_state):
 					break
 			if not _is_budget_exhausted(budget_state) and array_value.size() > array_limit:
 				_mark_budget_truncated(budget_state)
-				array_result.append(_make_marker("CollectionBudget", {
-					"collection_type": "Array",
-					"count": array_value.size(),
-					"omitted_count": array_value.size() - array_limit,
-				}))
+				array_result.append(
+					_make_marker(
+						"CollectionBudget",
+						{
+							"collection_type": "Array",
+							"count": array_value.size(),
+							"omitted_count": array_value.size() - array_limit,
+						}
+					)
+				)
 			var _removed_array_reference: Variant = visited.pop_back()
 			return array_result
 		TYPE_DICTIONARY:
@@ -411,10 +469,7 @@ static func _sanitize_report_value(
 					)
 					if _is_budget_exhausted(budget_state):
 						break
-					encoded_entries.append({
-						"key": sanitized_key,
-						"value": sanitized_value,
-					})
+					encoded_entries.append({ "key": sanitized_key, "value": sanitized_value, })
 					if _report_key_requires_entry_encoding(key, sanitized_key):
 						requires_entry_encoding = true
 					else:
@@ -430,29 +485,42 @@ static func _sanitize_report_value(
 				var collection_sample: Variant = dictionary_result
 				if requires_entry_encoding:
 					collection_sample = encoded_entries
-				return _make_marker("CollectionBudget", {
-					"collection_type": "Dictionary",
-					"count": dictionary_size,
-					"omitted_count": dictionary_size - dictionary_limit,
-					"sample": collection_sample,
-				})
+				return _make_marker(
+					"CollectionBudget",
+					{
+						"collection_type": "Dictionary",
+						"count": dictionary_size,
+						"omitted_count": dictionary_size - dictionary_limit,
+						"sample": collection_sample,
+					}
+				)
 			if requires_entry_encoding:
-				return _make_marker("Dictionary", { "entries": encoded_entries })
+				return _make_marker(
+					"Dictionary",
+					{ "entries": encoded_entries }
+				)
 			return dictionary_result
 		TYPE_OBJECT:
 			return _object_to_marker(value, options)
 		TYPE_CALLABLE:
 			var callable_value: Callable = value
-			return _make_marker("Callable", {
-				"valid": callable_value.is_valid(),
-			})
+			return _make_marker(
+				"Callable",
+				{ "valid": callable_value.is_valid(), }
+			)
 		TYPE_SIGNAL:
 			return _make_marker("Signal", {})
 		TYPE_RID:
 			return _make_marker("RID", {})
 		_:
 			if _is_packed_array_type(typeof(value)):
-				return _sanitize_packed_array(value, options, visited, depth, budget_state)
+				return _sanitize_packed_array(
+					value,
+					options,
+					visited,
+					depth,
+					budget_state
+				)
 			return value
 
 
@@ -475,7 +543,11 @@ static func _get_collection_limit(collection_size: int, options: Dictionary) -> 
 ## @api private
 static func _get_packed_limit(collection_size: int, options: Dictionary) -> int:
 	var collection_limit: int = _get_collection_limit(collection_size, options)
-	var max_packed_length: int = _option_int(options, "max_packed_length", _DEFAULT_MAX_PACKED_LENGTH)
+	var max_packed_length: int = _option_int(
+		options,
+		"max_packed_length",
+		_DEFAULT_MAX_PACKED_LENGTH
+	)
 	if max_packed_length < 0:
 		return collection_limit
 	return mini(collection_limit, max_packed_length)
@@ -485,14 +557,22 @@ static func _get_packed_limit(collection_size: int, options: Dictionary) -> int:
 ## [br]
 ## @api private
 static func _mark_budget_truncated(budget_state: Dictionary) -> void:
-	budget_state["truncated_count"] = _option_int(budget_state, "truncated_count", 0) + 1
+	budget_state["truncated_count"] = _option_int(
+		budget_state,
+		"truncated_count",
+		0
+	) + 1
 
 
 ## 从状态字典读取 exhausted 标志，缺失或非真值时返回 false。
 ## [br]
 ## @api private
 static func _is_budget_exhausted(budget_state: Dictionary) -> bool:
-	return _option_bool(budget_state, "exhausted", false)
+	return _option_bool(
+		budget_state,
+		"exhausted",
+		false
+	)
 
 
 ## 首次耗尽时保存原因并增加截断计数；已有耗尽状态保持不变。
@@ -510,16 +590,36 @@ static func _exhaust_budget(budget_state: Dictionary, reason: String) -> void:
 ## [br]
 ## @api private
 static func _make_budget_exhaustion_marker(budget_state: Dictionary, options: Dictionary) -> Dictionary:
-	var reason: String = _option_string(budget_state, "reason", "Budget")
+	var reason: String = _option_string(
+		budget_state,
+		"reason",
+		"Budget"
+	)
 	var payload: Dictionary = {
 		"reason": reason,
-		"node_count": _option_int(budget_state, "node_count", 0),
-		"work_bytes": _option_int(budget_state, "work_bytes", 0),
+		"node_count": _option_int(
+			budget_state,
+			"node_count",
+			0
+		),
+		"work_bytes": _option_int(
+			budget_state,
+			"work_bytes",
+			0
+		),
 	}
 	if reason == "NodeBudget":
-		payload["max_total_nodes"] = _option_int(options, "max_total_nodes", _DEFAULT_MAX_TOTAL_NODES)
+		payload["max_total_nodes"] = _option_int(
+			options,
+			"max_total_nodes",
+			_DEFAULT_MAX_TOTAL_NODES
+		)
 	if reason == "ByteBudget":
-		payload["max_total_bytes"] = _option_int(options, "max_total_bytes", _DEFAULT_MAX_TOTAL_BYTES)
+		payload["max_total_bytes"] = _option_int(
+			options,
+			"max_total_bytes",
+			_DEFAULT_MAX_TOTAL_BYTES
+		)
 	return _make_marker(reason, payload)
 
 
@@ -531,11 +631,22 @@ static func _consume_value_work_budget(
 	options: Dictionary,
 	budget_state: Dictionary
 ) -> bool:
-	var max_total_bytes: int = _option_int(options, "max_total_bytes", _DEFAULT_MAX_TOTAL_BYTES)
+	var max_total_bytes: int = _option_int(
+		options,
+		"max_total_bytes",
+		_DEFAULT_MAX_TOTAL_BYTES
+	)
 	if max_total_bytes < 0:
 		return true
-	var used_bytes: int = _option_int(budget_state, "work_bytes", 0)
-	var remaining_bytes: int = maxi(max_total_bytes - used_bytes, 0)
+	var used_bytes: int = _option_int(
+		budget_state,
+		"work_bytes",
+		0
+	)
+	var remaining_bytes: int = maxi(
+		max_total_bytes - used_bytes,
+		0
+	)
 	var minimum_cost: int = _estimate_minimum_work_bytes(value)
 	if minimum_cost > remaining_bytes:
 		_exhaust_budget(budget_state, "ByteBudget")
@@ -579,18 +690,21 @@ static func _estimate_minimum_work_bytes(value: Variant) -> int:
 ## [br]
 ## @api private
 static func _is_packed_array_type(value_type: int) -> bool:
-	return value_type in [
-		TYPE_PACKED_BYTE_ARRAY,
-		TYPE_PACKED_INT32_ARRAY,
-		TYPE_PACKED_INT64_ARRAY,
-		TYPE_PACKED_FLOAT32_ARRAY,
-		TYPE_PACKED_FLOAT64_ARRAY,
-		TYPE_PACKED_STRING_ARRAY,
-		TYPE_PACKED_VECTOR2_ARRAY,
-		TYPE_PACKED_VECTOR3_ARRAY,
-		TYPE_PACKED_COLOR_ARRAY,
-		TYPE_PACKED_VECTOR4_ARRAY,
-	]
+	return (
+		value_type
+		in [
+			TYPE_PACKED_BYTE_ARRAY,
+			TYPE_PACKED_INT32_ARRAY,
+			TYPE_PACKED_INT64_ARRAY,
+			TYPE_PACKED_FLOAT32_ARRAY,
+			TYPE_PACKED_FLOAT64_ARRAY,
+			TYPE_PACKED_STRING_ARRAY,
+			TYPE_PACKED_VECTOR2_ARRAY,
+			TYPE_PACKED_VECTOR3_ARRAY,
+			TYPE_PACKED_COLOR_ARRAY,
+			TYPE_PACKED_VECTOR4_ARRAY,
+		]
+	)
 
 
 ## 按 Packed 与集合预算较小值清洗样本；完整样本包装为 PackedArray，局部样本为 CollectionBudget，总预算耗尽则返回耗尽 marker。
@@ -607,24 +721,38 @@ static func _sanitize_packed_array(
 	var item_limit: int = _get_packed_limit(item_count, options)
 	var sample: Array = []
 	for index: int in range(item_limit):
-		sample.append(_sanitize_report_value(value[index], options, visited, depth + 1, budget_state))
+		sample.append(
+			_sanitize_report_value(
+				value[index],
+				options,
+				visited,
+				depth + 1,
+				budget_state
+			)
+		)
 		if _is_budget_exhausted(budget_state):
 			break
 	if _is_budget_exhausted(budget_state):
 		return _make_budget_exhaustion_marker(budget_state, options)
 	if item_count <= item_limit:
-		return _make_marker("PackedArray", {
+		return _make_marker(
+			"PackedArray",
+			{
+				"collection_type": type_string(typeof(value)),
+				"count": item_count,
+				"items": sample,
+			}
+		)
+	_mark_budget_truncated(budget_state)
+	return _make_marker(
+		"CollectionBudget",
+		{
 			"collection_type": type_string(typeof(value)),
 			"count": item_count,
-			"items": sample,
-		})
-	_mark_budget_truncated(budget_state)
-	return _make_marker("CollectionBudget", {
-		"collection_type": type_string(typeof(value)),
-		"count": item_count,
-		"omitted_count": item_count - item_limit,
-		"sample": sample,
-	})
+			"omitted_count": item_count - item_limit,
+			"sample": sample,
+		}
+	)
 
 
 ## 非 String 键或清理后发生变化的键需要改用键值 entry 表示。
@@ -643,29 +771,50 @@ static func _report_key_requires_entry_encoding(source_key: Variant, sanitized_k
 ## @api private
 static func _object_to_marker(value: Variant, options: Dictionary) -> Dictionary:
 	if value == null:
-		return _make_marker("Object", {
-			"valid": false,
-		})
+		return _make_marker(
+			"Object",
+			{ "valid": false, }
+		)
 	var object: Object = value
 	if not is_instance_valid(object):
-		return _make_marker("Object", {
-			"valid": false,
-		})
+		return _make_marker(
+			"Object",
+			{ "valid": false, }
+		)
 
 	var payload: Dictionary = {
 		"valid": true,
 		"class": object.get_class(),
 		"class_name": object.get_class(),
 	}
-	if _option_bool(options, "include_object_instance_id", true):
+	if _option_bool(
+		options,
+		"include_object_instance_id",
+		true
+	):
 		payload["instance_id"] = object.get_instance_id()
 	if object is Node:
 		var node: Node = object
-		if _option_bool(options, "include_node_name", true):
+		if _option_bool(
+			options,
+			"include_node_name",
+			true
+		):
 			payload["node_name"] = String(node.name)
-		if _option_bool(options, "include_node_path", false):
-			payload["node_path"] = _redact_path(String(node.get_path()) if node.is_inside_tree() else String(node.name), options)
-	if object is Resource and _option_bool(options, "include_resource_path", true):
+		if _option_bool(
+			options,
+			"include_node_path",
+			false
+		):
+			payload["node_path"] = _redact_path(
+				String(node.get_path()) if node.is_inside_tree() else String(node.name),
+				options
+			)
+	if object is Resource and _option_bool(
+		options,
+		"include_resource_path",
+		true
+	):
 		var resource: Resource = object
 		if not resource.resource_path.is_empty():
 			payload["resource_path"] = _redact_path(resource.resource_path, options)
@@ -675,7 +824,11 @@ static func _object_to_marker(value: Variant, options: Dictionary) -> Dictionary
 ## 将已清洗值编码为 JSON 基础值及带类型 marker，递归容器时检测当前引用路径的循环；预算裁剪应在前一清洗阶段完成。
 ## [br]
 ## @api private
-static func _variant_to_json_compatible(value: Variant, options: Dictionary, visited: Array) -> Variant:
+static func _variant_to_json_compatible(
+	value: Variant,
+	options: Dictionary,
+	visited: Array
+) -> Variant:
 	match typeof(value):
 		TYPE_NIL, TYPE_BOOL, TYPE_STRING:
 			return value
@@ -684,61 +837,189 @@ static func _variant_to_json_compatible(value: Variant, options: Dictionary, vis
 			return _float_to_json_compatible(float_value)
 		TYPE_INT:
 			var int_value: int = _number_to_int(value)
-			if _option_bool(options, "encode_unsafe_ints", true) and _is_unsafe_json_integer(int_value):
-				return _make_json_typed_value("Int64", str(int_value))
+			if _option_bool(
+				options,
+				"encode_unsafe_ints",
+				true
+			) and _is_unsafe_json_integer(int_value):
+				return _make_json_typed_value(
+					"Int64",
+					str(int_value)
+				)
 			return int_value
 		TYPE_STRING_NAME:
-			return _make_json_typed_value("StringName", str(value))
+			return _make_json_typed_value(
+				"StringName",
+				str(value)
+			)
 		TYPE_NODE_PATH:
-			return _make_json_typed_value("NodePath", str(value))
+			return _make_json_typed_value(
+				"NodePath",
+				str(value)
+			)
 		TYPE_VECTOR2:
 			var vector_2: Vector2 = value
-			return _make_json_typed_value("Vector2", _float_array_to_json_compatible([vector_2.x, vector_2.y]))
+			return _make_json_typed_value(
+				"Vector2",
+				_float_array_to_json_compatible([vector_2.x, vector_2.y])
+			)
 		TYPE_VECTOR2I:
 			var vector_2i: Vector2i = value
-			return _make_json_typed_value("Vector2i", [vector_2i.x, vector_2i.y])
+			return _make_json_typed_value(
+				"Vector2i",
+				[vector_2i.x, vector_2i.y]
+			)
 		TYPE_VECTOR3:
 			var vector_3: Vector3 = value
-			return _make_json_typed_value("Vector3", _float_array_to_json_compatible([vector_3.x, vector_3.y, vector_3.z]))
+			return _make_json_typed_value(
+				"Vector3",
+				_float_array_to_json_compatible(
+					[
+						vector_3.x,
+						vector_3.y,
+						vector_3.z,
+					]
+				)
+			)
 		TYPE_VECTOR3I:
 			var vector_3i: Vector3i = value
-			return _make_json_typed_value("Vector3i", [vector_3i.x, vector_3i.y, vector_3i.z])
+			return _make_json_typed_value(
+				"Vector3i",
+				[
+					vector_3i.x,
+					vector_3i.y,
+					vector_3i.z,
+				]
+			)
 		TYPE_VECTOR4:
 			var vector_4: Vector4 = value
-			return _make_json_typed_value("Vector4", _float_array_to_json_compatible([vector_4.x, vector_4.y, vector_4.z, vector_4.w]))
+			return _make_json_typed_value(
+				"Vector4",
+				_float_array_to_json_compatible(
+					[
+						vector_4.x,
+						vector_4.y,
+						vector_4.z,
+						vector_4.w,
+					]
+				)
+			)
 		TYPE_VECTOR4I:
 			var vector_4i: Vector4i = value
-			return _make_json_typed_value("Vector4i", [vector_4i.x, vector_4i.y, vector_4i.z, vector_4i.w])
+			return _make_json_typed_value(
+				"Vector4i",
+				[
+					vector_4i.x,
+					vector_4i.y,
+					vector_4i.z,
+					vector_4i.w,
+				]
+			)
 		TYPE_RECT2:
 			var rect_2: Rect2 = value
-			return _make_json_typed_value("Rect2", _float_array_to_json_compatible([rect_2.position.x, rect_2.position.y, rect_2.size.x, rect_2.size.y]))
+			return _make_json_typed_value(
+				"Rect2",
+				_float_array_to_json_compatible(
+					[
+						rect_2.position.x,
+						rect_2.position.y,
+						rect_2.size.x,
+						rect_2.size.y,
+					]
+				)
+			)
 		TYPE_RECT2I:
 			var rect_2i: Rect2i = value
-			return _make_json_typed_value("Rect2i", [rect_2i.position.x, rect_2i.position.y, rect_2i.size.x, rect_2i.size.y])
+			return _make_json_typed_value(
+				"Rect2i",
+				[
+					rect_2i.position.x,
+					rect_2i.position.y,
+					rect_2i.size.x,
+					rect_2i.size.y,
+				]
+			)
 		TYPE_COLOR:
 			var color: Color = value
-			return _make_json_typed_value("Color", _float_array_to_json_compatible([color.r, color.g, color.b, color.a]))
+			return _make_json_typed_value(
+				"Color",
+				_float_array_to_json_compatible(
+					[
+						color.r,
+						color.g,
+						color.b,
+						color.a,
+					]
+				)
+			)
 		TYPE_PLANE:
 			var plane: Plane = value
-			return _make_json_typed_value("Plane", _float_array_to_json_compatible([plane.normal.x, plane.normal.y, plane.normal.z, plane.d]))
+			return _make_json_typed_value(
+				"Plane",
+				_float_array_to_json_compatible(
+					[
+						plane.normal.x,
+						plane.normal.y,
+						plane.normal.z,
+						plane.d,
+					]
+				)
+			)
 		TYPE_QUATERNION:
 			var quaternion: Quaternion = value
-			return _make_json_typed_value("Quaternion", _float_array_to_json_compatible([quaternion.x, quaternion.y, quaternion.z, quaternion.w]))
+			return _make_json_typed_value(
+				"Quaternion",
+				_float_array_to_json_compatible(
+					[
+						quaternion.x,
+						quaternion.y,
+						quaternion.z,
+						quaternion.w,
+					]
+				)
+			)
 		TYPE_AABB:
 			var aabb: AABB = value
-			return _make_json_typed_value("AABB", _float_array_to_json_compatible([aabb.position.x, aabb.position.y, aabb.position.z, aabb.size.x, aabb.size.y, aabb.size.z]))
+			return _make_json_typed_value(
+				"AABB",
+				_float_array_to_json_compatible(
+					[
+						aabb.position.x,
+						aabb.position.y,
+						aabb.position.z,
+						aabb.size.x,
+						aabb.size.y,
+						aabb.size.z,
+					]
+				)
+			)
 		TYPE_BASIS:
 			var basis: Basis = value
-			return _make_json_typed_value("Basis", _basis_to_array(basis))
+			return _make_json_typed_value(
+				"Basis",
+				_basis_to_array(basis)
+			)
 		TYPE_TRANSFORM2D:
 			var transform_2d: Transform2D = value
-			return _make_json_typed_value("Transform2D", _transform_2d_to_array(transform_2d))
+			return _make_json_typed_value(
+				"Transform2D",
+				_transform_2d_to_array(transform_2d)
+			)
 		TYPE_TRANSFORM3D:
 			var transform_3d: Transform3D = value
-			return _make_json_typed_value("Transform3D", {
-				"basis": _basis_to_array(transform_3d.basis),
-				"origin": _float_array_to_json_compatible([transform_3d.origin.x, transform_3d.origin.y, transform_3d.origin.z]),
-			})
+			return _make_json_typed_value(
+				"Transform3D",
+				{
+					"basis": _basis_to_array(transform_3d.basis),
+					"origin": _float_array_to_json_compatible(
+						[
+							transform_3d.origin.x,
+							transform_3d.origin.y,
+							transform_3d.origin.z,
+						]
+					),
+				}
+			)
 		TYPE_ARRAY:
 			if _visited_contains_reference(visited, value):
 				return _make_circular_reference_value()
@@ -746,7 +1027,13 @@ static func _variant_to_json_compatible(value: Variant, options: Dictionary, vis
 			var array_value: Array = value
 			var result_array: Array = []
 			for item: Variant in array_value:
-				result_array.append(_variant_to_json_compatible(item, options, visited))
+				result_array.append(
+					_variant_to_json_compatible(
+						item,
+						options,
+						visited
+					)
+				)
 			var _removed_array_reference: Variant = visited.pop_back()
 			return result_array
 		TYPE_DICTIONARY:
@@ -754,15 +1041,25 @@ static func _variant_to_json_compatible(value: Variant, options: Dictionary, vis
 				return _make_circular_reference_value()
 			visited.append(value)
 			var dictionary_value: Dictionary = value
-			var result_dictionary: Variant = _dictionary_to_json_compatible(dictionary_value, options, visited)
+			var result_dictionary: Variant = _dictionary_to_json_compatible(
+				dictionary_value,
+				options,
+				visited
+			)
 			var _removed_dictionary_reference: Variant = visited.pop_back()
 			return result_dictionary
 		TYPE_PACKED_BYTE_ARRAY:
 			var byte_array: PackedByteArray = value
-			return _make_json_typed_value("PackedByteArray", _packed_byte_array_to_array(byte_array))
+			return _make_json_typed_value(
+				"PackedByteArray",
+				_packed_byte_array_to_array(byte_array)
+			)
 		TYPE_PACKED_INT32_ARRAY:
 			var int_32_array: PackedInt32Array = value
-			return _make_json_typed_value("PackedInt32Array", Array(int_32_array))
+			return _make_json_typed_value(
+				"PackedInt32Array",
+				Array(int_32_array)
+			)
 		TYPE_PACKED_INT64_ARRAY:
 			var int_64_array: PackedInt64Array = value
 			return _make_json_typed_value(
@@ -771,72 +1068,151 @@ static func _variant_to_json_compatible(value: Variant, options: Dictionary, vis
 			)
 		TYPE_PACKED_FLOAT32_ARRAY:
 			var float_32_array: PackedFloat32Array = value
-			return _make_json_typed_value("PackedFloat32Array", _float_array_to_json_compatible(Array(float_32_array)))
+			return _make_json_typed_value(
+				"PackedFloat32Array",
+				_float_array_to_json_compatible(Array(float_32_array))
+			)
 		TYPE_PACKED_FLOAT64_ARRAY:
 			var float_64_array: PackedFloat64Array = value
-			return _make_json_typed_value("PackedFloat64Array", _float_array_to_json_compatible(Array(float_64_array)))
+			return _make_json_typed_value(
+				"PackedFloat64Array",
+				_float_array_to_json_compatible(Array(float_64_array))
+			)
 		TYPE_PACKED_STRING_ARRAY:
 			var string_array: PackedStringArray = value
-			return _make_json_typed_value("PackedStringArray", Array(string_array))
+			return _make_json_typed_value(
+				"PackedStringArray",
+				Array(string_array)
+			)
 		TYPE_PACKED_VECTOR2_ARRAY:
 			var vector_2_array: PackedVector2Array = value
-			return _make_json_typed_value("PackedVector2Array", _vector_2_array_to_array(vector_2_array))
+			return _make_json_typed_value(
+				"PackedVector2Array",
+				_vector_2_array_to_array(vector_2_array)
+			)
 		TYPE_PACKED_VECTOR3_ARRAY:
 			var vector_3_array: PackedVector3Array = value
-			return _make_json_typed_value("PackedVector3Array", _vector_3_array_to_array(vector_3_array))
+			return _make_json_typed_value(
+				"PackedVector3Array",
+				_vector_3_array_to_array(vector_3_array)
+			)
 		TYPE_PACKED_COLOR_ARRAY:
 			var color_array: PackedColorArray = value
-			return _make_json_typed_value("PackedColorArray", _color_array_to_array(color_array))
+			return _make_json_typed_value(
+				"PackedColorArray",
+				_color_array_to_array(color_array)
+			)
 		TYPE_PACKED_VECTOR4_ARRAY:
 			var vector_4_array: PackedVector4Array = value
-			return _make_json_typed_value("PackedVector4Array", _vector_4_array_to_array(vector_4_array))
+			return _make_json_typed_value(
+				"PackedVector4Array",
+				_vector_4_array_to_array(vector_4_array)
+			)
 		_:
-			return _make_marker("UnsupportedVariant", {
-				"variant_type": type_string(typeof(value)),
-				"variant_type_id": typeof(value),
-			})
+			return _make_marker(
+				"UnsupportedVariant",
+				{ "variant_type": type_string(typeof(value)), "variant_type_id": typeof(value), }
+			)
 
 
 ## 通常将字典键转为文本；键碰撞、保留类型 marker 外形或显式键编码要求会改用类型化条目列表，避免丢失原键身份。
 ## [br]
 ## @api private
-static func _dictionary_to_json_compatible(value: Dictionary, options: Dictionary, visited: Array) -> Variant:
-	if _option_bool(options, "encode_dictionary_keys", false):
-		return _make_json_typed_value("Dictionary", _dictionary_entries_to_json_compatible(value, options, visited))
+static func _dictionary_to_json_compatible(
+	value: Dictionary,
+	options: Dictionary,
+	visited: Array
+) -> Variant:
+	if _option_bool(
+		options,
+		"encode_dictionary_keys",
+		false
+	):
+		return _make_json_typed_value(
+			"Dictionary",
+			_dictionary_entries_to_json_compatible(
+				value,
+				options,
+				visited
+			)
+		)
 
 	var result: Dictionary = {}
 	var seen_json_keys: Dictionary = {}
 	for key: Variant in value.keys():
 		var json_key: String = _json_key_to_string(key)
 		if seen_json_keys.has(json_key):
-			return _make_json_typed_value("Dictionary", _dictionary_entries_to_json_compatible(value, options, visited))
+			return _make_json_typed_value(
+				"Dictionary",
+				_dictionary_entries_to_json_compatible(
+					value,
+					options,
+					visited
+				)
+			)
 		seen_json_keys[json_key] = true
-		result[json_key] = _variant_to_json_compatible(value[key], options, visited)
+		result[json_key] = _variant_to_json_compatible(
+			value[key],
+			options,
+			visited
+		)
 	if _has_reserved_variant_marker_shape(result):
-		return _make_json_typed_value("Dictionary", _dictionary_entries_to_json_compatible(value, options, visited))
+		return _make_json_typed_value(
+			"Dictionary",
+			_dictionary_entries_to_json_compatible(
+				value,
+				options,
+				visited
+			)
+		)
 	return result
 
 
 ## 按源键顺序递归编码键值对为 entries 数组，保留无法用 JSON 对象键表达的键类型。
 ## [br]
 ## @api private
-static func _dictionary_entries_to_json_compatible(value: Dictionary, options: Dictionary, visited: Array) -> Array[Dictionary]:
+static func _dictionary_entries_to_json_compatible(
+	value: Dictionary,
+	options: Dictionary,
+	visited: Array
+) -> Array[Dictionary]:
 	var entries: Array[Dictionary] = []
 	for key: Variant in value.keys():
-		entries.append({
-			"key": _dictionary_key_to_json_compatible(key, options, visited),
-			"value": _variant_to_json_compatible(value[key], options, visited),
-		})
+		entries.append(
+			{
+				"key": _dictionary_key_to_json_compatible(
+					key,
+					options,
+					visited
+				),
+				"value": _variant_to_json_compatible(
+					value[key],
+					options,
+					visited
+				),
+			}
+		)
 	return entries
 
 
 ## 整数键一律以 Int64 文本 marker 编码，其余键沿用 Variant 编码，避免键在 JSON 数字处理时失真。
 ## [br]
 ## @api private
-static func _dictionary_key_to_json_compatible(key: Variant, options: Dictionary, visited: Array) -> Variant:
+static func _dictionary_key_to_json_compatible(
+	key: Variant,
+	options: Dictionary,
+	visited: Array
+) -> Variant:
 	if typeof(key) == TYPE_INT:
-		return _make_json_typed_value("Int64", str(_number_to_int(key)))
-	return _variant_to_json_compatible(key, options, visited)
+		return _make_json_typed_value(
+			"Int64",
+			str(_number_to_int(key))
+		)
+	return _variant_to_json_compatible(
+		key,
+		options,
+		visited
+	)
 
 
 ## 创建带版本、类型和 redacted 标志的报告 marker，并复制载荷到内部字典；同名载荷键会覆盖初始元数据。
@@ -850,9 +1226,7 @@ static func _make_marker(marker_type: String, payload: Dictionary) -> Dictionary
 	}
 	for key: Variant in payload.keys():
 		marker[key] = _duplicate_variant(payload[key])
-	return {
-		_REPORT_MARKER_KEY: marker,
-	}
+	return { _REPORT_MARKER_KEY: marker, }
 
 
 ## 将类型名和值包装为带 schema 版本的 Variant marker。
@@ -873,7 +1247,11 @@ static func _make_json_typed_value(type_name: String, typed_value: Variant) -> D
 ## @api private
 static func _make_variant_json_options(options: Dictionary) -> Dictionary:
 	return {
-		"encode_dictionary_keys": _option_bool(options, "encode_dictionary_keys", false),
+		"encode_dictionary_keys": _option_bool(
+			options,
+			"encode_dictionary_keys",
+			false
+		),
 		"encode_unsafe_ints": true,
 	}
 
@@ -882,7 +1260,11 @@ static func _make_variant_json_options(options: Dictionary) -> Dictionary:
 ## [br]
 ## @api private
 static func _apply_final_byte_budget(value: Variant, options: Dictionary) -> Variant:
-	var max_total_bytes: int = _option_int(options, "max_total_bytes", _DEFAULT_MAX_TOTAL_BYTES)
+	var max_total_bytes: int = _option_int(
+		options,
+		"max_total_bytes",
+		_DEFAULT_MAX_TOTAL_BYTES
+	)
 	if max_total_bytes < 0:
 		return value
 	var encoded_text: String = JSON.stringify(value)
@@ -895,9 +1277,10 @@ static func _apply_final_byte_budget(value: Variant, options: Dictionary) -> Var
 ## [br]
 ## @api private
 static func _make_final_byte_budget_value(max_total_bytes: int) -> Variant:
-	var marker: Dictionary = _make_marker("ByteBudget", {
-		"max_total_bytes": max_total_bytes,
-	})
+	var marker: Dictionary = _make_marker(
+		"ByteBudget",
+		{ "max_total_bytes": max_total_bytes, }
+	)
 	if JSON.stringify(marker).to_utf8_buffer().size() <= max_total_bytes:
 		return marker
 	if JSON.stringify(_COMPACT_TRUNCATION_MARKER).to_utf8_buffer().size() <= max_total_bytes:
@@ -918,7 +1301,11 @@ static func _make_circular_reference_value() -> Variant:
 ## [br]
 ## @api private
 static func _sanitize_string_value(value: String, options: Dictionary) -> String:
-	var max_length: int = _option_int(options, "max_string_length", _DEFAULT_MAX_STRING_LENGTH)
+	var max_length: int = _option_int(
+		options,
+		"max_string_length",
+		_DEFAULT_MAX_STRING_LENGTH
+	)
 	var bounded_value: String = value
 	if max_length >= 0 and bounded_value.length() > max_length:
 		bounded_value = "%s..." % bounded_value.substr(0, max_length)
@@ -929,19 +1316,41 @@ static func _sanitize_string_value(value: String, options: Dictionary) -> String
 ## [br]
 ## @api private
 static func _sanitize_known_path_value(value: String, options: Dictionary) -> String:
-	var max_length: int = _option_int(options, "max_string_length", _DEFAULT_MAX_STRING_LENGTH)
+	var max_length: int = _option_int(
+		options,
+		"max_string_length",
+		_DEFAULT_MAX_STRING_LENGTH
+	)
 	var bounded_value: String = value
 	if max_length >= 0 and bounded_value.length() > max_length:
 		bounded_value = "%s..." % bounded_value.substr(0, max_length)
-	return _redact_path(bounded_value, options, true)
+	return _redact_path(
+		bounded_value,
+		options,
+		true
+	)
 
 
 ## 依据选项保留、取文件名、哈希或隐藏路径；普通文本仅在启发式识别为路径时处理，已知路径可强制进入脱敏。
 ## [br]
 ## @api private
-static func _redact_path(value: String, options: Dictionary, known_path: bool = false) -> String:
-	var path_redaction: String = _option_string(options, "path_redaction", "redact")
-	if path_redaction == "none" or (not known_path and not _looks_like_path(value)):
+static func _redact_path(
+	value: String,
+	options: Dictionary,
+	known_path: bool = false
+) -> String:
+	var path_redaction: String = _option_string(
+		options,
+		"path_redaction",
+		"redact"
+	)
+	if (
+		path_redaction == "none"
+		or (
+			not known_path
+			and not _looks_like_path(value)
+		)
+	):
 		return value
 	if path_redaction == "basename":
 		return value.get_file()
@@ -979,7 +1388,16 @@ static func _get_collection_size(value: Variant) -> int:
 		TYPE_DICTIONARY:
 			var dictionary_value: Dictionary = value
 			return dictionary_value.size()
-		TYPE_PACKED_BYTE_ARRAY, TYPE_PACKED_INT32_ARRAY, TYPE_PACKED_INT64_ARRAY, TYPE_PACKED_FLOAT32_ARRAY, TYPE_PACKED_FLOAT64_ARRAY, TYPE_PACKED_STRING_ARRAY, TYPE_PACKED_VECTOR2_ARRAY, TYPE_PACKED_VECTOR3_ARRAY, TYPE_PACKED_COLOR_ARRAY, TYPE_PACKED_VECTOR4_ARRAY:
+		TYPE_PACKED_BYTE_ARRAY, \
+		TYPE_PACKED_INT32_ARRAY, \
+		TYPE_PACKED_INT64_ARRAY, \
+		TYPE_PACKED_FLOAT32_ARRAY, \
+		TYPE_PACKED_FLOAT64_ARRAY, \
+		TYPE_PACKED_STRING_ARRAY, \
+		TYPE_PACKED_VECTOR2_ARRAY, \
+		TYPE_PACKED_VECTOR3_ARRAY, \
+		TYPE_PACKED_COLOR_ARRAY, \
+		TYPE_PACKED_VECTOR4_ARRAY:
 			return len(value)
 	return -1
 
@@ -994,10 +1412,7 @@ static func _make_collection_sample(value: Variant, limit: int) -> Array:
 	if typeof(value) == TYPE_DICTIONARY:
 		var dictionary_value: Dictionary = value
 		for key: Variant in dictionary_value:
-			result.append({
-				"key": key,
-				"value": dictionary_value[key],
-			})
+			result.append({ "key": key, "value": dictionary_value[key], })
 			if result.size() >= limit:
 				break
 		return result
@@ -1048,10 +1463,7 @@ static func _collection_to_array(value: Variant) -> Array:
 			var dictionary_value: Dictionary = value
 			var entries: Array = []
 			for key: Variant in dictionary_value:
-				entries.append({
-					"key": key,
-					"value": dictionary_value[key],
-				})
+				entries.append({ "key": key, "value": dictionary_value[key], })
 			return entries
 		_:
 			return []
@@ -1068,7 +1480,16 @@ static func _is_empty_collection(value: Variant) -> bool:
 		TYPE_DICTIONARY:
 			var dictionary_value: Dictionary = value
 			return dictionary_value.is_empty()
-		TYPE_PACKED_BYTE_ARRAY, TYPE_PACKED_INT32_ARRAY, TYPE_PACKED_INT64_ARRAY, TYPE_PACKED_FLOAT32_ARRAY, TYPE_PACKED_FLOAT64_ARRAY, TYPE_PACKED_STRING_ARRAY, TYPE_PACKED_VECTOR2_ARRAY, TYPE_PACKED_VECTOR3_ARRAY, TYPE_PACKED_COLOR_ARRAY, TYPE_PACKED_VECTOR4_ARRAY:
+		TYPE_PACKED_BYTE_ARRAY, \
+		TYPE_PACKED_INT32_ARRAY, \
+		TYPE_PACKED_INT64_ARRAY, \
+		TYPE_PACKED_FLOAT32_ARRAY, \
+		TYPE_PACKED_FLOAT64_ARRAY, \
+		TYPE_PACKED_STRING_ARRAY, \
+		TYPE_PACKED_VECTOR2_ARRAY, \
+		TYPE_PACKED_VECTOR3_ARRAY, \
+		TYPE_PACKED_COLOR_ARRAY, \
+		TYPE_PACKED_VECTOR4_ARRAY:
 			return _collection_to_array(value).is_empty()
 		_:
 			return false
@@ -1118,7 +1539,10 @@ static func _float_to_json_compatible(value: float) -> Variant:
 	if is_nan(value):
 		return _make_json_typed_value(_FLOAT_TYPE_NAME, _FLOAT_NAN_TEXT)
 	if is_inf(value):
-		return _make_json_typed_value(_FLOAT_TYPE_NAME, _FLOAT_POSITIVE_INF_TEXT if value > 0.0 else _FLOAT_NEGATIVE_INF_TEXT)
+		return _make_json_typed_value(
+			_FLOAT_TYPE_NAME,
+			_FLOAT_POSITIVE_INF_TEXT if value > 0.0 else _FLOAT_NEGATIVE_INF_TEXT
+		)
 	return value
 
 
@@ -1147,7 +1571,12 @@ static func _int_array_to_json_compatible(values: Array) -> Array:
 	for value: Variant in values:
 		var int_value: int = _number_to_int(value)
 		if _is_unsafe_json_integer(int_value):
-			result.append(_make_json_typed_value("Int64", str(int_value)))
+			result.append(
+				_make_json_typed_value(
+					"Int64",
+					str(int_value)
+				)
+			)
 		else:
 			result.append(int_value)
 	return result
@@ -1158,9 +1587,27 @@ static func _int_array_to_json_compatible(values: Array) -> Array:
 ## @api private
 static func _basis_to_array(value: Basis) -> Array:
 	return [
-		_float_array_to_json_compatible([value.x.x, value.x.y, value.x.z]),
-		_float_array_to_json_compatible([value.y.x, value.y.y, value.y.z]),
-		_float_array_to_json_compatible([value.z.x, value.z.y, value.z.z]),
+		_float_array_to_json_compatible(
+			[
+				value.x.x,
+				value.x.y,
+				value.x.z,
+			]
+		),
+		_float_array_to_json_compatible(
+			[
+				value.y.x,
+				value.y.y,
+				value.y.z,
+			]
+		),
+		_float_array_to_json_compatible(
+			[
+				value.z.x,
+				value.z.y,
+				value.z.z,
+			]
+		),
 	]
 
 
@@ -1201,7 +1648,15 @@ static func _vector_2_array_to_array(value: PackedVector2Array) -> Array:
 static func _vector_3_array_to_array(value: PackedVector3Array) -> Array:
 	var result: Array = []
 	for item: Vector3 in value:
-		result.append(_float_array_to_json_compatible([item.x, item.y, item.z]))
+		result.append(
+			_float_array_to_json_compatible(
+				[
+					item.x,
+					item.y,
+					item.z,
+				]
+			)
+		)
 	return result
 
 
@@ -1211,7 +1666,16 @@ static func _vector_3_array_to_array(value: PackedVector3Array) -> Array:
 static func _vector_4_array_to_array(value: PackedVector4Array) -> Array:
 	var result: Array = []
 	for item: Vector4 in value:
-		result.append(_float_array_to_json_compatible([item.x, item.y, item.z, item.w]))
+		result.append(
+			_float_array_to_json_compatible(
+				[
+					item.x,
+					item.y,
+					item.z,
+					item.w,
+				]
+			)
+		)
 	return result
 
 
@@ -1221,7 +1685,16 @@ static func _vector_4_array_to_array(value: PackedVector4Array) -> Array:
 static func _color_array_to_array(value: PackedColorArray) -> Array:
 	var result: Array = []
 	for item: Color in value:
-		result.append(_float_array_to_json_compatible([item.r, item.g, item.b, item.a]))
+		result.append(
+			_float_array_to_json_compatible(
+				[
+					item.r,
+					item.g,
+					item.b,
+					item.a,
+				]
+			)
+		)
 	return result
 
 
@@ -1255,36 +1728,72 @@ static func _as_dictionary(value: Variant, default_value: Variant = null) -> Dic
 ## 读取任意类型的选项值并传入默认值。
 ## [br]
 ## @api private
-static func _option_value(options: Dictionary, key: Variant, default_value: Variant = null) -> Variant:
-	return _GF_VARIANT_ACCESS_SCRIPT.get_option_value(options, key, default_value)
+static func _option_value(
+	options: Dictionary,
+	key: Variant,
+	default_value: Variant = null
+) -> Variant:
+	return _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+		options,
+		key,
+		default_value
+	)
 
 
 ## 读取布尔选项并传入默认值。
 ## [br]
 ## @api private
-static func _option_bool(options: Dictionary, key: Variant, default_value: bool = false) -> bool:
-	return _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, key, default_value)
+static func _option_bool(
+	options: Dictionary,
+	key: Variant,
+	default_value: bool = false
+) -> bool:
+	return _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		options,
+		key,
+		default_value
+	)
 
 
 ## 读取整数选项并传入默认值。
 ## [br]
 ## @api private
-static func _option_int(options: Dictionary, key: Variant, default_value: int = 0) -> int:
-	return _GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, key, default_value)
+static func _option_int(
+	options: Dictionary,
+	key: Variant,
+	default_value: int = 0
+) -> int:
+	return _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+		options,
+		key,
+		default_value
+	)
 
 
 ## 读取字符串选项并传入默认值。
 ## [br]
 ## @api private
-static func _option_string(options: Dictionary, key: Variant, default_value: String = "") -> String:
-	return _GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, key, default_value)
+static func _option_string(
+	options: Dictionary,
+	key: Variant,
+	default_value: String = ""
+) -> String:
+	return _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+		options,
+		key,
+		default_value
+	)
 
 
 ## 合并有效 profile 的默认值与传入选项；未知 profile 直接采用 privacy 默认值。
 ## [br]
 ## @api private
 static func _normalize_options(options: Dictionary) -> Dictionary:
-	var profile: String = _option_string(options, "redaction_profile", REDACTION_PROFILE_SUPPORT)
+	var profile: String = _option_string(
+		options,
+		"redaction_profile",
+		REDACTION_PROFILE_SUPPORT
+	)
 	if not _is_supported_redaction_profile(profile):
 		return _get_profile_defaults(REDACTION_PROFILE_PRIVACY)
 	var result: Dictionary = _get_profile_defaults(profile)
@@ -1349,9 +1858,12 @@ static func _get_profile_defaults(profile: String) -> Dictionary:
 ## [br]
 ## @api private
 static func _is_supported_redaction_profile(profile: String) -> bool:
-	return profile in [
-		REDACTION_PROFILE_DEBUG,
-		REDACTION_PROFILE_SUPPORT,
-		REDACTION_PROFILE_PUBLIC,
-		REDACTION_PROFILE_PRIVACY,
-	]
+	return (
+		profile
+		in [
+			REDACTION_PROFILE_DEBUG,
+			REDACTION_PROFILE_SUPPORT,
+			REDACTION_PROFILE_PUBLIC,
+			REDACTION_PROFILE_PRIVACY,
+		]
+	)

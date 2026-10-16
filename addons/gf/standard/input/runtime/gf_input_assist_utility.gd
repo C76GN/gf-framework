@@ -95,17 +95,32 @@ func tick(delta: float) -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param action_id: 动作标识。
 ## [br]
 ## @param duration: 缓冲持续时间（秒）。
 ## [br]
 ## @param player_index: 玩家索引；小于 0 时使用全局缓冲。
-func buffer_action(action_id: StringName, duration: float, player_index: int = -1) -> void:
-	if action_id == &"" or is_nan(duration) or is_inf(duration) or duration <= 0.0:
+func buffer_action(
+	action_id: StringName,
+	duration: float,
+	player_index: int = -1
+) -> void:
+	if (
+		action_id == &""
+		or is_nan(duration)
+		or is_inf(duration)
+		or duration <= 0.0
+	):
 		return
 
 	var key: String = _make_scoped_key(action_id, player_index)
-	var current: float = GFVariantData.get_option_float(_action_buffers, key, 0.0)
+	var current: float = GFVariantData.get_option_float(
+		_action_buffers,
+		key,
+		0.0
+	)
 	_action_buffers[key] = maxf(current, duration)
 
 
@@ -155,14 +170,25 @@ func clear_buffered_action(action_id: StringName, player_index: int = -1) -> voi
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param window_id: 窗口标识。
 ## [br]
 ## @param duration: 宽容窗口持续时间（秒）。
 ## [br]
 ## @param player_index: 玩家索引；小于 0 时使用全局窗口。
-func start_grace_window(window_id: StringName, duration: float, player_index: int = -1) -> void:
+func start_grace_window(
+	window_id: StringName,
+	duration: float,
+	player_index: int = -1
+) -> void:
 	var key: String = _make_scoped_key(window_id, player_index)
-	if window_id == &"" or is_nan(duration) or is_inf(duration) or duration <= 0.0:
+	if (
+		window_id == &""
+		or is_nan(duration)
+		or is_inf(duration)
+		or duration <= 0.0
+	):
 		_erase_grace_window_key(key)
 		return
 	_grace_windows[key] = duration
@@ -202,10 +228,22 @@ func cancel_grace_window(window_id: StringName, player_index: int = -1) -> void:
 ## [br]
 ## @param player_index: 玩家索引。
 func clear_player(player_index: int) -> void:
-	_clear_keys_with_prefix(_action_buffers, _make_scope_prefix(player_index))
-	_clear_keys_with_prefix(_grace_windows, _make_scope_prefix(player_index))
-	_clear_keys_with_prefix(_grace_window_ids, _make_scope_prefix(player_index))
-	_clear_keys_with_prefix(_grace_window_player_indices, _make_scope_prefix(player_index))
+	_clear_keys_with_prefix(
+		_action_buffers,
+		_make_scope_prefix(player_index)
+	)
+	_clear_keys_with_prefix(
+		_grace_windows,
+		_make_scope_prefix(player_index)
+	)
+	_clear_keys_with_prefix(
+		_grace_window_ids,
+		_make_scope_prefix(player_index)
+	)
+	_clear_keys_with_prefix(
+		_grace_window_player_indices,
+		_make_scope_prefix(player_index)
+	)
 
 
 ## 清除所有缓冲和宽容窗口状态。
@@ -226,10 +264,7 @@ func clear_all() -> void:
 ## [br]
 ## @schema return: Dictionary，包含按 scoped action 或 window id 索引的 action_buffers 与 grace_windows 计时器快照。
 func get_debug_snapshot() -> Dictionary:
-	return {
-		"action_buffers": _duplicate_timer_snapshot(_action_buffers),
-		"grace_windows": _duplicate_timer_snapshot(_grace_windows),
-	}
+	return { "action_buffers": _duplicate_timer_snapshot(_action_buffers), "grace_windows": _duplicate_timer_snapshot(_grace_windows), }
 
 
 # --- 私有/辅助方法 ---
@@ -290,7 +325,11 @@ func _emit_grace_window_expired(key: String) -> void:
 		return
 
 	var window_id: StringName = GFVariantData.get_option_string_name(_grace_window_ids, key)
-	var player_index: int = GFVariantData.get_option_int(_grace_window_player_indices, key, -1)
+	var player_index: int = GFVariantData.get_option_int(
+		_grace_window_player_indices,
+		key,
+		-1
+	)
 	_erase_grace_window_key(key)
 	grace_window_expired.emit(window_id, player_index)
 
@@ -310,7 +349,10 @@ func _erase_grace_window_key(key: String) -> void:
 ## @api private
 ## [br]
 func _make_scoped_key(id: StringName, player_index: int) -> String:
-	return "%s/%s" % [_make_scope_prefix(player_index), String(id)]
+	return (
+		"%s/%s"
+		% [_make_scope_prefix(player_index), String(id)]
+	)
 
 
 ## 为非负玩家索引生成玩家前缀；负索引统一使用全局前缀。

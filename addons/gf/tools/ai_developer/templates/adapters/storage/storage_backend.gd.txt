@@ -135,10 +135,7 @@ const _LIST_RESULT_KEYS: PackedStringArray = [
 ## 每条列表记录仅允许存储键及 metadata，禁止混入完整 payload。
 ## [br]
 ## @api private
-const _LIST_RECORD_KEYS: PackedStringArray = [
-	"storage_key",
-	"metadata",
-]
+const _LIST_RECORD_KEYS: PackedStringArray = ["storage_key", "metadata",]
 
 ## 允许的原子写选项，包括条件修订、仅创建和幂等请求标识。
 ## [br]
@@ -281,7 +278,11 @@ var _supports_conditional_write: bool = false
 func _initialize(config: Dictionary) -> Error:
 	if _initialized or _provider != null:
 		return ERR_ALREADY_IN_USE
-	if not _has_exact_or_optional_keys(config, _CONFIG_KEYS, ["provider"]):
+	if not _has_exact_or_optional_keys(
+		config,
+		_CONFIG_KEYS,
+		["provider"]
+	):
 		return ERR_INVALID_PARAMETER
 
 	var provider_value: Variant = config.get("provider")
@@ -354,16 +355,14 @@ func _initialize(config: Dictionary) -> Error:
 	if not provider_options_value is Dictionary:
 		return ERR_INVALID_PARAMETER
 	var provider_options: Dictionary = provider_options_value
-	var options_validation: Dictionary = (
-		ProjectStorageValueLimits.validate_plain_value(
-			provider_options,
-			ProjectStorageValueLimits.make_limits(
-				MAX_PROVIDER_OPTIONS_BYTES,
-				4096,
-				8,
-				32 * 1024,
-				1024
-			)
+	var options_validation: Dictionary = ProjectStorageValueLimits.validate_plain_value(
+		provider_options,
+		ProjectStorageValueLimits.make_limits(
+			MAX_PROVIDER_OPTIONS_BYTES,
+			4096,
+			8,
+			32 * 1024,
+			1024
 		)
 	)
 	if not _validation_succeeded(options_validation):
@@ -371,15 +370,11 @@ func _initialize(config: Dictionary) -> Error:
 
 	if candidate_provider.get_protocol_version() != PROTOCOL_VERSION:
 		return ERR_INVALID_DATA
-	var pre_initialize_capabilities: Dictionary = (
-		candidate_provider.get_capabilities()
-	)
+	var pre_initialize_capabilities: Dictionary = candidate_provider.get_capabilities()
 	if not _provider_capabilities_are_valid(pre_initialize_capabilities):
 		return ERR_INVALID_DATA
 
-	var initialize_error: Error = candidate_provider.initialize(
-		provider_options.duplicate(true)
-	)
+	var initialize_error: Error = candidate_provider.initialize(provider_options.duplicate(true))
 	var mapped_initialize_error: Error = _map_provider_error(
 		int(initialize_error),
 		ERR_UNAVAILABLE
@@ -391,13 +386,8 @@ func _initialize(config: Dictionary) -> Error:
 	if candidate_provider.get_protocol_version() != PROTOCOL_VERSION:
 		candidate_provider.shutdown()
 		return ERR_INVALID_DATA
-	var post_initialize_capabilities: Dictionary = (
-		candidate_provider.get_capabilities()
-	)
-	if (
-		not _provider_capabilities_are_valid(post_initialize_capabilities)
-		or post_initialize_capabilities != pre_initialize_capabilities
-	):
+	var post_initialize_capabilities: Dictionary = candidate_provider.get_capabilities()
+	if (not _provider_capabilities_are_valid(post_initialize_capabilities) or post_initialize_capabilities != pre_initialize_capabilities):
 		candidate_provider.shutdown()
 		return ERR_INVALID_DATA
 
@@ -410,10 +400,7 @@ func _initialize(config: Dictionary) -> Error:
 	_max_graph_depth = graph_depth_budget
 	_max_string_bytes = string_byte_budget
 	_max_container_entries = container_entry_budget
-	_supports_conditional_write = _get_bool(
-		post_initialize_capabilities,
-		"conditional_write"
-	)
+	_supports_conditional_write = _get_bool(post_initialize_capabilities, "conditional_write")
 	_initialized = true
 	return OK
 
@@ -464,16 +451,18 @@ func _save_data(
 	if storage_key.is_empty():
 		return ERR_INVALID_PARAMETER
 
-	var payload_validation: Dictionary = (
-		ProjectStorageValueLimits.validate_payload(
-			data,
-			metadata,
-			_make_payload_limits()
-		)
+	var payload_validation: Dictionary = ProjectStorageValueLimits.validate_payload(
+		data,
+		metadata,
+		_make_payload_limits()
 	)
 	if not _validation_succeeded(payload_validation):
 		return _validation_error(payload_validation)
-	return _save_validated_data(storage_key, data, metadata)
+	return _save_validated_data(
+		storage_key,
+		data,
+		metadata
+	)
 
 
 ## 向 Provider 传递读取硬预算后复核完整响应；非法或矛盾响应只返回固定诊断和空数据，成功数据深复制。
@@ -519,10 +508,7 @@ func _load_data(file_name: String) -> Dictionary:
 	var provider_ok: bool = _get_bool(provider_result, "ok")
 	var provider_data: Dictionary = provider_result["data"]
 	var provider_metadata: Dictionary = provider_result["metadata"]
-	var provider_error_code: int = _get_int(
-		provider_result,
-		"error_code"
-	)
+	var provider_error_code: int = _get_int(provider_result, "error_code")
 	if not provider_ok:
 		if (
 			provider_error_code == int(OK)
@@ -552,12 +538,10 @@ func _load_data(file_name: String) -> Dictionary:
 			ERR_INVALID_DATA
 		)
 
-	var payload_validation: Dictionary = (
-		ProjectStorageValueLimits.validate_payload(
-			provider_data,
-			provider_metadata,
-			_make_payload_limits()
-		)
+	var payload_validation: Dictionary = ProjectStorageValueLimits.validate_payload(
+		provider_data,
+		provider_metadata,
+		_make_payload_limits()
 	)
 	if not _validation_succeeded(payload_validation):
 		return _make_read_result(
@@ -598,7 +582,10 @@ func _delete_data(file_name: String) -> Error:
 	if storage_key.is_empty():
 		return ERR_INVALID_PARAMETER
 	var provider_error: Error = _provider.delete_record(storage_key)
-	return _map_provider_error(int(provider_error), ERR_CANT_OPEN)
+	return _map_provider_error(
+		int(provider_error),
+		ERR_CANT_OPEN
+	)
 
 
 ## 仅对已初始化 Provider 和合法逻辑键查询存在性；false 不区分未准备好、非法键和记录缺失。
@@ -643,11 +630,9 @@ func _list_data() -> Array[Dictionary]:
 	var records: Array = provider_result["records"]
 	if records.size() > _max_list_items:
 		return result
-	var records_validation: Dictionary = (
-		ProjectStorageValueLimits.validate_plain_value(
-			records,
-			_make_list_value_limits()
-		)
+	var records_validation: Dictionary = ProjectStorageValueLimits.validate_plain_value(
+		records,
+		_make_list_value_limits()
 	)
 	if not _validation_succeeded(records_validation):
 		return result
@@ -673,10 +658,7 @@ func _list_data() -> Array[Dictionary]:
 			or not _record_metadata_is_valid(metadata)
 		):
 			return []
-		entries_by_name[logical_name] = {
-			"file_name": logical_name,
-			"metadata": metadata.duplicate(true),
-		}
+		entries_by_name[logical_name] = { "file_name": logical_name, "metadata": metadata.duplicate(true), }
 		var _append_result: bool = logical_names.append(logical_name)
 	logical_names.sort()
 	for logical_name: String in logical_names:
@@ -704,9 +686,7 @@ func _get_capabilities() -> Dictionary:
 		"list": _initialized,
 		"sync": false,
 		"atomic_write": _initialized,
-		"conditional_write": (
-			_initialized and _supports_conditional_write
-		),
+		"conditional_write": _initialized and _supports_conditional_write,
 		"cancellation": false,
 	}
 
@@ -740,16 +720,18 @@ func save_data(
 	var storage_key: String = _resolve_storage_key(file_name)
 	if storage_key.is_empty():
 		return ERR_INVALID_PARAMETER
-	var payload_validation: Dictionary = (
-		ProjectStorageValueLimits.validate_payload(
-			data,
-			metadata,
-			_make_payload_limits()
-		)
+	var payload_validation: Dictionary = ProjectStorageValueLimits.validate_payload(
+		data,
+		metadata,
+		_make_payload_limits()
 	)
 	if not _validation_succeeded(payload_validation):
 		return _validation_error(payload_validation)
-	return _save_validated_data(storage_key, data, metadata)
+	return _save_validated_data(
+		storage_key,
+		data,
+		metadata
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -772,8 +754,10 @@ func _save_validated_data(
 	if not _write_options_are_valid(write_options):
 		return ERR_INVALID_PARAMETER
 	if (
-		(write_options.has("expected_revision")
-			or _get_bool(write_options, "create_if_absent"))
+		(
+			write_options.has("expected_revision")
+			or _get_bool(write_options, "create_if_absent")
+		)
 		and not _supports_conditional_write
 	):
 		return ERR_UNAVAILABLE
@@ -786,7 +770,11 @@ func _save_validated_data(
 		stored_metadata,
 		write_options.duplicate(true)
 	)
-	return _map_provider_error(int(provider_error), ERR_CANT_CREATE)
+	return _map_provider_error(
+		int(provider_error),
+		ERR_CANT_CREATE
+	)
+
 
 ## 只有初始化已提交且 provider 引用存在时允许操作。
 ## [br]
@@ -863,16 +851,8 @@ func _is_valid_logical_name(file_name: String) -> bool:
 ## @api private
 func _is_reserved_component(component: String) -> bool:
 	var first_dot: int = component.find(".")
-	var component_stem: String = (
-		component.substr(0, first_dot) if first_dot >= 0 else component
-	)
-	component_stem = (
-		component_stem
-		.to_lower()
-		.replace("¹", "1")
-		.replace("²", "2")
-		.replace("³", "3")
-	)
+	var component_stem: String = component.substr(0, first_dot) if first_dot >= 0 else component
+	component_stem = (component_stem.to_lower().replace("¹", "1").replace("²", "2").replace("³", "3"))
 	return _RESERVED_COMPONENT_STEMS.has(component_stem)
 
 
@@ -887,10 +867,7 @@ func _write_options_are_valid(options: Dictionary) -> bool:
 		if not revision_value is String:
 			return false
 		var revision: String = revision_value
-		if not _is_valid_opaque_token(
-			revision,
-			MAX_REVISION_TOKEN_BYTES
-		):
+		if not _is_valid_opaque_token(revision, MAX_REVISION_TOKEN_BYTES):
 			return false
 	if options.has("create_if_absent"):
 		var create_value: Variant = options.get("create_if_absent")
@@ -904,10 +881,7 @@ func _write_options_are_valid(options: Dictionary) -> bool:
 		if not request_id_value is String:
 			return false
 		var request_id: String = request_id_value
-		if not _is_valid_opaque_token(
-			request_id,
-			MAX_REQUEST_ID_BYTES
-		):
+		if not _is_valid_opaque_token(request_id, MAX_REQUEST_ID_BYTES):
 			return false
 	return true
 
@@ -922,10 +896,7 @@ func _record_metadata_is_valid(metadata: Dictionary) -> bool:
 	if not revision_value is String:
 		return false
 	var revision: String = revision_value
-	return _is_valid_opaque_token(
-		revision,
-		MAX_REVISION_TOKEN_BYTES
-	)
+	return _is_valid_opaque_token(revision, MAX_REVISION_TOKEN_BYTES)
 
 
 ## 检查非空 token 的 UTF-8 字节上限和控制码，不解读 token 内容或将其转成数字。
@@ -962,10 +933,7 @@ func _provider_capabilities_are_valid(capabilities: Dictionary) -> bool:
 	]:
 		if not _get_bool(capabilities, required_id):
 			return false
-	return (
-		not _get_bool(capabilities, "cancellation")
-		and not _get_bool(capabilities, "sync")
-	)
+	return (not _get_bool(capabilities, "cancellation") and not _get_bool(capabilities, "sync"))
 
 
 ## 检查 provider 读取结果精确字段及基础类型，数据图预算和成功状态一致性由调用者继续验证。
@@ -1067,10 +1035,7 @@ func _make_list_value_limits() -> Dictionary:
 ## 只透传允许集合中的 int 错误码，其他类型或未知数值使用操作指定的稳定回退码。
 ## [br]
 ## @api private
-func _map_provider_error(
-	error_value: Variant,
-	fallback: Error
-) -> Error:
+func _map_provider_error(error_value: Variant, fallback: Error) -> Error:
 	if not error_value is int:
 		return fallback
 	var numeric_error: int = error_value
@@ -1122,23 +1087,14 @@ func _has_exact_or_optional_keys(
 ## 用字段数量及允许键检查构成闭合字典校验。
 ## [br]
 ## @api private
-func _has_exact_keys(
-	values: Dictionary,
-	expected_keys: PackedStringArray
-) -> bool:
-	return (
-		values.size() == expected_keys.size()
-		and _has_only_keys(values, expected_keys)
-	)
+func _has_exact_keys(values: Dictionary, expected_keys: PackedStringArray) -> bool:
+	return (values.size() == expected_keys.size() and _has_only_keys(values, expected_keys))
 
 
 ## 要求所有键均为 String 且属于白名单，不要求可选字段出现。
 ## [br]
 ## @api private
-func _has_only_keys(
-	values: Dictionary,
-	allowed_keys: PackedStringArray
-) -> bool:
+func _has_only_keys(values: Dictionary, allowed_keys: PackedStringArray) -> bool:
 	for key_value: Variant in values.keys():
 		if not key_value is String:
 			return false

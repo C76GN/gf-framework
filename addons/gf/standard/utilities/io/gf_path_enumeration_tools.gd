@@ -90,28 +90,64 @@ static func scan_files(root_path: String = "res://", options: Dictionary = {}) -
 		"limit_value": 0,
 	}
 	if normalized_root.is_empty():
-		return _make_report(false, normalized_root, result, scan_state)
+		return _make_report(
+			false,
+			normalized_root,
+			result,
+			scan_state
+		)
 
-	var recursive: bool = GFVariantData.get_option_bool(options, "recursive", true)
-	var include_hidden: bool = GFVariantData.get_option_bool(options, "include_hidden", false)
+	var recursive: bool = GFVariantData.get_option_bool(
+		options,
+		"recursive",
+		true
+	)
+	var include_hidden: bool = GFVariantData.get_option_bool(
+		options,
+		"include_hidden",
+		false
+	)
 	var extensions: PackedStringArray = _normalize_extensions(
-		GFVariantData.get_option_packed_string_array(options, "extensions", PackedStringArray())
+		GFVariantData.get_option_packed_string_array(
+			options,
+			"extensions",
+			PackedStringArray()
+		)
 	)
 	var excluded_paths: PackedStringArray = _normalize_paths(
-		GFVariantData.get_option_packed_string_array(options, "excluded_paths", PackedStringArray())
+		GFVariantData.get_option_packed_string_array(
+			options,
+			"excluded_paths",
+			PackedStringArray()
+		)
 	)
 	var file_filter: Callable = _get_file_filter(options)
-	var max_scan_depth: int = maxi(GFVariantData.get_option_int(options, "max_scan_depth", DEFAULT_MAX_SCAN_DEPTH), 0)
+	var max_scan_depth: int = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"max_scan_depth",
+			DEFAULT_MAX_SCAN_DEPTH
+		),
+		0
+	)
 	var max_file_count: int = maxi(
 		GFVariantData.get_option_int(
 			options,
 			"max_file_count",
-			GFVariantData.get_option_int(options, "max_resource_paths", DEFAULT_MAX_FILE_COUNT)
+			GFVariantData.get_option_int(
+				options,
+				"max_resource_paths",
+				DEFAULT_MAX_FILE_COUNT
+			)
 		),
 		0
 	)
 	var max_entry_count: int = maxi(
-		GFVariantData.get_option_int(options, "max_entry_count", DEFAULT_MAX_ENTRY_COUNT),
+		GFVariantData.get_option_int(
+			options,
+			"max_entry_count",
+			DEFAULT_MAX_ENTRY_COUNT
+		),
 		0
 	)
 	_scan_directory_recursive(
@@ -128,9 +164,18 @@ static func scan_files(root_path: String = "res://", options: Dictionary = {}) -
 		max_entry_count,
 		scan_state
 	)
-	if GFVariantData.get_option_bool(options, "sort", true):
+	if GFVariantData.get_option_bool(
+		options,
+		"sort",
+		true
+	):
 		result.sort()
-	return _make_report(true, normalized_root, result, scan_state)
+	return _make_report(
+		true,
+		normalized_root,
+		result,
+		scan_state
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -174,10 +219,19 @@ static func _scan_directory_recursive(
 			continue
 
 		var child_path: String = dir_path.path_join(entry)
-		if not _consume_entry_budget(child_path, max_entry_count, scan_state):
+		if not _consume_entry_budget(
+			child_path,
+			max_entry_count,
+			scan_state
+		):
 			break
 		if dir.current_is_dir():
-			if recursive and _can_scan_deeper(child_path, depth, max_scan_depth, scan_state):
+			if recursive and _can_scan_deeper(
+				child_path,
+				depth,
+				max_scan_depth,
+				scan_state
+			):
 				_scan_directory_recursive(
 					child_path,
 					result,
@@ -192,11 +246,20 @@ static func _scan_directory_recursive(
 					max_entry_count,
 					scan_state
 				)
-		elif _can_include_file(child_path, extensions, file_filter):
+		elif _can_include_file(
+			child_path,
+			extensions,
+			file_filter
+		):
 			var _appended: bool = result.append(child_path)
 			scan_state["scanned_count"] = GFVariantData.get_option_int(scan_state, "scanned_count") + 1
 			if max_file_count > 0 and GFVariantData.get_option_int(scan_state, "scanned_count") >= max_file_count:
-				_mark_scan_limit(scan_state, "count", child_path, max_file_count)
+				_mark_scan_limit(
+					scan_state,
+					"count",
+					child_path,
+					max_file_count
+				)
 		entry = dir.get_next()
 	dir.list_dir_end()
 
@@ -205,10 +268,20 @@ static func _scan_directory_recursive(
 ## [br]
 ## @api private
 ## [br]
-static func _can_scan_deeper(path: String, current_depth: int, max_scan_depth: int, scan_state: Dictionary) -> bool:
+static func _can_scan_deeper(
+	path: String,
+	current_depth: int,
+	max_scan_depth: int,
+	scan_state: Dictionary
+) -> bool:
 	if max_scan_depth <= 0 or current_depth < max_scan_depth:
 		return true
-	_mark_scan_limit(scan_state, "depth", path, max_scan_depth)
+	_mark_scan_limit(
+		scan_state,
+		"depth",
+		path,
+		max_scan_depth
+	)
 	return false
 
 
@@ -216,10 +289,19 @@ static func _can_scan_deeper(path: String, current_depth: int, max_scan_depth: i
 ## [br]
 ## @api private
 ## [br]
-static func _consume_entry_budget(path: String, max_entry_count: int, scan_state: Dictionary) -> bool:
+static func _consume_entry_budget(
+	path: String,
+	max_entry_count: int,
+	scan_state: Dictionary
+) -> bool:
 	var visited_entry_count: int = GFVariantData.get_option_int(scan_state, "visited_entry_count")
 	if max_entry_count > 0 and visited_entry_count >= max_entry_count:
-		_mark_scan_limit(scan_state, "entry_count", path, max_entry_count)
+		_mark_scan_limit(
+			scan_state,
+			"entry_count",
+			path,
+			max_entry_count
+		)
 		return false
 	scan_state["visited_entry_count"] = visited_entry_count + 1
 	return true
@@ -229,11 +311,24 @@ static func _consume_entry_budget(path: String, max_entry_count: int, scan_state
 ## [br]
 ## @api private
 ## [br]
-static func _mark_scan_limit(scan_state: Dictionary, kind: String, path: String, value: int) -> void:
+static func _mark_scan_limit(
+	scan_state: Dictionary,
+	kind: String,
+	path: String,
+	value: int
+) -> void:
 	scan_state["truncated"] = true
 	if kind == "count" or kind == "entry_count":
 		scan_state["stop_scan"] = true
-	if kind == "count" or kind == "entry_count" or GFVariantData.get_option_string(scan_state, "limit_kind", "").is_empty():
+	if (
+		kind == "count"
+		or kind == "entry_count"
+		or GFVariantData.get_option_string(
+			scan_state,
+			"limit_kind",
+			""
+		).is_empty()
+	):
 		scan_state["limit_kind"] = kind
 		scan_state["limit_path"] = path
 		scan_state["limit_value"] = value
@@ -243,7 +338,11 @@ static func _mark_scan_limit(scan_state: Dictionary, kind: String, path: String,
 ## [br]
 ## @api private
 ## [br]
-static func _can_include_file(path: String, extensions: PackedStringArray, file_filter: Callable) -> bool:
+static func _can_include_file(
+	path: String,
+	extensions: PackedStringArray,
+	file_filter: Callable
+) -> bool:
 	if not extensions.is_empty() and not extensions.has(path.get_extension().to_lower()):
 		return false
 	return not file_filter.is_valid() or GFVariantData.to_bool(file_filter.call(path))
@@ -254,7 +353,11 @@ static func _can_include_file(path: String, extensions: PackedStringArray, file_
 ## @api private
 ## [br]
 static func _get_file_filter(options: Dictionary) -> Callable:
-	var value: Variant = GFVariantData.get_option_value(options, "file_filter", Callable())
+	var value: Variant = GFVariantData.get_option_value(
+		options,
+		"file_filter",
+		Callable()
+	)
 	if value is Callable:
 		return value
 	return Callable()
@@ -296,7 +399,11 @@ static func _normalize_paths(values: PackedStringArray) -> PackedStringArray:
 ## @api private
 ## [br]
 static func _normalize_dir_path(path: String) -> String:
-	return _GF_PATH_TOOLS.normalize_root_path(path, "", false)
+	return _GF_PATH_TOOLS.normalize_root_path(
+		path,
+		"",
+		false
+	)
 
 
 ## 委托 GFPathTools 判断路径是否落入任一排除根目录。
@@ -324,7 +431,19 @@ static func _make_report(
 		"scanned_count": GFVariantData.get_option_int(scan_state, "scanned_count"),
 		"visited_entry_count": GFVariantData.get_option_int(scan_state, "visited_entry_count"),
 		"truncated": GFVariantData.get_option_bool(scan_state, "truncated"),
-		"limit_kind": GFVariantData.get_option_string(scan_state, "limit_kind", ""),
-		"limit_path": GFVariantData.get_option_string(scan_state, "limit_path", ""),
-		"limit_value": GFVariantData.get_option_int(scan_state, "limit_value", 0),
+		"limit_kind": GFVariantData.get_option_string(
+			scan_state,
+			"limit_kind",
+			""
+		),
+		"limit_path": GFVariantData.get_option_string(
+			scan_state,
+			"limit_path",
+			""
+		),
+		"limit_value": GFVariantData.get_option_int(
+			scan_state,
+			"limit_value",
+			0
+		),
 	}

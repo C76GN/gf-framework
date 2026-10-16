@@ -22,12 +22,13 @@ extends Resource
 ## @param initial_body: reserve 阶段捕获的初始 body 快照。
 ## [br]
 ## @return: 仅供该 session 使用的 state；拒绝时返回 null。
-func create_state_2d(
-	launch_input: GFProjectileLaunchInput2D,
-	initial_body: GFProjectileBodyResult2D
-) -> GFProjectileMotionState:
+func create_state_2d(launch_input: GFProjectileLaunchInput2D, initial_body: GFProjectileBodyResult2D) -> GFProjectileMotionState:
 	var state: Variant = _create_state_2d(launch_input, initial_body)
-	if typeof(state) == TYPE_OBJECT and is_instance_valid(state) and state is GFProjectileMotionState:
+	if (
+		typeof(state) == TYPE_OBJECT
+		and is_instance_valid(state)
+		and state is GFProjectileMotionState
+	):
 		var typed_state: GFProjectileMotionState = state
 		return typed_state
 	return null
@@ -44,12 +45,13 @@ func create_state_2d(
 ## @param initial_body: reserve 阶段捕获的初始 body 快照。
 ## [br]
 ## @return: 仅供该 session 使用的 state；拒绝时返回 null。
-func create_state_3d(
-	launch_input: GFProjectileLaunchInput3D,
-	initial_body: GFProjectileBodyResult3D
-) -> GFProjectileMotionState:
+func create_state_3d(launch_input: GFProjectileLaunchInput3D, initial_body: GFProjectileBodyResult3D) -> GFProjectileMotionState:
 	var state: Variant = _create_state_3d(launch_input, initial_body)
-	if typeof(state) == TYPE_OBJECT and is_instance_valid(state) and state is GFProjectileMotionState:
+	if (
+		typeof(state) == TYPE_OBJECT
+		and is_instance_valid(state)
+		and state is GFProjectileMotionState
+	):
 		var typed_state: GFProjectileMotionState = state
 		return typed_state
 	return null
@@ -73,8 +75,16 @@ func compute_intent_2d(
 	current_body: GFProjectileBodyResult2D,
 	delta: float
 ) -> GFProjectileMotionIntent2D:
-	var intent: Variant = _compute_intent_2d(state, current_body, delta)
-	if typeof(intent) == TYPE_OBJECT and is_instance_valid(intent) and intent is GFProjectileMotionIntent2D:
+	var intent: Variant = _compute_intent_2d(
+		state,
+		current_body,
+		delta
+	)
+	if (
+		typeof(intent) == TYPE_OBJECT
+		and is_instance_valid(intent)
+		and intent is GFProjectileMotionIntent2D
+	):
 		var typed_intent: GFProjectileMotionIntent2D = intent
 		return typed_intent
 	return GFProjectileMotionIntent2D.rejected(&"invalid_motion_result")
@@ -98,8 +108,16 @@ func compute_intent_3d(
 	current_body: GFProjectileBodyResult3D,
 	delta: float
 ) -> GFProjectileMotionIntent3D:
-	var intent: Variant = _compute_intent_3d(state, current_body, delta)
-	if typeof(intent) == TYPE_OBJECT and is_instance_valid(intent) and intent is GFProjectileMotionIntent3D:
+	var intent: Variant = _compute_intent_3d(
+		state,
+		current_body,
+		delta
+	)
+	if (
+		typeof(intent) == TYPE_OBJECT
+		and is_instance_valid(intent)
+		and intent is GFProjectileMotionIntent3D
+	):
 		var typed_intent: GFProjectileMotionIntent3D = intent
 		return typed_intent
 	return GFProjectileMotionIntent3D.rejected(&"invalid_motion_result")
@@ -120,10 +138,7 @@ func compute_intent_3d(
 ## @return: session 私有 state。
 ## [br]
 ## @schema return: Variant，必须为 live `GFProjectileMotionState`。
-func _create_state_2d(
-	_launch_input: GFProjectileLaunchInput2D,
-	_initial_body: GFProjectileBodyResult2D
-) -> Variant:
+func _create_state_2d(_launch_input: GFProjectileLaunchInput2D, _initial_body: GFProjectileBodyResult2D) -> Variant:
 	return GFProjectileMotionState.new()
 
 
@@ -140,10 +155,7 @@ func _create_state_2d(
 ## @return: session 私有 state。
 ## [br]
 ## @schema return: Variant，必须为 live `GFProjectileMotionState`。
-func _create_state_3d(
-	_launch_input: GFProjectileLaunchInput3D,
-	_initial_body: GFProjectileBodyResult3D
-) -> Variant:
+func _create_state_3d(_launch_input: GFProjectileLaunchInput3D, _initial_body: GFProjectileBodyResult3D) -> Variant:
 	return GFProjectileMotionState.new()
 
 

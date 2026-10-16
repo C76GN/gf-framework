@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFPoissonDisc2D" path="addons/gf/standard/foundation/math/gf_poisson_disc_2d.gd" module="standard" extends="RefCounted" classDigest="7ecd5820c0f3cb21ad1b5e7d6d2e6642d2886aa6ba261f74b55a2797ae4f5572">
+<class name="GFPoissonDisc2D" path="addons/gf/standard/foundation/math/gf_poisson_disc_2d.gd" module="standard" extends="RefCounted" classDigest="27d721239866911da63e517399655294ba0f53d1f050baf1f5d3cd90978e3657">
 	<description>GFPoissonDisc2D: 通用二维 Poisson-disc 采样工具。
 在矩形区域中生成最小间距受限的点集，适合程序化摆放、刷点候选、
 空间采样和编辑器工具。它只返回纯数据，不创建 Node、地形、碰撞或渲染资源。
@@ -40,7 +40,7 @@
 	<properties />
 	<methods>
 		<member kind="method" name="generate_points">
-			<signature>static func generate_points(area: Rect2, minimum_distance: float, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>static func generate_points( area: Rect2, minimum_distance: float, options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>在矩形区域中生成 Poisson-disc 采样点。</description>
 			<tags>
 				<tag name="api">public</tag>

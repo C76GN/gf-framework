@@ -36,7 +36,11 @@ static func project_dictionary(values: Dictionary, options: Dictionary = {}) -> 
 	var source_values: Dictionary = values.duplicate(false)
 	var schema: GFDictionarySchema = _read_schema(options)
 	if schema != null:
-		source_values = _normalize_dictionary_with_schema(source_values, schema, options)
+		source_values = _normalize_dictionary_with_schema(
+			source_values,
+			schema,
+			options
+		)
 
 	var state: Dictionary = _make_state(options)
 	var allowed_lookup: Dictionary = _make_allowed_lookup(options, schema)
@@ -44,28 +48,57 @@ static func project_dictionary(values: Dictionary, options: Dictionary = {}) -> 
 	var result: Dictionary = {}
 	for key_variant: Variant in source_values.keys():
 		if not _is_plain_key(key_variant):
-			_record_projection_issue("unsupported_key", key_variant, state)
+			_record_projection_issue(
+				"unsupported_key",
+				key_variant,
+				state
+			)
 			continue
 		var field_name: String = GFVariantData.to_text(key_variant)
 		var child_state: Dictionary = _make_child_state(state, key_variant)
 		if not allowed_lookup.is_empty() and not allowed_lookup.has(field_name):
-			_record_projection_issue("field_not_allowed", source_values[key_variant], child_state)
+			_record_projection_issue(
+				"field_not_allowed",
+				source_values[key_variant],
+				child_state
+			)
 			continue
-		var projected: Dictionary = _project_value(source_values[key_variant], 0, child_state)
-		if not GFVariantData.get_option_bool(projected, "ok", false):
+		var projected: Dictionary = _project_value(
+			source_values[key_variant],
+			0,
+			child_state
+		)
+		if not GFVariantData.get_option_bool(
+			projected,
+			"ok",
+			false
+		):
 			continue
 
-		var output_key: Variant = _rename_key(key_variant, field_name, rename_fields)
+		var output_key: Variant = _rename_key(
+			key_variant,
+			field_name,
+			rename_fields
+		)
 		if not _is_plain_key(output_key):
-			_record_projection_issue("unsupported_key", output_key, child_state)
+			_record_projection_issue(
+				"unsupported_key",
+				output_key,
+				child_state
+			)
 			continue
 		result[output_key] = GFVariantData.duplicate_variant(GFVariantData.get_option_value(projected, "value"))
 
 	var defaults: Dictionary = GFVariantData.get_option_dictionary(options, "defaults")
 	if not defaults.is_empty():
-		var projected_defaults: Dictionary = _project_dictionary_value(defaults, -1, state)
+		var projected_defaults: Dictionary = _project_dictionary_value(
+			defaults,
+			-1,
+			state
+		)
 		var _merged_defaults: Dictionary = GFVariantData.deep_merge_defaults(
-			result, GFVariantData.get_option_dictionary(projected_defaults, "value")
+			result,
+			GFVariantData.get_option_dictionary(projected_defaults, "value")
 		)
 	return _dictionary_to_requested_output(result, options)
 
@@ -97,7 +130,11 @@ static func project_object(
 	if object_ref == null:
 		return project_dictionary({}, options)
 	if not is_instance_valid(object_ref):
-		_record_projection_issue("invalid_object", null, _make_state(options))
+		_record_projection_issue(
+			"invalid_object",
+			null,
+			_make_state(options)
+		)
 		return project_dictionary({}, options)
 	if fields.is_empty():
 		return project_dictionary({}, options)
@@ -131,10 +168,22 @@ static func project_object(
 ## [br]
 ## @schema return: Variant，投影后的纯数据。
 static func project_value(value: Variant, options: Dictionary = {}) -> Variant:
-	var projected: Dictionary = _project_value(value, 0, _make_state(options))
-	if GFVariantData.get_option_bool(projected, "ok", false):
+	var projected: Dictionary = _project_value(
+		value,
+		0,
+		_make_state(options)
+	)
+	if GFVariantData.get_option_bool(
+		projected,
+		"ok",
+		false
+	):
 		var projected_value: Variant = GFVariantData.get_option_value(projected, "value")
-		if GFVariantData.get_option_bool(options, "json_safe", false):
+		if GFVariantData.get_option_bool(
+			options,
+			"json_safe",
+			false
+		):
 			return GFVariantJsonCodec.variant_to_json_compatible(projected_value)
 		return projected_value
 	return null
@@ -159,7 +208,11 @@ static func project_value(value: Variant, options: Dictionary = {}) -> Variant:
 ## @schema return: Dictionary，包含投影结果和校验报告。
 static func project_with_report(source: Variant, options: Dictionary = {}) -> Dictionary:
 	var report: GFValidationReport = GFValidationReport.new(
-		GFVariantData.get_option_string(options, "subject", "Data projection")
+		GFVariantData.get_option_string(
+			options,
+			"subject",
+			"Data projection"
+		)
 	)
 	var data: Dictionary = {}
 	var report_options: Dictionary = options.duplicate(true)
@@ -169,23 +222,21 @@ static func project_with_report(source: Variant, options: Dictionary = {}) -> Di
 		data = project_dictionary(source_dictionary, report_options)
 	elif typeof(source) == TYPE_OBJECT:
 		if not is_instance_valid(source):
-			var _invalid_object_issue: RefCounted = report.add_warning(
-				&"invalid_object",
-				"Projection source object is no longer valid."
-			)
+			var _invalid_object_issue: RefCounted = report.add_warning(&"invalid_object", "Projection source object is no longer valid.")
 		else:
 			var object_ref: Object = source
-			data = project_object(object_ref, _to_packed_string_array(GFVariantData.get_option_value(options, "fields")), report_options)
+			data = project_object(
+				object_ref,
+				_to_packed_string_array(GFVariantData.get_option_value(options, "fields")),
+				report_options
+			)
 	else:
-		var _unsupported_issue: RefCounted = report.add_error(
-			&"unsupported_source",
-			"Projection source must be a Dictionary or Object."
-		)
+		var _unsupported_issue: RefCounted = report.add_error(&"unsupported_source", "Projection source must be a Dictionary or Object.")
 
-	return GFResultDictionary.make(report.is_ok(), {
-		GFResultDictionary.KEY_DATA: data,
-		"report": report,
-	})
+	return GFResultDictionary.make(
+		report.is_ok(),
+		{ GFResultDictionary.KEY_DATA: data, "report": report, }
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -194,97 +245,171 @@ static func project_with_report(source: Variant, options: Dictionary = {}) -> Di
 ## [br]
 ## @api private
 ## [br]
-static func _project_value(value: Variant, depth: int, state: Dictionary) -> Dictionary:
-	var max_depth: int = GFVariantData.get_option_int(state, "max_depth", 8)
+static func _project_value(
+	value: Variant,
+	depth: int,
+	state: Dictionary
+) -> Dictionary:
+	var max_depth: int = GFVariantData.get_option_int(
+		state,
+		"max_depth",
+		8
+	)
 	if max_depth > 0 and depth > max_depth:
-		return _handle_unsupported("max_depth_exceeded", value, state)
+		return _handle_unsupported(
+			"max_depth_exceeded",
+			value,
+			state
+		)
 	if value == null:
-		if GFVariantData.get_option_bool(state, "include_null", true):
+		if GFVariantData.get_option_bool(
+			state,
+			"include_null",
+			true
+		):
 			return { "ok": true, "value": null }
 		return { "ok": false }
 	if value is Dictionary:
 		var dictionary_value: Dictionary = value
-		return _project_dictionary_value(dictionary_value, depth, state)
+		return _project_dictionary_value(
+			dictionary_value,
+			depth,
+			state
+		)
 	if value is Array:
 		var array_value: Array = value
-		return _project_array_value(array_value, depth, state)
+		return _project_array_value(
+			array_value,
+			depth,
+			state
+		)
 	if _is_plain_value(value):
-		return {
-			"ok": true,
-			"value": GFVariantData.duplicate_variant(value),
-		}
-	return _handle_unsupported("unsupported_value", value, state)
+		return { "ok": true, "value": GFVariantData.duplicate_variant(value), }
+	return _handle_unsupported(
+		"unsupported_value",
+		value,
+		state
+	)
 
 
 ## 遍历字典键值，检测循环容器、过滤不允许的字段，并递归投影保留项。
 ## [br]
 ## @api private
 ## [br]
-static func _project_dictionary_value(value: Dictionary, depth: int, state: Dictionary) -> Dictionary:
+static func _project_dictionary_value(
+	value: Dictionary,
+	depth: int,
+	state: Dictionary
+) -> Dictionary:
 	if _is_container_active(value, state):
-		return _handle_unsupported("circular_reference", value, state)
+		return _handle_unsupported(
+			"circular_reference",
+			value,
+			state
+		)
 
 	_push_active_container(value, state)
 	var result: Dictionary = {}
 	for key_variant: Variant in value.keys():
 		if not _is_plain_key(key_variant):
-			_record_projection_issue("unsupported_key", key_variant, state)
+			_record_projection_issue(
+				"unsupported_key",
+				key_variant,
+				state
+			)
 			continue
 		var child_state: Dictionary = _make_child_state(state, key_variant)
-		var projected: Dictionary = _project_value(value[key_variant], depth + 1, child_state)
-		if GFVariantData.get_option_bool(projected, "ok", false):
+		var projected: Dictionary = _project_value(
+			value[key_variant],
+			depth + 1,
+			child_state
+		)
+		if GFVariantData.get_option_bool(
+			projected,
+			"ok",
+			false
+		):
 			result[key_variant] = GFVariantData.duplicate_variant(GFVariantData.get_option_value(projected, "value"))
 	_pop_active_container(state)
-	return {
-		"ok": true,
-		"value": result,
-	}
+	return { "ok": true, "value": result, }
 
 
 ## 递归投影数组元素；子项失败时按配置保留 null 以维持数组位置。
 ## [br]
 ## @api private
 ## [br]
-static func _project_array_value(value: Array, depth: int, state: Dictionary) -> Dictionary:
+static func _project_array_value(
+	value: Array,
+	depth: int,
+	state: Dictionary
+) -> Dictionary:
 	if _is_container_active(value, state):
-		return _handle_unsupported("circular_reference", value, state)
+		return _handle_unsupported(
+			"circular_reference",
+			value,
+			state
+		)
 
 	_push_active_container(value, state)
 	var result: Array = []
 	for index: int in range(value.size()):
 		var item: Variant = value[index]
 		var child_state: Dictionary = _make_child_state(state, index)
-		var projected: Dictionary = _project_value(item, depth + 1, child_state)
-		if GFVariantData.get_option_bool(projected, "ok", false):
+		var projected: Dictionary = _project_value(
+			item,
+			depth + 1,
+			child_state
+		)
+		if GFVariantData.get_option_bool(
+			projected,
+			"ok",
+			false
+		):
 			result.append(GFVariantData.duplicate_variant(GFVariantData.get_option_value(projected, "value")))
-		elif GFVariantData.get_option_bool(state, "preserve_array_shape", true):
+		elif GFVariantData.get_option_bool(
+			state,
+			"preserve_array_shape",
+			true
+		):
 			result.append(null)
 	_pop_active_container(state)
-	return {
-		"ok": true,
-		"value": result,
-	}
+	return { "ok": true, "value": result, }
 
 
 ## 记录不支持值的问题，并依配置返回 null、文本、元数据或丢弃结果。
 ## [br]
 ## @api private
 ## [br]
-static func _handle_unsupported(reason: String, value: Variant, state: Dictionary) -> Dictionary:
-	_record_projection_issue(reason, value, state)
-	var mode: String = GFVariantData.get_option_string(state, "unsupported", "drop").to_lower()
+static func _handle_unsupported(
+	reason: String,
+	value: Variant,
+	state: Dictionary
+) -> Dictionary:
+	_record_projection_issue(
+		reason,
+		value,
+		state
+	)
+	var mode: String = GFVariantData.get_option_string(
+		state,
+		"unsupported",
+		"drop"
+	).to_lower()
 	match mode:
 		"null":
 			return { "ok": true, "value": null }
 		"string":
-			return { "ok": true, "value": GFVariantData.to_text(value, type_string(typeof(value))) }
+			return {
+				"ok": true,
+				"value": GFVariantData.to_text(
+					value,
+					type_string(typeof(value))
+				),
+			}
 		"metadata":
 			return {
 				"ok": true,
-				"value": {
-					"unsupported": reason,
-					"type": type_string(typeof(value)),
-				},
+				"value": { "unsupported": reason, "type": type_string(typeof(value)), },
 			}
 		_:
 			return { "ok": false }
@@ -296,10 +421,29 @@ static func _handle_unsupported(reason: String, value: Variant, state: Dictionar
 ## [br]
 static func _make_state(options: Dictionary) -> Dictionary:
 	return {
-		"max_depth": maxi(GFVariantData.get_option_int(options, "max_depth", 8), 0),
-		"unsupported": GFVariantData.get_option_string(options, "unsupported", "drop"),
-		"include_null": GFVariantData.get_option_bool(options, "include_null", true),
-		"preserve_array_shape": GFVariantData.get_option_bool(options, "preserve_array_shape", true),
+		"max_depth": maxi(
+			GFVariantData.get_option_int(
+				options,
+				"max_depth",
+				8
+			),
+			0
+		),
+		"unsupported": GFVariantData.get_option_string(
+			options,
+			"unsupported",
+			"drop"
+		),
+		"include_null": GFVariantData.get_option_bool(
+			options,
+			"include_null",
+			true
+		),
+		"preserve_array_shape": GFVariantData.get_option_bool(
+			options,
+			"preserve_array_shape",
+			true
+		),
 		"report": _variant_to_validation_report(GFVariantData.get_option_value(options, "_projection_report")),
 		"path_segments": [],
 		"active_containers": [],
@@ -312,7 +456,15 @@ static func _make_state(options: Dictionary) -> Dictionary:
 ## [br]
 static func _make_allowed_lookup(options: Dictionary, schema: GFDictionarySchema) -> Dictionary:
 	var allowed_fields: PackedStringArray = _to_packed_string_array(GFVariantData.get_option_value(options, "allowed_fields"))
-	if allowed_fields.is_empty() and schema != null and GFVariantData.get_option_bool(options, "schema_fields_only", false):
+	if (
+		allowed_fields.is_empty()
+		and schema != null
+		and GFVariantData.get_option_bool(
+			options,
+			"schema_fields_only",
+			false
+		)
+	):
 		allowed_fields = schema.get_field_names()
 
 	var result: Dictionary = {}
@@ -326,7 +478,11 @@ static func _make_allowed_lookup(options: Dictionary, schema: GFDictionarySchema
 ## [br]
 ## @api private
 ## [br]
-static func _rename_key(source_key: Variant, field_name: String, rename_fields: Dictionary) -> Variant:
+static func _rename_key(
+	source_key: Variant,
+	field_name: String,
+	rename_fields: Dictionary
+) -> Variant:
 	if rename_fields.has(field_name):
 		return GFVariantData.get_option_value(rename_fields, field_name)
 	var field_key: StringName = StringName(field_name)
@@ -357,15 +513,26 @@ static func _normalize_dictionary_with_schema(
 	options: Dictionary
 ) -> Dictionary:
 	var schema_options: Dictionary = {
-		"include_optional": GFVariantData.get_option_bool(options, "include_defaults", true),
+		"include_optional": GFVariantData.get_option_bool(
+			options,
+			"include_defaults",
+			true
+		),
 		"coerce": true,
 		"strip_extra_fields": false,
 		"validate_rows": true,
 		"keep_invalid_rows": true,
 		"path": GFVariantData.get_option_string(options, "path"),
-		"subject": GFVariantData.get_option_string(options, "subject", "Data projection"),
+		"subject": GFVariantData.get_option_string(
+			options,
+			"subject",
+			"Data projection"
+		),
 	}
-	var normalized: Dictionary = schema.normalize_dictionary_array([values], schema_options)
+	var normalized: Dictionary = schema.normalize_dictionary_array(
+		[values],
+		schema_options
+	)
 	var projection_report: GFValidationReport = _variant_to_validation_report(GFVariantData.get_option_value(options, "_projection_report"))
 	var schema_report: GFValidationReport = _variant_to_validation_report(GFVariantData.get_option_value(normalized, "report"))
 	if projection_report != null and schema_report != null:
@@ -383,7 +550,11 @@ static func _normalize_dictionary_with_schema(
 ## @api private
 ## [br]
 static func _is_plain_key(value: Variant) -> bool:
-	return value is String or value is StringName or value is int
+	return (
+		value is String
+		or value is StringName
+		or value is int
+	)
 
 
 ## 判断值是否属于此投影器明确支持的标量、几何值或 Packed 数组类型。
@@ -424,7 +595,11 @@ static func _is_plain_value(value: Variant) -> bool:
 ## @api private
 ## [br]
 static func _dictionary_to_requested_output(value: Dictionary, options: Dictionary) -> Dictionary:
-	if not GFVariantData.get_option_bool(options, "json_safe", false):
+	if not GFVariantData.get_option_bool(
+		options,
+		"json_safe",
+		false
+	):
 		return value
 	var encoded: Variant = GFVariantJsonCodec.variant_to_json_compatible(value)
 	if encoded is Dictionary:
@@ -494,7 +669,11 @@ static func _pop_active_container(state: Dictionary) -> void:
 ## @api private
 ## [br]
 static func _get_active_containers(state: Dictionary) -> Array:
-	var active_value: Variant = GFVariantData.get_option_value(state, "active_containers", [])
+	var active_value: Variant = GFVariantData.get_option_value(
+		state,
+		"active_containers",
+		[]
+	)
 	if active_value is Array:
 		var active_array: Array = active_value
 		return active_array
@@ -519,7 +698,11 @@ static func _make_child_state(state: Dictionary, path_segment: Variant) -> Dicti
 ## [br]
 ## @api private
 ## [br]
-static func _record_projection_issue(reason: String, value: Variant, state: Dictionary) -> void:
+static func _record_projection_issue(
+	reason: String,
+	value: Variant,
+	state: Dictionary
+) -> void:
 	var report: GFValidationReport = _variant_to_validation_report(GFVariantData.get_option_value(state, "report"))
 	if report == null:
 		return
@@ -531,10 +714,7 @@ static func _record_projection_issue(reason: String, value: Variant, state: Dict
 		"Projection dropped a value.",
 		issue_key,
 		issue_path,
-		{
-			"reason": reason,
-			"value_type": type_string(typeof(value)),
-		}
+		{ "reason": reason, "value_type": type_string(typeof(value)), }
 	)
 
 

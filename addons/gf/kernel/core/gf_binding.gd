@@ -271,7 +271,11 @@ func dispose_cached_instance() -> void:
 
 	if _owner_architecture != null:
 		_owner_architecture.unregister_owner_events(instance)
-	if _should_dispose_cached_instance and is_instance_valid(instance) and instance.has_method("dispose"):
+	if (
+		_should_dispose_cached_instance
+		and is_instance_valid(instance)
+		and instance.has_method("dispose")
+	):
 		instance.call("dispose")
 	if is_instance_valid(instance):
 		_release_instance_scope(instance)
@@ -290,16 +294,9 @@ func _provide(
 	var admitted_requester: GFArchitecture = requesting_architecture
 	if admitted_requester == null:
 		admitted_requester = injection_architecture
-	var owner_lifecycle_generation: int = (
-		_get_admitted_lifecycle_generation(_owner_architecture)
-	)
-	var requester_lifecycle_generation: int = (
-		_get_admitted_lifecycle_generation(admitted_requester)
-	)
-	if (
-		owner_lifecycle_generation < 0
-		or requester_lifecycle_generation < 0
-	):
+	var owner_lifecycle_generation: int = _get_admitted_lifecycle_generation(_owner_architecture)
+	var requester_lifecycle_generation: int = _get_admitted_lifecycle_generation(admitted_requester)
+	if (owner_lifecycle_generation < 0 or requester_lifecycle_generation < 0):
 		_mark_resolution_context_failed(resolution_context)
 		return null
 	var value: Variant
@@ -383,13 +380,8 @@ func _provide(
 ## 仅在架构接受运行时工作时返回其生命周期 generation，否则返回 -1。
 ## [br]
 ## @api private
-func _get_admitted_lifecycle_generation(
-	architecture: GFArchitecture
-) -> int:
-	if (
-		architecture == null
-		or not architecture.is_accepting_runtime_work()
-	):
+func _get_admitted_lifecycle_generation(architecture: GFArchitecture) -> int:
+	if (architecture == null or not architecture.is_accepting_runtime_work()):
 		return -1
 	return architecture.get_lifecycle_generation()
 
@@ -402,25 +394,13 @@ func _is_admission_guard_current(
 	owner_lifecycle_generation: int,
 	requester_lifecycle_generation: int
 ) -> bool:
-	return (
-		_is_architecture_admission_current(
-			_owner_architecture,
-			owner_lifecycle_generation
-		)
-		and _is_architecture_admission_current(
-			requesting_architecture,
-			requester_lifecycle_generation
-		)
-	)
+	return (_is_architecture_admission_current(_owner_architecture, owner_lifecycle_generation) and _is_architecture_admission_current(requesting_architecture, requester_lifecycle_generation))
 
 
 ## 检查架构仍接受运行时工作且其 generation 与捕获值一致。
 ## [br]
 ## @api private
-func _is_architecture_admission_current(
-	architecture: GFArchitecture,
-	lifecycle_generation: int
-) -> bool:
+func _is_architecture_admission_current(architecture: GFArchitecture, lifecycle_generation: int) -> bool:
 	return (
 		architecture != null
 		and lifecycle_generation >= 0
@@ -588,10 +568,7 @@ func _register_created_singleton_in_resolution_context(resolution_context: Dicti
 	if not created_value is Array:
 		return
 	var created_singletons: Array = created_value
-	created_singletons.append({
-		_RESOLUTION_CONTEXT_BINDING_KEY: self,
-		_RESOLUTION_CONTEXT_INSTANCE_KEY: instance,
-	})
+	created_singletons.append({ _RESOLUTION_CONTEXT_BINDING_KEY: self, _RESOLUTION_CONTEXT_INSTANCE_KEY: instance, })
 	resolution_context[_RESOLUTION_CONTEXT_CREATED_SINGLETONS_KEY] = created_singletons
 
 

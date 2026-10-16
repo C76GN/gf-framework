@@ -266,7 +266,7 @@ func start_level(level_id: Variant, level_data_override: Dictionary = {}) -> Dic
 		push_error("[GFLevelUtility][level_utility.empty_start_level_id] start_level failed: level ID is empty.")
 		return {}
 	var next_override: Dictionary = level_data_override.duplicate(true)
-	var next_data: Dictionary = next_override.duplicate(true) if not next_override.is_empty() else load_level_data(canonical_level_id)
+	var next_data: Dictionary = (next_override.duplicate(true) if not next_override.is_empty() else load_level_data(canonical_level_id))
 	if fail_on_missing_level_data and next_data.is_empty():
 		push_error("[GFLevelUtility][level_utility.missing_level_data] Level data was not found: %s." % String(canonical_level_id))
 		return {}
@@ -274,7 +274,10 @@ func start_level(level_id: Variant, level_data_override: Dictionary = {}) -> Dic
 	current_level_id = canonical_level_id
 	_current_level_override = next_override
 	current_level_data = next_data
-	level_started.emit(current_level_id, current_level_data.duplicate(true))
+	level_started.emit(
+		current_level_id,
+		current_level_data.duplicate(true)
+	)
 	return current_level_data.duplicate(true)
 
 
@@ -302,7 +305,10 @@ func restart_level(clear_runtime: bool = true) -> Dictionary:
 		clear_level_runtime()
 
 	current_level_data = next_data
-	level_restarted.emit(current_level_id, current_level_data.duplicate(true))
+	level_restarted.emit(
+		current_level_id,
+		current_level_data.duplicate(true)
+	)
 	return current_level_data.duplicate(true)
 
 

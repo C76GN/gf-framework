@@ -200,7 +200,7 @@ func to_dict(json_compatible: bool = true) -> Dictionary:
 	return {
 		"profiles": profile_data,
 		"active_profile_id": String(active_profile_id),
-		"custom_data": GFVariantJsonCodec.variant_to_json_compatible(custom_data) if json_compatible else GFVariantData.duplicate_variant(custom_data),
+		"custom_data": (GFVariantJsonCodec.variant_to_json_compatible(custom_data) if json_compatible else GFVariantData.duplicate_variant(custom_data)),
 	}
 
 
@@ -226,21 +226,37 @@ func apply_dict(data: Dictionary, json_compatible: bool = true) -> void:
 		var profile_value: Variant = GFVariantData.get_option_value(profile_data, profile_key)
 		if profile_value is GFInputRemapConfig:
 			var resource_config: GFInputRemapConfig = profile_value
-			set_profile(profile_id, resource_config, true)
+			set_profile(
+				profile_id,
+				resource_config,
+				true
+			)
 		elif profile_value is Dictionary:
 			var config_data: Dictionary = GFVariantData.as_dictionary(profile_value)
 			var restored_config: GFInputRemapConfig = GFInputRemapConfig.from_dict(config_data, json_compatible)
-			set_profile(profile_id, restored_config, false)
+			set_profile(
+				profile_id,
+				restored_config,
+				false
+			)
 
-	var requested_active_id: StringName = GFVariantData.get_option_string_name(data, "active_profile_id", &"")
+	var requested_active_id: StringName = GFVariantData.get_option_string_name(
+		data,
+		"active_profile_id",
+		&""
+	)
 	if requested_active_id != &"" and has_profile(requested_active_id):
 		active_profile_id = requested_active_id
 	else:
 		var ids: PackedStringArray = get_profile_ids()
 		active_profile_id = StringName(ids[0]) if not ids.is_empty() else &""
 
-	var custom_data_value: Variant = GFVariantData.get_option_value(data, "custom_data", {})
-	custom_data_value = GFVariantJsonCodec.json_compatible_to_variant(custom_data_value) if json_compatible else GFVariantData.duplicate_variant(custom_data_value)
+	var custom_data_value: Variant = GFVariantData.get_option_value(
+		data,
+		"custom_data",
+		{}
+	)
+	custom_data_value = (GFVariantJsonCodec.json_compatible_to_variant(custom_data_value) if json_compatible else GFVariantData.duplicate_variant(custom_data_value))
 	custom_data = GFVariantData.as_dictionary(custom_data_value)
 
 
@@ -271,7 +287,10 @@ static func from_dict(data: Dictionary, json_compatible: bool = true) -> GFInput
 ## [br]
 ## @return 新的配置集合。
 func duplicate_bank() -> GFInputProfileBank:
-	return GFInputProfileBank.from_dict(to_dict(false), false)
+	return GFInputProfileBank.from_dict(
+		to_dict(false),
+		false
+	)
 
 
 # --- 私有/辅助方法 ---

@@ -27,7 +27,11 @@ extends RefCounted
 ## @param metadata: 当前进度元数据。
 ## [br]
 ## @schema metadata: Dictionary，调用方定义的进度上下文。
-signal progressed(value: float, message: String, metadata: Dictionary)
+signal progressed(
+	value: float,
+	message: String,
+	metadata: Dictionary
+)
 
 
 # --- 公共变量 ---
@@ -111,8 +115,16 @@ var _has_emitted: bool = false
 ## @param initial_metadata: 初始元数据。
 ## [br]
 ## @schema initial_metadata: Dictionary，调用方定义的进度上下文。
-func _init(initial_value: float = 0.0, initial_message: String = "", initial_metadata: Dictionary = {}) -> void:
-	_value = clampf(initial_value, 0.0, 1.0)
+func _init(
+	initial_value: float = 0.0,
+	initial_message: String = "",
+	initial_metadata: Dictionary = {}
+) -> void:
+	_value = clampf(
+		initial_value,
+		0.0,
+		1.0
+	)
 	_message = initial_message
 	_metadata = initial_metadata.duplicate(true)
 
@@ -134,8 +146,16 @@ func _init(initial_value: float = 0.0, initial_message: String = "", initial_met
 ## @return 本次更新是否发出了 progressed。
 ## [br]
 ## @schema metadata: Dictionary，调用方定义的进度上下文。
-func update(value: float, message: String = "", metadata: Dictionary = {}) -> bool:
-	_value = clampf(value, 0.0, 1.0)
+func update(
+	value: float,
+	message: String = "",
+	metadata: Dictionary = {}
+) -> bool:
+	_value = clampf(
+		value,
+		0.0,
+		1.0
+	)
 	_message = message
 	_metadata = metadata.duplicate(true)
 	if not _should_emit(false):
@@ -190,8 +210,16 @@ func complete(message: String = "", metadata: Dictionary = {}) -> bool:
 ## @param metadata: 新元数据。
 ## [br]
 ## @schema metadata: Dictionary，调用方定义的进度上下文。
-func reset(value: float = 0.0, message: String = "", metadata: Dictionary = {}) -> void:
-	_value = clampf(value, 0.0, 1.0)
+func reset(
+	value: float = 0.0,
+	message: String = "",
+	metadata: Dictionary = {}
+) -> void:
+	_value = clampf(
+		value,
+		0.0,
+		1.0
+	)
 	_message = message
 	_metadata = metadata.duplicate(true)
 	_last_emitted_value = _value
@@ -286,4 +314,8 @@ func _emit_progress() -> void:
 	_last_emitted_message = _message
 	_last_emitted_msec = Time.get_ticks_msec()
 	_has_emitted = true
-	progressed.emit(_value, _message, _metadata.duplicate(true))
+	progressed.emit(
+		_value,
+		_message,
+		_metadata.duplicate(true)
+	)

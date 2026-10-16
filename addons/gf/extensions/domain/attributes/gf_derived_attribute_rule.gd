@@ -96,7 +96,13 @@ func calculate(attribute_set: Object) -> float:
 	for source_id: StringName in get_source_attribute_ids():
 		if source_id == &"" or not attribute_set.has_method("get_value"):
 			continue
-		result += GFVariantData.to_float(attribute_set.call("get_value", source_id, 0.0)) * get_source_weight(source_id)
+		result += GFVariantData.to_float(
+			attribute_set.call(
+				"get_value",
+				source_id,
+				0.0
+			)
+		) * get_source_weight(source_id)
 	return _clamp_result(result)
 
 
@@ -125,8 +131,16 @@ func get_source_attribute_ids() -> Array[StringName]:
 ## [br]
 ## @return: 权重；未配置时返回 1。
 func get_source_weight(source_attribute_id: StringName) -> float:
-	var fallback: float = GFVariantData.get_option_float(source_weights, String(source_attribute_id), 1.0)
-	return GFVariantData.get_option_float(source_weights, source_attribute_id, fallback)
+	var fallback: float = GFVariantData.get_option_float(
+		source_weights,
+		String(source_attribute_id),
+		1.0
+	)
+	return GFVariantData.get_option_float(
+		source_weights,
+		source_attribute_id,
+		fallback
+	)
 
 
 ## 判断是否依赖指定属性。
@@ -158,7 +172,11 @@ func duplicate_rule() -> GFDerivedAttributeRule:
 func _clamp_result(value: float) -> float:
 	var safe_min: float = minf(min_value, max_value)
 	var safe_max: float = maxf(min_value, max_value)
-	return clampf(value, safe_min, safe_max)
+	return clampf(
+		value,
+		safe_min,
+		safe_max
+	)
 
 
 ## 将任意值收窄为 GFDerivedAttributeRule 实例，否则返回 null。

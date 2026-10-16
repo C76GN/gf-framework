@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDecisionBlackboard" path="addons/gf/extensions/decision/runtime/gf_decision_blackboard.gd" module="extensions/decision" extends="RefCounted" classDigest="d903b84e15da295ca7d9cd997867ee4a664ddb95e214da7b1890529c0af81e62">
+<class name="GFDecisionBlackboard" path="addons/gf/extensions/decision/runtime/gf_decision_blackboard.gd" module="extensions/decision" extends="RefCounted" classDigest="4d896eab2cd9364f63f2345eb7ddc4b88580d0f7f5e6711c998ef04016cf3b1d">
 	<description>GFDecisionBlackboard: 通用决策黑板。
 保存一组由项目定义的运行时值，用于 Utility AI、导演系统或其他决策流程读取。
 它只管理键值、变更信号和调试快照，不规定任何玩法字段。</description>
@@ -10,7 +10,7 @@
 	</tags>
 	<signals>
 		<member kind="signal" name="value_changed">
-			<signature>signal value_changed(key: StringName, old_value: Variant, new_value: Variant)</signature>
+			<signature>signal value_changed( key: StringName, old_value: Variant, new_value: Variant )</signature>
 			<description>当黑板值发生变化时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -19,6 +19,7 @@
 				<tag name="param">new_value: 新值。</tag>
 				<tag name="schema">old_value: 黑板中的任意项目值；之前不存在时为 null。</tag>
 				<tag name="schema">new_value: 黑板中的任意项目值。</tag>
+				<tag name="since">4.3.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="value_removed">

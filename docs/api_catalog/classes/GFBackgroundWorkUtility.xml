@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBackgroundWorkUtility" path="addons/gf/standard/utilities/jobs/gf_background_work_utility.gd" module="standard" extends="GFUtility" classDigest="a91665d7570b145ed9f01a982826681174dffd5b330fafe20957f04a26b6d773">
+<class name="GFBackgroundWorkUtility" path="addons/gf/standard/utilities/jobs/gf_background_work_utility.gd" module="standard" extends="GFUtility" classDigest="3ff8eea18915928f893ef428a1e253392c6592c1fd83285e58a9f7bc1bfb3ea9">
 	<description>GFBackgroundWorkUtility: 纯数据后台工作协调器。
 统一协调 CPU/IO 线程工作、ResourceLoader 线程加载和主线程应用回调。
 默认只允许纯 Variant 输入数据，避免后台线程直接触碰 Node、Resource 或 Callable。</description>
@@ -26,13 +26,14 @@
 			</tags>
 		</member>
 		<member kind="signal" name="work_progressed">
-			<signature>signal work_progressed(task: GFBackgroundWorkTask, progress: float, message: String)</signature>
+			<signature>signal work_progressed( task: GFBackgroundWorkTask, progress: float, message: String )</signature>
 			<description>工作进度变化时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">task: 工作记录。</tag>
 				<tag name="param">progress: 当前进度。</tag>
 				<tag name="param">message: 进度说明。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="work_completed">
@@ -176,7 +177,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="setup_standalone_resource_broker">
-			<signature>func setup_standalone_resource_broker( max_active_requests: int = 4, max_pending_requests: int = 256 ) -&gt; GFResourceBroker:</signature>
+			<signature>func setup_standalone_resource_broker(max_active_requests: int = 4, max_pending_requests: int = 256) -&gt; GFResourceBroker:</signature>
 			<description>为单个独立 BackgroundWork Utility 显式创建私有 Resource Broker。
 需要与 Asset 或 Scene 协调时，应由项目创建一个共享 Broker 并分别注入。</description>
 			<tags>
@@ -279,7 +280,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="update_work_progress">
-			<signature>func update_work_progress(work_id: StringName, progress: float, message: String = "") -&gt; bool:</signature>
+			<signature>func update_work_progress( work_id: StringName, progress: float, message: String = "" ) -&gt; bool:</signature>
 			<description>更新工作进度。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -287,6 +288,7 @@
 				<tag name="param">progress: 当前进度。</tag>
 				<tag name="param">message: 进度说明。</tag>
 				<tag name="return">更新成功返回 true。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_task">

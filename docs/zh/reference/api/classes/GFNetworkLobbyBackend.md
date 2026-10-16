@@ -17,23 +17,23 @@
 |---|---|---|
 | 信号 | [`lobby_updated`](#member-gfnetworklobbybackend-signals-lobby_updated) | `signal lobby_updated(lobby: GFNetworkLobbyDescriptor)` |
 | 信号 | [`member_joined`](#member-gfnetworklobbybackend-signals-member_joined) | `signal member_joined(lobby_id: String, member: GFNetworkLobbyMember)` |
-| 信号 | [`member_left`](#member-gfnetworklobbybackend-signals-member_left) | `signal member_left(lobby_id: String, peer_id: int, reason: String)` |
+| 信号 | [`member_left`](#member-gfnetworklobbybackend-signals-member_left) | `signal member_left( lobby_id: String, peer_id: int, reason: String )` |
 | 信号 | [`invite_received`](#member-gfnetworklobbybackend-signals-invite_received) | `signal invite_received(invite: GFNetworkLobbyInvite)` |
-| 信号 | [`backend_error`](#member-gfnetworklobbybackend-signals-backend_error) | `signal backend_error(operation: StringName, error: StringName, details: Dictionary)` |
+| 信号 | [`backend_error`](#member-gfnetworklobbybackend-signals-backend_error) | `signal backend_error( operation: StringName, error: StringName, details: Dictionary )` |
 | 属性 | [`backend_id`](#member-gfnetworklobbybackend-properties-backend_id) | `var backend_id: StringName = &""` |
-| 方法 | [`invoke_operation`](#member-gfnetworklobbybackend-methods-invoke_operation) | `func invoke_operation( request: GFNetworkLobbyOperationRequest ) -> GFNetworkLobbyOperationHandle:` |
+| 方法 | [`invoke_operation`](#member-gfnetworklobbybackend-methods-invoke_operation) | `func invoke_operation(request: GFNetworkLobbyOperationRequest) -> GFNetworkLobbyOperationHandle:` |
 | 方法 | [`poll`](#member-gfnetworklobbybackend-methods-poll) | `func poll(delta: float) -> void:` |
 | 方法 | [`close`](#member-gfnetworklobbybackend-methods-close) | `func close() -> void:` |
 | 方法 | [`get_debug_snapshot`](#member-gfnetworklobbybackend-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
-| 方法 | [`_dispatch_operation`](#member-gfnetworklobbybackend-methods-_dispatch_operation) | `func _dispatch_operation( _request: GFNetworkLobbyOperationRequest, _handle: GFNetworkLobbyOperationHandle ) -> bool:` |
-| 方法 | [`_cancel_operation`](#member-gfnetworklobbybackend-methods-_cancel_operation) | `func _cancel_operation( _handle: GFNetworkLobbyOperationHandle, _reason: StringName ) -> void:` |
+| 方法 | [`_dispatch_operation`](#member-gfnetworklobbybackend-methods-_dispatch_operation) | `func _dispatch_operation(_request: GFNetworkLobbyOperationRequest, _handle: GFNetworkLobbyOperationHandle) -> bool:` |
+| 方法 | [`_cancel_operation`](#member-gfnetworklobbybackend-methods-_cancel_operation) | `func _cancel_operation(_handle: GFNetworkLobbyOperationHandle, _reason: StringName) -> void:` |
 | 方法 | [`_release_operation`](#member-gfnetworklobbybackend-methods-_release_operation) | `func _release_operation(handle: GFNetworkLobbyOperationHandle) -> bool:` |
 | 方法 | [`_poll`](#member-gfnetworklobbybackend-methods-_poll) | `func _poll(_delta: float) -> void:` |
 | 方法 | [`_close`](#member-gfnetworklobbybackend-methods-_close) | `func _close() -> void:` |
-| 方法 | [`_succeed_operation`](#member-gfnetworklobbybackend-methods-_succeed_operation) | `func _succeed_operation( handle: GFNetworkLobbyOperationHandle, options: Dictionary = {} ) -> bool:` |
+| 方法 | [`_succeed_operation`](#member-gfnetworklobbybackend-methods-_succeed_operation) | `func _succeed_operation(handle: GFNetworkLobbyOperationHandle, options: Dictionary = {}) -> bool:` |
 | 方法 | [`_fail_operation`](#member-gfnetworklobbybackend-methods-_fail_operation) | `func _fail_operation( handle: GFNetworkLobbyOperationHandle, error: StringName, message: String = "", metadata: Dictionary = {} ) -> bool:` |
 | 方法 | [`_emit_lobby_updated`](#member-gfnetworklobbybackend-methods-_emit_lobby_updated) | `func _emit_lobby_updated(lobby: GFNetworkLobbyDescriptor) -> void:` |
-| 方法 | [`_emit_member_joined`](#member-gfnetworklobbybackend-methods-_emit_member_joined) | `func _emit_member_joined( lobby_id: String, member: GFNetworkLobbyMember ) -> void:` |
+| 方法 | [`_emit_member_joined`](#member-gfnetworklobbybackend-methods-_emit_member_joined) | `func _emit_member_joined(lobby_id: String, member: GFNetworkLobbyMember) -> void:` |
 | 方法 | [`_emit_member_left`](#member-gfnetworklobbybackend-methods-_emit_member_left) | `func _emit_member_left( lobby_id: String, peer_id: int, reason: String = "left" ) -> void:` |
 | 方法 | [`_emit_invite_received`](#member-gfnetworklobbybackend-methods-_emit_invite_received) | `func _emit_invite_received(invite: GFNetworkLobbyInvite) -> void:` |
 | 方法 | [`_emit_backend_error`](#member-gfnetworklobbybackend-methods-_emit_backend_error) | `func _emit_backend_error( operation: StringName, error: StringName, details: Dictionary = {} ) -> void:` |
@@ -87,7 +87,7 @@ signal member_joined(lobby_id: String, member: GFNetworkLobbyMember)
 - 首次版本：`8.0.0`
 
 ```gdscript
-signal member_left(lobby_id: String, peer_id: int, reason: String)
+signal member_left( lobby_id: String, peer_id: int, reason: String )
 ```
 
 成员离开后发出。
@@ -127,7 +127,7 @@ signal invite_received(invite: GFNetworkLobbyInvite)
 - 首次版本：`8.0.0`
 
 ```gdscript
-signal backend_error(operation: StringName, error: StringName, details: Dictionary)
+signal backend_error( operation: StringName, error: StringName, details: Dictionary )
 ```
 
 后端出现不属于具体请求的错误时发出。
@@ -169,7 +169,7 @@ var backend_id: StringName = &""
 - 首次版本：`10.0.0`
 
 ```gdscript
-func invoke_operation( request: GFNetworkLobbyOperationRequest ) -> GFNetworkLobbyOperationHandle:
+func invoke_operation(request: GFNetworkLobbyOperationRequest) -> GFNetworkLobbyOperationHandle:
 ```
 
 提交 Lobby 操作。 外部 Adapter 不得重写该入口，只实现 `_dispatch_operation`。基类会在调用 provider 前建立取消与完成监听，保证同步回调也不会逃逸生命周期管理。
@@ -241,7 +241,7 @@ func get_debug_snapshot() -> Dictionary:
 - 首次版本：`10.0.0`
 
 ```gdscript
-func _dispatch_operation( _request: GFNetworkLobbyOperationRequest, _handle: GFNetworkLobbyOperationHandle ) -> bool:
+func _dispatch_operation(_request: GFNetworkLobbyOperationRequest, _handle: GFNetworkLobbyOperationHandle) -> bool:
 ```
 
 派发 provider 操作。 实现应保存 request_id 与底层调用的关联，并在回调中调用 `_succeed_operation` 或 `_fail_operation`。返回 false 表示请求未被接受。
@@ -263,7 +263,7 @@ func _dispatch_operation( _request: GFNetworkLobbyOperationRequest, _handle: GFN
 - 首次版本：`10.0.0`
 
 ```gdscript
-func _cancel_operation( _handle: GFNetworkLobbyOperationHandle, _reason: StringName ) -> void:
+func _cancel_operation(_handle: GFNetworkLobbyOperationHandle, _reason: StringName) -> void:
 ```
 
 处理取消或超时通知。
@@ -336,7 +336,7 @@ func _close() -> void:
 - 首次版本：`10.0.0`
 
 ```gdscript
-func _succeed_operation( handle: GFNetworkLobbyOperationHandle, options: Dictionary = {} ) -> bool:
+func _succeed_operation(handle: GFNetworkLobbyOperationHandle, options: Dictionary = {}) -> bool:
 ```
 
 成功完成操作。
@@ -409,7 +409,7 @@ func _emit_lobby_updated(lobby: GFNetworkLobbyDescriptor) -> void:
 - 首次版本：`8.0.0`
 
 ```gdscript
-func _emit_member_joined( lobby_id: String, member: GFNetworkLobbyMember ) -> void:
+func _emit_member_joined(lobby_id: String, member: GFNetworkLobbyMember) -> void:
 ```
 
 发出成员加入事件。

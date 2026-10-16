@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAssetCatalogEntry" path="addons/gf/standard/utilities/assets/gf_asset_catalog_entry.gd" module="standard" extends="Resource" classDigest="65beb22c0b34fbb3ba2d69110612192d98134f344d1c4fee25af41c21b69ca90">
+<class name="GFAssetCatalogEntry" path="addons/gf/standard/utilities/assets/gf_asset_catalog_entry.gd" module="standard" extends="Resource" classDigest="273ecab4bcea01fffd629534da2e9c9f7c9702ee2d3a85d5faae3ed2ed7607b4">
 	<description>GFAssetCatalogEntry: 通用资产目录条目。
 用稳定 asset_id 描述一个可被项目工具检索、预览和审计的资产。
 条目可以引用一个主资源、一个预览资源和多条资源注册表条目，但不解释资产业务语义。</description>
@@ -183,7 +183,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="from_resource_registry_entry">
-			<signature>static func from_resource_registry_entry( registry_entry: GFResourceRegistryEntry, options: Dictionary = {} ) -&gt; GFAssetCatalogEntry:</signature>
+			<signature>static func from_resource_registry_entry(registry_entry: GFResourceRegistryEntry, options: Dictionary = {}) -&gt; GFAssetCatalogEntry:</signature>
 			<description>从资源注册表条目创建资产条目。</description>
 			<tags>
 				<tag name="api">public</tag>

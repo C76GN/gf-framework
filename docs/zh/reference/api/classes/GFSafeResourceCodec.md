@@ -25,8 +25,8 @@
 | 常量 | [`KEY_SCRIPT_PATH`](#member-gfsaferesourcecodec-constants-key_script_path) | `const KEY_SCRIPT_PATH: String = "script_path"` |
 | 常量 | [`KEY_RESOURCE_PATH`](#member-gfsaferesourcecodec-constants-key_resource_path) | `const KEY_RESOURCE_PATH: String = "resource_path"` |
 | 常量 | [`KEY_PROPERTIES`](#member-gfsaferesourcecodec-constants-key_properties) | `const KEY_PROPERTIES: String = "properties"` |
-| 方法 | [`encode`](#member-gfsaferesourcecodec-methods-encode) | `static func encode(value: Variant, policy: GFSafeResourceCodecPolicy = null, options: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`decode`](#member-gfsaferesourcecodec-methods-decode) | `static func decode(data: Dictionary, policy: GFSafeResourceCodecPolicy = null, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`encode`](#member-gfsaferesourcecodec-methods-encode) | `static func encode( value: Variant, policy: GFSafeResourceCodecPolicy = null, options: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`decode`](#member-gfsaferesourcecodec-methods-decode) | `static func decode( data: Dictionary, policy: GFSafeResourceCodecPolicy = null, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`make_resource_policy`](#member-gfsaferesourcecodec-methods-make_resource_policy) | `static func make_resource_policy() -> GFSafeResourceCodecPolicy:` |
 
 ## 常量
@@ -171,7 +171,7 @@ const KEY_PROPERTIES: String = "properties"
 - 首次版本：`6.0.0`
 
 ```gdscript
-static func encode(value: Variant, policy: GFSafeResourceCodecPolicy = null, options: Dictionary = {}) -> Dictionary:
+static func encode( value: Variant, policy: GFSafeResourceCodecPolicy = null, options: Dictionary = {} ) -> Dictionary:
 ```
 
 编码值。
@@ -200,7 +200,7 @@ static func encode(value: Variant, policy: GFSafeResourceCodecPolicy = null, opt
 - 首次版本：`6.0.0`
 
 ```gdscript
-static func decode(data: Dictionary, policy: GFSafeResourceCodecPolicy = null, options: Dictionary = {}) -> Dictionary:
+static func decode( data: Dictionary, policy: GFSafeResourceCodecPolicy = null, options: Dictionary = {} ) -> Dictionary:
 ```
 
 解码值。

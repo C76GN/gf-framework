@@ -84,7 +84,11 @@ func get_route_id() -> StringName:
 ## [br]
 ## @return 路由有效时返回 true。
 func is_valid_route() -> bool:
-	return get_route_id() != &"" and not scene_path.is_empty() and layer >= 0
+	return (
+		get_route_id() != &""
+		and not scene_path.is_empty()
+		and layer >= 0
+	)
 
 
 ## 获取去重且移除自引用后的相邻路由标识。

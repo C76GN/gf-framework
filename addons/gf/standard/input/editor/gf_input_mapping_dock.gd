@@ -294,9 +294,17 @@ func get_remap_config() -> GFInputRemapConfig:
 func load_context_path(path: String) -> Error:
 	var normalized_path: String = _GFPathTools.normalize_resource_path(path)
 	if normalized_path.is_empty():
-		return _render_load_failure("输入上下文路径为空。", "请填写 GFInputContext 资源路径后再加载。", ERR_INVALID_PARAMETER)
+		return _render_load_failure(
+			"输入上下文路径为空。",
+			"请填写 GFInputContext 资源路径后再加载。",
+			ERR_INVALID_PARAMETER
+		)
 	if not normalized_path.begins_with("res://") and not normalized_path.begins_with("user://"):
-		return _render_load_failure("输入上下文路径无效。", "仅支持 res:// 或 user:// 资源路径。", ERR_INVALID_PARAMETER)
+		return _render_load_failure(
+			"输入上下文路径无效。",
+			"仅支持 res:// 或 user:// 资源路径。",
+			ERR_INVALID_PARAMETER
+		)
 	if not _is_supported_resource_extension(normalized_path):
 		return _render_load_failure(
 			"输入上下文路径无效。",
@@ -304,18 +312,27 @@ func load_context_path(path: String) -> Error:
 			ERR_INVALID_PARAMETER
 		)
 	if not FileAccess.file_exists(normalized_path):
-		return _render_load_failure("输入上下文不存在。", "找不到资源：%s" % normalized_path, ERR_FILE_NOT_FOUND)
+		return _render_load_failure(
+			"输入上下文不存在。",
+			"找不到资源：%s" % normalized_path,
+			ERR_FILE_NOT_FOUND
+		)
 
 	var resource_file: FileAccess = FileAccess.open(normalized_path, FileAccess.READ)
 	if resource_file == null:
 		var open_error: Error = FileAccess.get_open_error()
-		return _render_load_failure("输入上下文不可读。", "无法读取资源：%s" % normalized_path, open_error)
+		return _render_load_failure(
+			"输入上下文不可读。",
+			"无法读取资源：%s" % normalized_path,
+			open_error
+		)
 	var resource_file_bytes: int = resource_file.get_length()
 	resource_file.close()
 	if resource_file_bytes > _MAX_RESOURCE_FILE_BYTES:
 		return _render_load_failure(
 			"输入上下文超过大小预算。",
-			"资源大小 %d bytes，大小预算为 %d bytes：%s" % [
+			"资源大小 %d bytes，大小预算为 %d bytes：%s"
+			% [
 				resource_file_bytes,
 				_MAX_RESOURCE_FILE_BYTES,
 				normalized_path,
@@ -326,10 +343,8 @@ func load_context_path(path: String) -> Error:
 	if not _is_input_context_resource_type(declared_resource_type):
 		return _render_load_failure(
 			"输入上下文类型不匹配。",
-			"资源声明类型 %s 不是 GFInputContext：%s" % [
-				declared_resource_type if not declared_resource_type.is_empty() else "<unknown>",
-				normalized_path,
-			],
+			"资源声明类型 %s 不是 GFInputContext：%s"
+			% [declared_resource_type if not declared_resource_type.is_empty() else "<unknown>", normalized_path,],
 			ERR_INVALID_DATA
 		)
 
@@ -347,11 +362,7 @@ func load_context_path(path: String) -> Error:
 		)
 
 	_set_current_context(context)
-	_commit_context_path(
-		_committed_context_path
-		if _resource_paths_share_identity(_committed_context_path, normalized_path)
-		else normalized_path
-	)
+	_commit_context_path((_committed_context_path if _resource_paths_share_identity(_committed_context_path, normalized_path) else normalized_path))
 	refresh()
 	return OK
 
@@ -369,6 +380,7 @@ func refresh() -> void:
 	_connect_context_changed()
 	_refresh_current_context()
 	_refresh_in_progress = false
+
 
 ## 获取最近一次诊断报告。
 ## [br]
@@ -424,10 +436,34 @@ func _build_ui() -> void:
 	var _path_submitted_connected: Error = _path_edit.text_submitted.connect(_on_path_submitted) as Error
 	toolbar.add_child(_path_edit)
 
-	toolbar.add_child(_GFEditorWorkspaceUI.make_button("选择资源…", "选择输入上下文资源。", _on_browse_pressed))
-	toolbar.add_child(_GFEditorWorkspaceUI.make_button("加载", "载入当前路径中的输入上下文。", _on_load_pressed))
-	toolbar.add_child(_GFEditorWorkspaceUI.make_button("刷新", "重新分析当前输入上下文。", refresh))
-	toolbar.add_child(_GFEditorWorkspaceUI.make_button("定位资源", "在原生文件系统中定位已加载的输入上下文。", _on_locate_pressed))
+	toolbar.add_child(
+		_GFEditorWorkspaceUI.make_button(
+			"选择资源…",
+			"选择输入上下文资源。",
+			_on_browse_pressed
+		)
+	)
+	toolbar.add_child(
+		_GFEditorWorkspaceUI.make_button(
+			"加载",
+			"载入当前路径中的输入上下文。",
+			_on_load_pressed
+		)
+	)
+	toolbar.add_child(
+		_GFEditorWorkspaceUI.make_button(
+			"刷新",
+			"重新分析当前输入上下文。",
+			refresh
+		)
+	)
+	toolbar.add_child(
+		_GFEditorWorkspaceUI.make_button(
+			"定位资源",
+			"在原生文件系统中定位已加载的输入上下文。",
+			_on_locate_pressed
+		)
+	)
 
 	_include_non_remappable_check = CheckBox.new()
 	_include_non_remappable_check.text = "包含不可重绑"
@@ -436,7 +472,13 @@ func _build_ui() -> void:
 	var _option_toggled_connected: Error = _include_non_remappable_check.toggled.connect(_on_option_toggled) as Error
 	toolbar.add_child(_include_non_remappable_check)
 
-	toolbar.add_child(_GFEditorWorkspaceUI.make_button("复制报告", "复制当前输入映射诊断 JSON。", _on_copy_pressed))
+	toolbar.add_child(
+		_GFEditorWorkspaceUI.make_button(
+			"复制报告",
+			"复制当前输入映射诊断 JSON。",
+			_on_copy_pressed
+		)
+	)
 
 	_summary_label = _GFEditorWorkspaceUI.make_summary_label()
 	root_box.add_child(_summary_label)
@@ -482,10 +524,7 @@ func _build_ui() -> void:
 ## @api private
 ## [br]
 func _build_report(context: GFInputContext) -> Dictionary:
-	var include_non_remappable: bool = (
-		_include_non_remappable_check == null
-		or _include_non_remappable_check.button_pressed
-	)
+	var include_non_remappable: bool = (_include_non_remappable_check == null or _include_non_remappable_check.button_pressed)
 	var budget_issue: Dictionary = _get_context_budget_issue(context, include_non_remappable)
 	if not budget_issue.is_empty():
 		return _make_budget_report(context, budget_issue)
@@ -508,7 +547,8 @@ func _get_context_budget_issue(context: GFInputContext, include_non_remappable: 
 		return _make_budget_issue(
 			"mapping_budget_exceeded",
 			"mappings",
-			"输入上下文包含 %d 个映射，超过编辑器诊断预算 %d。" % [mapping_count, _MAX_MAPPING_COUNT],
+			"输入上下文包含 %d 个映射，超过编辑器诊断预算 %d。"
+			% [mapping_count, _MAX_MAPPING_COUNT],
 			mapping_count,
 			_MAX_MAPPING_COUNT
 		)
@@ -524,10 +564,8 @@ func _get_context_budget_issue(context: GFInputContext, include_non_remappable: 
 			return _make_budget_issue(
 				"binding_budget_exceeded",
 				"mappings/%d/bindings" % mapping_index,
-				"单个映射包含 %d 个绑定，超过编辑器诊断预算 %d。" % [
-					mapping_binding_count,
-					_MAX_BINDINGS_PER_MAPPING,
-				],
+				"单个映射包含 %d 个绑定，超过编辑器诊断预算 %d。"
+				% [mapping_binding_count, _MAX_BINDINGS_PER_MAPPING,],
 				mapping_binding_count,
 				_MAX_BINDINGS_PER_MAPPING
 			)
@@ -536,10 +574,8 @@ func _get_context_budget_issue(context: GFInputContext, include_non_remappable: 
 			return _make_budget_issue(
 				"binding_budget_exceeded",
 				"mappings",
-				"输入上下文包含 %d 个绑定，超过编辑器诊断预算 %d。" % [
-					total_binding_count,
-					_MAX_TOTAL_BINDINGS,
-				],
+				"输入上下文包含 %d 个绑定，超过编辑器诊断预算 %d。"
+				% [total_binding_count, _MAX_TOTAL_BINDINGS,],
 				total_binding_count,
 				_MAX_TOTAL_BINDINGS
 			)
@@ -595,10 +631,13 @@ func _make_budget_issue(
 	observed_count: int,
 	max_count: int
 ) -> Dictionary:
-	return _make_issue("error", kind, path, message, {
-		"observed_count": observed_count,
-		"max_count": max_count,
-	})
+	return _make_issue(
+		"error",
+		kind,
+		path,
+		message,
+		{ "observed_count": observed_count, "max_count": max_count, }
+	)
 
 
 ## 为预算超限构建停止深入扫描的最小报告，并补充相应的 next action。
@@ -626,12 +665,16 @@ func _make_budget_report(context: GFInputContext, issue: Dictionary) -> Dictiona
 	next_actions["binding_budget_exceeded"] = "拆分输入上下文或映射，降低单次诊断的绑定数量。"
 	next_actions["diagnostic_item_budget_exceeded"] = "减少嵌套修饰器与触发器，或拆分输入上下文。"
 	next_actions["conflict_budget_exceeded"] = "先拆分冲突域，再分别运行输入映射诊断。"
-	return GFValidationReportDictionary.finalize_report(report, "Input mapping", {
-		"include_issue_count": true,
-		"next_actions": next_actions,
-		"fallback_action": "缩小输入上下文后重新诊断。",
-		"no_action": "当前输入上下文结构健康。",
-	})
+	return GFValidationReportDictionary.finalize_report(
+		report,
+		"Input mapping",
+		{
+			"include_issue_count": true,
+			"next_actions": next_actions,
+			"fallback_action": "缩小输入上下文后重新诊断。",
+			"no_action": "当前输入上下文结构健康。",
+		}
+	)
 
 
 ## 截断报告中的 items、conflicts 和 issues，并记录原总数与截断标记。
@@ -639,7 +682,11 @@ func _make_budget_report(context: GFInputContext, issue: Dictionary) -> Dictiona
 ## @api private
 ## [br]
 func _bound_report_collections(report: Dictionary) -> Dictionary:
-	for collection_key: String in ["items", "conflicts", "issues"]:
+	for collection_key: String in [
+		"items",
+		"conflicts",
+		"issues",
+	]:
 		var values: Array = GFVariantData.get_option_array(report, collection_key)
 		if values.size() <= _MAX_REPORT_COLLECTION_ITEMS:
 			continue
@@ -647,16 +694,15 @@ func _bound_report_collections(report: Dictionary) -> Dictionary:
 		var bounded_values: Array = values.slice(0, _MAX_REPORT_COLLECTION_ITEMS)
 		if collection_key == "issues":
 			var _resize_result: int = bounded_values.resize(_MAX_REPORT_COLLECTION_ITEMS - 1)
-			bounded_values.append(_make_issue(
-				"warning",
-				"issue_budget_truncated",
-				"issues",
-				"问题列表已按编辑器显示预算截断；总数为 %d。" % original_count,
-				{
-					"reported_count": original_count,
-					"displayed_count": _MAX_REPORT_COLLECTION_ITEMS,
-				}
-			))
+			bounded_values.append(
+				_make_issue(
+					"warning",
+					"issue_budget_truncated",
+					"issues",
+					"问题列表已按编辑器显示预算截断；总数为 %d。" % original_count,
+					{ "reported_count": original_count, "displayed_count": _MAX_REPORT_COLLECTION_ITEMS, }
+				)
+			)
 		report[collection_key] = bounded_values
 		report["%s_truncated" % collection_key] = true
 		report["%s_total_count" % collection_key] = original_count
@@ -691,13 +737,32 @@ func _render_context() -> void:
 	_tree.visible = true
 	_rendered_tree_rows = 0
 	_tree_render_truncated = false
-	var resource_summary: String = GFVariantData.get_option_string(_last_report, "resource_summary", "")
-	_summary_label.text = "%s\n%s\n下一步：%s" % [
-		GFVariantData.get_option_string(_last_report, "summary", ""),
-		resource_summary,
-		GFVariantData.get_option_string(_last_report, "next_action", ""),
-	]
-	_GFEditorWorkspaceUI.set_status(_summary_label, _summary_label.text, _GFEditorWorkspaceUI.get_report_color(_last_report))
+	var resource_summary: String = GFVariantData.get_option_string(
+		_last_report,
+		"resource_summary",
+		""
+	)
+	_summary_label.text = (
+		"%s\n%s\n下一步：%s"
+		% [
+			GFVariantData.get_option_string(
+				_last_report,
+				"summary",
+				""
+			),
+			resource_summary,
+			GFVariantData.get_option_string(
+				_last_report,
+				"next_action",
+				""
+			),
+		]
+	)
+	_GFEditorWorkspaceUI.set_status(
+		_summary_label,
+		_summary_label.text,
+		_GFEditorWorkspaceUI.get_report_color(_last_report)
+	)
 
 	var root_item: TreeItem = _tree.create_item()
 	var context_item: TreeItem = _create_bounded_tree_item(root_item)
@@ -705,10 +770,22 @@ func _render_context() -> void:
 		_append_tree_truncation_item(root_item)
 		return
 	context_item.set_text(0, "上下文")
-	context_item.set_text(1, String(_context.get_context_id()))
-	context_item.set_text(2, "%d mappings" % _context.mappings.size())
-	context_item.set_text(3, _context.get_display_name())
-	context_item.set_metadata(0, _make_context_details(_context))
+	context_item.set_text(
+		1,
+		String(_context.get_context_id())
+	)
+	context_item.set_text(
+		2,
+		"%d mappings" % _context.mappings.size()
+	)
+	context_item.set_text(
+		3,
+		_context.get_display_name()
+	)
+	context_item.set_metadata(
+		0,
+		_make_context_details(_context)
+	)
 
 	for mapping_index: int in range(_context.mappings.size()):
 		if _tree_render_truncated:
@@ -720,17 +797,27 @@ func _render_context() -> void:
 		if mapping_item == null:
 			break
 		mapping_item.set_text(0, "动作")
-		mapping_item.set_text(1, String(mapping.get_action_id()))
-		mapping_item.set_text(2, GFInputFormatter.mapping_as_text(
-			mapping,
-			_context.get_context_id(),
-			_remap_config
-		))
-		mapping_item.set_text(3, "%s · %s" % [
-			mapping.get_display_name(),
-			_get_value_type_name(mapping.action.value_type) if mapping.action != null else "missing action",
-		])
-		mapping_item.set_metadata(0, _make_mapping_details(mapping, mapping_index))
+		mapping_item.set_text(
+			1,
+			String(mapping.get_action_id())
+		)
+		mapping_item.set_text(
+			2,
+			GFInputFormatter.mapping_as_text(
+				mapping,
+				_context.get_context_id(),
+				_remap_config
+			)
+		)
+		mapping_item.set_text(
+			3,
+			"%s · %s"
+			% [mapping.get_display_name(), _get_value_type_name(mapping.action.value_type) if mapping.action != null else "missing action",]
+		)
+		mapping_item.set_metadata(
+			0,
+			_make_mapping_details(mapping, mapping_index)
+		)
 		_add_binding_items(mapping_item, mapping)
 
 	if not _tree_render_truncated:
@@ -760,27 +847,33 @@ func _add_binding_items(parent: TreeItem, mapping: GFInputMapping) -> void:
 			return
 		var binding_is_remapped: bool = _is_binding_remapped(mapping, binding_index)
 		var effective_event: InputEvent = _get_effective_binding_event(mapping, binding_index)
-		var effective_text: String = (
-			GFInputFormatter.input_event_as_text(effective_event)
-			if binding_is_remapped
-			else GFInputFormatter.binding_as_text(binding)
-		)
+		var effective_text: String = (GFInputFormatter.input_event_as_text(effective_event) if binding_is_remapped else GFInputFormatter.binding_as_text(binding))
 		item.set_text(0, "绑定")
-		item.set_text(1, "%d" % binding_index)
+		item.set_text(
+			1,
+			"%d" % binding_index
+		)
 		item.set_text(2, effective_text)
-		item.set_text(3, "%s · deadzone %.2f · scale %.2f" % [
-			_get_value_target_name(binding.value_target),
-			binding.deadzone,
-			binding.scale,
-		])
-		item.set_metadata(0, _make_binding_details(
-			mapping,
-			binding,
-			binding_index,
-			effective_event,
-			effective_text,
-			binding_is_remapped
-		))
+		item.set_text(
+			3,
+			"%s · deadzone %.2f · scale %.2f"
+			% [
+				_get_value_target_name(binding.value_target),
+				binding.deadzone,
+				binding.scale,
+			]
+		)
+		item.set_metadata(
+			0,
+			_make_binding_details(
+				mapping,
+				binding,
+				binding_index,
+				effective_event,
+				effective_text,
+				binding_is_remapped
+			)
+		)
 
 
 ## 把诊断问题的严重度、类别、路径和消息写入树行及元数据。
@@ -791,11 +884,42 @@ func _add_issue_item(parent: TreeItem, issue: Dictionary) -> void:
 	var item: TreeItem = _create_bounded_tree_item(parent)
 	if item == null:
 		return
-	item.set_text(0, GFVariantData.get_option_string(issue, "severity", ""))
-	item.set_text(1, GFVariantData.get_option_string(issue, "kind", ""))
-	item.set_text(2, GFVariantData.get_option_string(issue, "path", ""))
-	item.set_text(3, GFVariantData.get_option_string(issue, "message", ""))
-	item.set_metadata(0, issue.duplicate(true))
+	item.set_text(
+		0,
+		GFVariantData.get_option_string(
+			issue,
+			"severity",
+			""
+		)
+	)
+	item.set_text(
+		1,
+		GFVariantData.get_option_string(
+			issue,
+			"kind",
+			""
+		)
+	)
+	item.set_text(
+		2,
+		GFVariantData.get_option_string(
+			issue,
+			"path",
+			""
+		)
+	)
+	item.set_text(
+		3,
+		GFVariantData.get_option_string(
+			issue,
+			"message",
+			""
+		)
+	)
+	item.set_metadata(
+		0,
+		issue.duplicate(true)
+	)
 
 
 ## 在达到保留截断提示行的显示预算前创建一行，否则标记树截断。
@@ -821,12 +945,18 @@ func _append_tree_truncation_item(parent: TreeItem) -> void:
 	_rendered_tree_rows += 1
 	item.set_text(0, "截断")
 	item.set_text(1, "tree_row_budget")
-	item.set_text(3, "树视图已达到 %d 行显示预算。" % _MAX_TREE_ROWS)
-	item.set_metadata(0, {
-		"kind": "tree_row_budget",
-		"max_rows": _MAX_TREE_ROWS,
-		"truncated": true,
-	})
+	item.set_text(
+		3,
+		"树视图已达到 %d 行显示预算。" % _MAX_TREE_ROWS
+	)
+	item.set_metadata(
+		0,
+		{
+			"kind": "tree_row_budget",
+			"max_rows": _MAX_TREE_ROWS,
+			"truncated": true,
+		}
+	)
 
 
 ## 清空或隐藏诊断树与详情区，显示空态提示并设置状态颜色。
@@ -851,7 +981,11 @@ func _render_empty(status: String, hint: String = "") -> void:
 ## [br]
 ## @api private
 ## [br]
-func _render_load_failure(status: String, hint: String, error_code: Error) -> Error:
+func _render_load_failure(
+	status: String,
+	hint: String,
+	error_code: Error
+) -> Error:
 	_restore_committed_context_path()
 	_last_load_failure = {
 		"status": status,
@@ -982,10 +1116,12 @@ func _is_binding_remapped(mapping: GFInputMapping, binding_index: int) -> bool:
 	return (
 		_remap_config != null
 		and _context != null
-		and _remap_config.has_binding(
-			_context.get_context_id(),
-			mapping.get_action_id(),
-			binding_index
+		and (
+			_remap_config.has_binding(
+				_context.get_context_id(),
+				mapping.get_action_id(),
+				binding_index
+			)
 		)
 	)
 
@@ -1048,7 +1184,11 @@ func _make_issue(
 ## @api private
 ## [br]
 func _set_status(message: String, color: Color) -> void:
-	_GFEditorWorkspaceUI.set_status(_summary_label, message, color)
+	_GFEditorWorkspaceUI.set_status(
+		_summary_label,
+		message,
+		color
+	)
 
 
 ## 把 GFInputAction.ValueType 枚举映射为稳定文本，未知值带原整数。
@@ -1130,12 +1270,17 @@ func _safe_json(value: Variant) -> String:
 	var encoded_bytes: int = text.to_utf8_buffer().size()
 	if encoded_bytes <= _MAX_DETAIL_JSON_BYTES:
 		return text
-	return _GF_REPORT_VALUE_CODEC_SCRIPT.stringify_json_compatible({
-		"kind": "detail_text_budget_exceeded",
-		"truncated": true,
-		"encoded_size_bytes": encoded_bytes,
-		"max_bytes": _MAX_DETAIL_JSON_BYTES,
-	}, "\t", true, options)
+	return _GF_REPORT_VALUE_CODEC_SCRIPT.stringify_json_compatible(
+		{
+			"kind": "detail_text_budget_exceeded",
+			"truncated": true,
+			"encoded_size_bytes": encoded_bytes,
+			"max_bytes": _MAX_DETAIL_JSON_BYTES,
+		},
+		"\t",
+		true,
+		options
+	)
 
 
 ## 仅当资源路径扩展名为 tres 时返回 true。
@@ -1156,12 +1301,8 @@ func _resource_paths_share_identity(left: String, right: String) -> bool:
 	var normalized_right: String = _GFPathTools.normalize_resource_path(right)
 	if normalized_left.is_empty() or normalized_right.is_empty():
 		return normalized_left == normalized_right
-	var absolute_left: String = _GFPathTools.normalize_path(
-		ProjectSettings.globalize_path(normalized_left)
-	)
-	var absolute_right: String = _GFPathTools.normalize_path(
-		ProjectSettings.globalize_path(normalized_right)
-	)
+	var absolute_left: String = _GFPathTools.normalize_path(ProjectSettings.globalize_path(normalized_left))
+	var absolute_right: String = _GFPathTools.normalize_path(ProjectSettings.globalize_path(normalized_right))
 	if OS.get_name() == "Windows":
 		return absolute_left.to_lower() == absolute_right.to_lower()
 	return absolute_left == absolute_right
@@ -1175,7 +1316,12 @@ func _read_text_resource_declared_type(path: String) -> String:
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
 		return ""
-	var header_bytes: PackedByteArray = file.get_buffer(mini(file.get_length(), 4096))
+	var header_bytes: PackedByteArray = file.get_buffer(
+		mini(
+			file.get_length(),
+			4096
+		)
+	)
 	file.close()
 	var header: String = header_bytes.get_string_from_utf8().get_slice("\n", 0).strip_edges()
 	if header.begins_with(String.chr(0xFEFF)):
@@ -1201,7 +1347,10 @@ func _get_resource_header_attribute(header: String, attribute: String) -> String
 	var value_end: int = header.find("\"", value_start)
 	if value_end < value_start:
 		return ""
-	return header.substr(value_start, value_end - value_start)
+	return header.substr(
+		value_start,
+		value_end - value_start
+	)
 
 
 ## 沿 Godot 全局类的 base 链检查声明类型是否为 GFInputContext 或其派生类。
@@ -1262,8 +1411,8 @@ func _connect_context_changed() -> void:
 	if not _source_observation_enabled or _context == null:
 		return
 	var pending: Array[Resource] = [_context]
-	var seen: Dictionary = {_context: true}
-	var budget: Dictionary = {"remaining": _MAX_OBSERVED_SOURCE_RESOURCES - 1}
+	var seen: Dictionary = { _context: true }
+	var budget: Dictionary = { "remaining": _MAX_OBSERVED_SOURCE_RESOURCES - 1 }
 	var callback: Callable = _on_context_changed
 	var index: int = 0
 	while index < pending.size():
@@ -1274,36 +1423,89 @@ func _connect_context_changed() -> void:
 		_observed_context_sources.append(source)
 		if source is GFInputContext:
 			var context: GFInputContext = source
-			_queue_context_sources(context.mappings, pending, seen, budget)
+			_queue_context_sources(
+				context.mappings,
+				pending,
+				seen,
+				budget
+			)
 		elif source is GFInputMapping:
 			var mapping: GFInputMapping = source
-			_queue_context_source(mapping.action, pending, seen, budget)
-			_queue_context_sources(mapping.bindings, pending, seen, budget)
-			_queue_context_sources(mapping.modifiers, pending, seen, budget)
-			_queue_context_sources(mapping.triggers, pending, seen, budget)
+			_queue_context_source(
+				mapping.action,
+				pending,
+				seen,
+				budget
+			)
+			_queue_context_sources(
+				mapping.bindings,
+				pending,
+				seen,
+				budget
+			)
+			_queue_context_sources(
+				mapping.modifiers,
+				pending,
+				seen,
+				budget
+			)
+			_queue_context_sources(
+				mapping.triggers,
+				pending,
+				seen,
+				budget
+			)
 		elif source is GFInputBinding:
 			var binding: GFInputBinding = source
-			_queue_context_source(binding.input_event, pending, seen, budget)
-			_queue_context_sources(binding.modifiers, pending, seen, budget)
+			_queue_context_source(
+				binding.input_event,
+				pending,
+				seen,
+				budget
+			)
+			_queue_context_sources(
+				binding.modifiers,
+				pending,
+				seen,
+				budget
+			)
 
 
 ## 只遍历预算内的集合槽位并排队已知子资源；空槽位和重复资源不增加连接数。
 ## [br]
 ## @api private
-func _queue_context_sources(values: Array, pending: Array[Resource], seen: Dictionary, budget: Dictionary) -> void:
-	var slot_limit: int = mini(values.size(), GFVariantData.get_option_int(budget, "remaining"))
+func _queue_context_sources(
+	values: Array,
+	pending: Array[Resource],
+	seen: Dictionary,
+	budget: Dictionary
+) -> void:
+	var slot_limit: int = mini(
+		values.size(),
+		GFVariantData.get_option_int(budget, "remaining")
+	)
 	for index: int in range(slot_limit):
 		var value: Variant = values[index]
 		var source: Resource = null
 		if value is Resource:
 			source = value
-		_queue_context_source(source, pending, seen, budget)
+		_queue_context_source(
+			source,
+			pending,
+			seen,
+			budget
+		)
 
 
 ## 在共享队列预算内加入尚未观察的资源，保证一个资源最多有一个刷新连接。
 ## [br]
 ## @api private
-func _queue_context_source(source: Resource, pending: Array[Resource], seen: Dictionary, budget: Dictionary) -> void:
+func _queue_context_source(
+	source: Resource,
+	pending: Array[Resource],
+	seen: Dictionary,
+	budget: Dictionary
+) -> void:
 	var remaining: int = GFVariantData.get_option_int(budget, "remaining")
 	if remaining <= 0:
 		return
@@ -1481,9 +1683,6 @@ func _on_copy_pressed() -> void:
 		_set_status("已复制输入映射诊断报告。", _GFEditorWorkspaceUI.OK_TEXT_COLOR)
 	else:
 		_set_status(
-			"%s\n已复制加载失败与上次成功诊断。" % GFVariantData.get_option_string(
-				_last_load_failure,
-				"status"
-			),
+			"%s\n已复制加载失败与上次成功诊断。" % (GFVariantData.get_option_string(_last_load_failure, "status")),
 			_GFEditorWorkspaceUI.WARNING_TEXT_COLOR
 		)

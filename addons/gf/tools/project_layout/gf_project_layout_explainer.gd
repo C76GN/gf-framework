@@ -10,9 +10,7 @@ extends RefCounted
 ## [br]
 ## @api private
 ## [br]
-const _ANALYSIS_CONTRACT_SCRIPT = preload(
-	"res://addons/gf/tools/project_layout/gf_project_layout_analysis_contract.gd"
-)
+const _ANALYSIS_CONTRACT_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_analysis_contract.gd")
 
 ## explanation 接口接受的 validation 字段名集合。
 ## [br]
@@ -108,13 +106,21 @@ func explain_validated_analysis(
 		return _make_resource_limited_result()
 	var result: Dictionary = _make_result(finding_id)
 	if not _validation_is_usable(validation):
-		_add_issue(result, "invalid_analysis", "输入不符合闭合 Project Layout analysis/graph 契约。")
+		_add_issue(
+			result,
+			"invalid_analysis",
+			"输入不符合闭合 Project Layout analysis/graph 契约。"
+		)
 		return result
 	if not _checkpoint_allows(checkpoint):
 		_stop_for_checkpoint(result)
 		return result
 	if finding_id.is_empty():
-		_add_issue(result, "missing_finding_id", "finding_id 不能为空。")
+		_add_issue(
+			result,
+			"missing_finding_id",
+			"finding_id 不能为空。"
+		)
 		return result
 	var analysis_index: Dictionary = _get_dictionary(validation, "index")
 	var finding_by_id: Dictionary = _get_dictionary(analysis_index, "finding_by_id")
@@ -123,16 +129,37 @@ func explain_validated_analysis(
 	if finding_value is Dictionary:
 		finding = finding_value
 	if finding.is_empty():
-		_add_issue(result, "finding_not_found", "分析报告中不存在该 finding。")
+		_add_issue(
+			result,
+			"finding_not_found",
+			"分析报告中不存在该 finding。"
+		)
 		return result
-	var severity: String = _get_string(finding, "severity", "info")
+	var severity: String = _get_string(
+		finding,
+		"severity",
+		"info"
+	)
 	var path: String = _get_string(finding, "path")
 	result["headline"] = _make_headline(finding, path)
 	result["observation"] = _get_string(finding, "message")
-	result["implication"] = _make_implication(severity, _get_bool(analysis, "input_complete"))
+	result["implication"] = _make_implication(
+		severity,
+		_get_bool(analysis, "input_complete")
+	)
 	result["next_steps"] = _make_next_steps(severity, path)
-	result["certainty"] = _get_string(finding, "confidence", "known")
-	if not _collect_evidence(result, analysis_index, finding, path, checkpoint):
+	result["certainty"] = _get_string(
+		finding,
+		"confidence",
+		"known"
+	)
+	if not _collect_evidence(
+		result,
+		analysis_index,
+		finding,
+		path,
+		checkpoint
+	):
 		return result
 	if not _checkpoint_allows(checkpoint):
 		_stop_for_checkpoint(result)
@@ -223,10 +250,17 @@ func _stop_for_checkpoint(result: Dictionary) -> void:
 ## [br]
 ## @api private
 func _make_headline(finding: Dictionary, path: String) -> String:
-	var kind: String = _get_string(finding, "kind", "project_layout_finding")
+	var kind: String = _get_string(
+		finding,
+		"kind",
+		"project_layout_finding"
+	)
 	if path.is_empty():
 		return kind
-	return "%s · %s" % [kind, path]
+	return (
+		"%s · %s"
+		% [kind, path]
+	)
 
 
 ## 优先说明输入不完整的证明限制，再按严重级别解释阻断或人工复核含义，不把观察结果转成自动修改许可。
@@ -305,7 +339,10 @@ func _collect_evidence(
 		var evidence_value: Variant = evidence_by_id.get(evidence_id)
 		if evidence_value is Dictionary:
 			var evidence: Dictionary = evidence_value
-			if not _checkpoint_allows(checkpoint, 1 + evidence.size()):
+			if not _checkpoint_allows(
+				checkpoint,
+				1 + evidence.size()
+			):
 				_stop_for_checkpoint(explanation)
 				return false
 			collected_evidence.append(evidence.duplicate(true))
@@ -317,13 +354,19 @@ func _collect_evidence(
 ## [br]
 ## @api private
 ## [br]
-func _add_issue(result: Dictionary, issue_kind: String, message: String) -> void:
+func _add_issue(
+	result: Dictionary,
+	issue_kind: String,
+	message: String
+) -> void:
 	var issues: Array = _get_array(result, "issues")
-	issues.append({
-		"severity": "error",
-		"kind": issue_kind,
-		"message": message,
-	})
+	issues.append(
+		{
+			"severity": "error",
+			"kind": issue_kind,
+			"message": message,
+		}
+	)
 
 
 ## 判断字典键是否全部为字符串且与给定字段集合完全相同。
@@ -346,7 +389,11 @@ func _has_exact_fields(source: Dictionary, fields: PackedStringArray) -> bool:
 ## [br]
 ## @api private
 ## [br]
-func _get_string(source: Dictionary, key: String, default_value: String = "") -> String:
+func _get_string(
+	source: Dictionary,
+	key: String,
+	default_value: String = ""
+) -> String:
 	var value: Variant = source.get(key, default_value)
 	return value if value is String else default_value
 
@@ -355,7 +402,11 @@ func _get_string(source: Dictionary, key: String, default_value: String = "") ->
 ## [br]
 ## @api private
 ## [br]
-func _get_bool(source: Dictionary, key: String, default_value: bool = false) -> bool:
+func _get_bool(
+	source: Dictionary,
+	key: String,
+	default_value: bool = false
+) -> bool:
 	var value: Variant = source.get(key, default_value)
 	return value if value is bool else default_value
 

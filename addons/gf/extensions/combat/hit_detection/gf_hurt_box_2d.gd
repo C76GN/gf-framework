@@ -241,7 +241,7 @@ func get_generated_collision_shapes() -> Array[CollisionShape2D]:
 	var result: Array[CollisionShape2D] = []
 	for child: Node in get_children():
 		var collision_shape: CollisionShape2D = _get_collision_shape_2d_value(child)
-		if collision_shape != null and String(collision_shape.name).begins_with(String(_GENERATED_COLLISION_SHAPE_NODE_NAME)):
+		if (collision_shape != null and String(collision_shape.name).begins_with(String(_GENERATED_COLLISION_SHAPE_NODE_NAME))):
 			result.append(collision_shape)
 	return result
 
@@ -276,7 +276,12 @@ func clear_generated_collision_shapes() -> void:
 ## [br]
 ## @return 可接受时返回 true。
 func can_receive_hit(p_hit_id: StringName = &"") -> bool:
-	var can_receive_value: Variant = _MESSAGE_RECEIVER_SUPPORT._can_receive(enabled, accepted_hit_ids, rejected_hit_ids, p_hit_id)
+	var can_receive_value: Variant = _MESSAGE_RECEIVER_SUPPORT._can_receive(
+		enabled,
+		accepted_hit_ids,
+		rejected_hit_ids,
+		p_hit_id
+	)
 	if not GFVariantData.to_bool(can_receive_value, false):
 		return false
 	if receiver_path == NodePath(""):
@@ -429,7 +434,10 @@ func _clear_generated_collision_shapes_from_index(start_index: int) -> void:
 func _get_generated_collision_shape_name(index: int) -> String:
 	if index <= 0:
 		return String(_GENERATED_COLLISION_SHAPE_NODE_NAME)
-	return "%s%d" % [String(_GENERATED_COLLISION_SHAPE_NODE_NAME), index + 1]
+	return (
+		"%s%d"
+		% [String(_GENERATED_COLLISION_SHAPE_NODE_NAME), index + 1]
+	)
 
 
 ## 将节点值收窄为 CollisionShape2D，类型不符时返回 null。

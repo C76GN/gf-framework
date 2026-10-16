@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSettingsUtility" path="addons/gf/standard/utilities/settings/gf_settings_utility.gd" module="standard" extends="GFUtility" classDigest="55199d0c7d323dbca1f74cc3d9e9e7a8fe9ec759a43afab2ba3416857d385339">
+<class name="GFSettingsUtility" path="addons/gf/standard/utilities/settings/gf_settings_utility.gd" module="standard" extends="GFUtility" classDigest="a01de9c802fc0e5ceb91bf00b04085d22505f179fa494666a03eb4b202a1d2a3">
 	<description>GFSettingsUtility: 通用设置注册、读写与持久化工具。
 设置项以 StringName 键访问，可选使用 GFSettingDefinition 声明默认值和类型。
 该工具只管理抽象设置值，不直接绑定窗口、音频、输入或任何项目业务。</description>
@@ -10,7 +10,7 @@
 	</tags>
 	<signals>
 		<member kind="signal" name="setting_changed">
-			<signature>signal setting_changed(key: StringName, old_value: Variant, new_value: Variant)</signature>
+			<signature>signal setting_changed( key: StringName, old_value: Variant, new_value: Variant )</signature>
 			<description>设置值变化时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -19,6 +19,7 @@
 				<tag name="param">new_value: 新值。</tag>
 				<tag name="schema">old_value: Variant previous setting value or null when the setting did not exist.</tag>
 				<tag name="schema">new_value: Variant next setting value or null when the setting was removed.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="settings_load_completed">
@@ -223,7 +224,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="set_value">
-			<signature>func set_value(key: StringName, value: Variant, save_after_change: bool = true) -&gt; void:</signature>
+			<signature>func set_value( key: StringName, value: Variant, save_after_change: bool = true ) -&gt; void:</signature>
 			<description>设置一个值。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -231,6 +232,7 @@
 				<tag name="param">value: 设置值。</tag>
 				<tag name="param">save_after_change: 若为持久化设置，变化后是否保存。</tag>
 				<tag name="schema">value: Variant setting value coerced by the registered definition when present.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="stage_value">
@@ -461,7 +463,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="load_settings">
-			<signature>func load_settings( file_name: String = "", recovery_policy: GFSettingsRecoveryPolicy = null ) -&gt; GFSettingsLoadResult:</signature>
+			<signature>func load_settings(file_name: String = "", recovery_policy: GFSettingsRecoveryPolicy = null) -&gt; GFSettingsLoadResult:</signature>
 			<description>读取持久化设置并返回结构化终态。
 默认策略严格失败；缺失、损坏、未来 schema、迁移失败或 IO 失败不会被
 降级为空字典。只有显式恢复策略可以处理缺失或损坏，且加载本身从不保存。

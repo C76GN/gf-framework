@@ -63,10 +63,26 @@ static func collect_focusable_controls(root: Node, options: Dictionary = {}) -> 
 	if root == null:
 		return result
 
-	var include_root: bool = GFVariantData.get_option_bool(options, "include_root", true)
-	var include_internal: bool = GFVariantData.get_option_bool(options, "include_internal", false)
-	var max_depth: int = GFVariantData.get_option_int(options, "max_depth", -1)
-	var limit: int = GFVariantData.get_option_int(options, "limit", -1)
+	var include_root: bool = GFVariantData.get_option_bool(
+		options,
+		"include_root",
+		true
+	)
+	var include_internal: bool = GFVariantData.get_option_bool(
+		options,
+		"include_internal",
+		false
+	)
+	var max_depth: int = GFVariantData.get_option_int(
+		options,
+		"max_depth",
+		-1
+	)
+	var limit: int = GFVariantData.get_option_int(
+		options,
+		"limit",
+		-1
+	)
 	var nodes: Array[Node] = GFNodeTreeOps.collect_descendants(
 		root,
 		"Control",
@@ -101,7 +117,10 @@ static func collect_focusable_controls(root: Node, options: Dictionary = {}) -> 
 ## [br]
 ## @schema return: Dictionary，包含 ok、control_count、wired_count、wrap、axis、wire_tab_order、wire_directional_neighbors、entries 和 issues。
 static func apply_focus_order_from_root(root: Node, options: Dictionary = {}) -> Dictionary:
-	return apply_focus_order(collect_focusable_controls(root, options), options)
+	return apply_focus_order(
+		collect_focusable_controls(root, options),
+		options
+	)
 
 
 ## 按显式数组顺序写入 Control 焦点顺序。
@@ -123,29 +142,69 @@ static func apply_focus_order(controls: Array[Control], options: Dictionary = {}
 	var ordered_controls: Array[Control] = _normalize_controls(controls, options)
 	var issues: Array[Dictionary] = []
 	var entries: Array[Dictionary] = []
-	var wrap_enabled: bool = GFVariantData.get_option_bool(options, "wrap", true)
-	var raw_axis: StringName = GFVariantData.get_option_string_name(options, "axis", AXIS_BOTH)
+	var wrap_enabled: bool = GFVariantData.get_option_bool(
+		options,
+		"wrap",
+		true
+	)
+	var raw_axis: StringName = GFVariantData.get_option_string_name(
+		options,
+		"axis",
+		AXIS_BOTH
+	)
 	var axis: StringName = _normalize_axis(raw_axis)
-	var wire_tab_order: bool = GFVariantData.get_option_bool(options, "wire_tab_order", true)
-	var wire_directional_neighbors: bool = GFVariantData.get_option_bool(options, "wire_directional_neighbors", true)
+	var wire_tab_order: bool = GFVariantData.get_option_bool(
+		options,
+		"wire_tab_order",
+		true
+	)
+	var wire_directional_neighbors: bool = GFVariantData.get_option_bool(
+		options,
+		"wire_directional_neighbors",
+		true
+	)
 	var preserve_unwired_directional_neighbors: bool = GFVariantData.get_option_bool(
 		options,
 		"preserve_unwired_directional_neighbors",
 		false
 	)
 	if axis != raw_axis:
-		issues.append(_make_issue(
-			&"invalid_axis",
-			"未知焦点方向轴，已回退为 both。",
-			-1
-		))
+		issues.append(
+			_make_issue(
+				&"invalid_axis",
+				"未知焦点方向轴，已回退为 both。",
+				-1
+			)
+		)
 
 	for control_index: int in range(ordered_controls.size()):
 		var control: Control = ordered_controls[control_index]
-		var previous_control: Control = _get_order_neighbor(ordered_controls, control_index, -1, wrap_enabled)
-		var next_control: Control = _get_order_neighbor(ordered_controls, control_index, 1, wrap_enabled)
-		var previous_path: NodePath = _get_relative_focus_path(control, previous_control, control_index, &"previous", issues)
-		var next_path: NodePath = _get_relative_focus_path(control, next_control, control_index, &"next", issues)
+		var previous_control: Control = _get_order_neighbor(
+			ordered_controls,
+			control_index,
+			-1,
+			wrap_enabled
+		)
+		var next_control: Control = _get_order_neighbor(
+			ordered_controls,
+			control_index,
+			1,
+			wrap_enabled
+		)
+		var previous_path: NodePath = _get_relative_focus_path(
+			control,
+			previous_control,
+			control_index,
+			&"previous",
+			issues
+		)
+		var next_path: NodePath = _get_relative_focus_path(
+			control,
+			next_control,
+			control_index,
+			&"next",
+			issues
+		)
 
 		if wire_tab_order:
 			control.focus_previous = previous_path
@@ -159,13 +218,15 @@ static func apply_focus_order(controls: Array[Control], options: Dictionary = {}
 				preserve_unwired_directional_neighbors
 			)
 
-		entries.append({
-			"index": control_index,
-			"name": String(control.name),
-			"path": _get_node_path_text(control),
-			"previous": _get_node_path_text(previous_control),
-			"next": _get_node_path_text(next_control),
-		})
+		entries.append(
+			{
+				"index": control_index,
+				"name": String(control.name),
+				"path": _get_node_path_text(control),
+				"previous": _get_node_path_text(previous_control),
+				"next": _get_node_path_text(next_control),
+			}
+		)
 
 	return {
 		"ok": issues.is_empty(),
@@ -205,7 +266,11 @@ static func get_next_focus_control(
 	var ordered_controls: Array[Control] = _normalize_controls(controls, {})
 	if ordered_controls.is_empty():
 		return null
-	if step == 0 and current != null and controls.has(current):
+	if (
+		step == 0
+		and current != null
+		and controls.has(current)
+	):
 		return current if is_focusable_control_for_framework(current) else null
 
 	var current_index: int = ordered_controls.find(current)
@@ -214,7 +279,12 @@ static func get_next_focus_control(
 
 	var target_index: int = current_index + step
 	if wrap_enabled:
-		return ordered_controls[_wrap_index(target_index, ordered_controls.size())]
+		return ordered_controls[
+			_wrap_index(
+				target_index,
+				ordered_controls.size()
+			)
+		]
 	if target_index < 0 or target_index >= ordered_controls.size():
 		return null
 	return ordered_controls[target_index]
@@ -241,7 +311,12 @@ static func grab_next_focus(
 	step: int = 1,
 	wrap_enabled: bool = true
 ) -> Control:
-	var target: Control = get_next_focus_control(controls, current, step, wrap_enabled)
+	var target: Control = get_next_focus_control(
+		controls,
+		current,
+		step,
+		wrap_enabled
+	)
 	if target != null:
 		target.grab_focus()
 	return target
@@ -267,9 +342,17 @@ static func is_focusable_control_for_framework(control: Control, options: Dictio
 		return false
 	if control.get_focus_mode_with_override() == Control.FOCUS_NONE:
 		return false
-	if not GFVariantData.get_option_bool(options, "include_hidden", false) and not _is_visible_for_focus(control):
+	if not GFVariantData.get_option_bool(
+		options,
+		"include_hidden",
+		false
+	) and not _is_visible_for_focus(control):
 		return false
-	if not GFVariantData.get_option_bool(options, "include_disabled", false) and _is_disabled_for_focus(control):
+	if not GFVariantData.get_option_bool(
+		options,
+		"include_disabled",
+		false
+	) and _is_disabled_for_focus(control):
 		return false
 	return true
 
@@ -335,7 +418,12 @@ static func _get_order_neighbor(
 
 	var neighbor_index: int = index + offset
 	if wrap_enabled:
-		return controls[_wrap_index(neighbor_index, controls.size())]
+		return controls[
+			_wrap_index(
+				neighbor_index,
+				controls.size()
+			)
+		]
 	if neighbor_index < 0 or neighbor_index >= controls.size():
 		return null
 	return controls[neighbor_index]
@@ -366,12 +454,14 @@ static func _get_relative_focus_path(
 	if source == null or target == null:
 		return NodePath("")
 	if not _has_common_ancestor(source, target):
-		issues.append(_make_issue(
-			&"no_common_ancestor",
-			"控件之间没有共同祖先，无法写入相对焦点路径。",
-			source_index,
-			slot
-		))
+		issues.append(
+			_make_issue(
+				&"no_common_ancestor",
+				"控件之间没有共同祖先，无法写入相对焦点路径。",
+				source_index,
+				slot
+			)
+		)
 		return NodePath("")
 	return source.get_path_to(target)
 

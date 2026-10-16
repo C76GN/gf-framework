@@ -220,17 +220,20 @@ func configure_from_network_layer(
 ) -> void:
 	if not Thread.is_main_thread() or _configured:
 		return
-	if status not in [
-		STATUS_RECEIVED,
-		STATUS_SEND_FAILED,
-		STATUS_TIMED_OUT,
-		STATUS_CANCELLED,
-		STATUS_SESSION_CLOSED,
-		STATUS_PEER_DISCONNECTED,
-		STATUS_DISPOSED,
-		STATUS_REJECTED,
-		STATUS_INVALID_RESPONSE,
-	]:
+	if (
+		status
+		not in [
+			STATUS_RECEIVED,
+			STATUS_SEND_FAILED,
+			STATUS_TIMED_OUT,
+			STATUS_CANCELLED,
+			STATUS_SESSION_CLOSED,
+			STATUS_PEER_DISCONNECTED,
+			STATUS_DISPOSED,
+			STATUS_REJECTED,
+			STATUS_INVALID_RESPONSE,
+		]
+	):
 		return
 	_request_id = request_id
 	_peer_id = peer_id

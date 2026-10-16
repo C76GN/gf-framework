@@ -18,7 +18,7 @@
 | 常量 | [`POSITION_ENCODING_UTF8`](#member-gflspworkspaceeditadapter-constants-position_encoding_utf8) | `const POSITION_ENCODING_UTF8: String = "utf-8"` |
 | 常量 | [`POSITION_ENCODING_UTF16`](#member-gflspworkspaceeditadapter-constants-position_encoding_utf16) | `const POSITION_ENCODING_UTF16: String = "utf-16"` |
 | 方法 | [`build_plan`](#member-gflspworkspaceeditadapter-methods-build_plan) | `static func build_plan( workspace_edit: Dictionary, workspace_snapshot: Dictionary, options: Dictionary = {} ) -> GFLspWorkspaceEditPlan:` |
-| 方法 | [`commit_plan`](#member-gflspworkspaceeditadapter-methods-commit_plan) | `static func commit_plan( plan: GFLspWorkspaceEditPlan, workspace_snapshot: Dictionary ) -> Dictionary:` |
+| 方法 | [`commit_plan`](#member-gflspworkspaceeditadapter-methods-commit_plan) | `static func commit_plan(plan: GFLspWorkspaceEditPlan, workspace_snapshot: Dictionary) -> Dictionary:` |
 
 ## 常量
 
@@ -88,7 +88,7 @@ static func build_plan( workspace_edit: Dictionary, workspace_snapshot: Dictiona
 - 首次版本：`11.0.0`
 
 ```gdscript
-static func commit_plan( plan: GFLspWorkspaceEditPlan, workspace_snapshot: Dictionary ) -> Dictionary:
+static func commit_plan(plan: GFLspWorkspaceEditPlan, workspace_snapshot: Dictionary) -> Dictionary:
 ```
 
 在绑定状态仍一致时一次性提交计划。 提交前会重新验证计划 SHA、当前工作区身份与版本、全部文档 saved/version/hash， 并重新读取磁盘严格 UTF-8 字节。通过后计划先被消费，再以 scan_filesystem=false 调用 GFArtifactWriteTransaction；失败报告会原样保留需要调用方处理的恢复句柄。

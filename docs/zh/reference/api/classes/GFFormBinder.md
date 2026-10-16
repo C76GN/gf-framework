@@ -16,7 +16,7 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 信号 | [`field_changed`](#member-gfformbinder-signals-field_changed) | `signal field_changed(key: StringName, value: Variant)` |
-| 方法 | [`bind_field`](#member-gfformbinder-methods-bind_field) | `func bind_field(key: StringName, control: Control, default_value: Variant = null) -> void:` |
+| 方法 | [`bind_field`](#member-gfformbinder-methods-bind_field) | `func bind_field( key: StringName, control: Control, default_value: Variant = null ) -> void:` |
 | 方法 | [`unbind_field`](#member-gfformbinder-methods-unbind_field) | `func unbind_field(key: StringName) -> void:` |
 | 方法 | [`clear`](#member-gfformbinder-methods-clear) | `func clear() -> void:` |
 | 方法 | [`get_bound_fields`](#member-gfformbinder-methods-get_bound_fields) | `func get_bound_fields() -> Array[StringName]:` |
@@ -57,9 +57,10 @@ signal field_changed(key: StringName, value: Variant)
 ### `bind_field`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func bind_field(key: StringName, control: Control, default_value: Variant = null) -> void:
+func bind_field( key: StringName, control: Control, default_value: Variant = null ) -> void:
 ```
 
 绑定字段到控件。

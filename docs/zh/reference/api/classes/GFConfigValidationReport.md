@@ -19,7 +19,7 @@
 | 方法 | [`make_report`](#member-gfconfigvalidationreport-methods-make_report) | `func make_report(table_name: StringName = &"", row_count: int = 0) -> Dictionary:` |
 | 方法 | [`make_error_report`](#member-gfconfigvalidationreport-methods-make_error_report) | `func make_error_report( table_name: StringName, kind: String, message: String, context: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`add_issue`](#member-gfconfigvalidationreport-methods-add_issue) | `func add_issue( report: Dictionary, severity: String, kind: String, table_name: StringName, row_key: Variant, field_name: StringName, message: String, context: Dictionary = {} ) -> void:` |
-| 方法 | [`merge_report`](#member-gfconfigvalidationreport-methods-merge_report) | `func merge_report(target: Dictionary, source: Dictionary, include_row_count: bool = false) -> void:` |
+| 方法 | [`merge_report`](#member-gfconfigvalidationreport-methods-merge_report) | `func merge_report( target: Dictionary, source: Dictionary, include_row_count: bool = false ) -> void:` |
 | 方法 | [`finalize_report`](#member-gfconfigvalidationreport-methods-finalize_report) | `func finalize_report(report: Dictionary) -> void:` |
 
 ## 常量
@@ -150,9 +150,10 @@ func add_issue( report: Dictionary, severity: String, kind: String, table_name: 
 ### `merge_report`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func merge_report(target: Dictionary, source: Dictionary, include_row_count: bool = false) -> void:
+func merge_report( target: Dictionary, source: Dictionary, include_row_count: bool = false ) -> void:
 ```
 
 合并一份校验报告。

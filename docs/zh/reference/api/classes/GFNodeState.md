@@ -15,7 +15,7 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 信号 | [`requested_transition`](#member-gfnodestate-signals-requested_transition) | `signal requested_transition(group_name: StringName, state_name: StringName, args: Dictionary)` |
+| 信号 | [`requested_transition`](#member-gfnodestate-signals-requested_transition) | `signal requested_transition( group_name: StringName, state_name: StringName, args: Dictionary )` |
 | 属性 | [`state_name`](#member-gfnodestate-properties-state_name) | `var state_name: StringName = &""` |
 | 属性 | [`enter_conditions`](#member-gfnodestate-properties-enter_conditions) | `var enter_conditions: Array[Resource] = []` |
 | 属性 | [`exit_conditions`](#member-gfnodestate-properties-exit_conditions) | `var exit_conditions: Array[Resource] = []` |
@@ -46,9 +46,9 @@
 | 方法 | [`send_query`](#member-gfnodestate-methods-send_query) | `func send_query(query: Object) -> Variant:` |
 | 方法 | [`send_event`](#member-gfnodestate-methods-send_event) | `func send_event(event_instance: Object) -> void:` |
 | 方法 | [`send_simple_event`](#member-gfnodestate-methods-send_simple_event) | `func send_simple_event(event_id: StringName, payload: Variant = null) -> void:` |
-| 方法 | [`register_event`](#member-gfnodestate-methods-register_event) | `func register_event(event_type: Script, listener: GFEventListener, priority: int = 0) -> void:` |
+| 方法 | [`register_event`](#member-gfnodestate-methods-register_event) | `func register_event( event_type: Script, listener: GFEventListener, priority: int = 0 ) -> void:` |
 | 方法 | [`unregister_event`](#member-gfnodestate-methods-unregister_event) | `func unregister_event(event_type: Script, listener: GFEventListener) -> void:` |
-| 方法 | [`register_assignable_event`](#member-gfnodestate-methods-register_assignable_event) | `func register_assignable_event(base_event_type: Script, listener: GFEventListener, priority: int = 0) -> void:` |
+| 方法 | [`register_assignable_event`](#member-gfnodestate-methods-register_assignable_event) | `func register_assignable_event( base_event_type: Script, listener: GFEventListener, priority: int = 0 ) -> void:` |
 | 方法 | [`unregister_assignable_event`](#member-gfnodestate-methods-unregister_assignable_event) | `func unregister_assignable_event(base_event_type: Script, listener: GFEventListener) -> void:` |
 | 方法 | [`register_simple_event`](#member-gfnodestate-methods-register_simple_event) | `func register_simple_event(event_id: StringName, listener: GFEventListener) -> void:` |
 | 方法 | [`unregister_simple_event`](#member-gfnodestate-methods-unregister_simple_event) | `func unregister_simple_event(event_id: StringName, listener: GFEventListener) -> void:` |
@@ -69,9 +69,10 @@
 ### `requested_transition`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal requested_transition(group_name: StringName, state_name: StringName, args: Dictionary)
+signal requested_transition( group_name: StringName, state_name: StringName, args: Dictionary )
 ```
 
 状态请求切换时发出，由所属状态组或状态机处理。
@@ -677,7 +678,7 @@ func send_simple_event(event_id: StringName, payload: Variant = null) -> void:
 - 首次版本：`8.0.0`
 
 ```gdscript
-func register_event(event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
+func register_event( event_type: Script, listener: GFEventListener, priority: int = 0 ) -> void:
 ```
 
 注册类型事件监听器，默认以当前状态作为 owner。
@@ -718,7 +719,7 @@ func unregister_event(event_type: Script, listener: GFEventListener) -> void:
 - 首次版本：`8.0.0`
 
 ```gdscript
-func register_assignable_event(base_event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
+func register_assignable_event( base_event_type: Script, listener: GFEventListener, priority: int = 0 ) -> void:
 ```
 
 注册可赋值类型事件监听器，默认以当前状态作为 owner。

@@ -1,13 +1,9 @@
 # 测试异步 Storage 删除请求的公开入口、身份与 missing-family 安全基线。
 extends GutTest
 
-
-const _GF_STORAGE_FAMILY_STORE_SCRIPT = preload(
-	"res://addons/gf/standard/utilities/storage/gf_storage_family_store.gd"
-)
-const _DELETE_RESULT_SCRIPT_PATH: String = (
-	"res://addons/gf/standard/utilities/storage/gf_storage_delete_result.gd"
-)
+const _OWNED_TEST_TREE_SUPPORT = preload("res://tests/gf_core/support/gf_owned_test_tree_support.gd")
+const _GF_STORAGE_FAMILY_STORE_SCRIPT = preload("res://addons/gf/standard/utilities/storage/gf_storage_family_store.gd")
+const _DELETE_RESULT_SCRIPT_PATH: String = "res://addons/gf/standard/utilities/storage/gf_storage_delete_result.gd"
 const _DELETE_PATH_KEYS: Array[String] = [
 	"backup_path",
 	"transaction_pending_path",
@@ -46,14 +42,8 @@ class DeleteStageFaultStorageUtility extends GFStorageUtility:
 	var remove_before_error: bool = false
 	var removal_calls: Array[Dictionary] = []
 
-	func remove_delete_family_member_for_framework(
-		member_kind: StringName,
-		path: String
-	) -> Error:
-		removal_calls.append({
-			"member_kind": member_kind,
-			"path": path,
-		})
+	func remove_delete_family_member_for_framework(member_kind: StringName, path: String) -> Error:
+		removal_calls.append({ "member_kind": member_kind, "path": path, })
 		if path == fail_path:
 			if remove_before_error and FileAccess.file_exists(path):
 				var physical_remove_error: Error = DirAccess.remove_absolute(path)
@@ -93,10 +83,7 @@ class LayoutAdmissionProbeStorageUtility extends GFStorageUtility:
 	) -> Error:
 		if task_type == &"delete":
 			delete_start_count += 1
-			all_delete_starts_observed_layout = (
-				all_delete_starts_observed_layout
-				and FileAccess.file_exists(expected_layout_path)
-			)
+			all_delete_starts_observed_layout = (all_delete_starts_observed_layout and FileAccess.file_exists(expected_layout_path))
 		return thread.start(callback)
 
 
@@ -106,10 +93,7 @@ class BlockingDeleteStorageUtility extends GFStorageUtility:
 	var release_semaphore: Semaphore = Semaphore.new()
 	var _did_block: bool = false
 
-	func remove_delete_family_member_for_framework(
-		_member_kind: StringName,
-		path: String
-	) -> Error:
+	func remove_delete_family_member_for_framework(_member_kind: StringName, path: String) -> Error:
 		if path == blocked_path and not _did_block:
 			_did_block = true
 			started_semaphore.post()
@@ -119,6 +103,7 @@ class BlockingDeleteStorageUtility extends GFStorageUtility:
 		if not FileAccess.file_exists(path):
 			return OK
 		return DirAccess.remove_absolute(path)
+
 
 	func release_for_test() -> void:
 		release_semaphore.post()
@@ -160,6 +145,7 @@ class BlockingSaveStorageUtility extends GFStorageUtility:
 			codec_options
 		)
 
+
 	func release_for_test() -> void:
 		release_semaphore.post()
 
@@ -171,9 +157,7 @@ var _storage_root_path: String = ""
 
 func before_each() -> void:
 	_save_dir_name = "gf-storage-delete-operation-" + GFUuid.generate_v4()
-	_storage_root_path = _GF_STORAGE_FAMILY_STORE_SCRIPT.make_storage_root_path_for_framework(
-		_save_dir_name
-	)
+	_storage_root_path = _GF_STORAGE_FAMILY_STORE_SCRIPT.make_storage_root_path_for_framework(_save_dir_name)
 	assert_true(
 		_storage_root_path.begins_with("user://gf-storage-delete-operation-"),
 		"删除测试必须使用 UUID 独占 Storage root。"
@@ -189,7 +173,10 @@ func after_each() -> void:
 		_storage.dispose()
 		_storage = null
 	if _storage_root_path.begins_with("user://gf-storage-delete-operation-"):
-		assert_eq(_remove_owned_test_tree(_storage_root_path), OK)
+		assert_eq(
+			_OWNED_TEST_TREE_SUPPORT.remove_owned_tree(_storage_root_path),
+			OK
+		)
 	_save_dir_name = ""
 	_storage_root_path = ""
 
@@ -218,17 +205,11 @@ func test_delete_request_exposes_typed_missing_family_result_without_claiming() 
 		_storage.has_method(&"delete_file_request_async"),
 		"GFStorageUtility 必须公开 delete_file_request_async(file_name)。"
 	)
-	if (
-		not operation_constants.has("OPERATION_DELETE")
-		or not _storage.has_method(&"delete_file_request_async")
-	):
+	if (not operation_constants.has("OPERATION_DELETE") or not _storage.has_method(&"delete_file_request_async")):
 		return
 
 	var file_name: String = "contract/missing.json"
-	var descriptor: Dictionary = _GF_STORAGE_FAMILY_STORE_SCRIPT.make_family_descriptor_for_framework(
-		_storage_root_path,
-		file_name
-	)
+	var descriptor: Dictionary = _GF_STORAGE_FAMILY_STORE_SCRIPT.make_family_descriptor_for_framework(_storage_root_path, file_name)
 	var operation_value: Variant = _storage.call("delete_file_request_async", file_name)
 	assert_true(operation_value is GFStorageAsyncOperation)
 	if not operation_value is GFStorageAsyncOperation:
@@ -238,9 +219,15 @@ func test_delete_request_exposes_typed_missing_family_result_without_claiming() 
 		operation.get_operation(),
 		GFVariantData.get_option_string_name(operation_constants, "OPERATION_DELETE")
 	)
-	assert_eq(operation.get_file_name(), file_name)
+	assert_eq(
+		operation.get_file_name(),
+		file_name
+	)
 	_storage.wait_for_async_tasks()
-	assert_true(operation.is_completed(), "missing family 必须在调度排空后进入 typed 终态。")
+	assert_true(
+		operation.is_completed(),
+		"missing family 必须在调度排空后进入 typed 终态。"
+	)
 	var async_result: GFStorageAsyncResult = operation.get_result()
 	assert_not_null(async_result)
 	if async_result == null:
@@ -253,7 +240,10 @@ func test_delete_request_exposes_typed_missing_family_result_without_claiming() 
 	if not delete_result_value is RefCounted:
 		return
 	var delete_result: RefCounted = delete_result_value
-	assert_eq(GFVariantData.to_bool(delete_result.call("is_successful")), false)
+	assert_eq(
+		GFVariantData.to_bool(delete_result.call("is_successful")),
+		false
+	)
 	assert_eq(
 		GFVariantData.to_int(delete_result.call("get_error_code")) as Error,
 		ERR_FILE_NOT_FOUND
@@ -269,33 +259,22 @@ func test_delete_request_exposes_typed_missing_family_result_without_claiming() 
 
 
 func test_concurrent_missing_deletes_initialize_layout_before_worker_start() -> void:
-	var probe_storage: LayoutAdmissionProbeStorageUtility = (
-		LayoutAdmissionProbeStorageUtility.new()
-	)
-	probe_storage.expected_layout_path = _storage_root_path.path_join(
-		".gf-storage/v1/layout.json"
-	)
+	var probe_storage: LayoutAdmissionProbeStorageUtility = LayoutAdmissionProbeStorageUtility.new()
+	probe_storage.expected_layout_path = _storage_root_path.path_join(".gf-storage/v1/layout.json")
 	assert_false(
 		FileAccess.file_exists(probe_storage.expected_layout_path),
 		"并发删除回归必须从尚未初始化 layout 的独占 root 开始。"
 	)
 	_replace_storage(probe_storage)
 	_storage.max_async_thread_count = 2
-	var first_operation: GFStorageAsyncOperation = _request_delete(
-		"fresh-layout/first.json"
-	)
-	var second_operation: GFStorageAsyncOperation = _request_delete(
-		"fresh-layout/second.json"
-	)
+	var first_operation: GFStorageAsyncOperation = _request_delete("fresh-layout/first.json")
+	var second_operation: GFStorageAsyncOperation = _request_delete("fresh-layout/second.json")
 	if first_operation == null or second_operation == null:
 		return
 
 	_storage.wait_for_async_tasks()
 	assert_eq(probe_storage.delete_start_count, 2)
-	assert_true(
-		probe_storage.all_delete_starts_observed_layout,
-		"fresh root 的 layout 必须在任一 delete worker 启动前由主线程完成。"
-	)
+	assert_true(probe_storage.all_delete_starts_observed_layout, "fresh root 的 layout 必须在任一 delete worker 启动前由主线程完成。")
 	_assert_delete_terminal(
 		first_operation,
 		ERR_FILE_NOT_FOUND,
@@ -314,10 +293,7 @@ func test_concurrent_missing_deletes_initialize_layout_before_worker_start() -> 
 		0,
 		"NONE"
 	)
-	for file_name: String in [
-		"fresh-layout/first.json",
-		"fresh-layout/second.json",
-	]:
+	for file_name: String in ["fresh-layout/first.json", "fresh-layout/second.json",]:
 		var descriptor: Dictionary = _descriptor(file_name)
 		assert_false(
 			FileAccess.file_exists(GFVariantData.get_option_string(descriptor, "owner_path")),
@@ -341,27 +317,55 @@ func test_delete_removes_complete_family_in_final_last_order_and_keeps_claim() -
 	if operation == null:
 		return
 	_storage.wait_for_async_tasks()
-	_assert_delete_terminal(operation, OK, "NONE", 8, 8, 0, "NONE")
+	_assert_delete_terminal(
+		operation,
+		OK,
+		"NONE",
+		8,
+		8,
+		0,
+		"NONE"
+	)
 	for path_key: String in _DELETE_PATH_KEYS:
 		assert_false(
 			FileAccess.file_exists(GFVariantData.get_option_string(descriptor, path_key)),
 			"成功删除后不得残留 %s。" % path_key
 		)
-	assert_eq(FileAccess.get_file_as_bytes(owner_path), owner_before, "owner claim 必须保留。")
-	assert_eq(FileAccess.get_file_as_bytes(catalog_path), catalog_before, "catalog claim 必须保留。")
+	assert_eq(
+		FileAccess.get_file_as_bytes(owner_path),
+		owner_before,
+		"owner claim 必须保留。"
+	)
+	assert_eq(
+		FileAccess.get_file_as_bytes(catalog_path),
+		catalog_before,
+		"catalog claim 必须保留。"
+	)
 	assert_false(_storage.has_file(file_name))
-	assert_false(_storage.list_files("complete", "json", true).has(file_name))
+	assert_false(
+		_storage.list_files(
+			"complete",
+			"json",
+			true
+		).has(file_name)
+	)
 
 
 func test_delete_accepts_markerless_exact_backup_and_candidate_without_final() -> void:
 	var file_name: String = "partial/markerless.json"
 	var descriptor: Dictionary = _claim_empty_family(file_name)
 	assert_eq(
-		_write_text(GFVariantData.get_option_string(descriptor, "backup_path"), "backup"),
+		_write_text(
+			GFVariantData.get_option_string(descriptor, "backup_path"),
+			"backup"
+		),
 		OK
 	)
 	assert_eq(
-		_write_text(GFVariantData.get_option_string(descriptor, "candidate_path"), "candidate"),
+		_write_text(
+			GFVariantData.get_option_string(descriptor, "candidate_path"),
+			"candidate"
+		),
 		OK
 	)
 	var owner_path: String = GFVariantData.get_option_string(descriptor, "owner_path")
@@ -372,7 +376,15 @@ func test_delete_accepts_markerless_exact_backup_and_candidate_without_final() -
 	if operation == null:
 		return
 	_storage.wait_for_async_tasks()
-	_assert_delete_terminal(operation, OK, "NONE", 2, 2, 0, "NONE")
+	_assert_delete_terminal(
+		operation,
+		OK,
+		"NONE",
+		2,
+		2,
+		0,
+		"NONE"
+	)
 	assert_false(FileAccess.file_exists(GFVariantData.get_option_string(descriptor, "backup_path")))
 	assert_false(FileAccess.file_exists(GFVariantData.get_option_string(descriptor, "candidate_path")))
 	_assert_snapshot_unchanged(claim_snapshot)
@@ -380,7 +392,13 @@ func test_delete_accepts_markerless_exact_backup_and_candidate_without_final() -
 
 func test_delete_accepts_exact_single_member_transaction_marker() -> void:
 	var file_name: String = "single-marker/data.json"
-	assert_eq(_storage.save_data(file_name, { "value": 1 }), OK)
+	assert_eq(
+		_storage.save_data(
+			file_name,
+			{ "value": 1 }
+		),
+		OK
+	)
 	var descriptor: Dictionary = _descriptor(file_name)
 	var prepare_marker: Dictionary = _make_single_member_marker(file_name, false)
 	assert_eq(
@@ -395,11 +413,17 @@ func test_delete_accepts_exact_single_member_transaction_marker() -> void:
 	if operation == null:
 		return
 	_storage.wait_for_async_tasks()
-	_assert_delete_terminal(operation, OK, "NONE", 2, 2, 0, "NONE")
-	assert_false(FileAccess.file_exists(GFVariantData.get_option_string(descriptor, "payload_path")))
-	assert_false(
-		FileAccess.file_exists(GFVariantData.get_option_string(descriptor, "transaction_path"))
+	_assert_delete_terminal(
+		operation,
+		OK,
+		"NONE",
+		2,
+		2,
+		0,
+		"NONE"
 	)
+	assert_false(FileAccess.file_exists(GFVariantData.get_option_string(descriptor, "payload_path")))
+	assert_false(FileAccess.file_exists(GFVariantData.get_option_string(descriptor, "transaction_path")))
 
 
 func test_delete_reports_not_found_for_claimed_empty_family_without_mutating_claim() -> void:
@@ -429,20 +453,44 @@ func test_delete_rejects_group_malformed_and_mismatched_markers_without_modifica
 	var group_a: String = "conflict/group-a.json"
 	var group_b: String = "conflict/group-b.json"
 	assert_eq(
-		_storage.save_data_group({
-			group_a: { "value": 1 },
-			group_b: { "value": 2 },
-		}),
+		_storage.save_data_group(
+			{
+				group_a: { "value": 1 },
+				group_b: { "value": 2 },
+			}
+		),
 		OK
 	)
-	assert_eq(_storage._write_transaction_markers([group_a, group_b], false), OK)
+	assert_eq(
+		_storage._write_transaction_markers(
+			[group_a, group_b],
+			false
+		),
+		OK
+	)
 	var group_paths: Array[String] = []
-	group_paths.append_array(_existing_family_paths(_descriptor(group_a), true))
-	group_paths.append_array(_existing_family_paths(_descriptor(group_b), true))
+	group_paths.append_array(
+		_existing_family_paths(
+			_descriptor(group_a),
+			true
+		)
+	)
+	group_paths.append_array(
+		_existing_family_paths(
+			_descriptor(group_b),
+			true
+		)
+	)
 	_assert_delete_conflict_preserves(group_a, group_paths)
 
 	var malformed_file: String = "conflict/malformed.json"
-	assert_eq(_storage.save_data(malformed_file, { "value": 3 }), OK)
+	assert_eq(
+		_storage.save_data(
+			malformed_file,
+			{ "value": 3 }
+		),
+		OK
+	)
 	var malformed_descriptor: Dictionary = _descriptor(malformed_file)
 	assert_eq(
 		_write_text(
@@ -458,8 +506,20 @@ func test_delete_rejects_group_malformed_and_mismatched_markers_without_modifica
 
 	var mismatched_file: String = "conflict/mismatched.json"
 	var other_file: String = "conflict/other.json"
-	assert_eq(_storage.save_data(mismatched_file, { "value": 4 }), OK)
-	assert_eq(_storage.save_data(other_file, { "value": 5 }), OK)
+	assert_eq(
+		_storage.save_data(
+			mismatched_file,
+			{ "value": 4 }
+		),
+		OK
+	)
+	assert_eq(
+		_storage.save_data(
+			other_file,
+			{ "value": 5 }
+		),
+		OK
+	)
 	var mismatched_descriptor: Dictionary = _descriptor(mismatched_file)
 	assert_eq(
 		_write_json_record(
@@ -470,7 +530,12 @@ func test_delete_rejects_group_malformed_and_mismatched_markers_without_modifica
 	)
 	var mismatch_paths: Array[String] = []
 	mismatch_paths.append_array(_existing_family_paths(mismatched_descriptor, true))
-	mismatch_paths.append_array(_existing_family_paths(_descriptor(other_file), true))
+	mismatch_paths.append_array(
+		_existing_family_paths(
+			_descriptor(other_file),
+			true
+		)
+	)
 	_assert_delete_conflict_preserves(mismatched_file, mismatch_paths)
 
 
@@ -507,7 +572,10 @@ func test_delete_fail_fast_matrix_keeps_final_until_every_prior_stage_succeeds()
 		)
 		for call_index: int in range(fault_storage.removal_calls.size()):
 			var call_record: Dictionary = fault_storage.removal_calls[call_index]
-			assert_eq(GFVariantData.get_option_string(call_record, "path"), ordered_paths[call_index])
+			assert_eq(
+				GFVariantData.get_option_string(call_record, "path"),
+				ordered_paths[call_index]
+			)
 			assert_eq(
 				GFVariantData.get_option_string_name(call_record, "member_kind"),
 				_DELETE_STAGE_TOKENS[call_index]
@@ -529,7 +597,13 @@ func test_delete_failure_counts_observed_removal_before_error() -> void:
 	var fault_storage: DeleteStageFaultStorageUtility = DeleteStageFaultStorageUtility.new()
 	_replace_storage(fault_storage)
 	var file_name: String = "stage-failure/removed-before-error.json"
-	assert_eq(_storage.save_data(file_name, {"value": 1}), OK)
+	assert_eq(
+		_storage.save_data(
+			file_name,
+			{ "value": 1 }
+		),
+		OK
+	)
 	var descriptor: Dictionary = _descriptor(file_name)
 	fault_storage.fail_path = GFVariantData.get_option_string(descriptor, "payload_path")
 	fault_storage.remove_before_error = true
@@ -569,10 +643,12 @@ func test_save_load_delete_load_requests_keep_same_file_fifo() -> void:
 		delete_operation,
 		second_load,
 	]:
-		var connect_error: Error = operation.completed.connect(
-			func(result: GFStorageAsyncResult) -> void:
-				completion_order.append(result.get_request_id())
-		) as Error
+		var connect_error: Error = (
+			operation.completed.connect(
+				func(result: GFStorageAsyncResult) -> void:
+					completion_order.append(result.get_request_id()),
+			) as Error
+		)
 		assert_eq(connect_error, OK)
 
 	_storage.wait_for_async_tasks()
@@ -591,8 +667,23 @@ func test_save_load_delete_load_requests_keep_same_file_fifo() -> void:
 	assert_not_null(first_read)
 	if first_read != null:
 		assert_true(first_read.ok)
-		assert_eq(GFVariantData.get_option_int(first_read.payload, "value", -1), 17)
-	_assert_delete_terminal(delete_operation, OK, "NONE", 1, 1, 0, "NONE")
+		assert_eq(
+			GFVariantData.get_option_int(
+				first_read.payload,
+				"value",
+				-1
+			),
+			17
+		)
+	_assert_delete_terminal(
+		delete_operation,
+		OK,
+		"NONE",
+		1,
+		1,
+		0,
+		"NONE"
+	)
 	var second_read: GFStorageReadResult = second_load.get_result().get_read_result()
 	assert_not_null(second_read)
 	if second_read != null:
@@ -602,7 +693,13 @@ func test_save_load_delete_load_requests_keep_same_file_fifo() -> void:
 
 func test_delete_save_load_requests_keep_same_file_fifo() -> void:
 	var file_name: String = "fifo/delete-save-load.json"
-	assert_eq(_storage.save_data(file_name, { "value": 1 }), OK)
+	assert_eq(
+		_storage.save_data(
+			file_name,
+			{ "value": 1 }
+		),
+		OK
+	)
 	_storage.max_async_thread_count = 2
 	var delete_operation: GFStorageAsyncOperation = _request_delete(file_name)
 	if delete_operation == null:
@@ -613,13 +710,28 @@ func test_delete_save_load_requests_keep_same_file_fifo() -> void:
 	)
 	var load_operation: GFStorageAsyncOperation = _storage.load_data_request_async(file_name)
 	_storage.wait_for_async_tasks()
-	_assert_delete_terminal(delete_operation, OK, "NONE", 1, 1, 0, "NONE")
+	_assert_delete_terminal(
+		delete_operation,
+		OK,
+		"NONE",
+		1,
+		1,
+		0,
+		"NONE"
+	)
 	assert_true(save_operation.get_result().is_successful())
 	var read_result: GFStorageReadResult = load_operation.get_result().get_read_result()
 	assert_not_null(read_result)
 	if read_result != null:
 		assert_true(read_result.ok)
-		assert_eq(GFVariantData.get_option_int(read_result.payload, "value", -1), 2)
+		assert_eq(
+			GFVariantData.get_option_int(
+				read_result.payload,
+				"value",
+				-1
+			),
+			2
+		)
 
 
 func test_delete_waits_for_prior_save_instead_of_observing_enqueue_time_missing_state() -> void:
@@ -638,11 +750,22 @@ func test_delete_waits_for_prior_save_instead_of_observing_enqueue_time_missing_
 	var delete_operation: GFStorageAsyncOperation = _request_delete(file_name)
 	if delete_operation == null:
 		return
-	assert_true(delete_operation.is_pending(), "delete 不得按入队时的 missing 状态提前完成。")
+	assert_true(
+		delete_operation.is_pending(),
+		"delete 不得按入队时的 missing 状态提前完成。"
+	)
 	blocking_save.release_for_test()
 	_storage.wait_for_async_tasks()
 	assert_true(save_operation.get_result().is_successful())
-	_assert_delete_terminal(delete_operation, OK, "NONE", 1, 1, 0, "NONE")
+	_assert_delete_terminal(
+		delete_operation,
+		OK,
+		"NONE",
+		1,
+		1,
+		0,
+		"NONE"
+	)
 
 
 func test_unrelated_delete_can_complete_while_same_file_followers_remain_blocked() -> void:
@@ -651,8 +774,20 @@ func test_unrelated_delete_can_complete_while_same_file_followers_remain_blocked
 	_storage.max_async_thread_count = 2
 	var file_a: String = "concurrency/a.json"
 	var file_b: String = "concurrency/b.json"
-	assert_eq(_storage.save_data(file_a, { "value": 1 }), OK)
-	assert_eq(_storage.save_data(file_b, { "value": 2 }), OK)
+	assert_eq(
+		_storage.save_data(
+			file_a,
+			{ "value": 1 }
+		),
+		OK
+	)
+	assert_eq(
+		_storage.save_data(
+			file_b,
+			{ "value": 2 }
+		),
+		OK
+	)
 	blocking_storage.blocked_path = GFVariantData.get_option_string(
 		_descriptor(file_a),
 		"payload_path"
@@ -675,11 +810,27 @@ func test_unrelated_delete_can_complete_while_same_file_followers_remain_blocked
 	assert_true(load_a.is_pending())
 	assert_true(second_delete_a.is_pending())
 	if b_completed:
-		_assert_delete_terminal(delete_b, OK, "NONE", 1, 1, 0, "NONE")
+		_assert_delete_terminal(
+			delete_b,
+			OK,
+			"NONE",
+			1,
+			1,
+			0,
+			"NONE"
+		)
 
 	blocking_storage.release_for_test()
 	_storage.wait_for_async_tasks()
-	_assert_delete_terminal(delete_a, OK, "NONE", 1, 1, 0, "NONE")
+	_assert_delete_terminal(
+		delete_a,
+		OK,
+		"NONE",
+		1,
+		1,
+		0,
+		"NONE"
+	)
 	var load_result: GFStorageReadResult = load_a.get_result().get_read_result()
 	assert_not_null(load_result)
 	if load_result != null:
@@ -699,16 +850,18 @@ func test_delete_thread_start_failure_releases_lock_and_preserves_family_for_ret
 	var fault_storage: ThreadStartFaultStorageUtility = ThreadStartFaultStorageUtility.new()
 	_replace_storage(fault_storage)
 	var file_name: String = "start-failure/data.json"
-	assert_eq(_storage.save_data(file_name, { "value": 23 }), OK)
-	var descriptor: Dictionary = _descriptor(file_name)
-	var family_snapshot: Dictionary = _snapshot_existing_paths(
-		_existing_family_paths(descriptor, true)
+	assert_eq(
+		_storage.save_data(
+			file_name,
+			{ "value": 23 }
+		),
+		OK
 	)
+	var descriptor: Dictionary = _descriptor(file_name)
+	var family_snapshot: Dictionary = _snapshot_existing_paths(_existing_family_paths(descriptor, true))
 
 	var failed_operation: GFStorageAsyncOperation = _request_delete(file_name)
-	assert_push_error(
-		"[GFStorageUtility][storage_utility.async_remove_failed] Asynchronous removal failed: start-failure/data.json, reason: Thread start failed"
-	)
+	assert_push_error("[GFStorageUtility][storage_utility.async_remove_failed] Asynchronous removal failed: start-failure/data.json, reason: Thread start failed")
 	if failed_operation == null:
 		return
 	_storage.wait_for_async_tasks()
@@ -729,7 +882,15 @@ func test_delete_thread_start_failure_releases_lock_and_preserves_family_for_ret
 	if retry_operation == null:
 		return
 	_storage.wait_for_async_tasks()
-	_assert_delete_terminal(retry_operation, OK, "NONE", 1, 1, 0, "NONE")
+	_assert_delete_terminal(
+		retry_operation,
+		OK,
+		"NONE",
+		1,
+		1,
+		0,
+		"NONE"
+	)
 
 
 func test_malformed_worker_result_uses_guaranteed_typed_terminal_once() -> void:
@@ -743,10 +904,12 @@ func test_malformed_worker_result_uses_guaranteed_typed_terminal_once() -> void:
 		)
 	)
 	var completion_results: Array[GFStorageAsyncResult] = []
-	var connect_error: Error = operation.completed.connect(
-		func(result: GFStorageAsyncResult) -> void:
-			completion_results.append(result)
-	) as Error
+	var connect_error: Error = (
+		operation.completed.connect(
+			func(result: GFStorageAsyncResult) -> void:
+				completion_results.append(result),
+		) as Error
+	)
 	assert_eq(connect_error, OK)
 	var task: Dictionary = {
 		"type": &"delete",
@@ -754,7 +917,11 @@ func test_malformed_worker_result_uses_guaranteed_typed_terminal_once() -> void:
 		"operation": operation,
 	}
 
-	_storage.call("_complete_finished_async_task", task, {"unexpected": true})
+	_storage.call(
+		"_complete_finished_async_task",
+		task,
+		{ "unexpected": true }
+	)
 	_assert_delete_terminal(
 		operation,
 		ERR_BUG,
@@ -764,10 +931,21 @@ func test_malformed_worker_result_uses_guaranteed_typed_terminal_once() -> void:
 		0,
 		"FAMILY_METADATA"
 	)
-	assert_eq(completion_results.size(), 1)
+	assert_eq(
+		completion_results.size(),
+		1
+	)
 
-	_storage.call("_complete_finished_async_task", task, null)
-	assert_eq(completion_results.size(), 1, "malformed worker 结果只能发布一次 fallback 终态。")
+	_storage.call(
+		"_complete_finished_async_task",
+		task,
+		null
+	)
+	assert_eq(
+		completion_results.size(),
+		1,
+		"malformed worker 结果只能发布一次 fallback 终态。"
+	)
 
 	var invalid_error_file_name: String = "fallback/invalid-error-code.json"
 	var invalid_error_operation: GFStorageAsyncOperation = GFStorageAsyncOperation.new()
@@ -779,10 +957,12 @@ func test_malformed_worker_result_uses_guaranteed_typed_terminal_once() -> void:
 		)
 	)
 	var invalid_error_completion_results: Array[GFStorageAsyncResult] = []
-	var invalid_error_connect: Error = invalid_error_operation.completed.connect(
-		func(result: GFStorageAsyncResult) -> void:
-			invalid_error_completion_results.append(result)
-	) as Error
+	var invalid_error_connect: Error = (
+		invalid_error_operation.completed.connect(
+			func(result: GFStorageAsyncResult) -> void:
+				invalid_error_completion_results.append(result),
+		) as Error
+	)
 	assert_eq(invalid_error_connect, OK)
 	var invalid_error_task: Dictionary = {
 		"type": &"delete",
@@ -812,7 +992,10 @@ func test_malformed_worker_result_uses_guaranteed_typed_terminal_once() -> void:
 		0,
 		"FAMILY_METADATA"
 	)
-	assert_eq(invalid_error_completion_results.size(), 1)
+	assert_eq(
+		invalid_error_completion_results.size(),
+		1
+	)
 
 	_storage.call(
 		"_complete_finished_async_task",
@@ -832,8 +1015,20 @@ func test_dispose_completes_active_delete_but_rejects_queued_and_reentrant_delet
 	_storage.max_async_thread_count = 1
 	var active_file: String = "dispose/active.json"
 	var reentrant_file: String = "dispose/reentrant.json"
-	assert_eq(_storage.save_data(active_file, { "value": 1 }), OK)
-	assert_eq(_storage.save_data(reentrant_file, { "value": 2 }), OK)
+	assert_eq(
+		_storage.save_data(
+			active_file,
+			{ "value": 1 }
+		),
+		OK
+	)
+	assert_eq(
+		_storage.save_data(
+			reentrant_file,
+			{ "value": 2 }
+		),
+		OK
+	)
 	blocking_storage.blocked_path = GFVariantData.get_option_string(
 		_descriptor(active_file),
 		"payload_path"
@@ -851,33 +1046,51 @@ func test_dispose_completes_active_delete_but_rejects_queued_and_reentrant_delet
 	var active_signal_count: Array[int] = [0]
 	var queued_signal_count: Array[int] = [0]
 	var reentrant_operations: Array[GFStorageAsyncOperation] = []
-	var active_connect_error: Error = active_operation.completed.connect(
-		func(_result: GFStorageAsyncResult) -> void:
-			active_signal_count[0] += 1
-			_storage.tick(0.0)
-			_storage.wait_for_async_tasks()
-			var reentrant_value: Variant = _storage.call(
-				"delete_file_request_async",
-				reentrant_file
-			)
-			if reentrant_value is GFStorageAsyncOperation:
-				var reentrant_operation: GFStorageAsyncOperation = reentrant_value
-				reentrant_operations.append(reentrant_operation)
-	) as Error
+	var active_connect_error: Error = (
+		active_operation.completed.connect(
+			func(_result: GFStorageAsyncResult) -> void:
+				active_signal_count[0] += 1
+				_storage.tick(0.0)
+				_storage.wait_for_async_tasks()
+				var reentrant_value: Variant = _storage.call("delete_file_request_async", reentrant_file)
+				if reentrant_value is GFStorageAsyncOperation:
+					var reentrant_operation: GFStorageAsyncOperation = reentrant_value
+					reentrant_operations.append(reentrant_operation),
+		) as Error
+	)
 	assert_eq(active_connect_error, OK)
-	var queued_connect_error: Error = queued_operation.completed.connect(
-		func(_result: GFStorageAsyncResult) -> void:
-			queued_signal_count[0] += 1
-	) as Error
+	var queued_connect_error: Error = (
+		queued_operation.completed.connect(
+			func(_result: GFStorageAsyncResult) -> void:
+				queued_signal_count[0] += 1,
+		) as Error
+	)
 	assert_eq(queued_connect_error, OK)
 
 	blocking_storage.release_for_test()
 	_storage.dispose()
-	assert_eq(active_signal_count[0], 1)
-	assert_eq(queued_signal_count[0], 1)
-	_assert_delete_terminal(active_operation, OK, "NONE", 1, 1, 0, "NONE")
+	assert_eq(
+		active_signal_count[0],
+		1
+	)
+	assert_eq(
+		queued_signal_count[0],
+		1
+	)
+	_assert_delete_terminal(
+		active_operation,
+		OK,
+		"NONE",
+		1,
+		1,
+		0,
+		"NONE"
+	)
 	_assert_cancelled_terminal(queued_operation)
-	assert_eq(reentrant_operations.size(), 1)
+	assert_eq(
+		reentrant_operations.size(),
+		1
+	)
 	if reentrant_operations.size() == 1:
 		_assert_delete_terminal(
 			reentrant_operations[0],
@@ -890,7 +1103,10 @@ func test_dispose_completes_active_delete_but_rejects_queued_and_reentrant_delet
 		)
 	assert_true(
 		FileAccess.file_exists(
-			GFVariantData.get_option_string(_descriptor(reentrant_file), "payload_path")
+			GFVariantData.get_option_string(
+				_descriptor(reentrant_file),
+				"payload_path"
+			)
 		),
 		"dispose completion 重入不得启动新的物理删除。"
 	)
@@ -902,7 +1118,10 @@ func test_dispose_completes_active_delete_but_rejects_queued_and_reentrant_delet
 func test_delete_never_adopts_legacy_visible_file() -> void:
 	var file_name: String = "legacy/visible.json"
 	var legacy_path: String = _storage_root_path.path_join(file_name)
-	assert_eq(_write_text(legacy_path, "legacy-visible-bytes"), OK)
+	assert_eq(
+		_write_text(legacy_path, "legacy-visible-bytes"),
+		OK
+	)
 	var legacy_before: PackedByteArray = FileAccess.get_file_as_bytes(legacy_path)
 	var descriptor: Dictionary = _descriptor(file_name)
 
@@ -919,10 +1138,19 @@ func test_delete_never_adopts_legacy_visible_file() -> void:
 		0,
 		"NONE"
 	)
-	assert_eq(FileAccess.get_file_as_bytes(legacy_path), legacy_before)
+	assert_eq(
+		FileAccess.get_file_as_bytes(legacy_path),
+		legacy_before
+	)
 	assert_false(FileAccess.file_exists(GFVariantData.get_option_string(descriptor, "owner_path")))
 	assert_false(FileAccess.file_exists(GFVariantData.get_option_string(descriptor, "catalog_path")))
-	assert_false(_storage.list_files("legacy", "json", true).has(file_name))
+	assert_false(
+		_storage.list_files(
+			"legacy",
+			"json",
+			true
+		).has(file_name)
+	)
 
 
 func test_delete_rejects_non_portable_paths_before_queue_or_worker_admission() -> void:
@@ -933,13 +1161,14 @@ func test_delete_rejects_non_portable_paths_before_queue_or_worker_admission() -
 		"Uppercase.json",
 	]:
 		var operation: GFStorageAsyncOperation = _request_delete(invalid_path)
-		assert_push_error(
-			"[GFStorageUtility][storage_utility.filename_profile_invalid] delete_file_request_async failed: file_name does not satisfy the portable logical path profile."
-		)
+		assert_push_error("[GFStorageUtility][storage_utility.filename_profile_invalid] delete_file_request_async failed: file_name does not satisfy the portable logical path profile.")
 		if operation == null:
 			return
 		_storage.wait_for_async_tasks()
-		assert_eq(operation.get_file_name(), "")
+		assert_eq(
+			operation.get_file_name(),
+			""
+		)
 		_assert_delete_terminal(
 			operation,
 			ERR_INVALID_PARAMETER,
@@ -964,10 +1193,7 @@ func _replace_storage(storage: GFStorageUtility) -> void:
 
 
 func _descriptor(file_name: String) -> Dictionary:
-	return _GF_STORAGE_FAMILY_STORE_SCRIPT.make_family_descriptor_for_framework(
-		_storage_root_path,
-		file_name
-	)
+	return _GF_STORAGE_FAMILY_STORE_SCRIPT.make_family_descriptor_for_framework(_storage_root_path, file_name)
 
 
 func _claim_empty_family(file_name: String) -> Dictionary:
@@ -981,14 +1207,26 @@ func _claim_empty_family(file_name: String) -> Dictionary:
 
 
 func _stage_complete_family(file_name: String) -> Dictionary:
-	assert_eq(_storage.save_data(file_name, { "value": file_name }), OK)
+	assert_eq(
+		_storage.save_data(
+			file_name,
+			{ "value": file_name }
+		),
+		OK
+	)
 	var descriptor: Dictionary = _descriptor(file_name)
 	assert_eq(
-		_write_text(GFVariantData.get_option_string(descriptor, "backup_path"), "backup"),
+		_write_text(
+			GFVariantData.get_option_string(descriptor, "backup_path"),
+			"backup"
+		),
 		OK
 	)
 	assert_eq(
-		_write_text(GFVariantData.get_option_string(descriptor, "candidate_path"), "candidate"),
+		_write_text(
+			GFVariantData.get_option_string(descriptor, "candidate_path"),
+			"candidate"
+		),
 		OK
 	)
 	assert_eq(
@@ -1008,10 +1246,7 @@ func _stage_complete_family(file_name: String) -> Dictionary:
 			),
 			OK
 		)
-	for commit_path_key: String in [
-		"transaction_commit_pending_path",
-		"transaction_commit_path",
-	]:
+	for commit_path_key: String in ["transaction_commit_pending_path", "transaction_commit_path",]:
 		assert_eq(
 			_write_json_record(
 				GFVariantData.get_option_string(descriptor, commit_path_key),
@@ -1054,7 +1289,11 @@ func _existing_family_paths(descriptor: Dictionary, include_claim: bool) -> Arra
 	var result: Array[String] = []
 	for path_key: String in path_keys:
 		var path: String = GFVariantData.get_option_string(descriptor, path_key)
-		if not path.is_empty() and FileAccess.file_exists(path) and not result.has(path):
+		if (
+			not path.is_empty()
+			and FileAccess.file_exists(path)
+			and not result.has(path)
+		):
 			result.append(path)
 	return result
 
@@ -1073,7 +1312,10 @@ func _assert_snapshot_unchanged(snapshot: Dictionary) -> void:
 		if not path_value is String:
 			continue
 		var path: String = path_value
-		assert_true(FileAccess.file_exists(path), "失败关闭必须保留证据：%s" % path)
+		assert_true(
+			FileAccess.file_exists(path),
+			"失败关闭必须保留证据：%s" % path
+		)
 		var expected_content_value: Variant = snapshot.get(path)
 		if not expected_content_value is PackedByteArray:
 			fail_test("snapshot 必须保存 PackedByteArray：%s" % path)
@@ -1141,8 +1383,14 @@ func _assert_delete_terminal(
 	assert_not_null(async_result)
 	if async_result == null:
 		return
-	assert_eq(async_result.get_error_code(), expected_error)
-	assert_eq(async_result.is_successful(), expected_error == OK)
+	assert_eq(
+		async_result.get_error_code(),
+		expected_error
+	)
+	assert_eq(
+		async_result.is_successful(),
+		expected_error == OK
+	)
 	assert_true(async_result.has_method(&"get_delete_result"))
 	if not async_result.has_method(&"get_delete_result"):
 		return
@@ -1163,7 +1411,11 @@ func _assert_delete_terminal(
 	)
 	assert_eq(
 		GFVariantData.to_int(delete_result.call("get_failure_kind")),
-		GFVariantData.get_option_int(failure_kinds, expected_failure_name, -1)
+		GFVariantData.get_option_int(
+			failure_kinds,
+			expected_failure_name,
+			-1
+		)
 	)
 	assert_eq(
 		GFVariantData.to_int(delete_result.call("get_existing_member_count")),
@@ -1179,7 +1431,11 @@ func _assert_delete_terminal(
 	)
 	assert_eq(
 		GFVariantData.to_int(delete_result.call("get_failed_member")),
-		GFVariantData.get_option_int(family_members, expected_failed_member_name, -1)
+		GFVariantData.get_option_int(
+			family_members,
+			expected_failed_member_name,
+			-1
+		)
 	)
 
 
@@ -1196,7 +1452,10 @@ func _assert_cancelled_terminal(operation: GFStorageAsyncOperation) -> void:
 		async_result.get_settlement_kind(),
 		GFStorageAsyncResult.SettlementKind.CANCELLED
 	)
-	assert_eq(async_result.get_error_code(), ERR_SKIP)
+	assert_eq(
+		async_result.get_error_code(),
+		ERR_SKIP
+	)
 	assert_false(async_result.is_successful())
 	assert_null(async_result.get_read_result())
 	assert_null(async_result.get_delete_result())
@@ -1223,7 +1482,10 @@ func _delete_enum_values(enum_name: String) -> Dictionary:
 
 
 func _write_json_record(path: String, record: Dictionary) -> Error:
-	return _write_text(path, JSON.stringify(record))
+	return _write_text(
+		path,
+		JSON.stringify(record)
+	)
 
 
 func _write_text(path: String, content: String) -> Error:
@@ -1254,29 +1516,3 @@ func _pump_until_completed(operation: GFStorageAsyncOperation) -> bool:
 			return true
 		await get_tree().process_frame
 	return operation.is_completed()
-
-
-func _remove_owned_test_tree(path: String) -> Error:
-	if FileAccess.file_exists(path):
-		return DirAccess.remove_absolute(path)
-	if not DirAccess.dir_exists_absolute(path):
-		return OK
-	var directory: DirAccess = DirAccess.open(path)
-	if directory == null:
-		return DirAccess.get_open_error()
-	directory.include_hidden = true
-	for file_name: String in directory.get_files():
-		var remove_file_error: Error = DirAccess.remove_absolute(path.path_join(file_name))
-		if remove_file_error != OK:
-			return remove_file_error
-	for directory_name: String in directory.get_directories():
-		var child_path: String = path.path_join(directory_name)
-		var remove_directory_error: Error = (
-			DirAccess.remove_absolute(child_path)
-			if directory.is_link(directory_name)
-			else _remove_owned_test_tree(child_path)
-		)
-		if remove_directory_error != OK:
-			return remove_directory_error
-	directory = null
-	return DirAccess.remove_absolute(path)

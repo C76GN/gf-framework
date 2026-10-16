@@ -17,8 +17,8 @@ GF 扩展 manifest 发现与读取辅助。 扫描 GF 内置扩展目录和项�
 |---|---|---|
 | 常量 | [`EXTENSIONS_PATH`](#member-gfextensioncatalog-constants-extensions_path) | `const EXTENSIONS_PATH: String = "res://addons/gf/extensions"` |
 | 方法 | [`load_extension_manifests`](#member-gfextensioncatalog-methods-load_extension_manifests) | `static func load_extension_manifests(options: Dictionary = {}) -> Array[GFExtensionManifest]:` |
-| 方法 | [`load_all_manifests`](#member-gfextensioncatalog-methods-load_all_manifests) | `static func load_all_manifests( extra_root_paths: Array[String] = [], options: Dictionary = {} ) -> Array[GFExtensionManifest]:` |
-| 方法 | [`load_manifests_in`](#member-gfextensioncatalog-methods-load_manifests_in) | `static func load_manifests_in( root_path: String, options: Dictionary = {} ) -> Array[GFExtensionManifest]:` |
+| 方法 | [`load_all_manifests`](#member-gfextensioncatalog-methods-load_all_manifests) | `static func load_all_manifests(extra_root_paths: Array[String] = [], options: Dictionary = {}) -> Array[GFExtensionManifest]:` |
+| 方法 | [`load_manifests_in`](#member-gfextensioncatalog-methods-load_manifests_in) | `static func load_manifests_in(root_path: String, options: Dictionary = {}) -> Array[GFExtensionManifest]:` |
 | 方法 | [`get_manifest_paths`](#member-gfextensioncatalog-methods-get_manifest_paths) | `static func get_manifest_paths(root_path: String) -> Array[String]:` |
 
 ## 常量
@@ -70,7 +70,7 @@ static func load_extension_manifests(options: Dictionary = {}) -> Array[GFExtens
 - 首次版本：`3.6.0`
 
 ```gdscript
-static func load_all_manifests( extra_root_paths: Array[String] = [], options: Dictionary = {} ) -> Array[GFExtensionManifest]:
+static func load_all_manifests(extra_root_paths: Array[String] = [], options: Dictionary = {}) -> Array[GFExtensionManifest]:
 ```
 
 读取所有 GF 可选扩展 manifest。
@@ -96,7 +96,7 @@ static func load_all_manifests( extra_root_paths: Array[String] = [], options: D
 - 首次版本：`3.6.0`
 
 ```gdscript
-static func load_manifests_in( root_path: String, options: Dictionary = {} ) -> Array[GFExtensionManifest]:
+static func load_manifests_in(root_path: String, options: Dictionary = {}) -> Array[GFExtensionManifest]:
 ```
 
 读取指定根目录下一层扩展目录中的 manifest。

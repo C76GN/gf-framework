@@ -44,6 +44,7 @@ enum OwnerKind {
 	BACKEND,
 }
 
+
 ## BGM 会话的终结原因。
 ## [br]
 ## @api public
@@ -226,9 +227,7 @@ func stop(fade_seconds: float = 0.0) -> bool:
 	):
 		return false
 	_stop_requested = true
-	var accepted: bool = _invocation_returned_true(
-		_stop_delegate.invoke([self, fade_seconds])
-	)
+	var accepted: bool = _invocation_returned_true(_stop_delegate.invoke([self, fade_seconds]))
 	if not accepted and is_active():
 		_stop_requested = false
 	return accepted
@@ -296,10 +295,7 @@ func configure_for_framework(
 ## @param should_emit_signal: false 时只冻结终态，由 `emit_ended_for_framework()` 延后通知。
 ## [br]
 ## @return 首次写入合法终态时返回 true。
-func complete_for_framework(
-	end_kind: EndKind,
-	should_emit_signal: bool = true
-) -> bool:
+func complete_for_framework(end_kind: EndKind, should_emit_signal: bool = true) -> bool:
 	if (
 		not Thread.is_main_thread()
 		or not is_active()
@@ -358,10 +354,7 @@ func is_configured_for_framework() -> bool:
 ## @api private
 ## [br]
 static func _make_weak_invocation(method_delegate: Callable) -> GFWeakMethodInvocation:
-	if (
-		not method_delegate.is_valid()
-		or method_delegate.get_bound_arguments_count() != 0
-	):
+	if (not method_delegate.is_valid() or method_delegate.get_bound_arguments_count() != 0):
 		return null
 	var delegate_owner: Object = method_delegate.get_object()
 	var delegate_method: StringName = method_delegate.get_method()

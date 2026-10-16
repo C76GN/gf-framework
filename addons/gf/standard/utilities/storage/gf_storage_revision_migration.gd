@@ -203,8 +203,16 @@ func _upgrade(save_dir_name: String) -> Error:
 		if intent_error != OK:
 			return intent_error
 	var intent_read: Dictionary = _read_record(intent_path)
-	if GFVariantData.get_option_int(intent_read, "error", ERR_FILE_CORRUPT) != OK:
-		return GFVariantData.get_option_int(intent_read, "error", ERR_FILE_CORRUPT) as Error
+	if GFVariantData.get_option_int(
+		intent_read,
+		"error",
+		ERR_FILE_CORRUPT
+	) != OK:
+		return GFVariantData.get_option_int(
+			intent_read,
+			"error",
+			ERR_FILE_CORRUPT
+		) as Error
 	var persisted_intent: Dictionary = GFVariantData.get_option_dictionary(intent_read, "data")
 	if not _intent.is_empty() and not _records_equal(persisted_intent, _intent):
 		return ERR_FILE_CORRUPT
@@ -232,7 +240,12 @@ func _upgrade(save_dir_name: String) -> Error:
 	validation_error = _validate_all_states(incarnation)
 	if validation_error != OK:
 		return validation_error
-	for leaf: String in [_CURSOR_PENDING_LEAF, _CURSOR_LEAF, _LAYOUT_STAGE_LEAF, _INTENT_LEAF]:
+	for leaf: String in [
+		_CURSOR_PENDING_LEAF,
+		_CURSOR_LEAF,
+		_LAYOUT_STAGE_LEAF,
+		_INTENT_LEAF,
+	]:
 		var remove_error: Error = _remove_upgrade_file(_version_root.path_join(leaf))
 		if remove_error != OK:
 			return remove_error
@@ -245,7 +258,11 @@ func _upgrade(save_dir_name: String) -> Error:
 ## [br]
 func _prepare_initial_upgrade(save_dir_name: String) -> Error:
 	var inspection: Dictionary = _family_store.inspect_layout_for_reset_for_framework()
-	var inspection_error: Error = GFVariantData.get_option_int(inspection, "error", ERR_FILE_CORRUPT) as Error
+	var inspection_error: Error = GFVariantData.get_option_int(
+		inspection,
+		"error",
+		ERR_FILE_CORRUPT
+	) as Error
 	if inspection_error != OK:
 		return inspection_error
 	var storage: GFStorageUtility = GFStorageUtility.new()
@@ -263,7 +280,11 @@ func _prepare_initial_upgrade(save_dir_name: String) -> Error:
 ## [br]
 func _collect_descriptors() -> Error:
 	var listing: Dictionary = _family_store.list_claimed_family_descriptors_for_framework()
-	var listing_error: Error = GFVariantData.get_option_int(listing, "error", ERR_FILE_CORRUPT) as Error
+	var listing_error: Error = GFVariantData.get_option_int(
+		listing,
+		"error",
+		ERR_FILE_CORRUPT
+	) as Error
 	if listing_error != OK:
 		return listing_error
 	var fresh: Array[Dictionary] = []
@@ -272,8 +293,13 @@ func _collect_descriptors() -> Error:
 			return ERR_FILE_CORRUPT
 		var descriptor: Dictionary = descriptor_value
 		for path_key: String in [
-			"candidate_path", "backup_path", "transaction_path", "transaction_pending_path",
-			"transaction_commit_path", "transaction_commit_pending_path", "resource_stage_path",
+			"candidate_path",
+			"backup_path",
+			"transaction_path",
+			"transaction_pending_path",
+			"transaction_commit_path",
+			"transaction_commit_pending_path",
+			"resource_stage_path",
 		]:
 			if _leaf_exists(GFVariantData.get_option_string(descriptor, path_key)):
 				return ERR_BUSY
@@ -296,30 +322,41 @@ func _upgrade_family(descriptor: Dictionary) -> Error:
 		return OK
 	var state: Dictionary = GFStorageRevisionStore.read_state_for_framework(context)
 	var cursor_read: Dictionary = _read_cursor(_version_root.path_join(_CURSOR_LEAF))
-	if GFVariantData.get_option_int(cursor_read, "error", ERR_FILE_CORRUPT) != OK:
-		return GFVariantData.get_option_int(cursor_read, "error", ERR_FILE_CORRUPT) as Error
+	if GFVariantData.get_option_int(
+		cursor_read,
+		"error",
+		ERR_FILE_CORRUPT
+	) != OK:
+		return GFVariantData.get_option_int(
+			cursor_read,
+			"error",
+			ERR_FILE_CORRUPT
+		) as Error
 	var cursor: Dictionary = GFVariantData.get_option_dictionary(cursor_read, "data")
-	var cursor_matches: bool = (
-		GFVariantData.get_option_string(cursor, "logical_path")
-		== GFVariantData.get_option_string(descriptor, "logical_path")
-	)
-	if GFVariantData.get_option_int(state, "error", ERR_FILE_CORRUPT) == OK:
-		return OK if (
-			not cursor_matches
-			or GFVariantData.get_option_string(state, "commit_id")
-			== GFVariantData.get_option_string(cursor, "commit_id")
-		) else ERR_FILE_CORRUPT
+	var cursor_matches: bool = (GFVariantData.get_option_string(cursor, "logical_path") == GFVariantData.get_option_string(descriptor, "logical_path"))
+	if GFVariantData.get_option_int(
+		state,
+		"error",
+		ERR_FILE_CORRUPT
+	) == OK:
+		return (OK if (not cursor_matches or (GFVariantData.get_option_string(state, "commit_id") == GFVariantData.get_option_string(cursor, "commit_id"))) else ERR_FILE_CORRUPT)
 	if _leaf_exists(state_path) and not cursor_matches:
-		return GFVariantData.get_option_int(state, "error", ERR_FILE_CORRUPT) as Error
+		return GFVariantData.get_option_int(
+			state,
+			"error",
+			ERR_FILE_CORRUPT
+		) as Error
 	if not cursor_matches:
 		var layout_read: Dictionary = _read_record(_version_root.path_join("layout.json"))
 		var layout: Dictionary = GFVariantData.get_option_dictionary(layout_read, "data")
 		if (
-			GFVariantData.to_exact_int(layout.get("schema_version"), -1) == 2
+			GFVariantData.to_exact_int(
+				layout.get("schema_version"),
+				-1
+			) == 2
 			or (
 				not cursor.is_empty()
-				and GFVariantData.get_option_string(descriptor, "logical_path")
-				< GFVariantData.get_option_string(cursor, "logical_path")
+				and (GFVariantData.get_option_string(descriptor, "logical_path") < GFVariantData.get_option_string(cursor, "logical_path"))
 			)
 		):
 			return ERR_FILE_CORRUPT
@@ -336,15 +373,24 @@ func _upgrade_family(descriptor: Dictionary) -> Error:
 			return write_error
 		var pending_read: Dictionary = _read_cursor(pending_path)
 		if (
-			GFVariantData.get_option_int(pending_read, "error", ERR_FILE_CORRUPT) != OK
-			or not _records_equal(GFVariantData.get_option_dictionary(pending_read, "data"), cursor)
+			GFVariantData.get_option_int(
+				pending_read,
+				"error",
+				ERR_FILE_CORRUPT
+			) != OK
+			or not _records_equal(
+				GFVariantData.get_option_dictionary(pending_read, "data"),
+				cursor
+			)
 		):
 			return ERR_FILE_CORRUPT
 		var recover_error: Error = _recover_cursor()
 		if recover_error != OK:
 			return recover_error
 	return GFStorageRevisionStore.publish_for_framework(
-		context, GFVariantData.get_option_string(cursor, "commit_id"), _write_upgrade_record
+		context,
+		GFVariantData.get_option_string(cursor, "commit_id"),
+		_write_upgrade_record
 	)
 
 
@@ -357,10 +403,22 @@ func _recover_cursor() -> Error:
 	var pending_path: String = _version_root.path_join(_CURSOR_PENDING_LEAF)
 	var cursor_read: Dictionary = _read_cursor(cursor_path)
 	var pending_read: Dictionary = _read_cursor(pending_path)
-	if GFVariantData.get_option_int(cursor_read, "error", ERR_FILE_CORRUPT) != OK:
-		return GFVariantData.get_option_int(cursor_read, "error", ERR_FILE_CORRUPT) as Error
+	if GFVariantData.get_option_int(
+		cursor_read,
+		"error",
+		ERR_FILE_CORRUPT
+	) != OK:
+		return GFVariantData.get_option_int(
+			cursor_read,
+			"error",
+			ERR_FILE_CORRUPT
+		) as Error
 	var cursor: Dictionary = GFVariantData.get_option_dictionary(cursor_read, "data")
-	var pending_error: Error = GFVariantData.get_option_int(pending_read, "error", ERR_FILE_CORRUPT) as Error
+	var pending_error: Error = GFVariantData.get_option_int(
+		pending_read,
+		"error",
+		ERR_FILE_CORRUPT
+	) as Error
 	if pending_error != OK:
 		if (
 			pending_error == ERR_FILE_CORRUPT
@@ -376,22 +434,25 @@ func _recover_cursor() -> Error:
 	var next_context: Dictionary = _make_context(next_descriptor)
 	if (
 		_leaf_exists(GFVariantData.get_option_string(next_context, "state_path"))
-		and not GFStorageRevisionStore.matches_for_framework(
-			next_context, GFVariantData.get_option_string(pending, "commit_id")
+		and not (
+			GFStorageRevisionStore.matches_for_framework(
+				next_context,
+				GFVariantData.get_option_string(pending, "commit_id")
+			)
 		)
 	):
 		return ERR_FILE_CORRUPT
 	if not cursor.is_empty():
 		if _records_equal(cursor, pending):
 			return _remove_upgrade_file(pending_path)
-		if (
-			GFVariantData.get_option_string(pending, "logical_path")
-			<= GFVariantData.get_option_string(cursor, "logical_path")
-		):
+		if (GFVariantData.get_option_string(pending, "logical_path") <= GFVariantData.get_option_string(cursor, "logical_path")):
 			return ERR_FILE_CORRUPT
 		var previous_descriptor: Dictionary = _find_descriptor(GFVariantData.get_option_string(cursor, "logical_path"))
-		if not GFStorageRevisionStore.matches_for_framework(
-			_make_context(previous_descriptor), GFVariantData.get_option_string(cursor, "commit_id")
+		if not (
+			GFStorageRevisionStore.matches_for_framework(
+				_make_context(previous_descriptor),
+				GFVariantData.get_option_string(cursor, "commit_id")
+			)
 		):
 			return ERR_FILE_CORRUPT
 		var remove_error: Error = _remove_upgrade_file(cursor_path)
@@ -401,10 +462,21 @@ func _recover_cursor() -> Error:
 	if rename_error != OK:
 		return rename_error
 	var installed: Dictionary = _read_cursor(cursor_path)
-	return OK if (
-		GFVariantData.get_option_int(installed, "error", ERR_FILE_CORRUPT) == OK
-		and _records_equal(GFVariantData.get_option_dictionary(installed, "data"), pending)
-	) else ERR_FILE_CORRUPT
+	return (
+		OK
+		if (
+			GFVariantData.get_option_int(
+				installed,
+				"error",
+				ERR_FILE_CORRUPT
+			) == OK
+			and _records_equal(
+				GFVariantData.get_option_dictionary(installed, "data"),
+				pending
+			)
+		)
+		else ERR_FILE_CORRUPT
+	)
 
 
 ## 仅当旧 layout 哈希仍匹配、没有 layout 暂存，且游标前后的 revision 状态一致时允许丢弃游标暂存。
@@ -413,16 +485,17 @@ func _recover_cursor() -> Error:
 ## @api private
 func _can_discard_cursor_staging(cursor: Dictionary) -> bool:
 	# pending 尚未成为 cursor，不能授权发布 state；旧 schema 1 layout 必须仍在。
-	if (
-		FileAccess.get_sha256(_version_root.path_join("layout.json"))
-		!= GFVariantData.get_option_string(_intent, "old_layout_hash")
-		or _leaf_exists(_version_root.path_join(_LAYOUT_STAGE_LEAF))
-	):
+	if ((FileAccess.get_sha256(_version_root.path_join("layout.json")) != GFVariantData.get_option_string(_intent, "old_layout_hash")) or _leaf_exists(_version_root.path_join(_LAYOUT_STAGE_LEAF))):
 		return false
 	var cursor_logical_path: String = GFVariantData.get_option_string(cursor, "logical_path")
-	if not cursor.is_empty() and not GFStorageRevisionStore.matches_for_framework(
-		_make_context(_find_descriptor(cursor_logical_path)),
-		GFVariantData.get_option_string(cursor, "commit_id")
+	if (
+		not cursor.is_empty()
+		and not (
+			GFStorageRevisionStore.matches_for_framework(
+				_make_context(_find_descriptor(cursor_logical_path)),
+				GFVariantData.get_option_string(cursor, "commit_id")
+			)
+		)
 	):
 		return false
 	for descriptor: Dictionary in _descriptors:
@@ -438,13 +511,23 @@ func _can_discard_cursor_staging(cursor: Dictionary) -> bool:
 				return false
 			continue
 		if logical_path == cursor_logical_path:
-			if not GFStorageRevisionStore.matches_for_framework(
-				context, GFVariantData.get_option_string(cursor, "commit_id")
+			if not (
+				GFStorageRevisionStore.matches_for_framework(
+					context,
+					GFVariantData.get_option_string(cursor, "commit_id")
+				)
 			):
 				return false
-		elif GFVariantData.get_option_int(
-			GFStorageRevisionStore.read_state_for_framework(context), "error", ERR_FILE_CORRUPT
-		) != OK:
+		elif (
+			(
+				GFVariantData.get_option_int(
+					GFStorageRevisionStore.read_state_for_framework(context),
+					"error",
+					ERR_FILE_CORRUPT
+				)
+			)
+			!= OK
+		):
 			return false
 	return true
 
@@ -455,9 +538,13 @@ func _can_discard_cursor_staging(cursor: Dictionary) -> bool:
 ## [br]
 func _read_cursor(path: String) -> Dictionary:
 	if not _leaf_exists(path):
-		return {"error": int(OK), "data": {}}
+		return { "error": int(OK), "data": {} }
 	var result: Dictionary = _read_record(path)
-	if GFVariantData.get_option_int(result, "error", ERR_FILE_CORRUPT) != OK:
+	if GFVariantData.get_option_int(
+		result,
+		"error",
+		ERR_FILE_CORRUPT
+	) != OK:
 		return result
 	var cursor: Dictionary = GFVariantData.get_option_dictionary(result, "data")
 	var logical_path: String = GFVariantData.get_option_string(cursor, "logical_path")
@@ -474,7 +561,7 @@ func _read_cursor(path: String) -> Dictionary:
 		or _find_descriptor(logical_path).is_empty()
 		or not _records_equal(cursor, expected)
 	):
-		return {"error": int(ERR_FILE_CORRUPT), "data": {}}
+		return { "error": int(ERR_FILE_CORRUPT), "data": {} }
 	return result
 
 
@@ -488,14 +575,19 @@ func _validate_all_states(incarnation: String) -> Error:
 		return collect_error
 	for descriptor: Dictionary in _descriptors:
 		var context: Dictionary = GFStorageRevisionStore.make_context_for_framework(descriptor, incarnation)
-		if (
-			not FileAccess.file_exists(GFVariantData.get_option_string(context, "payload_path"))
-			and not _leaf_exists(GFVariantData.get_option_string(context, "state_path"))
-		):
+		if (not FileAccess.file_exists(GFVariantData.get_option_string(context, "payload_path")) and not _leaf_exists(GFVariantData.get_option_string(context, "state_path"))):
 			continue
 		var state: Dictionary = GFStorageRevisionStore.read_state_for_framework(context)
-		if GFVariantData.get_option_int(state, "error", ERR_FILE_CORRUPT) != OK:
-			return GFVariantData.get_option_int(state, "error", ERR_FILE_CORRUPT) as Error
+		if GFVariantData.get_option_int(
+			state,
+			"error",
+			ERR_FILE_CORRUPT
+		) != OK:
+			return GFVariantData.get_option_int(
+				state,
+				"error",
+				ERR_FILE_CORRUPT
+			) as Error
 	return OK
 
 
@@ -507,7 +599,10 @@ func _publish_layout(incarnation: String) -> Error:
 	var target: Dictionary = GFStorageFamilyStore.make_revision_upgrade_layout_for_framework(incarnation)
 	var layout_path: String = _version_root.path_join("layout.json")
 	var existing: Dictionary = _read_record(layout_path)
-	if _records_equal(GFVariantData.get_option_dictionary(existing, "data"), target):
+	if _records_equal(
+		GFVariantData.get_option_dictionary(existing, "data"),
+		target
+	):
 		return OK
 	var staged_path: String = _version_root.path_join(_LAYOUT_STAGE_LEAF)
 	if not _leaf_exists(staged_path) or _is_incomplete_staging_record(staged_path):
@@ -517,8 +612,15 @@ func _publish_layout(incarnation: String) -> Error:
 			return write_error
 	var staged: Dictionary = _read_record(staged_path)
 	if (
-		GFVariantData.get_option_int(staged, "error", ERR_FILE_CORRUPT) != OK
-		or not _records_equal(GFVariantData.get_option_dictionary(staged, "data"), target)
+		GFVariantData.get_option_int(
+			staged,
+			"error",
+			ERR_FILE_CORRUPT
+		) != OK
+		or not _records_equal(
+			GFVariantData.get_option_dictionary(staged, "data"),
+			target
+		)
 	):
 		return ERR_FILE_CORRUPT
 	var layout_check_error: Error = _family_store.ensure_layout_for_framework()
@@ -531,10 +633,21 @@ func _publish_layout(incarnation: String) -> Error:
 	if rename_error != OK:
 		return rename_error
 	var installed: Dictionary = _read_record(layout_path)
-	return OK if (
-		GFVariantData.get_option_int(installed, "error", ERR_FILE_CORRUPT) == OK
-		and _records_equal(GFVariantData.get_option_dictionary(installed, "data"), target)
-	) else ERR_FILE_CORRUPT
+	return (
+		OK
+		if (
+			GFVariantData.get_option_int(
+				installed,
+				"error",
+				ERR_FILE_CORRUPT
+			) == OK
+			and _records_equal(
+				GFVariantData.get_option_dictionary(installed, "data"),
+				target
+			)
+		)
+		else ERR_FILE_CORRUPT
+	)
 
 
 ## 识别非链接普通 staging 文件中的空内容或无法解析的 JSON 记录。
@@ -566,7 +679,8 @@ static func _is_incomplete_staging_record(path: String) -> bool:
 ## [br]
 func _make_context(descriptor: Dictionary) -> Dictionary:
 	return GFStorageRevisionStore.make_context_for_framework(
-		descriptor, GFVariantData.get_option_string(_intent, "storage_incarnation")
+		descriptor,
+		GFVariantData.get_option_string(_intent, "storage_incarnation")
 	)
 
 
@@ -604,24 +718,24 @@ func _validate_ancestry() -> Error:
 ## [br]
 static func _read_record(path: String) -> Dictionary:
 	if _is_link(path) or DirAccess.dir_exists_absolute(path):
-		return {"error": int(ERR_FILE_CORRUPT), "data": {}}
+		return { "error": int(ERR_FILE_CORRUPT), "data": {} }
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
-		return {"error": int(FileAccess.get_open_error()), "data": {}}
+		return { "error": int(FileAccess.get_open_error()), "data": {} }
 	var length: int = file.get_length()
 	if length <= 0 or length > _MAX_RECORD_BYTES:
 		file.close()
-		return {"error": int(ERR_FILE_CORRUPT), "data": {}}
+		return { "error": int(ERR_FILE_CORRUPT), "data": {} }
 	var bytes: PackedByteArray = file.get_buffer(length)
 	var read_error: Error = file.get_error()
 	file.close()
 	if bytes.size() != length or read_error not in [OK, ERR_FILE_EOF]:
-		return {"error": int(ERR_FILE_CANT_READ), "data": {}}
+		return { "error": int(ERR_FILE_CANT_READ), "data": {} }
 	var parser: JSON = JSON.new()
 	if parser.parse(bytes.get_string_from_utf8()) != OK or not parser.data is Dictionary:
-		return {"error": int(ERR_FILE_CORRUPT), "data": {}}
+		return { "error": int(ERR_FILE_CORRUPT), "data": {} }
 	var record: Dictionary = parser.data
-	return {"error": int(OK), "data": record}
+	return { "error": int(OK), "data": record }
 
 
 ## 要求记录字段数量与 expected 相同；schema_version 精确比整数，其余字段须为相同字符串。
@@ -633,9 +747,12 @@ static func _records_equal(record: Dictionary, expected: Dictionary) -> bool:
 		return false
 	for key: String in expected:
 		if key == "schema_version":
-			if (
-				GFVariantData.to_exact_int(record.get(key), -1)
-				!= GFVariantData.to_exact_int(expected.get(key), -2)
+			if GFVariantData.to_exact_int(
+				record.get(key),
+				-1
+			) != GFVariantData.to_exact_int(
+				expected.get(key),
+				-2
 			):
 				return false
 		elif not record.get(key) is String or record.get(key) != expected.get(key):
@@ -657,4 +774,8 @@ static func _is_link(path: String) -> bool:
 ## @api private
 ## [br]
 static func _leaf_exists(path: String) -> bool:
-	return _is_link(path) or FileAccess.file_exists(path) or DirAccess.dir_exists_absolute(path)
+	return (
+		_is_link(path)
+		or FileAccess.file_exists(path)
+		or DirAccess.dir_exists_absolute(path)
+	)

@@ -42,7 +42,12 @@ func _do_it() -> Error:
 	if not host_value is Object or not is_instance_valid(host_value):
 		return ERR_UNAVAILABLE
 	var host: Object = host_value
-	var result: Variant = host.call("invoke_workspace_record", _source_id, _paths, _generation)
+	var result: Variant = host.call(
+		"invoke_workspace_record",
+		_source_id,
+		_paths,
+		_generation
+	)
 	if result is int:
 		var error: int = result
 		return error as Error
@@ -64,7 +69,12 @@ func _do_it() -> Error:
 ## @param source_id: 任务或资源动作的全局贡献来源标识。
 ## [br]
 ## @param paths: 本次资源选择的路径，配置时复制；普通页面任务使用空数组。
-func configure(host: Object, generation: int, source_id: String, paths: PackedStringArray) -> void:
+func configure(
+	host: Object,
+	generation: int,
+	source_id: String,
+	paths: PackedStringArray
+) -> void:
 	_host = weakref(host)
 	_generation = generation
 	_source_id = source_id

@@ -17,7 +17,7 @@
 |---|---|---|
 | 信号 | [`job_enqueued`](#member-gfjobqueueutility-signals-job_enqueued) | `signal job_enqueued(job: GFJob)` |
 | 信号 | [`job_started`](#member-gfjobqueueutility-signals-job_started) | `signal job_started(job: GFJob)` |
-| 信号 | [`job_progressed`](#member-gfjobqueueutility-signals-job_progressed) | `signal job_progressed(job: GFJob, progress: float, message: String)` |
+| 信号 | [`job_progressed`](#member-gfjobqueueutility-signals-job_progressed) | `signal job_progressed( job: GFJob, progress: float, message: String )` |
 | 信号 | [`job_completed`](#member-gfjobqueueutility-signals-job_completed) | `signal job_completed(job: GFJob)` |
 | 信号 | [`job_failed`](#member-gfjobqueueutility-signals-job_failed) | `signal job_failed(job: GFJob)` |
 | 信号 | [`job_cancelled`](#member-gfjobqueueutility-signals-job_cancelled) | `signal job_cancelled(job: GFJob)` |
@@ -29,9 +29,9 @@
 | 方法 | [`enqueue`](#member-gfjobqueueutility-methods-enqueue) | `func enqueue( queue_name: StringName = &"default", data: Variant = null, metadata: Dictionary = {}, front: bool = false ) -> GFJob:` |
 | 方法 | [`start_next_job`](#member-gfjobqueueutility-methods-start_next_job) | `func start_next_job(queue_name: StringName = &"default") -> GFJob:` |
 | 方法 | [`run_next_job`](#member-gfjobqueueutility-methods-run_next_job) | `func run_next_job(queue_name: StringName, processor: Callable) -> GFJob:` |
-| 方法 | [`update_job_progress`](#member-gfjobqueueutility-methods-update_job_progress) | `func update_job_progress(job_id: StringName, progress: float, message: String = "") -> bool:` |
+| 方法 | [`update_job_progress`](#member-gfjobqueueutility-methods-update_job_progress) | `func update_job_progress( job_id: StringName, progress: float, message: String = "" ) -> bool:` |
 | 方法 | [`complete_job`](#member-gfjobqueueutility-methods-complete_job) | `func complete_job(job_id: StringName, result: Variant = null) -> bool:` |
-| 方法 | [`fail_job`](#member-gfjobqueueutility-methods-fail_job) | `func fail_job(job_id: StringName, error_message: String = "", result: Variant = null) -> bool:` |
+| 方法 | [`fail_job`](#member-gfjobqueueutility-methods-fail_job) | `func fail_job( job_id: StringName, error_message: String = "", result: Variant = null ) -> bool:` |
 | 方法 | [`cancel_job`](#member-gfjobqueueutility-methods-cancel_job) | `func cancel_job(job_id: StringName) -> bool:` |
 | 方法 | [`pause_queue`](#member-gfjobqueueutility-methods-pause_queue) | `func pause_queue(queue_name: StringName = &"default") -> void:` |
 | 方法 | [`resume_queue`](#member-gfjobqueueutility-methods-resume_queue) | `func resume_queue(queue_name: StringName = &"default") -> void:` |
@@ -85,9 +85,10 @@ signal job_started(job: GFJob)
 ### `job_progressed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal job_progressed(job: GFJob, progress: float, message: String)
+signal job_progressed( job: GFJob, progress: float, message: String )
 ```
 
 任务进度变化时发出。
@@ -293,9 +294,10 @@ func run_next_job(queue_name: StringName, processor: Callable) -> GFJob:
 ### `update_job_progress`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func update_job_progress(job_id: StringName, progress: float, message: String = "") -> bool:
+func update_job_progress( job_id: StringName, progress: float, message: String = "" ) -> bool:
 ```
 
 更新任务进度。
@@ -340,9 +342,10 @@ func complete_job(job_id: StringName, result: Variant = null) -> bool:
 ### `fail_job`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func fail_job(job_id: StringName, error_message: String = "", result: Variant = null) -> bool:
+func fail_job( job_id: StringName, error_message: String = "", result: Variant = null ) -> bool:
 ```
 
 标记任务失败。

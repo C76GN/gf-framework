@@ -17,7 +17,7 @@
 |---|---|---|
 | 枚举 | [`CurveMode`](#member-gfprogressionmath-enums-curvemode) | `enum CurveMode` |
 | 方法 | [`evaluate_curve`](#member-gfprogressionmath-methods-evaluate_curve) | `static func evaluate_curve(level: int, curve_config: Dictionary) -> GFBigNumber:` |
-| 方法 | [`apply_milestone_multipliers`](#member-gfprogressionmath-methods-apply_milestone_multipliers) | `static func apply_milestone_multipliers(value: Variant, level: int, milestones: Array) -> GFBigNumber:` |
+| 方法 | [`apply_milestone_multipliers`](#member-gfprogressionmath-methods-apply_milestone_multipliers) | `static func apply_milestone_multipliers( value: Variant, level: int, milestones: Array ) -> GFBigNumber:` |
 | 方法 | [`apply_soft_cap`](#member-gfprogressionmath-methods-apply_soft_cap) | `static func apply_soft_cap( value: Variant, soft_cap: Variant, power: float = _DEFAULT_SOFT_CAP_POWER ) -> GFBigNumber:` |
 | 方法 | [`settle_offline_progress`](#member-gfprogressionmath-methods-settle_offline_progress) | `static func settle_offline_progress( rate_per_second: Variant, offline_seconds: float, options: Dictionary = {} ) -> Dictionary:` |
 
@@ -74,9 +74,10 @@ static func evaluate_curve(level: int, curve_config: Dictionary) -> GFBigNumber:
 ### `apply_milestone_multipliers`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-static func apply_milestone_multipliers(value: Variant, level: int, milestones: Array) -> GFBigNumber:
+static func apply_milestone_multipliers( value: Variant, level: int, milestones: Array ) -> GFBigNumber:
 ```
 
 为基础值叠加里程碑倍率。

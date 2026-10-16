@@ -56,7 +56,14 @@ const _VIRTUAL_INPUT_BRIDGE = preload("res://addons/gf/standard/input/common/gf_
 ## 按钮常态颜色。
 ## [br]
 ## @api public
-@export var color: Color = Color(1.0, 1.0, 1.0, 0.3):
+## [br]
+## @since 1.17.0
+@export var color: Color = Color(
+	1.0,
+	1.0,
+	1.0,
+	0.3
+):
 	set(value):
 		color = value
 		queue_redraw()
@@ -64,7 +71,14 @@ const _VIRTUAL_INPUT_BRIDGE = preload("res://addons/gf/standard/input/common/gf_
 ## 按钮按下颜色。
 ## [br]
 ## @api public
-@export var pressed_color: Color = Color(1.0, 1.0, 1.0, 0.65):
+## [br]
+## @since 1.17.0
+@export var pressed_color: Color = Color(
+	1.0,
+	1.0,
+	1.0,
+	0.65
+):
 	set(value):
 		pressed_color = value
 		queue_redraw()
@@ -80,7 +94,11 @@ const _VIRTUAL_INPUT_BRIDGE = preload("res://addons/gf/standard/input/common/gf_
 	set(value):
 		if accept_mouse_input == value:
 			return
-		if accept_mouse_input and not value and _mouse_pressed_inside:
+		if (
+			accept_mouse_input
+			and not value
+			and _mouse_pressed_inside
+		):
 			release()
 		accept_mouse_input = value
 
@@ -181,8 +199,28 @@ func _input(event: InputEvent) -> void:
 
 
 func _draw() -> void:
-	draw_circle(Vector2.ZERO, radius, pressed_color if _pressed else color, true, -1.0, true)
-	draw_circle(Vector2.ZERO, radius, Color(color, minf(color.a + 0.25, 1.0)), false, 2.0, true)
+	draw_circle(
+		Vector2.ZERO,
+		radius,
+		pressed_color if _pressed else color,
+		true,
+		-1.0,
+		true
+	)
+	draw_circle(
+		Vector2.ZERO,
+		radius,
+		Color(
+			color,
+			minf(
+				color.a + 0.25,
+				1.0
+			)
+		),
+		false,
+		2.0,
+		true
+	)
 
 
 # --- 公共方法 ---
@@ -320,17 +358,17 @@ func _apply_input_action(pressed: bool) -> void:
 ## @api private
 ## [br]
 func _emit_joypad_button(pressed: bool) -> void:
-	var should_emit: bool = (
-		_active_emit_joypad_button
-		if _output_binding_active
-		else emit_joypad_button
-	)
+	var should_emit: bool = (_active_emit_joypad_button if _output_binding_active else emit_joypad_button)
 	if not should_emit:
 		return
 
 	var device_id: int = _active_joypad_device_id if _output_binding_active else joypad_device_id
 	var button: JoyButton = _active_joy_button if _output_binding_active else joy_button
-	_VIRTUAL_INPUT_BRIDGE.emit_joypad_button(device_id, button, pressed)
+	_VIRTUAL_INPUT_BRIDGE.emit_joypad_button(
+		device_id,
+		button,
+		pressed
+	)
 
 
 ## 在按压开始时复制动作映射和虚拟手柄输出设置，保证释放与本次按压配置配对。

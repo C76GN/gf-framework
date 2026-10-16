@@ -63,14 +63,20 @@ func _run() -> void:
 	var options: Dictionary = admitted_request["options"]
 	var session: _SESSION_SCRIPT = _SESSION_SCRIPT.new()
 	var analysis: Dictionary = session.open_profile_text(
-		profile_text, profile_source_path, options
+		profile_text,
+		profile_source_path,
+		options
 	)
 	var envelope: Dictionary = {
 		"schema_version": 1,
 		"kind": "project_layout_cli_result",
 		"analysis": analysis,
 	}
-	if _measure_json_bytes(envelope, _REPORT_MAX_BYTES, 0) < 0:
+	if _measure_json_bytes(
+		envelope,
+		_REPORT_MAX_BYTES,
+		0
+	) < 0:
 		quit(3)
 		return
 	var report: PackedByteArray = JSON.stringify(envelope).to_utf8_buffer()
@@ -96,11 +102,20 @@ func _request_is_valid(value: Variant) -> bool:
 	var request: Dictionary = value
 	if request.size() != 5:
 		return false
-	for field: String in ["schema_version", "operation", "profile_text", "profile_source_path", "options"]:
+	for field: String in [
+		"schema_version",
+		"operation",
+		"profile_text",
+		"profile_source_path",
+		"options",
+	]:
 		if not request.has(field):
 			return false
 	return (
-		(request["schema_version"] is int or request["schema_version"] is float)
+		(
+			request["schema_version"] is int
+			or request["schema_version"] is float
+		)
 		and request["schema_version"] == 1
 		and request["operation"] == "analyze"
 		and request["profile_text"] is String
@@ -112,9 +127,17 @@ func _request_is_valid(value: Variant) -> bool:
 ## Measure JSON transport bytes before allocating the complete encoded report.
 ## [br]
 ## @api private
-func _measure_json_bytes(value: Variant, remaining: int, depth: int) -> int:
+func _measure_json_bytes(
+	value: Variant,
+	remaining: int,
+	depth: int
+) -> int:
 	_encoding_work_remaining -= 1
-	if remaining < 0 or depth > 64 or _encoding_work_remaining < 0:
+	if (
+		remaining < 0
+		or depth > 64
+		or _encoding_work_remaining < 0
+	):
 		return -1
 	if value is Array or value is Dictionary:
 		var size_bytes: int = 2
@@ -127,12 +150,22 @@ func _measure_json_bytes(value: Variant, remaining: int, depth: int) -> int:
 				var key_bytes: int = JSON.stringify(item).to_utf8_buffer().size() + 1
 				size_bytes += key_bytes
 			var child: Variant = value[item] if value is Dictionary else item
-			var child_bytes: int = _measure_json_bytes(child, remaining - size_bytes, depth + 1)
+			var child_bytes: int = _measure_json_bytes(
+				child,
+				remaining - size_bytes,
+				depth + 1
+			)
 			if child_bytes < 0:
 				return -1
 			size_bytes += child_bytes
 		return size_bytes if size_bytes <= remaining else -1
-	if not (value == null or value is String or value is bool or value is int or value is float):
+	if not (
+		value == null
+		or value is String
+		or value is bool
+		or value is int
+		or value is float
+	):
 		return -1
 	var scalar_bytes: int = JSON.stringify(value).to_utf8_buffer().size()
 	return scalar_bytes if scalar_bytes <= remaining else -1

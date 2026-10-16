@@ -65,6 +65,8 @@ func prepare_runtime(
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param raw_active: 原始输入是否处于激活状态。
 ## [br]
 ## @param _value: 输入值，默认实现不直接使用。
@@ -78,7 +80,12 @@ func prepare_runtime(
 ## @schema state: Dictionary，由输入运行时持有，包含 input_runtime: Object 和 player_index: int。
 ## [br]
 ## @return 触发状态。
-func update(raw_active: bool, _value: Variant, _delta: float, state: Dictionary) -> TriggerState:
+func update(
+	raw_active: bool,
+	_value: Variant,
+	_delta: float,
+	state: Dictionary
+) -> TriggerState:
 	if not raw_active:
 		return TriggerState.INACTIVE
 	if required_action_id == &"":
@@ -88,16 +95,24 @@ func update(raw_active: bool, _value: Variant, _delta: float, state: Dictionary)
 	if input_runtime == null:
 		return TriggerState.INACTIVE
 
-	var player_index: int = GFVariantData.get_option_int(state, "player_index", -1)
+	var player_index: int = GFVariantData.get_option_int(
+		state,
+		"player_index",
+		-1
+	)
 	if player_scoped and player_index >= 0:
 		if not input_runtime.has_method("is_action_active_for_player"):
 			return TriggerState.INACTIVE
 		var player_active: bool = GFVariantData.to_bool(
-			input_runtime.call("is_action_active_for_player", player_index, required_action_id)
+			input_runtime.call(
+				"is_action_active_for_player",
+				player_index,
+				required_action_id
+			)
 		)
 		return TriggerState.TRIGGERED if player_active else TriggerState.INACTIVE
 
-	if input_runtime.has_method("is_action_active") and GFVariantData.to_bool(input_runtime.call("is_action_active", required_action_id)):
+	if (input_runtime.has_method("is_action_active") and GFVariantData.to_bool(input_runtime.call("is_action_active", required_action_id))):
 		return TriggerState.TRIGGERED
 	return TriggerState.INACTIVE
 

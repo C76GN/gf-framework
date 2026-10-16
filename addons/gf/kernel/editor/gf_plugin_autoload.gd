@@ -61,7 +61,11 @@ static func ensure(plugin: EditorPlugin) -> void:
 static func remove(plugin: EditorPlugin) -> void:
 	if plugin == null:
 		return
-	if ProjectSettings.has_setting("autoload/%s" % AUTOLOAD_NAME) and _autoload_points_to_gf() and _has_autoload_ownership_marker():
+	if (
+		ProjectSettings.has_setting("autoload/%s" % AUTOLOAD_NAME)
+		and _autoload_points_to_gf()
+		and _has_autoload_ownership_marker()
+	):
 		plugin.remove_autoload_singleton(AUTOLOAD_NAME)
 	_set_autoload_ownership_marker(false)
 
@@ -75,7 +79,10 @@ static func remove(plugin: EditorPlugin) -> void:
 ## [br]
 ## @return 启用的 Gf 单例指向 GF 核心脚本时返回 true。
 static func is_registered_singleton() -> bool:
-	var raw_value: Variant = ProjectSettings.get_setting("autoload/%s" % AUTOLOAD_NAME, "")
+	var raw_value: Variant = ProjectSettings.get_setting(
+		"autoload/%s" % AUTOLOAD_NAME,
+		""
+	)
 	if not raw_value is String:
 		return false
 	var autoload_value: String = raw_value

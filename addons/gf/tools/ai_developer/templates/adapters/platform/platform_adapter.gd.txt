@@ -57,10 +57,7 @@ func _initialize(_options: Dictionary) -> void:
 ## @param handle: 基类拥有的请求句柄，用于关联底层调用。
 ## [br]
 ## @return 契约匹配并登记时为 true，未接受请求为 false；true 不表示请求完成。
-func _dispatch(
-	request: GFPlatformBridgeRequest,
-	handle: GFPlatformRequestHandle
-) -> bool:
+func _dispatch(request: GFPlatformBridgeRequest, handle: GFPlatformRequestHandle) -> bool:
 	if request.contract_id != CONTRACT_ID or request.method_id != METHOD_ID:
 		return false
 	# Store a provider call ID -> handle association before invoking the SDK so a
@@ -172,10 +169,7 @@ func on_provider_cancelled(provider_call_id: String) -> void:
 ## [br]
 ## @api private
 func _take_handle(provider_call_id: String) -> GFPlatformRequestHandle:
-	var value: Variant = GFVariantData.get_option_value(
-		_provider_calls,
-		provider_call_id
-	)
+	var value: Variant = GFVariantData.get_option_value(_provider_calls, provider_call_id)
 	var _erased: bool = _provider_calls.erase(provider_call_id)
 	if value is GFPlatformRequestHandle:
 		var handle: GFPlatformRequestHandle = value
@@ -187,15 +181,19 @@ func _take_handle(provider_call_id: String) -> GFPlatformRequestHandle:
 ## [br]
 ## @api private
 static func _make_contract_descriptor() -> GFPlatformContractDescriptor:
-	var request_schema: GFDictionarySchema = GFDictionarySchema.new().configure(
-		&"project_platform_sample_request",
-		[],
-		{"allow_extra_fields": false}
+	var request_schema: GFDictionarySchema = (
+		GFDictionarySchema.new().configure(
+			&"project_platform_sample_request",
+			[],
+			{ "allow_extra_fields": false }
+		)
 	)
-	var result_schema: GFDictionarySchema = GFDictionarySchema.new().configure(
-		&"project_platform_sample_result",
-		[],
-		{"allow_extra_fields": false}
+	var result_schema: GFDictionarySchema = (
+		GFDictionarySchema.new().configure(
+			&"project_platform_sample_result",
+			[],
+			{ "allow_extra_fields": false }
+		)
 	)
 	var method: GFPlatformContractMethodDescriptor = (
 		GFPlatformContractMethodDescriptor.new().configure(
@@ -211,8 +209,10 @@ static func _make_contract_descriptor() -> GFPlatformContractDescriptor:
 			}
 		)
 	)
-	return GFPlatformContractDescriptor.new().configure(
-		CONTRACT_ID,
-		"1.0.0",
-		[method]
+	return (
+		GFPlatformContractDescriptor.new().configure(
+			CONTRACT_ID,
+			"1.0.0",
+			[method]
+		)
 	)

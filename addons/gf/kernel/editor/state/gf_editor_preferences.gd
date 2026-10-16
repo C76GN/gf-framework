@@ -35,7 +35,11 @@ static func get_value(key: String, fallback: Variant = null) -> Variant:
 	var settings: EditorSettings = EditorInterface.get_editor_settings()
 	if settings == null:
 		return fallback
-	return settings.get_project_metadata(_SECTION, key, fallback)
+	return settings.get_project_metadata(
+		_SECTION,
+		key,
+		fallback
+	)
 
 
 ## 保存个人偏好；非编辑器环境不写入任何文件。
@@ -54,7 +58,11 @@ static func set_value(key: String, value: Variant) -> void:
 		return
 	var settings: EditorSettings = EditorInterface.get_editor_settings()
 	if settings != null:
-		settings.set_project_metadata(_SECTION, key, value)
+		settings.set_project_metadata(
+			_SECTION,
+			key,
+			value
+		)
 
 
 ## 根据启动模式和首次使用状态决定是否展示工作区；未知模式按手动打开处理。
@@ -69,4 +77,10 @@ static func set_value(key: String, value: Variant) -> void:
 ## [br]
 ## @return: always 或尚未打开过的 first_use 返回 true，其余返回 false。
 static func should_auto_open(mode: String, has_opened: bool) -> bool:
-	return mode == "always" or (mode == "first_use" and not has_opened)
+	return (
+		mode == "always"
+		or (
+			mode == "first_use"
+			and not has_opened
+		)
+	)

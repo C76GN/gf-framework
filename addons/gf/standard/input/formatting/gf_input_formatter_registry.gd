@@ -63,11 +63,13 @@ var _next_order: int = 0
 ## @param owner: 可选拥有者；拥有者释放后该注册会在下一次查询或 prune 时失效。
 ## [br]
 ## @return 注册句柄；provider 为空时返回非活动句柄。
-func register_text_provider(
-	provider: GFInputTextProvider,
-	owner: Object = null
-) -> GFInputProviderRegistration:
-	return _register_provider(_text_entries, _PROVIDER_KIND_TEXT, provider, owner)
+func register_text_provider(provider: GFInputTextProvider, owner: Object = null) -> GFInputProviderRegistration:
+	return _register_provider(
+		_text_entries,
+		_PROVIDER_KIND_TEXT,
+		provider,
+		owner
+	)
 
 
 ## 注册图标 provider 并返回释放句柄。
@@ -81,11 +83,13 @@ func register_text_provider(
 ## @param owner: 可选拥有者；拥有者释放后该注册会在下一次查询或 prune 时失效。
 ## [br]
 ## @return 注册句柄；provider 为空时返回非活动句柄。
-func register_icon_provider(
-	provider: GFInputIconProvider,
-	owner: Object = null
-) -> GFInputProviderRegistration:
-	return _register_provider(_icon_entries, _PROVIDER_KIND_ICON, provider, owner)
+func register_icon_provider(provider: GFInputIconProvider, owner: Object = null) -> GFInputProviderRegistration:
+	return _register_provider(
+		_icon_entries,
+		_PROVIDER_KIND_ICON,
+		provider,
+		owner
+	)
 
 
 ## 注册文本 provider。
@@ -260,13 +264,19 @@ func _register_provider(
 		return existing
 
 	var registration: GFInputProviderRegistration = GFInputProviderRegistration.new()
-	registration.setup_from_registry(self, provider_kind, provider)
-	entries.append({
-		&"provider": provider,
-		&"owner_ref": weakref(owner) if owner != null else null,
-		&"registration": registration,
-		&"order": _next_order,
-	})
+	registration.setup_from_registry(
+		self,
+		provider_kind,
+		provider
+	)
+	entries.append(
+		{
+			&"provider": provider,
+			&"owner_ref": weakref(owner) if owner != null else null,
+			&"registration": registration,
+			&"order": _next_order,
+		}
+	)
 	_next_order += 1
 	_sort_entries(entries)
 	return registration
@@ -369,12 +379,13 @@ func _entry_is_live(entry: Dictionary) -> bool:
 ## @api private
 ## [br]
 func _sort_entries(entries: Array[Dictionary]) -> void:
-	entries.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
-		var left_priority: int = _get_entry_priority(left)
-		var right_priority: int = _get_entry_priority(right)
-		if left_priority == right_priority:
-			return _get_entry_order(left) < _get_entry_order(right)
-		return left_priority > right_priority
+	entries.sort_custom(
+		func(left: Dictionary, right: Dictionary) -> bool:
+			var left_priority: int = _get_entry_priority(left)
+			var right_priority: int = _get_entry_priority(right)
+			if left_priority == right_priority:
+				return _get_entry_order(left) < _get_entry_order(right)
+			return left_priority > right_priority
 	)
 
 

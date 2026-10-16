@@ -15,11 +15,11 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 信号 | [`request_queued`](#member-gfasynckeyedgate-signals-request_queued) | `signal request_queued(request_id: int, key: Variant, metadata: Dictionary)` |
+| 信号 | [`request_queued`](#member-gfasynckeyedgate-signals-request_queued) | `signal request_queued( request_id: int, key: Variant, metadata: Dictionary )` |
 | 信号 | [`lease_acquired`](#member-gfasynckeyedgate-signals-lease_acquired) | `signal lease_acquired(lease: GFAsyncGateLease)` |
 | 信号 | [`lease_released`](#member-gfasynckeyedgate-signals-lease_released) | `signal lease_released(lease: GFAsyncGateLease, reason: StringName)` |
-| 信号 | [`request_cancelled`](#member-gfasynckeyedgate-signals-request_cancelled) | `signal request_cancelled(request_id: int, key: Variant, reason: StringName, metadata: Dictionary)` |
-| 信号 | [`request_timed_out`](#member-gfasynckeyedgate-signals-request_timed_out) | `signal request_timed_out(request_id: int, key: Variant, metadata: Dictionary)` |
+| 信号 | [`request_cancelled`](#member-gfasynckeyedgate-signals-request_cancelled) | `signal request_cancelled( request_id: int, key: Variant, reason: StringName, metadata: Dictionary )` |
+| 信号 | [`request_timed_out`](#member-gfasynckeyedgate-signals-request_timed_out) | `signal request_timed_out( request_id: int, key: Variant, metadata: Dictionary )` |
 | 常量 | [`STATUS_ACQUIRED`](#member-gfasynckeyedgate-constants-status_acquired) | `const STATUS_ACQUIRED: StringName = &"acquired"` |
 | 常量 | [`STATUS_QUEUED`](#member-gfasynckeyedgate-constants-status_queued) | `const STATUS_QUEUED: StringName = &"queued"` |
 | 常量 | [`STATUS_RELEASED`](#member-gfasynckeyedgate-constants-status_released) | `const STATUS_RELEASED: StringName = &"released"` |
@@ -57,7 +57,7 @@
 | 方法 | [`try_request_lease`](#member-gfasynckeyedgate-methods-try_request_lease) | `func try_request_lease(key: Variant, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`wait_for_lease_async`](#member-gfasynckeyedgate-methods-wait_for_lease_async) | `func wait_for_lease_async(key: Variant, options: Dictionary = {}) -> GFAsyncGateLease:` |
 | 方法 | [`release_lease`](#member-gfasynckeyedgate-methods-release_lease) | `func release_lease(lease: GFAsyncGateLease, reason: StringName = &"manual") -> bool:` |
-| 方法 | [`cancel_request`](#member-gfasynckeyedgate-methods-cancel_request) | `func cancel_request(request_id: int, reason: StringName = STATUS_CANCELLED, metadata: Dictionary = {}) -> bool:` |
+| 方法 | [`cancel_request`](#member-gfasynckeyedgate-methods-cancel_request) | `func cancel_request( request_id: int, reason: StringName = STATUS_CANCELLED, metadata: Dictionary = {} ) -> bool:` |
 | 方法 | [`clear`](#member-gfasynckeyedgate-methods-clear) | `func clear(reason: StringName = &"cleared", metadata: Dictionary = {}) -> int:` |
 | 方法 | [`set_key_max_concurrency`](#member-gfasynckeyedgate-methods-set_key_max_concurrency) | `func set_key_max_concurrency(key: Variant, max_concurrency: int) -> int:` |
 | 方法 | [`clear_key_max_concurrency`](#member-gfasynckeyedgate-methods-clear_key_max_concurrency) | `func clear_key_max_concurrency(key: Variant) -> bool:` |
@@ -80,7 +80,7 @@
 - 首次版本：`7.0.0`
 
 ```gdscript
-signal request_queued(request_id: int, key: Variant, metadata: Dictionary)
+signal request_queued( request_id: int, key: Variant, metadata: Dictionary )
 ```
 
 请求进入等待队列时发出。
@@ -145,7 +145,7 @@ signal lease_released(lease: GFAsyncGateLease, reason: StringName)
 - 首次版本：`7.0.0`
 
 ```gdscript
-signal request_cancelled(request_id: int, key: Variant, reason: StringName, metadata: Dictionary)
+signal request_cancelled( request_id: int, key: Variant, reason: StringName, metadata: Dictionary )
 ```
 
 等待请求取消时发出。
@@ -172,7 +172,7 @@ signal request_cancelled(request_id: int, key: Variant, reason: StringName, meta
 - 首次版本：`7.0.0`
 
 ```gdscript
-signal request_timed_out(request_id: int, key: Variant, metadata: Dictionary)
+signal request_timed_out( request_id: int, key: Variant, metadata: Dictionary )
 ```
 
 等待请求超时时发出。
@@ -738,7 +738,7 @@ func release_lease(lease: GFAsyncGateLease, reason: StringName = &"manual") -> b
 - 首次版本：`7.0.0`
 
 ```gdscript
-func cancel_request(request_id: int, reason: StringName = STATUS_CANCELLED, metadata: Dictionary = {}) -> bool:
+func cancel_request( request_id: int, reason: StringName = STATUS_CANCELLED, metadata: Dictionary = {} ) -> bool:
 ```
 
 取消一个仍在等待队列中的请求。

@@ -144,10 +144,7 @@ func _init(
 ## @return 当前连接对象，便于继续链式配置。
 func filter(predicate: Callable) -> GFSignalConnection:
 	if predicate.is_valid():
-		_operations.append({
-			"type": OperationType.FILTER,
-			"callable": predicate,
-		})
+		_operations.append({ "type": OperationType.FILTER, "callable": predicate, })
 	return self
 
 
@@ -160,10 +157,7 @@ func filter(predicate: Callable) -> GFSignalConnection:
 ## @return 当前连接对象，便于继续链式配置。
 func map(mapper: Callable) -> GFSignalConnection:
 	if mapper.is_valid():
-		_operations.append({
-			"type": OperationType.MAP,
-			"callable": mapper,
-		})
+		_operations.append({ "type": OperationType.MAP, "callable": mapper, })
 	return self
 
 
@@ -175,10 +169,7 @@ func map(mapper: Callable) -> GFSignalConnection:
 ## [br]
 ## @return 当前连接对象，便于继续链式配置。
 func delay(seconds: float) -> GFSignalConnection:
-	_operations.append({
-		"type": OperationType.DELAY,
-		"seconds": maxf(seconds, 0.0),
-	})
+	_operations.append({ "type": OperationType.DELAY, "seconds": maxf(seconds, 0.0), })
 	return self
 
 
@@ -190,11 +181,13 @@ func delay(seconds: float) -> GFSignalConnection:
 ## [br]
 ## @return 当前连接对象，便于继续链式配置。
 func debounce(seconds: float) -> GFSignalConnection:
-	_operations.append({
-		"type": OperationType.DEBOUNCE,
-		"seconds": maxf(seconds, 0.0),
-		"debounce_serial": 0,
-	})
+	_operations.append(
+		{
+			"type": OperationType.DEBOUNCE,
+			"seconds": maxf(seconds, 0.0),
+			"debounce_serial": 0,
+		}
+	)
 	return self
 
 
@@ -206,11 +199,13 @@ func debounce(seconds: float) -> GFSignalConnection:
 ## [br]
 ## @return 当前连接对象，便于继续链式配置。
 func throttle(seconds: float) -> GFSignalConnection:
-	_operations.append({
-		"type": OperationType.THROTTLE,
-		"seconds": maxf(seconds, 0.0),
-		"last_msec": -1,
-	})
+	_operations.append(
+		{
+			"type": OperationType.THROTTLE,
+			"seconds": maxf(seconds, 0.0),
+			"last_msec": -1,
+		}
+	)
 	return self
 
 
@@ -222,10 +217,7 @@ func throttle(seconds: float) -> GFSignalConnection:
 ## [br]
 ## @return 当前连接对象，便于继续链式配置。
 func skip(count: int) -> GFSignalConnection:
-	_operations.append({
-		"type": OperationType.SKIP,
-		"remaining": maxi(count, 0),
-	})
+	_operations.append({ "type": OperationType.SKIP, "remaining": maxi(count, 0), })
 	return self
 
 
@@ -237,10 +229,7 @@ func skip(count: int) -> GFSignalConnection:
 ## [br]
 ## @return 当前连接对象，便于继续链式配置。
 func take(count: int) -> GFSignalConnection:
-	_operations.append({
-		"type": OperationType.TAKE,
-		"remaining": maxi(count, 0),
-	})
+	_operations.append({ "type": OperationType.TAKE, "remaining": maxi(count, 0), })
 	return self
 
 
@@ -266,11 +255,13 @@ func first() -> GFSignalConnection:
 ## @return 当前连接对象，便于继续链式配置。
 func scan(accumulator: Variant, reducer: Callable) -> GFSignalConnection:
 	if reducer.is_valid():
-		_operations.append({
-			"type": OperationType.SCAN,
-			"accumulator": accumulator,
-			"callable": reducer,
-		})
+		_operations.append(
+			{
+				"type": OperationType.SCAN,
+				"accumulator": accumulator,
+				"callable": reducer,
+			}
+		)
 	return self
 
 
@@ -284,7 +275,10 @@ func scan(accumulator: Variant, reducer: Callable) -> GFSignalConnection:
 ## [br]
 ## @return 当前连接对象，便于继续链式配置。
 func start_with(value: Variant) -> GFSignalConnection:
-	_start_process_async(_normalize_start_args(value), _lifecycle_serial)
+	_start_process_async(
+		_normalize_start_args(value),
+		_lifecycle_serial
+	)
 	return self
 
 
@@ -372,6 +366,8 @@ func is_owned_by(owner: Object) -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param source_signal: 要连接或断开的 Godot 信号。
 ## [br]
 ## @param callback: 操作完成或事件触发时执行的回调。
@@ -379,7 +375,11 @@ func is_owned_by(owner: Object) -> bool:
 ## @param owner: 监听或连接的拥有者。
 ## [br]
 ## @return Signal、回调和 owner 匹配时返回 true。
-func matches(source_signal: Signal, callback: Callable, owner: Object = null) -> bool:
+func matches(
+	source_signal: Signal,
+	callback: Callable,
+	owner: Object = null
+) -> bool:
 	if _source_signal != source_signal:
 		return false
 	if _callback != callback:
@@ -409,8 +409,6 @@ func prune_if_invalid() -> bool:
 		disconnect_signal()
 		return true
 	return false
-
-
 
 
 # --- 框架内部方法 ---
@@ -461,16 +459,15 @@ func _matches_configuration(
 
 # --- 私有/辅助方法 ---
 
-
-
-
-
 ## 将参数和生命周期序号提交给异步处理脚本。
 ## [br]
 ## @api private
 ## [br]
 func _start_process_async(args: Array, lifecycle_serial: int) -> void:
-	_GF_ASYNC_CALL_SCRIPT.run_detached(Callable(self, &"_process_async"), [args, lifecycle_serial])
+	_GF_ASYNC_CALL_SCRIPT.run_detached(
+		Callable(self, &"_process_async"),
+		[args, lifecycle_serial]
+	)
 
 
 ## owner 为空时要求连接未保存 owner；否则按对象身份检查 owner。
@@ -509,11 +506,17 @@ func _process_async(args: Array, lifecycle_serial: int) -> void:
 					current_args = [mapped]
 
 			OperationType.DELAY:
-				await _wait_seconds(_get_operation_seconds(operation), lifecycle_serial)
+				await _wait_seconds(
+					_get_operation_seconds(operation),
+					lifecycle_serial
+				)
 
 			OperationType.DEBOUNCE:
 				var debounce_serial: int = _next_operation_debounce_serial(operation)
-				await _wait_seconds(_get_operation_seconds(operation), lifecycle_serial)
+				await _wait_seconds(
+					_get_operation_seconds(operation),
+					lifecycle_serial
+				)
 				if lifecycle_serial != _lifecycle_serial:
 					return
 				if debounce_serial != _get_operation_debounce_serial(operation):
@@ -523,7 +526,11 @@ func _process_async(args: Array, lifecycle_serial: int) -> void:
 				var now_msec: int = Time.get_ticks_msec()
 				var last_msec: int = _get_operation_last_msec(operation)
 				var wait_msec: int = int(_get_operation_seconds(operation) * 1000.0)
-				if last_msec >= 0 and wait_msec > 0 and now_msec - last_msec < wait_msec:
+				if (
+					last_msec >= 0
+					and wait_msec > 0
+					and now_msec - last_msec < wait_msec
+				):
 					return
 				operation["last_msec"] = now_msec
 
@@ -572,7 +579,12 @@ func _wait_seconds(seconds: float, lifecycle_serial: int) -> void:
 	var main_loop: MainLoop = Engine.get_main_loop()
 	var tree: SceneTree = main_loop if main_loop is SceneTree else null
 	if tree != null:
-		await tree.create_timer(seconds, true, false, true).timeout
+		await tree.create_timer(
+			seconds,
+			true,
+			false,
+			true
+		).timeout
 		return
 
 	var start_msec: int = Time.get_ticks_msec()
@@ -594,7 +606,13 @@ func _collect_args(raw_args: Array) -> Array:
 	if declared_count >= 0:
 		if declared_count > _MAX_SIGNAL_ARGUMENTS:
 			push_warning("[GFSignalConnection][signal_connection.signal_argument_limit] Signal connection capture supports at most %d arguments." % _MAX_SIGNAL_ARGUMENTS)
-		return raw_args.slice(0, mini(declared_count, raw_args.size()))
+		return raw_args.slice(
+			0,
+			mini(
+				declared_count,
+				raw_args.size()
+			)
+		)
 
 	var args: Array = raw_args.duplicate()
 	while not args.is_empty() and args.back() == null:
@@ -637,7 +655,11 @@ func _get_callable_value(value: Variant) -> Callable:
 ## @api private
 ## [br]
 func _get_operation_type(operation: Dictionary) -> int:
-	return GFVariantData.get_option_int(operation, "type", -1)
+	return GFVariantData.get_option_int(
+		operation,
+		"type",
+		-1
+	)
 
 
 ## 读取处理步骤回调；字段缺失或不是 Callable 时返回无效值。
@@ -645,7 +667,13 @@ func _get_operation_type(operation: Dictionary) -> int:
 ## @api private
 ## [br]
 func _get_operation_callable(operation: Dictionary) -> Callable:
-	return _get_callable_value(GFVariantData.get_option_value(operation, "callable", Callable()))
+	return _get_callable_value(
+		GFVariantData.get_option_value(
+			operation,
+			"callable",
+			Callable()
+		)
+	)
 
 
 ## 读取处理步骤的秒数配置。
@@ -661,7 +689,11 @@ func _get_operation_seconds(operation: Dictionary) -> float:
 ## @api private
 ## [br]
 func _get_operation_last_msec(operation: Dictionary) -> int:
-	return GFVariantData.get_option_int(operation, "last_msec", -1)
+	return GFVariantData.get_option_int(
+		operation,
+		"last_msec",
+		-1
+	)
 
 
 ## 增加并返回防抖步骤序号，用于判定等待中的触发是否已过期。
@@ -772,22 +804,24 @@ func _on_signal_emitted(
 	arg15: Variant = null,
 	arg16: Variant = null
 ) -> void:
-	var args: Array = _collect_args([
-		arg1,
-		arg2,
-		arg3,
-		arg4,
-		arg5,
-		arg6,
-		arg7,
-		arg8,
-		arg9,
-		arg10,
-		arg11,
-		arg12,
-		arg13,
-		arg14,
-		arg15,
-		arg16,
-	])
+	var args: Array = _collect_args(
+		[
+			arg1,
+			arg2,
+			arg3,
+			arg4,
+			arg5,
+			arg6,
+			arg7,
+			arg8,
+			arg9,
+			arg10,
+			arg11,
+			arg12,
+			arg13,
+			arg14,
+			arg15,
+			arg16,
+		]
+	)
 	_start_process_async(args, _lifecycle_serial)

@@ -21,9 +21,7 @@ extends RefCounted
 ## [br]
 ## @api private
 ## [br]
-const _ANALYZER_SCRIPT = preload(
-	"res://addons/gf/tools/project_layout/gf_project_layout_analyzer.gd"
-)
+const _ANALYZER_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_analyzer.gd")
 
 ## 同代际策略、报告和验证索引的独占会话。
 ## [br]
@@ -34,33 +32,25 @@ const _SESSION_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project
 ## [br]
 ## @api private
 ## [br]
-const _ANALYSIS_CONTRACT_SCRIPT = preload(
-	"res://addons/gf/tools/project_layout/gf_project_layout_analysis_contract.gd"
-)
+const _ANALYSIS_CONTRACT_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_analysis_contract.gd")
 
 ## finding explanation 实现脚本。
 ## [br]
 ## @api private
 ## [br]
-const _EXPLAINER_SCRIPT = preload(
-	"res://addons/gf/tools/project_layout/gf_project_layout_explainer.gd"
-)
+const _EXPLAINER_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_explainer.gd")
 
 ## change impact 分析实现脚本。
 ## [br]
 ## @api private
 ## [br]
-const _IMPACT_ANALYZER_SCRIPT = preload(
-	"res://addons/gf/tools/project_layout/gf_project_layout_impact_analyzer.gd"
-)
+const _IMPACT_ANALYZER_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_impact_analyzer.gd")
 
 ## Project Layout Planner 实现脚本。
 ## [br]
 ## @api private
 ## [br]
-const _PLANNER_SCRIPT = preload(
-	"res://addons/gf/tools/project_layout/gf_project_layout_planner.gd"
-)
+const _PLANNER_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_planner.gd")
 
 ## worker analysis 请求的闭合字段名集合。
 ## [br]
@@ -89,10 +79,7 @@ const _QUERY_REQUEST_FIELDS: PackedStringArray = [
 ## [br]
 ## @api private
 ## [br]
-const _QUERY_KINDS: PackedStringArray = [
-	"explain_finding",
-	"analyze_change_impact",
-]
+const _QUERY_KINDS: PackedStringArray = ["explain_finding", "analyze_change_impact",]
 
 ## explanation 查询 payload 的闭合字段名集合。
 ## [br]
@@ -157,13 +144,21 @@ const _EFFECT_FIELDS: PackedStringArray = ["writes_project"]
 ## [br]
 ## @api private
 ## [br]
-const _ISSUE_FIELDS: PackedStringArray = ["severity", "kind", "message"]
+const _ISSUE_FIELDS: PackedStringArray = [
+	"severity",
+	"kind",
+	"message",
+]
 
 ## blocker 字典的闭合字段名集合。
 ## [br]
 ## @api private
 ## [br]
-const _BLOCKER_FIELDS: PackedStringArray = ["kind", "path", "message"]
+const _BLOCKER_FIELDS: PackedStringArray = [
+	"kind",
+	"path",
+	"message",
+]
 
 ## inventory evidence 字典的闭合字段名集合。
 ## [br]
@@ -280,22 +275,19 @@ const _MAX_DATA_ONLY_DEPTH: int = 65
 ## [br]
 ## @api private
 ## [br]
-const _MAX_DATA_ONLY_COLLECTION_ITEMS: int = \
-	_ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_NODES
+const _MAX_DATA_ONLY_COLLECTION_ITEMS: int = _ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_NODES
 
 ## data-only 字符串允许的最大字符数。
 ## [br]
 ## @api private
 ## [br]
-const _MAX_DATA_ONLY_STRING_LENGTH: int = \
-	_ANALYSIS_CONTRACT_SCRIPT.MAX_DATA_STRING_LENGTH
+const _MAX_DATA_ONLY_STRING_LENGTH: int = _ANALYSIS_CONTRACT_SCRIPT.MAX_DATA_STRING_LENGTH
 
 ## data-only 字符串总 UTF-8 字节数允许的最大值。
 ## [br]
 ## @api private
 ## [br]
-const _MAX_DATA_ONLY_STRING_BYTES: int = \
-	_ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_STRING_BYTES
+const _MAX_DATA_ONLY_STRING_BYTES: int = _ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_STRING_BYTES
 
 
 # --- 私有变量 ---
@@ -387,7 +379,11 @@ var _query_work_budget_exhausted: bool = false
 ## @schema return: Dictionary，字段闭集为 schema_version、kind、generation、status、analysis、plan 和 issues；status 属于 complete、partial、cancelled、failed；cancelled 与 failed 结果的 analysis、plan 必须同时为空。
 func run_request(request: Dictionary) -> Dictionary:
 	_reset_data_only_envelope()
-	var generation: int = _get_int(request, "generation", -1)
+	var generation: int = _get_int(
+		request,
+		"generation",
+		-1
+	)
 	var result: Dictionary = {
 		"schema_version": 2,
 		"kind": "project_layout_worker_result",
@@ -401,35 +397,44 @@ func run_request(request: Dictionary) -> Dictionary:
 		result["status"] = "cancelled"
 		return result
 	if not _request_is_well_formed(request):
-		_add_issue(result, "invalid_worker_request", "后台分析请求字段必须精确闭合且类型正确。")
+		_add_issue(
+			result,
+			"invalid_worker_request",
+			"后台分析请求字段必须精确闭合且类型正确。"
+		)
 		return result
 	var snapshot: Dictionary = _get_dictionary(request, "snapshot")
 	if snapshot.is_empty() or not _is_data_only(snapshot, 0):
 		if _is_cancel_requested():
 			result["status"] = "cancelled"
 			return result
-		_add_issue(result, "invalid_snapshot", "后台分析 snapshot 必须是有界 data-only Dictionary。")
+		_add_issue(
+			result,
+			"invalid_snapshot",
+			"后台分析 snapshot 必须是有界 data-only Dictionary。"
+		)
 		return result
 	if _is_cancel_requested():
 		result["status"] = "cancelled"
 		return result
 	_reset_data_only_envelope()
-	var profile_compilation_present: bool = _get_bool(
-		request,
-		"profile_compilation_present"
-	)
-	var profile_compilation: Dictionary = _get_dictionary(
-		request,
-		"profile_compilation"
-	)
-	if profile_compilation_present and (
-		profile_compilation.is_empty()
-		or not _is_data_only(profile_compilation, 0)
+	var profile_compilation_present: bool = _get_bool(request, "profile_compilation_present")
+	var profile_compilation: Dictionary = _get_dictionary(request, "profile_compilation")
+	if (
+		profile_compilation_present
+		and (
+			profile_compilation.is_empty()
+			or not _is_data_only(profile_compilation, 0)
+		)
 	):
 		if _is_cancel_requested():
 			result["status"] = "cancelled"
 			return result
-		_add_issue(result, "invalid_profile_compilation", "后台分析 profile compilation 必须是有界 data-only Dictionary。")
+		_add_issue(
+			result,
+			"invalid_profile_compilation",
+			"后台分析 profile compilation 必须是有界 data-only Dictionary。"
+		)
 		return result
 	_reset_data_only_envelope()
 	var plan_options: Dictionary = _get_dictionary(request, "plan_options")
@@ -437,7 +442,11 @@ func run_request(request: Dictionary) -> Dictionary:
 		if _is_cancel_requested():
 			result["status"] = "cancelled"
 			return result
-		_add_issue(result, "invalid_plan_options", "后台规划选项必须是有界 data-only Dictionary。")
+		_add_issue(
+			result,
+			"invalid_plan_options",
+			"后台规划选项必须是有界 data-only Dictionary。"
+		)
 		return result
 	if _is_cancel_requested():
 		result["status"] = "cancelled"
@@ -457,20 +466,14 @@ func run_request(request: Dictionary) -> Dictionary:
 			analyzer_runtime
 		)
 	else:
-		analysis = analyzer.analyze_snapshot_for_framework(
-			snapshot,
-			analyzer_runtime
-		)
+		analysis = analyzer.analyze_snapshot_for_framework(snapshot, analyzer_runtime)
 	if _is_cancel_requested():
 		result["status"] = "cancelled"
 		return result
 	if _layout_session == null:
 		_layout_session = _SESSION_SCRIPT.new()
 	_layout_session.adopt_owned_analysis(profile_compilation, analysis)
-	var analysis_complete: bool = (
-		_get_bool(analysis, "input_complete")
-		and _get_bool(analysis, "evaluation_complete")
-	)
+	var analysis_complete: bool = (_get_bool(analysis, "input_complete") and _get_bool(analysis, "evaluation_complete"))
 	if not analysis_complete:
 		if _get_int(analysis, "error_count") > 0:
 			_forward_first_error_issue(
@@ -490,20 +493,25 @@ func run_request(request: Dictionary) -> Dictionary:
 		result["status"] = "complete"
 		return result
 
-	var planner_runtime: Dictionary = {
-		"cancel_check": cancel_check,
-		"max_work_units": _PLANNER_MAX_WORK_UNITS,
-	}
+	var planner_runtime: Dictionary = { "cancel_check": cancel_check, "max_work_units": _PLANNER_MAX_WORK_UNITS, }
 	_query_work_units = 0
 	_query_units_since_cancel_check = 0
 	_query_work_budget_exhausted = false
-	var plan: Dictionary = _layout_session.plan_for_framework(plan_options, planner_runtime, Callable(self, "_query_checkpoint_allows"))
+	var plan: Dictionary = _layout_session.plan_for_framework(
+		plan_options,
+		planner_runtime,
+		Callable(self, "_query_checkpoint_allows")
+	)
 	if _is_cancel_requested():
 		result["status"] = "cancelled"
 		return result
 	_reset_data_only_envelope()
 	if plan.is_empty() or not _is_data_only(plan, 0):
-		_add_issue(result, "invalid_plan_result", "后台规划未返回有界 data-only Dictionary。")
+		_add_issue(
+			result,
+			"invalid_plan_result",
+			"后台规划未返回有界 data-only Dictionary。"
+		)
 		return result
 	if _report_has_error_issue(plan):
 		_forward_first_error_issue(
@@ -579,15 +587,15 @@ func configure_query_session(
 ## [br]
 ## @schema return: Dictionary，字段闭集为 schema_version、kind、generation、analysis_digest、query_kind、status、explanation、impact 和 issues；cancelled/failed 时 explanation 与 impact 均为空。
 func run_query_request(request: Dictionary) -> Dictionary:
-	var generation: int = _get_int(request, "generation", -1)
+	var generation: int = _get_int(
+		request,
+		"generation",
+		-1
+	)
 	var raw_analysis_digest: String = _get_string(request, "analysis_digest")
 	var raw_query_kind: String = _get_string(request, "query_kind")
-	var analysis_digest: String = (
-		raw_analysis_digest if _is_lower_sha256(raw_analysis_digest) else ""
-	)
-	var query_kind: String = (
-		raw_query_kind if _QUERY_KINDS.has(raw_query_kind) else ""
-	)
+	var analysis_digest: String = raw_analysis_digest if _is_lower_sha256(raw_analysis_digest) else ""
+	var query_kind: String = raw_query_kind if _QUERY_KINDS.has(raw_query_kind) else ""
 	var result: Dictionary = _make_query_result(
 		generation,
 		analysis_digest,
@@ -597,10 +605,18 @@ func run_query_request(request: Dictionary) -> Dictionary:
 		result["status"] = "cancelled"
 		return result
 	if not _query_request_is_well_formed(request):
-		_add_issue(result, "invalid_query_request", "后台查询请求字段必须精确闭合且类型正确。")
+		_add_issue(
+			result,
+			"invalid_query_request",
+			"后台查询请求字段必须精确闭合且类型正确。"
+		)
 		return result
 	if not _query_session_matches(generation, analysis_digest):
-		_add_issue(result, "query_session_mismatch", "后台查询与冻结 analysis 的代际或摘要不匹配。")
+		_add_issue(
+			result,
+			"query_session_mismatch",
+			"后台查询与冻结 analysis 的代际或摘要不匹配。"
+		)
 		return result
 
 	_query_work_units = 0
@@ -610,7 +626,11 @@ func run_query_request(request: Dictionary) -> Dictionary:
 	if _apply_query_terminal(result):
 		return result
 	if not _get_bool(validation, "valid"):
-		_add_issue(result, "invalid_query_analysis", "后台查询 analysis 未通过闭合契约校验。")
+		_add_issue(
+			result,
+			"invalid_query_analysis",
+			"后台查询 analysis 未通过闭合契约校验。"
+		)
 		return result
 	# 已验证索引由同代际 Session 拥有，不进入请求或结果，serial 查询复用同一索引。
 	if _apply_query_terminal(result):
@@ -637,7 +657,11 @@ func run_query_request(request: Dictionary) -> Dictionary:
 		if _apply_query_terminal(result):
 			return result
 		if not explanation_is_valid:
-			_add_issue(result, "invalid_query_result", "后台解释未返回闭合 data-only 结果。")
+			_add_issue(
+				result,
+				"invalid_query_result",
+				"后台解释未返回闭合 data-only 结果。"
+			)
 			return result
 		result["explanation"] = explanation
 	else:
@@ -659,7 +683,11 @@ func run_query_request(request: Dictionary) -> Dictionary:
 		if _apply_query_terminal(result):
 			return result
 		if not impact_is_valid:
-			_add_issue(result, "invalid_query_result", "后台影响分析未返回闭合 data-only 结果。")
+			_add_issue(
+				result,
+				"invalid_query_result",
+				"后台影响分析未返回闭合 data-only 结果。"
+			)
 			return result
 		result["impact"] = impact
 	result["status"] = "complete"
@@ -736,10 +764,7 @@ func _query_request_is_well_formed(request: Dictionary) -> bool:
 	if not _is_lower_sha256(analysis_digest) or not _QUERY_KINDS.has(query_kind):
 		return false
 	if query_kind == "explain_finding":
-		if (
-			not _has_exact_fields(query, _EXPLANATION_QUERY_FIELDS)
-			or not query.get("finding_id") is String
-		):
+		if (not _has_exact_fields(query, _EXPLANATION_QUERY_FIELDS) or not query.get("finding_id") is String):
 			return false
 		return _get_string(query, "finding_id").length() <= _MAX_FINDING_ID_LENGTH
 	if not _has_exact_fields(query, _IMPACT_QUERY_FIELDS):
@@ -748,11 +773,7 @@ func _query_request_is_well_formed(request: Dictionary) -> bool:
 		if not query.get(field_name) is String:
 			return false
 		var field_text: String = _get_string(query, field_name)
-		var maximum_length: int = (
-			_MAX_CHANGE_KIND_LENGTH
-			if field_name == "kind"
-			else _MAX_CHANGE_PATH_LENGTH
-		)
+		var maximum_length: int = (_MAX_CHANGE_KIND_LENGTH if field_name == "kind" else _MAX_CHANGE_PATH_LENGTH)
 		if field_text.length() > maximum_length:
 			return false
 	return true
@@ -776,10 +797,7 @@ func _query_session_matches(generation: int, analysis_digest: String) -> bool:
 ## [br]
 ## @api private
 func _query_checkpoint_allows(work_units: int) -> bool:
-	if (
-		work_units <= 0
-		or _query_work_units > _QUERY_MAX_WORK_UNITS - work_units
-	):
+	if (work_units <= 0 or _query_work_units > _QUERY_MAX_WORK_UNITS - work_units):
 		_query_work_budget_exhausted = true
 		return false
 	_query_work_units += work_units
@@ -833,7 +851,12 @@ func _query_report_is_valid(
 	checkpoint: Callable
 ) -> bool:
 	_reset_data_only_envelope()
-	if not _query_value_is_data_only(report, 0, [], checkpoint):
+	if not _query_value_is_data_only(
+		report,
+		0,
+		[],
+		checkpoint
+	):
 		return false
 	if not _effects_are_read_only(_get_dictionary(report, "effects")):
 		return false
@@ -851,9 +874,18 @@ func _query_report_is_valid(
 			and report.get("certainty") is String
 			and report.get("evidence") is Array
 			and report.get("issues") is Array
-			and _string_array_is_valid(_get_array(report, "next_steps"), checkpoint)
-			and _evidence_array_is_valid(_get_array(report, "evidence"), checkpoint)
-			and _issue_array_is_valid(_get_array(report, "issues"), checkpoint)
+			and _string_array_is_valid(
+				_get_array(report, "next_steps"),
+				checkpoint
+			)
+			and _evidence_array_is_valid(
+				_get_array(report, "evidence"),
+				checkpoint
+			)
+			and _issue_array_is_valid(
+				_get_array(report, "issues"),
+				checkpoint
+			)
 		)
 	return (
 		_has_exact_fields(report, _IMPACT_RESULT_FIELDS)
@@ -861,7 +893,11 @@ func _query_report_is_valid(
 		and report.get("kind") == "project_layout_impact"
 		and report.get("complete") is bool
 		and report.get("status") is String
-		and ["safe", "unsafe", "unknown"].has(_get_string(report, "status"))
+		and [
+			"safe",
+			"unsafe",
+			"unknown",
+		].has(_get_string(report, "status"))
 		and report.get("source_analysis_digest") == analysis_digest
 		and report.get("change") is Dictionary
 		and report.get("affected_node_ids") is Array
@@ -869,10 +905,22 @@ func _query_report_is_valid(
 		and report.get("evidence_ids") is Array
 		and report.get("issues") is Array
 		and _change_is_closed(_get_dictionary(report, "change"))
-		and _string_array_is_valid(_get_array(report, "affected_node_ids"), checkpoint)
-		and _blocker_array_is_valid(_get_array(report, "blockers"), checkpoint)
-		and _string_array_is_valid(_get_array(report, "evidence_ids"), checkpoint)
-		and _issue_array_is_valid(_get_array(report, "issues"), checkpoint)
+		and _string_array_is_valid(
+			_get_array(report, "affected_node_ids"),
+			checkpoint
+		)
+		and _blocker_array_is_valid(
+			_get_array(report, "blockers"),
+			checkpoint
+		)
+		and _string_array_is_valid(
+			_get_array(report, "evidence_ids"),
+			checkpoint
+		)
+		and _issue_array_is_valid(
+			_get_array(report, "issues"),
+			checkpoint
+		)
 	)
 
 
@@ -890,7 +938,11 @@ func _query_value_is_data_only(
 	_data_only_node_count += 1
 	if _data_only_node_count > _MAX_DATA_ONLY_NODE_COUNT or depth > _MAX_DATA_ONLY_DEPTH:
 		return false
-	if value == null or value is bool or value is int:
+	if (
+		value == null
+		or value is bool
+		or value is int
+	):
 		return true
 	if value is float:
 		var float_value: float = value
@@ -905,7 +957,10 @@ func _query_value_is_data_only(
 		_data_only_string_bytes += text_bytes
 		return _call_query_checkpoint(
 			checkpoint,
-			maxi(1, ceili(float(text_bytes) / 256.0))
+			maxi(
+				1,
+				ceili(float(text_bytes) / 256.0)
+			)
 		)
 	if value is PackedStringArray:
 		var packed_value: PackedStringArray = value
@@ -924,7 +979,11 @@ func _query_value_is_data_only(
 		var array_value: Array = value
 		if (
 			array_value.size() > _MAX_DATA_ONLY_COLLECTION_ITEMS
-			or not _query_container_can_enter(array_value, active_containers, checkpoint)
+			or not _query_container_can_enter(
+				array_value,
+				active_containers,
+				checkpoint
+			)
 		):
 			return false
 		active_containers.append(array_value)
@@ -943,7 +1002,11 @@ func _query_value_is_data_only(
 		var dictionary_value: Dictionary = value
 		if (
 			dictionary_value.size() > _MAX_DATA_ONLY_COLLECTION_ITEMS
-			or not _query_container_can_enter(dictionary_value, active_containers, checkpoint)
+			or not _query_container_can_enter(
+				dictionary_value,
+				active_containers,
+				checkpoint
+			)
 		):
 			return false
 		active_containers.append(dictionary_value)
@@ -983,7 +1046,10 @@ func _query_container_can_enter(
 ) -> bool:
 	if not _call_query_checkpoint(
 		checkpoint,
-		maxi(1, active_containers.size())
+		maxi(
+			1,
+			active_containers.size()
+		)
 	):
 		return false
 	for active_container: Variant in active_containers:
@@ -995,10 +1061,7 @@ func _query_container_can_enter(
 ## 仅调用有效且恰有一个参数的检查点，严格要求布尔返回；其他返回类型一律视为拒绝。
 ## [br]
 ## @api private
-func _call_query_checkpoint(
-	checkpoint: Callable,
-	work_units: int = 1
-) -> bool:
+func _call_query_checkpoint(checkpoint: Callable, work_units: int = 1) -> bool:
 	if not checkpoint.is_valid() or checkpoint.get_argument_count() != 1:
 		return false
 	var checkpoint_value: Variant = checkpoint.call(work_units)
@@ -1105,10 +1168,7 @@ func _inventory_evidence_is_closed(evidence: Dictionary) -> bool:
 ## 验证清单边界证据字段后继续校验嵌套 capture_scope；完整性及数量只检查类型。
 ## [br]
 ## @api private
-func _boundary_evidence_is_closed(
-	evidence: Dictionary,
-	checkpoint: Callable
-) -> bool:
+func _boundary_evidence_is_closed(evidence: Dictionary, checkpoint: Callable) -> bool:
 	if (
 		not _has_exact_fields(evidence, _BOUNDARY_EVIDENCE_FIELDS)
 		or not evidence.get("evidence_id") is String
@@ -1133,28 +1193,42 @@ func _boundary_evidence_is_closed(
 ## @api private
 func _scope_is_closed(scope: Dictionary, checkpoint: Callable) -> bool:
 	return (
-		_call_query_checkpoint(checkpoint, 1 + scope.size())
+		_call_query_checkpoint(
+			checkpoint,
+			1 + scope.size()
+		)
 		and _has_exact_fields(scope, _SCOPE_FIELDS)
 		and scope.get("kind") is String
 		and scope.get("root_path") is String
 		and scope.get("include_hidden") is bool
 		and scope.get("excluded_prefixes") is Array
-		and _string_array_is_valid(_get_array(scope, "excluded_prefixes"), checkpoint)
+		and _string_array_is_valid(
+			_get_array(scope, "excluded_prefixes"),
+			checkpoint
+		)
 		and scope.get("max_scanned_files") is int
 		and scope.get("max_scanned_directories") is int
 		and scope.get("max_scan_depth") is int
 		and scope.get("capture_scope") is Dictionary
 		and scope.get("source_root") is String
 		and scope.get("protected_roots") is Array
-		and _string_array_is_valid(_get_array(scope, "protected_roots"), checkpoint)
+		and _string_array_is_valid(
+			_get_array(scope, "protected_roots"),
+			checkpoint
+		)
 		and scope.get("profile_source_path") is String
 		and scope.get("policy_digest") is String
-		and GFProjectLayoutCaptureScope.binding_is_valid({
-			"capture_scope": scope["capture_scope"], "source_root": scope["source_root"],
-			"root_path": scope["root_path"], "protected_roots": scope["protected_roots"],
-			"profile_source_path": scope["profile_source_path"], "excluded_prefixes": scope["excluded_prefixes"],
-			"policy_digest": scope["policy_digest"],
-		})
+		and GFProjectLayoutCaptureScope.binding_is_valid(
+			{
+				"capture_scope": scope["capture_scope"],
+				"source_root": scope["source_root"],
+				"root_path": scope["root_path"],
+				"protected_roots": scope["protected_roots"],
+				"profile_source_path": scope["profile_source_path"],
+				"excluded_prefixes": scope["excluded_prefixes"],
+				"policy_digest": scope["policy_digest"],
+			}
+		)
 	)
 
 
@@ -1165,7 +1239,11 @@ func _effects_are_read_only(effects: Dictionary) -> bool:
 	return (
 		_has_exact_fields(effects, _EFFECT_FIELDS)
 		and effects.get("writes_project") is bool
-		and not _get_bool(effects, "writes_project", true)
+		and not _get_bool(
+			effects,
+			"writes_project",
+			true
+		)
 	)
 
 
@@ -1195,8 +1273,14 @@ func _is_lower_sha256(value: String) -> bool:
 	for character_index: int in value.length():
 		var codepoint: int = value.unicode_at(character_index)
 		if (
-			(codepoint < 48 or codepoint > 57)
-			and (codepoint < 97 or codepoint > 102)
+			(
+				codepoint < 48
+				or codepoint > 57
+			)
+			and (
+				codepoint < 97
+				or codepoint > 102
+			)
 		):
 			return false
 	return true
@@ -1246,7 +1330,11 @@ func _is_data_only(value: Variant, depth: int) -> bool:
 	# 和 Analyzer 的 65 层 compilation envelope 闭合。
 	if depth > _MAX_DATA_ONLY_DEPTH:
 		return false
-	if value == null or value is bool or value is int:
+	if (
+		value == null
+		or value is bool
+		or value is int
+	):
 		return true
 	if value is String:
 		var string_value: String = value
@@ -1262,7 +1350,10 @@ func _is_data_only(value: Variant, depth: int) -> bool:
 		if packed_value.size() > _MAX_DATA_ONLY_COLLECTION_ITEMS:
 			return false
 		for item: String in packed_value:
-			if not _is_data_only(item, depth + 1):
+			if not _is_data_only(
+				item,
+				depth + 1
+			):
 				return false
 		return true
 	if value is Array:
@@ -1270,7 +1361,10 @@ func _is_data_only(value: Variant, depth: int) -> bool:
 		if array_value.size() > _MAX_DATA_ONLY_COLLECTION_ITEMS:
 			return false
 		for item: Variant in array_value:
-			if not _is_data_only(item, depth + 1):
+			if not _is_data_only(
+				item,
+				depth + 1
+			):
 				return false
 		return true
 	if value is Dictionary:
@@ -1286,7 +1380,10 @@ func _is_data_only(value: Variant, depth: int) -> bool:
 			_data_only_string_bytes += key.to_utf8_buffer().size()
 			if _data_only_string_bytes > _MAX_DATA_ONLY_STRING_BYTES:
 				return false
-			if not _is_data_only(dictionary_value[key_value], depth + 1):
+			if not _is_data_only(
+				dictionary_value[key_value],
+				depth + 1
+			):
 				return false
 		return true
 	return false
@@ -1295,13 +1392,19 @@ func _is_data_only(value: Variant, depth: int) -> bool:
 ## 向结果已有的 issues 数组追加仅含严重性、种类及消息的错误；调用者须准备该数组。
 ## [br]
 ## @api private
-func _add_issue(result: Dictionary, kind: String, message: String) -> void:
+func _add_issue(
+	result: Dictionary,
+	kind: String,
+	message: String
+) -> void:
 	var issues: Array = _get_array(result, "issues")
-	issues.append({
-		"severity": "error",
-		"kind": kind,
-		"message": message,
-	})
+	issues.append(
+		{
+			"severity": "error",
+			"kind": kind,
+			"message": message,
+		}
+	)
 
 
 ## 只转发报告中的首个 error 字典，缺失种类或消息使用回退值；无可转发错误时写入通用失败。
@@ -1321,11 +1424,23 @@ func _forward_first_error_issue(
 			continue
 		_add_issue(
 			result,
-			_get_string(issue, "kind", fallback_kind),
-			_get_string(issue, "message", fallback_message)
+			_get_string(
+				issue,
+				"kind",
+				fallback_kind
+			),
+			_get_string(
+				issue,
+				"message",
+				fallback_message
+			)
 		)
 		return
-	_add_issue(result, fallback_kind, fallback_message)
+	_add_issue(
+		result,
+		fallback_kind,
+		fallback_message
+	)
 
 
 ## 在报告问题数组中查找 severity 为 error 的字典，跳过非字典项。
@@ -1345,7 +1460,11 @@ func _report_has_error_issue(report: Dictionary) -> bool:
 ## [br]
 ## @api private
 ## [br]
-func _get_int(source: Dictionary, key: String, default_value: int = 0) -> int:
+func _get_int(
+	source: Dictionary,
+	key: String,
+	default_value: int = 0
+) -> int:
 	var value: Variant = source.get(key, default_value)
 	return value if value is int else default_value
 
@@ -1354,7 +1473,11 @@ func _get_int(source: Dictionary, key: String, default_value: int = 0) -> int:
 ## [br]
 ## @api private
 ## [br]
-func _get_bool(source: Dictionary, key: String, default_value: bool = false) -> bool:
+func _get_bool(
+	source: Dictionary,
+	key: String,
+	default_value: bool = false
+) -> bool:
 	var value: Variant = source.get(key, default_value)
 	return value if value is bool else default_value
 
@@ -1363,7 +1486,11 @@ func _get_bool(source: Dictionary, key: String, default_value: bool = false) -> 
 ## [br]
 ## @api private
 ## [br]
-func _get_string(source: Dictionary, key: String, default_value: String = "") -> String:
+func _get_string(
+	source: Dictionary,
+	key: String,
+	default_value: String = ""
+) -> String:
 	var value: Variant = source.get(key, default_value)
 	return value if value is String else default_value
 

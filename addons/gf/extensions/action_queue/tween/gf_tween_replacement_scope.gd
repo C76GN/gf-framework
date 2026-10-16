@@ -111,8 +111,16 @@ func find_lease(action: Object) -> int:
 ## @param property_names: 已验证步骤使用的非空属性路径集合。
 ## [br]
 ## @return: 仍持有的正整数租约；无效输入、作用域关闭或重入失权时返回 0。
-func claim(action: Object, target: Object, property_names: Array[NodePath]) -> int:
-	if _disposed or not _is_available(action) or not _is_available(target):
+func claim(
+	action: Object,
+	target: Object,
+	property_names: Array[NodePath]
+) -> int:
+	if (
+		_disposed
+		or not _is_available(action)
+		or not _is_available(target)
+	):
 		return 0
 	if not _accepts_integer_argument(action, &"detach_replacement"):
 		return 0
@@ -125,8 +133,12 @@ func claim(action: Object, target: Object, property_names: Array[NodePath]) -> i
 	var retired: Array[_Registration] = []
 	var retained: Array[_Registration] = []
 	for entry: _Registration in _entries:
-		if _get_object(entry._action_ref) == action or (
-			_get_object(entry._target_ref) == target and _roots_overlap(entry._roots, roots)
+		if (
+			_get_object(entry._action_ref) == action
+			or (
+				_get_object(entry._target_ref) == target
+				and _roots_overlap(entry._roots, roots)
+			)
 		):
 			retired.append(entry)
 		else:
@@ -158,7 +170,11 @@ func claim(action: Object, target: Object, property_names: Array[NodePath]) -> i
 ## @return: 动作、目标与租约仍有效且匹配时返回 true。
 func owns(action: Object, lease: int) -> bool:
 	_prune_invalid_entries()
-	if _disposed or lease <= 0 or not _is_available(action):
+	if (
+		_disposed
+		or lease <= 0
+		or not _is_available(action)
+	):
 		return false
 	for entry: _Registration in _entries:
 		if entry._lease == lease and _get_object(entry._action_ref) == action:
@@ -181,7 +197,11 @@ func release(action: Object, lease: int) -> void:
 	_prune_invalid_entries()
 	if lease <= 0 or not is_instance_valid(action):
 		return
-	for index: int in range(_entries.size() - 1, -1, -1):
+	for index: int in range(
+		_entries.size() - 1,
+		-1,
+		-1
+	):
 		var entry: _Registration = _entries[index]
 		if entry._lease == lease and _get_object(entry._action_ref) == action:
 			_entries.remove_at(index)
@@ -211,7 +231,11 @@ func _retire_entries(retired: Array[_Registration]) -> void:
 ## [br]
 ## @api private
 func _prune_invalid_entries() -> void:
-	for index: int in range(_entries.size() - 1, -1, -1):
+	for index: int in range(
+		_entries.size() - 1,
+		-1,
+		-1
+	):
 		var entry: _Registration = _entries[index]
 		if not _is_available(_get_object(entry._action_ref)) or not _is_available(_get_object(entry._target_ref)):
 			_entries.remove_at(index)
@@ -226,7 +250,13 @@ func _get_property_roots(target: Object, property_names: Array[NodePath]) -> Arr
 		var root: StringName = StringName(String(property_name).get_slice(":", 0))
 		if root == &"":
 			return []
-		if root == &"rotation_degrees" and (target is Node2D or target is Node3D):
+		if (
+			root == &"rotation_degrees"
+			and (
+				target is Node2D
+				or target is Node3D
+			)
+		):
 			root = &"rotation"
 		if not roots.has(root):
 			roots.append(root)
@@ -254,14 +284,27 @@ func _accepts_integer_argument(action: Object, method_name: StringName) -> bool:
 			continue
 		var arguments: Array = GFVariantData.get_option_array(method_info, "args")
 		var defaults: Array = GFVariantData.get_option_array(method_info, "default_args")
-		var required_count: int = maxi(arguments.size() - defaults.size(), 0)
+		var required_count: int = maxi(
+			arguments.size() - defaults.size(),
+			0
+		)
 		var accepts_extra: bool = (GFVariantData.get_option_int(method_info, "flags") & METHOD_FLAG_VARARG) != 0
-		if required_count > 1 or (arguments.size() < 1 and not accepts_extra):
+		if (
+			required_count > 1
+			or (
+				arguments.size() < 1
+				and not accepts_extra
+			)
+		):
 			return false
 		if arguments.is_empty():
 			return true
 		var first_argument: Dictionary = GFVariantData.as_dictionary(arguments[0])
-		var argument_type: int = GFVariantData.get_option_int(first_argument, "type", -1)
+		var argument_type: int = GFVariantData.get_option_int(
+			first_argument,
+			"type",
+			-1
+		)
 		return argument_type == TYPE_INT or argument_type == TYPE_NIL
 	return false
 
@@ -296,6 +339,8 @@ func _get_object(object_reference: WeakRef) -> Object:
 ## [br]
 ## @api private
 class _Registration extends RefCounted:
+
+
 	# --- 私有变量 ---
 
 	## 此次登记的递增租约；旧租约不能释放新的登记。

@@ -54,8 +54,14 @@ static func make_rect_candidates(position: Vector2i, size: Vector2i) -> Array[Ve
 	var result: Array[Vector2i] = []
 	if size.x <= 0 or size.y <= 0:
 		return result
-	for y: int in range(position.y, position.y + size.y):
-		for x: int in range(position.x, position.x + size.x):
+	for y: int in range(
+		position.y,
+		position.y + size.y
+	):
+		for x: int in range(
+			position.x,
+			position.x + size.x
+		):
 			result.append(Vector2i(x, y))
 	return result
 
@@ -75,7 +81,13 @@ static func make_rect_candidates(position: Vector2i, size: Vector2i) -> Array[Ve
 ## @schema return: Dictionary mapping Vector2i cells to generated values.
 func generate(candidates: Array[Vector2i], context: Dictionary = {}) -> Dictionary:
 	var grid: Dictionary = {}
-	var _apply_result: Dictionary = _apply_to_grid_internal(grid, candidates, context, true, false)
+	var _apply_result: Dictionary = _apply_to_grid_internal(
+		grid,
+		candidates,
+		context,
+		true,
+		false
+	)
 	return grid
 
 
@@ -96,7 +108,13 @@ func generate(candidates: Array[Vector2i], context: Dictionary = {}) -> Dictiona
 ## @schema return: Dictionary with ok, grid, candidate_count, initial_grid_count, default_filled_count, final_grid_count, configured_step_count, applied_step_count, skipped_step_count, changed_count, elapsed_usec, metadata, and steps.
 func generate_with_report(candidates: Array[Vector2i], context: Dictionary = {}) -> Dictionary:
 	var grid: Dictionary = {}
-	return _apply_to_grid_internal(grid, candidates, context, true, true)
+	return _apply_to_grid_internal(
+		grid,
+		candidates,
+		context,
+		true,
+		true
+	)
 
 
 ## 在已有网格上执行生成管线。
@@ -121,7 +139,13 @@ func apply_to_grid(
 	candidates: Array[Vector2i],
 	context: Dictionary = {}
 ) -> Dictionary:
-	var _apply_result: Dictionary = _apply_to_grid_internal(grid, candidates, context, false, false)
+	var _apply_result: Dictionary = _apply_to_grid_internal(
+		grid,
+		candidates,
+		context,
+		false,
+		false
+	)
 	return grid
 
 
@@ -149,7 +173,13 @@ func apply_to_grid_with_report(
 	candidates: Array[Vector2i],
 	context: Dictionary = {}
 ) -> Dictionary:
-	return _apply_to_grid_internal(grid, candidates, context, false, true)
+	return _apply_to_grid_internal(
+		grid,
+		candidates,
+		context,
+		false,
+		true
+	)
 
 
 ## 添加生成步骤。
@@ -204,7 +234,11 @@ func _apply_to_grid_internal(
 ) -> Dictionary:
 	var started_usec: int = Time.get_ticks_usec() if collect_report else 0
 	var initial_grid_count: int = grid.size() if collect_report else 0
-	var default_filled_count: int = _fill_default_values(grid, candidates, overwrite_default_values)
+	var default_filled_count: int = _fill_default_values(
+		grid,
+		candidates,
+		overwrite_default_values
+	)
 	var step_reports: Array[Dictionary] = []
 	var applied_step_count: int = 0
 	var skipped_step_count: int = 0
@@ -214,7 +248,13 @@ func _apply_to_grid_internal(
 		var step: GFGridGenerationStep2D = steps[step_index]
 		if step == null:
 			if collect_report:
-				step_reports.append(_make_skipped_step_report(step_index, &"null_step", grid.size()))
+				step_reports.append(
+					_make_skipped_step_report(
+						step_index,
+						&"null_step",
+						grid.size()
+					)
+				)
 				skipped_step_count += 1
 			continue
 
@@ -223,25 +263,28 @@ func _apply_to_grid_internal(
 		if collect_report:
 			step_started_usec = Time.get_ticks_usec()
 			grid_size_before = grid.size()
-		var step_changed_count: int = step.apply(grid, candidates, context)
+		var step_changed_count: int = step.apply(
+			grid,
+			candidates,
+			context
+		)
 		if collect_report:
 			var step_elapsed_usec: int = Time.get_ticks_usec() - step_started_usec
 			applied_step_count += 1
 			changed_count += step_changed_count
-			step_reports.append(_make_applied_step_report(
-				step,
-				step_index,
-				step_changed_count,
-				grid_size_before,
-				grid.size(),
-				step_elapsed_usec
-			))
+			step_reports.append(
+				_make_applied_step_report(
+					step,
+					step_index,
+					step_changed_count,
+					grid_size_before,
+					grid.size(),
+					step_elapsed_usec
+				)
+			)
 
 	if not collect_report:
-		return {
-			"ok": true,
-			"grid": grid,
-		}
+		return { "ok": true, "grid": grid, }
 	return {
 		"ok": true,
 		"grid": grid,
@@ -306,7 +349,11 @@ func _make_applied_step_report(
 ## 组装跳过步骤的报告；前后网格大小相同且变更数与耗时为零。
 ## [br]
 ## @api private
-func _make_skipped_step_report(step_index: int, reason: StringName, grid_size: int) -> Dictionary:
+func _make_skipped_step_report(
+	step_index: int,
+	reason: StringName,
+	grid_size: int
+) -> Dictionary:
 	return {
 		"index": step_index,
 		"step_id": &"",

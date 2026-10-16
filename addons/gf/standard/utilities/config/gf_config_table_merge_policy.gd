@@ -91,7 +91,7 @@ enum UpdateMode {
 func is_delete_record(record: Dictionary) -> bool:
 	if delete_marker_field == &"":
 		return false
-	return record.has(delete_marker_field) and _make_variant_key(record[delete_marker_field]) == _make_variant_key(delete_marker_value)
+	return (record.has(delete_marker_field) and _make_variant_key(record[delete_marker_field]) == _make_variant_key(delete_marker_value))
 
 
 ## 根据记录生成稳定合并键。
@@ -205,7 +205,10 @@ func _merge_dictionaries(base_record: Dictionary, patch_record: Dictionary) -> D
 ## @api private
 ## [br]
 func _make_variant_key(value: Variant) -> String:
-	return "%d:%s" % [typeof(value), var_to_str(value)]
+	return (
+		"%d:%s"
+		% [typeof(value), var_to_str(value)]
+	)
 
 
 ## 仅当 Variant 值为 GFConfigTableMergePolicy 时返回该合并策略。

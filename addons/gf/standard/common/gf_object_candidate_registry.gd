@@ -119,14 +119,38 @@ func register_candidate(candidate: Object, options: Dictionary = {}) -> bool:
 	var next_record: Dictionary = {
 		"id": candidate_id,
 		"ref": weakref(candidate),
-		"priority": GFVariantData.get_option_int(options, "priority", 0),
-		"group": GFVariantData.get_option_string_name(options, "group", &""),
-		"owner_id": _get_owner_id(GFVariantData.get_option_value(options, "owner", 0)),
-		"stable_key": GFVariantData.duplicate_variant(GFVariantData.get_option_value(options, "stable_key", candidate_id)),
+		"priority": GFVariantData.get_option_int(
+			options,
+			"priority",
+			0
+		),
+		"group": GFVariantData.get_option_string_name(
+			options,
+			"group",
+			&""
+		),
+		"owner_id": _get_owner_id(
+			GFVariantData.get_option_value(
+				options,
+				"owner",
+				0
+			)
+		),
+		"stable_key": GFVariantData.duplicate_variant(
+			GFVariantData.get_option_value(
+				options,
+				"stable_key",
+				candidate_id
+			)
+		),
 		"metadata": GFVariantData.get_option_dictionary(options, "metadata").duplicate(true),
 		"order": order,
 	}
-	var record_changed: bool = not _candidate_record_matches(_get_record(candidate_id), next_record, candidate)
+	var record_changed: bool = not _candidate_record_matches(
+		_get_record(candidate_id),
+		next_record,
+		candidate
+	)
 	if record_changed:
 		_records[candidate_id] = next_record
 	var capacity_changed: bool = _prune_for_capacity()
@@ -184,7 +208,11 @@ func unregister_owner(owner: Variant) -> int:
 	var removed_count: int = 0
 	for candidate_id: int in _order.duplicate():
 		var record: Dictionary = _get_record(candidate_id)
-		if GFVariantData.get_option_int(record, "owner_id", 0) != owner_id:
+		if GFVariantData.get_option_int(
+			record,
+			"owner_id",
+			0
+		) != owner_id:
 			continue
 		if _remove_candidate_id(candidate_id):
 			removed_count += 1
@@ -226,13 +254,33 @@ func prune_invalid() -> int:
 ## [br]
 ## @schema return: Array[Dictionary] with id, object, priority, group, owner_id, stable_key, metadata, and order.
 func get_candidates(options: Dictionary = {}) -> Array[Dictionary]:
-	if GFVariantData.get_option_bool(options, "prune_invalid", true):
+	if GFVariantData.get_option_bool(
+		options,
+		"prune_invalid",
+		true
+	):
 		var _pruned_count: int = prune_invalid()
 
-	var group_filter: StringName = GFVariantData.get_option_string_name(options, "group", &"")
-	var method_name: StringName = GFVariantData.get_option_string_name(options, "method_name", &"")
-	var include_metadata: bool = GFVariantData.get_option_bool(options, "include_metadata", true)
-	var max_count: int = GFVariantData.get_option_int(options, "max_count", 0)
+	var group_filter: StringName = GFVariantData.get_option_string_name(
+		options,
+		"group",
+		&""
+	)
+	var method_name: StringName = GFVariantData.get_option_string_name(
+		options,
+		"method_name",
+		&""
+	)
+	var include_metadata: bool = GFVariantData.get_option_bool(
+		options,
+		"include_metadata",
+		true
+	)
+	var max_count: int = GFVariantData.get_option_int(
+		options,
+		"max_count",
+		0
+	)
 	var result: Array[Dictionary] = []
 	for candidate_id: int in _order:
 		var record: Dictionary = _get_record(candidate_id)
@@ -241,11 +289,21 @@ func get_candidates(options: Dictionary = {}) -> Array[Dictionary]:
 		var candidate: Object = _get_record_object(record)
 		if candidate == null:
 			continue
-		if group_filter != &"" and GFVariantData.get_option_string_name(record, "group", &"") != group_filter:
+		if group_filter != &"" and GFVariantData.get_option_string_name(
+			record,
+			"group",
+			&""
+		) != group_filter:
 			continue
 		if method_name != &"" and not candidate.has_method(method_name):
 			continue
-		result.append(_make_candidate_snapshot(record, candidate, include_metadata))
+		result.append(
+			_make_candidate_snapshot(
+				record,
+				candidate,
+				include_metadata
+			)
+		)
 	result.sort_custom(_sort_candidate_snapshots)
 	if max_count > 0 and result.size() > max_count:
 		result = result.slice(0, max_count)
@@ -299,9 +357,10 @@ func get_debug_snapshot() -> Dictionary:
 	var candidates: Array[Dictionary] = []
 	for snapshot: Dictionary in get_candidates({ "include_metadata": true }):
 		var candidate_copy: Dictionary = snapshot.duplicate(true)
-		candidate_copy["object"] = GFReportValueCodec.to_json_compatible(GFVariantData.get_option_value(snapshot, "object"), {
-			"redaction_profile": GFReportValueCodec.REDACTION_PROFILE_SUPPORT,
-		})
+		candidate_copy["object"] = GFReportValueCodec.to_json_compatible(
+			GFVariantData.get_option_value(snapshot, "object"),
+			{ "redaction_profile": GFReportValueCodec.REDACTION_PROFILE_SUPPORT, }
+		)
 		candidates.append(candidate_copy)
 	return {
 		"revision": _revision,
@@ -309,9 +368,10 @@ func get_debug_snapshot() -> Dictionary:
 		"valid_count": candidates.size(),
 		"max_candidates": max_candidates,
 		"candidates": candidates,
-		"metadata": GFReportValueCodec.to_report_dictionary(metadata, {
-			"redaction_profile": GFReportValueCodec.REDACTION_PROFILE_SUPPORT,
-		}),
+		"metadata": GFReportValueCodec.to_report_dictionary(
+			metadata,
+			{ "redaction_profile": GFReportValueCodec.REDACTION_PROFILE_SUPPORT, }
+		),
 	}
 
 
@@ -322,14 +382,24 @@ func get_debug_snapshot() -> Dictionary:
 ## @api private
 func _get_existing_order(candidate_id: int) -> int:
 	var record: Dictionary = _get_record(candidate_id)
-	return GFVariantData.get_option_int(record, "order", -1)
+	return GFVariantData.get_option_int(
+		record,
+		"order",
+		-1
+	)
 
 
 ## 读取候选实例 ID 对应记录并收窄为 Dictionary。
 ## [br]
 ## @api private
 func _get_record(candidate_id: int) -> Dictionary:
-	return GFVariantData.as_dictionary(GFVariantData.get_option_value(_records, candidate_id, {}))
+	return GFVariantData.as_dictionary(
+		GFVariantData.get_option_value(
+			_records,
+			candidate_id,
+			{}
+		)
+	)
 
 
 ## 从记录中的 WeakRef 取得仍有效的 Object，否则返回 null。
@@ -351,15 +421,39 @@ func _get_record_object(record: Dictionary) -> Object:
 ## 提取候选 ID、对象、排序属性和 stable_key，并按选项附加 metadata。
 ## [br]
 ## @api private
-func _make_candidate_snapshot(record: Dictionary, candidate: Object, include_metadata: bool) -> Dictionary:
+func _make_candidate_snapshot(
+	record: Dictionary,
+	candidate: Object,
+	include_metadata: bool
+) -> Dictionary:
 	var snapshot: Dictionary = {
-		"id": GFVariantData.get_option_int(record, "id", 0),
+		"id": GFVariantData.get_option_int(
+			record,
+			"id",
+			0
+		),
 		"object": candidate,
-		"priority": GFVariantData.get_option_int(record, "priority", 0),
-		"group": GFVariantData.get_option_string_name(record, "group", &""),
-		"owner_id": GFVariantData.get_option_int(record, "owner_id", 0),
+		"priority": GFVariantData.get_option_int(
+			record,
+			"priority",
+			0
+		),
+		"group": GFVariantData.get_option_string_name(
+			record,
+			"group",
+			&""
+		),
+		"owner_id": GFVariantData.get_option_int(
+			record,
+			"owner_id",
+			0
+		),
 		"stable_key": GFVariantData.duplicate_variant(GFVariantData.get_option_value(record, "stable_key")),
-		"order": GFVariantData.get_option_int(record, "order", 0),
+		"order": GFVariantData.get_option_int(
+			record,
+			"order",
+			0
+		),
 	}
 	if include_metadata:
 		snapshot["metadata"] = GFVariantData.get_option_dictionary(record, "metadata").duplicate(true)
@@ -383,10 +477,22 @@ func _prune_for_capacity() -> bool:
 ## 比较当前弱引用对象及候选属性字段是否与待写记录相符。
 ## [br]
 ## @api private
-func _candidate_record_matches(current: Dictionary, expected: Dictionary, candidate: Object) -> bool:
+func _candidate_record_matches(
+	current: Dictionary,
+	expected: Dictionary,
+	candidate: Object
+) -> bool:
 	if current.is_empty() or _get_record_object(current) != candidate:
 		return false
-	for key: StringName in [&"id", &"priority", &"group", &"owner_id", &"stable_key", &"metadata", &"order"]:
+	for key: StringName in [
+		&"id",
+		&"priority",
+		&"group",
+		&"owner_id",
+		&"stable_key",
+		&"metadata",
+		&"order",
+	]:
 		if GFVariantData.get_option_value(current, key) != GFVariantData.get_option_value(expected, key):
 			return false
 	return true
@@ -408,7 +514,11 @@ func _remove_candidate_id(candidate_id: int) -> bool:
 ## [br]
 ## @api private
 func _remove_order_id(candidate_id: int) -> void:
-	for index: int in range(_order.size() - 1, -1, -1):
+	for index: int in range(
+		_order.size() - 1,
+		-1,
+		-1
+	):
 		if _order[index] == candidate_id:
 			_order.remove_at(index)
 
@@ -425,12 +535,28 @@ func _notify_candidates_changed() -> void:
 ## [br]
 ## @api private
 static func _sort_candidate_snapshots(left: Dictionary, right: Dictionary) -> bool:
-	var left_priority: int = GFVariantData.get_option_int(left, "priority", 0)
-	var right_priority: int = GFVariantData.get_option_int(right, "priority", 0)
+	var left_priority: int = GFVariantData.get_option_int(
+		left,
+		"priority",
+		0
+	)
+	var right_priority: int = GFVariantData.get_option_int(
+		right,
+		"priority",
+		0
+	)
 	if left_priority != right_priority:
 		return left_priority > right_priority
-	var left_order: int = GFVariantData.get_option_int(left, "order", 0)
-	var right_order: int = GFVariantData.get_option_int(right, "order", 0)
+	var left_order: int = GFVariantData.get_option_int(
+		left,
+		"order",
+		0
+	)
+	var right_order: int = GFVariantData.get_option_int(
+		right,
+		"order",
+		0
+	)
 	return left_order < right_order
 
 

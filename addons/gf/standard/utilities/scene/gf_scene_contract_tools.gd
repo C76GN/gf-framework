@@ -131,27 +131,72 @@ static func scan_scene_paths(root_path: String = "res://", options: Dictionary =
 ## @return 检查报告。
 ## [br]
 ## @schema return: Dictionary，包含 ok、scene_path、root_name、root_class、root_script_path、issues、counts 与 summary 字段。
-static func check_node(root: Node, contract: Dictionary = {}, options: Dictionary = {}) -> Dictionary:
+static func check_node(
+	root: Node,
+	contract: Dictionary = {},
+	options: Dictionary = {}
+) -> Dictionary:
 	var scene_path: String = GFVariantData.get_option_string(options, "scene_path")
 	var report: Dictionary = _make_report(
-		GFVariantData.get_option_string(options, "subject", "Scene root contract"),
+		GFVariantData.get_option_string(
+			options,
+			"subject",
+			"Scene root contract"
+		),
 		scene_path
 	)
 	if root == null:
-		_append_issue(report, "error", "invalid_root", "root", "Node", "", "Scene root is null.")
+		_append_issue(
+			report,
+			"error",
+			"invalid_root",
+			"root",
+			"Node",
+			"",
+			"Scene root is null."
+		)
 		return _finalize_report(report)
 
 	report["root_name"] = String(root.name)
 	report["root_class"] = root.get_class()
 	report["root_script_path"] = _get_root_script_path(root)
 
-	_check_base_class(report, root, contract)
-	_check_base_script(report, root, contract)
-	_check_required_groups(report, root, contract)
-	_check_forbidden_groups(report, root, contract)
-	_check_name_constraints(report, root, contract)
-	_check_path_constraints(report, contract, scene_path)
-	_check_script_structure(report, root, contract, options)
+	_check_base_class(
+		report,
+		root,
+		contract
+	)
+	_check_base_script(
+		report,
+		root,
+		contract
+	)
+	_check_required_groups(
+		report,
+		root,
+		contract
+	)
+	_check_forbidden_groups(
+		report,
+		root,
+		contract
+	)
+	_check_name_constraints(
+		report,
+		root,
+		contract
+	)
+	_check_path_constraints(
+		report,
+		contract,
+		scene_path
+	)
+	_check_script_structure(
+		report,
+		root,
+		contract,
+		options
+	)
 	return _finalize_report(report)
 
 
@@ -181,11 +226,23 @@ static func check_packed_scene(
 ) -> Dictionary:
 	var scene_path: String = GFVariantData.get_option_string(options, "scene_path")
 	var report: Dictionary = _make_report(
-		GFVariantData.get_option_string(options, "subject", "PackedScene contract"),
+		GFVariantData.get_option_string(
+			options,
+			"subject",
+			"PackedScene contract"
+		),
 		scene_path
 	)
 	if packed_scene == null:
-		_append_issue(report, "error", "invalid_packed_scene", "packed_scene", "PackedScene", "", "PackedScene is null.")
+		_append_issue(
+			report,
+			"error",
+			"invalid_packed_scene",
+			"packed_scene",
+			"PackedScene",
+			"",
+			"PackedScene is null."
+		)
 		return _finalize_report(report)
 
 	var edit_state: int = GFVariantData.get_option_int(
@@ -208,8 +265,16 @@ static func check_packed_scene(
 
 	var check_options: Dictionary = GFVariantData.to_dictionary(options)
 	check_options["scene_path"] = scene_path
-	report = check_node(root, contract, check_options)
-	if GFVariantData.get_option_bool(options, "free_instance", true):
+	report = check_node(
+		root,
+		contract,
+		check_options
+	)
+	if GFVariantData.get_option_bool(
+		options,
+		"free_instance",
+		true
+	):
 		root.free()
 	return report
 
@@ -233,14 +298,30 @@ static func check_packed_scene(
 ## @return 检查报告。
 ## [br]
 ## @schema return: Dictionary，包含 ok、scene_path、root_name、root_class、root_script_path、issues、counts 与 summary 字段。
-static func check_scene_path(scene_path: String, contract: Dictionary = {}, options: Dictionary = {}) -> Dictionary:
+static func check_scene_path(
+	scene_path: String,
+	contract: Dictionary = {},
+	options: Dictionary = {}
+) -> Dictionary:
 	var normalized_path: String = scene_path.strip_edges()
 	var report: Dictionary = _make_report(
-		GFVariantData.get_option_string(options, "subject", "Scene path contract"),
+		GFVariantData.get_option_string(
+			options,
+			"subject",
+			"Scene path contract"
+		),
 		normalized_path
 	)
 	if normalized_path.is_empty():
-		_append_issue(report, "error", "empty_scene_path", "scene_path", "non-empty path", "", "Scene path is empty.")
+		_append_issue(
+			report,
+			"error",
+			"empty_scene_path",
+			"scene_path",
+			"non-empty path",
+			"",
+			"Scene path is empty."
+		)
 		return _finalize_report(report)
 	if not ResourceLoader.exists(normalized_path):
 		_append_issue(
@@ -270,7 +351,11 @@ static func check_scene_path(scene_path: String, contract: Dictionary = {}, opti
 	var packed_scene: PackedScene = resource
 	var check_options: Dictionary = GFVariantData.to_dictionary(options)
 	check_options["scene_path"] = normalized_path
-	return check_packed_scene(packed_scene, contract, check_options)
+	return check_packed_scene(
+		packed_scene,
+		contract,
+		check_options
+	)
 
 
 ## 批量检查场景路径。
@@ -301,7 +386,11 @@ static func check_scene_paths(
 	var report: Dictionary = _make_collection_report("Scene contract batch")
 	var entries: Array = GFVariantData.as_array(report["entries"])
 	for scene_path: String in paths:
-		var entry: Dictionary = check_scene_path(scene_path, contract, options)
+		var entry: Dictionary = check_scene_path(
+			scene_path,
+			contract,
+			options
+		)
 		entries.append(entry)
 		report["checked_count"] = GFVariantData.get_option_int(report, "checked_count") + 1
 		if GFVariantData.get_option_bool(entry, "ok"):
@@ -337,7 +426,11 @@ static func check_scene_directory(
 	contract: Dictionary = {},
 	options: Dictionary = {}
 ) -> Dictionary:
-	return check_scene_paths(scan_scene_paths(root_path, options), contract, options)
+	return check_scene_paths(
+		scan_scene_paths(root_path, options),
+		contract,
+		options
+	)
 
 
 ## 创建可加入 GFValidationSuite 的根节点契约规则。
@@ -366,17 +459,31 @@ static func make_validation_rule(contract: Dictionary = {}, options: Dictionary 
 			"description",
 			"Validate a scene root contract."
 		),
-		"target_kind": GFVariantData.get_option_int(options, "target_kind", GFValidationRule.TargetKind.NODE),
-		"severity": GFVariantData.get_option_value(options, "severity", GFValidationIssue.Severity.ERROR),
+		"target_kind": GFVariantData.get_option_int(
+			options,
+			"target_kind",
+			GFValidationRule.TargetKind.NODE
+		),
+		"severity": GFVariantData.get_option_value(
+			options,
+			"severity",
+			GFValidationIssue.Severity.ERROR
+		),
 		"metadata": GFVariantData.get_option_dictionary(options, "metadata"),
 	}
-	return GFValidationRule.new().configure(
-		GFVariantData.get_option_string_name(options, "rule_id", &"scene_root_contract"),
-		Callable(GFSceneContractTools, "_validate_rule_target").bind(
-			contract.duplicate(true),
-			options.duplicate(true)
-		),
-		rule_options
+	return (
+		GFValidationRule.new().configure(
+			GFVariantData.get_option_string_name(
+				options,
+				"rule_id",
+				&"scene_root_contract"
+			),
+			Callable(GFSceneContractTools, "_validate_rule_target").bind(
+				contract.duplicate(true),
+				options.duplicate(true)
+			),
+			rule_options
+		)
 	)
 
 
@@ -400,18 +507,34 @@ static func _validate_rule_target(
 	if not context_path.is_empty() and GFVariantData.get_option_string(check_options, "scene_path").is_empty():
 		check_options["scene_path"] = context_path
 	if GFVariantData.get_option_string(check_options, "subject").is_empty():
-		check_options["subject"] = GFVariantData.get_option_string(context, "subject", "Scene root contract")
+		check_options["subject"] = GFVariantData.get_option_string(
+			context,
+			"subject",
+			"Scene root contract"
+		)
 
 	var report: Dictionary = {}
 	if target is Node:
 		var target_node: Node = target
-		report = check_node(target_node, contract, check_options)
+		report = check_node(
+			target_node,
+			contract,
+			check_options
+		)
 	elif target is PackedScene:
 		var packed_scene: PackedScene = target
-		report = check_packed_scene(packed_scene, contract, check_options)
+		report = check_packed_scene(
+			packed_scene,
+			contract,
+			check_options
+		)
 	else:
 		report = _make_report(
-			GFVariantData.get_option_string(check_options, "subject", "Scene root contract"),
+			GFVariantData.get_option_string(
+				check_options,
+				"subject",
+				"Scene root contract"
+			),
 			GFVariantData.get_option_string(check_options, "scene_path")
 		)
 		_append_issue(
@@ -471,7 +594,11 @@ static func _make_collection_report(subject: String) -> Dictionary:
 ## [br]
 ## @api private
 ## [br]
-static func _check_base_class(report: Dictionary, root: Node, contract: Dictionary) -> void:
+static func _check_base_class(
+	report: Dictionary,
+	root: Node,
+	contract: Dictionary
+) -> void:
 	if not _has_option(contract, KEY_BASE_CLASS):
 		return
 	var expected_class: String = GFVariantData.get_option_string(contract, KEY_BASE_CLASS).strip_edges()
@@ -494,7 +621,11 @@ static func _check_base_class(report: Dictionary, root: Node, contract: Dictiona
 ## [br]
 ## @api private
 ## [br]
-static func _check_base_script(report: Dictionary, root: Node, contract: Dictionary) -> void:
+static func _check_base_script(
+	report: Dictionary,
+	root: Node,
+	contract: Dictionary
+) -> void:
 	var expected_value: Variant = GFVariantData.get_option_value(contract, KEY_BASE_SCRIPT)
 	if not (expected_value is Script):
 		return
@@ -531,7 +662,11 @@ static func _check_base_script(report: Dictionary, root: Node, contract: Diction
 ## [br]
 ## @api private
 ## [br]
-static func _check_required_groups(report: Dictionary, root: Node, contract: Dictionary) -> void:
+static func _check_required_groups(
+	report: Dictionary,
+	root: Node,
+	contract: Dictionary
+) -> void:
 	for group_name: String in _get_contract_string_list(contract, KEY_REQUIRED_GROUPS):
 		if root.is_in_group(group_name):
 			continue
@@ -550,7 +685,11 @@ static func _check_required_groups(report: Dictionary, root: Node, contract: Dic
 ## [br]
 ## @api private
 ## [br]
-static func _check_forbidden_groups(report: Dictionary, root: Node, contract: Dictionary) -> void:
+static func _check_forbidden_groups(
+	report: Dictionary,
+	root: Node,
+	contract: Dictionary
+) -> void:
 	for group_name: String in _get_contract_string_list(contract, KEY_FORBIDDEN_GROUPS):
 		if not root.is_in_group(group_name):
 			continue
@@ -569,7 +708,11 @@ static func _check_forbidden_groups(report: Dictionary, root: Node, contract: Di
 ## [br]
 ## @api private
 ## [br]
-static func _check_name_constraints(report: Dictionary, root: Node, contract: Dictionary) -> void:
+static func _check_name_constraints(
+	report: Dictionary,
+	root: Node,
+	contract: Dictionary
+) -> void:
 	var root_name: String = String(root.name)
 	var name_prefix: String = GFVariantData.get_option_string(contract, KEY_NAME_PREFIX).strip_edges()
 	if not name_prefix.is_empty() and not root_name.begins_with(name_prefix):
@@ -600,7 +743,11 @@ static func _check_name_constraints(report: Dictionary, root: Node, contract: Di
 ## [br]
 ## @api private
 ## [br]
-static func _check_path_constraints(report: Dictionary, contract: Dictionary, scene_path: String) -> void:
+static func _check_path_constraints(
+	report: Dictionary,
+	contract: Dictionary,
+	scene_path: String
+) -> void:
 	var path_prefix: String = GFVariantData.get_option_string(contract, KEY_PATH_PREFIX).strip_edges()
 	if not path_prefix.is_empty() and scene_path.is_empty():
 		_append_issue(
@@ -650,7 +797,12 @@ static func _check_path_constraints(report: Dictionary, contract: Dictionary, sc
 ## [br]
 ## @api private
 ## [br]
-static func _check_script_structure(report: Dictionary, root: Node, contract: Dictionary, options: Dictionary) -> void:
+static func _check_script_structure(
+	report: Dictionary,
+	root: Node,
+	contract: Dictionary,
+	options: Dictionary
+) -> void:
 	var structure: Dictionary = GFVariantData.get_option_dictionary(contract, KEY_SCRIPT_STRUCTURE)
 	if structure.is_empty():
 		return
@@ -678,15 +830,28 @@ static func _check_script_structure(report: Dictionary, root: Node, contract: Di
 	report["script_structure"] = structure_report
 	for issue_value: Variant in GFVariantData.get_option_array(structure_report, "issues"):
 		var issue: Dictionary = GFVariantData.as_dictionary(issue_value)
-		var issue_kind: String = GFVariantData.get_option_string(issue, "kind", "script_structure_issue")
+		var issue_kind: String = GFVariantData.get_option_string(
+			issue,
+			"kind",
+			"script_structure_issue"
+		)
 		_append_issue(
 			report,
-			GFVariantData.get_option_string(issue, "severity", "error"),
+			GFVariantData.get_option_string(
+				issue,
+				"severity",
+				"error"
+			),
 			"script_%s" % issue_kind,
-			"%s.%s" % [String(KEY_SCRIPT_STRUCTURE), GFVariantData.get_option_string(issue, "field")],
+			"%s.%s"
+			% [String(KEY_SCRIPT_STRUCTURE), GFVariantData.get_option_string(issue, "field")],
 			GFVariantData.get_option_string(issue, "member_name"),
 			"",
-			GFVariantData.get_option_string(issue, "message", "Script structure check failed.")
+			GFVariantData.get_option_string(
+				issue,
+				"message",
+				"Script structure check failed."
+			)
 		)
 
 
@@ -756,18 +921,32 @@ static func _finalize_report(report: Dictionary) -> Dictionary:
 	report["counts"] = counts
 	report["ok"] = error_count == 0
 	if report.has("checked_count"):
-		report["summary"] = "ok" if error_count == 0 else "checked=%s failed=%s errors=%s warnings=%s" % [
-			GFVariantData.get_option_int(report, "checked_count"),
-			GFVariantData.get_option_int(report, "failed_count"),
-			error_count,
-			warning_count,
-		]
+		report["summary"] = (
+			"ok"
+			if error_count == 0
+			else (
+				"checked=%s failed=%s errors=%s warnings=%s"
+				% [
+					GFVariantData.get_option_int(report, "checked_count"),
+					GFVariantData.get_option_int(report, "failed_count"),
+					error_count,
+					warning_count,
+				]
+			)
+		)
 	else:
-		report["summary"] = "ok" if error_count == 0 else "issues=%s errors=%s warnings=%s" % [
-			issues.size(),
-			error_count,
-			warning_count,
-		]
+		report["summary"] = (
+			"ok"
+			if error_count == 0
+			else (
+				"issues=%s errors=%s warnings=%s"
+				% [
+					issues.size(),
+					error_count,
+					warning_count,
+				]
+			)
+		)
 	return report
 
 

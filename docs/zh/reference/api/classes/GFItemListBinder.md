@@ -16,14 +16,14 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 方法 | [`bind_items`](#member-gfitemlistbinder-methods-bind_items) | `func bind_items( store: RefCounted, path: Variant, target: Object, options: Dictionary = {} ) -> bool:` |
-| 方法 | [`write_target_items`](#member-gfitemlistbinder-methods-write_target_items) | `func write_target_items(target: Object, items: Array, options: Dictionary = {}) -> int:` |
+| 方法 | [`write_target_items`](#member-gfitemlistbinder-methods-write_target_items) | `func write_target_items( target: Object, items: Array, options: Dictionary = {} ) -> int:` |
 | 方法 | [`unbind_target`](#member-gfitemlistbinder-methods-unbind_target) | `func unbind_target(target: Object) -> bool:` |
 | 方法 | [`unbind_path`](#member-gfitemlistbinder-methods-unbind_path) | `func unbind_path(store: RefCounted, path: Variant) -> int:` |
 | 方法 | [`clear`](#member-gfitemlistbinder-methods-clear) | `func clear() -> void:` |
 | 方法 | [`get_binding_count`](#member-gfitemlistbinder-methods-get_binding_count) | `func get_binding_count() -> int:` |
 | 方法 | [`dispose`](#member-gfitemlistbinder-methods-dispose) | `func dispose() -> void:` |
-| 方法 | [`write_items`](#member-gfitemlistbinder-methods-write_items) | `static func write_items(target: Object, items: Array, options: Dictionary = {}) -> int:` |
-| 方法 | [`get_item_metadata`](#member-gfitemlistbinder-methods-get_item_metadata) | `static func get_item_metadata(target: Object, index: int, fallback: Variant = null) -> Variant:` |
+| 方法 | [`write_items`](#member-gfitemlistbinder-methods-write_items) | `static func write_items( target: Object, items: Array, options: Dictionary = {} ) -> int:` |
+| 方法 | [`get_item_metadata`](#member-gfitemlistbinder-methods-get_item_metadata) | `static func get_item_metadata( target: Object, index: int, fallback: Variant = null ) -> Variant:` |
 | 方法 | [`get_selected_metadata`](#member-gfitemlistbinder-methods-get_selected_metadata) | `static func get_selected_metadata(target: Object) -> Array:` |
 
 ## 方法
@@ -66,7 +66,7 @@ func bind_items( store: RefCounted, path: Variant, target: Object, options: Dict
 - 首次版本：`7.0.0`
 
 ```gdscript
-func write_target_items(target: Object, items: Array, options: Dictionary = {}) -> int:
+func write_target_items( target: Object, items: Array, options: Dictionary = {} ) -> int:
 ```
 
 直接写入目标控件条目。
@@ -183,7 +183,7 @@ func dispose() -> void:
 - 首次版本：`7.0.0`
 
 ```gdscript
-static func write_items(target: Object, items: Array, options: Dictionary = {}) -> int:
+static func write_items( target: Object, items: Array, options: Dictionary = {} ) -> int:
 ```
 
 将数组数据写入条目控件。
@@ -211,7 +211,7 @@ static func write_items(target: Object, items: Array, options: Dictionary = {}) 
 - 首次版本：`7.0.0`
 
 ```gdscript
-static func get_item_metadata(target: Object, index: int, fallback: Variant = null) -> Variant:
+static func get_item_metadata( target: Object, index: int, fallback: Variant = null ) -> Variant:
 ```
 
 读取控件指定索引的 metadata。

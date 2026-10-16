@@ -182,7 +182,12 @@ func collect_paths() -> PackedStringArray:
 
 	var scan_state: Dictionary = _make_scan_state()
 	for include_path: String in include_paths:
-		_collect_path(include_path, result, 0, scan_state)
+		_collect_path(
+			include_path,
+			result,
+			0,
+			scan_state
+		)
 		if not _can_collect_more_paths(result):
 			break
 	result.sort()
@@ -220,14 +225,23 @@ func duplicate_suite() -> GFValidationSuite:
 ## [br]
 ## @api private
 ## [br]
-func _collect_path(path: String, result: PackedStringArray, depth: int, scan_state: Dictionary) -> void:
+func _collect_path(
+	path: String,
+	result: PackedStringArray,
+	depth: int,
+	scan_state: Dictionary
+) -> void:
 	if not _can_collect_more_paths(result):
 		_warn_collected_path_limit(scan_state)
 		return
 	if path.is_empty() or _is_excluded(path):
 		return
 	if FileAccess.file_exists(path):
-		_append_path_if_allowed(path, result, scan_state)
+		_append_path_if_allowed(
+			path,
+			result,
+			scan_state
+		)
 		return
 
 	var dir: DirAccess = DirAccess.open(path)
@@ -246,10 +260,24 @@ func _collect_path(path: String, result: PackedStringArray, depth: int, scan_sta
 
 		var child_path: String = path.path_join(entry)
 		if dir.current_is_dir():
-			if recursive and _should_scan_directory(entry, child_path, depth, scan_state):
-				_collect_path(child_path, result, depth + 1, scan_state)
+			if recursive and _should_scan_directory(
+				entry,
+				child_path,
+				depth,
+				scan_state
+			):
+				_collect_path(
+					child_path,
+					result,
+					depth + 1,
+					scan_state
+				)
 		else:
-			_append_path_if_allowed(child_path, result, scan_state)
+			_append_path_if_allowed(
+				child_path,
+				result,
+				scan_state
+			)
 		entry = dir.get_next()
 	dir.list_dir_end()
 
@@ -258,7 +286,12 @@ func _collect_path(path: String, result: PackedStringArray, depth: int, scan_sta
 ## [br]
 ## @api private
 ## [br]
-func _should_scan_directory(entry: String, path: String, current_depth: int, scan_state: Dictionary) -> bool:
+func _should_scan_directory(
+	entry: String,
+	path: String,
+	current_depth: int,
+	scan_state: Dictionary
+) -> bool:
 	if not include_hidden and entry.begins_with("."):
 		return false
 	if _is_excluded(path):
@@ -273,7 +306,11 @@ func _should_scan_directory(entry: String, path: String, current_depth: int, sca
 ## [br]
 ## @api private
 ## [br]
-func _append_path_if_allowed(path: String, result: PackedStringArray, scan_state: Dictionary) -> void:
+func _append_path_if_allowed(
+	path: String,
+	result: PackedStringArray,
+	scan_state: Dictionary
+) -> void:
 	if not matches_path(path) or _scan_state_has_path(scan_state, path):
 		return
 	if not _can_collect_more_paths(result):
@@ -322,7 +359,10 @@ func _warn_scan_depth_limit(path: String, scan_state: Dictionary) -> void:
 	if GFVariantData.get_option_bool(scan_state, "depth_warning_emitted"):
 		return
 	scan_state["depth_warning_emitted"] = true
-	push_warning("[GFValidationSuite][validation_suite.scan_depth_limit] collect_paths reached max_scan_depth=%d; deeper directory skipped: %s." % [max_scan_depth, path])
+	push_warning(
+		"[GFValidationSuite][validation_suite.scan_depth_limit] collect_paths reached max_scan_depth=%d; deeper directory skipped: %s."
+		% [max_scan_depth, path]
+	)
 
 
 ## 按小写扩展名检查路径是否属于资源或场景扩展名集合。

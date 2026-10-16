@@ -95,16 +95,12 @@ const _SELECTOR_PATH: StringName = &"indexed_path"
 ## 检查属性声明并读写 Object 属性的工具脚本。
 ## [br]
 ## @api private
-const _GF_OBJECT_PROPERTY_TOOLS_SCRIPT = preload(
-	"res://addons/gf/kernel/core/gf_object_property_tools.gd"
-)
+const _GF_OBJECT_PROPERTY_TOOLS_SCRIPT = preload("res://addons/gf/kernel/core/gf_object_property_tools.gd")
 
 ## 对 Variant 选项进行类型化访问、复制和值比较的工具脚本。
 ## [br]
 ## @api private
-const _GF_VARIANT_ACCESS_SCRIPT = preload(
-	"res://addons/gf/kernel/core/gf_variant_access.gd"
-)
+const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
 # --- 私有变量 ---
@@ -181,10 +177,7 @@ var _last_transaction_report: Dictionary = {}
 ## @schema options: Dictionary，可包含 command_name、metadata 和 duplicate_resources。
 ## [br]
 ## @return 当前命令。
-func configure(
-	changes: Array[Dictionary],
-	options: Dictionary = {}
-) -> GFEditorPropertyBatchCommand:
+func configure(changes: Array[Dictionary], options: Dictionary = {}) -> GFEditorPropertyBatchCommand:
 	if not _can_change_configuration("configure"):
 		return self
 	_duplicate_resources = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
@@ -278,20 +271,10 @@ func can_execute() -> bool:
 		_set_last_report(_make_unavailable_report(&"busy", "Property transaction is busy."))
 		return false
 	if is_executed():
-		_set_last_report(
-			_make_unavailable_report(
-				&"already_executed",
-				"Property transaction is already executed."
-			)
-		)
+		_set_last_report(_make_unavailable_report(&"already_executed", "Property transaction is already executed."))
 		return false
 	if _recovery_required:
-		_set_last_report(
-			_make_unavailable_report(
-				&"recovery_required",
-				"Property transaction must be recovered before execute."
-			)
-		)
+		_set_last_report(_make_unavailable_report(&"recovery_required", "Property transaction must be recovered before execute."))
 		return false
 	var report: Dictionary = _build_config_preflight()
 	_set_last_report(report)
@@ -336,10 +319,7 @@ func _do_it() -> Error:
 ## @return: 第一个有效属性目标。
 func _get_undo_context() -> Object:
 	for change: Dictionary in _changes:
-		var target_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
-			change,
-			"target"
-		)
+		var target_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(change, "target")
 		if target_value is Object and is_instance_valid(target_value):
 			var target: Object = target_value
 			return target
@@ -357,10 +337,7 @@ func _get_undo_targets() -> Array[Object]:
 	var targets: Array[Object] = []
 	var seen_instance_ids: Dictionary = {}
 	for change: Dictionary in _changes:
-		var target_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
-			change,
-			"target"
-		)
+		var target_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(change, "target")
 		if not target_value is Object or not is_instance_valid(target_value):
 			continue
 		var target: Object = target_value
@@ -387,21 +364,13 @@ func _undo_it() -> Error:
 	_operation_in_progress = true
 	if _recovery_required:
 		if is_executed():
-			_set_last_report(
-				_make_unavailable_report(
-					&"recover_before_revert",
-					"Recover the failed undo attempt before retrying revert."
-				)
-			)
+			_set_last_report(_make_unavailable_report(&"recover_before_revert", "Recover the failed undo attempt before retrying revert."))
 			_operation_in_progress = false
 			return ERR_UNAVAILABLE
 		var recovery_error: Error = _recover_pending_guard()
 		_operation_in_progress = false
 		return recovery_error
-	var preparation: Dictionary = _prepare_execution_values(
-		_first_snapshots,
-		&"revert"
-	)
+	var preparation: Dictionary = _prepare_execution_values(_first_snapshots, &"revert")
 	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(preparation, "ok"):
 		var failed_report: Dictionary = _copy_report(preparation)
 		failed_report["status"] = STATUS_REVERT_FAILED
@@ -460,14 +429,9 @@ func _execute_transaction() -> Error:
 func _recover_pending_guard() -> Error:
 	if not _recovery_required or _pending_recovery_values.is_empty():
 		return ERR_UNAVAILABLE
-	var desired_values: Array = _duplicate_value_array(
-		_pending_recovery_values
-	)
+	var desired_values: Array = _duplicate_value_array(_pending_recovery_values)
 	var recovery_reverse_order: bool = _pending_recovery_reverse_order
-	var preparation: Dictionary = _prepare_execution_values(
-		desired_values,
-		&"recovery"
-	)
+	var preparation: Dictionary = _prepare_execution_values(desired_values, &"recovery")
 	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(preparation, "ok"):
 		var failed_report: Dictionary = _copy_report(preparation)
 		failed_report["status"] = STATUS_ROLLBACK_FAILED
@@ -483,10 +447,7 @@ func _recover_pending_guard() -> Error:
 		recovery_reverse_order
 	)
 	if error != OK:
-		_set_pending_recovery(
-			desired_values,
-			recovery_reverse_order
-		)
+		_set_pending_recovery(desired_values, recovery_reverse_order)
 		var failure_report: Dictionary = get_transaction_report()
 		failure_report["recovery_required"] = true
 		_set_last_report(failure_report)
@@ -516,18 +477,12 @@ func _build_config_preflight() -> Dictionary:
 			&"preflight"
 		)
 		if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(prepared, "ok"):
-			var entry_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
-				prepared,
-				"entry"
-			)
+			var entry_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(prepared, "entry")
 			if entry_value is Dictionary:
 				var entry: Dictionary = entry_value
 				entries.append(entry)
 		else:
-			var issue_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
-				prepared,
-				"issue"
-			)
+			var issue_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(prepared, "issue")
 			if issue_value is Dictionary:
 				var issue: Dictionary = issue_value
 				issues.append(issue)
@@ -552,14 +507,8 @@ func _prepare_configured_change(
 	index: int,
 	phase: StringName
 ) -> Dictionary:
-	var metadata_value: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-		change,
-		"metadata"
-	)
-	var target_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
-		change,
-		"target"
-	)
+	var metadata_value: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(change, "metadata")
+	var target_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(change, "target")
 	if not (target_value is Object):
 		return _make_prepare_failure(
 			_make_issue(
@@ -605,10 +554,7 @@ func _prepare_configured_change(
 			)
 		)
 
-	var new_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
-		change,
-		"new_value"
-	)
+	var new_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(change, "new_value")
 	var preparation: Dictionary
 	var entry: Dictionary = {
 		"index": index,
@@ -642,10 +588,7 @@ func _prepare_configured_change(
 		entry["root_property"] = property_name
 		entry["root_selector"] = true
 	else:
-		var raw_path: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
-			change,
-			"property_path"
-		)
+		var raw_path: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(change, "property_path")
 		var property_path: NodePath = NodePath("")
 		if raw_path is NodePath:
 			property_path = raw_path
@@ -668,13 +611,9 @@ func _prepare_configured_change(
 		)
 		entry["selector_mode"] = _SELECTOR_PATH
 		entry["property_path"] = property_path
-		var selector_components: PackedStringArray = (
-			_make_property_selector_components(property_path)
-		)
+		var selector_components: PackedStringArray = _make_property_selector_components(property_path)
 		entry["selector_components"] = selector_components
-		entry["root_property"] = (
-			_GF_OBJECT_PROPERTY_TOOLS_SCRIPT.get_root_property_name(property_path)
-		)
+		entry["root_property"] = _GF_OBJECT_PROPERTY_TOOLS_SCRIPT.get_root_property_name(property_path)
 		entry["root_selector"] = selector_components.size() == 1
 
 	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(preparation, "ok"):
@@ -699,20 +638,14 @@ func _prepare_configured_change(
 		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(preparation, "new_value"),
 		false
 	)
-	return {
-		"ok": true,
-		"entry": entry,
-	}
+	return { "ok": true, "entry": entry, }
 
 
 ## 按已保存执行条目预检一组重做、撤销或恢复目标值。
 ## 目标值数量与条目数不一致时返回 snapshot_mismatch issue。
 ## [br]
 ## @api private
-func _prepare_execution_values(
-	desired_values: Array,
-	phase: StringName
-) -> Dictionary:
+func _prepare_execution_values(desired_values: Array, phase: StringName) -> Dictionary:
 	var entries: Array[Dictionary] = []
 	var issues: Array[Dictionary] = []
 	if desired_values.size() != _execution_entries.size():
@@ -732,18 +665,12 @@ func _prepare_execution_values(
 				phase
 			)
 			if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(prepared, "ok"):
-				var entry_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
-					prepared,
-					"entry"
-				)
+				var entry_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(prepared, "entry")
 				if entry_value is Dictionary:
 					var entry: Dictionary = entry_value
 					entries.append(entry)
 			else:
-				var issue_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
-					prepared,
-					"issue"
-				)
+				var issue_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(prepared, "issue")
 				if issue_value is Dictionary:
 					var issue: Dictionary = issue_value
 					issues.append(issue)
@@ -767,10 +694,7 @@ func _prepare_execution_entry(
 	desired_value: Variant,
 	phase: StringName
 ) -> Dictionary:
-	var target_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
-		template,
-		"target"
-	)
+	var target_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(template, "target")
 	var index: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
 		template,
 		"index",
@@ -798,25 +722,16 @@ func _prepare_execution_entry(
 			)
 		)
 
-	var selector_mode: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
-		template,
-		"selector_mode"
-	)
+	var selector_mode: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(template, "selector_mode")
 	var preparation: Dictionary
 	if selector_mode == _SELECTOR_DIRECT:
 		preparation = _GF_OBJECT_PROPERTY_TOOLS_SCRIPT.prepare_direct_property_write(
 			target,
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
-				template,
-				"property_name"
-			),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(template, "property_name"),
 			desired_value
 		)
 	else:
-		var property_path_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
-			template,
-			"property_path"
-		)
+		var property_path_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(template, "property_path")
 		if not (property_path_value is NodePath):
 			return _make_prepare_failure(
 				_make_issue(
@@ -857,10 +772,7 @@ func _prepare_execution_entry(
 		false
 	)
 	entry["status"] = STATUS_READY
-	return {
-		"ok": true,
-		"entry": entry,
-	}
+	return { "ok": true, "entry": entry, }
 
 
 ## 按指定顺序写入目标值，跳过相等值，并验证所有目标的最终状态。
@@ -896,10 +808,16 @@ func _run_transition(
 	var attempted_count: int = 0
 	var changed_count: int = 0
 	var unchanged_count: int = 0
-	var order: Array[int] = _make_index_order(entries.size(), reverse_order)
+	var order: Array[int] = _make_index_order(
+		entries.size(),
+		reverse_order
+	)
 	for entry_index: int in order:
 		var entry: Dictionary = entries[entry_index]
-		if _values_equal(attempt_guard[entry_index], desired_values[entry_index]):
+		if _values_equal(
+			attempt_guard[entry_index],
+			desired_values[entry_index]
+		):
 			report_entries[entry_index]["status"] = &"unchanged"
 			unchanged_count += 1
 			continue
@@ -912,7 +830,11 @@ func _run_transition(
 			report_entries[entry_index]["status"] = &"failed"
 			issues.append(
 				_make_issue(
-					_GF_VARIANT_ACCESS_SCRIPT.get_option_int(entry, "index", -1),
+					_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+						entry,
+						"index",
+						-1
+					),
 					&"property_write_failed",
 					_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 						write_result,
@@ -924,9 +846,7 @@ func _run_transition(
 				)
 			)
 			break
-		report_entries[entry_index]["status"] = (
-			&"reverted" if phase == &"revert" else &"applied"
-		)
+		report_entries[entry_index]["status"] = (&"reverted" if phase == &"revert" else &"applied")
 		changed_count += 1
 
 	if issues.is_empty():
@@ -946,10 +866,7 @@ func _run_transition(
 		)
 		var rollback_issues: Array[Dictionary] = _get_report_issues(rollback)
 		issues.append_array(rollback_issues)
-		var rolled_back: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-			rollback,
-			"ok"
-		)
+		var rolled_back: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(rollback, "ok")
 		if rolled_back:
 			if recovery_before:
 				_recovery_required = true
@@ -957,18 +874,17 @@ func _run_transition(
 				_clear_pending_recovery()
 			for entry_index: int in range(report_entries.size()):
 				if (
-					_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
-						report_entries[entry_index],
-						"status"
+					(
+						_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+							report_entries[entry_index],
+							"status"
+						)
 					)
 					in [&"applied", &"reverted"]
 				):
 					report_entries[entry_index]["status"] = &"rolled_back"
 		else:
-			_set_pending_recovery(
-				attempt_guard,
-				not reverse_order
-			)
+			_set_pending_recovery(attempt_guard, not reverse_order)
 		_set_last_report(
 			_make_report(
 				false,
@@ -981,10 +897,7 @@ func _run_transition(
 					"applied_count": 0,
 					"unchanged_count": unchanged_count,
 					"attempted_count": attempted_count,
-					"rollback_count": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-						rollback,
-						"rollback_count"
-					),
+					"rollback_count": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(rollback, "rollback_count"),
 					"rolled_back": rolled_back,
 					"recovery_required": _recovery_required,
 				}
@@ -1025,14 +938,21 @@ func _restore_attempt_guard(
 ) -> Dictionary:
 	var issues: Array[Dictionary] = []
 	var rollback_count: int = 0
-	var order: Array[int] = _make_index_order(entries.size(), reverse_order)
+	var order: Array[int] = _make_index_order(
+		entries.size(),
+		reverse_order
+	)
 	for entry_index: int in order:
 		var entry: Dictionary = entries[entry_index]
 		var read_result: Dictionary = _read_entry(entry)
 		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(read_result, "ok"):
 			issues.append(
 				_make_issue(
-					_GF_VARIANT_ACCESS_SCRIPT.get_option_int(entry, "index", -1),
+					_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+						entry,
+						"index",
+						-1
+					),
 					&"rollback_read_failed",
 					_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 						read_result,
@@ -1056,7 +976,11 @@ func _restore_attempt_guard(
 		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(write_result, "ok"):
 			issues.append(
 				_make_issue(
-					_GF_VARIANT_ACCESS_SCRIPT.get_option_int(entry, "index", -1),
+					_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+						entry,
+						"index",
+						-1
+					),
 					&"rollback_write_failed",
 					_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 						write_result,
@@ -1101,7 +1025,11 @@ func _collect_state_issues(
 		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(read_result, "ok"):
 			issues.append(
 				_make_issue(
-					_GF_VARIANT_ACCESS_SCRIPT.get_option_int(entry, "index", -1),
+					_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+						entry,
+						"index",
+						-1
+					),
 					kind,
 					_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 						read_result,
@@ -1113,14 +1041,18 @@ func _collect_state_issues(
 				)
 			)
 			continue
-		var actual_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
-			read_result,
-			"value"
-		)
-		if _values_equal(actual_value, expected_values[entry_index]):
+		var actual_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(read_result, "value")
+		if _values_equal(
+			actual_value,
+			expected_values[entry_index]
+		):
 			continue
 		var issue: Dictionary = _make_issue(
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(entry, "index", -1),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+				entry,
+				"index",
+				-1
+			),
 			kind,
 			"Property state does not match the transaction expectation.",
 			phase,
@@ -1140,45 +1072,21 @@ func _collect_state_issues(
 ## [br]
 ## @api private
 func _write_entry(entry: Dictionary, value: Variant) -> Dictionary:
-	var target_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
-		entry,
-		"target"
-	)
+	var target_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(entry, "target")
 	if not (target_value is Object):
-		return {
-			"ok": false,
-			"error": "Property transaction target is invalid.",
-		}
+		return { "ok": false, "error": "Property transaction target is invalid.", }
 	var target: Object = target_value
 	if not is_instance_valid(target):
-		return {
-			"ok": false,
-			"error": "Property transaction target is no longer valid.",
-		}
-	if (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
-			entry,
-			"selector_mode"
-		)
-		== _SELECTOR_DIRECT
-	):
+		return { "ok": false, "error": "Property transaction target is no longer valid.", }
+	if ((_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(entry, "selector_mode")) == _SELECTOR_DIRECT):
 		return _GF_OBJECT_PROPERTY_TOOLS_SCRIPT.write_direct_property(
 			target,
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
-				entry,
-				"property_name"
-			),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(entry, "property_name"),
 			_duplicate_value(value, false)
 		)
-	var property_path_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
-		entry,
-		"property_path"
-	)
+	var property_path_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(entry, "property_path")
 	if not (property_path_value is NodePath):
-		return {
-			"ok": false,
-			"error": "Stored indexed property path is invalid.",
-		}
+		return { "ok": false, "error": "Stored indexed property path is invalid.", }
 	var property_path: NodePath = property_path_value
 	return _GF_OBJECT_PROPERTY_TOOLS_SCRIPT.write_property(
 		target,
@@ -1192,55 +1100,20 @@ func _write_entry(entry: Dictionary, value: Variant) -> Dictionary:
 ## [br]
 ## @api private
 func _read_entry(entry: Dictionary) -> Dictionary:
-	var target_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
-		entry,
-		"target"
-	)
+	var target_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(entry, "target")
 	if not (target_value is Object):
-		return {
-			"ok": false,
-			"error": "Property transaction target is invalid.",
-		}
+		return { "ok": false, "error": "Property transaction target is invalid.", }
 	var target: Object = target_value
 	if not is_instance_valid(target):
-		return {
-			"ok": false,
-			"error": "Property transaction target is no longer valid.",
-		}
-	if (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
-			entry,
-			"selector_mode"
-		)
-		== _SELECTOR_DIRECT
-	):
-		var property_name: StringName = (
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
-				entry,
-				"property_name"
-			)
-		)
-		if not _GF_OBJECT_PROPERTY_TOOLS_SCRIPT.has_property(
-			target,
-			property_name
-		):
-			return {
-				"ok": false,
-				"error": "Direct property is no longer available.",
-			}
-		return {
-			"ok": true,
-			"value": target.get(property_name),
-		}
-	var property_path_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
-		entry,
-		"property_path"
-	)
+		return { "ok": false, "error": "Property transaction target is no longer valid.", }
+	if ((_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(entry, "selector_mode")) == _SELECTOR_DIRECT):
+		var property_name: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(entry, "property_name")
+		if not (_GF_OBJECT_PROPERTY_TOOLS_SCRIPT.has_property(target, property_name)):
+			return { "ok": false, "error": "Direct property is no longer available.", }
+		return { "ok": true, "value": target.get(property_name), }
+	var property_path_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(entry, "property_path")
 	if not (property_path_value is NodePath):
-		return {
-			"ok": false,
-			"error": "Stored indexed property path is invalid.",
-		}
+		return { "ok": false, "error": "Stored indexed property path is invalid.", }
 	var property_path: NodePath = property_path_value
 	var missing_marker: RefCounted = RefCounted.new()
 	var value: Variant = _GF_OBJECT_PROPERTY_TOOLS_SCRIPT.read_property(
@@ -1249,14 +1122,8 @@ func _read_entry(entry: Dictionary) -> Dictionary:
 		missing_marker
 	)
 	if is_same(value, missing_marker):
-		return {
-			"ok": false,
-			"error": "Indexed property path is no longer available.",
-		}
-	return {
-		"ok": true,
-		"value": value,
-	}
+		return { "ok": false, "error": "Indexed property path is no longer available.", }
+	return { "ok": true, "value": value, }
 
 
 ## 保存首次执行条目副本及其 old_value 顺序快照，并标记快照已建立。
@@ -1321,10 +1188,7 @@ func _duplicate_value_array(values: Array) -> Array:
 ## 对每个条目检查此前条目，发现首个重叠选择器时为后项追加一个预检 issue。
 ## [br]
 ## @api private
-func _append_overlap_issues(
-	entries: Array[Dictionary],
-	issues: Array[Dictionary]
-) -> void:
+func _append_overlap_issues(entries: Array[Dictionary], issues: Array[Dictionary]) -> void:
 	for right_index: int in range(entries.size()):
 		var right: Dictionary = entries[right_index]
 		for left_index: int in range(right_index):
@@ -1333,7 +1197,11 @@ func _append_overlap_issues(
 				continue
 			issues.append(
 				_make_issue(
-					_GF_VARIANT_ACCESS_SCRIPT.get_option_int(right, "index", -1),
+					_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+						right,
+						"index",
+						-1
+					),
 					&"overlapping_selector",
 					"Property transaction selectors overlap on the same target.",
 					&"preflight",
@@ -1347,45 +1215,20 @@ func _append_overlap_issues(
 ## [br]
 ## @api private
 func _selectors_overlap(left: Dictionary, right: Dictionary) -> bool:
-	var left_target: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
-		left,
-		"target"
-	)
-	var right_target: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
-		right,
-		"target"
-	)
+	var left_target: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(left, "target")
+	var right_target: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(right, "target")
 	if not (left_target is Object) or not (right_target is Object):
 		return false
 	var left_object: Object = left_target
 	var right_object: Object = right_target
 	if left_object.get_instance_id() != right_object.get_instance_id():
 		return false
-	if (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(left, "root_property")
-		!= _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
-			right,
-			"root_property"
-		)
-	):
+	if (_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(left, "root_property") != (_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(right, "root_property"))):
 		return false
-	if (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(left, "root_selector")
-		or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(right, "root_selector")
-	):
+	if (_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(left, "root_selector") or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(right, "root_selector")):
 		return true
-	var left_components: PackedStringArray = (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(
-			left,
-			"selector_components"
-		)
-	)
-	var right_components: PackedStringArray = (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(
-			right,
-			"selector_components"
-		)
-	)
+	var left_components: PackedStringArray = _GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(left, "selector_components")
+	var right_components: PackedStringArray = _GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(right, "selector_components")
 	if left_components.is_empty() or right_components.is_empty():
 		return false
 	var shared_component_count: int = mini(
@@ -1401,18 +1244,12 @@ func _selectors_overlap(left: Dictionary, right: Dictionary) -> bool:
 ## 按 NodePath 顺序将首个 name 和全部 subname 转为属性选择器分量。
 ## [br]
 ## @api private
-func _make_property_selector_components(
-	property_path: NodePath
-) -> PackedStringArray:
+func _make_property_selector_components(property_path: NodePath) -> PackedStringArray:
 	var components: PackedStringArray = PackedStringArray()
 	if property_path.get_name_count() > 0:
-		var _append_root_name: bool = components.append(
-			String(property_path.get_name(0))
-		)
+		var _append_root_name: bool = components.append(String(property_path.get_name(0)))
 	for subname_index: int in range(property_path.get_subname_count()):
-		var _append_subname: bool = components.append(
-			String(property_path.get_subname(subname_index))
-		)
+		var _append_subname: bool = components.append(String(property_path.get_subname(subname_index)))
 	return components
 
 
@@ -1425,32 +1262,17 @@ func _copy_configured_changes(changes: Array[Dictionary]) -> Array[Dictionary]:
 	for change: Dictionary in changes:
 		var copied: Dictionary = {}
 		if _has_option_key(change, &"target"):
-			copied["target"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
-				change,
-				"target"
-			)
+			copied["target"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(change, "target")
 		if _has_option_key(change, &"property_name"):
-			copied["property_name"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
-				change,
-				"property_name"
-			)
+			copied["property_name"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(change, "property_name")
 		if _has_option_key(change, &"property_path"):
-			copied["property_path"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
-				change,
-				"property_path"
-			)
+			copied["property_path"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(change, "property_path")
 		if _has_option_key(change, &"new_value"):
 			copied["new_value"] = _duplicate_value(
-				_GF_VARIANT_ACCESS_SCRIPT.get_option_value(
-					change,
-					"new_value"
-				),
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_value(change, "new_value"),
 				_duplicate_resources
 			)
-		copied["metadata"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-			change,
-			"metadata"
-		).duplicate(true)
+		copied["metadata"] = (_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(change, "metadata").duplicate(true))
 		result.append(copied)
 	return result
 
@@ -1459,10 +1281,7 @@ func _copy_configured_changes(changes: Array[Dictionary]) -> Array[Dictionary]:
 ## [br]
 ## @api private
 func _make_prepare_failure(issue: Dictionary) -> Dictionary:
-	return {
-		"ok": false,
-		"issue": issue,
-	}
+	return { "ok": false, "issue": issue, }
 
 
 ## 组装带索引、阶段、目标和深复制 metadata 的 issue，并附上存在的属性选择器。
@@ -1481,23 +1300,12 @@ func _make_issue(
 		"message": message,
 		"phase": phase,
 		"target": _GF_VARIANT_ACCESS_SCRIPT.get_option_value(entry, "target"),
-		"metadata": _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-			entry,
-			"metadata"
-		).duplicate(true),
+		"metadata": (_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(entry, "metadata").duplicate(true)),
 	}
 	if _has_option_key(entry, &"property_name"):
-		issue["property_name"] = (
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
-				entry,
-				"property_name"
-			)
-		)
+		issue["property_name"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(entry, "property_name")
 	if _has_option_key(entry, &"property_path"):
-		issue["property_path"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
-			entry,
-			"property_path"
-		)
+		issue["property_path"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(entry, "property_path")
 	return issue
 
 
@@ -1512,10 +1320,15 @@ func _make_unavailable_report(kind: StringName, message: String) -> Dictionary:
 		&"preflight",
 		ERR_UNAVAILABLE,
 		[],
-		[_make_issue(-1, kind, message, &"preflight")],
-		{
-			"recovery_required": _recovery_required,
-		}
+		[
+			_make_issue(
+				-1,
+				kind,
+				message,
+				&"preflight"
+			),
+		],
+		{ "recovery_required": _recovery_required, }
 	)
 
 
@@ -1542,28 +1355,13 @@ func _make_report(
 			"requested_count",
 			_changes.size()
 		),
-		"applied_count": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-			details,
-			"applied_count"
-		),
-		"unchanged_count": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-			details,
-			"unchanged_count"
-		),
-		"attempted_count": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-			details,
-			"attempted_count"
-		),
-		"rollback_count": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-			details,
-			"rollback_count"
-		),
+		"applied_count": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(details, "applied_count"),
+		"unchanged_count": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(details, "unchanged_count"),
+		"attempted_count": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(details, "attempted_count"),
+		"rollback_count": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(details, "rollback_count"),
 		"failed_count": _count_failed_indices(issues),
 		"failed_index": _get_first_failed_index(issues),
-		"rolled_back": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-			details,
-			"rolled_back"
-		),
+		"rolled_back": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(details, "rolled_back"),
 		"recovery_required": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
 			details,
 			"recovery_required",
@@ -1596,7 +1394,11 @@ func _count_failed_indices(issues: Array[Dictionary]) -> int:
 func _get_first_failed_index(issues: Array[Dictionary]) -> int:
 	if issues.is_empty():
 		return -1
-	return _GF_VARIANT_ACCESS_SCRIPT.get_option_int(issues[0], "index", -1)
+	return _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+		issues[0],
+		"index",
+		-1
+	)
 
 
 ## 从报告 entries 数组中筛出字典项并返回其原引用；类型不符时返回空数组。
@@ -1604,10 +1406,7 @@ func _get_first_failed_index(issues: Array[Dictionary]) -> int:
 ## @api private
 func _get_report_entries(report: Dictionary) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
-	var entries_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
-		report,
-		"entries"
-	)
+	var entries_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(report, "entries")
 	if not (entries_value is Array):
 		return result
 	var entries: Array = entries_value
@@ -1623,10 +1422,7 @@ func _get_report_entries(report: Dictionary) -> Array[Dictionary]:
 ## @api private
 func _get_report_issues(report: Dictionary) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
-	var issues_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
-		report,
-		"issues"
-	)
+	var issues_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(report, "issues")
 	if not (issues_value is Array):
 		return result
 	var issues: Array = issues_value
@@ -1643,7 +1439,11 @@ func _get_report_issues(report: Dictionary) -> Array[Dictionary]:
 func _make_index_order(count: int, reverse_order: bool) -> Array[int]:
 	var result: Array[int] = []
 	if reverse_order:
-		for index: int in range(count - 1, -1, -1):
+		for index: int in range(
+			count - 1,
+			-1,
+			-1
+		):
 			result.append(index)
 	else:
 		for index: int in range(count):
@@ -1693,9 +1493,7 @@ func _values_equal(left: Variant, right: Variant) -> bool:
 	return _GF_VARIANT_ACCESS_SCRIPT.values_equal(
 		left,
 		right,
-		{
-			"match_string_names": true,
-		}
+		{ "match_string_names": true, }
 	)
 
 

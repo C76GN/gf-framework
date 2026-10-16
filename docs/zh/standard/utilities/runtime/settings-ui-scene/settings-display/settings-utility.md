@@ -30,7 +30,7 @@ if save_error != OK:
 | `GFSettingsNullStoreUtility` | `standard/utilities/settings` | 显式返回 `UNAVAILABLE` 的 capability 哨兵，适合测试或缺失后端诊断 |
 | `GFStorageSettingsStoreUtility` | `standard/utilities/settings_storage` | 声明并缓存 `GFStorageUtility` 依赖，把 Settings 端口同步转发到 Storage |
 
-完整 GF 插件已经包含这些实现。只需要内存核心或 File Store 时直接使用 `GFSettingsUtility`；该端口在本阶段仍复用 `GFStorageReadResult`，所以这里的中立性是后端中立，不表示类型已经与 Storage 完全解耦。Architecture 要复用 `GFStorageUtility` 的 root、完整性与恢复边界时，使用 `GFStorageSettingsStoreUtility` adapter。
+完整 GF 插件已经包含这些实现。只需要内存核心或 File Store 时直接使用 `GFSettingsUtility`。该端口返回 `GFStorageReadResult`，后端可以替换，返回类型依赖 Storage。Architecture 要复用 `GFStorageUtility` 的 root、完整性与恢复边界时，使用 `GFStorageSettingsStoreUtility` adapter。
 
 ### Standalone 兼容路径
 

@@ -26,7 +26,7 @@
 | 方法 | [`configure`](#member-gfsourcetextloader-methods-configure) | `func configure(p_root_path: String = "", options: Dictionary = {}) -> GFSourceTextLoader:` |
 | 方法 | [`clear`](#member-gfsourcetextloader-methods-clear) | `func clear() -> void:` |
 | 方法 | [`clear_cache`](#member-gfsourcetextloader-methods-clear_cache) | `func clear_cache() -> void:` |
-| 方法 | [`register_text`](#member-gfsourcetextloader-methods-register_text) | `func register_text(source_key: String, text: String, entry_metadata: Dictionary = {}) -> bool:` |
+| 方法 | [`register_text`](#member-gfsourcetextloader-methods-register_text) | `func register_text( source_key: String, text: String, entry_metadata: Dictionary = {} ) -> bool:` |
 | 方法 | [`unregister_text`](#member-gfsourcetextloader-methods-unregister_text) | `func unregister_text(source_key: String) -> bool:` |
 | 方法 | [`add_custom_loader`](#member-gfsourcetextloader-methods-add_custom_loader) | `func add_custom_loader(loader: Callable, loader_metadata: Dictionary = {}) -> bool:` |
 | 方法 | [`clear_custom_loaders`](#member-gfsourcetextloader-methods-clear_custom_loaders) | `func clear_custom_loaders() -> void:` |
@@ -219,7 +219,7 @@ func clear_cache() -> void:
 - 首次版本：`7.0.0`
 
 ```gdscript
-func register_text(source_key: String, text: String, entry_metadata: Dictionary = {}) -> bool:
+func register_text( source_key: String, text: String, entry_metadata: Dictionary = {} ) -> bool:
 ```
 
 注册内存文本。

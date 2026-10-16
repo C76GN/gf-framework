@@ -9,8 +9,14 @@ func test_spatial_editor_package_loads_editor_scripts() -> void:
 	if property_script == null or inspector_script == null:
 		return
 
-	assert_eq(property_script.get_instance_base_type(), "EditorProperty")
-	assert_eq(inspector_script.get_instance_base_type(), "EditorInspectorPlugin")
+	assert_eq(
+		property_script.get_instance_base_type(),
+		"EditorProperty"
+	)
+	assert_eq(
+		inspector_script.get_instance_base_type(),
+		"EditorInspectorPlugin"
+	)
 	assert_not_null(GFTileMetadataPaintTool.new())
 
 
@@ -18,7 +24,10 @@ func test_spatial_editor_package_loads_editor_scripts() -> void:
 
 func _load_script(path: String) -> GDScript:
 	var resource: Resource = load(path)
-	assert_true(resource is GDScript, "%s 应加载为 GDScript。" % path)
+	assert_true(
+		resource is GDScript,
+		"%s 应加载为 GDScript。" % path
+	)
 	if resource is GDScript:
 		var script: GDScript = resource
 		return script

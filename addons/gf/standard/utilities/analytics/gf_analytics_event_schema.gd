@@ -146,25 +146,19 @@ const _MAX_SCHEMA_TOTAL_TEXT_BYTES: int = 4 * 1024 * 1024
 ## [br]
 ## @api private
 ## [br]
-const _GF_VALIDATION_CONSTRAINT_RULE_SCRIPT = preload(
-	"res://addons/gf/standard/foundation/validation/gf_validation_constraint_rule.gd"
-)
+const _GF_VALIDATION_CONSTRAINT_RULE_SCRIPT = preload("res://addons/gf/standard/foundation/validation/gf_validation_constraint_rule.gd")
 
 ## Analytics 允许使用的内置 GFDictionarySchema 脚本资源。
 ## [br]
 ## @api private
 ## [br]
-const _GF_DICTIONARY_SCHEMA_SCRIPT = preload(
-	"res://addons/gf/standard/foundation/schema/gf_dictionary_schema.gd"
-)
+const _GF_DICTIONARY_SCHEMA_SCRIPT = preload("res://addons/gf/standard/foundation/schema/gf_dictionary_schema.gd")
 
 ## Analytics 允许使用的内置 GFSchemaField 脚本资源。
 ## [br]
 ## @api private
 ## [br]
-const _GF_SCHEMA_FIELD_SCRIPT = preload(
-	"res://addons/gf/standard/foundation/schema/gf_schema_field.gd"
-)
+const _GF_SCHEMA_FIELD_SCRIPT = preload("res://addons/gf/standard/foundation/schema/gf_schema_field.gd")
 
 
 # --- 导出变量 ---
@@ -243,7 +237,13 @@ func validate_definition(options: Dictionary = {}) -> GFValidationReport:
 	_last_definition_footprint = {}
 	var report: GFValidationReport = _make_report(options)
 	if event_name == &"":
-		_add_error(report, &"empty_event_name", "Analytics event name cannot be empty.", "event_name", options)
+		_add_error(
+			report,
+			&"empty_event_name",
+			"Analytics event name cannot be empty.",
+			"event_name",
+			options
+		)
 	elif String(event_name).length() > _MAX_EVENT_NAME_LENGTH:
 		_add_error(
 			report,
@@ -251,10 +251,7 @@ func validate_definition(options: Dictionary = {}) -> GFValidationReport:
 			"Analytics event name exceeds the supported length.",
 			"event_name",
 			options,
-			{
-				"max_length": _MAX_EVENT_NAME_LENGTH,
-				"actual_length": String(event_name).length(),
-			}
+			{ "max_length": _MAX_EVENT_NAME_LENGTH, "actual_length": String(event_name).length(), }
 		)
 	elif _contains_control_character(String(event_name)):
 		_add_error(
@@ -271,10 +268,7 @@ func validate_definition(options: Dictionary = {}) -> GFValidationReport:
 			"Analytics schema_version must be greater than zero.",
 			"schema_version",
 			options,
-			{
-				"actual_value": schema_version,
-				"expected_value": "positive_integer",
-			}
+			{ "actual_value": schema_version, "expected_value": "positive_integer", }
 		)
 	elif schema_version > _MAX_SCHEMA_VERSION:
 		_add_error(
@@ -283,10 +277,7 @@ func validate_definition(options: Dictionary = {}) -> GFValidationReport:
 			"Analytics schema_version exceeds the supported int32 range.",
 			"schema_version",
 			options,
-			{
-				"actual_value": schema_version,
-				"maximum_value": _MAX_SCHEMA_VERSION,
-			}
+			{ "actual_value": schema_version, "maximum_value": _MAX_SCHEMA_VERSION, }
 		)
 	if properties_schema == null:
 		_add_error(
@@ -329,7 +320,11 @@ func validate_properties(properties: Dictionary, options: Dictionary = {}) -> GF
 	var report: GFValidationReport = validate_definition(options)
 	if not report.is_ok():
 		return report
-	return validate_registered_properties_for_framework(properties, options, report)
+	return validate_registered_properties_for_framework(
+		properties,
+		options,
+		report
+	)
 
 
 ## 创建隔离的事件 Schema 副本。
@@ -396,15 +391,16 @@ func validate_registered_properties_for_framework(
 	if result_report == null:
 		result_report = _make_report(options)
 
-	_validate_properties_budget_into(properties, result_report, options)
+	_validate_properties_budget_into(
+		properties,
+		result_report,
+		options
+	)
 	if not result_report.is_ok():
 		return result_report
 
 	var properties_options: Dictionary = _make_properties_context(options)
-	var properties_report: GFValidationReport = properties_schema.validate_dictionary(
-		properties,
-		properties_options
-	)
+	var properties_report: GFValidationReport = properties_schema.validate_dictionary(properties, properties_options)
 	var _merged_properties_report: RefCounted = result_report.merge(properties_report, false)
 	return result_report
 
@@ -429,19 +425,18 @@ func get_validated_definition_footprint_for_framework() -> Dictionary:
 ## [br]
 ## @api private
 func _validate_schema_graph_into(report: GFValidationReport, options: Dictionary) -> bool:
-	var stack: Array[Dictionary] = [{
-		"kind": "schema",
-		"value": properties_schema,
-		"path": _get_properties_path(options),
-		"depth": 0,
-		"exiting": false,
-	}]
+	var stack: Array[Dictionary] = [
+		{
+			"kind": "schema",
+			"value": properties_schema,
+			"path": _get_properties_path(options),
+			"depth": 0,
+			"exiting": false,
+		},
+	]
 	var active_ids: Dictionary = {}
 	var scheduled_work_count: int = 1
-	var auxiliary_state: Dictionary = {
-		"nodes": 0,
-		"text_bytes": String(event_name).to_utf8_buffer().size(),
-	}
+	var auxiliary_state: Dictionary = { "nodes": 0, "text_bytes": String(event_name).to_utf8_buffer().size(), }
 
 	while not stack.is_empty():
 		var record: Dictionary = stack.pop_back()
@@ -462,20 +457,19 @@ func _validate_schema_graph_into(report: GFValidationReport, options: Dictionary
 				"Analytics schema definition exceeds the supported depth.",
 				record_path,
 				options,
-				{
-					"max_depth": _MAX_SCHEMA_GRAPH_DEPTH,
-					"actual_depth": record_depth,
-				}
+				{ "max_depth": _MAX_SCHEMA_GRAPH_DEPTH, "actual_depth": record_depth, }
 			)
 			return false
 		active_ids[identity] = true
-		stack.append({
-			"kind": record_kind,
-			"value": record_value,
-			"path": record_path,
-			"depth": record_depth,
-			"exiting": true,
-		})
+		stack.append(
+			{
+				"kind": record_kind,
+				"value": record_value,
+				"path": record_path,
+				"depth": record_depth,
+				"exiting": true,
+			}
+		)
 
 		if record_kind == "schema" and record_value is GFDictionarySchema:
 			var dictionary_schema: GFDictionarySchema = record_value
@@ -496,10 +490,7 @@ func _validate_schema_graph_into(report: GFValidationReport, options: Dictionary
 				auxiliary_state
 			):
 				return false
-			if (
-				dictionary_schema.fields.size() > _MAX_SCHEMA_CONTAINER_ITEMS
-				or scheduled_work_count + dictionary_schema.fields.size() > _MAX_SCHEMA_GRAPH_NODES
-			):
+			if (dictionary_schema.fields.size() > _MAX_SCHEMA_CONTAINER_ITEMS or scheduled_work_count + dictionary_schema.fields.size() > _MAX_SCHEMA_GRAPH_NODES):
 				_add_schema_budget_error(
 					report,
 					record_path,
@@ -509,7 +500,11 @@ func _validate_schema_graph_into(report: GFValidationReport, options: Dictionary
 				)
 				return false
 			scheduled_work_count += dictionary_schema.fields.size()
-			for index: int in range(dictionary_schema.fields.size() - 1, -1, -1):
+			for index: int in range(
+				dictionary_schema.fields.size() - 1,
+				-1,
+				-1
+			):
 				var field: GFSchemaField = dictionary_schema.fields[index]
 				if field == null:
 					continue
@@ -523,13 +518,15 @@ func _validate_schema_graph_into(report: GFValidationReport, options: Dictionary
 						options
 					)
 					return false
-				stack.append({
-					"kind": "field",
-					"value": field,
-					"path": _join_path(record_path, field_name_text),
-					"depth": record_depth + 1,
-					"exiting": false,
-				})
+				stack.append(
+					{
+						"kind": "field",
+						"value": field,
+						"path": _join_path(record_path, field_name_text),
+						"depth": record_depth + 1,
+						"exiting": false,
+					}
+				)
 		elif record_kind == "field" and record_value is GFSchemaField:
 			var schema_field: GFSchemaField = record_value
 			if schema_field.get_script() != _GF_SCHEMA_FIELD_SCRIPT:
@@ -541,10 +538,7 @@ func _validate_schema_graph_into(report: GFValidationReport, options: Dictionary
 					options
 				)
 				return false
-			if (
-				schema_field.validation_rules.size() > _MAX_SCHEMA_RULES_PER_FIELD
-				or scheduled_work_count + schema_field.validation_rules.size() > _MAX_SCHEMA_GRAPH_NODES
-			):
+			if (schema_field.validation_rules.size() > _MAX_SCHEMA_RULES_PER_FIELD or scheduled_work_count + schema_field.validation_rules.size() > _MAX_SCHEMA_GRAPH_NODES):
 				_add_schema_budget_error(
 					report,
 					record_path,
@@ -562,36 +556,46 @@ func _validate_schema_graph_into(report: GFValidationReport, options: Dictionary
 				auxiliary_state
 			):
 				return false
-			if (
-				schema_field.value_type == GFSchemaField.ValueType.DICTIONARY
-				and schema_field.dictionary_schema != null
-			):
+			if (schema_field.value_type == GFSchemaField.ValueType.DICTIONARY and schema_field.dictionary_schema != null):
 				if scheduled_work_count >= _MAX_SCHEMA_GRAPH_NODES:
-					_add_schema_budget_error(report, record_path, options, "schema_edges", 1)
+					_add_schema_budget_error(
+						report,
+						record_path,
+						options,
+						"schema_edges",
+						1
+					)
 					return false
 				scheduled_work_count += 1
-				stack.append({
-					"kind": "schema",
-					"value": schema_field.dictionary_schema,
-					"path": record_path,
-					"depth": record_depth + 1,
-					"exiting": false,
-				})
-			elif (
-				schema_field.value_type == GFSchemaField.ValueType.ARRAY
-				and schema_field.array_item_schema != null
-			):
+				stack.append(
+					{
+						"kind": "schema",
+						"value": schema_field.dictionary_schema,
+						"path": record_path,
+						"depth": record_depth + 1,
+						"exiting": false,
+					}
+				)
+			elif (schema_field.value_type == GFSchemaField.ValueType.ARRAY and schema_field.array_item_schema != null):
 				if scheduled_work_count >= _MAX_SCHEMA_GRAPH_NODES:
-					_add_schema_budget_error(report, record_path, options, "schema_edges", 1)
+					_add_schema_budget_error(
+						report,
+						record_path,
+						options,
+						"schema_edges",
+						1
+					)
 					return false
 				scheduled_work_count += 1
-				stack.append({
-					"kind": "field",
-					"value": schema_field.array_item_schema,
-					"path": "%s[]" % record_path,
-					"depth": record_depth + 1,
-					"exiting": false,
-				})
+				stack.append(
+					{
+						"kind": "field",
+						"value": schema_field.array_item_schema,
+						"path": "%s[]" % record_path,
+						"depth": record_depth + 1,
+						"exiting": false,
+					}
+				)
 	_last_definition_footprint = {
 		"graph_nodes": scheduled_work_count,
 		"auxiliary_nodes": GFVariantData.get_option_int(auxiliary_state, "nodes"),
@@ -674,9 +678,7 @@ func _validate_field_contract(
 			"Analytics field value_type is outside the supported enum range.",
 			field_path,
 			options,
-			{
-				"actual_value": value_type,
-			}
+			{ "actual_value": value_type, }
 		)
 		return false
 	if String(field.field_name).length() > _MAX_EVENT_NAME_LENGTH:
@@ -761,9 +763,7 @@ func _validate_field_contract(
 				"Analytics schema rules cannot use runtime Callable callbacks.",
 				field_path,
 				options,
-				{
-					"rule_id": String(rule.rule_id),
-				}
+				{ "rule_id": String(rule.rule_id), }
 			)
 			return false
 		if rule.get_script() != _GF_VALIDATION_CONSTRAINT_RULE_SCRIPT:
@@ -773,9 +773,7 @@ func _validate_field_contract(
 				"Analytics schemas only accept built-in declarative constraint rules.",
 				field_path,
 				options,
-				{
-					"rule_id": String(rule.rule_id),
-				}
+				{ "rule_id": String(rule.rule_id), }
 			)
 			return false
 		if String(rule.rule_id).length() > _MAX_EVENT_NAME_LENGTH:
@@ -884,9 +882,7 @@ func _validate_constraint_rule_definition(
 			"Analytics validation rules must be enabled.",
 			field_path,
 			options,
-			{
-				"rule_id": String(rule.rule_id),
-			}
+			{ "rule_id": String(rule.rule_id), }
 		)
 		return false
 	if rule.severity != GFValidationIssue.Severity.ERROR:
@@ -896,9 +892,7 @@ func _validate_constraint_rule_definition(
 			"Analytics validation rules must report errors so invalid events cannot be accepted.",
 			field_path,
 			options,
-			{
-				"rule_id": String(rule.rule_id),
-			}
+			{ "rule_id": String(rule.rule_id), }
 		)
 		return false
 	if rule.target_kind != GFValidationRule.TargetKind.ANY:
@@ -908,82 +902,178 @@ func _validate_constraint_rule_definition(
 			"Analytics validation rules must target ANY; field types already define applicability.",
 			field_path,
 			options,
-			{
-				"rule_id": String(rule.rule_id),
-			}
+			{ "rule_id": String(rule.rule_id), }
 		)
 		return false
 	var constraint_kind: int = int(rule.constraint_kind)
-	if (
-		constraint_kind < GFValidationConstraintRule.ConstraintKind.RANGE
-		or constraint_kind > GFValidationConstraintRule.ConstraintKind.SIZE
-	):
-		return _reject_constraint_configuration(rule, field_path, report, options)
+	if (constraint_kind < GFValidationConstraintRule.ConstraintKind.RANGE or constraint_kind > GFValidationConstraintRule.ConstraintKind.SIZE):
+		return _reject_constraint_configuration(
+			rule,
+			field_path,
+			report,
+			options
+		)
 	match rule.constraint_kind:
 		GFValidationConstraintRule.ConstraintKind.RANGE:
-			if field.value_type not in [
-				GFSchemaField.ValueType.ANY,
-				GFSchemaField.ValueType.INT,
-				GFSchemaField.ValueType.FLOAT,
-			]:
-				return _reject_constraint_configuration(rule, field_path, report, options)
-			if not rule.has_minimum and not rule.has_maximum:
-				return _reject_constraint_configuration(rule, field_path, report, options)
 			if (
-				(rule.has_minimum and (is_nan(rule.minimum) or is_inf(rule.minimum)))
-				or (rule.has_maximum and (is_nan(rule.maximum) or is_inf(rule.maximum)))
+				field.value_type
+				not in [
+					GFSchemaField.ValueType.ANY,
+					GFSchemaField.ValueType.INT,
+					GFSchemaField.ValueType.FLOAT,
+				]
 			):
-				return _reject_constraint_configuration(rule, field_path, report, options)
+				return _reject_constraint_configuration(
+					rule,
+					field_path,
+					report,
+					options
+				)
+			if not rule.has_minimum and not rule.has_maximum:
+				return _reject_constraint_configuration(
+					rule,
+					field_path,
+					report,
+					options
+				)
+			if (
+				(
+					rule.has_minimum
+					and (
+						is_nan(rule.minimum)
+						or is_inf(rule.minimum)
+					)
+				)
+				or (
+					rule.has_maximum
+					and (
+						is_nan(rule.maximum)
+						or is_inf(rule.maximum)
+					)
+				)
+			):
+				return _reject_constraint_configuration(
+					rule,
+					field_path,
+					report,
+					options
+				)
 			if rule.has_minimum and rule.has_maximum:
 				if rule.minimum > rule.maximum:
-					return _reject_constraint_configuration(rule, field_path, report, options)
+					return _reject_constraint_configuration(
+						rule,
+						field_path,
+						report,
+						options
+					)
 				if (
 					rule.minimum == rule.maximum
-					and (not rule.inclusive_minimum or not rule.inclusive_maximum)
+					and (
+						not rule.inclusive_minimum
+						or not rule.inclusive_maximum
+					)
 				):
-					return _reject_constraint_configuration(rule, field_path, report, options)
+					return _reject_constraint_configuration(
+						rule,
+						field_path,
+						report,
+						options
+					)
 		GFValidationConstraintRule.ConstraintKind.SET:
-			if field.value_type in [
-				GFSchemaField.ValueType.DICTIONARY,
-				GFSchemaField.ValueType.ARRAY,
-			]:
-				return _reject_constraint_configuration(rule, field_path, report, options)
+			if (field.value_type in [GFSchemaField.ValueType.DICTIONARY, GFSchemaField.ValueType.ARRAY,]):
+				return _reject_constraint_configuration(
+					rule,
+					field_path,
+					report,
+					options
+				)
 			if rule.allowed_values.is_empty():
-				return _reject_constraint_configuration(rule, field_path, report, options)
+				return _reject_constraint_configuration(
+					rule,
+					field_path,
+					report,
+					options
+				)
 			for allowed_value: Variant in rule.allowed_values:
 				if not field.is_value_valid(allowed_value):
-					return _reject_constraint_configuration(rule, field_path, report, options)
+					return _reject_constraint_configuration(
+						rule,
+						field_path,
+						report,
+						options
+					)
 		GFValidationConstraintRule.ConstraintKind.REGEX:
-			if field.value_type not in [
-				GFSchemaField.ValueType.ANY,
-				GFSchemaField.ValueType.STRING,
-				GFSchemaField.ValueType.STRING_NAME,
-			]:
-				return _reject_constraint_configuration(rule, field_path, report, options)
+			if (
+				field.value_type
+				not in [
+					GFSchemaField.ValueType.ANY,
+					GFSchemaField.ValueType.STRING,
+					GFSchemaField.ValueType.STRING_NAME,
+				]
+			):
+				return _reject_constraint_configuration(
+					rule,
+					field_path,
+					report,
+					options
+				)
 			if rule.pattern.is_empty():
-				return _reject_constraint_configuration(rule, field_path, report, options)
+				return _reject_constraint_configuration(
+					rule,
+					field_path,
+					report,
+					options
+				)
 			var regex: RegEx = RegEx.new()
 			if regex.compile(rule.pattern) != OK:
-				return _reject_constraint_configuration(rule, field_path, report, options)
+				return _reject_constraint_configuration(
+					rule,
+					field_path,
+					report,
+					options
+				)
 		GFValidationConstraintRule.ConstraintKind.SIZE:
-			if field.value_type not in [
-				GFSchemaField.ValueType.ANY,
-				GFSchemaField.ValueType.STRING,
-				GFSchemaField.ValueType.STRING_NAME,
-				GFSchemaField.ValueType.DICTIONARY,
-				GFSchemaField.ValueType.ARRAY,
-			]:
-				return _reject_constraint_configuration(rule, field_path, report, options)
+			if (
+				field.value_type
+				not in [
+					GFSchemaField.ValueType.ANY,
+					GFSchemaField.ValueType.STRING,
+					GFSchemaField.ValueType.STRING_NAME,
+					GFSchemaField.ValueType.DICTIONARY,
+					GFSchemaField.ValueType.ARRAY,
+				]
+			):
+				return _reject_constraint_configuration(
+					rule,
+					field_path,
+					report,
+					options
+				)
 			if not rule.has_minimum_size and not rule.has_maximum_size:
-				return _reject_constraint_configuration(rule, field_path, report, options)
+				return _reject_constraint_configuration(
+					rule,
+					field_path,
+					report,
+					options
+				)
 			if rule.minimum_size < 0 or rule.maximum_size < 0:
-				return _reject_constraint_configuration(rule, field_path, report, options)
+				return _reject_constraint_configuration(
+					rule,
+					field_path,
+					report,
+					options
+				)
 			if (
 				rule.has_minimum_size
 				and rule.has_maximum_size
 				and rule.minimum_size > rule.maximum_size
 			):
-				return _reject_constraint_configuration(rule, field_path, report, options)
+				return _reject_constraint_configuration(
+					rule,
+					field_path,
+					report,
+					options
+				)
 	return true
 
 
@@ -1003,10 +1093,7 @@ func _reject_constraint_configuration(
 		"Analytics validation rule configuration is invalid.",
 		field_path,
 		options,
-		{
-			"rule_id": String(rule.rule_id),
-			"constraint_kind": int(rule.constraint_kind),
-		}
+		{ "rule_id": String(rule.rule_id), "constraint_kind": int(rule.constraint_kind), }
 	)
 	return false
 
@@ -1030,18 +1117,18 @@ func _validate_schema_auxiliary_value(
 			"Analytics schema metadata/default values exceed the supported node budget.",
 			value_path,
 			options,
-			{
-				"max_total_nodes": _MAX_SCHEMA_AUXILIARY_NODES,
-			}
+			{ "max_total_nodes": _MAX_SCHEMA_AUXILIARY_NODES, }
 		)
 		return false
 	state["nodes"] = scheduled_nodes + 1
-	var stack: Array[Dictionary] = [{
-		"value": value,
-		"path": value_path,
-		"depth": 0,
-		"exiting": false,
-	}]
+	var stack: Array[Dictionary] = [
+		{
+			"value": value,
+			"path": value_path,
+			"depth": 0,
+			"exiting": false,
+		},
+	]
 	var active_collections: Array = []
 	while not stack.is_empty():
 		var record: Dictionary = stack.pop_back()
@@ -1062,7 +1149,11 @@ func _validate_schema_auxiliary_value(
 				options
 			)
 			return false
-		if current_value is String or current_value is StringName or current_value is NodePath:
+		if (
+			current_value is String
+			or current_value is StringName
+			or current_value is NodePath
+		):
 			var text_value: String = GFVariantData.to_text(current_value)
 			if text_value.length() > _HARD_MAX_STRING_LENGTH:
 				_add_error(
@@ -1102,10 +1193,7 @@ func _validate_schema_auxiliary_value(
 					options
 				)
 				return false
-			if (
-				GFVariantData.get_option_int(state, "nodes") + dictionary_value.size() * 2
-				> _MAX_SCHEMA_AUXILIARY_NODES
-			):
+			if (GFVariantData.get_option_int(state, "nodes") + dictionary_value.size() * 2 > _MAX_SCHEMA_AUXILIARY_NODES):
 				_add_schema_budget_error(
 					report,
 					current_path,
@@ -1114,19 +1202,22 @@ func _validate_schema_auxiliary_value(
 					dictionary_value.size() * 2
 				)
 				return false
-			state["nodes"] = (
-				GFVariantData.get_option_int(state, "nodes")
-				+ dictionary_value.size() * 2
-			)
+			state["nodes"] = (GFVariantData.get_option_int(state, "nodes") + dictionary_value.size() * 2)
 			active_collections.append(dictionary_value)
-			stack.append({
-				"value": dictionary_value,
-				"path": current_path,
-				"depth": depth,
-				"exiting": true,
-			})
+			stack.append(
+				{
+					"value": dictionary_value,
+					"path": current_path,
+					"depth": depth,
+					"exiting": true,
+				}
+			)
 			var keys: Array = dictionary_value.keys()
-			for index: int in range(keys.size() - 1, -1, -1):
+			for index: int in range(
+				keys.size() - 1,
+				-1,
+				-1
+			):
 				var key: Variant = keys[index]
 				if not (key is String or key is StringName):
 					_add_error(
@@ -1148,18 +1239,22 @@ func _validate_schema_auxiliary_value(
 					)
 					return false
 				var child_path: String = _join_path(current_path, key_text)
-				stack.append({
-					"value": dictionary_value[key],
-					"path": child_path,
-					"depth": depth + 1,
-					"exiting": false,
-				})
-				stack.append({
-					"value": key,
-					"path": child_path,
-					"depth": depth + 1,
-					"exiting": false,
-				})
+				stack.append(
+					{
+						"value": dictionary_value[key],
+						"path": child_path,
+						"depth": depth + 1,
+						"exiting": false,
+					}
+				)
+				stack.append(
+					{
+						"value": key,
+						"path": child_path,
+						"depth": depth + 1,
+						"exiting": false,
+					}
+				)
 		elif current_value is Array:
 			var array_value: Array = current_value
 			if array_value.size() > _MAX_SCHEMA_CONTAINER_ITEMS:
@@ -1180,10 +1275,7 @@ func _validate_schema_auxiliary_value(
 					options
 				)
 				return false
-			if (
-				GFVariantData.get_option_int(state, "nodes") + array_value.size()
-				> _MAX_SCHEMA_AUXILIARY_NODES
-			):
+			if GFVariantData.get_option_int(state, "nodes") + array_value.size() > _MAX_SCHEMA_AUXILIARY_NODES:
 				_add_schema_budget_error(
 					report,
 					current_path,
@@ -1192,24 +1284,30 @@ func _validate_schema_auxiliary_value(
 					array_value.size()
 				)
 				return false
-			state["nodes"] = (
-				GFVariantData.get_option_int(state, "nodes")
-				+ array_value.size()
-			)
+			state["nodes"] = (GFVariantData.get_option_int(state, "nodes") + array_value.size())
 			active_collections.append(array_value)
-			stack.append({
-				"value": array_value,
-				"path": current_path,
-				"depth": depth,
-				"exiting": true,
-			})
-			for index: int in range(array_value.size() - 1, -1, -1):
-				stack.append({
-					"value": array_value[index],
-					"path": "%s[%d]" % [current_path, index],
-					"depth": depth + 1,
-					"exiting": false,
-				})
+			stack.append(
+				{
+					"value": array_value,
+					"path": current_path,
+					"depth": depth,
+					"exiting": true,
+				}
+			)
+			for index: int in range(
+				array_value.size() - 1,
+				-1,
+				-1
+			):
+				stack.append(
+					{
+						"value": array_value[index],
+						"path": "%s[%d]"
+						% [current_path, index],
+						"depth": depth + 1,
+						"exiting": false,
+					}
+				)
 		else:
 			var packed_size: int = _get_packed_array_size(current_value)
 			if packed_size >= 0:
@@ -1222,10 +1320,7 @@ func _validate_schema_auxiliary_value(
 						packed_size
 					)
 					return false
-				if (
-					GFVariantData.get_option_int(state, "nodes") + packed_size
-					> _MAX_SCHEMA_AUXILIARY_NODES
-				):
+				if GFVariantData.get_option_int(state, "nodes") + packed_size > _MAX_SCHEMA_AUXILIARY_NODES:
 					_add_schema_budget_error(
 						report,
 						current_path,
@@ -1267,9 +1362,7 @@ func _validate_schema_auxiliary_value(
 					"Analytics schema metadata/default values cannot retain runtime objects or callables.",
 					current_path,
 					options,
-					{
-						"actual_type": type_string(typeof(current_value)),
-					}
+					{ "actual_type": type_string(typeof(current_value)), }
 				)
 				return false
 	return true
@@ -1384,20 +1477,19 @@ func _validate_properties_budget_into(
 			"Analytics properties exceed the top-level property budget.",
 			root_path,
 			options,
-			{
-				"max_property_count": max_property_count,
-				"actual_count": properties.size(),
-			}
+			{ "max_property_count": max_property_count, "actual_count": properties.size(), }
 		)
 		return
 
-	var stack: Array[Dictionary] = [{
-		"value": properties,
-		"path": root_path,
-		"depth": 0,
-		"root": true,
-		"exiting": false,
-	}]
+	var stack: Array[Dictionary] = [
+		{
+			"value": properties,
+			"path": root_path,
+			"depth": 0,
+			"root": true,
+			"exiting": false,
+		},
+	]
 	var active_collections: Array = []
 	var scheduled_node_count: int = 1
 	var scheduled_work_bytes: int = _estimate_property_scheduled_bytes(properties)
@@ -1435,7 +1527,11 @@ func _validate_properties_budget_into(
 				depth
 			)
 			return
-		if value is String or value is StringName or value is NodePath:
+		if (
+			value is String
+			or value is StringName
+			or value is NodePath
+		):
 			var text_value: String = GFVariantData.to_text(value)
 			if text_value.length() > max_string_length:
 				_add_budget_error(
@@ -1500,15 +1596,21 @@ func _validate_properties_budget_into(
 				return
 			scheduled_node_count += dictionary_child_count
 			active_collections.append(dictionary_value)
-			stack.append({
-				"value": dictionary_value,
-				"path": value_path,
-				"depth": depth,
-				"root": is_root,
-				"exiting": true,
-			})
+			stack.append(
+				{
+					"value": dictionary_value,
+					"path": value_path,
+					"depth": depth,
+					"root": is_root,
+					"exiting": true,
+				}
+			)
 			var keys: Array = dictionary_value.keys()
-			for index: int in range(keys.size() - 1, -1, -1):
+			for index: int in range(
+				keys.size() - 1,
+				-1,
+				-1
+			):
 				var key: Variant = keys[index]
 				if not (key is String or key is StringName):
 					_add_error(
@@ -1517,9 +1619,7 @@ func _validate_properties_budget_into(
 						"Analytics property keys must be String or StringName.",
 						value_path,
 						options,
-						{
-							"actual_type": type_string(typeof(key)),
-						}
+						{ "actual_type": type_string(typeof(key)), }
 					)
 					return
 				var key_text: String = GFVariantData.to_text(key)
@@ -1535,11 +1635,7 @@ func _validate_properties_budget_into(
 						key_text.length()
 					)
 					return
-				var added_work_bytes: int = (
-					key_text.to_utf8_buffer().size()
-					+ 2
-					+ _estimate_property_scheduled_bytes(dictionary_value[key])
-				)
+				var added_work_bytes: int = (key_text.to_utf8_buffer().size() + 2 + _estimate_property_scheduled_bytes(dictionary_value[key]))
 				if scheduled_work_bytes + added_work_bytes > max_total_bytes:
 					_add_budget_error(
 						report,
@@ -1554,13 +1650,15 @@ func _validate_properties_budget_into(
 					return
 				scheduled_work_bytes += added_work_bytes
 				var child_path: String = _join_path(value_path, key_text)
-				stack.append({
-					"value": dictionary_value[key],
-					"path": child_path,
-					"depth": depth + 1,
-					"root": false,
-					"exiting": false,
-				})
+				stack.append(
+					{
+						"value": dictionary_value[key],
+						"path": child_path,
+						"depth": depth + 1,
+						"root": false,
+						"exiting": false,
+					}
+				)
 		elif value is Array:
 			var array_value: Array = value
 			if _contains_same_reference(active_collections, array_value):
@@ -1595,14 +1693,20 @@ func _validate_properties_budget_into(
 				return
 			scheduled_node_count += array_value.size()
 			active_collections.append(array_value)
-			stack.append({
-				"value": array_value,
-				"path": value_path,
-				"depth": depth,
-				"root": false,
-				"exiting": true,
-			})
-			for index: int in range(array_value.size() - 1, -1, -1):
+			stack.append(
+				{
+					"value": array_value,
+					"path": value_path,
+					"depth": depth,
+					"root": false,
+					"exiting": true,
+				}
+			)
+			for index: int in range(
+				array_value.size() - 1,
+				-1,
+				-1
+			):
 				var added_work_bytes: int = _estimate_property_scheduled_bytes(array_value[index])
 				if scheduled_work_bytes + added_work_bytes > max_total_bytes:
 					_add_budget_error(
@@ -1617,13 +1721,16 @@ func _validate_properties_budget_into(
 					)
 					return
 				scheduled_work_bytes += added_work_bytes
-				stack.append({
-					"value": array_value[index],
-					"path": "%s[%d]" % [value_path, index],
-					"depth": depth + 1,
-					"root": false,
-					"exiting": false,
-				})
+				stack.append(
+					{
+						"value": array_value[index],
+						"path": "%s[%d]"
+						% [value_path, index],
+						"depth": depth + 1,
+						"root": false,
+						"exiting": false,
+					}
+				)
 		else:
 			var packed_size: int = _get_packed_array_size(value)
 			if packed_size < 0:
@@ -1704,11 +1811,14 @@ func _validate_properties_budget_into(
 func _make_report(options: Dictionary) -> GFValidationReport:
 	var subject: String = _read_context_text(options, "subject")
 	if subject.is_empty():
-		subject = "analytics:%s@%d" % [String(event_name), schema_version]
-	return GFValidationReport.new(subject, {
-		"event_name": String(event_name),
-		"schema_version": schema_version,
-	})
+		subject = (
+			"analytics:%s@%d"
+			% [String(event_name), schema_version]
+		)
+	return GFValidationReport.new(
+		subject,
+		{ "event_name": String(event_name), "schema_version": schema_version, }
+	)
 
 
 ## 整理 properties Schema 校验所需的 subject、path、source 和可选行列上下文。
@@ -1720,7 +1830,8 @@ func _make_properties_context(options: Dictionary) -> Dictionary:
 	context["subject"] = _read_context_text(
 		options,
 		"subject",
-		"analytics:%s@%d" % [String(event_name), schema_version]
+		"analytics:%s@%d"
+		% [String(event_name), schema_version]
 	)
 	context["path"] = _get_properties_path(options)
 	var source_path: String = _read_context_text(options, "source_path")
@@ -1741,7 +1852,11 @@ func _make_properties_context(options: Dictionary) -> Dictionary:
 ## @api private
 ## [br]
 func _get_properties_path(options: Dictionary) -> String:
-	return _read_context_text(options, "path", "properties")
+	return _read_context_text(
+		options,
+		"path",
+		"properties"
+	)
 
 
 ## 读取文本上下文选项，并将长度截断到辅助文本硬上限。
@@ -1753,7 +1868,11 @@ func _read_context_text(
 	key: String,
 	fallback: String = ""
 ) -> String:
-	var value: String = GFVariantData.get_option_string(options, key, fallback)
+	var value: String = GFVariantData.get_option_string(
+		options,
+		key,
+		fallback
+	)
 	if value.length() <= _HARD_MAX_STRING_LENGTH:
 		return value
 	return value.left(_HARD_MAX_STRING_LENGTH)
@@ -1769,7 +1888,15 @@ func _read_bounded_option(
 	default_value: int,
 	hard_maximum: int
 ) -> int:
-	return clampi(GFVariantData.get_option_int(options, key, default_value), 1, hard_maximum)
+	return clampi(
+		GFVariantData.get_option_int(
+			options,
+			key,
+			default_value
+		),
+		1,
+		hard_maximum
+	)
 
 
 ## 为对象图节点生成 kind 与 instance ID 组合的键；非 Object 值使用 kind:null。
@@ -1779,7 +1906,10 @@ func _read_bounded_option(
 func _make_graph_identity(record_kind: String, value: Variant) -> String:
 	if value is Object:
 		var object_value: Object = value
-		return "%s:%d" % [record_kind, object_value.get_instance_id()]
+		return (
+			"%s:%d"
+			% [record_kind, object_value.get_instance_id()]
+		)
 	return "%s:null" % record_kind
 
 
@@ -1838,7 +1968,11 @@ func _get_packed_array_size(value: Variant) -> int:
 ## @api private
 ## [br]
 func _estimate_property_scheduled_bytes(value: Variant) -> int:
-	if value is String or value is StringName or value is NodePath:
+	if (
+		value is String
+		or value is StringName
+		or value is NodePath
+	):
 		return 2
 	if value is Dictionary or value is Array:
 		return 2
@@ -1905,11 +2039,18 @@ func _add_budget_error(
 	budget_value: int,
 	actual_value: int
 ) -> void:
-	_add_error(report, kind, message, value_path, options, {
-		"budget": budget_name,
-		"budget_value": budget_value,
-		"actual_value": actual_value,
-	})
+	_add_error(
+		report,
+		kind,
+		message,
+		value_path,
+		options,
+		{
+			"budget": budget_name,
+			"budget_value": budget_value,
+			"actual_value": actual_value,
+		}
+	)
 
 
 ## 复制并补充事件名/版本 metadata，追加错误并填写报告 issue 的来源与 subject。
@@ -1927,7 +2068,13 @@ func _add_error(
 	var metadata: Dictionary = issue_metadata.duplicate(true)
 	metadata["event_name"] = String(event_name)
 	metadata["schema_version"] = schema_version
-	var issue: RefCounted = report.add_error(kind, message, issue_path, issue_path, metadata)
+	var issue: RefCounted = report.add_error(
+		kind,
+		message,
+		issue_path,
+		issue_path,
+		metadata
+	)
 	if issue is GFValidationIssue:
 		var validation_issue: GFValidationIssue = issue
 		validation_issue.source_path = _read_context_text(options, "source_path")

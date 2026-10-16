@@ -17,8 +17,15 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @schema delays_msec: Array[int]，按尝试次数索引的重连延迟毫秒数。
-var delays_msec: Array[int] = [500, 1000, 2000, 5000]
+var delays_msec: Array[int] = [
+	500,
+	1000,
+	2000,
+	5000,
+]
 
 ## 最大尝试次数。小于等于 0 表示无限尝试。
 ## [br]
@@ -30,7 +37,11 @@ var max_attempts: int = 0
 ## @api public
 var jitter_ratio: float = 0.0:
 	set(value):
-		jitter_ratio = clampf(value, 0.0, 1.0) if not is_nan(value) and not is_inf(value) else 0.0
+		jitter_ratio = clampf(
+			value,
+			0.0,
+			1.0
+		) if not is_nan(value) and not is_inf(value) else 0.0
 
 
 # --- 私有变量 ---
@@ -116,8 +127,14 @@ func get_attempt_count() -> int:
 func _get_delay_for_attempt(attempt_index: int) -> int:
 	if delays_msec.is_empty():
 		return 0
-	var index: int = mini(attempt_index, delays_msec.size() - 1)
-	return maxi(delays_msec[index], 0)
+	var index: int = mini(
+		attempt_index,
+		delays_msec.size() - 1
+	)
+	return maxi(
+		delays_msec[index],
+		0
+	)
 
 
 ## 按配置比例从确定性随机区间生成偏移并将最终延迟限制为非负数。
@@ -130,4 +147,7 @@ func _apply_jitter(delay_msec: int) -> int:
 
 	var jitter_amount: float = delay_msec * jitter_ratio
 	var offset: float = _rng.next_float_range(-jitter_amount, jitter_amount)
-	return maxi(roundi(float(delay_msec) + offset), 0)
+	return maxi(
+		roundi(float(delay_msec) + offset),
+		0
+	)

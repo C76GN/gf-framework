@@ -17,7 +17,7 @@ Control 通用布局状态序列化器。 保存 Control 的锚点、偏移、�
 |---|---|---|
 | 方法 | [`supports_node`](#member-gfnodecontrolserializer-methods-supports_node) | `func supports_node(node: Node) -> bool:` |
 | 方法 | [`gather`](#member-gfnodecontrolserializer-methods-gather) | `func gather(node: Node, _context: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`apply`](#member-gfnodecontrolserializer-methods-apply) | `func apply(node: Node, payload: Dictionary, _context: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`apply`](#member-gfnodecontrolserializer-methods-apply) | `func apply( node: Node, payload: Dictionary, _context: Dictionary = {} ) -> Dictionary:` |
 
 ## 方法
 
@@ -72,9 +72,10 @@ func gather(node: Node, _context: Dictionary = {}) -> Dictionary:
 ### `apply`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func apply(node: Node, payload: Dictionary, _context: Dictionary = {}) -> Dictionary:
+func apply( node: Node, payload: Dictionary, _context: Dictionary = {} ) -> Dictionary:
 ```
 
 将序列化数据应用到节点。

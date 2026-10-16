@@ -117,20 +117,32 @@ const METADATA_RESOURCE_EXTENSIONS_KEY: StringName = &"resource_extensions"
 ## @return: 列描述列表。
 ## [br]
 ## @schema return: Array[Dictionary]，每项包含 field_name、label、value_type、required、allow_null、default_value、element_validation_rules、editable、choices、reference_ids、hint 和 metadata；element_validation_rules 为元素规则描述，不限制整个数组的编辑值。
-static func build_column_descriptors(
-	schema: GFConfigTableSchema,
-	options: Dictionary = {}
-) -> Array[Dictionary]:
+static func build_column_descriptors(schema: GFConfigTableSchema, options: Dictionary = {}) -> Array[Dictionary]:
 	var descriptors: Array[Dictionary] = []
 	if schema == null:
 		return descriptors
 
-	var editable_by_default: bool = GFVariantData.get_option_bool(options, "editable_by_default", true)
-	var include_references: bool = GFVariantData.get_option_bool(options, "include_references", true)
+	var editable_by_default: bool = GFVariantData.get_option_bool(
+		options,
+		"editable_by_default",
+		true
+	)
+	var include_references: bool = GFVariantData.get_option_bool(
+		options,
+		"include_references",
+		true
+	)
 	for column: GFConfigTableColumn in schema.columns:
 		if column == null:
 			continue
-		descriptors.append(_build_column_descriptor(schema, column, editable_by_default, include_references))
+		descriptors.append(
+			_build_column_descriptor(
+				schema,
+				column,
+				editable_by_default,
+				include_references
+			)
+		)
 	return descriptors
 
 
@@ -160,13 +172,30 @@ static func build_field_editor_descriptors(
 	if schema == null:
 		return descriptors
 
-	var editable_by_default: bool = GFVariantData.get_option_bool(options, "editable_by_default", true)
-	var include_references: bool = GFVariantData.get_option_bool(options, "include_references", true)
-	var include_reference_choices: bool = GFVariantData.get_option_bool(options, "include_reference_choices", database != null)
+	var editable_by_default: bool = GFVariantData.get_option_bool(
+		options,
+		"editable_by_default",
+		true
+	)
+	var include_references: bool = GFVariantData.get_option_bool(
+		options,
+		"include_references",
+		true
+	)
+	var include_reference_choices: bool = GFVariantData.get_option_bool(
+		options,
+		"include_reference_choices",
+		database != null
+	)
 	for column: GFConfigTableColumn in schema.columns:
 		if column == null:
 			continue
-		var descriptor: Dictionary = _build_column_descriptor(schema, column, editable_by_default, include_references)
+		var descriptor: Dictionary = _build_column_descriptor(
+			schema,
+			column,
+			editable_by_default,
+			include_references
+		)
 		_apply_field_editor_descriptor(
 			descriptor,
 			schema,
@@ -219,8 +248,16 @@ static func build_reference_choice_records(
 	if target_fields.is_empty():
 		return choices
 
-	var label_fields: PackedStringArray = _resolve_label_fields(reference_definition, resolved_schema, options)
-	var include_record: bool = GFVariantData.get_option_bool(options, "include_record", false)
+	var label_fields: PackedStringArray = _resolve_label_fields(
+		reference_definition,
+		resolved_schema,
+		options
+	)
+	var include_record: bool = GFVariantData.get_option_bool(
+		options,
+		"include_record",
+		false
+	)
 	var records: Array[Dictionary] = _normalize_records(target_table)
 	for record: Dictionary in records:
 		var reference_key: String = reference_definition.make_target_key(record, resolved_schema)
@@ -228,9 +265,21 @@ static func build_reference_choice_records(
 			continue
 		var choice: Dictionary = {
 			"key": reference_key,
-			"label": _make_choice_label(record, label_fields, target_fields, reference_key),
+			"label": _make_choice_label(
+				record,
+				label_fields,
+				target_fields,
+				reference_key
+			),
 			"value": GFVariantData.duplicate_variant(_make_choice_value(record, target_fields)),
-			"record_id": GFVariantData.duplicate_variant(_get_record_id(record, resolved_schema, target_fields, reference_key)),
+			"record_id": GFVariantData.duplicate_variant(
+				_get_record_id(
+					record,
+					resolved_schema,
+					target_fields,
+					reference_key
+				)
+			),
 			"target_fields": target_fields.duplicate(),
 		}
 		if include_record:
@@ -267,7 +316,12 @@ static func build_reference_choice_records_for_database(
 	var table_resource: GFConfigTableResource = database.get_table_resource(reference_definition.target_table_name, false)
 	if table_resource == null:
 		return choices
-	return build_reference_choice_records(reference_definition, table_resource, table_resource.schema, options)
+	return build_reference_choice_records(
+		reference_definition,
+		table_resource,
+		table_resource.schema,
+		options
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -292,10 +346,20 @@ static func _build_column_descriptor(
 		"allow_null": column.allow_null,
 		"default_value": GFVariantData.duplicate_variant(column.default_value),
 		"element_validation_rules": _describe_rule_list(column.element_validation_rules),
-		"editable": _get_metadata_bool(metadata, METADATA_EDITABLE_KEY, editable_by_default),
+		"editable": _get_metadata_bool(
+			metadata,
+			METADATA_EDITABLE_KEY,
+			editable_by_default
+		),
 		"choices": _get_metadata_array(metadata, METADATA_CHOICES_KEY).duplicate(true),
 		"reference_ids": _collect_field_reference_ids(schema, field_name) if include_references else PackedStringArray(),
-		"hint": GFVariantData.to_text(_get_metadata_value(metadata, METADATA_HINT_KEY, "")),
+		"hint": GFVariantData.to_text(
+			_get_metadata_value(
+				metadata,
+				METADATA_HINT_KEY,
+				""
+			)
+		),
 		"metadata": metadata,
 	}
 
@@ -323,9 +387,21 @@ static func _apply_field_editor_descriptor(
 		include_reference_choices,
 		options
 	)
-	var editor_kind: StringName = _resolve_editor_kind(column, metadata, choices, references, constraints)
+	var editor_kind: StringName = _resolve_editor_kind(
+		column,
+		metadata,
+		choices,
+		references,
+		constraints
+	)
 	var property_type: int = _resolve_property_type(column, metadata)
-	var property_hint: int = _resolve_property_hint(metadata, choices, constraints, editor_kind, column.value_type)
+	var property_hint: int = _resolve_property_hint(
+		metadata,
+		choices,
+		constraints,
+		editor_kind,
+		column.value_type
+	)
 	var property_hint_string: String = _resolve_property_hint_string(
 		metadata,
 		choices,
@@ -340,7 +416,12 @@ static func _apply_field_editor_descriptor(
 	descriptor["property_type"] = property_type
 	descriptor["property_hint"] = property_hint
 	descriptor["property_hint_string"] = property_hint_string
-	descriptor["property_info"] = _make_property_info(field_name, property_type, property_hint, property_hint_string)
+	descriptor["property_info"] = _make_property_info(
+		field_name,
+		property_type,
+		property_hint,
+		property_hint_string
+	)
 	descriptor["constraints"] = constraints
 	descriptor["validation_rules"] = _describe_validation_rules(column)
 	descriptor["references"] = references
@@ -351,10 +432,22 @@ static func _apply_field_editor_descriptor(
 ## @api private
 ## [br]
 static func _resolve_column_label(field_name: StringName, metadata: Dictionary) -> String:
-	var editor_label: String = GFVariantData.to_text(_get_metadata_value(metadata, METADATA_EDITOR_LABEL_KEY, ""))
+	var editor_label: String = GFVariantData.to_text(
+		_get_metadata_value(
+			metadata,
+			METADATA_EDITOR_LABEL_KEY,
+			""
+		)
+	)
 	if not editor_label.is_empty():
 		return editor_label
-	var label: String = GFVariantData.to_text(_get_metadata_value(metadata, METADATA_LABEL_KEY, ""))
+	var label: String = GFVariantData.to_text(
+		_get_metadata_value(
+			metadata,
+			METADATA_LABEL_KEY,
+			""
+		)
+	)
 	if not label.is_empty():
 		return label
 	return String(field_name)
@@ -364,10 +457,7 @@ static func _resolve_column_label(field_name: StringName, metadata: Dictionary) 
 ## [br]
 ## @api private
 ## [br]
-static func _collect_field_reference_ids(
-	schema: GFConfigTableSchema,
-	field_name: StringName
-) -> PackedStringArray:
+static func _collect_field_reference_ids(schema: GFConfigTableSchema, field_name: StringName) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	var field_text: String = String(field_name)
 	for reference_definition: GFConfigTableReference in schema.references:
@@ -432,10 +522,7 @@ static func _apply_rule_constraints(constraints: Dictionary, rule: GFConfigValid
 
 	if rule is GFConfigSetValidationRule:
 		var set_rule: GFConfigSetValidationRule = rule
-		constraints["set"] = {
-			"allowed_values": GFVariantData.duplicate_variant(set_rule.allowed_values),
-			"case_sensitive": set_rule.case_sensitive,
-		}
+		constraints["set"] = { "allowed_values": GFVariantData.duplicate_variant(set_rule.allowed_values), "case_sensitive": set_rule.case_sensitive, }
 		return
 
 	if rule is GFConfigSizeValidationRule:
@@ -452,11 +539,13 @@ static func _apply_rule_constraints(constraints: Dictionary, rule: GFConfigValid
 	if rule is GFConfigRegexValidationRule:
 		var regex_rule: GFConfigRegexValidationRule = rule
 		var patterns: Array = GFVariantData.get_option_array(constraints, "patterns")
-		patterns.append({
-			"pattern": regex_rule.pattern,
-			"require_full_match": regex_rule.require_full_match,
-			"allow_empty": regex_rule.allow_empty,
-		})
+		patterns.append(
+			{
+				"pattern": regex_rule.pattern,
+				"require_full_match": regex_rule.require_full_match,
+				"allow_empty": regex_rule.allow_empty,
+			}
+		)
 		constraints["patterns"] = patterns
 		return
 
@@ -484,8 +573,20 @@ static func _apply_rule_constraints(constraints: Dictionary, rule: GFConfigValid
 ## @api private
 ## [br]
 static func _apply_metadata_constraints(constraints: Dictionary, metadata: Dictionary) -> void:
-	var resource_type: String = GFVariantData.to_text(_get_metadata_value(metadata, METADATA_RESOURCE_TYPE_KEY, ""))
-	var resource_extensions: PackedStringArray = _to_packed_string_array(_get_metadata_value(metadata, METADATA_RESOURCE_EXTENSIONS_KEY, []))
+	var resource_type: String = GFVariantData.to_text(
+		_get_metadata_value(
+			metadata,
+			METADATA_RESOURCE_TYPE_KEY,
+			""
+		)
+	)
+	var resource_extensions: PackedStringArray = _to_packed_string_array(
+		_get_metadata_value(
+			metadata,
+			METADATA_RESOURCE_EXTENSIONS_KEY,
+			[]
+		)
+	)
 	if resource_type.is_empty() and resource_extensions.is_empty():
 		return
 
@@ -519,7 +620,11 @@ static func _build_field_reference_descriptors(
 		reference_descriptor["target_fields"] = reference_definition.get_target_fields(target_schema)
 		if include_choices:
 			reference_descriptor["choices"] = (
-				build_reference_choice_records_for_database(database, reference_definition, options)
+				build_reference_choice_records_for_database(
+					database,
+					reference_definition,
+					options
+				)
 				if database != null
 				else []
 			)
@@ -531,10 +636,7 @@ static func _build_field_reference_descriptors(
 ## [br]
 ## @api private
 ## [br]
-static func _get_reference_target_schema(
-	database: GFConfigDatabaseResource,
-	reference_definition: GFConfigTableReference
-) -> GFConfigTableSchema:
+static func _get_reference_target_schema(database: GFConfigDatabaseResource, reference_definition: GFConfigTableReference) -> GFConfigTableSchema:
 	if database == null or reference_definition == null:
 		return null
 	var table_resource: GFConfigTableResource = database.get_table_resource(reference_definition.target_table_name, false)
@@ -554,7 +656,13 @@ static func _resolve_editor_kind(
 	references: Array[Dictionary],
 	constraints: Dictionary
 ) -> StringName:
-	var metadata_kind: StringName = GFVariantData.to_string_name(_get_metadata_value(metadata, METADATA_EDITOR_KIND_KEY, &""))
+	var metadata_kind: StringName = GFVariantData.to_string_name(
+		_get_metadata_value(
+			metadata,
+			METADATA_EDITOR_KIND_KEY,
+			&""
+		)
+	)
 	if metadata_kind != &"":
 		return metadata_kind
 	if not references.is_empty():
@@ -597,7 +705,14 @@ static func _resolve_editor_kind(
 ## [br]
 static func _resolve_property_type(column: GFConfigTableColumn, metadata: Dictionary) -> int:
 	if _metadata_has_key(metadata, METADATA_PROPERTY_TYPE_KEY):
-		return GFVariantData.to_int(_get_metadata_value(metadata, METADATA_PROPERTY_TYPE_KEY, TYPE_NIL), TYPE_NIL)
+		return GFVariantData.to_int(
+			_get_metadata_value(
+				metadata,
+				METADATA_PROPERTY_TYPE_KEY,
+				TYPE_NIL
+			),
+			TYPE_NIL
+		)
 	return _value_type_to_property_type(column.value_type)
 
 
@@ -613,7 +728,14 @@ static func _resolve_property_hint(
 	value_type: GFConfigTableColumn.ValueType
 ) -> int:
 	if _metadata_has_key(metadata, METADATA_PROPERTY_HINT_KEY):
-		return GFVariantData.to_int(_get_metadata_value(metadata, METADATA_PROPERTY_HINT_KEY, PROPERTY_HINT_NONE), PROPERTY_HINT_NONE)
+		return GFVariantData.to_int(
+			_get_metadata_value(
+				metadata,
+				METADATA_PROPERTY_HINT_KEY,
+				PROPERTY_HINT_NONE
+			),
+			PROPERTY_HINT_NONE
+		)
 	if not choices.is_empty() and not _make_choice_hint_string(choices).is_empty():
 		return PROPERTY_HINT_ENUM
 	if editor_kind == &"resource_path":
@@ -635,7 +757,13 @@ static func _resolve_property_hint_string(
 	value_type: GFConfigTableColumn.ValueType
 ) -> String:
 	if _metadata_has_key(metadata, METADATA_PROPERTY_HINT_STRING_KEY):
-		return GFVariantData.to_text(_get_metadata_value(metadata, METADATA_PROPERTY_HINT_STRING_KEY, ""))
+		return GFVariantData.to_text(
+			_get_metadata_value(
+				metadata,
+				METADATA_PROPERTY_HINT_STRING_KEY,
+				""
+			)
+		)
 	if not choices.is_empty():
 		return _make_choice_hint_string(choices)
 	if editor_kind == &"resource_path" or editor_kind == &"resource_path_array":
@@ -756,7 +884,13 @@ static func _choice_to_label(choice: Variant) -> String:
 ## [br]
 static func _make_resource_path_hint_string(constraints: Dictionary) -> String:
 	var resource_constraint: Dictionary = GFVariantData.get_option_dictionary(constraints, "resource_path")
-	var extensions: PackedStringArray = _to_packed_string_array(GFVariantData.get_option_value(resource_constraint, "allowed_extensions", []))
+	var extensions: PackedStringArray = _to_packed_string_array(
+		GFVariantData.get_option_value(
+			resource_constraint,
+			"allowed_extensions",
+			[]
+		)
+	)
 	if extensions.is_empty():
 		return ""
 
@@ -773,22 +907,34 @@ static func _make_resource_path_hint_string(constraints: Dictionary) -> String:
 ## [br]
 ## @api private
 ## [br]
-static func _make_range_hint_string(
-	constraints: Dictionary,
-	value_type: GFConfigTableColumn.ValueType
-) -> String:
+static func _make_range_hint_string(constraints: Dictionary, value_type: GFConfigTableColumn.ValueType) -> String:
 	var range_constraint: Dictionary = GFVariantData.get_option_dictionary(constraints, "range")
 	if not _dictionary_has_key(range_constraint, "minimum") or not _dictionary_has_key(range_constraint, "maximum"):
 		return ""
-	if not GFVariantData.get_option_bool(range_constraint, "inclusive_minimum", true):
+	if not GFVariantData.get_option_bool(
+		range_constraint,
+		"inclusive_minimum",
+		true
+	):
 		return ""
-	if not GFVariantData.get_option_bool(range_constraint, "inclusive_maximum", true):
+	if not GFVariantData.get_option_bool(
+		range_constraint,
+		"inclusive_maximum",
+		true
+	):
 		return ""
 
 	var minimum: float = GFVariantData.get_option_float(range_constraint, "minimum")
 	var maximum: float = GFVariantData.get_option_float(range_constraint, "maximum")
 	var step: float = 1.0 if value_type == GFConfigTableColumn.ValueType.INT else 0.01
-	return "%s,%s,%s" % [str(minimum), str(maximum), str(step)]
+	return (
+		"%s,%s,%s"
+		% [
+			str(minimum),
+			str(maximum),
+			str(step),
+		]
+	)
 
 
 ## 将列中的校验规则转为字段描述字典。
@@ -824,12 +970,24 @@ static func _resolve_label_fields(
 	if not option_fields.is_empty():
 		return option_fields
 
-	var reference_fields: PackedStringArray = _to_packed_string_array(_get_metadata_value(reference_definition.metadata, METADATA_LABEL_FIELDS_KEY, []))
+	var reference_fields: PackedStringArray = _to_packed_string_array(
+		_get_metadata_value(
+			reference_definition.metadata,
+			METADATA_LABEL_FIELDS_KEY,
+			[]
+		)
+	)
 	if not reference_fields.is_empty():
 		return reference_fields
 
 	if target_schema != null:
-		var schema_fields: PackedStringArray = _to_packed_string_array(_get_metadata_value(target_schema.metadata, METADATA_LABEL_FIELDS_KEY, []))
+		var schema_fields: PackedStringArray = _to_packed_string_array(
+			_get_metadata_value(
+				target_schema.metadata,
+				METADATA_LABEL_FIELDS_KEY,
+				[]
+			)
+		)
 		if not schema_fields.is_empty():
 			return schema_fields
 	return PackedStringArray()
@@ -886,12 +1044,22 @@ static func _normalize_dictionary_records(table_dictionary: Dictionary) -> Array
 ## [br]
 static func _make_choice_value(record: Dictionary, target_fields: PackedStringArray) -> Variant:
 	if target_fields.size() == 1:
-		return _get_record_field(record, StringName(target_fields[0]), null)
+		return _get_record_field(
+			record,
+			StringName(target_fields[0]),
+			null
+		)
 
 	var value_dictionary: Dictionary = {}
 	for field_text: String in target_fields:
 		var field_name: StringName = StringName(field_text)
-		value_dictionary[field_name] = GFVariantData.duplicate_variant(_get_record_field(record, field_name, null))
+		value_dictionary[field_name] = GFVariantData.duplicate_variant(
+			_get_record_field(
+				record,
+				field_name,
+				null
+			)
+		)
 	return value_dictionary
 
 
@@ -910,7 +1078,13 @@ static func _make_choice_label(
 		var field_name: StringName = StringName(field_text)
 		if not _record_has_field(record, field_name):
 			continue
-		var text: String = GFVariantData.to_text(_get_record_field(record, field_name, ""))
+		var text: String = GFVariantData.to_text(
+			_get_record_field(
+				record,
+				field_name,
+				""
+			)
+		)
 		if text.is_empty():
 			continue
 		var _part_appended: bool = parts.append(text)
@@ -919,7 +1093,13 @@ static func _make_choice_label(
 
 	if target_fields.size() == 1:
 		var target_field: StringName = StringName(target_fields[0])
-		var target_text: String = GFVariantData.to_text(_get_record_field(record, target_field, ""))
+		var target_text: String = GFVariantData.to_text(
+			_get_record_field(
+				record,
+				target_field,
+				""
+			)
+		)
 		if not target_text.is_empty():
 			return target_text
 	return fallback_key
@@ -936,9 +1116,17 @@ static func _get_record_id(
 	fallback_key: String
 ) -> Variant:
 	if target_schema != null and target_schema.id_field != &"":
-		return _get_record_field(record, target_schema.id_field, fallback_key)
+		return _get_record_field(
+			record,
+			target_schema.id_field,
+			fallback_key
+		)
 	if target_fields.size() == 1:
-		return _get_record_field(record, StringName(target_fields[0]), fallback_key)
+		return _get_record_field(
+			record,
+			StringName(target_fields[0]),
+			fallback_key
+		)
 	return fallback_key
 
 
@@ -946,8 +1134,19 @@ static func _get_record_id(
 ## [br]
 ## @api private
 ## [br]
-static func _get_metadata_bool(metadata: Dictionary, key: StringName, default_value: bool) -> bool:
-	return GFVariantData.to_bool(_get_metadata_value(metadata, key, default_value), default_value)
+static func _get_metadata_bool(
+	metadata: Dictionary,
+	key: StringName,
+	default_value: bool
+) -> bool:
+	return GFVariantData.to_bool(
+		_get_metadata_value(
+			metadata,
+			key,
+			default_value
+		),
+		default_value
+	)
 
 
 ## 从 metadata 读取数组，并将 Variant 规范化为 Array。
@@ -955,7 +1154,11 @@ static func _get_metadata_bool(metadata: Dictionary, key: StringName, default_va
 ## @api private
 ## [br]
 static func _get_metadata_array(metadata: Dictionary, key: StringName) -> Array:
-	var raw_array: Variant = _get_metadata_value(metadata, key, [])
+	var raw_array: Variant = _get_metadata_value(
+		metadata,
+		key,
+		[]
+	)
 	return GFVariantData.to_array(raw_array, [])
 
 
@@ -963,7 +1166,11 @@ static func _get_metadata_array(metadata: Dictionary, key: StringName) -> Array:
 ## [br]
 ## @api private
 ## [br]
-static func _get_metadata_value(metadata: Dictionary, key: StringName, default_value: Variant) -> Variant:
+static func _get_metadata_value(
+	metadata: Dictionary,
+	key: StringName,
+	default_value: Variant
+) -> Variant:
 	if metadata.has(key):
 		return metadata[key]
 	var text_key: String = String(key)
@@ -1031,7 +1238,11 @@ static func _record_has_field(record: Dictionary, field_name: StringName) -> boo
 ## [br]
 ## @api private
 ## [br]
-static func _get_record_field(record: Dictionary, field_name: StringName, default_value: Variant) -> Variant:
+static func _get_record_field(
+	record: Dictionary,
+	field_name: StringName,
+	default_value: Variant
+) -> Variant:
 	if record.has(field_name):
 		return record[field_name]
 	var text_key: String = String(field_name)

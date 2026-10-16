@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkContract" path="addons/gf/extensions/network/contracts/gf_network_contract.gd" module="extensions/network" extends="Resource" classDigest="80b36c210e725b00afe8bddcbb1a50a2a80d6c0d7ac4508cfa319bae8afa1579">
+<class name="GFNetworkContract" path="addons/gf/extensions/network/contracts/gf_network_contract.gd" module="extensions/network" extends="Resource" classDigest="f0c6a1b9e47eefd706082316778e026797efdf4e7d87ad60df312d8e4d8b7689">
 	<description>GFNetworkContract: 网络消息契约集合。
 契约集合用于集中描述一组 GFNetworkMessage 的 message_type、字段和默认通道，
 方便项目生成强类型辅助代码或在运行前校验消息结构。</description>
@@ -95,7 +95,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="make_message">
-			<signature>func make_message(message_type: StringName, values: Dictionary = {}, options: Dictionary = {}) -&gt; GFNetworkMessage:</signature>
+			<signature>func make_message( message_type: StringName, values: Dictionary = {}, options: Dictionary = {} ) -&gt; GFNetworkMessage:</signature>
 			<description>按消息契约创建 GFNetworkMessage。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -105,6 +105,7 @@
 				<tag name="return">网络消息；契约不存在时返回 null。</tag>
 				<tag name="schema">values: Dictionary[StringName|String, Variant]，字段名到字段值的映射。</tag>
 				<tag name="schema">options: Dictionary，支持 include_defaults、sequence、tick、sender_id、channel_id。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate_message">

@@ -83,7 +83,11 @@ func apply(
 				changed_count += 1
 			continue
 
-		var next_value: Variant = _resolve_value(cell, GFVariantData.get_option_value(grid, cell), context)
+		var next_value: Variant = _resolve_value(
+			cell,
+			GFVariantData.get_option_value(grid, cell),
+			context
+		)
 		grid[cell] = GFVariantData.duplicate_variant(next_value)
 		changed_count += 1
 	return changed_count
@@ -120,7 +124,15 @@ func _select_cells(candidates: Array[Vector2i], context: Dictionary) -> Array[Ve
 ## 调用有效值回调并传入旧值副本；未配置回调时返回配置值的副本。
 ## [br]
 ## @api private
-func _resolve_value(cell: Vector2i, previous_value: Variant, context: Dictionary) -> Variant:
+func _resolve_value(
+	cell: Vector2i,
+	previous_value: Variant,
+	context: Dictionary
+) -> Variant:
 	if value_callback.is_valid():
-		return value_callback.call(cell, GFVariantData.duplicate_variant(previous_value), context)
+		return value_callback.call(
+			cell,
+			GFVariantData.duplicate_variant(previous_value),
+			context
+		)
 	return GFVariantData.duplicate_variant(value)

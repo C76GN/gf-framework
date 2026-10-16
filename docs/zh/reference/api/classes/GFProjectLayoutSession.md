@@ -15,7 +15,7 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 方法 | [`open_profile_text`](#member-gfprojectlayoutsession-methods-open_profile_text) | `func open_profile_text(text: String, source_path: String, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`open_profile_text`](#member-gfprojectlayoutsession-methods-open_profile_text) | `func open_profile_text( text: String, source_path: String, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`open_profile`](#member-gfprojectlayoutsession-methods-open_profile) | `func open_profile(profile: Dictionary, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`observe`](#member-gfprojectlayoutsession-methods-observe) | `func observe(options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`get_analysis`](#member-gfprojectlayoutsession-methods-get_analysis) | `func get_analysis() -> Dictionary:` |
@@ -34,7 +34,7 @@
 - 首次版本：`unreleased`
 
 ```gdscript
-func open_profile_text(text: String, source_path: String, options: Dictionary = {}) -> Dictionary:
+func open_profile_text( text: String, source_path: String, options: Dictionary = {} ) -> Dictionary:
 ```
 
 严格准入真实来源文件的原始 JSON，编译一次后捕获只读库存。 source_path 必须位于 options.source_root 中且 bytes 与 text 完全一致。 失败不捕获来源；此入口不加载场景、资源脚本或目标项目配置。 省略 root_path 时由成功 compilation 的规范声明映射 source_root；无 Profile 声明则严格准入 options.capture_scope，无范围声明则使用 source_root，缺省为 res://。

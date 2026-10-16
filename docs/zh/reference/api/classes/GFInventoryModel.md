@@ -15,7 +15,7 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 方法 | [`add_item`](#member-gfinventorymodel-methods-add_item) | `func add_item(item_id: StringName, amount: int = 1, metadata: Dictionary = {}) -> void:` |
+| 方法 | [`add_item`](#member-gfinventorymodel-methods-add_item) | `func add_item( item_id: StringName, amount: int = 1, metadata: Dictionary = {} ) -> void:` |
 | 方法 | [`remove_item`](#member-gfinventorymodel-methods-remove_item) | `func remove_item(item_id: StringName, amount: int = 1) -> bool:` |
 | 方法 | [`set_item_amount`](#member-gfinventorymodel-methods-set_item_amount) | `func set_item_amount(item_id: StringName, amount: int) -> void:` |
 | 方法 | [`get_item_amount`](#member-gfinventorymodel-methods-get_item_amount) | `func get_item_amount(item_id: StringName) -> int:` |
@@ -33,9 +33,10 @@
 ### `add_item`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func add_item(item_id: StringName, amount: int = 1, metadata: Dictionary = {}) -> void:
+func add_item( item_id: StringName, amount: int = 1, metadata: Dictionary = {} ) -> void:
 ```
 
 添加物品数量。

@@ -139,7 +139,11 @@ func _exit_tree() -> void:
 ## [br]
 ## @api private
 func _process(_delta: float) -> void:
-	if not _active or _filesystem == null or _filesystem.is_scanning():
+	if (
+		not _active
+		or _filesystem == null
+		or _filesystem.is_scanning()
+	):
 		return
 	if _pending:
 		_pending = false
@@ -172,9 +176,17 @@ func _process(_delta: float) -> void:
 		var resource_type: String = _current_directory.get_file_type(_file_index)
 		_file_index += 1
 		visited += 1
-		if resource_type.is_empty() or not _allows_path(path) or not matches_type(resource_type, _type_filter):
+		if (
+			resource_type.is_empty()
+			or not _allows_path(path)
+			or not matches_type(resource_type, _type_filter)
+		):
 			continue
-		var entry: GFAssetCatalogEntry = make_entry(path, resource_type, ResourceLoader.get_resource_uid(path))
+		var entry: GFAssetCatalogEntry = make_entry(
+			path,
+			resource_type,
+			ResourceLoader.get_resource_uid(path)
+		)
 		if not _snapshot.append_entry(entry):
 			_finish("snapshot_failed")
 			return
@@ -191,7 +203,11 @@ func _process(_delta: float) -> void:
 ## @param type_filter: Godot 类型或空字符串。
 ## [br]
 ## @param include_addons: 是否包括插件资源。
-func start_scan(scope: String = "res://", type_filter: String = "", include_addons: bool = false) -> void:
+func start_scan(
+	scope: String = "res://",
+	type_filter: String = "",
+	include_addons: bool = false
+) -> void:
 	cancel()
 	_scope = scope.strip_edges().simplify_path()
 	_type_filter = type_filter
@@ -232,7 +248,11 @@ func cancel() -> void:
 ## @param existing_uid: 已有 UID，负值表示不存在。
 ## [br]
 ## @return 只包含元数据的目录条目。
-static func make_entry(path: String, resource_type: String, existing_uid: int = -1) -> GFAssetCatalogEntry:
+static func make_entry(
+	path: String,
+	resource_type: String,
+	existing_uid: int = -1
+) -> GFAssetCatalogEntry:
 	var normalized_path: String = path.simplify_path()
 	var identity: String = ResourceUID.id_to_text(existing_uid) if existing_uid >= 0 else normalized_path
 	var entry: GFAssetCatalogEntry = GFAssetCatalogEntry.new()
@@ -241,7 +261,7 @@ static func make_entry(path: String, resource_type: String, existing_uid: int = 
 	entry.title = normalized_path.get_file()
 	entry.type_hint = resource_type
 	entry.source_id = &"project_filesystem"
-	entry.metadata = {"identity_kind": "uid" if existing_uid >= 0 else "path", "directory": normalized_path.get_base_dir()}
+	entry.metadata = { "identity_kind": "uid" if existing_uid >= 0 else "path", "directory": normalized_path.get_base_dir(), }
 	return entry
 
 
@@ -255,7 +275,11 @@ static func make_entry(path: String, resource_type: String, existing_uid: int = 
 ## [br]
 ## @return 是否匹配。
 static func matches_type(resource_type: String, expected_type: String) -> bool:
-	return expected_type.is_empty() or resource_type == expected_type or ClassDB.is_parent_class(resource_type, expected_type)
+	return (
+		expected_type.is_empty()
+		or resource_type == expected_type
+		or ClassDB.is_parent_class(resource_type, expected_type)
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -264,7 +288,13 @@ static func matches_type(resource_type: String, expected_type: String) -> bool:
 ## [br]
 ## @api private
 func _allows_path(path: String) -> bool:
-	if not _include_addons and (path == "res://addons" or path.begins_with("res://addons/")):
+	if (
+		not _include_addons
+		and (
+			path == "res://addons"
+			or path.begins_with("res://addons/")
+		)
+	):
 		return false
 	for component: String in path.trim_prefix("res://").split("/"):
 		if component.begins_with("."):
@@ -282,7 +312,11 @@ func _finish(status: String) -> void:
 	if status == "complete" and catalog_value is GFAssetCatalog:
 		result = catalog_value
 	if status == "snapshot_failed":
-		status = GFVariantData.get_option_string(snapshot_report, "status", "snapshot_failed")
+		status = GFVariantData.get_option_string(
+			snapshot_report,
+			"status",
+			"snapshot_failed"
+		)
 	var count: int = GFVariantData.get_option_int(snapshot_report, "count")
 	_active = false
 	_pending = false
@@ -290,7 +324,16 @@ func _finish(status: String) -> void:
 	_current_directory = null
 	_snapshot = null
 	set_process(false)
-	completed.emit(result, {"ok": result != null, "status": status, "count": count, "scope": _scope, "generation": _generation})
+	completed.emit(
+		result,
+		{
+			"ok": result != null,
+			"status": status,
+			"count": count,
+			"scope": _scope,
+			"generation": _generation,
+		}
+	)
 
 
 # --- 信号处理函数 ---

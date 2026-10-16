@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTagCatalog" path="addons/gf/standard/foundation/tags/gf_tag_catalog.gd" module="standard" extends="Resource" classDigest="d89f5e3253ba98b9b3d11fb5f03ee8ccdc2b9e8644e28cfcf1777443a091e3f9">
+<class name="GFTagCatalog" path="addons/gf/standard/foundation/tags/gf_tag_catalog.gd" module="standard" extends="Resource" classDigest="a298b6928463e6a27476cf5b02faca33aa3aca41d6f85fd0ada4bd00863793af">
 	<description>GFTagCatalog: 可选标签目录与重定向资源。
 用于声明项目可识别的标签、说明文本、迁移重定向和元数据。它只提供
 定义校验和标签源规范化，不强制所有 GFTagSet 或 GFTagQuery 必须依赖全局目录。</description>
@@ -76,7 +76,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="add_redirect">
-			<signature>func add_redirect(source_tag: StringName, target_tag: StringName, options: Dictionary = {}) -&gt; bool:</signature>
+			<signature>func add_redirect( source_tag: StringName, target_tag: StringName, options: Dictionary = {} ) -&gt; bool:</signature>
 			<description>添加标签重定向定义。</description>
 			<tags>
 				<tag name="api">public</tag>

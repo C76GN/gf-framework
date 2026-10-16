@@ -31,7 +31,7 @@
 | 方法 | [`disconnect_signal`](#member-gfsignalconnection-methods-disconnect_signal) | `func disconnect_signal() -> void:` |
 | 方法 | [`is_active`](#member-gfsignalconnection-methods-is_active) | `func is_active() -> bool:` |
 | 方法 | [`is_owned_by`](#member-gfsignalconnection-methods-is_owned_by) | `func is_owned_by(owner: Object) -> bool:` |
-| 方法 | [`matches`](#member-gfsignalconnection-methods-matches) | `func matches(source_signal: Signal, callback: Callable, owner: Object = null) -> bool:` |
+| 方法 | [`matches`](#member-gfsignalconnection-methods-matches) | `func matches( source_signal: Signal, callback: Callable, owner: Object = null ) -> bool:` |
 | 方法 | [`prune_if_invalid`](#member-gfsignalconnection-methods-prune_if_invalid) | `func prune_if_invalid() -> bool:` |
 
 ## 枚举
@@ -349,9 +349,10 @@ func is_owned_by(owner: Object) -> bool:
 ### `matches`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func matches(source_signal: Signal, callback: Callable, owner: Object = null) -> bool:
+func matches( source_signal: Signal, callback: Callable, owner: Object = null ) -> bool:
 ```
 
 检查连接是否匹配指定 Signal、回调和可选 owner。

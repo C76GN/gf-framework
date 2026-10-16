@@ -15,8 +15,16 @@ const READTHEDOCS_URL: String = "https://gf-framework.readthedocs.io/"
 const MAX_MKDOCS_NAV_ITEMS: int = 100
 const MAX_MKDOCS_NAV_DEPTH: int = 4
 const MAX_API_MODULE_REFERENCE_LINES: int = 1000
-const WIKI_ENTRY_FILES: Array[String] = ["Home.md", "_Sidebar.md", "_Footer.md"]
-const DOCS_TOP_LEVEL_FILES: Array[String] = ["index.md", "faq.md", "changelog.md"]
+const WIKI_ENTRY_FILES: Array[String] = [
+	"Home.md",
+	"_Sidebar.md",
+	"_Footer.md",
+]
+const DOCS_TOP_LEVEL_FILES: Array[String] = [
+	"index.md",
+	"faq.md",
+	"changelog.md",
+]
 const DOCS_TOP_LEVEL_DIRECTORIES: Array[String] = [
 	"overview",
 	"kernel",
@@ -52,7 +60,11 @@ func test_chinese_doc_pages_are_reachable_from_mkdocs_nav() -> void:
 		if not reachable_paths.has(relative_path):
 			issues.append("%s is not reachable from mkdocs.yml nav" % relative_path)
 
-	assert_eq(issues, [], "`docs/zh` 中的正式页面应能从 mkdocs.yml 导航入口通过文档链接访问：\n%s" % _join_lines(issues))
+	assert_eq(
+		issues,
+		[],
+		"`docs/zh` 中的正式页面应能从 mkdocs.yml 导航入口通过文档链接访问：\n%s" % _join_lines(issues)
+	)
 
 
 func test_mkdocs_nav_paths_exist() -> void:
@@ -65,7 +77,11 @@ func test_mkdocs_nav_paths_exist() -> void:
 		if not FileAccess.file_exists(docs_path):
 			issues.append("%s points to missing file" % relative_path)
 
-	assert_eq(issues, [], "`mkdocs.yml` 导航中引用的页面必须存在：\n%s" % _join_lines(issues))
+	assert_eq(
+		issues,
+		[],
+		"`mkdocs.yml` 导航中引用的页面必须存在：\n%s" % _join_lines(issues)
+	)
 
 
 func test_mkdocs_nav_labels_are_not_garbled() -> void:
@@ -80,25 +96,45 @@ func test_mkdocs_nav_labels_are_not_garbled() -> void:
 		if label.contains("?"):
 			issues.append("mkdocs.yml nav label appears garbled: %s" % label)
 
-	assert_eq(issues, [], "Read the Docs 导航标题必须保持 UTF-8 文本，不能退化成问号占位：\n%s" % _join_lines(issues))
+	assert_eq(
+		issues,
+		[],
+		"Read the Docs 导航标题必须保持 UTF-8 文本，不能退化成问号占位：\n%s" % _join_lines(issues)
+	)
 
 
 func test_mkdocs_nav_stays_at_entry_level() -> void:
 	var mkdocs_source: String = _read_text(MKDOCS_CONFIG_PATH)
 	var nav_metrics: Dictionary = _collect_mkdocs_nav_metrics(mkdocs_source)
-	var item_count: int = GFVariantData.to_int(nav_metrics.get("item_count", 0), 0)
-	var max_depth: int = GFVariantData.to_int(nav_metrics.get("max_depth", 0), 0)
+	var item_count: int = GFVariantData.to_int(
+		nav_metrics.get("item_count", 0),
+		0
+	)
+	var max_depth: int = GFVariantData.to_int(
+		nav_metrics.get("max_depth", 0),
+		0
+	)
 
 	var issues: Array[String] = []
 	if item_count > MAX_MKDOCS_NAV_ITEMS:
-		issues.append("mkdocs.yml nav has %d items; expected <= %d" % [item_count, MAX_MKDOCS_NAV_ITEMS])
+		issues.append(
+			"mkdocs.yml nav has %d items; expected <= %d"
+			% [item_count, MAX_MKDOCS_NAV_ITEMS]
+		)
 	if max_depth > MAX_MKDOCS_NAV_DEPTH:
-		issues.append("mkdocs.yml nav depth is %d; expected <= %d" % [max_depth, MAX_MKDOCS_NAV_DEPTH])
+		issues.append(
+			"mkdocs.yml nav depth is %d; expected <= %d"
+			% [max_depth, MAX_MKDOCS_NAV_DEPTH]
+		)
 	for pattern: String in REQUIRED_MKDOCS_NOT_IN_NAV_PATTERNS:
 		if not mkdocs_source.contains(pattern):
 			issues.append("mkdocs.yml not_in_nav is missing `%s`" % pattern)
 
-	assert_eq(issues, [], "Read the Docs 左侧导航只应保留主入口、专题总览和参考索引：\n%s" % _join_lines(issues))
+	assert_eq(
+		issues,
+		[],
+		"Read the Docs 左侧导航只应保留主入口、专题总览和参考索引：\n%s" % _join_lines(issues)
+	)
 
 
 func test_generated_api_reference_uses_split_owner_pages() -> void:
@@ -149,11 +185,18 @@ func test_generated_api_reference_uses_split_owner_pages() -> void:
 		var text: String = _read_text(path)
 		var line_count: int = text.split("\n").size()
 		if line_count > MAX_API_MODULE_REFERENCE_LINES:
-			issues.append("%s has %d lines; module API pages should stay as indexes" % [relative_path, line_count])
+			issues.append(
+				"%s has %d lines; module API pages should stay as indexes"
+				% [relative_path, line_count]
+			)
 		if text.contains("\n### `") or text.contains("\n#### `"):
 			issues.append("%s appears to contain member detail headings; details belong under an API owner detail directory" % relative_path)
 
-	assert_eq(issues, [], "API Reference 应保持模块索引 + owner 详情页结构：\n%s" % _join_lines(issues))
+	assert_eq(
+		issues,
+		[],
+		"API Reference 应保持模块索引 + owner 详情页结构：\n%s" % _join_lines(issues)
+	)
 
 
 func test_docs_use_semantic_directories_matching_navigation() -> void:
@@ -180,7 +223,11 @@ func test_docs_use_semantic_directories_matching_navigation() -> void:
 		entry = dir.get_next()
 	dir.list_dir_end()
 
-	assert_eq(issues, [], "docs/zh 顶层必须保持语义目录，并与 Read the Docs 导航分组一致：\n%s" % _join_lines(issues))
+	assert_eq(
+		issues,
+		[],
+		"docs/zh 顶层必须保持语义目录，并与 Read the Docs 导航分组一致：\n%s" % _join_lines(issues)
+	)
 
 
 func test_doc_directories_have_index_pages() -> void:
@@ -192,7 +239,11 @@ func test_doc_directories_have_index_pages() -> void:
 		if not FileAccess.file_exists(index_path):
 			issues.append("%s has no index.md" % dir_path.trim_prefix(DOCS_ROOT + "/"))
 
-	assert_eq(issues, [], "每个文档目录都应提供 index.md 作为该组导读：\n%s" % _join_lines(issues))
+	assert_eq(
+		issues,
+		[],
+		"每个文档目录都应提供 index.md 作为该组导读：\n%s" % _join_lines(issues)
+	)
 
 
 func test_doc_directory_collection_ignores_empty_directories() -> void:
@@ -200,16 +251,32 @@ func test_doc_directory_collection_ignores_empty_directories() -> void:
 	var empty_dir: String = DOCS_DIRECTORY_FIXTURE_ROOT.path_join("empty")
 	var content_parent: String = DOCS_DIRECTORY_FIXTURE_ROOT.path_join("content")
 	var content_dir: String = content_parent.path_join("nested")
-	var empty_create_result: Error = DirAccess.make_dir_recursive_absolute(
-		ProjectSettings.globalize_path(empty_dir)
+	var empty_create_result: Error = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(empty_dir))
+	assert_eq(
+		empty_create_result,
+		OK,
+		"测试应能创建空文档目录。"
 	)
-	assert_eq(empty_create_result, OK, "测试应能创建空文档目录。")
-	_write_text(content_dir.path_join("page.md"), "# Fixture\n")
+	_write_text(
+		content_dir.path_join("page.md"),
+		"# Fixture\n"
+	)
 
 	var dirs: Array[String] = _collect_directories(DOCS_DIRECTORY_FIXTURE_ROOT)
-	assert_false(dirs.has(empty_dir), "没有 Markdown 内容的空目录不应成为文档结构输入。")
-	assert_has(dirs, content_parent, "包含 Markdown 后代的父目录应保留。")
-	assert_has(dirs, content_dir, "直接包含 Markdown 的目录应保留。")
+	assert_false(
+		dirs.has(empty_dir),
+		"没有 Markdown 内容的空目录不应成为文档结构输入。"
+	)
+	assert_has(
+		dirs,
+		content_parent,
+		"包含 Markdown 后代的父目录应保留。"
+	)
+	assert_has(
+		dirs,
+		content_dir,
+		"直接包含 Markdown 的目录应保留。"
+	)
 	_remove_directory_tree(DOCS_DIRECTORY_FIXTURE_ROOT)
 
 
@@ -225,14 +292,24 @@ func test_doc_index_pages_link_direct_child_pages() -> void:
 			continue
 
 		var index_relative_path: String = index_path.trim_prefix(DOCS_ROOT + "/")
-		var linked_paths: Array[String] = _collect_markdown_link_targets(index_relative_path, _read_text(index_path))
+		var linked_paths: Array[String] = _collect_markdown_link_targets(
+			index_relative_path,
+			_read_text(index_path)
+		)
 		for child_relative_path: String in _collect_direct_child_doc_entries(dir_path):
 			if _is_generated_api_reference_detail_page(child_relative_path):
 				continue
 			if not linked_paths.has(child_relative_path):
-				issues.append("%s does not link direct child %s" % [index_relative_path, child_relative_path])
+				issues.append(
+					"%s does not link direct child %s"
+					% [index_relative_path, child_relative_path]
+				)
 
-	assert_eq(issues, [], "压缩导航后，每个目录 index.md 必须直接链接自己的子页或子目录入口：\n%s" % _join_lines(issues))
+	assert_eq(
+		issues,
+		[],
+		"压缩导航后，每个目录 index.md 必须直接链接自己的子页或子目录入口：\n%s" % _join_lines(issues)
+	)
 
 
 func test_legacy_wiki_entry_files_point_to_readthedocs() -> void:
@@ -247,7 +324,11 @@ func test_legacy_wiki_entry_files_point_to_readthedocs() -> void:
 		if not text.contains(READTHEDOCS_URL):
 			issues.append("%s must link to Read the Docs" % path)
 
-	assert_eq(issues, [], "旧 GitHub Wiki 入口文件必须指向 Read the Docs：\n%s" % _join_lines(issues))
+	assert_eq(
+		issues,
+		[],
+		"旧 GitHub Wiki 入口文件必须指向 Read the Docs：\n%s" % _join_lines(issues)
+	)
 
 
 func test_legacy_wiki_contains_only_entry_files() -> void:
@@ -257,7 +338,11 @@ func test_legacy_wiki_contains_only_entry_files() -> void:
 		if not WIKI_ENTRY_FILES.has(path.get_file()):
 			issues.append("%s should be removed; legacy Wiki keeps entry files only" % path)
 
-	assert_eq(issues, [], "旧 GitHub Wiki 只保留 Home、Sidebar 和 Footer，不再保留章节兼容页：\n%s" % _join_lines(issues))
+	assert_eq(
+		issues,
+		[],
+		"旧 GitHub Wiki 只保留 Home、Sidebar 和 Footer，不再保留章节兼容页：\n%s" % _join_lines(issues)
+	)
 
 
 func test_readme_language_switches_and_doc_links_are_present() -> void:
@@ -270,10 +355,7 @@ func test_readme_language_switches_and_doc_links_are_present() -> void:
 		issues.append("README.md must link to README.zh.md")
 	if not chinese_readme.contains("[English](README.md) | 简体中文"):
 		issues.append("README.zh.md must link back to README.md")
-	if (
-		not addon_readme.contains("https://github.com/C76GN/gf-framework/blob/main/README.md")
-		or not addon_readme.contains("https://github.com/C76GN/gf-framework/blob/main/README.zh.md")
-	):
+	if (not addon_readme.contains("https://github.com/C76GN/gf-framework/blob/main/README.md") or not addon_readme.contains("https://github.com/C76GN/gf-framework/blob/main/README.zh.md")):
 		issues.append("addons/gf/README.md must point to both repository README languages with distributable HTTPS links")
 	if addon_readme.contains("](../"):
 		issues.append("addons/gf/README.md must not depend on files outside the distributable addon")
@@ -292,7 +374,11 @@ func test_readme_language_switches_and_doc_links_are_present() -> void:
 		if not chinese_readme.contains(fragment):
 			issues.append("README.zh.md is missing `%s`" % fragment)
 
-	assert_eq(issues, [], "README 中英文入口、分层说明和正式文档链接必须保持同步：\n%s" % _join_lines(issues))
+	assert_eq(
+		issues,
+		[],
+		"README 中英文入口、分层说明和正式文档链接必须保持同步：\n%s" % _join_lines(issues)
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -352,10 +438,12 @@ func _collect_directories_recursive(root_path: String, result: Array[String]) ->
 
 
 func _write_text(path: String, text: String) -> void:
-	var create_result: Error = DirAccess.make_dir_recursive_absolute(
-		ProjectSettings.globalize_path(path.get_base_dir())
+	var create_result: Error = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(path.get_base_dir()))
+	assert_eq(
+		create_result,
+		OK,
+		"测试应能创建文档夹具目录。"
 	)
-	assert_eq(create_result, OK, "测试应能创建文档夹具目录。")
 	var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
 	assert_not_null(file, "测试应能写入文档夹具。")
 	if file == null:
@@ -468,14 +556,18 @@ func _collect_mkdocs_nav_metrics(text: String) -> Dictionary:
 			continue
 
 		var indent: int = _count_leading_spaces(line)
-		var depth: int = floori(float(maxi(indent - 2, 0)) / 4.0) + 1
+		var depth: int = floori(
+			float(
+				maxi(
+					indent - 2,
+					0
+				)
+			) / 4.0
+		) + 1
 		item_count += 1
 		max_depth = maxi(max_depth, depth)
 
-	return {
-		"item_count": item_count,
-		"max_depth": max_depth,
-	}
+	return { "item_count": item_count, "max_depth": max_depth, }
 
 
 func _collect_reachable_doc_pages(seed_paths: Array[String]) -> Array[String]:
@@ -500,7 +592,10 @@ func _collect_reachable_doc_pages(seed_paths: Array[String]) -> Array[String]:
 		if not FileAccess.file_exists(doc_path):
 			continue
 
-		for linked_path: String in _collect_markdown_link_targets(relative_path, _read_text(doc_path)):
+		for linked_path: String in _collect_markdown_link_targets(
+			relative_path,
+			_read_text(doc_path)
+		):
 			if reachable_paths.has(linked_path) or queued_paths.has(linked_path):
 				continue
 			queued_paths.append(linked_path)
@@ -514,7 +609,10 @@ func _collect_markdown_link_targets(source_relative_path: String, text: String) 
 	var regex: RegEx = RegEx.new()
 	var _compile_result_248: Variant = regex.compile("(?<!!)\\[[^\\]\\n]+\\]\\(([^)\\n]+)\\)")
 	for match_result: RegExMatch in regex.search_all(text):
-		var target_path: String = _normalize_markdown_link_target(source_relative_path, match_result.get_string(1))
+		var target_path: String = _normalize_markdown_link_target(
+			source_relative_path,
+			match_result.get_string(1)
+		)
 		if target_path.is_empty() or result.has(target_path):
 			continue
 		result.append(target_path)
@@ -525,8 +623,15 @@ func _collect_markdown_link_targets(source_relative_path: String, text: String) 
 func _normalize_markdown_link_target(source_relative_path: String, target: String) -> String:
 	var clean_target: String = target.strip_edges()
 	if clean_target.begins_with("<") and clean_target.ends_with(">"):
-		clean_target = clean_target.substr(1, clean_target.length() - 2)
-	if clean_target.is_empty() or clean_target.begins_with("#") or _is_external_link(clean_target):
+		clean_target = clean_target.substr(
+			1,
+			clean_target.length() - 2
+		)
+	if (
+		clean_target.is_empty()
+		or clean_target.begins_with("#")
+		or _is_external_link(clean_target)
+	):
 		return ""
 
 	var fragment_index: int = clean_target.find("#")
@@ -575,10 +680,7 @@ func _is_numbered_slug(value: String) -> bool:
 func _is_generated_api_reference_detail_page(relative_path: String) -> bool:
 	if relative_path.begins_with("reference/api/classes/"):
 		return true
-	return (
-		relative_path.begins_with("reference/api/autoloads/")
-		and not relative_path.ends_with("/index.md")
-	)
+	return (relative_path.begins_with("reference/api/autoloads/") and not relative_path.ends_with("/index.md"))
 
 
 func _read_text(path: String) -> String:

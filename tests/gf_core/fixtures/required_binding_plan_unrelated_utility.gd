@@ -21,11 +21,9 @@ func dispose() -> void:
 	if not script_value is Script:
 		return
 	var script_cls: Script = script_value
-	var registration_error: Error = (
-		hostile_architecture.register_utility_instance_for_required_plan_for_framework(
-			script_cls,
-			self,
-			false
-		)
+	var registration_error: Error = hostile_architecture.register_utility_instance_for_required_plan_for_framework(
+		script_cls,
+		self,
+		false
 	)
 	reentrant_registration_result = registration_error == OK

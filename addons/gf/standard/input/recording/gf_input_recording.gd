@@ -111,7 +111,10 @@ func add_event(
 	}
 	_next_event_order_index += 1
 	_add_event_sorted(event)
-	duration_seconds = maxf(duration_seconds, _get_event_time_seconds(event))
+	duration_seconds = maxf(
+		duration_seconds,
+		_get_event_time_seconds(event)
+	)
 	return _event_to_dict(event, false)
 
 
@@ -151,7 +154,10 @@ func sort_events() -> void:
 		_events[index][_ORDER_INDEX_KEY] = index
 	_events.sort_custom(_sort_recording_events)
 	_next_event_order_index = _events.size()
-	duration_seconds = maxf(_normalize_time_seconds(duration_seconds), _get_max_event_time_seconds())
+	duration_seconds = maxf(
+		_normalize_time_seconds(duration_seconds),
+		_get_max_event_time_seconds()
+	)
 
 
 ## 获取事件副本。
@@ -223,11 +229,18 @@ func apply_dict(data: Dictionary, json_compatible: bool = false) -> void:
 			_next_event_order_index += 1
 			_events.append(event)
 
-	var metadata_value: Variant = GFVariantData.get_option_value(data, "metadata", {})
-	metadata_value = GFVariantJsonCodec.json_compatible_to_variant(metadata_value) if json_compatible else GFVariantData.duplicate_variant(metadata_value)
+	var metadata_value: Variant = GFVariantData.get_option_value(
+		data,
+		"metadata",
+		{}
+	)
+	metadata_value = (GFVariantJsonCodec.json_compatible_to_variant(metadata_value) if json_compatible else GFVariantData.duplicate_variant(metadata_value))
 	metadata = GFVariantData.as_dictionary(metadata_value)
 	sort_events()
-	duration_seconds = maxf(serialized_duration, _get_max_event_time_seconds())
+	duration_seconds = maxf(
+		serialized_duration,
+		_get_max_event_time_seconds()
+	)
 
 
 ## 从字典创建录制。
@@ -327,18 +340,10 @@ func _event_to_dict(event: Dictionary, json_compatible: bool) -> Dictionary:
 	return {
 		"time_seconds": _get_event_time_seconds(event),
 		"action_id": String(_get_event_action_id(event)),
-		"value": (
-			GFVariantJsonCodec.variant_to_json_compatible(_get_event_value(event))
-			if json_compatible
-			else GFVariantData.duplicate_variant(_get_event_value(event))
-		),
+		"value": (GFVariantJsonCodec.variant_to_json_compatible(_get_event_value(event)) if json_compatible else GFVariantData.duplicate_variant(_get_event_value(event))),
 		"player_index": _get_event_player_index(event),
 		"source_id": String(_get_event_source_id(event)),
-		"metadata": (
-			GFVariantJsonCodec.variant_to_json_compatible(_get_event_metadata(event))
-			if json_compatible
-			else GFVariantData.duplicate_variant(_get_event_metadata(event))
-		),
+		"metadata": (GFVariantJsonCodec.variant_to_json_compatible(_get_event_metadata(event)) if json_compatible else GFVariantData.duplicate_variant(_get_event_metadata(event))),
 	}
 
 
@@ -348,17 +353,13 @@ func _event_to_dict(event: Dictionary, json_compatible: bool) -> Dictionary:
 ## [br]
 func _event_from_dict(event: Dictionary, json_compatible: bool) -> Dictionary:
 	var value: Variant = _get_event_value(event)
-	value = (
-		GFVariantJsonCodec.json_compatible_to_variant(value)
-		if json_compatible
-		else GFVariantData.duplicate_variant(value)
+	value = (GFVariantJsonCodec.json_compatible_to_variant(value) if json_compatible else GFVariantData.duplicate_variant(value))
+	var event_metadata: Variant = GFVariantData.get_option_value(
+		event,
+		"metadata",
+		{}
 	)
-	var event_metadata: Variant = GFVariantData.get_option_value(event, "metadata", {})
-	event_metadata = (
-		GFVariantJsonCodec.json_compatible_to_variant(event_metadata)
-		if json_compatible
-		else GFVariantData.duplicate_variant(event_metadata)
-	)
+	event_metadata = (GFVariantJsonCodec.json_compatible_to_variant(event_metadata) if json_compatible else GFVariantData.duplicate_variant(event_metadata))
 	return {
 		"time_seconds": _normalize_time_seconds(_get_event_time_seconds(event)),
 		"action_id": _get_event_action_id(event),
@@ -412,7 +413,11 @@ func _get_event_value(event: Dictionary) -> Variant:
 ## @api private
 ## [br]
 func _get_event_player_index(event: Dictionary) -> int:
-	return GFVariantData.get_option_int(event, "player_index", -1)
+	return GFVariantData.get_option_int(
+		event,
+		"player_index",
+		-1
+	)
 
 
 ## 读取事件来源标识并转换为 StringName。
@@ -446,7 +451,10 @@ func _get_event_order_index(event: Dictionary) -> int:
 func _get_max_event_time_seconds() -> float:
 	var result: float = 0.0
 	for event: Dictionary in _events:
-		result = maxf(result, _get_event_time_seconds(event))
+		result = maxf(
+			result,
+			_get_event_time_seconds(event)
+		)
 	return result
 
 

@@ -72,14 +72,34 @@ const _SOURCE_RECEIPT_FORMAT_VERSION: int = 1
 ## @schema return: Dictionary，包含 success、phase、source_path、format、payload_kind、text、size_bytes、source_receipt、error_code、error_kind、error 和 context；source_receipt 绑定本次实际读取的字节数与 SHA-256。
 func read_source(source: GFConfigPipelineTableSource, options: Dictionary = {}) -> Dictionary:
 	if source == null:
-		return _make_failure(&"", "", "invalid_table_source", ERR_INVALID_PARAMETER, "表来源声明为空。")
+		return _make_failure(
+			&"",
+			"",
+			"invalid_table_source",
+			ERR_INVALID_PARAMETER,
+			"表来源声明为空。"
+		)
 	var table_name: StringName = source.get_table_key()
 	var source_path: String = source.source_path
 	var resolved_format: StringName = source.get_resolved_format()
 	if table_name == &"":
-		return _make_failure(&"", source_path, "empty_table_name", ERR_INVALID_DATA, "无法确定配置表名。", resolved_format)
+		return _make_failure(
+			&"",
+			source_path,
+			"empty_table_name",
+			ERR_INVALID_DATA,
+			"无法确定配置表名。",
+			resolved_format
+		)
 	if source_path.is_empty():
-		return _make_failure(table_name, source_path, "missing_source_path", ERR_FILE_NOT_FOUND, "配置表来源路径为空。", resolved_format)
+		return _make_failure(
+			table_name,
+			source_path,
+			"missing_source_path",
+			ERR_FILE_NOT_FOUND,
+			"配置表来源路径为空。",
+			resolved_format
+		)
 	if not _is_supported_format(resolved_format):
 		return _make_failure(
 			table_name,
@@ -88,7 +108,14 @@ func read_source(source: GFConfigPipelineTableSource, options: Dictionary = {}) 
 			ERR_FILE_UNRECOGNIZED,
 			"不支持的配置表来源格式：%s。" % String(resolved_format),
 			resolved_format,
-			{ "supported_formats": ["csv", "json", "config_file", "xlsx"] }
+			{
+				"supported_formats": [
+					"csv",
+					"json",
+					"config_file",
+					"xlsx",
+				],
+			}
 		)
 
 	var file: FileAccess = FileAccess.open(source_path, FileAccess.READ)
@@ -105,9 +132,13 @@ func read_source(source: GFConfigPipelineTableSource, options: Dictionary = {}) 
 		)
 
 	var source_size: int = file.get_length()
-	var budget_key: String = "max_xlsx_file_bytes" if resolved_format == GFConfigPipelineTableSource.FORMAT_XLSX else "max_source_file_bytes"
-	var default_budget: int = _DEFAULT_MAX_XLSX_FILE_BYTES if resolved_format == GFConfigPipelineTableSource.FORMAT_XLSX else _DEFAULT_MAX_SOURCE_FILE_BYTES
-	var source_budget: int = GFVariantData.get_option_int(options, budget_key, default_budget)
+	var budget_key: String = ("max_xlsx_file_bytes" if resolved_format == GFConfigPipelineTableSource.FORMAT_XLSX else "max_source_file_bytes")
+	var default_budget: int = (_DEFAULT_MAX_XLSX_FILE_BYTES if resolved_format == GFConfigPipelineTableSource.FORMAT_XLSX else _DEFAULT_MAX_SOURCE_FILE_BYTES)
+	var source_budget: int = GFVariantData.get_option_int(
+		options,
+		budget_key,
+		default_budget
+	)
 	if source_budget >= 0 and source_size > source_budget:
 		file.close()
 		return _make_failure(
@@ -115,7 +146,12 @@ func read_source(source: GFConfigPipelineTableSource, options: Dictionary = {}) 
 			source_path,
 			"source_budget_exceeded",
 			ERR_OUT_OF_MEMORY,
-			"配置表来源超过 %s：%d > %d。" % [budget_key, source_size, source_budget],
+			"配置表来源超过 %s：%d > %d。"
+			% [
+				budget_key,
+				source_size,
+				source_budget,
+			],
 			resolved_format,
 			{
 				"actual_value": source_size,
@@ -198,11 +234,13 @@ func get_stage_descriptor() -> Dictionary:
 		"implementation_version": IMPLEMENTATION_VERSION,
 		"input_contract": "GFConfigPipelineTableSource@1",
 		"output_contract": "gf.config_pipeline.reader_result@2",
-		"implementation_dependencies": [
-			"res://addons/gf/tools/config_pipeline/gf_config_pipeline_table_source.gd",
-			"res://addons/gf/standard/foundation/variant/gf_variant_data.gd",
+		"implementation_dependencies": ["res://addons/gf/tools/config_pipeline/gf_config_pipeline_table_source.gd", "res://addons/gf/standard/foundation/variant/gf_variant_data.gd",],
+		"supported_formats": [
+			"csv",
+			"json",
+			"config_file",
+			"xlsx",
 		],
-		"supported_formats": ["csv", "json", "config_file", "xlsx"],
 	}
 
 
@@ -213,10 +251,12 @@ func get_stage_descriptor() -> Dictionary:
 ## @api private
 ## [br]
 func _is_supported_format(resolved_format: StringName) -> bool:
-	return resolved_format == GFConfigPipelineTableSource.FORMAT_CSV \
-		or resolved_format == GFConfigPipelineTableSource.FORMAT_JSON \
-		or resolved_format == GFConfigPipelineTableSource.FORMAT_CONFIG_FILE \
+	return (
+		resolved_format == GFConfigPipelineTableSource.FORMAT_CSV
+		or resolved_format == GFConfigPipelineTableSource.FORMAT_JSON
+		or resolved_format == GFConfigPipelineTableSource.FORMAT_CONFIG_FILE
 		or resolved_format == GFConfigPipelineTableSource.FORMAT_XLSX
+	)
 
 
 ## 组装 Reader 成功结果，并深复制来源读取收据。

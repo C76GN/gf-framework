@@ -112,7 +112,12 @@ static func create_base_add(
 	p_attribute_id: StringName = &"",
 	p_source_id: StringName = &""
 ) -> GFModifier:
-	return GFModifier.new(Type.BASE_ADD, p_value, p_attribute_id, p_source_id)
+	return GFModifier.new(
+		Type.BASE_ADD,
+		p_value,
+		p_attribute_id,
+		p_source_id
+	)
 
 
 ## 静态工厂方法：创建百分比加值修饰器。
@@ -131,7 +136,12 @@ static func create_percent_add(
 	p_attribute_id: StringName = &"",
 	p_source_id: StringName = &""
 ) -> GFModifier:
-	return GFModifier.new(Type.PERCENT_ADD, p_value, p_attribute_id, p_source_id)
+	return GFModifier.new(
+		Type.PERCENT_ADD,
+		p_value,
+		p_attribute_id,
+		p_source_id
+	)
 
 
 ## 静态工厂方法：创建最终加值修饰器。
@@ -150,7 +160,12 @@ static func create_final_add(
 	p_attribute_id: StringName = &"",
 	p_source_id: StringName = &""
 ) -> GFModifier:
-	return GFModifier.new(Type.FINAL_ADD, p_value, p_attribute_id, p_source_id)
+	return GFModifier.new(
+		Type.FINAL_ADD,
+		p_value,
+		p_attribute_id,
+		p_source_id
+	)
 
 
 ## 创建修饰器副本。
@@ -161,7 +176,12 @@ static func create_final_add(
 ## [br]
 ## @return 新修饰器。
 func duplicate_modifier() -> GFModifier:
-	var modifier: GFModifier = GFModifier.new(type, value, attribute_id, source_id)
+	var modifier: GFModifier = GFModifier.new(
+		type,
+		value,
+		attribute_id,
+		source_id
+	)
 	modifier._value_is_valid = _value_is_valid
 	return modifier
 
@@ -205,10 +225,28 @@ func to_dictionary() -> Dictionary:
 ## [br]
 ## @schema data: Dictionary with optional type, value, attribute_id, and source_id.
 func apply_dictionary(data: Dictionary) -> void:
-	type = _normalize_type(GFVariantData.get_option_value(data, "type", type))
-	value = GFVariantData.get_option_float(data, "value", value)
-	attribute_id = GFVariantData.get_option_string_name(data, "attribute_id", attribute_id)
-	source_id = GFVariantData.get_option_string_name(data, "source_id", source_id)
+	type = _normalize_type(
+		GFVariantData.get_option_value(
+			data,
+			"type",
+			type
+		)
+	)
+	value = GFVariantData.get_option_float(
+		data,
+		"value",
+		value
+	)
+	attribute_id = GFVariantData.get_option_string_name(
+		data,
+		"attribute_id",
+		attribute_id
+	)
+	source_id = GFVariantData.get_option_string_name(
+		data,
+		"source_id",
+		source_id
+	)
 
 
 ## 从字典创建修饰器。
@@ -250,7 +288,11 @@ static func _normalize_type(raw_value: Variant) -> Type:
 ## [br]
 ## @api private
 static func _int_to_type(type_index: int) -> Type:
-	match clampi(type_index, Type.BASE_ADD, Type.FINAL_ADD):
+	match clampi(
+		type_index,
+		Type.BASE_ADD,
+		Type.FINAL_ADD
+	):
 		Type.PERCENT_ADD:
 			return Type.PERCENT_ADD
 		Type.FINAL_ADD:

@@ -64,7 +64,14 @@ static func make_reflection_transform(plane_normal: Vector3, plane_point: Vector
 	var y_axis: Vector3 = Vector3.UP - 2.0 * normal.y * normal
 	var z_axis: Vector3 = Vector3.BACK - 2.0 * normal.z * normal
 	var origin: Vector3 = 2.0 * normal.dot(plane_point) * normal
-	return Transform3D(Basis(x_axis, y_axis, z_axis), origin)
+	return Transform3D(
+		Basis(
+			x_axis,
+			y_axis,
+			z_axis
+		),
+		origin
+	)
 
 
 ## 将点按指定平面反射。
@@ -80,7 +87,11 @@ static func make_reflection_transform(plane_normal: Vector3, plane_point: Vector
 ## @param plane_point: 平面上的任意一点。
 ## [br]
 ## @return 反射后的世界点。
-static func reflect_point(point: Vector3, plane_normal: Vector3, plane_point: Vector3) -> Vector3:
+static func reflect_point(
+	point: Vector3,
+	plane_normal: Vector3,
+	plane_point: Vector3
+) -> Vector3:
 	var normal: Vector3 = _get_safe_normal(plane_normal)
 	if normal == Vector3.ZERO:
 		return point
@@ -130,7 +141,11 @@ static func reflect_transform(
 	if normal == Vector3.ZERO:
 		return transform
 
-	var reflected_origin: Vector3 = reflect_point(transform.origin, normal, plane_point)
+	var reflected_origin: Vector3 = reflect_point(
+		transform.origin,
+		normal,
+		plane_point
+	)
 	var reflected_basis: Basis = Basis(
 		reflect_direction(transform.basis.x, normal),
 		reflect_direction(transform.basis.y, normal),
@@ -173,23 +188,63 @@ static func intersect_ray_plane(
 ) -> Dictionary:
 	var direction: Vector3 = _get_safe_normal(ray_direction)
 	if not _is_finite_vector3(ray_origin) or direction == Vector3.ZERO:
-		return _make_ray_plane_report(false, &"invalid_ray", Vector3.ZERO, Vector3.ZERO, 0.0, ray_origin, direction)
+		return _make_ray_plane_report(
+			false,
+			&"invalid_ray",
+			Vector3.ZERO,
+			Vector3.ZERO,
+			0.0,
+			ray_origin,
+			direction
+		)
 
 	var normal: Vector3 = _get_safe_normal(plane_normal)
 	if not _is_finite_vector3(plane_point) or normal == Vector3.ZERO:
-		return _make_ray_plane_report(false, &"invalid_plane", Vector3.ZERO, Vector3.ZERO, 0.0, ray_origin, direction)
+		return _make_ray_plane_report(
+			false,
+			&"invalid_plane",
+			Vector3.ZERO,
+			Vector3.ZERO,
+			0.0,
+			ray_origin,
+			direction
+		)
 
 	var denominator: float = direction.dot(normal)
 	if absf(denominator) <= _EPSILON:
-		return _make_ray_plane_report(false, &"parallel", Vector3.ZERO, normal, 0.0, ray_origin, direction)
+		return _make_ray_plane_report(
+			false,
+			&"parallel",
+			Vector3.ZERO,
+			normal,
+			0.0,
+			ray_origin,
+			direction
+		)
 
 	var distance: float = (plane_point - ray_origin).dot(normal) / denominator
 	if distance < 0.0:
-		return _make_ray_plane_report(false, &"behind_ray", Vector3.ZERO, normal, distance, ray_origin, direction)
+		return _make_ray_plane_report(
+			false,
+			&"behind_ray",
+			Vector3.ZERO,
+			normal,
+			distance,
+			ray_origin,
+			direction
+		)
 
 	var safe_max_distance: float = max_distance if _is_finite_float(max_distance) else -1.0
 	if safe_max_distance > 0.0 and distance > safe_max_distance:
-		return _make_ray_plane_report(false, &"beyond_max_distance", Vector3.ZERO, normal, distance, ray_origin, direction)
+		return _make_ray_plane_report(
+			false,
+			&"beyond_max_distance",
+			Vector3.ZERO,
+			normal,
+			distance,
+			ray_origin,
+			direction
+		)
 
 	var hit_normal: Vector3 = normal
 	if face_normal_to_ray and direction.dot(hit_normal) > 0.0:
@@ -219,10 +274,7 @@ static func intersect_ray_plane(
 ## @param z_axis_hint: 期望局部 Z 轴尽量接近的方向。
 ## [br]
 ## @return 正交 basis；输入无效时返回 Basis.IDENTITY。
-static func make_basis_from_up_and_z_hint(
-	up_axis: Vector3,
-	z_axis_hint: Vector3 = Vector3.BACK
-) -> Basis:
+static func make_basis_from_up_and_z_hint(up_axis: Vector3, z_axis_hint: Vector3 = Vector3.BACK) -> Basis:
 	var up: Vector3 = _get_safe_normal(up_axis)
 	if up == Vector3.ZERO:
 		return Basis.IDENTITY
@@ -240,7 +292,11 @@ static func make_basis_from_up_and_z_hint(
 
 	x_axis = x_axis.normalized()
 	z_axis = x_axis.cross(up).normalized()
-	return Basis(x_axis, up, z_axis).orthonormalized()
+	return Basis(
+		x_axis,
+		up,
+		z_axis
+	).orthonormalized()
 
 
 ## 按轴向锁定模式归一 3D 缩放插值权重。
@@ -257,10 +313,7 @@ static func make_basis_from_up_and_z_hint(
 ## @param mode: 轴向锁定模式。
 ## [br]
 ## @return 应用于 X/Y/Z 的权重。
-static func apply_scale_axis_mode(
-	weight: Vector3,
-	mode: ScaleAxisMode = ScaleAxisMode.UNIFORM
-) -> Vector3:
+static func apply_scale_axis_mode(weight: Vector3, mode: ScaleAxisMode = ScaleAxisMode.UNIFORM) -> Vector3:
 	if not _is_finite_vector3(weight):
 		return Vector3.ZERO
 
@@ -268,11 +321,23 @@ static func apply_scale_axis_mode(
 		ScaleAxisMode.FREE:
 			return weight
 		ScaleAxisMode.LOCK_XY:
-			return Vector3(weight.x, weight.x, weight.z)
+			return Vector3(
+				weight.x,
+				weight.x,
+				weight.z
+			)
 		ScaleAxisMode.LOCK_XZ:
-			return Vector3(weight.x, weight.y, weight.x)
+			return Vector3(
+				weight.x,
+				weight.y,
+				weight.x
+			)
 		ScaleAxisMode.LOCK_YZ:
-			return Vector3(weight.x, weight.y, weight.y)
+			return Vector3(
+				weight.x,
+				weight.y,
+				weight.y
+			)
 		_:
 			return Vector3.ONE * weight.x
 
@@ -300,14 +365,30 @@ static func interpolate_scale(
 	weight: Vector3,
 	mode: ScaleAxisMode = ScaleAxisMode.UNIFORM
 ) -> Vector3:
-	if not _is_finite_vector3(min_scale) or not _is_finite_vector3(max_scale) or not _is_finite_vector3(weight):
+	if (
+		not _is_finite_vector3(min_scale)
+		or not _is_finite_vector3(max_scale)
+		or not _is_finite_vector3(weight)
+	):
 		return Vector3.ONE
 
 	var scale_weight: Vector3 = apply_scale_axis_mode(weight, mode)
 	return Vector3(
-		lerpf(min_scale.x, max_scale.x, scale_weight.x),
-		lerpf(min_scale.y, max_scale.y, scale_weight.y),
-		lerpf(min_scale.z, max_scale.z, scale_weight.z)
+		lerpf(
+			min_scale.x,
+			max_scale.x,
+			scale_weight.x
+		),
+		lerpf(
+			min_scale.y,
+			max_scale.y,
+			scale_weight.y
+		),
+		lerpf(
+			min_scale.z,
+			max_scale.z,
+			scale_weight.z
+		)
 	)
 
 
@@ -337,14 +418,47 @@ static func snap_point_to_plane_grid(
 	plane_origin: Vector3 = Vector3.ZERO
 ) -> Dictionary:
 	if not _is_finite_vector3(point) or not _is_finite_vector3(plane_origin):
-		return _make_snap_report(false, &"invalid_point", Vector3.ZERO, Vector3.ZERO, Vector3.ZERO, Vector3.ZERO, 0.0, 0.0, 0.0, 0.0)
+		return _make_snap_report(
+			false,
+			&"invalid_point",
+			Vector3.ZERO,
+			Vector3.ZERO,
+			Vector3.ZERO,
+			Vector3.ZERO,
+			0.0,
+			0.0,
+			0.0,
+			0.0
+		)
 
 	var normal: Vector3 = _get_safe_normal(plane_normal)
 	if normal == Vector3.ZERO:
-		return _make_snap_report(false, &"invalid_plane", Vector3.ZERO, Vector3.ZERO, Vector3.ZERO, Vector3.ZERO, 0.0, 0.0, 0.0, 0.0)
+		return _make_snap_report(
+			false,
+			&"invalid_plane",
+			Vector3.ZERO,
+			Vector3.ZERO,
+			Vector3.ZERO,
+			Vector3.ZERO,
+			0.0,
+			0.0,
+			0.0,
+			0.0
+		)
 
 	if not _is_finite_float(grid_step) or grid_step <= _EPSILON:
-		return _make_snap_report(false, &"invalid_grid_step", Vector3.ZERO, normal, Vector3.ZERO, Vector3.ZERO, 0.0, 0.0, 0.0, 0.0)
+		return _make_snap_report(
+			false,
+			&"invalid_grid_step",
+			Vector3.ZERO,
+			normal,
+			Vector3.ZERO,
+			Vector3.ZERO,
+			0.0,
+			0.0,
+			0.0,
+			0.0
+		)
 
 	var basis: Basis = make_basis_from_up_and_z_hint(normal)
 	var x_axis: Vector3 = basis.x.normalized()
@@ -355,13 +469,19 @@ static func snap_point_to_plane_grid(
 	var normal_distance: float = normal.dot(relative)
 	var snapped_x: float = roundf(x_distance / grid_step) * grid_step
 	var snapped_z: float = roundf(z_distance / grid_step) * grid_step
-	var snapped_point: Vector3 = (
-		plane_origin
-		+ x_axis * snapped_x
-		+ z_axis * snapped_z
-		+ normal * normal_distance
+	var snapped_point: Vector3 = plane_origin + x_axis * snapped_x + z_axis * snapped_z + normal * normal_distance
+	return _make_snap_report(
+		true,
+		&"",
+		snapped_point,
+		normal,
+		x_axis,
+		z_axis,
+		grid_step,
+		normal_distance,
+		snapped_x,
+		snapped_z
 	)
-	return _make_snap_report(true, &"", snapped_point, normal, x_axis, z_axis, grid_step, normal_distance, snapped_x, snapped_z)
 
 
 ## 平移 Transform3D，使指定本地锚点落到目标世界点。
@@ -384,7 +504,11 @@ static func move_local_point_to_world(
 	local_point: Vector3,
 	world_point: Vector3
 ) -> Transform3D:
-	if not _is_finite_transform3d(transform) or not _is_finite_vector3(local_point) or not _is_finite_vector3(world_point):
+	if (
+		not _is_finite_transform3d(transform)
+		or not _is_finite_vector3(local_point)
+		or not _is_finite_vector3(world_point)
+	):
 		return transform
 
 	var current_world_point: Vector3 = transform * local_point
@@ -418,7 +542,11 @@ static func _is_finite_float(value: float) -> bool:
 ## @api private
 ## [br]
 static func _is_finite_vector3(value: Vector3) -> bool:
-	return _is_finite_float(value.x) and _is_finite_float(value.y) and _is_finite_float(value.z)
+	return (
+		_is_finite_float(value.x)
+		and _is_finite_float(value.y)
+		and _is_finite_float(value.z)
+	)
 
 
 ## 判断 Basis 的三个轴向量是否均为有限值。

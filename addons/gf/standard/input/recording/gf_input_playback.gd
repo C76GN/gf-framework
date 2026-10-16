@@ -284,7 +284,11 @@ func reset() -> void:
 ## [br]
 ## @return 本次应用的事件数量。
 func tick(delta: float) -> int:
-	if not is_playing or recording == null or source == null:
+	if (
+		not is_playing
+		or recording == null
+		or source == null
+	):
 		return 0
 
 	var operation_epoch: int = _playback_epoch
@@ -316,7 +320,11 @@ func tick(delta: float) -> int:
 	):
 		return applied
 	if _next_event_index >= _event_snapshot.size():
-		_handle_end_reached(operation_epoch, operation_recording, operation_source)
+		_handle_end_reached(
+			operation_epoch,
+			operation_recording,
+			operation_source
+		)
 	return applied
 
 
@@ -437,7 +445,11 @@ func _apply_event(event: Dictionary, target_source: GFVirtualInputSource) -> boo
 	var player_index: int = _get_event_player_index(event)
 	var applied: bool = false
 	if respect_recorded_player_index and player_index >= 0:
-		applied = target_source.set_action_value_for_player(action_id, value, player_index)
+		applied = target_source.set_action_value_for_player(
+			action_id,
+			value,
+			player_index
+		)
 	else:
 		applied = target_source.set_action_value(action_id, value)
 	return applied
@@ -555,7 +567,10 @@ func _tick_looping(
 	var remaining: float = advance_seconds
 	var completed_cycles: int = 0
 	while remaining > 0.0:
-		var time_to_end: float = maxf(_duration_seconds - elapsed_seconds, 0.0)
+		var time_to_end: float = maxf(
+			_duration_seconds - elapsed_seconds,
+			0.0
+		)
 		if remaining < time_to_end:
 			elapsed_seconds += remaining
 			applied += _apply_due_events(
@@ -578,7 +593,10 @@ func _tick_looping(
 			true
 		):
 			return applied
-		remaining = maxf(remaining - time_to_end, 0.0)
+		remaining = maxf(
+			remaining - time_to_end,
+			0.0
+		)
 		completed_cycles += 1
 		if not _begin_loop_cycle(
 			operation_epoch,
@@ -611,10 +629,7 @@ func _tick_looping(
 				)
 				return applied
 			var skipped_cycles_float: float = floor(remaining / _duration_seconds)
-			var skipped_cycles: int = int(minf(
-				skipped_cycles_float,
-				_MAX_REPORTED_SKIPPED_CYCLES
-			))
+			var skipped_cycles: int = int(minf(skipped_cycles_float, _MAX_REPORTED_SKIPPED_CYCLES))
 			remaining = fmod(remaining, _duration_seconds)
 			loop_catch_up_limited.emit(0.0, skipped_cycles)
 			if not _is_playback_state_current(
@@ -666,7 +681,12 @@ func _begin_loop_cycle(
 ## @api private
 ## [br]
 func _get_advance_seconds(delta: float) -> float:
-	if is_nan(delta) or is_inf(delta) or is_nan(speed) or is_inf(speed):
+	if (
+		is_nan(delta)
+		or is_inf(delta)
+		or is_nan(speed)
+		or is_inf(speed)
+	):
 		return 0.0
 	var result: float = maxf(delta, 0.0) * maxf(speed, 0.0)
 	return result if not is_nan(result) and not is_inf(result) else 0.0
@@ -714,7 +734,10 @@ func _is_playback_state_current(
 		return true
 	if (
 		_playback_epoch == operation_epoch
-		and (recording != operation_recording or source != operation_source)
+		and (
+			recording != operation_recording
+			or source != operation_source
+		)
 	):
 		_playback_epoch += 1
 		is_playing = false
@@ -742,7 +765,11 @@ func _get_event_action_id(event: Dictionary) -> StringName:
 ## @api private
 ## [br]
 func _get_event_value(event: Dictionary) -> Variant:
-	return GFVariantData.get_option_value(event, "value", false)
+	return GFVariantData.get_option_value(
+		event,
+		"value",
+		false
+	)
 
 
 ## 读取事件的 player_index 字段；缺少字段时返回 -1。
@@ -750,4 +777,8 @@ func _get_event_value(event: Dictionary) -> Variant:
 ## @api private
 ## [br]
 func _get_event_player_index(event: Dictionary) -> int:
-	return GFVariantData.get_option_int(event, "player_index", -1)
+	return GFVariantData.get_option_int(
+		event,
+		"player_index",
+		-1
+	)

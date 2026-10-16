@@ -102,14 +102,8 @@ func get_project_setting_records() -> Array[Dictionary]:
 			"hint": _GF_RESOURCE_PATH_HINT_SCRIPT.RESOURCE_PATH_ARRAY,
 			"hint_string": "GFNetworkContract",
 			"basic": true,
-			"editor_labels": {
-				"en": "Network Contract Paths",
-				"zh_CN": "网络契约路径",
-			},
-			"editor_descriptions": {
-				"en": "GFNetworkContract resources included when generating and auditing network contract accessors.",
-				"zh_CN": "生成和审计网络契约访问器时使用的 GFNetworkContract 资源列表。",
-			},
+			"editor_labels": { "en": "Network Contract Paths", "zh_CN": "网络契约路径", },
+			"editor_descriptions": { "en": "GFNetworkContract resources included when generating and auditing network contract accessors.", "zh_CN": "生成和审计网络契约访问器时使用的 GFNetworkContract 资源列表。", },
 		},
 		{
 			"owner_package_id": "gf.tool.network.editor",
@@ -119,14 +113,8 @@ func get_project_setting_records() -> Array[Dictionary]:
 			"type": TYPE_STRING,
 			"hint": PROPERTY_HINT_DIR,
 			"basic": true,
-			"editor_labels": {
-				"en": "Contract Output Directory",
-				"zh_CN": "契约输出目录",
-			},
-			"editor_descriptions": {
-				"en": "Project directory where generated network contract accessor scripts are written.",
-				"zh_CN": "网络契约访问器脚本的项目输出目录。",
-			},
+			"editor_labels": { "en": "Contract Output Directory", "zh_CN": "契约输出目录", },
+			"editor_descriptions": { "en": "Project directory where generated network contract accessor scripts are written.", "zh_CN": "网络契约访问器脚本的项目输出目录。", },
 		},
 	]
 
@@ -144,14 +132,8 @@ func get_project_setting_section_records() -> Array[Dictionary]:
 			"owner_package_id": "gf.tool.network.editor",
 			"source_id": "network.project_setting_section.network",
 			"path": "gf/network",
-			"editor_labels": {
-				"en": "Network",
-				"zh_CN": "网络",
-			},
-			"editor_descriptions": {
-				"en": "Editor tooling for GF network contracts and generated accessors.",
-				"zh_CN": "GF 网络契约与访问器生成工具的项目配置。",
-			},
+			"editor_labels": { "en": "Network", "zh_CN": "网络", },
+			"editor_descriptions": { "en": "Editor tooling for GF network contracts and generated accessors.", "zh_CN": "GF 网络契约与访问器生成工具的项目配置。", },
 		},
 	]
 
@@ -213,7 +195,7 @@ func _generate_contract_accessors() -> void:
 		)
 		return
 
-	var output_dir: String = GFVariantData.to_text(ProjectSettings.get_setting(_SETTING_CONTRACT_OUTPUT_DIR, _DEFAULT_OUTPUT_DIR)).strip_edges()
+	var output_dir: String = (GFVariantData.to_text(ProjectSettings.get_setting(_SETTING_CONTRACT_OUTPUT_DIR, _DEFAULT_OUTPUT_DIR)).strip_edges())
 	if output_dir.is_empty():
 		output_dir = _DEFAULT_OUTPUT_DIR
 
@@ -230,22 +212,31 @@ func _generate_contract_accessors() -> void:
 		if not (item_variant is Dictionary):
 			continue
 		var item: Dictionary = GFVariantData.as_dictionary(item_variant)
-		var _append_result_98: Variant = lines.append("- %s -> %s (%s, %s)" % [
-			GFVariantData.get_option_string(item, "contract_path"),
-			GFVariantData.get_option_string(item, "output_path"),
-			GFVariantData.get_option_string(item, "status"),
-			GFVariantData.get_option_string(item, "error_name"),
-		])
+		var _append_result_98: Variant = lines.append(
+			"- %s -> %s (%s, %s)"
+			% [
+				GFVariantData.get_option_string(item, "contract_path"),
+				GFVariantData.get_option_string(item, "output_path"),
+				GFVariantData.get_option_string(item, "status"),
+				GFVariantData.get_option_string(item, "error_name"),
+			]
+		)
 	for issue_variant: Variant in GFVariantData.get_option_array(report, "issues"):
 		if not (issue_variant is Dictionary):
 			continue
 		var issue: Dictionary = GFVariantData.as_dictionary(issue_variant)
-		var _append_result_108: Variant = lines.append("! %s %s: %s" % [
-			GFVariantData.get_option_string(issue, "kind"),
-			GFVariantData.get_option_string(issue, "path"),
-			GFVariantData.get_option_string(issue, "message"),
-		])
-	_show_diagnostic_dialog("GF Network Contracts", "\n".join(lines))
+		var _append_result_108: Variant = lines.append(
+			"! %s %s: %s"
+			% [
+				GFVariantData.get_option_string(issue, "kind"),
+				GFVariantData.get_option_string(issue, "path"),
+				GFVariantData.get_option_string(issue, "message"),
+			]
+		)
+	_show_diagnostic_dialog(
+		"GF Network Contracts",
+		"\n".join(lines)
+	)
 
 
 ## 审计项目设置的契约路径并将审计结果显示在诊断窗口。
@@ -276,13 +267,24 @@ func _audit_contracts() -> void:
 		var issue_path: String = GFVariantData.get_option_string(issue, "path")
 		var location: String = issue_path
 		if not resource_path.is_empty():
-			location = resource_path if issue_path.is_empty() or issue_path == resource_path else "%s :: %s" % [resource_path, issue_path]
-		var _append_issue_result: Variant = lines.append("! %s %s: %s" % [
-			GFVariantData.get_option_string(issue, "kind"),
-			location,
-			GFVariantData.get_option_string(issue, "message"),
-		])
-	_show_diagnostic_dialog("GF Network Contract Audit", "\n".join(lines))
+			location = (
+				resource_path
+				if issue_path.is_empty() or issue_path == resource_path
+				else "%s :: %s"
+				% [resource_path, issue_path]
+			)
+		var _append_issue_result: Variant = lines.append(
+			"! %s %s: %s"
+			% [
+				GFVariantData.get_option_string(issue, "kind"),
+				location,
+				GFVariantData.get_option_string(issue, "message"),
+			]
+		)
+	_show_diagnostic_dialog(
+		"GF Network Contract Audit",
+		"\n".join(lines)
+	)
 
 
 ## 读取项目设置并将数组、PackedStringArray 或逗号分隔字符串规范为唯一路径列表。
@@ -290,14 +292,20 @@ func _audit_contracts() -> void:
 ## @api private
 ## [br]
 func _read_contract_paths() -> PackedStringArray:
-	var value: Variant = ProjectSettings.get_setting(_SETTING_CONTRACT_PATHS, PackedStringArray())
+	var value: Variant = ProjectSettings.get_setting(
+		_SETTING_CONTRACT_PATHS,
+		PackedStringArray()
+	)
 	var result: PackedStringArray = PackedStringArray()
 	if value is PackedStringArray:
 		for path: String in value:
 			_append_contract_path(result, path)
 	elif value is Array:
 		for path_variant: Variant in value:
-			_append_contract_path(result, GFVariantData.to_text(path_variant))
+			_append_contract_path(
+				result,
+				GFVariantData.to_text(path_variant)
+			)
 	elif value is String:
 		for path: String in GFVariantData.to_text(value).split(",", false):
 			_append_contract_path(result, path)
@@ -337,10 +345,12 @@ func _show_diagnostic_dialog(title: String, text: String) -> void:
 	_diagnostic_dialog.title = title
 	if is_instance_valid(_diagnostic_output):
 		_diagnostic_output.text = text
-	_diagnostic_dialog.popup_centered(Vector2i(
-		int(_DIAGNOSTIC_DIALOG_MIN_SIZE.x),
-		int(_DIAGNOSTIC_DIALOG_MIN_SIZE.y)
-	))
+	_diagnostic_dialog.popup_centered(
+		Vector2i(
+			int(_DIAGNOSTIC_DIALOG_MIN_SIZE.x),
+			int(_DIAGNOSTIC_DIALOG_MIN_SIZE.y)
+		)
+	)
 
 
 ## 释放诊断对话框并清空对话框与文本控件引用。

@@ -107,7 +107,10 @@ func configure(
 	platform_id = GFVariantData.get_option_string_name(options, "platform_id")
 	adapter_id = GFVariantData.get_option_string_name(options, "adapter_id")
 	source = GFVariantData.get_option_string_name(options, "source")
-	timestamp_msec = maxi(GFVariantData.get_option_int(options, "timestamp_msec"), 0)
+	timestamp_msec = maxi(
+		GFVariantData.get_option_int(options, "timestamp_msec"),
+		0
+	)
 	payload = p_payload.duplicate(true)
 	metadata = GFVariantData.get_option_dictionary(options, "metadata")
 	return self
@@ -161,7 +164,10 @@ func apply_dict(data: Dictionary) -> void:
 	platform_id = GFVariantData.get_option_string_name(data, "platform_id")
 	adapter_id = GFVariantData.get_option_string_name(data, "adapter_id")
 	source = GFVariantData.get_option_string_name(data, "source")
-	timestamp_msec = maxi(GFVariantData.get_option_int(data, "timestamp_msec"), 0)
+	timestamp_msec = maxi(
+		GFVariantData.get_option_int(data, "timestamp_msec"),
+		0
+	)
 	payload = GFVariantData.get_option_dictionary(data, "payload")
 	metadata = GFVariantData.get_option_dictionary(data, "metadata")
 

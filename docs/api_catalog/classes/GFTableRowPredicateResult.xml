@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTableRowPredicateResult" path="addons/gf/standard/utilities/ui/gf_table_row_predicate_result.gd" module="standard" extends="RefCounted" classDigest="55be8e0016bbf902bcab5b7d22f90fcf576c282f3b895cde3dc9c7f17ae1bf40">
+<class name="GFTableRowPredicateResult" path="addons/gf/standard/utilities/ui/gf_table_row_predicate_result.gd" module="standard" extends="RefCounted" classDigest="31b87c067f82ec53322ad6e717a16d5d27a9b795a22a4eb0058da22f6995086d">
 	<description>GFTableRowPredicateResult: 类型化行谓词求值结果。
 成功结果明确表示包含或排除当前行；失败结果携带稳定错误码和有界说明，
 供 GFTableDataView 中止候选投影并保留上一份已提交视图。</description>
@@ -32,7 +32,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="failed">
-			<signature>static func failed( error_code: StringName, error_message: String = "" ) -&gt; GFTableRowPredicateResult:</signature>
+			<signature>static func failed(error_code: StringName, error_message: String = "") -&gt; GFTableRowPredicateResult:</signature>
 			<description>创建求值失败结果。</description>
 			<tags>
 				<tag name="api">public</tag>

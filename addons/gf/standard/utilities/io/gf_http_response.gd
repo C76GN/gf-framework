@@ -118,7 +118,12 @@ func is_pending() -> bool:
 ## [br]
 ## @return 请求以 2xx HTTP 状态码完成且没有错误时返回 true。
 func is_successful() -> bool:
-	return state == State.COMPLETED and status_code >= 200 and status_code < 300 and error.is_empty()
+	return (
+		state == State.COMPLETED
+		and status_code >= 200
+		and status_code < 300
+		and error.is_empty()
+	)
 
 
 ## 请求是否已结束。
@@ -205,7 +210,11 @@ func complete_success(fields: Dictionary = {}) -> void:
 
 	_apply_fields(fields)
 	state = State.COMPLETED
-	error = GFVariantData.get_option_string(fields, "error", error)
+	error = GFVariantData.get_option_string(
+		fields,
+		"error",
+		error
+	)
 	cancel_callback = Callable()
 	completed.emit(self)
 
@@ -281,21 +290,55 @@ func to_dictionary() -> Dictionary:
 ## [br]
 func _apply_fields(fields: Dictionary) -> void:
 	if fields.has("url"):
-		url = GFVariantData.get_option_string(fields, "url", url)
+		url = GFVariantData.get_option_string(
+			fields,
+			"url",
+			url
+		)
 	if fields.has("status_code"):
-		status_code = GFVariantData.get_option_int(fields, "status_code", status_code)
+		status_code = GFVariantData.get_option_int(
+			fields,
+			"status_code",
+			status_code
+		)
 	if fields.has("result_code"):
-		result_code = GFVariantData.get_option_int(fields, "result_code", result_code)
+		result_code = GFVariantData.get_option_int(
+			fields,
+			"result_code",
+			result_code
+		)
 	if fields.has("headers"):
-		headers = _variant_to_packed_string_array(GFVariantData.get_option_value(fields, "headers", headers))
+		headers = _variant_to_packed_string_array(
+			GFVariantData.get_option_value(
+				fields,
+				"headers",
+				headers
+			)
+		)
 	if fields.has("text"):
-		text = GFVariantData.get_option_string(fields, "text", text)
+		text = GFVariantData.get_option_string(
+			fields,
+			"text",
+			text
+		)
 	if fields.has("body"):
-		body = _variant_to_packed_byte_array(GFVariantData.get_option_value(fields, "body", body))
+		body = _variant_to_packed_byte_array(
+			GFVariantData.get_option_value(
+				fields,
+				"body",
+				body
+			)
+		)
 	if fields.has("data"):
 		data = GFVariantData.get_option_value(fields, "data")
 	if fields.has("metadata") and fields["metadata"] is Dictionary:
-		metadata = GFVariantData.to_dictionary(GFVariantData.get_option_value(fields, "metadata", metadata))
+		metadata = GFVariantData.to_dictionary(
+			GFVariantData.get_option_value(
+				fields,
+				"metadata",
+				metadata
+			)
+		)
 
 
 ## 仅接受 PackedStringArray 响应头值，其余类型返回空数组。
@@ -333,10 +376,7 @@ func _parse_header(raw_header: String) -> Dictionary:
 	if header_name.is_empty():
 		return {}
 
-	return {
-		"name": header_name,
-		"value": raw_header.substr(colon_index + 1).strip_edges(),
-	}
+	return { "name": header_name, "value": raw_header.substr(colon_index + 1).strip_edges(), }
 
 
 ## 去除 Header 名称首尾空白并转成小写。

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFByteCursor" path="addons/gf/standard/foundation/binary/gf_byte_cursor.gd" module="standard" extends="RefCounted" classDigest="17bbf4c1ef0c7b1868e6bdb67adff57ec38c4f844503e88f0d224d1b23c23b79">
+<class name="GFByteCursor" path="addons/gf/standard/foundation/binary/gf_byte_cursor.gd" module="standard" extends="RefCounted" classDigest="d30326f40f57b4070f4057f61aa161b93820df72f02bafed2cb561122257e452">
 	<description>GFByteCursor: PackedByteArray 读写游标。
 提供边界检查、显式字节序和 varuint 编码，适合网络包、存档片段、
 二进制配置或工具导入器复用。它只处理字节游标，不规定协议字段或消息语义。
@@ -53,7 +53,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="from_bytes">
-			<signature>static func from_bytes(source_bytes: PackedByteArray, offset: int = 0, p_little_endian: bool = false) -&gt; GFByteCursor:</signature>
+			<signature>static func from_bytes( source_bytes: PackedByteArray, offset: int = 0, p_little_endian: bool = false ) -&gt; GFByteCursor:</signature>
 			<description>从字节创建游标。</description>
 			<tags>
 				<tag name="api">public</tag>

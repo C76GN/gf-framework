@@ -50,13 +50,20 @@ static func press(
 
 	var normalized_strength: float = _normalize_strength(strength)
 	if normalized_strength <= 0.0:
-		return release(action_id, owner, channel_id)
+		return release(
+			action_id,
+			owner,
+			channel_id
+		)
 	if not _ensure_owner_lifetime(owner, owner_key):
 		return false
 
 	var owners: Dictionary = _get_or_create_action_owners(action_id)
 	owners[owner_key] = normalized_strength
-	Input.action_press(action_id, _get_max_strength(owners))
+	Input.action_press(
+		action_id,
+		_get_max_strength(owners)
+	)
 	return true
 
 
@@ -73,7 +80,11 @@ static func press(
 ## @param channel_id: owner 内部的稳定通道 ID。
 ## [br]
 ## @return 找到 owner 按压时返回 true。
-static func release(action_id: StringName, owner: Object, channel_id: StringName = &"default") -> bool:
+static func release(
+	action_id: StringName,
+	owner: Object,
+	channel_id: StringName = &"default"
+) -> bool:
 	var _pruned_count: int = prune_released_owners()
 	var owner_key: String = _make_owner_key(owner, channel_id)
 	if action_id == &"" or owner_key.is_empty():
@@ -152,7 +163,6 @@ static func prune_released_owners() -> int:
 ## @api private
 ## [br]
 static func _release_action_owner_key(action_id: StringName, owner_key: String) -> bool:
-
 	var owners: Dictionary = _get_action_owners(action_id)
 	if owners.is_empty():
 		return false
@@ -164,7 +174,10 @@ static func _release_action_owner_key(action_id: StringName, owner_key: String) 
 		var _removed_action: bool = _action_owners.erase(action_id)
 		Input.action_release(action_id)
 	else:
-		Input.action_press(action_id, _get_max_strength(owners))
+		Input.action_press(
+			action_id,
+			_get_max_strength(owners)
+		)
 	if not _owner_key_has_actions(owner_key):
 		_cancel_owner_lifetime(owner_key)
 	return true
@@ -197,7 +210,10 @@ static func _remove_action_owner_key(action_id: StringName, owner_key: String) -
 		var _removed_action: bool = _action_owners.erase(action_id)
 		Input.action_release(action_id)
 	else:
-		Input.action_press(action_id, _get_max_strength(owners))
+		Input.action_press(
+			action_id,
+			_get_max_strength(owners)
+		)
 
 
 ## 确保 owner 键关联活动的 GFLifetimeSubscription，回调会释放该 owner 的全部动作。
@@ -254,7 +270,14 @@ static func _make_owner_key(owner: Object, channel_id: StringName) -> String:
 	if not is_instance_valid(owner):
 		return ""
 	var channel_text: String = String(channel_id)
-	return "%d:%d:%s" % [owner.get_instance_id(), channel_text.length(), channel_text]
+	return (
+		"%d:%d:%s"
+		% [
+			owner.get_instance_id(),
+			channel_text.length(),
+			channel_text,
+		]
+	)
 
 
 ## 从生命周期字典读取并收窄指定 owner 的订阅。
@@ -274,6 +297,7 @@ static func _variant_to_lifetime(value: Variant) -> GFLifetimeSubscription:
 		var lifetime: GFLifetimeSubscription = value
 		return lifetime
 	return null
+
 
 ## 读取动作 owner 字典；字典不存在时创建并登记空字典。
 ## [br]
@@ -314,7 +338,10 @@ static func _get_max_strength(owners: Dictionary) -> float:
 			strength = float(strength_int)
 		else:
 			continue
-		result = maxf(result, _normalize_strength(strength))
+		result = maxf(
+			result,
+			_normalize_strength(strength)
+		)
 	return result
 
 
@@ -325,7 +352,11 @@ static func _get_max_strength(owners: Dictionary) -> float:
 static func _normalize_strength(strength: float) -> float:
 	if is_nan(strength) or is_inf(strength):
 		return 0.0
-	return clampf(strength, 0.0, 1.0)
+	return clampf(
+		strength,
+		0.0,
+		1.0
+	)
 
 
 ## 将 StringName 或 String 收窄为动作 ID，其余类型返回空 StringName。

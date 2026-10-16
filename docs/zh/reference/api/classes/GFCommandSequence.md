@@ -18,7 +18,7 @@
 | 信号 | [`sequence_started`](#member-gfcommandsequence-signals-sequence_started) | `signal sequence_started` |
 | 信号 | [`step_started`](#member-gfcommandsequence-signals-step_started) | `signal step_started(index: int, step: Variant)` |
 | 信号 | [`step_completed`](#member-gfcommandsequence-signals-step_completed) | `signal step_completed(index: int, step: Variant)` |
-| 信号 | [`step_failed`](#member-gfcommandsequence-signals-step_failed) | `signal step_failed(index: int, step: Variant, error: String)` |
+| 信号 | [`step_failed`](#member-gfcommandsequence-signals-step_failed) | `signal step_failed( index: int, step: Variant, error: String )` |
 | 信号 | [`sequence_completed`](#member-gfcommandsequence-signals-sequence_completed) | `signal sequence_completed` |
 | 信号 | [`sequence_failed`](#member-gfcommandsequence-signals-sequence_failed) | `signal sequence_failed(report: Dictionary)` |
 | 信号 | [`sequence_cancelled`](#member-gfcommandsequence-signals-sequence_cancelled) | `signal sequence_cancelled` |
@@ -40,7 +40,7 @@
 | 方法 | [`run`](#member-gfcommandsequence-methods-run) | `func run(p_steps: Array = []) -> void:` |
 | 方法 | [`cancel`](#member-gfcommandsequence-methods-cancel) | `func cancel() -> void:` |
 | 方法 | [`with_signal_timeout`](#member-gfcommandsequence-methods-with_signal_timeout) | `func with_signal_timeout(seconds: float, respect_time_scale: bool = true) -> GFCommandSequence:` |
-| 方法 | [`with_failure_policy`](#member-gfcommandsequence-methods-with_failure_policy) | `func with_failure_policy( should_stop_on_error: bool = true, should_rollback_on_failure: bool = false ) -> GFCommandSequence:` |
+| 方法 | [`with_failure_policy`](#member-gfcommandsequence-methods-with_failure_policy) | `func with_failure_policy(should_stop_on_error: bool = true, should_rollback_on_failure: bool = false) -> GFCommandSequence:` |
 
 ## 信号
 
@@ -108,9 +108,10 @@ signal step_completed(index: int, step: Variant)
 ### `step_failed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal step_failed(index: int, step: Variant, error: String)
+signal step_failed( index: int, step: Variant, error: String )
 ```
 
 步骤报告失败时发出。
@@ -448,9 +449,10 @@ func with_signal_timeout(seconds: float, respect_time_scale: bool = true) -> GFC
 ### `with_failure_policy`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func with_failure_policy( should_stop_on_error: bool = true, should_rollback_on_failure: bool = false ) -> GFCommandSequence:
+func with_failure_policy(should_stop_on_error: bool = true, should_rollback_on_failure: bool = false) -> GFCommandSequence:
 ```
 
 设置失败处理策略，并返回自身以便链式调用。

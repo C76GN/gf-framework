@@ -87,7 +87,12 @@ func _rebuild_grid(pattern: GFPattern2D) -> void:
 	_current_cells.append_array(pattern.get_cells())
 	for y: int in range(dimensions.y):
 		for x: int in range(dimensions.x):
-			_grid.add_child(_create_cell_button(Vector2i(x, y), cells))
+			_grid.add_child(
+				_create_cell_button(
+					Vector2i(x, y),
+					cells
+				)
+			)
 
 
 ## 创建一个格子复选框、初始化选中状态并连接输入与鼠标信号。
@@ -97,7 +102,10 @@ func _rebuild_grid(pattern: GFPattern2D) -> void:
 func _create_cell_button(cell: Vector2i, cells: Array) -> CheckBox:
 	var checkbox: CheckBox = CheckBox.new()
 	checkbox.focus_mode = Control.FOCUS_NONE
-	checkbox.tooltip_text = "%d,%d" % [cell.x, cell.y]
+	checkbox.tooltip_text = (
+		"%d,%d"
+		% [cell.x, cell.y]
+	)
 	checkbox.button_pressed = cells.has(cell)
 	checkbox.custom_minimum_size = Vector2(22.0, 22.0)
 	checkbox.mouse_filter = Control.MOUSE_FILTER_STOP as Control.MouseFilter
@@ -123,10 +131,11 @@ func _make_next_cells(cell: Vector2i, enabled: bool) -> Array[Vector2i]:
 			next_cells.append(cell)
 	else:
 		next_cells.erase(cell)
-	next_cells.sort_custom(func(left: Vector2i, right: Vector2i) -> bool:
-		if left.y == right.y:
-			return left.x < right.x
-		return left.y < right.y
+	next_cells.sort_custom(
+		func(left: Vector2i, right: Vector2i) -> bool:
+			if left.y == right.y:
+				return left.x < right.x
+			return left.y < right.y
 	)
 	return next_cells
 
@@ -175,7 +184,11 @@ func _on_cell_toggled(enabled: bool, cell: Vector2i) -> void:
 ## [br]
 ## @api private
 ## [br]
-func _on_cell_gui_input(event: InputEvent, checkbox: CheckBox, cell: Vector2i) -> void:
+func _on_cell_gui_input(
+	event: InputEvent,
+	checkbox: CheckBox,
+	cell: Vector2i
+) -> void:
 	if not (event is InputEventMouseButton):
 		return
 

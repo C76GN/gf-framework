@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveGraphUtility" path="addons/gf/extensions/save/graph/gf_save_graph_utility.gd" module="extensions/save" extends="GFUtility" classDigest="47e3e42158b3864da22426940488207e7e9c1d75cbdf947be78b22bfdefd57dd">
+<class name="GFSaveGraphUtility" path="addons/gf/extensions/save/graph/gf_save_graph_utility.gd" module="extensions/save" extends="GFUtility" classDigest="ce4cc063fdfe4a988cd6619ba58381122d0638b84621702e08bc11c30a5a238e">
 	<description>GFSaveGraphUtility: 通用节点存档图编排工具。
 负责遍历 GFSaveScope/GFSaveSource，采集、应用和落盘存档图。具体数据结构
 由 Source、Serializer 或项目继承类决定，Utility 本身不绑定业务字段。</description>
@@ -244,7 +244,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="validate_payload_for_scope">
-			<signature>func validate_payload_for_scope(scope: GFSaveScope, payload: Dictionary, strict: bool = false) -&gt; Dictionary:</signature>
+			<signature>func validate_payload_for_scope( scope: GFSaveScope, payload: Dictionary, strict: bool = false ) -&gt; Dictionary:</signature>
 			<description>校验载荷是否能匹配当前 Scope 树。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -254,10 +254,11 @@
 				<tag name="return">诊断报告。</tag>
 				<tag name="schema">payload: Dictionary，存档图载荷，包含 format、format_version、scope、sources、scopes，可选 metadata 与 pipeline_trace。</tag>
 				<tag name="schema">return: Dictionary，包含 ok、healthy、scope_key、checked_source_count、checked_scope_count、missing、issues、summary 与 next_action。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="build_payload_health_report">
-			<signature>func build_payload_health_report(scope: GFSaveScope, payload: Dictionary, strict: bool = false) -&gt; Dictionary:</signature>
+			<signature>func build_payload_health_report( scope: GFSaveScope, payload: Dictionary, strict: bool = false ) -&gt; Dictionary:</signature>
 			<description>构建载荷匹配健康报告。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -267,6 +268,7 @@
 				<tag name="return">含 summary、next_action 与 issue 统计的诊断报告。</tag>
 				<tag name="schema">payload: Dictionary，存档图载荷，包含 format、format_version、scope、sources、scopes，可选 metadata 与 pipeline_trace。</tag>
 				<tag name="schema">return: Dictionary，结构与 validate_payload_for_scope 的返回诊断报告一致。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="gather_scope">

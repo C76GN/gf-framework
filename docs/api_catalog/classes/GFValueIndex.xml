@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFValueIndex" path="addons/gf/standard/foundation/collections/gf_value_index.gd" module="standard" extends="RefCounted" classDigest="5032f4fe1f78873a7de37011968c2bbb5f106e11d96d85443b3886adcc116e9b">
+<class name="GFValueIndex" path="addons/gf/standard/foundation/collections/gf_value_index.gd" module="standard" extends="RefCounted" classDigest="b5eb369d7e30efcfcb66ecbb6e0b3dea4a11753875d22d9730e0cb8f777738f2">
 	<description>GFValueIndex: 通用值索引。
 为任意 item_id 关联值和字段，并支持按字段快速查询。它只维护索引结构，
 不规定字段含义、业务规则或生命周期。
@@ -48,7 +48,7 @@ mutation 会失败关闭，调用方可在信号返回后或 deferred 阶段重�
 	</properties>
 	<methods>
 		<member kind="method" name="set_item">
-			<signature>func set_item(item_id: StringName, value: Variant, fields: Dictionary = {}) -&gt; bool:</signature>
+			<signature>func set_item( item_id: StringName, value: Variant, fields: Dictionary = {} ) -&gt; bool:</signature>
 			<description>写入或替换一个条目。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -58,6 +58,7 @@ mutation 会失败关闭，调用方可在信号返回后或 deferred 阶段重�
 				<tag name="return">写入成功返回 true。</tag>
 				<tag name="schema">value: Variant item value.</tag>
 				<tag name="schema">fields: Dictionary from field id to scalar, Array, or PackedStringArray values.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="remove_item">

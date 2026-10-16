@@ -276,7 +276,14 @@ var enabled: bool = false:
 		if not enabled:
 			_sessions.clear()
 			if not _disposing:
-				_append_audit("set_enabled", "succeeded", "sessions_revoked", "", "", "")
+				_append_audit(
+					"set_enabled",
+					"succeeded",
+					"sessions_revoked",
+					"",
+					"",
+					""
+				)
 
 ## session 签发与请求执行使用的策略注册表。
 ##
@@ -434,10 +441,18 @@ func register_endpoint(
 	handler: Callable
 ) -> Dictionary:
 	if not _is_owner_thread():
-		return _make_result(false, "rejected", "owner_thread_required")
+		return _make_result(
+			false,
+			"rejected",
+			"owner_thread_required"
+		)
 	if not _is_valid_identifier(endpoint_id):
 		return _audit_result(
-			_make_result(false, "rejected", "invalid_endpoint_id"),
+			_make_result(
+				false,
+				"rejected",
+				"invalid_endpoint_id"
+			),
 			"register_endpoint",
 			"",
 			"",
@@ -445,9 +460,12 @@ func register_endpoint(
 		)
 	if _endpoints.has(endpoint_id):
 		return _audit_result(
-			_make_result(false, "rejected", "endpoint_already_registered", {
-				"endpoint_id": endpoint_id,
-			}),
+			_make_result(
+				false,
+				"rejected",
+				"endpoint_already_registered",
+				{ "endpoint_id": endpoint_id, }
+			),
 			"register_endpoint",
 			"",
 			endpoint_id,
@@ -455,7 +473,11 @@ func register_endpoint(
 		)
 	if _endpoints.size() >= _MAX_ENDPOINTS:
 		return _audit_result(
-			_make_result(false, "rejected", "endpoint_limit_reached"),
+			_make_result(
+				false,
+				"rejected",
+				"endpoint_limit_reached"
+			),
 			"register_endpoint",
 			"",
 			endpoint_id,
@@ -463,7 +485,11 @@ func register_endpoint(
 		)
 	if not handler.is_valid():
 		return _audit_result(
-			_make_result(false, "rejected", "invalid_handler"),
+			_make_result(
+				false,
+				"rejected",
+				"invalid_handler"
+			),
 			"register_endpoint",
 			"",
 			endpoint_id,
@@ -471,7 +497,11 @@ func register_endpoint(
 		)
 	if not _is_safe_schema(request_schema):
 		return _audit_result(
-			_make_result(false, "rejected", "unsafe_request_schema"),
+			_make_result(
+				false,
+				"rejected",
+				"unsafe_request_schema"
+			),
 			"register_endpoint",
 			"",
 			endpoint_id,
@@ -479,7 +509,11 @@ func register_endpoint(
 		)
 	if not _is_safe_schema(response_schema):
 		return _audit_result(
-			_make_result(false, "rejected", "unsafe_response_schema"),
+			_make_result(
+				false,
+				"rejected",
+				"unsafe_response_schema"
+			),
 			"register_endpoint",
 			"",
 			endpoint_id,
@@ -494,9 +528,12 @@ func register_endpoint(
 		"handler": handler,
 	}
 	return _audit_result(
-		_make_result(true, "registered", "", {
-			"endpoint_id": endpoint_id,
-		}),
+		_make_result(
+			true,
+			"registered",
+			"",
+			{ "endpoint_id": endpoint_id, }
+		),
 		"register_endpoint",
 		"",
 		endpoint_id,
@@ -520,10 +557,18 @@ func register_endpoint(
 ## @schema return: Dictionary { schema_version: int, protocol_version: int, ok: bool, status: String, reason: String, endpoint_id?: String }.
 func unregister_endpoint(endpoint_id: String) -> Dictionary:
 	if not _is_owner_thread():
-		return _make_result(false, "rejected", "owner_thread_required")
+		return _make_result(
+			false,
+			"rejected",
+			"owner_thread_required"
+		)
 	if not _is_valid_identifier(endpoint_id):
 		return _audit_result(
-			_make_result(false, "rejected", "invalid_endpoint_id"),
+			_make_result(
+				false,
+				"rejected",
+				"invalid_endpoint_id"
+			),
 			"unregister_endpoint",
 			"",
 			"",
@@ -531,9 +576,12 @@ func unregister_endpoint(endpoint_id: String) -> Dictionary:
 		)
 	if not _endpoints.has(endpoint_id):
 		return _audit_result(
-			_make_result(false, "rejected", "endpoint_not_registered", {
-				"endpoint_id": endpoint_id,
-			}),
+			_make_result(
+				false,
+				"rejected",
+				"endpoint_not_registered",
+				{ "endpoint_id": endpoint_id, }
+			),
 			"unregister_endpoint",
 			"",
 			endpoint_id,
@@ -541,9 +589,12 @@ func unregister_endpoint(endpoint_id: String) -> Dictionary:
 		)
 	var _endpoint_erased: bool = _endpoints.erase(endpoint_id)
 	return _audit_result(
-		_make_result(true, "unregistered", "", {
-			"endpoint_id": endpoint_id,
-		}),
+		_make_result(
+			true,
+			"unregistered",
+			"",
+			{ "endpoint_id": endpoint_id, }
+		),
 		"unregister_endpoint",
 		"",
 		endpoint_id,
@@ -562,7 +613,11 @@ func unregister_endpoint(endpoint_id: String) -> Dictionary:
 ## @schema return: Dictionary { schema_version: int, protocol_version: int, ok: bool, status: String, reason: String, endpoint_count?: int, endpoints?: Array[Dictionary { endpoint_id: String, request_schema: Dictionary { schema_id: String, allow_extra_fields: bool, fields: Array[Dictionary] }, response_schema: Dictionary { schema_id: String, allow_extra_fields: bool, fields: Array[Dictionary] } }] }.
 func get_endpoint_catalog() -> Dictionary:
 	if not _is_owner_thread():
-		return _make_result(false, "rejected", "owner_thread_required")
+		return _make_result(
+			false,
+			"rejected",
+			"owner_thread_required"
+		)
 	var endpoint_ids: Array[String] = []
 	for endpoint_key: Variant in _endpoints.keys():
 		if not (endpoint_key is String):
@@ -575,15 +630,19 @@ func get_endpoint_catalog() -> Dictionary:
 		var endpoint: Dictionary = _as_dictionary(_endpoints[endpoint_id])
 		var current_request_schema: GFDictionarySchema = _as_schema(endpoint.get("request_schema"))
 		var current_response_schema: GFDictionarySchema = _as_schema(endpoint.get("response_schema"))
-		descriptions.append({
-			"endpoint_id": endpoint_id,
-			"request_schema": _describe_safe_schema(current_request_schema),
-			"response_schema": _describe_safe_schema(current_response_schema),
-		})
-	return _make_result(true, "catalog", "", {
-		"endpoint_count": descriptions.size(),
-		"endpoints": descriptions,
-	})
+		descriptions.append(
+			{
+				"endpoint_id": endpoint_id,
+				"request_schema": _describe_safe_schema(current_request_schema),
+				"response_schema": _describe_safe_schema(current_response_schema),
+			}
+		)
+	return _make_result(
+		true,
+		"catalog",
+		"",
+		{ "endpoint_count": descriptions.size(), "endpoints": descriptions, }
+	)
 
 
 ## 为一组精确 endpoint grant 创建短期 session。
@@ -606,15 +665,20 @@ func get_endpoint_catalog() -> Dictionary:
 ## @schema options: Dictionary { ttl_msec?: int, max_requests_per_window?: int, rate_window_msec?: int, max_request_ids?: int }; no other keys are accepted.
 ## [br]
 ## @schema return: Dictionary { schema_version: int, protocol_version: int, ok: bool, status: String, reason: String, session_id?: String, token?: String, endpoint_ids?: Array[String], issued_at_msec?: int, expires_at_msec?: int }; credential fields exist only on success.
-func open_session(
-	endpoint_ids: PackedStringArray,
-	options: Dictionary = {}
-) -> Dictionary:
+func open_session(endpoint_ids: PackedStringArray, options: Dictionary = {}) -> Dictionary:
 	if not _is_owner_thread():
-		return _make_result(false, "rejected", "owner_thread_required")
+		return _make_result(
+			false,
+			"rejected",
+			"owner_thread_required"
+		)
 	if _policy_evaluation_active:
 		return _audit_result(
-			_make_result(false, "rejected", "reentrant_policy_evaluation"),
+			_make_result(
+				false,
+				"rejected",
+				"reentrant_policy_evaluation"
+			),
 			"open_session",
 			"",
 			"",
@@ -622,7 +686,11 @@ func open_session(
 		)
 	if not enabled:
 		return _audit_result(
-			_make_result(false, "rejected", "environment_disabled"),
+			_make_result(
+				false,
+				"rejected",
+				"environment_disabled"
+			),
 			"open_session",
 			"",
 			"",
@@ -630,7 +698,11 @@ func open_session(
 		)
 	if policy_registry == null:
 		return _audit_result(
-			_make_result(false, "rejected", "policy_registry_unavailable"),
+			_make_result(
+				false,
+				"rejected",
+				"policy_registry_unavailable"
+			),
 			"open_session",
 			"",
 			"",
@@ -641,7 +713,11 @@ func open_session(
 	var opening_registry_signature: String = _make_policy_registry_signature(opening_registry)
 	if opening_registry_signature.is_empty():
 		return _audit_result(
-			_make_result(false, "rejected", "policy_configuration_invalid"),
+			_make_result(
+				false,
+				"rejected",
+				"policy_configuration_invalid"
+			),
 			"open_session",
 			"",
 			"",
@@ -649,7 +725,11 @@ func open_session(
 		)
 	if endpoint_ids.size() > _MAX_ENDPOINTS:
 		return _audit_result(
-			_make_result(false, "rejected", "endpoint_grant_limit_exceeded"),
+			_make_result(
+				false,
+				"rejected",
+				"endpoint_grant_limit_exceeded"
+			),
 			"open_session",
 			"",
 			"",
@@ -657,7 +737,11 @@ func open_session(
 		)
 	if options.size() > _SESSION_OPTION_KEYS.size():
 		return _audit_result(
-			_make_result(false, "rejected", "invalid_session_options"),
+			_make_result(
+				false,
+				"rejected",
+				"invalid_session_options"
+			),
 			"open_session",
 			"",
 			"",
@@ -666,7 +750,11 @@ func open_session(
 	for endpoint_id: String in endpoint_ids:
 		if not _is_valid_identifier(endpoint_id):
 			return _audit_result(
-				_make_result(false, "rejected", "invalid_endpoint_grant"),
+				_make_result(
+					false,
+					"rejected",
+					"invalid_endpoint_grant"
+				),
 				"open_session",
 				"",
 				"",
@@ -676,7 +764,11 @@ func open_session(
 	var _pruned_session_count: int = _prune_expired_sessions_internal(now_msec)
 	if _sessions.size() >= _MAX_ACTIVE_SESSIONS:
 		return _audit_result(
-			_make_result(false, "rejected", "session_limit_reached"),
+			_make_result(
+				false,
+				"rejected",
+				"session_limit_reached"
+			),
 			"open_session",
 			"",
 			"",
@@ -686,7 +778,11 @@ func open_session(
 	var parsed_options: Dictionary = _parse_session_options(options)
 	if not GFVariantData.get_option_bool(parsed_options, "ok"):
 		return _audit_result(
-			_make_result(false, "rejected", "invalid_session_options"),
+			_make_result(
+				false,
+				"rejected",
+				"invalid_session_options"
+			),
 			"open_session",
 			"",
 			"",
@@ -695,7 +791,11 @@ func open_session(
 	var normalized_endpoint_ids: Array[String] = _normalize_endpoint_ids(endpoint_ids)
 	if normalized_endpoint_ids.is_empty():
 		return _audit_result(
-			_make_result(false, "rejected", "empty_endpoint_grants"),
+			_make_result(
+				false,
+				"rejected",
+				"empty_endpoint_grants"
+			),
 			"open_session",
 			"",
 			"",
@@ -706,7 +806,11 @@ func open_session(
 	for endpoint_id: String in normalized_endpoint_ids:
 		if not _is_valid_identifier(endpoint_id) or not _endpoints.has(endpoint_id):
 			return _audit_result(
-				_make_result(false, "rejected", "unknown_endpoint_grant"),
+				_make_result(
+					false,
+					"rejected",
+					"unknown_endpoint_grant"
+				),
 				"open_session",
 				"",
 				endpoint_id if _is_valid_identifier(endpoint_id) else "",
@@ -718,7 +822,11 @@ func open_session(
 	var session_id: String = _make_unique_session_id()
 	if session_id.is_empty():
 		return _audit_result(
-			_make_result(false, "failed", "session_id_generation_failed"),
+			_make_result(
+				false,
+				"failed",
+				"session_id_generation_failed"
+			),
 			"open_session",
 			"",
 			"",
@@ -734,29 +842,25 @@ func open_session(
 		"issued_at_msec": now_msec,
 		"expires_at_msec": expires_at_msec,
 		"limits": {
-			"max_requests_per_window": GFVariantData.get_option_int(
-				parsed_options,
-				"max_requests_per_window"
-			),
-			"rate_window_msec": GFVariantData.get_option_int(
-				parsed_options,
-				"rate_window_msec"
-			),
-			"max_request_ids": GFVariantData.get_option_int(
-				parsed_options,
-				"max_request_ids"
-			),
+			"max_requests_per_window": GFVariantData.get_option_int(parsed_options, "max_requests_per_window"),
+			"rate_window_msec": GFVariantData.get_option_int(parsed_options, "rate_window_msec"),
+			"max_request_ids": GFVariantData.get_option_int(parsed_options, "max_request_ids"),
 		},
 	}
-	var policy_decision: Dictionary = _evaluate_policy(session_policy_artifact, {
-		"operation": "open_session",
-	})
+	var policy_decision: Dictionary = _evaluate_policy(
+		session_policy_artifact,
+		{ "operation": "open_session", }
+	)
 	if not GFVariantData.get_option_bool(policy_decision, "ok"):
 		return _audit_result(
 			_make_result(
 				false,
 				"rejected",
-				GFVariantData.get_option_string(policy_decision, "reason", "policy_denied")
+				GFVariantData.get_option_string(
+					policy_decision,
+					"reason",
+					"policy_denied"
+				)
 			),
 			"open_session",
 			session_id,
@@ -771,7 +875,11 @@ func open_session(
 		or not _are_grants_current(grants)
 	):
 		return _audit_result(
-			_make_result(false, "rejected", "execution_context_changed"),
+			_make_result(
+				false,
+				"rejected",
+				"execution_context_changed"
+			),
 			"open_session",
 			session_id,
 			"",
@@ -779,7 +887,11 @@ func open_session(
 		)
 	if _get_current_time_msec() >= expires_at_msec:
 		return _audit_result(
-			_make_result(false, "rejected", "session_creation_expired"),
+			_make_result(
+				false,
+				"rejected",
+				"session_creation_expired"
+			),
 			"open_session",
 			session_id,
 			"",
@@ -789,7 +901,11 @@ func open_session(
 	var token: String = _generate_token()
 	if token.length() != _TOKEN_TEXT_LENGTH:
 		return _audit_result(
-			_make_result(false, "failed", "token_generation_failed"),
+			_make_result(
+				false,
+				"failed",
+				"token_generation_failed"
+			),
 			"open_session",
 			session_id,
 			"",
@@ -801,28 +917,34 @@ func open_session(
 		"issued_at_msec": now_msec,
 		"expires_at_msec": expires_at_msec,
 		"last_seen_msec": now_msec,
-		"max_requests_per_window": GFVariantData.get_option_int(
-			parsed_options,
-			"max_requests_per_window"
-		),
-		"rate_window_msec": GFVariantData.get_option_int(
-			parsed_options,
-			"rate_window_msec"
-		),
+		"max_requests_per_window": GFVariantData.get_option_int(parsed_options, "max_requests_per_window"),
+		"rate_window_msec": GFVariantData.get_option_int(parsed_options, "rate_window_msec"),
 		"rate_window_started_at_msec": now_msec,
 		"requests_in_window": 0,
 		"max_request_ids": GFVariantData.get_option_int(parsed_options, "max_request_ids"),
 		"request_id_hashes": {},
 		"policy_registry_signature": opening_registry_signature,
 	}
-	var result: Dictionary = _make_result(true, "session_opened", "", {
-		"session_id": session_id,
-		"token": token,
-		"endpoint_ids": normalized_endpoint_ids.duplicate(),
-		"issued_at_msec": now_msec,
-		"expires_at_msec": expires_at_msec,
-	})
-	_append_audit("open_session", "succeeded", "", session_id, "", "")
+	var result: Dictionary = _make_result(
+		true,
+		"session_opened",
+		"",
+		{
+			"session_id": session_id,
+			"token": token,
+			"endpoint_ids": normalized_endpoint_ids.duplicate(),
+			"issued_at_msec": now_msec,
+			"expires_at_msec": expires_at_msec,
+		}
+	)
+	_append_audit(
+		"open_session",
+		"succeeded",
+		"",
+		session_id,
+		"",
+		""
+	)
 	return result
 
 
@@ -841,7 +963,11 @@ func open_session(
 ## @schema return: Dictionary { schema_version: int, protocol_version: int, ok: bool, status: String, reason: String }.
 func close_session(session_id: String, bearer_token: String) -> Dictionary:
 	if not _is_owner_thread():
-		return _make_result(false, "rejected", "owner_thread_required")
+		return _make_result(
+			false,
+			"rejected",
+			"owner_thread_required"
+		)
 	var authentication: Dictionary = _authenticate_session(
 		session_id,
 		bearer_token,
@@ -852,7 +978,11 @@ func close_session(session_id: String, bearer_token: String) -> Dictionary:
 			_make_result(
 				false,
 				"rejected",
-				GFVariantData.get_option_string(authentication, "reason", "invalid_credentials")
+				GFVariantData.get_option_string(
+					authentication,
+					"reason",
+					"invalid_credentials"
+				)
 			),
 			"close_session",
 			session_id if _is_valid_identifier(session_id) else "",
@@ -886,7 +1016,14 @@ func revoke_session(session_id: String) -> bool:
 	if not _is_valid_identifier(session_id) or not _sessions.has(session_id):
 		return false
 	var _revoked_session_erased: bool = _sessions.erase(session_id)
-	_append_audit("revoke_session", "succeeded", "", session_id, "", "")
+	_append_audit(
+		"revoke_session",
+		"succeeded",
+		"",
+		session_id,
+		"",
+		""
+	)
 	return true
 
 
@@ -940,14 +1077,30 @@ func invalidate_policy_context() -> int:
 ## @schema return: Dictionary { schema_version: int, protocol_version: int, ok: bool, status: String, reason: String, response?: Dictionary }; response exists only on success and matches the endpoint response schema.
 func execute_request(request: Dictionary, bearer_token: String) -> Dictionary:
 	if not _is_owner_thread():
-		return _make_result(false, "rejected", "owner_thread_required")
+		return _make_result(
+			false,
+			"rejected",
+			"owner_thread_required"
+		)
 	if _handler_active:
-		return _make_result(false, "rejected", "reentrant_execution")
+		return _make_result(
+			false,
+			"rejected",
+			"reentrant_execution"
+		)
 	if _policy_evaluation_active:
-		return _make_result(false, "rejected", "reentrant_policy_evaluation")
+		return _make_result(
+			false,
+			"rejected",
+			"reentrant_policy_evaluation"
+		)
 	if not enabled:
 		return _audit_result(
-			_make_result(false, "rejected", "environment_disabled"),
+			_make_result(
+				false,
+				"rejected",
+				"environment_disabled"
+			),
 			"execute_request",
 			"",
 			"",
@@ -961,7 +1114,11 @@ func execute_request(request: Dictionary, bearer_token: String) -> Dictionary:
 			"invalid_request_envelope"
 		)
 		return _audit_result(
-			_make_result(false, "rejected", envelope_reason),
+			_make_result(
+				false,
+				"rejected",
+				envelope_reason
+			),
 			"execute_request",
 			"",
 			"",
@@ -973,13 +1130,21 @@ func execute_request(request: Dictionary, bearer_token: String) -> Dictionary:
 	var request_id: String = GFVariantData.get_option_string(request, "request_id")
 	var request_id_hash: String = request_id.sha256_text()
 	var now_msec: int = _get_current_time_msec()
-	var authentication: Dictionary = _authenticate_session(session_id, bearer_token, now_msec)
+	var authentication: Dictionary = _authenticate_session(
+		session_id,
+		bearer_token,
+		now_msec
+	)
 	if not GFVariantData.get_option_bool(authentication, "ok"):
 		return _audit_result(
 			_make_result(
 				false,
 				"rejected",
-				GFVariantData.get_option_string(authentication, "reason", "invalid_credentials")
+				GFVariantData.get_option_string(
+					authentication,
+					"reason",
+					"invalid_credentials"
+				)
 			),
 			"execute_request",
 			session_id,
@@ -990,7 +1155,11 @@ func execute_request(request: Dictionary, bearer_token: String) -> Dictionary:
 	var rate_check: Dictionary = _consume_rate_budget(session, now_msec)
 	if not GFVariantData.get_option_bool(rate_check, "ok"):
 		return _audit_result(
-			_make_result(false, "rejected", "rate_limited"),
+			_make_result(
+				false,
+				"rejected",
+				"rate_limited"
+			),
 			"execute_request",
 			session_id,
 			endpoint_id,
@@ -1002,7 +1171,11 @@ func execute_request(request: Dictionary, bearer_token: String) -> Dictionary:
 			_make_result(
 				false,
 				"rejected",
-				GFVariantData.get_option_string(grant_check, "reason", "endpoint_not_granted")
+				GFVariantData.get_option_string(
+					grant_check,
+					"reason",
+					"endpoint_not_granted"
+				)
 			),
 			"execute_request",
 			session_id,
@@ -1013,7 +1186,11 @@ func execute_request(request: Dictionary, bearer_token: String) -> Dictionary:
 	var request_id_hashes: Dictionary = _get_session_dictionary(session, "request_id_hashes")
 	if request_id_hashes.has(request_id_hash):
 		return _audit_result(
-			_make_result(false, "rejected", "request_replayed"),
+			_make_result(
+				false,
+				"rejected",
+				"request_replayed"
+			),
 			"execute_request",
 			session_id,
 			endpoint_id,
@@ -1021,7 +1198,11 @@ func execute_request(request: Dictionary, bearer_token: String) -> Dictionary:
 		)
 	if request_id_hashes.size() >= GFVariantData.get_option_int(session, "max_request_ids"):
 		return _audit_result(
-			_make_result(false, "rejected", "request_id_budget_exhausted"),
+			_make_result(
+				false,
+				"rejected",
+				"request_id_budget_exhausted"
+			),
 			"execute_request",
 			session_id,
 			endpoint_id,
@@ -1035,13 +1216,13 @@ func execute_request(request: Dictionary, bearer_token: String) -> Dictionary:
 	var payload_check: Dictionary = _validate_plain_json_value(payload)
 	if not GFVariantData.get_option_bool(payload_check, "ok"):
 		var payload_error: String = GFVariantData.get_option_string(payload_check, "error")
-		var payload_reason: String = (
-			"request_budget_exceeded"
-			if _is_budget_error(payload_error)
-			else "invalid_payload"
-		)
+		var payload_reason: String = ("request_budget_exceeded" if _is_budget_error(payload_error) else "invalid_payload")
 		return _audit_result(
-			_make_result(false, "rejected", payload_reason),
+			_make_result(
+				false,
+				"rejected",
+				payload_reason
+			),
 			"execute_request",
 			session_id,
 			endpoint_id,
@@ -1056,7 +1237,11 @@ func execute_request(request: Dictionary, bearer_token: String) -> Dictionary:
 		or not current_request_schema.validate_dictionary(payload).is_ok()
 	):
 		return _audit_result(
-			_make_result(false, "rejected", "request_schema_rejected"),
+			_make_result(
+				false,
+				"rejected",
+				"request_schema_rejected"
+			),
 			"execute_request",
 			session_id,
 			endpoint_id,
@@ -1064,7 +1249,11 @@ func execute_request(request: Dictionary, bearer_token: String) -> Dictionary:
 		)
 	if policy_registry == null:
 		return _audit_result(
-			_make_result(false, "rejected", "policy_registry_unavailable"),
+			_make_result(
+				false,
+				"rejected",
+				"policy_registry_unavailable"
+			),
 			"execute_request",
 			session_id,
 			endpoint_id,
@@ -1084,15 +1273,20 @@ func execute_request(request: Dictionary, bearer_token: String) -> Dictionary:
 		"request_id_digest": request_id_hash.substr(0, 16),
 		"payload": safe_payload.duplicate(true),
 	}
-	var policy_decision: Dictionary = _evaluate_policy(policy_artifact, {
-		"operation": "execute_request",
-	})
+	var policy_decision: Dictionary = _evaluate_policy(
+		policy_artifact,
+		{ "operation": "execute_request", }
+	)
 	if not GFVariantData.get_option_bool(policy_decision, "ok"):
 		return _audit_result(
 			_make_result(
 				false,
 				"rejected",
-				GFVariantData.get_option_string(policy_decision, "reason", "policy_denied")
+				GFVariantData.get_option_string(
+					policy_decision,
+					"reason",
+					"policy_denied"
+				)
 			),
 			"execute_request",
 			session_id,
@@ -1107,7 +1301,11 @@ func execute_request(request: Dictionary, bearer_token: String) -> Dictionary:
 		registry_signature
 	):
 		return _audit_result(
-			_make_result(false, "rejected", "execution_context_changed"),
+			_make_result(
+				false,
+				"rejected",
+				"execution_context_changed"
+			),
 			"execute_request",
 			session_id,
 			endpoint_id,
@@ -1115,7 +1313,11 @@ func execute_request(request: Dictionary, bearer_token: String) -> Dictionary:
 		)
 	if not handler.is_valid():
 		return _audit_result(
-			_make_result(false, "failed", "handler_unavailable"),
+			_make_result(
+				false,
+				"failed",
+				"handler_unavailable"
+			),
 			"execute_request",
 			session_id,
 			endpoint_id,
@@ -1140,7 +1342,11 @@ func execute_request(request: Dictionary, bearer_token: String) -> Dictionary:
 		registry_signature
 	):
 		return _audit_result(
-			_make_result(false, "rejected", "execution_context_changed"),
+			_make_result(
+				false,
+				"rejected",
+				"execution_context_changed"
+			),
 			"execute_request",
 			session_id,
 			endpoint_id,
@@ -1148,7 +1354,11 @@ func execute_request(request: Dictionary, bearer_token: String) -> Dictionary:
 		)
 	if not (raw_response is Dictionary):
 		return _audit_result(
-			_make_result(false, "failed", "invalid_handler_response"),
+			_make_result(
+				false,
+				"failed",
+				"invalid_handler_response"
+			),
 			"execute_request",
 			session_id,
 			endpoint_id,
@@ -1158,13 +1368,13 @@ func execute_request(request: Dictionary, bearer_token: String) -> Dictionary:
 	var response_check: Dictionary = _validate_plain_json_value(response)
 	if not GFVariantData.get_option_bool(response_check, "ok"):
 		var response_error: String = GFVariantData.get_option_string(response_check, "error")
-		var response_reason: String = (
-			"response_budget_exceeded"
-			if _is_budget_error(response_error)
-			else "invalid_handler_response"
-		)
+		var response_reason: String = ("response_budget_exceeded" if _is_budget_error(response_error) else "invalid_handler_response")
 		return _audit_result(
-			_make_result(false, "failed", response_reason),
+			_make_result(
+				false,
+				"failed",
+				response_reason
+			),
 			"execute_request",
 			session_id,
 			endpoint_id,
@@ -1177,7 +1387,11 @@ func execute_request(request: Dictionary, bearer_token: String) -> Dictionary:
 		or not current_response_schema.validate_dictionary(response).is_ok()
 	):
 		return _audit_result(
-			_make_result(false, "failed", "response_schema_rejected"),
+			_make_result(
+				false,
+				"failed",
+				"response_schema_rejected"
+			),
 			"execute_request",
 			session_id,
 			endpoint_id,
@@ -1208,17 +1422,31 @@ func execute_request(request: Dictionary, bearer_token: String) -> Dictionary:
 		or not _matches_safe_schema(encoded_response, current_response_schema)
 	):
 		return _audit_result(
-			_make_result(false, "failed", "response_budget_exceeded"),
+			_make_result(
+				false,
+				"failed",
+				"response_budget_exceeded"
+			),
 			"execute_request",
 			session_id,
 			endpoint_id,
 			request_id
 		)
 
-	var success_result: Dictionary = _make_result(true, "succeeded", "", {
-		"response": encoded_response,
-	})
-	_append_audit("execute_request", "succeeded", "", session_id, endpoint_id, request_id)
+	var success_result: Dictionary = _make_result(
+		true,
+		"succeeded",
+		"",
+		{ "response": encoded_response, }
+	)
+	_append_audit(
+		"execute_request",
+		"succeeded",
+		"",
+		session_id,
+		endpoint_id,
+		request_id
+	)
 	return success_result
 
 
@@ -1248,17 +1476,35 @@ func prune_expired_sessions() -> int:
 ## @schema return: Dictionary { schema_version: int, protocol_version: int, ok: bool, status: String, reason: String, event_count?: int, retained_event_count?: int, events?: Array[Dictionary { schema_version: int, protocol_version: int, sequence: int, timestamp_msec: int, action: String, outcome: String, reason: String, session_id: String, endpoint_id: String, request_id_digest: String }] }.
 func get_audit_events(limit: int = 64) -> Dictionary:
 	if not _is_owner_thread():
-		return _make_result(false, "rejected", "owner_thread_required")
-	var effective_limit: int = mini(maxi(limit, 0), _MAX_AUDIT_EVENTS)
-	var start_index: int = maxi(_audit_events.size() - effective_limit, 0)
+		return _make_result(
+			false,
+			"rejected",
+			"owner_thread_required"
+		)
+	var effective_limit: int = mini(
+		maxi(limit, 0),
+		_MAX_AUDIT_EVENTS
+	)
+	var start_index: int = maxi(
+		_audit_events.size() - effective_limit,
+		0
+	)
 	var events: Array[Dictionary] = []
-	for index: int in range(start_index, _audit_events.size()):
+	for index: int in range(
+		start_index,
+		_audit_events.size()
+	):
 		events.append(_audit_events[index].duplicate(true))
-	return _make_result(true, "audit", "", {
-		"event_count": events.size(),
-		"retained_event_count": _audit_events.size(),
-		"events": events,
-	})
+	return _make_result(
+		true,
+		"audit",
+		"",
+		{
+			"event_count": events.size(),
+			"retained_event_count": _audit_events.size(),
+			"events": events,
+		}
+	)
 
 
 ## 清空环境内存审计环形缓冲。
@@ -1335,10 +1581,7 @@ func _get_current_time_msec() -> int:
 ## @api private
 ## [br]
 func _is_owner_thread() -> bool:
-	return (
-		_owner_thread_id == 0
-		or OS.get_thread_caller_id() == _owner_thread_id
-	)
+	return (_owner_thread_id == 0 or OS.get_thread_caller_id() == _owner_thread_id)
 
 
 ## 检查请求是否恰含允许键、正确字段类型、当前协议版本和有效标识符。
@@ -1347,51 +1590,30 @@ func _is_owner_thread() -> bool:
 ## [br]
 func _validate_request_envelope(request: Dictionary) -> Dictionary:
 	if request.size() != _REQUEST_KEYS.size():
-		return {
-			"ok": false,
-			"reason": "invalid_request_envelope",
-		}
+		return { "ok": false, "reason": "invalid_request_envelope", }
 	for key: Variant in request.keys():
 		if not (key is String) or not _REQUEST_KEYS.has(key):
-			return {
-				"ok": false,
-				"reason": "invalid_request_envelope",
-			}
+			return { "ok": false, "reason": "invalid_request_envelope", }
 	for required_key: String in _REQUEST_KEYS:
 		if not request.has(required_key):
-			return {
-				"ok": false,
-				"reason": "invalid_request_envelope",
-			}
+			return { "ok": false, "reason": "invalid_request_envelope", }
 	if not (request["protocol_version"] is int):
-		return {
-			"ok": false,
-			"reason": "invalid_request_envelope",
-		}
+		return { "ok": false, "reason": "invalid_request_envelope", }
 	if GFVariantData.get_option_int(request, "protocol_version") != PROTOCOL_VERSION:
-		return {
-			"ok": false,
-			"reason": "unsupported_protocol_version",
-		}
+		return { "ok": false, "reason": "unsupported_protocol_version", }
 	if (
 		not (request["session_id"] is String)
 		or not (request["endpoint_id"] is String)
 		or not (request["request_id"] is String)
 		or not (request["payload"] is Dictionary)
 	):
-		return {
-			"ok": false,
-			"reason": "invalid_request_envelope",
-		}
+		return { "ok": false, "reason": "invalid_request_envelope", }
 	if (
 		not _is_valid_identifier(GFVariantData.get_option_string(request, "session_id"))
 		or not _is_valid_identifier(GFVariantData.get_option_string(request, "endpoint_id"))
 		or not _is_valid_identifier(GFVariantData.get_option_string(request, "request_id"))
 	):
-		return {
-			"ok": false,
-			"reason": "invalid_request_envelope",
-		}
+		return { "ok": false, "reason": "invalid_request_envelope", }
 	return { "ok": true }
 
 
@@ -1407,7 +1629,11 @@ func _parse_session_options(options: Dictionary) -> Dictionary:
 			or not (options[key] is int)
 		):
 			return { "ok": false }
-	var ttl_msec: int = _strict_option_int(options, "ttl_msec", _DEFAULT_SESSION_TTL_MSEC)
+	var ttl_msec: int = _strict_option_int(
+		options,
+		"ttl_msec",
+		_DEFAULT_SESSION_TTL_MSEC
+	)
 	var max_requests_per_window: int = _strict_option_int(
 		options,
 		"max_requests_per_window",
@@ -1427,10 +1653,7 @@ func _parse_session_options(options: Dictionary) -> Dictionary:
 		return { "ok": false }
 	if rate_window_msec < 1 or rate_window_msec > _MAX_RATE_WINDOW_MSEC:
 		return { "ok": false }
-	if (
-		max_requests_per_window < 1
-		or max_requests_per_window > _MAX_REQUESTS_PER_WINDOW
-	):
+	if (max_requests_per_window < 1 or max_requests_per_window > _MAX_REQUESTS_PER_WINDOW):
 		return { "ok": false }
 	if max_request_ids < max_requests_per_window or max_request_ids > _MAX_REQUEST_IDS:
 		return { "ok": false }
@@ -1473,57 +1696,30 @@ func _authenticate_session(
 		or not _is_valid_token_text(bearer_token)
 		or not _sessions.has(session_id)
 	):
-		return {
-			"ok": false,
-			"reason": "invalid_credentials",
-		}
+		return { "ok": false, "reason": "invalid_credentials", }
 	var session: Dictionary = _as_dictionary(_sessions[session_id])
 	var expected_hash: String = GFVariantData.get_option_string(session, "token_hash")
 	var candidate_hash: String = _hash_token(session_id, bearer_token)
 	if not _constant_time_hash_equal(expected_hash, candidate_hash):
-		return {
-			"ok": false,
-			"reason": "invalid_credentials",
-		}
+		return { "ok": false, "reason": "invalid_credentials", }
 	if policy_registry == null:
 		var _unavailable_policy_session_erased: bool = _sessions.erase(session_id)
-		return {
-			"ok": false,
-			"reason": "policy_registry_unavailable",
-		}
+		return { "ok": false, "reason": "policy_registry_unavailable", }
 	var current_policy_signature: String = _make_policy_registry_signature(policy_registry)
 	if current_policy_signature.is_empty():
 		var _invalid_policy_session_erased: bool = _sessions.erase(session_id)
-		return {
-			"ok": false,
-			"reason": "policy_configuration_invalid",
-		}
-	if (
-		current_policy_signature
-		!= GFVariantData.get_option_string(session, "policy_registry_signature")
-	):
+		return { "ok": false, "reason": "policy_configuration_invalid", }
+	if current_policy_signature != GFVariantData.get_option_string(session, "policy_registry_signature"):
 		var _changed_policy_session_erased: bool = _sessions.erase(session_id)
-		return {
-			"ok": false,
-			"reason": "policy_context_changed",
-		}
+		return { "ok": false, "reason": "policy_context_changed", }
 	if now_msec >= GFVariantData.get_option_int(session, "expires_at_msec"):
 		var _expired_session_erased: bool = _sessions.erase(session_id)
-		return {
-			"ok": false,
-			"reason": "session_expired",
-		}
+		return { "ok": false, "reason": "session_expired", }
 	if now_msec < GFVariantData.get_option_int(session, "last_seen_msec"):
 		var _regressed_session_erased: bool = _sessions.erase(session_id)
-		return {
-			"ok": false,
-			"reason": "session_clock_regressed",
-		}
+		return { "ok": false, "reason": "session_clock_regressed", }
 	session["last_seen_msec"] = now_msec
-	return {
-		"ok": true,
-		"session": session,
-	}
+	return { "ok": true, "session": session, }
 
 
 ## 检查 session 是否授予指定 endpoint，且 grant generation 仍匹配当前注册。
@@ -1533,24 +1729,12 @@ func _authenticate_session(
 func _validate_session_grant(session: Dictionary, endpoint_id: String) -> Dictionary:
 	var grants: Dictionary = _get_session_dictionary(session, "grants")
 	if not grants.has(endpoint_id):
-		return {
-			"ok": false,
-			"reason": "endpoint_not_granted",
-		}
+		return { "ok": false, "reason": "endpoint_not_granted", }
 	if not _endpoints.has(endpoint_id):
-		return {
-			"ok": false,
-			"reason": "endpoint_grant_stale",
-		}
+		return { "ok": false, "reason": "endpoint_grant_stale", }
 	var endpoint: Dictionary = _as_dictionary(_endpoints[endpoint_id])
-	if (
-		GFVariantData.get_option_int(endpoint, "generation")
-		!= GFVariantData.get_option_int(grants, endpoint_id)
-	):
-		return {
-			"ok": false,
-			"reason": "endpoint_grant_stale",
-		}
+	if GFVariantData.get_option_int(endpoint, "generation") != GFVariantData.get_option_int(grants, endpoint_id):
+		return { "ok": false, "reason": "endpoint_grant_stale", }
 	return { "ok": true }
 
 
@@ -1559,15 +1743,9 @@ func _validate_session_grant(session: Dictionary, endpoint_id: String) -> Dictio
 ## @api private
 ## [br]
 func _consume_rate_budget(session: Dictionary, now_msec: int) -> Dictionary:
-	var window_started_at_msec: int = GFVariantData.get_option_int(
-		session,
-		"rate_window_started_at_msec"
-	)
+	var window_started_at_msec: int = GFVariantData.get_option_int(session, "rate_window_started_at_msec")
 	var window_msec: int = GFVariantData.get_option_int(session, "rate_window_msec")
-	if (
-		now_msec < window_started_at_msec
-		or now_msec - window_started_at_msec >= window_msec
-	):
+	if (now_msec < window_started_at_msec or now_msec - window_started_at_msec >= window_msec):
 		session["rate_window_started_at_msec"] = now_msec
 		session["requests_in_window"] = 0
 	var request_count: int = GFVariantData.get_option_int(session, "requests_in_window")
@@ -1582,41 +1760,27 @@ func _consume_rate_budget(session: Dictionary, now_msec: int) -> Dictionary:
 ## @api private
 func _evaluate_policy(artifact: Dictionary, context: Dictionary) -> Dictionary:
 	if policy_registry == null:
-		return {
-			"ok": false,
-			"reason": "policy_registry_unavailable",
-		}
+		return { "ok": false, "reason": "policy_registry_unavailable", }
 	if _policy_evaluation_active:
-		return {
-			"ok": false,
-			"reason": "reentrant_policy_evaluation",
-		}
+		return { "ok": false, "reason": "reentrant_policy_evaluation", }
 	var registry_snapshot: GFPolicyRegistry = policy_registry
 	var registry_signature: String = _make_policy_registry_signature(registry_snapshot)
 	if registry_signature.is_empty():
-		return {
-			"ok": false,
-			"reason": "policy_configuration_invalid",
-		}
+		return { "ok": false, "reason": "policy_configuration_invalid", }
 	_policy_evaluation_active = true
 	var result: Dictionary = registry_snapshot.evaluate_artifact(
 		artifact.duplicate(true),
 		context.duplicate(true)
 	)
 	_policy_evaluation_active = false
-	if (
-		not is_same(policy_registry, registry_snapshot)
-		or _make_policy_registry_signature(registry_snapshot) != registry_signature
+	if (not is_same(policy_registry, registry_snapshot) or _make_policy_registry_signature(registry_snapshot) != registry_signature):
+		return { "ok": false, "reason": "policy_context_changed", }
+	if not GFVariantData.get_option_bool(
+		result,
+		"ok",
+		false
 	):
-		return {
-			"ok": false,
-			"reason": "policy_context_changed",
-		}
-	if not GFVariantData.get_option_bool(result, "ok", false):
-		return {
-			"ok": false,
-			"reason": "policy_denied",
-		}
+		return { "ok": false, "reason": "policy_denied", }
 	return { "ok": true }
 
 
@@ -1635,27 +1799,32 @@ func _make_policy_registry_signature(registry: GFPolicyRegistry) -> String:
 		var supported_artifact_kinds: Array[String] = []
 		for artifact_kind: String in provider.supported_artifact_kinds:
 			supported_artifact_kinds.append(artifact_kind)
-		provider_snapshots.append({
-			"instance_id": str(provider.get_instance_id()),
-			"provider_id": String(provider.provider_id),
-			"display_name": provider.display_name,
-			"supported_artifact_kinds": supported_artifact_kinds,
-			"priority": str(provider.priority),
-			"input_schema": provider.input_schema,
-			"output_schema": provider.output_schema,
-			"deterministic": provider.deterministic,
-			"metadata": provider.metadata,
-		})
-	var signature_snapshot: Dictionary = {
-		"security_context_epoch": str(_security_context_epoch),
-		"providers": provider_snapshots,
-	}
-	if not GFVariantData.get_option_bool(
-		_validate_plain_json_value(signature_snapshot),
-		"ok"
+		provider_snapshots.append(
+			{
+				"instance_id": str(provider.get_instance_id()),
+				"provider_id": String(provider.provider_id),
+				"display_name": provider.display_name,
+				"supported_artifact_kinds": supported_artifact_kinds,
+				"priority": str(provider.priority),
+				"input_schema": provider.input_schema,
+				"output_schema": provider.output_schema,
+				"deterministic": provider.deterministic,
+				"metadata": provider.metadata,
+			}
+		)
+	var signature_snapshot: Dictionary = { "security_context_epoch": str(_security_context_epoch), "providers": provider_snapshots, }
+	if not (
+		GFVariantData.get_option_bool(
+			_validate_plain_json_value(signature_snapshot),
+			"ok"
+		)
 	):
 		return ""
-	return JSON.stringify(signature_snapshot, "", true).sha256_text()
+	return JSON.stringify(
+		signature_snapshot,
+		"",
+		true
+	).sha256_text()
 
 
 ## 在用户回调后复核会话、端点代次与策略注册表身份及签名；会话过期时同时移除会话记录。
@@ -1668,16 +1837,17 @@ func _is_execution_context_current(
 	registry_snapshot: GFPolicyRegistry,
 	registry_signature: String
 ) -> bool:
-	if not enabled or not _sessions.has(session_id) or not _endpoints.has(endpoint_id):
+	if (
+		not enabled
+		or not _sessions.has(session_id)
+		or not _endpoints.has(endpoint_id)
+	):
 		return false
 	var session: Dictionary = _as_dictionary(_sessions[session_id])
 	if _get_current_time_msec() >= GFVariantData.get_option_int(session, "expires_at_msec"):
 		var _context_session_erased: bool = _sessions.erase(session_id)
 		return false
-	if (
-		GFVariantData.get_option_string(session, "policy_registry_signature")
-		!= registry_signature
-	):
+	if GFVariantData.get_option_string(session, "policy_registry_signature") != registry_signature:
 		return false
 	var endpoint: Dictionary = _as_dictionary(_endpoints[endpoint_id])
 	if GFVariantData.get_option_int(endpoint, "generation") != endpoint_generation:
@@ -1699,10 +1869,7 @@ func _are_grants_current(grants: Dictionary) -> bool:
 		if not _endpoints.has(endpoint_id):
 			return false
 		var endpoint: Dictionary = _as_dictionary(_endpoints[endpoint_id])
-		if (
-			GFVariantData.get_option_int(endpoint, "generation")
-			!= GFVariantData.get_option_int(grants, endpoint_id)
-		):
+		if GFVariantData.get_option_int(endpoint, "generation") != GFVariantData.get_option_int(grants, endpoint_id):
 			return false
 	return true
 
@@ -1719,7 +1886,11 @@ func _is_safe_schema(schema: GFDictionarySchema) -> bool:
 		"active_schemas": [],
 		"active_fields": [],
 	}
-	if not _validate_safe_schema_node(schema, state, 0):
+	if not _validate_safe_schema_node(
+		schema,
+		state,
+		0
+	):
 		return false
 	return schema.validate_definition().is_ok()
 
@@ -1734,7 +1905,10 @@ func _validate_safe_schema_node(
 ) -> bool:
 	if schema == null or depth > _MAX_SCHEMA_DEPTH:
 		return false
-	if _visited_contains(_state_array(state, "active_schemas"), schema):
+	if _visited_contains(
+		_state_array(state, "active_schemas"),
+		schema
+	):
 		return false
 	state["schema_nodes"] = GFVariantData.get_option_int(state, "schema_nodes") + 1
 	if GFVariantData.get_option_int(state, "schema_nodes") > _MAX_SCHEMA_NODES:
@@ -1753,13 +1927,15 @@ func _validate_safe_schema_node(
 	for field: GFSchemaField in schema.fields:
 		if (
 			field == null
-			or not _validate_safe_field_node(field, state, depth + 1, false)
+			or not _validate_safe_field_node(
+				field,
+				state,
+				depth + 1,
+				false
+			)
 			or seen_names.has(String(field.field_name))
 		):
-			var _removed_failed_schema: Variant = _state_array(
-				state,
-				"active_schemas"
-			).pop_back()
+			var _removed_failed_schema: Variant = (_state_array(state, "active_schemas").pop_back())
 			return false
 		seen_names[String(field.field_name)] = true
 	var _removed_schema: Variant = _state_array(state, "active_schemas").pop_back()
@@ -1778,7 +1954,10 @@ func _validate_safe_field_node(
 ) -> bool:
 	if field == null or depth > _MAX_SCHEMA_DEPTH:
 		return false
-	if _visited_contains(_state_array(state, "active_fields"), field):
+	if _visited_contains(
+		_state_array(state, "active_fields"),
+		field
+	):
 		return false
 	state["schema_nodes"] = GFVariantData.get_option_int(state, "schema_nodes") + 1
 	if GFVariantData.get_option_int(state, "schema_nodes") > _MAX_SCHEMA_NODES:
@@ -1803,12 +1982,21 @@ func _validate_safe_field_node(
 		GFSchemaField.ValueType.DICTIONARY:
 			valid = (
 				field.array_item_schema == null
-				and _validate_safe_schema_node(field.dictionary_schema, state, depth + 1)
+				and _validate_safe_schema_node(
+					field.dictionary_schema,
+					state,
+					depth + 1
+				)
 			)
 		GFSchemaField.ValueType.ARRAY:
 			valid = (
 				field.dictionary_schema == null
-				and _validate_safe_field_node(field.array_item_schema, state, depth + 1, true)
+				and _validate_safe_field_node(
+					field.array_item_schema,
+					state,
+					depth + 1,
+					true
+				)
 			)
 		_:
 			valid = field.dictionary_schema == null and field.array_item_schema == null
@@ -1890,7 +2078,10 @@ func _matches_safe_schema(values: Dictionary, schema: GFDictionarySchema) -> boo
 		if not (key is String) or not fields_by_name.has(key):
 			return false
 		var field: GFSchemaField = fields_by_name[key]
-		if not _matches_safe_field(values[key], field):
+		if not _matches_safe_field(
+			values[key],
+			field
+		):
 			return false
 	return true
 
@@ -1938,19 +2129,17 @@ func _validate_plain_json_value(value: Variant) -> Dictionary:
 		"work_bytes": 0,
 		"visited": [],
 	}
-	var error: String = _validate_plain_json_node(value, state, 0)
+	var error: String = _validate_plain_json_node(
+		value,
+		state,
+		0
+	)
 	if not error.is_empty():
-		return {
-			"ok": false,
-			"error": error,
-		}
+		return { "ok": false, "error": error, }
 	var json_text: String = JSON.stringify(value)
 	var byte_count: int = json_text.to_utf8_buffer().size()
 	if byte_count > _MAX_VALUE_BYTES:
-		return {
-			"ok": false,
-			"error": "max_bytes_exceeded",
-		}
+		return { "ok": false, "error": "max_bytes_exceeded", }
 	return {
 		"ok": true,
 		"node_count": GFVariantData.get_option_int(state, "node_count"),
@@ -1992,55 +2181,43 @@ func _validate_plain_json_node(
 			var string_value: String = value
 			if string_value.length() > _MAX_VALUE_BYTES:
 				return "max_bytes_exceeded"
-			return _consume_json_work_bytes(state, string_value.to_utf8_buffer().size() + 2)
+			return _consume_json_work_bytes(
+				state,
+				string_value.to_utf8_buffer().size() + 2
+			)
 		TYPE_DICTIONARY:
 			var dictionary_value: Dictionary = value
-			if _visited_contains(_state_array(state, "visited"), dictionary_value):
+			if _visited_contains(
+				_state_array(state, "visited"),
+				dictionary_value
+			):
 				return "circular_reference"
 			_state_array(state, "visited").append(dictionary_value)
 			var dictionary_budget_error: String = _consume_json_work_bytes(state, 2)
 			if not dictionary_budget_error.is_empty():
-				var _removed_budget_dictionary: Variant = _state_array(
-					state,
-					"visited"
-				).pop_back()
+				var _removed_budget_dictionary: Variant = (_state_array(state, "visited").pop_back())
 				return dictionary_budget_error
 			for key: Variant in dictionary_value:
 				if not (key is String):
-					var _removed_invalid_key_dictionary: Variant = _state_array(
-						state,
-						"visited"
-					).pop_back()
+					var _removed_invalid_key_dictionary: Variant = (_state_array(state, "visited").pop_back())
 					return "invalid_dictionary_key"
 				var key_text: String = key
 				if key_text == _REPORT_MARKER_KEY or key_text == _VARIANT_MARKER_KEY:
-					var _removed_reserved_key_dictionary: Variant = _state_array(
-						state,
-						"visited"
-					).pop_back()
+					var _removed_reserved_key_dictionary: Variant = (_state_array(state, "visited").pop_back())
 					return "reserved_marker"
 				if key_text.length() > _MAX_VALUE_BYTES:
-					var _removed_oversized_key_dictionary: Variant = _state_array(
-						state,
-						"visited"
-					).pop_back()
+					var _removed_oversized_key_dictionary: Variant = (_state_array(state, "visited").pop_back())
 					return "max_bytes_exceeded"
 				state["node_count"] = GFVariantData.get_option_int(state, "node_count") + 1
 				if GFVariantData.get_option_int(state, "node_count") > _MAX_VALUE_NODES:
-					var _removed_node_budget_dictionary: Variant = _state_array(
-						state,
-						"visited"
-					).pop_back()
+					var _removed_node_budget_dictionary: Variant = (_state_array(state, "visited").pop_back())
 					return "max_nodes_exceeded"
 				var key_budget_error: String = _consume_json_work_bytes(
 					state,
 					key_text.to_utf8_buffer().size() + 3
 				)
 				if not key_budget_error.is_empty():
-					var _removed_key_budget_dictionary: Variant = _state_array(
-						state,
-						"visited"
-					).pop_back()
+					var _removed_key_budget_dictionary: Variant = (_state_array(state, "visited").pop_back())
 					return key_budget_error
 				var child_error: String = _validate_plain_json_node(
 					dictionary_value[key],
@@ -2048,16 +2225,16 @@ func _validate_plain_json_node(
 					depth + 1
 				)
 				if not child_error.is_empty():
-					var _removed_child_dictionary: Variant = _state_array(
-						state,
-						"visited"
-					).pop_back()
+					var _removed_child_dictionary: Variant = (_state_array(state, "visited").pop_back())
 					return child_error
 			var _removed_dictionary: Variant = _state_array(state, "visited").pop_back()
 			return ""
 		TYPE_ARRAY:
 			var array_value: Array = value
-			if _visited_contains(_state_array(state, "visited"), array_value):
+			if _visited_contains(
+				_state_array(state, "visited"),
+				array_value
+			):
 				return "circular_reference"
 			_state_array(state, "visited").append(array_value)
 			var array_budget_error: String = _consume_json_work_bytes(state, 2)
@@ -2065,12 +2242,13 @@ func _validate_plain_json_node(
 				var _removed_budget_array: Variant = _state_array(state, "visited").pop_back()
 				return array_budget_error
 			for item: Variant in array_value:
-				var child_error: String = _validate_plain_json_node(item, state, depth + 1)
+				var child_error: String = _validate_plain_json_node(
+					item,
+					state,
+					depth + 1
+				)
 				if not child_error.is_empty():
-					var _removed_child_array: Variant = _state_array(
-						state,
-						"visited"
-					).pop_back()
+					var _removed_child_array: Variant = (_state_array(state, "visited").pop_back())
 					return child_error
 			var _removed_array: Variant = _state_array(state, "visited").pop_back()
 			return ""
@@ -2114,7 +2292,15 @@ func _contains_report_marker(value: Variant) -> bool:
 ## @api private
 ## [br]
 func _json_values_are_identical(left: Variant, right: Variant) -> bool:
-	return JSON.stringify(left, "", true) == JSON.stringify(right, "", true)
+	return JSON.stringify(
+		left,
+		"",
+		true
+	) == JSON.stringify(
+		right,
+		"",
+		true
+	)
 
 
 ## 判断错误码是否属于深度、节点数或字节预算超限。
@@ -2122,11 +2308,14 @@ func _json_values_are_identical(left: Variant, right: Variant) -> bool:
 ## @api private
 ## [br]
 func _is_budget_error(error: String) -> bool:
-	return error in [
-		"max_depth_exceeded",
-		"max_nodes_exceeded",
-		"max_bytes_exceeded",
-	]
+	return (
+		error
+		in [
+			"max_depth_exceeded",
+			"max_nodes_exceeded",
+			"max_bytes_exceeded",
+		]
+	)
 
 
 ## 删除截止时间不晚于 now_msec 的 session，并为每个删除项追加审计事件。
@@ -2144,7 +2333,14 @@ func _prune_expired_sessions_internal(now_msec: int) -> int:
 			expired_ids.append(session_id)
 	for session_id: String in expired_ids:
 		var _pruned_session_erased: bool = _sessions.erase(session_id)
-		_append_audit("prune_session", "succeeded", "session_expired", session_id, "", "")
+		_append_audit(
+			"prune_session",
+			"succeeded",
+			"session_expired",
+			session_id,
+			"",
+			""
+		)
 	return expired_ids.size()
 
 
@@ -2174,7 +2370,10 @@ func _generate_token() -> String:
 ## @api private
 ## [br]
 func _hash_token(session_id: String, token: String) -> String:
-	return ("%s:%s" % [session_id, token]).sha256_text()
+	return (
+		"%s:%s"
+		% [session_id, token]
+	).sha256_text()
 
 
 ## 要求两个摘要文本长度均为 64，并逐位累积字符码点差异后判断是否全相同。
@@ -2200,8 +2399,14 @@ func _is_valid_token_text(token: String) -> bool:
 	for index: int in range(token.length()):
 		var character_code: int = token.unicode_at(index)
 		if not (
-			(character_code >= 48 and character_code <= 57)
-			or (character_code >= 97 and character_code <= 102)
+			(
+				character_code >= 48
+				and character_code <= 57
+			)
+			or (
+				character_code >= 97
+				and character_code <= 102
+			)
 		):
 			return false
 	return true
@@ -2217,10 +2422,25 @@ func _is_valid_identifier(value: String) -> bool:
 	for index: int in range(value.length()):
 		var character_code: int = value.unicode_at(index)
 		var allowed: bool = (
-			(character_code >= 48 and character_code <= 57)
-			or (character_code >= 65 and character_code <= 90)
-			or (character_code >= 97 and character_code <= 122)
-			or character_code in [45, 46, 47, 58, 95]
+			(
+				character_code >= 48
+				and character_code <= 57
+			)
+			or (
+				character_code >= 65
+				and character_code <= 90
+			)
+			or (
+				character_code >= 97
+				and character_code <= 122
+			)
+			or character_code in [
+				45,
+				46,
+				47,
+				58,
+				95,
+			]
 		)
 		if not allowed:
 			return false
@@ -2268,10 +2488,7 @@ func _drain_audit_notifications() -> void:
 		return
 	_audit_notification_draining = true
 	var delivered_count: int = 0
-	while (
-		not _audit_notification_queue.is_empty()
-		and delivered_count < _MAX_AUDIT_NOTIFICATIONS_PER_DRAIN
-	):
+	while (not _audit_notification_queue.is_empty() and delivered_count < _MAX_AUDIT_NOTIFICATIONS_PER_DRAIN):
 		var event: Dictionary = _audit_notification_queue.pop_front()
 		delivered_count += 1
 		audit_event_recorded.emit(event.duplicate(true))
@@ -2294,7 +2511,11 @@ func _audit_result(
 	var outcome: String = (
 		"succeeded"
 		if GFVariantData.get_option_bool(result, "ok")
-		else GFVariantData.get_option_string(result, "status", "rejected")
+		else GFVariantData.get_option_string(
+			result,
+			"status",
+			"rejected"
+		)
 	)
 	_append_audit(
 		action,
@@ -2333,7 +2554,11 @@ func _make_result(
 ## [br]
 ## @api private
 ## [br]
-func _strict_option_int(options: Dictionary, key: String, default_value: int) -> int:
+func _strict_option_int(
+	options: Dictionary,
+	key: String,
+	default_value: int
+) -> int:
 	if options.has(key):
 		var value: Variant = options[key]
 		if value is int:

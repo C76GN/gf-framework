@@ -141,10 +141,7 @@ func _init(architecture: GFArchitecture) -> void:
 ## @param builder: 由创建本 Plan 的同一 GFBinder 架构生成的 Builder。
 ## [br]
 ## @return 当前 Plan，便于继续声明 entry。
-func require_singleton(
-	binding_id: StringName,
-	builder: GFBindBuilder
-) -> GFBindingPlan:
+func require_singleton(binding_id: StringName, builder: GFBindBuilder) -> GFBindingPlan:
 	return _append_required_entry(
 		binding_id,
 		builder,
@@ -165,10 +162,7 @@ func require_singleton(
 ## @param builder: 由创建本 Plan 的同一 GFBinder 架构生成的 Builder。
 ## [br]
 ## @return 当前 Plan，便于继续声明 entry。
-func require_transient(
-	binding_id: StringName,
-	builder: GFBindBuilder
-) -> GFBindingPlan:
+func require_transient(binding_id: StringName, builder: GFBindBuilder) -> GFBindingPlan:
 	return _append_required_entry(
 		binding_id,
 		builder,
@@ -230,9 +224,7 @@ func execute(scope: GFAsyncScope) -> GFBindingPlanResult:
 			GFBindingPlanResultBase.Status.CANCELLED,
 			GFBindingPlanResultBase.Phase.CANCELLATION,
 			GFBindingPlanResultBase.Reason.SCOPE_CANCELLED,
-			"[GFBindingPlan][binding_plan.scope_cancelled] Required binding scope was cancelled: %s." % String(
-				scope.get_cancel_reason()
-			),
+			"[GFBindingPlan][binding_plan.scope_cancelled] Required binding scope was cancelled: %s." % String(scope.get_cancel_reason()),
 			0
 		)
 		return _settle_candidate_failure(pre_cancelled_result, scope)
@@ -273,9 +265,7 @@ func execute(scope: GFAsyncScope) -> GFBindingPlanResult:
 				GFBindingPlanResultBase.Status.CANCELLED,
 				GFBindingPlanResultBase.Phase.CANCELLATION,
 				GFBindingPlanResultBase.Reason.SCOPE_CANCELLED,
-				"[GFBindingPlan][binding_plan.scope_cancelled] Required binding scope was cancelled: %s." % String(
-					scope.get_cancel_reason()
-				),
+				"[GFBindingPlan][binding_plan.scope_cancelled] Required binding scope was cancelled: %s." % String(scope.get_cancel_reason()),
 				index
 			)
 			return _settle_candidate_failure(before_entry_cancelled, scope)
@@ -299,9 +289,7 @@ func execute(scope: GFAsyncScope) -> GFBindingPlanResult:
 			)
 			return _settle_candidate_failure(unavailable_entry_result, scope)
 
-		var attempt: GFBindBuilder.RequiredBindingAttempt = (
-			entry._builder.execute_required_binding_for_framework(entry._lifetime)
-		)
+		var attempt: GFBindBuilder.RequiredBindingAttempt = entry._builder.execute_required_binding_for_framework(entry._lifetime)
 		if scope.is_cancel_requested():
 			var after_entry_cancelled: GFBindingPlanResult = _make_entry_result(
 				GFBindingPlanResultBase.Status.CANCELLED,
@@ -309,9 +297,7 @@ func execute(scope: GFAsyncScope) -> GFBindingPlanResult:
 				GFBindingPlanResultBase.Phase.CANCELLATION,
 				GFBindingPlanResultBase.Reason.SCOPE_CANCELLED,
 				index + 1,
-				"[GFBindingPlan][binding_plan.scope_cancelled] Required binding scope was cancelled: %s." % String(
-					scope.get_cancel_reason()
-				)
+				"[GFBindingPlan][binding_plan.scope_cancelled] Required binding scope was cancelled: %s." % String(scope.get_cancel_reason())
 			)
 			return _settle_candidate_failure(after_entry_cancelled, scope)
 		if scope.is_completed():
@@ -386,10 +372,7 @@ func _append_required_entry(
 	)
 	if _configuration_failure != null:
 		return self
-	if (
-		binding_id == &""
-		or String(binding_id).length() > _MAX_BINDING_ID_LENGTH
-	):
+	if (binding_id == &"" or String(binding_id).length() > _MAX_BINDING_ID_LENGTH):
 		_freeze_configuration_failure(
 			entry,
 			GFBindingPlanResultBase.Reason.INVALID_ENTRY,
@@ -420,9 +403,7 @@ func _append_required_entry(
 			false
 		)
 		return self
-	var frozen_builder: GFBindBuilder = (
-		builder.duplicate_for_required_plan_for_framework(_architecture)
-	)
+	var frozen_builder: GFBindBuilder = builder.duplicate_for_required_plan_for_framework(_architecture)
 	if frozen_builder == null:
 		_freeze_configuration_failure(
 			entry,
@@ -513,10 +494,7 @@ func _make_no_entry_result(
 ## 冻结边界拒绝结果，可选输出错误，然后清理 Plan 并返回结果副本。
 ## [br]
 ## @api private
-func _settle_boundary_rejection(
-	result: GFBindingPlanResult,
-	report_error: bool
-) -> GFBindingPlanResult:
+func _settle_boundary_rejection(result: GFBindingPlanResult, report_error: bool) -> GFBindingPlanResult:
 	_freeze_terminal(result)
 	if report_error:
 		push_error(result.get_detail())
@@ -527,10 +505,7 @@ func _settle_boundary_rejection(
 ## 冻结候选失败结果、通知 Architecture 失败、取消仍活动的 scope 并清理 Plan。
 ## [br]
 ## @api private
-func _settle_candidate_failure(
-	result: GFBindingPlanResult,
-	scope: GFAsyncScope
-) -> GFBindingPlanResult:
+func _settle_candidate_failure(result: GFBindingPlanResult, scope: GFAsyncScope) -> GFBindingPlanResult:
 	_freeze_terminal(result)
 	_architecture.fail_initialization(result.get_detail())
 	if scope != null and scope.is_active():
@@ -580,7 +555,10 @@ func _finish_terminal_settlement() -> void:
 ## [br]
 ## @since 11.0.0
 class RequiredBindingEntry extends RefCounted:
+
+
 	# --- 私有变量 ---
+
 	## 条目在计划中的提交序号，失败结果沿用该序号定位原始配置。
 	## [br]
 	## @api private
@@ -613,6 +591,7 @@ class RequiredBindingEntry extends RefCounted:
 
 
 	# --- Godot 生命周期方法 ---
+
 	## 捕获条目的原始定位信息与 builder 引用；外层计划完成校验后可替换为冻结的 builder。
 	## [br]
 	## @api private

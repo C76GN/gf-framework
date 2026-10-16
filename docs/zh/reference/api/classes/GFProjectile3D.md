@@ -17,7 +17,7 @@
 |---|---|---|
 | 信号 | [`projectile_started`](#member-gfprojectile3d-signals-projectile_started) | `signal projectile_started(session: GFProjectileSession)` |
 | 信号 | [`projectile_finished`](#member-gfprojectile3d-signals-projectile_finished) | `signal projectile_finished(session: GFProjectileSession, reason: int)` |
-| 方法 | [`launch`](#member-gfprojectile3d-methods-launch) | `func launch( binding: GFProjectileBinding3D, launch_input: GFProjectileLaunchInput3D = null ) -> GFProjectileSession:` |
+| 方法 | [`launch`](#member-gfprojectile3d-methods-launch) | `func launch(binding: GFProjectileBinding3D, launch_input: GFProjectileLaunchInput3D = null) -> GFProjectileSession:` |
 | 方法 | [`get_active_session`](#member-gfprojectile3d-methods-get_active_session) | `func get_active_session() -> GFProjectileSession:` |
 | 方法 | [`is_active`](#member-gfprojectile3d-methods-is_active) | `func is_active() -> bool:` |
 
@@ -72,7 +72,7 @@ signal projectile_finished(session: GFProjectileSession, reason: int)
 - 首次版本：`3.17.0`
 
 ```gdscript
-func launch( binding: GFProjectileBinding3D, launch_input: GFProjectileLaunchInput3D = null ) -> GFProjectileSession:
+func launch(binding: GFProjectileBinding3D, launch_input: GFProjectileLaunchInput3D = null) -> GFProjectileSession:
 ```
 
 直接激活一个已验证 binding。

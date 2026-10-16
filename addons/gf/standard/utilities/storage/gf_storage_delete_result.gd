@@ -36,6 +36,7 @@ enum FailureKind {
 	IO_FAILED,
 }
 
+
 ## 删除 family 时可报告的有界成员分类。
 ## [br]
 ## @api public
@@ -367,10 +368,7 @@ static func _is_valid_configuration(
 			return (
 				removed_member_count == 0
 				and existing_member_count == remaining_member_count
-				and failed_member in [
-					FamilyMember.FAMILY_METADATA,
-					FamilyMember.TRANSACTION_EVIDENCE,
-				]
+				and (failed_member in [FamilyMember.FAMILY_METADATA, FamilyMember.TRANSACTION_EVIDENCE,])
 			)
 		FailureKind.IO_FAILED:
 			if existing_member_count == 0:

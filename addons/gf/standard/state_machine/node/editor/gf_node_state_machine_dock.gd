@@ -180,7 +180,13 @@ func _build_ui() -> void:
 	var toolbar: HBoxContainer = _GF_EDITOR_WORKSPACE_UI.make_toolbar()
 	root_box.add_child(toolbar)
 
-	toolbar.add_child(_GF_EDITOR_WORKSPACE_UI.make_button("刷新", "扫描当前场景中的 GFNodeStateMachine。", refresh))
+	toolbar.add_child(
+		_GF_EDITOR_WORKSPACE_UI.make_button(
+			"刷新",
+			"扫描当前场景中的 GFNodeStateMachine。",
+			refresh
+		)
+	)
 
 	_machine_option = OptionButton.new()
 	_machine_option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -275,7 +281,10 @@ func _populate_machine_options() -> void:
 	_machine_option.clear()
 	for index: int in range(_machines.size()):
 		var machine: GFNodeStateMachine = _machines[index]
-		_machine_option.add_item(_get_node_path_text(machine), index)
+		_machine_option.add_item(
+			_get_node_path_text(machine),
+			index
+		)
 		_machine_option.set_item_metadata(index, index)
 
 	if _machines.is_empty():
@@ -285,7 +294,13 @@ func _populate_machine_options() -> void:
 	else:
 		_machine_option.disabled = false
 		_select_button.disabled = false
-		_machine_option.select(clampi(previous_index, 0, _machines.size() - 1))
+		_machine_option.select(
+			clampi(
+				previous_index,
+				0,
+				_machines.size() - 1
+			)
+		)
 
 
 ## 清理旧显示状态，校验当前选择并更新报告摘要与问题列表。
@@ -310,21 +325,32 @@ func _render_selected_machine() -> void:
 	var machine: GFNodeStateMachine = _get_selected_machine()
 	if machine == null:
 		_last_report = {}
-		_GF_EDITOR_WORKSPACE_UI.set_status(_summary_label, "当前选择无效。", _GF_EDITOR_WORKSPACE_UI.WARNING_TEXT_COLOR)
+		_GF_EDITOR_WORKSPACE_UI.set_status(
+			_summary_label,
+			"当前选择无效。",
+			_GF_EDITOR_WORKSPACE_UI.WARNING_TEXT_COLOR
+		)
 		_empty_label.visible = true
 		_tree.visible = false
 		return
 
-	var report: GFValidationReport = _GF_NODE_STATE_MACHINE_VALIDATOR.validate_machine(machine, _get_validator_options())
-	_last_report = report.to_dict({}, {
-		"include_metadata": true,
-		"summary_subject": _get_node_path_text(machine),
-	})
-	_summary_label.text = "%s\n下一步：%s" % [
-		GFVariantData.get_option_string(_last_report, "summary"),
-		GFVariantData.get_option_string(_last_report, "next_action"),
-	]
-	_GF_EDITOR_WORKSPACE_UI.set_status(_summary_label, _summary_label.text, _GF_EDITOR_WORKSPACE_UI.get_report_color(_last_report))
+	var report: GFValidationReport = _GF_NODE_STATE_MACHINE_VALIDATOR.validate_machine(
+		machine,
+		_get_validator_options()
+	)
+	_last_report = report.to_dict(
+		{},
+		{ "include_metadata": true, "summary_subject": _get_node_path_text(machine), }
+	)
+	_summary_label.text = (
+		"%s\n下一步：%s"
+		% [GFVariantData.get_option_string(_last_report, "summary"), GFVariantData.get_option_string(_last_report, "next_action"),]
+	)
+	_GF_EDITOR_WORKSPACE_UI.set_status(
+		_summary_label,
+		_summary_label.text,
+		_GF_EDITOR_WORKSPACE_UI.get_report_color(_last_report)
+	)
 	_render_issues(GFVariantData.get_option_array(_last_report, "issues"))
 
 
@@ -341,11 +367,30 @@ func _render_issues(issues: Array) -> void:
 		var issue: Dictionary = GFVariantData.as_dictionary(issue_variant)
 
 		var item: TreeItem = _tree.create_item(root_item)
-		item.set_text(0, GFVariantData.get_option_string(issue, "severity"))
-		item.set_text(1, GFVariantData.get_option_string(issue, "kind"))
-		item.set_text(2, GFVariantData.get_option_string(issue, "path", GFVariantData.get_option_string(issue, "key")))
-		item.set_text(3, GFVariantData.get_option_string(issue, "message"))
-		item.set_metadata(0, issue.duplicate(true))
+		item.set_text(
+			0,
+			GFVariantData.get_option_string(issue, "severity")
+		)
+		item.set_text(
+			1,
+			GFVariantData.get_option_string(issue, "kind")
+		)
+		item.set_text(
+			2,
+			GFVariantData.get_option_string(
+				issue,
+				"path",
+				GFVariantData.get_option_string(issue, "key")
+			)
+		)
+		item.set_text(
+			3,
+			GFVariantData.get_option_string(issue, "message")
+		)
+		item.set_metadata(
+			0,
+			issue.duplicate(true)
+		)
 		visible_count += 1
 
 	_tree.visible = visible_count > 0
@@ -406,7 +451,6 @@ func _safe_json(value: Variant) -> String:
 
 
 # --- 信号处理函数 ---
-
 
 ## 选择变化后从当前控件状态重新渲染状态机报告，不依赖信号携带的旧索引。
 ## [br]

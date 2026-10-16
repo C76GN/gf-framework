@@ -28,7 +28,11 @@ extends RefCounted
 ## @param metadata: 注册元数据。
 ## [br]
 ## @schema metadata: Dictionary，调用方定义的 handler 上下文。
-signal handler_registered(request_type: StringName, replaced: bool, metadata: Dictionary)
+signal handler_registered(
+	request_type: StringName,
+	replaced: bool,
+	metadata: Dictionary
+)
 
 ## handler 注销时发出。
 ## [br]
@@ -58,7 +62,11 @@ signal handler_unregistered(request_type: StringName, metadata: Dictionary)
 ## @schema result: Variant，handler 返回值。
 ## [br]
 ## @schema metadata: Dictionary，包含 request_type、sequence、context 和 handler metadata。
-signal request_invoked(request_type: StringName, result: Variant, metadata: Dictionary)
+signal request_invoked(
+	request_type: StringName,
+	result: Variant,
+	metadata: Dictionary
+)
 
 
 # --- 常量 ---
@@ -231,36 +239,49 @@ static func make_bridge_contract_entries(
 ) -> Dictionary:
 	var contract_entries: Array[Dictionary] = []
 	var adapter_entries: Array[Dictionary] = []
-	var contract_kind: StringName = GFVariantData.get_option_string_name(options, "kind", &"request_handler")
-	var signature: String = GFVariantData.get_option_string(options, "signature", "Dictionary(request) -> Variant")
+	var contract_kind: StringName = GFVariantData.get_option_string_name(
+		options,
+		"kind",
+		&"request_handler"
+	)
+	var signature: String = GFVariantData.get_option_string(
+		options,
+		"signature",
+		"Dictionary(request) -> Variant"
+	)
 	for request_type_text: String in required_request_types:
 		var request_type: StringName = StringName(request_type_text.strip_edges())
 		if request_type == &"":
 			continue
-		contract_entries.append({
-			"contract_id": request_type,
-			"kind": contract_kind,
-			"signature": signature,
-			"allow_multiple": false,
-		})
+		contract_entries.append(
+			{
+				"contract_id": request_type,
+				"kind": contract_kind,
+				"signature": signature,
+				"allow_multiple": false,
+			}
+		)
 
 	if registry != null:
-		var adapter_kind: StringName = GFVariantData.get_option_string_name(options, "adapter_kind", &"request_handler")
+		var adapter_kind: StringName = GFVariantData.get_option_string_name(
+			options,
+			"adapter_kind",
+			&"request_handler"
+		)
 		for request_type: StringName in registry.get_handler_ids():
 			var snapshot: Dictionary = registry.get_handler_snapshot(request_type)
-			adapter_entries.append({
-				"adapter_id": StringName("handler:%s" % String(request_type)),
-				"contract_id": request_type,
-				"kind": adapter_kind,
-				"signature": signature,
-				"enabled": GFVariantData.get_option_bool(snapshot, "has_valid_handler"),
-				"metadata": snapshot,
-			})
+			adapter_entries.append(
+				{
+					"adapter_id": StringName("handler:%s" % String(request_type)),
+					"contract_id": request_type,
+					"kind": adapter_kind,
+					"signature": signature,
+					"enabled": GFVariantData.get_option_bool(snapshot, "has_valid_handler"),
+					"metadata": snapshot,
+				}
+			)
 
-	return {
-		"contract_entries": contract_entries,
-		"adapter_entries": adapter_entries,
-	}
+	return { "contract_entries": contract_entries, "adapter_entries": adapter_entries, }
 
 
 ## 注册单处理器请求 handler。
@@ -282,24 +303,44 @@ static func make_bridge_contract_entries(
 ## @schema options: Dictionary，包含 replace: bool、owner_id: StringName 和 metadata: Dictionary。
 ## [br]
 ## @schema return: Dictionary，包含 ok、status、request_type、replaced 和 metadata。
-func register_handler(request_type: StringName, handler: Callable, options: Dictionary = {}) -> Dictionary:
+func register_handler(
+	request_type: StringName,
+	handler: Callable,
+	options: Dictionary = {}
+) -> Dictionary:
 	if request_type == &"" or not handler.is_valid():
 		_invalid_count += 1
-		return _make_result(false, STATUS_INVALID, request_type, null, {
-			"error": "Request type or handler is invalid.",
-		})
+		return _make_result(
+			false,
+			STATUS_INVALID,
+			request_type,
+			null,
+			{ "error": "Request type or handler is invalid.", }
+		)
 
-	var replace_existing: bool = GFVariantData.get_option_bool(options, "replace", false)
+	var replace_existing: bool = GFVariantData.get_option_bool(
+		options,
+		"replace",
+		false
+	)
 	var metadata: Dictionary = GFVariantData.get_option_dictionary(options, "metadata")
 	var owner_id: StringName = GFVariantData.get_option_string_name(options, "owner_id")
 	var replaced: bool = _handlers.has(request_type)
 	if replaced and not replace_existing:
 		_duplicate_count += 1
-		_record_event(&"register_duplicate", request_type, STATUS_DUPLICATE, metadata)
-		return _make_result(false, STATUS_DUPLICATE, request_type, null, {
-			"replaced": false,
-			"metadata": metadata,
-		})
+		_record_event(
+			&"register_duplicate",
+			request_type,
+			STATUS_DUPLICATE,
+			metadata
+		)
+		return _make_result(
+			false,
+			STATUS_DUPLICATE,
+			request_type,
+			null,
+			{ "replaced": false, "metadata": metadata, }
+		)
 
 	var sequence: int = _take_sequence()
 	_handlers[request_type] = {
@@ -319,12 +360,24 @@ func register_handler(request_type: StringName, handler: Callable, options: Dict
 		_registered_count += 1
 
 	var status: StringName = STATUS_REPLACED if replaced else STATUS_REGISTERED
-	handler_registered.emit(request_type, replaced, metadata.duplicate(true))
-	_record_event(&"handler_registered", request_type, status, metadata)
-	return _make_result(true, status, request_type, null, {
-		"replaced": replaced,
-		"metadata": metadata,
-	})
+	handler_registered.emit(
+		request_type,
+		replaced,
+		metadata.duplicate(true)
+	)
+	_record_event(
+		&"handler_registered",
+		request_type,
+		status,
+		metadata
+	)
+	return _make_result(
+		true,
+		status,
+		request_type,
+		null,
+		{ "replaced": replaced, "metadata": metadata, }
+	)
 
 
 ## 注销请求 handler。
@@ -351,25 +404,51 @@ func unregister_handler(
 ) -> Dictionary:
 	if request_type == &"":
 		_invalid_count += 1
-		return _make_result(false, STATUS_INVALID, request_type, null, {
-			"error": "Request type is invalid.",
-		})
+		return _make_result(
+			false,
+			STATUS_INVALID,
+			request_type,
+			null,
+			{ "error": "Request type is invalid.", }
+		)
 	if not _handlers.has(request_type):
 		_missing_count += 1
-		return _make_result(false, STATUS_MISSING, request_type, null)
+		return _make_result(
+			false,
+			STATUS_MISSING,
+			request_type,
+			null
+		)
 
 	var entry: Dictionary = GFVariantData.as_dictionary(_handlers[request_type])
 	var existing_handler: Callable = _variant_to_callable(GFVariantData.get_option_value(entry, "handler"))
 	if handler.is_valid() and existing_handler != handler:
-		return _make_result(false, STATUS_MISMATCH, request_type, null)
+		return _make_result(
+			false,
+			STATUS_MISMATCH,
+			request_type,
+			null
+		)
 
 	var _erased_handler: bool = _handlers.erase(request_type)
 	_unregistered_count += 1
-	handler_unregistered.emit(request_type, metadata.duplicate(true))
-	_record_event(&"handler_unregistered", request_type, STATUS_UNREGISTERED, metadata)
-	return _make_result(true, STATUS_UNREGISTERED, request_type, null, {
-		"metadata": metadata,
-	})
+	handler_unregistered.emit(
+		request_type,
+		metadata.duplicate(true)
+	)
+	_record_event(
+		&"handler_unregistered",
+		request_type,
+		STATUS_UNREGISTERED,
+		metadata
+	)
+	return _make_result(
+		true,
+		STATUS_UNREGISTERED,
+		request_type,
+		null,
+		{ "metadata": metadata, }
+	)
 
 
 ## 调用请求 handler。
@@ -393,8 +472,17 @@ func unregister_handler(
 ## @schema context: Dictionary，调用方定义的调用上下文。
 ## [br]
 ## @schema return: Dictionary，包含 ok、status、request_type、result、context 和 metadata。
-func invoke(request_type: StringName, payload: Variant = null, context: Dictionary = {}) -> Dictionary:
-	return _invoke_handler(request_type, payload, context, false)
+func invoke(
+	request_type: StringName,
+	payload: Variant = null,
+	context: Dictionary = {}
+) -> Dictionary:
+	return _invoke_handler(
+		request_type,
+		payload,
+		context,
+		false
+	)
 
 
 ## 尝试调用请求 handler。
@@ -418,8 +506,17 @@ func invoke(request_type: StringName, payload: Variant = null, context: Dictiona
 ## @schema context: Dictionary，调用方定义的调用上下文。
 ## [br]
 ## @schema return: Dictionary，包含 ok、status、request_type、result、context、metadata 和 missing_allowed。
-func try_invoke(request_type: StringName, payload: Variant = null, context: Dictionary = {}) -> Dictionary:
-	return _invoke_handler(request_type, payload, context, true)
+func try_invoke(
+	request_type: StringName,
+	payload: Variant = null,
+	context: Dictionary = {}
+) -> Dictionary:
+	return _invoke_handler(
+		request_type,
+		payload,
+		context,
+		true
+	)
 
 
 ## 将请求调用结果转换为 JSON.stringify() 安全的诊断报告。
@@ -524,7 +621,10 @@ func get_recent_events() -> Array[Dictionary]:
 ## @schema return: Array[Dictionary]，每个元素均可安全传给 JSON.stringify()。
 func get_json_compatible_recent_events(options: Dictionary = {}) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
-	var raw_events: Variant = _GF_REPORT_VALUE_CODEC_SCRIPT.to_json_compatible(get_recent_events(), options)
+	var raw_events: Variant = _GF_REPORT_VALUE_CODEC_SCRIPT.to_json_compatible(
+		get_recent_events(),
+		options
+	)
 	if raw_events is Array:
 		var events: Array = raw_events
 		for event_value: Variant in events:
@@ -594,7 +694,12 @@ func get_debug_snapshot() -> Dictionary:
 ## [br]
 ## @schema return: Dictionary safe for JSON.stringify().
 func get_json_compatible_debug_snapshot(options: Dictionary = {}) -> Dictionary:
-	return GFVariantData.as_dictionary(_GF_REPORT_VALUE_CODEC_SCRIPT.to_json_compatible(get_debug_snapshot(), options))
+	return GFVariantData.as_dictionary(
+		_GF_REPORT_VALUE_CODEC_SCRIPT.to_json_compatible(
+			get_debug_snapshot(),
+			options
+		)
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -611,27 +716,46 @@ func _invoke_handler(
 ) -> Dictionary:
 	if request_type == &"":
 		_invalid_count += 1
-		return _make_result(false, STATUS_INVALID, request_type, null, {
-			"error": "Request type is invalid.",
-			"missing_allowed": missing_allowed,
-		})
+		return _make_result(
+			false,
+			STATUS_INVALID,
+			request_type,
+			null,
+			{ "error": "Request type is invalid.", "missing_allowed": missing_allowed, }
+		)
 	if not _handlers.has(request_type):
 		_missing_count += 1
-		_record_event(&"request_missing", request_type, STATUS_MISSING, context)
-		return _make_result(false, STATUS_MISSING, request_type, null, {
-			"context": context,
-			"missing_allowed": missing_allowed,
-		})
+		_record_event(
+			&"request_missing",
+			request_type,
+			STATUS_MISSING,
+			context
+		)
+		return _make_result(
+			false,
+			STATUS_MISSING,
+			request_type,
+			null,
+			{ "context": context, "missing_allowed": missing_allowed, }
+		)
 
 	var entry: Dictionary = GFVariantData.as_dictionary(_handlers[request_type])
 	var handler: Callable = _variant_to_callable(GFVariantData.get_option_value(entry, "handler"))
 	if not handler.is_valid():
 		_invalid_count += 1
-		_record_event(&"handler_invalid", request_type, STATUS_INVALID, context)
-		return _make_result(false, STATUS_INVALID, request_type, null, {
-			"context": context,
-			"missing_allowed": missing_allowed,
-		})
+		_record_event(
+			&"handler_invalid",
+			request_type,
+			STATUS_INVALID,
+			context
+		)
+		return _make_result(
+			false,
+			STATUS_INVALID,
+			request_type,
+			null,
+			{ "context": context, "missing_allowed": missing_allowed, }
+		)
 
 	var sequence: int = _take_sequence()
 	var request: Dictionary = {
@@ -644,17 +768,9 @@ func _invoke_handler(
 	var result_value: Variant = handler.call(request)
 	if _handlers.has(request_type):
 		var current_entry: Dictionary = GFVariantData.as_dictionary(_handlers[request_type])
-		var registered_sequence: int = GFVariantData.get_option_int(
-			entry,
-			"registered_sequence"
-		)
-		if GFVariantData.get_option_int(
-			current_entry,
-			"registered_sequence"
-		) == registered_sequence:
-			entry["invocation_count"] = (
-				GFVariantData.get_option_int(entry, "invocation_count") + 1
-			)
+		var registered_sequence: int = GFVariantData.get_option_int(entry, "registered_sequence")
+		if ((GFVariantData.get_option_int(current_entry, "registered_sequence")) == registered_sequence):
+			entry["invocation_count"] = (GFVariantData.get_option_int(entry, "invocation_count") + 1)
 			entry["last_invoked_msec"] = Time.get_ticks_msec()
 			entry["last_invoked_sequence"] = sequence
 			_handlers[request_type] = entry
@@ -665,13 +781,28 @@ func _invoke_handler(
 		"handler_metadata": GFVariantData.get_option_dictionary(entry, "metadata"),
 		"sequence": sequence,
 	}
-	request_invoked.emit(request_type, GFVariantData.duplicate_variant(result_value), invoke_metadata.duplicate(true))
-	_record_event(&"request_invoked", request_type, STATUS_INVOKED, invoke_metadata)
-	return _make_result(true, STATUS_INVOKED, request_type, result_value, {
-		"context": context,
-		"metadata": invoke_metadata,
-		"missing_allowed": missing_allowed,
-	})
+	request_invoked.emit(
+		request_type,
+		GFVariantData.duplicate_variant(result_value),
+		invoke_metadata.duplicate(true)
+	)
+	_record_event(
+		&"request_invoked",
+		request_type,
+		STATUS_INVOKED,
+		invoke_metadata
+	)
+	return _make_result(
+		true,
+		STATUS_INVOKED,
+		request_type,
+		result_value,
+		{
+			"context": context,
+			"metadata": invoke_metadata,
+			"missing_allowed": missing_allowed,
+		}
+	)
 
 
 ## 提取 handler 注册、调用计数、最近调用序号与可调用状态。

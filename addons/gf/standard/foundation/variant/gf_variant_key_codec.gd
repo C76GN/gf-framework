@@ -12,6 +12,7 @@
 class_name GFVariantKeyCodec
 extends RefCounted
 
+
 # --- 常量 ---
 
 ## 稳定键编码使用的 schema 版本前缀。
@@ -50,16 +51,43 @@ static func is_stable_key(value: Variant) -> bool:
 			return true
 		TYPE_VECTOR3:
 			var vector_3: Vector3 = value
-			return _are_finite_floats([vector_3.x, vector_3.y, vector_3.z])
+			return _are_finite_floats(
+				[
+					vector_3.x,
+					vector_3.y,
+					vector_3.z,
+				]
+			)
 		TYPE_VECTOR4:
 			var vector_4: Vector4 = value
-			return _are_finite_floats([vector_4.x, vector_4.y, vector_4.z, vector_4.w])
+			return _are_finite_floats(
+				[
+					vector_4.x,
+					vector_4.y,
+					vector_4.z,
+					vector_4.w,
+				]
+			)
 		TYPE_RECT2:
 			var rect_2: Rect2 = value
-			return _are_finite_floats([rect_2.position.x, rect_2.position.y, rect_2.size.x, rect_2.size.y])
+			return _are_finite_floats(
+				[
+					rect_2.position.x,
+					rect_2.position.y,
+					rect_2.size.x,
+					rect_2.size.y,
+				]
+			)
 		TYPE_COLOR:
 			var color: Color = value
-			return _are_finite_floats([color.r, color.g, color.b, color.a])
+			return _are_finite_floats(
+				[
+					color.r,
+					color.g,
+					color.b,
+					color.a,
+				]
+			)
 		_:
 			return false
 
@@ -91,14 +119,23 @@ static func try_make_key_token(value: Variant, options: Dictionary = {}) -> Dict
 			"reason": "unstable_key",
 		}
 
-	var encoded: Variant = GFVariantJsonCodec.variant_to_json_compatible(value, {
-		"encode_dictionary_keys": true,
-		"encode_unsafe_ints": true,
-	})
-	var encoded_text: String = JSON.stringify(encoded, "", true)
+	var encoded: Variant = GFVariantJsonCodec.variant_to_json_compatible(
+		value,
+		{ "encode_dictionary_keys": true, "encode_unsafe_ints": true, }
+	)
+	var encoded_text: String = JSON.stringify(
+		encoded,
+		"",
+		true
+	)
 	return {
 		"ok": true,
-		"key_token": "%s:%s:%s" % [_KEY_SCHEMA_PREFIX, type_string(typeof(value)), encoded_text],
+		"key_token": "%s:%s:%s"
+		% [
+			_KEY_SCHEMA_PREFIX,
+			type_string(typeof(value)),
+			encoded_text,
+		],
 		"value_type": type_string(typeof(value)),
 		"reason": "",
 	}

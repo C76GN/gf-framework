@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFWebSocketNetworkBackend" path="addons/gf/extensions/network/backends/gf_websocket_network_backend.gd" module="extensions/network" extends="GFNetworkBackend" classDigest="e635addf81e8e28866aeedb82a7447e79a4ff69344f13d5cad3ca8605c9a909f">
+<class name="GFWebSocketNetworkBackend" path="addons/gf/extensions/network/backends/gf_websocket_network_backend.gd" module="extensions/network" extends="GFNetworkBackend" classDigest="44a2c0b186858aba99f926bfa35c51772b81a67a067635a4b2b104d2dddfbe80">
 	<description>GFWebSocketNetworkBackend: 基于 Godot WebSocketPeer 的网络后端。
 只实现 GFNetworkBackend 的 bytes 传输边界，适合浏览器、原生客户端或工具链
 之间复用同一套 GFNetworkMessage 序列化流程。</description>
@@ -295,7 +295,7 @@ endpoint 应为 ws:// 或 wss:// URL。</description>
 			</tags>
 		</member>
 		<member kind="method" name="send_bytes">
-			<signature>func send_bytes(peer_id: int, bytes: PackedByteArray, _options: Dictionary = {}) -&gt; Error:</signature>
+			<signature>func send_bytes( peer_id: int, bytes: PackedByteArray, _options: Dictionary = {} ) -&gt; Error:</signature>
 			<description>发送 bytes。</description>
 			<tags>
 				<tag name="api">public</tag>

@@ -17,7 +17,7 @@
 |---|---|---|
 | 属性 | [`priority`](#member-gfactioninterceptor-properties-priority) | `var priority: int = 0` |
 | 属性 | [`enabled`](#member-gfactioninterceptor-properties-enabled) | `var enabled: bool = true` |
-| 方法 | [`_before_execute`](#member-gfactioninterceptor-methods-_before_execute) | `func _before_execute( _action: Object, _queue: GFActionQueueSystem ) -> GFActionInterceptionResult:` |
+| 方法 | [`_before_execute`](#member-gfactioninterceptor-methods-_before_execute) | `func _before_execute(_action: Object, _queue: GFActionQueueSystem) -> GFActionInterceptionResult:` |
 | 方法 | [`_after_execute`](#member-gfactioninterceptor-methods-_after_execute) | `func _after_execute( _action: Object, _queue: GFActionQueueSystem, _execute_result: Variant ) -> GFActionInterceptionResult:` |
 
 ## 属性
@@ -54,9 +54,10 @@ var enabled: bool = true
 ### `_before_execute`
 
 - API：`protected`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func _before_execute( _action: Object, _queue: GFActionQueueSystem ) -> GFActionInterceptionResult:
+func _before_execute(_action: Object, _queue: GFActionQueueSystem) -> GFActionInterceptionResult:
 ```
 
 动作执行前调用。

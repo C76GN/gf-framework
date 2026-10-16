@@ -135,9 +135,10 @@ func to_dict() -> Dictionary:
 		"source_key": source_key,
 		"node_path": node_path,
 		"message": message,
-		"payload": GFReportValueCodec.to_report_dictionary(payload, {
-			"path_redaction": "basename",
-		}),
+		"payload": GFReportValueCodec.to_report_dictionary(
+			payload,
+			{ "path_redaction": "basename", }
+		),
 		"timestamp_msec": timestamp_msec,
 	}
 
@@ -156,7 +157,11 @@ func to_dict() -> Dictionary:
 static func from_dict(data: Dictionary) -> GFSavePipelineEvent:
 	var event: GFSavePipelineEvent = GFSavePipelineEvent.new()
 	event.stage = GFVariantData.get_option_string_name(data, "stage")
-	event.severity = GFVariantData.get_option_string_name(data, "severity", &"info")
+	event.severity = GFVariantData.get_option_string_name(
+		data,
+		"severity",
+		&"info"
+	)
 	event.scope_key = GFVariantData.get_option_string_name(data, "scope_key")
 	event.source_key = GFVariantData.get_option_string_name(data, "source_key")
 	event.node_path = GFVariantData.get_option_string(data, "node_path")

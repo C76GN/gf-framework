@@ -261,13 +261,29 @@ func encode(data: Dictionary, options: Dictionary = {}) -> PackedByteArray:
 ## [br]
 ## @schema return: 闭合 Dictionary，仅包含 ok: bool、error: Error 和 bytes: PackedByteArray。成功时 error 为 OK 且 bytes 非空；非法预算或已移除选项返回 ERR_INVALID_PARAMETER，编码失败返回 ERR_INVALID_DATA，完整明文超限返回 ERR_OUT_OF_MEMORY；失败时 bytes 为空数组。
 func encode_result(data: Dictionary, options: Dictionary = {}) -> Dictionary:
-	var decode_limit: int = _get_positive_decode_limit(options, "max_decode_bytes", max_decode_bytes)
+	var decode_limit: int = _get_positive_decode_limit(
+		options,
+		"max_decode_bytes",
+		max_decode_bytes
+	)
 	if decode_limit <= 0 or options.has("max_decompressed_bytes"):
 		return _make_encode_failure(ERR_INVALID_PARAMETER)
 	var active_format: Format = _get_format(options)
-	var should_compress: bool = GFVariantData.get_option_bool(options, "use_compression", use_compression)
-	var key: int = GFVariantData.get_option_int(options, "obfuscation_key", obfuscation_key)
-	var should_write_checksum: bool = GFVariantData.get_option_bool(options, "use_integrity_checksum", use_integrity_checksum)
+	var should_compress: bool = GFVariantData.get_option_bool(
+		options,
+		"use_compression",
+		use_compression
+	)
+	var key: int = GFVariantData.get_option_int(
+		options,
+		"obfuscation_key",
+		obfuscation_key
+	)
+	var should_write_checksum: bool = GFVariantData.get_option_bool(
+		options,
+		"use_integrity_checksum",
+		use_integrity_checksum
+	)
 	var document: Dictionary = _make_storage_document(
 		data,
 		active_format,
@@ -291,7 +307,11 @@ func encode_result(data: Dictionary, options: Dictionary = {}) -> Dictionary:
 		bytes = Marshalls.raw_to_base64(bytes).to_utf8_buffer()
 	if bytes.is_empty():
 		return _make_encode_failure(ERR_INVALID_DATA)
-	return {"ok": true, "error": OK, "bytes": bytes}
+	return {
+		"ok": true,
+		"error": OK,
+		"bytes": bytes,
+	}
 
 
 ## 从 bytes 解码字典。
@@ -309,26 +329,49 @@ func encode_result(data: Dictionary, options: Dictionary = {}) -> Dictionary:
 ## @schema options: Dictionary，可包含 format、use_compression、obfuscation_key、use_integrity_checksum、strict_integrity、normalize_json_numbers、require_integrity_checksum 和 max_decode_bytes；字节上限必须是正 int，默认 64 MiB，同时约束解压输出和明文解析。已移除的 max_decompressed_bytes 选项被拒绝，不提供别名。JSON 解码还受 GFVariantJsonCodec 默认遍历预算约束，超限不返回部分载荷。无法区分损坏流与输出预算耗尽的解压失败保守返回 LIMIT_EXCEEDED。
 func decode(bytes: PackedByteArray, options: Dictionary = {}) -> GFStorageReadResult:
 	var active_format: Format = _get_format(options)
-	var should_compress: bool = GFVariantData.get_option_bool(options, "use_compression", use_compression)
-	var key: int = GFVariantData.get_option_int(options, "obfuscation_key", obfuscation_key)
-	var should_verify_checksum: bool = GFVariantData.get_option_bool(options, "use_integrity_checksum", use_integrity_checksum)
-	var should_reject_bad_checksum: bool = GFVariantData.get_option_bool(options, "strict_integrity", strict_integrity)
-	var should_normalize_json_numbers: bool = GFVariantData.get_option_bool(options, "normalize_json_numbers", normalize_json_numbers)
+	var should_compress: bool = GFVariantData.get_option_bool(
+		options,
+		"use_compression",
+		use_compression
+	)
+	var key: int = GFVariantData.get_option_int(
+		options,
+		"obfuscation_key",
+		obfuscation_key
+	)
+	var should_verify_checksum: bool = GFVariantData.get_option_bool(
+		options,
+		"use_integrity_checksum",
+		use_integrity_checksum
+	)
+	var should_reject_bad_checksum: bool = GFVariantData.get_option_bool(
+		options,
+		"strict_integrity",
+		strict_integrity
+	)
+	var should_normalize_json_numbers: bool = GFVariantData.get_option_bool(
+		options,
+		"normalize_json_numbers",
+		normalize_json_numbers
+	)
 	var should_require_checksum: bool = GFVariantData.get_option_bool(
 		options,
 		"require_integrity_checksum",
 		require_integrity_checksum
 	)
-	var decode_limit: int = _get_positive_decode_limit(options, "max_decode_bytes", max_decode_bytes)
+	var decode_limit: int = _get_positive_decode_limit(
+		options,
+		"max_decode_bytes",
+		max_decode_bytes
+	)
 	if decode_limit <= 0 or options.has("max_decompressed_bytes"):
-		var reason: String = (
-			"max_decompressed_bytes was removed; use max_decode_bytes"
-			if options.has("max_decompressed_bytes")
-			else "max_decode_bytes must be a positive integer"
-		)
+		var reason: String = ("max_decompressed_bytes was removed; use max_decode_bytes" if options.has("max_decompressed_bytes") else "max_decode_bytes must be a positive integer")
 		return _make_failure(
-			reason, ERR_INVALID_PARAMETER,
-			{}, GFStorageReadResult.IntegrityStatus.NOT_CHECKED, 0,
+			reason,
+			ERR_INVALID_PARAMETER,
+			{},
+			GFStorageReadResult.IntegrityStatus.NOT_CHECKED,
+			0,
 			GFStorageReadResult.FailureKind.INVALID_REQUEST
 		)
 	var payload_bytes: PackedByteArray = _decode_obfuscation(bytes, key)
@@ -336,10 +379,7 @@ func decode(bytes: PackedByteArray, options: Dictionary = {}) -> GFStorageReadRe
 		return _make_failure("Payload is empty", ERR_FILE_CORRUPT)
 
 	if should_compress:
-		payload_bytes = payload_bytes.decompress_dynamic(
-			decode_limit,
-			_COMPRESSION_MODE
-		)
+		payload_bytes = payload_bytes.decompress_dynamic(decode_limit, _COMPRESSION_MODE)
 		if payload_bytes.is_empty() and not bytes.is_empty():
 			return _make_limit_failure("Decompression failed or exceeded the decode byte limit")
 	if payload_bytes.size() > decode_limit:
@@ -359,15 +399,10 @@ func decode(bytes: PackedByteArray, options: Dictionary = {}) -> GFStorageReadRe
 	var document: Dictionary = GFVariantData.get_option_dictionary(deserialize_result, "data")
 	var declared_schema_version: int = _get_declared_document_schema_version(document)
 	if declared_schema_version > DOCUMENT_SCHEMA_VERSION:
-		var future_descriptor: Dictionary = GFVariantData.get_option_dictionary(
-			document,
-			DOCUMENT_KEY
-		)
+		var future_descriptor: Dictionary = GFVariantData.get_option_dictionary(document, DOCUMENT_KEY)
 		return _make_failure(
-			"Unsupported future storage document schema: %d > %d" % [
-				declared_schema_version,
-				DOCUMENT_SCHEMA_VERSION,
-			],
+			"Unsupported future storage document schema: %d > %d"
+			% [declared_schema_version, DOCUMENT_SCHEMA_VERSION,],
 			ERR_FILE_UNRECOGNIZED,
 			GFVariantData.get_option_dictionary(future_descriptor, METADATA_KEY),
 			GFStorageReadResult.IntegrityStatus.NOT_CHECKED,
@@ -382,9 +417,7 @@ func decode(bytes: PackedByteArray, options: Dictionary = {}) -> GFStorageReadRe
 	var metadata: Dictionary = GFVariantData.get_option_dictionary(descriptor, METADATA_KEY)
 	var payload: Dictionary = GFVariantData.get_option_dictionary(document, PAYLOAD_KEY)
 	var integrity: Dictionary = GFVariantData.get_option_dictionary(descriptor, INTEGRITY_KEY)
-	var document_schema_version: int = GFVariantData.to_exact_int(
-		GFVariantData.get_option_value(descriptor, SCHEMA_VERSION_KEY)
-	)
+	var document_schema_version: int = GFVariantData.to_exact_int(GFVariantData.get_option_value(descriptor, SCHEMA_VERSION_KEY))
 	var has_digest: bool = integrity.has(DIGEST_KEY)
 	var integrity_status: GFStorageReadResult.IntegrityStatus = GFStorageReadResult.IntegrityStatus.NOT_CHECKED
 
@@ -418,11 +451,13 @@ func decode(bytes: PackedByteArray, options: Dictionary = {}) -> GFStorageReadRe
 			document_schema_version
 		)
 
-	return GFStorageReadResult.new().configure_success(
-		payload,
-		metadata,
-		integrity_status,
-		document_schema_version
+	return (
+		GFStorageReadResult.new().configure_success(
+			payload,
+			metadata,
+			integrity_status,
+			document_schema_version
+		)
 	)
 
 
@@ -493,7 +528,11 @@ func calculate_checksum(data: Dictionary, p_format: Format = Format.JSON) -> Str
 ## [br]
 ## @api private
 func _make_encode_failure(error_code: Error) -> Dictionary:
-	return {"ok": false, "error": error_code, "bytes": PackedByteArray()}
+	return {
+		"ok": false,
+		"error": error_code,
+		"bytes": PackedByteArray(),
+	}
 
 
 ## 组合 schema 描述、元数据、payload 和可选完整性摘要形成存储文档。
@@ -508,9 +547,20 @@ func _make_storage_document(
 	options: Dictionary
 ) -> Dictionary:
 	var metadata: Dictionary = {
-		VERSION_KEY: maxi(GFVariantData.get_option_int(options, "version", version), 1),
+		VERSION_KEY: maxi(
+			GFVariantData.get_option_int(
+				options,
+				"version",
+				version
+			),
+			1
+		),
 	}
-	var should_include_metadata: bool = GFVariantData.get_option_bool(options, "include_metadata", include_metadata)
+	var should_include_metadata: bool = GFVariantData.get_option_bool(
+		options,
+		"include_metadata",
+		include_metadata
+	)
 	if should_include_metadata:
 		metadata[TIMESTAMP_KEY] = Time.get_datetime_string_from_system(true, true)
 		metadata[FORMAT_KEY] = _format_to_string(active_format)
@@ -523,10 +573,7 @@ func _make_storage_document(
 		METADATA_KEY: metadata,
 		INTEGRITY_KEY: integrity,
 	}
-	var document: Dictionary = {
-		DOCUMENT_KEY: descriptor,
-		PAYLOAD_KEY: payload,
-	}
+	var document: Dictionary = { DOCUMENT_KEY: descriptor, PAYLOAD_KEY: payload, }
 	if should_write_checksum:
 		integrity[ALGORITHM_KEY] = _INTEGRITY_ALGORITHM
 		var checksum: String = calculate_checksum(document, active_format)
@@ -543,7 +590,11 @@ func _make_storage_document(
 ## @api private
 ## [br]
 func _validate_storage_document(document: Dictionary) -> String:
-	if document.size() != 2 or not document.has(DOCUMENT_KEY) or not document.has(PAYLOAD_KEY):
+	if (
+		document.size() != 2
+		or not document.has(DOCUMENT_KEY)
+		or not document.has(PAYLOAD_KEY)
+	):
 		return "Storage document envelope missing or malformed"
 	if not GFVariantData.get_option_value(document, DOCUMENT_KEY) is Dictionary:
 		return "Storage document descriptor is not a Dictionary"
@@ -575,10 +626,7 @@ func _validate_storage_document(document: Dictionary) -> String:
 		if typeof(metadata_key) != TYPE_STRING or not _METADATA_FIELDS.has(metadata_key):
 			return "Storage document metadata contains unsupported fields"
 	var data_version_value: Variant = GFVariantData.get_option_value(metadata, VERSION_KEY)
-	if (
-		not GFVariantData.is_exact_integer(data_version_value)
-		or GFVariantData.to_exact_int(data_version_value) <= 0
-	):
+	if (not GFVariantData.is_exact_integer(data_version_value) or GFVariantData.to_exact_int(data_version_value) <= 0):
 		return "Storage document data_version is missing or invalid"
 	if metadata.has(TIMESTAMP_KEY):
 		var timestamp_value: Variant = GFVariantData.get_option_value(metadata, TIMESTAMP_KEY)
@@ -586,10 +634,7 @@ func _validate_storage_document(document: Dictionary) -> String:
 			return "Storage document timestamp is invalid"
 	if metadata.has(FORMAT_KEY):
 		var format_value: Variant = GFVariantData.get_option_value(metadata, FORMAT_KEY)
-		if (
-			typeof(format_value) != TYPE_STRING
-			or not ["json", "binary"].has(GFVariantData.to_text(format_value))
-		):
+		if (typeof(format_value) != TYPE_STRING or not ["json", "binary"].has(GFVariantData.to_text(format_value))):
 			return "Storage document format metadata is invalid"
 	if metadata.has(COMPRESSION_KEY):
 		var compression_value: Variant = GFVariantData.get_option_value(metadata, COMPRESSION_KEY)
@@ -598,7 +643,11 @@ func _validate_storage_document(document: Dictionary) -> String:
 	var integrity: Dictionary = GFVariantData.get_option_dictionary(descriptor, INTEGRITY_KEY)
 	if integrity.is_empty():
 		return ""
-	if integrity.size() != 2 or not integrity.has(ALGORITHM_KEY) or not integrity.has(DIGEST_KEY):
+	if (
+		integrity.size() != 2
+		or not integrity.has(ALGORITHM_KEY)
+		or not integrity.has(DIGEST_KEY)
+	):
 		return "Storage document integrity descriptor is incomplete"
 	var algorithm_value: Variant = GFVariantData.get_option_value(integrity, ALGORITHM_KEY)
 	if typeof(algorithm_value) != TYPE_STRING or GFVariantData.to_text(algorithm_value).is_empty():
@@ -618,10 +667,7 @@ func _get_declared_document_schema_version(document: Dictionary) -> int:
 	if not descriptor_value is Dictionary:
 		return -1
 	var descriptor: Dictionary = descriptor_value
-	var schema_version_value: Variant = GFVariantData.get_option_value(
-		descriptor,
-		SCHEMA_VERSION_KEY
-	)
+	var schema_version_value: Variant = GFVariantData.get_option_value(descriptor, SCHEMA_VERSION_KEY)
 	if not GFVariantData.is_exact_integer(schema_version_value):
 		return -1
 	return GFVariantData.to_exact_int(schema_version_value, -1)
@@ -662,7 +708,11 @@ func _serialize_dictionary(data: Dictionary, p_format: Format) -> PackedByteArra
 			var json_value: Variant = GFVariantJsonCodec.variant_to_json_compatible(sorted_data)
 			if _is_json_traversal_limit_marker(json_value):
 				return PackedByteArray()
-			return JSON.stringify(json_value, "", true).to_utf8_buffer()
+			return JSON.stringify(
+				json_value,
+				"",
+				true
+			).to_utf8_buffer()
 
 
 ## 在任何本地递归排序、数字归一化或深复制前，统一拒绝循环、不支持值以及默认遍历预算超限。
@@ -672,7 +722,7 @@ func _serialize_dictionary(data: Dictionary, p_format: Format) -> PackedByteArra
 func _is_complete_json_input(data: Dictionary) -> bool:
 	var result: Dictionary = GFVariantJsonCodec.variant_to_json_compatible_result(
 		data,
-		{"encode_dictionary_keys": true}
+		{ "encode_dictionary_keys": true }
 	)
 	return GFVariantData.get_option_bool(result, "ok")
 
@@ -687,20 +737,21 @@ func _is_json_traversal_limit_marker(value: Variant) -> bool:
 	var document: Dictionary = value
 	if document.size() != 1 or not document.has(GFVariantJsonCodec.JSON_MARKER_KEY):
 		return false
-	var marker_value: Variant = GFVariantData.get_option_value(
-		document,
-		GFVariantJsonCodec.JSON_MARKER_KEY
-	)
+	var marker_value: Variant = GFVariantData.get_option_value(document, GFVariantJsonCodec.JSON_MARKER_KEY)
 	if not (marker_value is Dictionary):
 		return false
 	var marker: Dictionary = marker_value
 	return (
-		GFVariantData.get_option_int(marker, GFVariantJsonCodec.JSON_VERSION_KEY, 0)
-		== GFVariantJsonCodec.JSON_SCHEMA_VERSION
-		and GFVariantData.get_option_string(marker, GFVariantJsonCodec.JSON_CODEC_KEY)
-		== GFVariantJsonCodec.JSON_CODEC_ID
-		and GFVariantData.get_option_string(marker, GFVariantJsonCodec.JSON_TYPE_KEY)
-		== _TRAVERSAL_LIMIT_TYPE_NAME
+		(
+			GFVariantData.get_option_int(
+				marker,
+				GFVariantJsonCodec.JSON_VERSION_KEY,
+				0
+			)
+			== GFVariantJsonCodec.JSON_SCHEMA_VERSION
+		)
+		and (GFVariantData.get_option_string(marker, GFVariantJsonCodec.JSON_CODEC_KEY) == GFVariantJsonCodec.JSON_CODEC_ID)
+		and GFVariantData.get_option_string(marker, GFVariantJsonCodec.JSON_TYPE_KEY) == _TRAVERSAL_LIMIT_TYPE_NAME
 		and marker.has(GFVariantJsonCodec.JSON_VALUE_KEY)
 	)
 
@@ -710,8 +761,19 @@ func _is_json_traversal_limit_marker(value: Variant) -> bool:
 ## @api private
 ## [br]
 func _deserialize_dictionary(bytes: PackedByteArray, p_format: Format) -> Dictionary:
-	var result: Dictionary = _try_deserialize_dictionary(bytes, p_format, normalize_json_numbers, max_decode_bytes)
-	return GFVariantData.as_dictionary(GFVariantData.get_option_value(result, "data", {}))
+	var result: Dictionary = _try_deserialize_dictionary(
+		bytes,
+		p_format,
+		normalize_json_numbers,
+		max_decode_bytes
+	)
+	return GFVariantData.as_dictionary(
+		GFVariantData.get_option_value(
+			result,
+			"data",
+			{}
+		)
+	)
 
 
 ## 在 byte_limit 内按格式解析 bytes 并严格恢复 JSON 标记；失败时返回空 data，不交付部分 marker。
@@ -726,7 +788,11 @@ func _try_deserialize_dictionary(
 	byte_limit: int
 ) -> Dictionary:
 	if bytes.size() > byte_limit:
-		return {"ok": false, "data": {}, "limit_exceeded": true}
+		return {
+			"ok": false,
+			"data": {},
+			"limit_exceeded": true,
+		}
 	match p_format:
 		Format.BINARY:
 			var value: Variant = bytes_to_var(bytes)
@@ -740,8 +806,13 @@ func _try_deserialize_dictionary(
 			if not GFVariantData.get_option_bool(decoded, "ok"):
 				var reason: String = GFVariantData.get_option_string(decoded, "error")
 				return {
-					"ok": false, "data": {},
-					"limit_exceeded": reason in ["max_depth", "max_nodes", "max_collection_items"],
+					"ok": false,
+					"data": {},
+					"limit_exceeded": reason in [
+						"max_depth",
+						"max_nodes",
+						"max_collection_items",
+					],
 				}
 			var restored: Variant = decoded.get("value")
 			if restored is Dictionary:
@@ -761,8 +832,9 @@ func _sort_value_recursive(value: Variant) -> Variant:
 		var result: Dictionary = {}
 		var dictionary: Dictionary = value
 		var keys: Array = dictionary.keys()
-		keys.sort_custom(func(left: Variant, right: Variant) -> bool:
-			return _make_dictionary_sort_key(left) < _make_dictionary_sort_key(right)
+		keys.sort_custom(
+			func(left: Variant, right: Variant) -> bool:
+				return _make_dictionary_sort_key(left) < _make_dictionary_sort_key(right)
 		)
 		for key: Variant in keys:
 			result[key] = _sort_value_recursive(dictionary[key])
@@ -784,11 +856,21 @@ func _make_dictionary_sort_key(key: Variant) -> String:
 	if not stable_token.is_empty():
 		return stable_token
 
-	var encoded: Variant = GFVariantJsonCodec.variant_to_json_compatible(key, {
-		"encode_dictionary_keys": true,
-		"encode_unsafe_ints": true,
-	})
-	return "gfv1:%s:%s" % [type_string(typeof(key)), JSON.stringify(encoded, "", true)]
+	var encoded: Variant = GFVariantJsonCodec.variant_to_json_compatible(
+		key,
+		{ "encode_dictionary_keys": true, "encode_unsafe_ints": true, }
+	)
+	return (
+		"gfv1:%s:%s"
+		% [
+			type_string(typeof(key)),
+			JSON.stringify(
+				encoded,
+				"",
+				true
+			),
+		]
+	)
 
 
 ## Binary checksum 输入保持原字典；JSON 输入先归一数字，再经 JSON 序列化往返归一。
@@ -828,7 +910,10 @@ func _normalize_numbers(value: Variant) -> Variant:
 		return result
 	if value is float:
 		var float_value: float = value
-		if is_equal_approx(float_value, floorf(float_value)):
+		if is_equal_approx(
+			float_value,
+			floorf(float_value)
+		):
 			return int(float_value)
 	return value
 
@@ -845,10 +930,7 @@ func _normalize_dictionary_numbers(data: Dictionary) -> Dictionary:
 ## [br]
 ## @api private
 ## [br]
-func _decode_obfuscation(
-	bytes: PackedByteArray,
-	key: int
-) -> PackedByteArray:
+func _decode_obfuscation(bytes: PackedByteArray, key: int) -> PackedByteArray:
 	if key == 0:
 		return bytes
 
@@ -891,9 +973,18 @@ func _looks_like_base64_text(text: String) -> bool:
 ## [br]
 func _is_base64_code(code: int) -> bool:
 	return (
-		(code >= 65 and code <= 90)
-		or (code >= 97 and code <= 122)
-		or (code >= 48 and code <= 57)
+		(
+			code >= 65
+			and code <= 90
+		)
+		or (
+			code >= 97
+			and code <= 122
+		)
+		or (
+			code >= 48
+			and code <= 57
+		)
 		or code == 43
 		or code == 47
 	)
@@ -923,13 +1014,15 @@ func _make_failure(
 	document_schema_version: int = 0,
 	failure_kind: GFStorageReadResult.FailureKind = GFStorageReadResult.FailureKind.CORRUPT
 ) -> GFStorageReadResult:
-	return GFStorageReadResult.new().configure_failure(
-		error_message,
-		error_code,
-		metadata,
-		integrity_status,
-		document_schema_version,
-		failure_kind
+	return (
+		GFStorageReadResult.new().configure_failure(
+			error_message,
+			error_code,
+			metadata,
+			integrity_status,
+			document_schema_version,
+			failure_kind
+		)
 	)
 
 
@@ -938,7 +1031,11 @@ func _make_failure(
 ## @api private
 func _make_limit_failure(message: String) -> GFStorageReadResult:
 	return _make_failure(
-		message, ERR_OUT_OF_MEMORY, {}, GFStorageReadResult.IntegrityStatus.NOT_CHECKED, 0,
+		message,
+		ERR_OUT_OF_MEMORY,
+		{},
+		GFStorageReadResult.IntegrityStatus.NOT_CHECKED,
+		0,
 		GFStorageReadResult.FailureKind.LIMIT_EXCEEDED
 	)
 
@@ -946,7 +1043,11 @@ func _make_limit_failure(message: String) -> GFStorageReadResult:
 ## 读取正整数解码上限；缺省沿用配置，无效 options 返回零供调用方拒绝请求。
 ## [br]
 ## @api private
-func _get_positive_decode_limit(options: Dictionary, key: String, fallback: int) -> int:
+func _get_positive_decode_limit(
+	options: Dictionary,
+	key: String,
+	fallback: int
+) -> int:
 	var value: Variant = options.get(key, fallback)
 	if not value is int:
 		return 0
@@ -959,7 +1060,14 @@ func _get_positive_decode_limit(options: Dictionary, key: String, fallback: int)
 ## @api private
 ## [br]
 func _get_format(options: Dictionary) -> Format:
-	return _variant_to_format(GFVariantData.get_option_value(options, "format", format), format)
+	return _variant_to_format(
+		GFVariantData.get_option_value(
+			options,
+			"format",
+			format
+		),
+		format
+	)
 
 
 ## 将任意值转成合法 Format；不属于枚举的值返回 fallback。
@@ -967,7 +1075,10 @@ func _get_format(options: Dictionary) -> Format:
 ## @api private
 ## [br]
 static func _variant_to_format(value: Variant, fallback: Format) -> Format:
-	var format_value: int = GFVariantData.to_int(value, int(fallback))
+	var format_value: int = GFVariantData.to_int(
+		value,
+		int(fallback)
+	)
 	if not Format.values().has(format_value):
 		return fallback
 	return _to_format(format_value, fallback)

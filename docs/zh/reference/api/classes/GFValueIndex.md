@@ -19,7 +19,7 @@
 | 信号 | [`item_removed`](#member-gfvalueindex-signals-item_removed) | `signal item_removed(item_id: StringName)` |
 | 信号 | [`cleared`](#member-gfvalueindex-signals-cleared) | `signal cleared` |
 | 属性 | [`duplicate_values`](#member-gfvalueindex-properties-duplicate_values) | `var duplicate_values: bool = true` |
-| 方法 | [`set_item`](#member-gfvalueindex-methods-set_item) | `func set_item(item_id: StringName, value: Variant, fields: Dictionary = {}) -> bool:` |
+| 方法 | [`set_item`](#member-gfvalueindex-methods-set_item) | `func set_item( item_id: StringName, value: Variant, fields: Dictionary = {} ) -> bool:` |
 | 方法 | [`remove_item`](#member-gfvalueindex-methods-remove_item) | `func remove_item(item_id: StringName) -> bool:` |
 | 方法 | [`has_item`](#member-gfvalueindex-methods-has_item) | `func has_item(item_id: StringName) -> bool:` |
 | 方法 | [`get_item`](#member-gfvalueindex-methods-get_item) | `func get_item(item_id: StringName, default_value: Variant = null) -> Variant:` |
@@ -102,9 +102,10 @@ var duplicate_values: bool = true
 ### `set_item`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func set_item(item_id: StringName, value: Variant, fields: Dictionary = {}) -> bool:
+func set_item( item_id: StringName, value: Variant, fields: Dictionary = {} ) -> bool:
 ```
 
 写入或替换一个条目。

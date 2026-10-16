@@ -44,7 +44,12 @@ static func press_action(
 	channel_id: StringName = &"default",
 	strength: float = 1.0
 ) -> bool:
-	return _ACTION_PRESS_REGISTRY.press(action_id, owner, channel_id, _normalize_strength(strength))
+	return _ACTION_PRESS_REGISTRY.press(
+		action_id,
+		owner,
+		channel_id,
+		_normalize_strength(strength)
+	)
 
 
 ## 释放指定 owner 身份按下的 InputMap action。
@@ -65,7 +70,11 @@ static func release_action(
 	owner: Object,
 	channel_id: StringName = &"default"
 ) -> bool:
-	return _ACTION_PRESS_REGISTRY.release(action_id, owner, channel_id)
+	return _ACTION_PRESS_REGISTRY.release(
+		action_id,
+		owner,
+		channel_id
+	)
 
 
 ## 释放指定 owner 持有的所有 InputMap action。
@@ -112,7 +121,11 @@ static func prune_released_owners() -> int:
 ## @param button: 手柄按钮。
 ## [br]
 ## @param pressed: 是否按下。
-static func emit_joypad_button(device_id: int, button: JoyButton, pressed: bool) -> void:
+static func emit_joypad_button(
+	device_id: int,
+	button: JoyButton,
+	pressed: bool
+) -> void:
 	var event: InputEventJoypadButton = InputEventJoypadButton.new()
 	event.device = device_id
 	event.button_index = button
@@ -132,7 +145,11 @@ static func emit_joypad_button(device_id: int, button: JoyButton, pressed: bool)
 ## @param axis: 手柄轴。
 ## [br]
 ## @param value: 轴值；会钳制到 -1..1，非有限值会视为 0。
-static func emit_joypad_axis(device_id: int, axis: JoyAxis, value: float) -> void:
+static func emit_joypad_axis(
+	device_id: int,
+	axis: JoyAxis,
+	value: float
+) -> void:
 	var event: InputEventJoypadMotion = InputEventJoypadMotion.new()
 	event.device = device_id
 	event.axis = axis
@@ -149,7 +166,11 @@ static func emit_joypad_axis(device_id: int, axis: JoyAxis, value: float) -> voi
 static func _normalize_strength(strength: float) -> float:
 	if is_nan(strength) or is_inf(strength):
 		return 0.0
-	return clampf(strength, 0.0, 1.0)
+	return clampf(
+		strength,
+		0.0,
+		1.0
+	)
 
 
 ## 将非有限轴值归零，并把有限值钳制到 -1..1。
@@ -159,4 +180,8 @@ static func _normalize_strength(strength: float) -> float:
 static func _normalize_axis_value(value: float) -> float:
 	if is_nan(value) or is_inf(value):
 		return 0.0
-	return clampf(value, -1.0, 1.0)
+	return clampf(
+		value,
+		-1.0,
+		1.0
+	)

@@ -156,7 +156,11 @@ func get_utility(utility_type: Script) -> Object:
 ## [br]
 ## @return: 能力实例；不存在时返回 null。
 func get_capability(capability_type: Script) -> Object:
-	return _CAPABILITY_SUPPORT_SCRIPT.get_capability(receiver, _architecture_ref, capability_type)
+	return _CAPABILITY_SUPPORT_SCRIPT.get_capability(
+		receiver,
+		_architecture_ref,
+		capability_type
+	)
 
 
 # --- 框架内部方法 ---

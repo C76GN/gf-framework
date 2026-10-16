@@ -22,7 +22,7 @@
 | 方法 | [`render_node3d_texture`](#member-gfthumbnailrenderer-methods-render_node3d_texture) | `func render_node3d_texture( source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true, preview_mode: GFThumbnailRenderRequest.PreviewMode = GFThumbnailRenderRequest.PreviewMode.STATIC ) -> ImageTexture:` |
 | 方法 | [`render_canvas_item`](#member-gfthumbnailrenderer-methods-render_canvas_item) | `func render_canvas_item( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08, preview_mode: GFThumbnailRenderRequest.PreviewMode = GFThumbnailRenderRequest.PreviewMode.STATIC ) -> Image:` |
 | 方法 | [`render_canvas_item_texture`](#member-gfthumbnailrenderer-methods-render_canvas_item_texture) | `func render_canvas_item_texture( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08, preview_mode: GFThumbnailRenderRequest.PreviewMode = GFThumbnailRenderRequest.PreviewMode.STATIC ) -> ImageTexture:` |
-| 方法 | [`render_mesh`](#member-gfthumbnailrenderer-methods-render_mesh) | `func render_mesh(mesh: Mesh, size: Vector2i = Vector2i(256, 256), transparent: bool = true) -> Image:` |
+| 方法 | [`render_mesh`](#member-gfthumbnailrenderer-methods-render_mesh) | `func render_mesh( mesh: Mesh, size: Vector2i = Vector2i(256, 256), transparent: bool = true ) -> Image:` |
 | 方法 | [`render_mesh_texture`](#member-gfthumbnailrenderer-methods-render_mesh_texture) | `func render_mesh_texture( mesh: Mesh, size: Vector2i = Vector2i(256, 256), transparent: bool = true ) -> ImageTexture:` |
 | 方法 | [`submit_render_request`](#member-gfthumbnailrenderer-methods-submit_render_request) | `func submit_render_request(request: GFThumbnailRenderRequest) -> GFThumbnailRenderTask:` |
 | 方法 | [`cancel_render_task`](#member-gfthumbnailrenderer-methods-cancel_render_task) | `func cancel_render_task(task: GFThumbnailRenderTask, reason: StringName = &"cancelled") -> bool:` |
@@ -180,9 +180,10 @@ func render_canvas_item_texture( source: CanvasItem, size: Vector2i = Vector2i(2
 ### `render_mesh`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func render_mesh(mesh: Mesh, size: Vector2i = Vector2i(256, 256), transparent: bool = true) -> Image:
+func render_mesh( mesh: Mesh, size: Vector2i = Vector2i(256, 256), transparent: bool = true ) -> Image:
 ```
 
 渲染一个 Mesh 缩略图。

@@ -31,7 +31,10 @@ extends Resource
 ## @since 3.17.0
 @export var end_time: float = 0.0:
 	set(value):
-		end_time = maxf(_normalize_time_seconds(value), start_time)
+		end_time = maxf(
+			_normalize_time_seconds(value),
+			start_time
+		)
 
 ## 文本内容。
 ## [br]
@@ -110,10 +113,35 @@ func to_dictionary() -> Dictionary:
 ## [br]
 ## @schema data: Dictionary serialized timed text entry.
 func apply_dictionary(data: Dictionary) -> void:
-	start_time = _normalize_time_seconds(GFVariantData.get_option_float(data, "start_time", start_time))
-	end_time = maxf(_normalize_time_seconds(GFVariantData.get_option_float(data, "end_time", end_time)), start_time)
-	text = GFVariantData.get_option_string(data, "text", text)
-	var raw_metadata: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(data, "metadata", {}))
+	start_time = _normalize_time_seconds(
+		GFVariantData.get_option_float(
+			data,
+			"start_time",
+			start_time
+		)
+	)
+	end_time = maxf(
+		_normalize_time_seconds(
+			GFVariantData.get_option_float(
+				data,
+				"end_time",
+				end_time
+			)
+		),
+		start_time
+	)
+	text = GFVariantData.get_option_string(
+		data,
+		"text",
+		text
+	)
+	var raw_metadata: Dictionary = GFVariantData.as_dictionary(
+		GFVariantData.get_option_value(
+			data,
+			"metadata",
+			{}
+		)
+	)
 	metadata = raw_metadata.duplicate(true)
 
 

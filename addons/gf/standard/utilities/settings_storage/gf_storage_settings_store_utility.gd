@@ -84,13 +84,15 @@ func read_settings(file_name: String) -> GFStorageReadResult:
 		return super.read_settings(file_name)
 	var read_result: GFStorageReadResult = _storage_utility.load_data(file_name)
 	if read_result == null:
-		return GFStorageReadResult.new().configure_failure(
-			"Settings storage returned no read result.",
-			ERR_INVALID_DATA,
-			{},
-			GFStorageReadResult.IntegrityStatus.NOT_CHECKED,
-			0,
-			GFStorageReadResult.FailureKind.IO_FAILED
+		return (
+			GFStorageReadResult.new().configure_failure(
+				"Settings storage returned no read result.",
+				ERR_INVALID_DATA,
+				{},
+				GFStorageReadResult.IntegrityStatus.NOT_CHECKED,
+				0,
+				GFStorageReadResult.FailureKind.IO_FAILED
+			)
 		)
 	return read_result.duplicate_result()
 

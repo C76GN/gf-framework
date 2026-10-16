@@ -34,6 +34,7 @@ enum Status {
 	ERROR = 4,
 }
 
+
 ## Parallel 节点的完成策略。
 ## [br]
 ## @api public
@@ -226,12 +227,42 @@ static func _call_debug_snapshot(snapshot_owner: Object) -> Dictionary:
 ## @api private
 static func _make_debug_snapshot_budget(options: Dictionary) -> Dictionary:
 	return {
-		"max_nodes": _get_bounded_debug_option(options, "max_nodes", _DEFAULT_DEBUG_MAX_NODES, _HARD_DEBUG_MAX_NODES),
-		"max_depth": _get_bounded_debug_option(options, "max_depth", _DEFAULT_DEBUG_MAX_DEPTH, _HARD_DEBUG_MAX_DEPTH),
-		"max_children": _get_bounded_debug_option(options, "max_children", _DEFAULT_DEBUG_MAX_CHILDREN, _HARD_DEBUG_MAX_CHILDREN),
-		"max_total_bytes": _get_bounded_debug_option(options, "max_total_bytes", _DEFAULT_DEBUG_MAX_TOTAL_BYTES, _HARD_DEBUG_MAX_TOTAL_BYTES),
-		"max_text_length": _get_bounded_debug_option(options, "max_text_length", _DEFAULT_DEBUG_MAX_TEXT_LENGTH, _HARD_DEBUG_MAX_TEXT_LENGTH),
-		"max_blackboard_keys": _get_bounded_debug_option(options, "max_blackboard_keys", _DEFAULT_DEBUG_MAX_BLACKBOARD_KEYS, _HARD_DEBUG_MAX_BLACKBOARD_KEYS),
+		"max_nodes": _get_bounded_debug_option(
+			options,
+			"max_nodes",
+			_DEFAULT_DEBUG_MAX_NODES,
+			_HARD_DEBUG_MAX_NODES
+		),
+		"max_depth": _get_bounded_debug_option(
+			options,
+			"max_depth",
+			_DEFAULT_DEBUG_MAX_DEPTH,
+			_HARD_DEBUG_MAX_DEPTH
+		),
+		"max_children": _get_bounded_debug_option(
+			options,
+			"max_children",
+			_DEFAULT_DEBUG_MAX_CHILDREN,
+			_HARD_DEBUG_MAX_CHILDREN
+		),
+		"max_total_bytes": _get_bounded_debug_option(
+			options,
+			"max_total_bytes",
+			_DEFAULT_DEBUG_MAX_TOTAL_BYTES,
+			_HARD_DEBUG_MAX_TOTAL_BYTES
+		),
+		"max_text_length": _get_bounded_debug_option(
+			options,
+			"max_text_length",
+			_DEFAULT_DEBUG_MAX_TEXT_LENGTH,
+			_HARD_DEBUG_MAX_TEXT_LENGTH
+		),
+		"max_blackboard_keys": _get_bounded_debug_option(
+			options,
+			"max_blackboard_keys",
+			_DEFAULT_DEBUG_MAX_BLACKBOARD_KEYS,
+			_HARD_DEBUG_MAX_BLACKBOARD_KEYS
+		),
 		"node_count": 0,
 		"truncated": false,
 		"truncation_reasons": {},
@@ -251,7 +282,11 @@ static func _get_bounded_debug_option(
 	if not value is int:
 		return fallback
 	var int_value: int = value
-	return clampi(int_value, 0, hard_maximum)
+	return clampi(
+		int_value,
+		0,
+		hard_maximum
+	)
 
 
 ## 标记快照已截断，并将原因加入预算字典。
@@ -273,7 +308,11 @@ static func _mark_debug_snapshot_truncated(budget: Dictionary, reason: StringNam
 static func _has_debug_node_capacity(budget: Dictionary) -> bool:
 	return (
 		_read_debug_budget_int(budget, "node_count")
-		< _read_debug_budget_int(budget, "max_nodes", _DEFAULT_DEBUG_MAX_NODES)
+		< _read_debug_budget_int(
+			budget,
+			"max_nodes",
+			_DEFAULT_DEBUG_MAX_NODES
+		)
 	)
 
 
@@ -309,25 +348,19 @@ static func _make_debug_budget_report(budget: Dictionary) -> Dictionary:
 ## @api private
 static func _finalize_debug_snapshot(snapshot: Dictionary, budget: Dictionary) -> Dictionary:
 	var debug_budget_report: Dictionary = _make_debug_budget_report(budget)
-	var debug_budget_field: Dictionary = {
-		"debug_budget": debug_budget_report,
-	}
-	var reserved_debug_bytes: int = JSON.stringify(
-		debug_budget_field
-	).to_utf8_buffer().size()
+	var debug_budget_field: Dictionary = { "debug_budget": debug_budget_report, }
+	var reserved_debug_bytes: int = (JSON.stringify(debug_budget_field).to_utf8_buffer().size())
 	var isolation_budget: Dictionary = budget.duplicate(true)
 	isolation_budget["max_total_bytes"] = maxi(
 		_read_debug_budget_int(
 			budget,
 			"max_total_bytes",
 			_DEFAULT_DEBUG_MAX_TOTAL_BYTES
-		) - reserved_debug_bytes,
+		)
+		- reserved_debug_bytes,
 		0
 	)
-	var bounded_snapshot: Dictionary = _encode_debug_snapshot_with_budget(
-		snapshot,
-		isolation_budget
-	)
+	var bounded_snapshot: Dictionary = _encode_debug_snapshot_with_budget(snapshot, isolation_budget)
 	var finalized_snapshot: Dictionary = bounded_snapshot.duplicate(false)
 	finalized_snapshot["debug_budget"] = debug_budget_report
 	var max_total_bytes: int = _read_debug_budget_int(
@@ -450,10 +483,7 @@ static func _is_error(status: int) -> bool:
 ## 优先返回显式随机源，否则读取黑板中的 rng 对象。
 ## [br]
 ## @api private
-static func _resolve_rng_from_blackboard(
-	blackboard: Dictionary,
-	fallback_rng: RandomNumberGenerator = null
-) -> RandomNumberGenerator:
+static func _resolve_rng_from_blackboard(blackboard: Dictionary, fallback_rng: RandomNumberGenerator = null) -> RandomNumberGenerator:
 	if fallback_rng != null:
 		return fallback_rng
 
@@ -486,10 +516,7 @@ static func _make_random_node_order(
 ) -> Array[BTNode]:
 	var result: Array[BTNode] = []
 	result.append_array(children)
-	var active_rng: RandomNumberGenerator = _resolve_rng_from_blackboard(
-		blackboard,
-		fallback_rng
-	)
+	var active_rng: RandomNumberGenerator = _resolve_rng_from_blackboard(blackboard, fallback_rng)
 	if active_rng == null:
 		result.shuffle()
 	else:
@@ -500,11 +527,12 @@ static func _make_random_node_order(
 ## 使用指定随机源执行节点数组的 Fisher-Yates 洗牌。
 ## [br]
 ## @api private
-static func _shuffle_nodes_with_rng(
-	nodes: Array[BTNode],
-	random_source: RandomNumberGenerator
-) -> void:
-	for index: int in range(nodes.size() - 1, 0, -1):
+static func _shuffle_nodes_with_rng(nodes: Array[BTNode], random_source: RandomNumberGenerator) -> void:
+	for index: int in range(
+		nodes.size() - 1,
+		0,
+		-1
+	):
 		var swap_index: int = random_source.randi_range(0, index)
 		var temp: BTNode = nodes[index]
 		nodes[index] = nodes[swap_index]
@@ -600,10 +628,7 @@ static func _resolve_monotonic_time_msec(clock_msec: Callable, previous_msec: in
 ## 以调试脱敏规则和预算边界编码快照字典。
 ## [br]
 ## @api private
-static func _encode_debug_snapshot_with_budget(
-	snapshot: Dictionary,
-	budget: Dictionary
-) -> Dictionary:
+static func _encode_debug_snapshot_with_budget(snapshot: Dictionary, budget: Dictionary) -> Dictionary:
 	var traversal_max_depth: int = _read_debug_budget_int(
 		budget,
 		"max_depth",
@@ -628,10 +653,7 @@ static func _encode_debug_snapshot_with_budget(
 				),
 				"max_collection_items": _DEBUG_CODEC_MAX_COLLECTION_ITEMS,
 				"max_packed_length": _DEBUG_CODEC_MAX_COLLECTION_ITEMS,
-				"max_total_nodes": (
-					traversal_max_nodes * _DEBUG_CODEC_NODE_MULTIPLIER
-					+ _DEBUG_CODEC_NODE_OVERHEAD
-				),
+				"max_total_nodes": traversal_max_nodes * _DEBUG_CODEC_NODE_MULTIPLIER + _DEBUG_CODEC_NODE_OVERHEAD,
 				"max_total_bytes": _read_debug_budget_int(
 					budget,
 					"max_total_bytes",
@@ -688,6 +710,7 @@ class BTNode extends RefCounted:
 	## [br]
 	## @schema metadata: 项目自定义元数据 Dictionary；键和值由调用方维护。
 	var metadata: Dictionary = {}
+
 
 	# --- 私有变量 ---
 
@@ -763,6 +786,8 @@ class BTNode extends RefCounted:
 	## [br]
 	## @api public
 	## [br]
+	## @since 3.17.0
+	## [br]
 	## @param status: 新状态。
 	## [br]
 	## @param reason: 可选状态原因。
@@ -770,12 +795,13 @@ class BTNode extends RefCounted:
 	## @param elapsed_usec: 可选耗时。
 	## [br]
 	## @return: 原状态值，便于子类直接 return。
-	func record_status(status: int, reason: StringName = &"", elapsed_usec: int = 0) -> int:
+	func record_status(
+		status: int,
+		reason: StringName = &"",
+		elapsed_usec: int = 0
+	) -> int:
 		var normalized_status: int = GFBehaviorTree._variant_to_status(status)
-		var normalized_reason: StringName = GFBehaviorTree._status_reason_from_value(
-			status,
-			normalized_status
-		)
+		var normalized_reason: StringName = GFBehaviorTree._status_reason_from_value(status, normalized_status)
 		last_status = normalized_status
 		last_reason = normalized_reason if normalized_reason != &"" else reason
 		if normalized_status == Status.ERROR and last_reason == &"":
@@ -842,10 +868,7 @@ class BTNode extends RefCounted:
 		depth: int
 	) -> Dictionary:
 		if not GFBehaviorTree._consume_debug_node(budget):
-			return {
-				"truncated": true,
-				"truncation_reason": "max_nodes",
-			}
+			return { "truncated": true, "truncation_reason": "max_nodes", }
 		var instance_id: int = get_instance_id()
 		if active_path.has(instance_id):
 			return {
@@ -899,10 +922,15 @@ class BTNode extends RefCounted:
 					truncation_reason = &"null_child"
 				GFBehaviorTree._mark_debug_snapshot_truncated(budget, &"null_child")
 				continue
-			if depth >= GFBehaviorTree._read_debug_budget_int(
-				budget,
-				"max_depth",
-				GFBehaviorTree._DEFAULT_DEBUG_MAX_DEPTH
+			if (
+				depth
+				>= (
+					GFBehaviorTree._read_debug_budget_int(
+						budget,
+						"max_depth",
+						GFBehaviorTree._DEFAULT_DEBUG_MAX_DEPTH
+					)
+				)
 			):
 				truncation_reason = &"max_depth"
 				GFBehaviorTree._mark_debug_snapshot_truncated(budget, truncation_reason)
@@ -911,12 +939,14 @@ class BTNode extends RefCounted:
 				truncation_reason = &"max_nodes"
 				GFBehaviorTree._mark_debug_snapshot_truncated(budget, truncation_reason)
 				break
-			children.append(child._get_debug_snapshot_internal(
-				active_path,
-				seen,
-				budget,
-				depth + 1
-			))
+			children.append(
+				child._get_debug_snapshot_internal(
+					active_path,
+					seen,
+					budget,
+					depth + 1
+				)
+			)
 		var _active_path_erased: bool = active_path.erase(instance_id)
 		if child_count > child_limit:
 			if truncation_reason == &"":
@@ -946,9 +976,17 @@ class BTNode extends RefCounted:
 	## 按正的起始微秒时间计算耗时并交给 record_status 归一化记录；未给起点时耗时按零计。
 	## [br]
 	## @api private
-	func _record_tick(status: int, reason: StringName = &"", started_usec: int = 0) -> int:
+	func _record_tick(
+		status: int,
+		reason: StringName = &"",
+		started_usec: int = 0
+	) -> int:
 		var elapsed: int = Time.get_ticks_usec() - started_usec if started_usec > 0 else 0
-		return record_status(status, reason, elapsed)
+		return record_status(
+			status,
+			reason,
+			elapsed
+		)
 
 
 	## 复制名称、节点标识并通过统一字典复制助手复制 metadata；不复制运行计数或当前执行状态。
@@ -986,13 +1024,21 @@ class BTNode extends RefCounted:
 	func _would_create_cycle(candidate: BTNode) -> bool:
 		if candidate == null:
 			return false
-		return _node_contains_descendant(candidate, self, {})
+		return _node_contains_descendant(
+			candidate,
+			self,
+			{}
+		)
 
 
 	## 按实例身份递归搜索目标节点，使用 visited 跳过已检查节点。
 	## [br]
 	## @api private
-	func _node_contains_descendant(candidate: BTNode, target: BTNode, visited: Dictionary) -> bool:
+	func _node_contains_descendant(
+		candidate: BTNode,
+		target: BTNode,
+		visited: Dictionary
+	) -> bool:
 		if candidate == null:
 			return false
 		if candidate == target:
@@ -1002,7 +1048,11 @@ class BTNode extends RefCounted:
 			return false
 		visited[instance_id] = true
 		for child: BTNode in candidate._get_debug_children():
-			if _node_contains_descendant(child, target, visited):
+			if _node_contains_descendant(
+				child,
+				target,
+				visited
+			):
 				return true
 		return false
 
@@ -1010,12 +1060,20 @@ class BTNode extends RefCounted:
 	## 无效状态和中止先规范化；ERROR 使用子节点本次错误原因，其余状态不携带错误旁路。
 	## [br]
 	## @api private
-	func _get_child_status_reason(child: BTNode, value: Variant, normalized_status: int) -> StringName:
+	func _get_child_status_reason(
+		child: BTNode,
+		value: Variant,
+		normalized_status: int
+	) -> StringName:
 		var reason: StringName = GFBehaviorTree._status_reason_from_value(value, normalized_status)
 		if reason != &"":
 			return reason
 		if GFBehaviorTree._is_error(normalized_status):
-			if child != null and child.last_status == Status.ERROR and child.last_reason != &"":
+			if (
+				child != null
+				and child.last_status == Status.ERROR
+				and child.last_reason != &""
+			):
 				return child.last_reason
 			return &"execution_error"
 		return &""
@@ -1068,6 +1126,7 @@ class BlackboardScope extends RefCounted:
 			return _parent
 		set(value):
 			var _set_parent_result: bool = set_parent(value)
+
 
 	# --- 私有变量 ---
 
@@ -1133,7 +1192,11 @@ class BlackboardScope extends RefCounted:
 	## [br]
 	## @schema return: 找到的黑板值，或传入的 default_value。
 	func get_value(key: StringName, default_value: Variant = null) -> Variant:
-		return _get_value_internal(key, default_value, {})
+		return _get_value_internal(
+			key,
+			default_value,
+			{}
+		)
 
 
 	## 检查作用域值是否存在。
@@ -1167,7 +1230,11 @@ class BlackboardScope extends RefCounted:
 	## 沿父链查找最近的键并复制返回值；重复作用域或整条链缺键时复制默认值。
 	## [br]
 	## @api private
-	func _get_value_internal(key: StringName, default_value: Variant, visited: Dictionary) -> Variant:
+	func _get_value_internal(
+		key: StringName,
+		default_value: Variant,
+		visited: Dictionary
+	) -> Variant:
 		var instance_id: int = get_instance_id()
 		if visited.has(instance_id):
 			return GFVariantData.duplicate_variant(default_value)
@@ -1176,7 +1243,11 @@ class BlackboardScope extends RefCounted:
 		if values.has(key):
 			return GFVariantData.duplicate_variant(values[key])
 		if _parent != null:
-			return _parent._get_value_internal(key, default_value, visited)
+			return _parent._get_value_internal(
+				key,
+				default_value,
+				visited
+			)
 		return GFVariantData.duplicate_variant(default_value)
 
 
@@ -1188,7 +1259,13 @@ class BlackboardScope extends RefCounted:
 		if visited.has(instance_id):
 			return false
 		visited[instance_id] = true
-		return values.has(key) or (_parent != null and _parent._has_value_internal(key, visited))
+		return (
+			values.has(key)
+			or (
+				_parent != null
+				and _parent._has_value_internal(key, visited)
+			)
+		)
 
 
 	## 先展开父作用域，再复制本地值覆盖同名键；重复作用域返回空字典以终止循环。
@@ -1214,13 +1291,21 @@ class BlackboardScope extends RefCounted:
 			return false
 		if parent_scope == self:
 			return true
-		return _parent_chain_contains(parent_scope, self, {})
+		return _parent_chain_contains(
+			parent_scope,
+			self,
+			{}
+		)
 
 
 	## 以实例身份搜索父链，visited 防止既有环使遍历不终止。
 	## [br]
 	## @api private
-	func _parent_chain_contains(candidate: BlackboardScope, target: BlackboardScope, visited: Dictionary) -> bool:
+	func _parent_chain_contains(
+		candidate: BlackboardScope,
+		target: BlackboardScope,
+		visited: Dictionary
+	) -> bool:
 		if candidate == null:
 			return false
 		if candidate == target:
@@ -1229,7 +1314,11 @@ class BlackboardScope extends RefCounted:
 		if visited.has(instance_id):
 			return false
 		visited[instance_id] = true
-		return _parent_chain_contains(candidate.parent, target, visited)
+		return _parent_chain_contains(
+			candidate.parent,
+			target,
+			visited
+		)
 
 
 ## 顺序节点 (AND 逻辑)。
@@ -1242,6 +1331,8 @@ class BlackboardScope extends RefCounted:
 ## [br]
 ## @since 3.17.0
 class Sequence extends BTNode:
+
+
 	# --- 私有变量 ---
 
 	## 顺序执行的子节点引用列表；构造时复制数组，节点引用仍共享。
@@ -1287,17 +1378,33 @@ class Sequence extends BTNode:
 			var generation: int = _runtime_generation
 			var status_value: int = child.tick(blackboard)
 			if generation != _runtime_generation:
-				return _record_tick(Status.ABORTED, &"runtime_reset", started)
+				return _record_tick(
+					Status.ABORTED,
+					&"runtime_reset",
+					started
+				)
 			var status: int = GFBehaviorTree._variant_to_status(status_value)
-			var reason: StringName = _get_child_status_reason(child, status_value, status)
+			var reason: StringName = _get_child_status_reason(
+				child,
+				status_value,
+				status
+			)
 			if not GFBehaviorTree._is_success(status):
 				if not GFBehaviorTree._is_running(status):
 					reset()
-				return _record_tick(status, reason, started)
+				return _record_tick(
+					status,
+					reason,
+					started
+				)
 			_current_child_idx += 1
 
 		reset()
-		return _record_tick(Status.SUCCESS, &"", started)
+		return _record_tick(
+			Status.SUCCESS,
+			&"",
+			started
+		)
 
 
 	## 重置当前子节点索引与所有子节点状态。
@@ -1345,6 +1452,8 @@ class Sequence extends BTNode:
 ## [br]
 ## @since 3.17.0
 class Selector extends BTNode:
+
+
 	# --- 私有变量 ---
 
 	## 按顺序尝试的候选子节点引用列表。
@@ -1390,20 +1499,40 @@ class Selector extends BTNode:
 			var generation: int = _runtime_generation
 			var status_value: int = child.tick(blackboard)
 			if generation != _runtime_generation:
-				return _record_tick(Status.ABORTED, &"runtime_reset", started)
+				return _record_tick(
+					Status.ABORTED,
+					&"runtime_reset",
+					started
+				)
 			var status: int = GFBehaviorTree._variant_to_status(status_value)
-			var reason: StringName = _get_child_status_reason(child, status_value, status)
+			var reason: StringName = _get_child_status_reason(
+				child,
+				status_value,
+				status
+			)
 			if GFBehaviorTree._is_error(status) or GFBehaviorTree._is_aborted(status):
 				reset()
-				return _record_tick(status, reason, started)
+				return _record_tick(
+					status,
+					reason,
+					started
+				)
 			if not GFBehaviorTree._is_failure(status):
 				if GFBehaviorTree._is_success(status):
 					reset()
-				return _record_tick(status, reason, started)
+				return _record_tick(
+					status,
+					reason,
+					started
+				)
 			_current_child_idx += 1
 
 		reset()
-		return _record_tick(Status.FAILURE, &"", started)
+		return _record_tick(
+			Status.FAILURE,
+			&"",
+			started
+		)
 
 
 	## 重置当前子节点索引与所有子节点状态。
@@ -1451,6 +1580,8 @@ class Selector extends BTNode:
 ## [br]
 ## @since 3.17.0
 class Parallel extends BTNode:
+
+
 	# --- 私有变量 ---
 
 	## 并行策略管理的子节点引用列表。
@@ -1474,10 +1605,7 @@ class Parallel extends BTNode:
 	## 复制子节点引用数组并保存完成策略。
 	## [br]
 	## @api private
-	func _init(
-		children_nodes: Array[BTNode],
-		completion_policy: ParallelPolicy = ParallelPolicy.REQUIRE_ALL
-	) -> void:
+	func _init(children_nodes: Array[BTNode], completion_policy: ParallelPolicy = ParallelPolicy.REQUIRE_ALL) -> void:
 		name = "Parallel"
 		_children = _copy_child_nodes(children_nodes)
 		policy = completion_policy
@@ -1498,7 +1626,11 @@ class Parallel extends BTNode:
 		var started: int = Time.get_ticks_usec()
 		if _children.is_empty():
 			var empty_status: int = Status.SUCCESS if policy == ParallelPolicy.REQUIRE_ALL else Status.FAILURE
-			return _record_tick(empty_status, &"empty_parallel", started)
+			return _record_tick(
+				empty_status,
+				&"empty_parallel",
+				started
+			)
 
 		_ensure_child_statuses()
 		var active_count: int = 0
@@ -1517,12 +1649,24 @@ class Parallel extends BTNode:
 				var generation: int = _runtime_generation
 				var status_value: int = child.tick(blackboard)
 				if generation != _runtime_generation:
-					return _record_tick(Status.ABORTED, &"runtime_reset", started)
+					return _record_tick(
+						Status.ABORTED,
+						&"runtime_reset",
+						started
+					)
 				status = GFBehaviorTree._variant_to_status(status_value)
-				var reason: StringName = _get_child_status_reason(child, status_value, status)
+				var reason: StringName = _get_child_status_reason(
+					child,
+					status_value,
+					status
+				)
 				if GFBehaviorTree._is_error(status) or GFBehaviorTree._is_aborted(status):
 					reset()
-					return _record_tick(status, reason, started)
+					return _record_tick(
+						status,
+						reason,
+						started
+					)
 				if not GFBehaviorTree._is_running(status):
 					_child_statuses[index] = status
 
@@ -1534,31 +1678,67 @@ class Parallel extends BTNode:
 		if active_count <= 0:
 			reset()
 			var inactive_status: int = Status.SUCCESS if policy == ParallelPolicy.REQUIRE_ALL else Status.FAILURE
-			return _record_tick(inactive_status, &"empty_parallel", started)
+			return _record_tick(
+				inactive_status,
+				&"empty_parallel",
+				started
+			)
 
 		if policy == ParallelPolicy.REQUIRE_ONE:
 			if has_aborted:
 				reset()
-				return _record_tick(Status.ABORTED, &"aborted", started)
+				return _record_tick(
+					Status.ABORTED,
+					&"aborted",
+					started
+				)
 			if has_success:
 				reset()
-				return _record_tick(Status.SUCCESS, &"", started)
+				return _record_tick(
+					Status.SUCCESS,
+					&"",
+					started
+				)
 			if has_running:
-				return _record_tick(Status.RUNNING, &"", started)
+				return _record_tick(
+					Status.RUNNING,
+					&"",
+					started
+				)
 			reset()
-			return _record_tick(Status.FAILURE, &"", started)
+			return _record_tick(
+				Status.FAILURE,
+				&"",
+				started
+			)
 
 		if has_aborted:
 			reset()
-			return _record_tick(Status.ABORTED, &"aborted", started)
+			return _record_tick(
+				Status.ABORTED,
+				&"aborted",
+				started
+			)
 		if has_failure:
 			reset()
-			return _record_tick(Status.FAILURE, &"", started)
+			return _record_tick(
+				Status.FAILURE,
+				&"",
+				started
+			)
 		if has_running:
-			return _record_tick(Status.RUNNING, &"", started)
+			return _record_tick(
+				Status.RUNNING,
+				&"",
+				started
+			)
 
 		reset()
-		return _record_tick(Status.SUCCESS, &"", started)
+		return _record_tick(
+			Status.SUCCESS,
+			&"",
+			started
+		)
 
 
 	## 重置所有子节点状态。
@@ -1578,7 +1758,10 @@ class Parallel extends BTNode:
 	## [br]
 	## @return: 复制后的运行时节点。
 	func duplicate_runtime() -> BTNode:
-		var copy: Parallel = Parallel.new(_duplicate_child_nodes(_children), policy)
+		var copy: Parallel = Parallel.new(
+			_duplicate_child_nodes(_children),
+			policy
+		)
 		_copy_base_fields_to(copy)
 		return copy
 
@@ -1623,6 +1806,7 @@ class RandomSelector extends BTNode:
 	## [br]
 	## @api public
 	var rng: RandomNumberGenerator = null
+
 
 	# --- 私有变量 ---
 
@@ -1678,20 +1862,40 @@ class RandomSelector extends BTNode:
 			var generation: int = _runtime_generation
 			var status_value: int = child.tick(blackboard)
 			if generation != _runtime_generation:
-				return _record_tick(Status.ABORTED, &"runtime_reset", started)
+				return _record_tick(
+					Status.ABORTED,
+					&"runtime_reset",
+					started
+				)
 			var status: int = GFBehaviorTree._variant_to_status(status_value)
-			var reason: StringName = _get_child_status_reason(child, status_value, status)
+			var reason: StringName = _get_child_status_reason(
+				child,
+				status_value,
+				status
+			)
 			if GFBehaviorTree._is_error(status) or GFBehaviorTree._is_aborted(status):
 				reset()
-				return _record_tick(status, reason, started)
+				return _record_tick(
+					status,
+					reason,
+					started
+				)
 			if not GFBehaviorTree._is_failure(status):
 				if GFBehaviorTree._is_success(status):
 					reset()
-				return _record_tick(status, reason, started)
+				return _record_tick(
+					status,
+					reason,
+					started
+				)
 			_current_child_idx += 1
 
 		reset()
-		return _record_tick(Status.FAILURE, &"", started)
+		return _record_tick(
+			Status.FAILURE,
+			&"",
+			started
+		)
 
 
 	## 重置当前随机轮次与子节点状态。
@@ -1712,7 +1916,10 @@ class RandomSelector extends BTNode:
 	## [br]
 	## @return: 复制后的运行时节点。
 	func duplicate_runtime() -> BTNode:
-		var copy: RandomSelector = RandomSelector.new(_duplicate_child_nodes(_children), GFBehaviorTree._duplicate_rng(rng))
+		var copy: RandomSelector = RandomSelector.new(
+			_duplicate_child_nodes(_children),
+			GFBehaviorTree._duplicate_rng(rng)
+		)
 		_copy_base_fields_to(copy)
 		return copy
 
@@ -1736,7 +1943,11 @@ class RandomSelector extends BTNode:
 	## [br]
 	## @api private
 	func _make_random_order(blackboard: Dictionary) -> Array[BTNode]:
-		return GFBehaviorTree._make_random_node_order(_children, blackboard, rng)
+		return GFBehaviorTree._make_random_node_order(
+			_children,
+			blackboard,
+			rng
+		)
 
 
 ## 随机顺序节点。
@@ -1753,6 +1964,7 @@ class RandomSequence extends BTNode:
 	## [br]
 	## @api public
 	var rng: RandomNumberGenerator = null
+
 
 	# --- 私有变量 ---
 
@@ -1808,17 +2020,33 @@ class RandomSequence extends BTNode:
 			var generation: int = _runtime_generation
 			var status_value: int = child.tick(blackboard)
 			if generation != _runtime_generation:
-				return _record_tick(Status.ABORTED, &"runtime_reset", started)
+				return _record_tick(
+					Status.ABORTED,
+					&"runtime_reset",
+					started
+				)
 			var status: int = GFBehaviorTree._variant_to_status(status_value)
-			var reason: StringName = _get_child_status_reason(child, status_value, status)
+			var reason: StringName = _get_child_status_reason(
+				child,
+				status_value,
+				status
+			)
 			if not GFBehaviorTree._is_success(status):
 				if not GFBehaviorTree._is_running(status):
 					reset()
-				return _record_tick(status, reason, started)
+				return _record_tick(
+					status,
+					reason,
+					started
+				)
 			_current_child_idx += 1
 
 		reset()
-		return _record_tick(Status.SUCCESS, &"", started)
+		return _record_tick(
+			Status.SUCCESS,
+			&"",
+			started
+		)
 
 
 	## 重置当前随机轮次与子节点状态。
@@ -1839,7 +2067,10 @@ class RandomSequence extends BTNode:
 	## [br]
 	## @return: 复制后的运行时节点。
 	func duplicate_runtime() -> BTNode:
-		var copy: RandomSequence = RandomSequence.new(_duplicate_child_nodes(_children), GFBehaviorTree._duplicate_rng(rng))
+		var copy: RandomSequence = RandomSequence.new(
+			_duplicate_child_nodes(_children),
+			GFBehaviorTree._duplicate_rng(rng)
+		)
 		_copy_base_fields_to(copy)
 		return copy
 
@@ -1863,7 +2094,11 @@ class RandomSequence extends BTNode:
 	## [br]
 	## @api private
 	func _make_random_order(blackboard: Dictionary) -> Array[BTNode]:
-		return GFBehaviorTree._make_random_node_order(_children, blackboard, rng)
+		return GFBehaviorTree._make_random_node_order(
+			_children,
+			blackboard,
+			rng
+		)
 
 
 ## 动作节点 (叶子节点)。
@@ -1876,6 +2111,8 @@ class RandomSequence extends BTNode:
 ## [br]
 ## @since 3.17.0
 class Action extends BTNode:
+
+
 	# --- 私有变量 ---
 
 	## tick 时调用的动作回调，其返回值会归一为节点状态。
@@ -1911,8 +2148,16 @@ class Action extends BTNode:
 			var status_value: Variant = _action_func.call(blackboard)
 			var status: int = GFBehaviorTree._variant_to_status(status_value)
 			var reason: StringName = GFBehaviorTree._status_reason_from_value(status_value, status)
-			return _record_tick(status, reason, started)
-		return _record_tick(Status.ERROR, &"invalid_action", started)
+			return _record_tick(
+				status,
+				reason,
+				started
+			)
+		return _record_tick(
+			Status.ERROR,
+			&"invalid_action",
+			started
+		)
 
 
 	## 创建可独立运行的动作节点副本。
@@ -1937,6 +2182,8 @@ class Action extends BTNode:
 ## [br]
 ## @since 3.17.0
 class Condition extends BTNode:
+
+
 	# --- 私有变量 ---
 
 	## tick 时执行的条件回调，供条件节点判定结果。
@@ -1969,15 +2216,31 @@ class Condition extends BTNode:
 	func tick(blackboard: Dictionary) -> int:
 		var started: int = Time.get_ticks_usec()
 		if not _condition_func.is_valid():
-			return _record_tick(Status.ERROR, &"invalid_condition", started)
+			return _record_tick(
+				Status.ERROR,
+				&"invalid_condition",
+				started
+			)
 
 		var condition_value: Variant = _condition_func.call(blackboard)
 		var reason: StringName = GFBehaviorTree._condition_reason_from_value(condition_value)
 		if reason != &"":
-			return _record_tick(Status.ERROR, reason, started)
+			return _record_tick(
+				Status.ERROR,
+				reason,
+				started
+			)
 		if GFBehaviorTree._condition_result_to_bool(condition_value):
-			return _record_tick(Status.SUCCESS, &"", started)
-		return _record_tick(Status.FAILURE, &"condition_false", started)
+			return _record_tick(
+				Status.SUCCESS,
+				&"",
+				started
+			)
+		return _record_tick(
+			Status.FAILURE,
+			&"condition_false",
+			started
+		)
 
 
 	## 创建可独立运行的条件节点副本。
@@ -1999,6 +2262,8 @@ class Condition extends BTNode:
 ## [br]
 ## @since 3.17.0
 class Decorator extends BTNode:
+
+
 	# --- 私有变量 ---
 
 	## 装饰器持有的可空子节点引用，通过 set_child 检查环。
@@ -2126,23 +2391,51 @@ class Inverter extends Decorator:
 	func tick(blackboard: Dictionary) -> int:
 		var started: int = Time.get_ticks_usec()
 		if _child == null:
-			return _record_tick(Status.ERROR, &"missing_child", started)
+			return _record_tick(
+				Status.ERROR,
+				&"missing_child",
+				started
+			)
 		var generation: int = _runtime_generation
 		var status_value: int = _child.tick(blackboard)
 		if generation != _runtime_generation:
-			return _record_tick(Status.ABORTED, &"runtime_reset", started)
+			return _record_tick(
+				Status.ABORTED,
+				&"runtime_reset",
+				started
+			)
 		var status: int = GFBehaviorTree._variant_to_status(status_value)
-		var reason: StringName = _get_child_status_reason(_child, status_value, status)
+		var reason: StringName = _get_child_status_reason(
+			_child,
+			status_value,
+			status
+		)
 		if GFBehaviorTree._is_error(status) or GFBehaviorTree._is_aborted(status):
 			_child.reset()
-			return _record_tick(status, reason, started)
+			return _record_tick(
+				status,
+				reason,
+				started
+			)
 		if GFBehaviorTree._is_success(status):
 			_child.reset()
-			return _record_tick(Status.FAILURE, &"", started)
+			return _record_tick(
+				Status.FAILURE,
+				&"",
+				started
+			)
 		if GFBehaviorTree._is_failure(status):
 			_child.reset()
-			return _record_tick(Status.SUCCESS, &"", started)
-		return _record_tick(status, reason, started)
+			return _record_tick(
+				Status.SUCCESS,
+				&"",
+				started
+			)
+		return _record_tick(
+			status,
+			reason,
+			started
+		)
 
 
 	## 创建可独立运行的反转装饰节点副本。
@@ -2193,20 +2486,44 @@ class AlwaysSucceed extends Decorator:
 	func tick(blackboard: Dictionary) -> int:
 		var started: int = Time.get_ticks_usec()
 		if _child == null:
-			return _record_tick(Status.ERROR, &"missing_child", started)
+			return _record_tick(
+				Status.ERROR,
+				&"missing_child",
+				started
+			)
 		var generation: int = _runtime_generation
 		var status_value: int = _child.tick(blackboard)
 		if generation != _runtime_generation:
-			return _record_tick(Status.ABORTED, &"runtime_reset", started)
+			return _record_tick(
+				Status.ABORTED,
+				&"runtime_reset",
+				started
+			)
 		var status: int = GFBehaviorTree._variant_to_status(status_value)
-		var reason: StringName = _get_child_status_reason(_child, status_value, status)
+		var reason: StringName = _get_child_status_reason(
+			_child,
+			status_value,
+			status
+		)
 		if GFBehaviorTree._is_error(status) or GFBehaviorTree._is_aborted(status):
 			_child.reset()
-			return _record_tick(status, reason, started)
+			return _record_tick(
+				status,
+				reason,
+				started
+			)
 		if GFBehaviorTree._is_running(status):
-			return _record_tick(Status.RUNNING, &"", started)
+			return _record_tick(
+				Status.RUNNING,
+				&"",
+				started
+			)
 		_child.reset()
-		return _record_tick(Status.SUCCESS, &"", started)
+		return _record_tick(
+			Status.SUCCESS,
+			&"",
+			started
+		)
 
 
 	## 创建可独立运行的总是成功装饰节点副本。
@@ -2257,20 +2574,44 @@ class AlwaysFail extends Decorator:
 	func tick(blackboard: Dictionary) -> int:
 		var started: int = Time.get_ticks_usec()
 		if _child == null:
-			return _record_tick(Status.ERROR, &"missing_child", started)
+			return _record_tick(
+				Status.ERROR,
+				&"missing_child",
+				started
+			)
 		var generation: int = _runtime_generation
 		var status_value: int = _child.tick(blackboard)
 		if generation != _runtime_generation:
-			return _record_tick(Status.ABORTED, &"runtime_reset", started)
+			return _record_tick(
+				Status.ABORTED,
+				&"runtime_reset",
+				started
+			)
 		var status: int = GFBehaviorTree._variant_to_status(status_value)
-		var reason: StringName = _get_child_status_reason(_child, status_value, status)
+		var reason: StringName = _get_child_status_reason(
+			_child,
+			status_value,
+			status
+		)
 		if GFBehaviorTree._is_error(status) or GFBehaviorTree._is_aborted(status):
 			_child.reset()
-			return _record_tick(status, reason, started)
+			return _record_tick(
+				status,
+				reason,
+				started
+			)
 		if GFBehaviorTree._is_running(status):
-			return _record_tick(Status.RUNNING, &"", started)
+			return _record_tick(
+				Status.RUNNING,
+				&"",
+				started
+			)
 		_child.reset()
-		return _record_tick(Status.FAILURE, &"", started)
+		return _record_tick(
+			Status.FAILURE,
+			&"",
+			started
+		)
 
 
 	## 创建可独立运行的总是失败装饰节点副本。
@@ -2304,6 +2645,7 @@ class Probability extends Decorator:
 	## @api public
 	var rng: RandomNumberGenerator = null
 
+
 	# --- 私有变量 ---
 
 	## 当前执行是否已经抽取概率决定，避免 RUNNING 期间重复抽样。
@@ -2322,10 +2664,18 @@ class Probability extends Decorator:
 	## 绑定子节点，将概率限制在 0 到 1，并保存可选随机源。
 	## [br]
 	## @api private
-	func _init(child_node: BTNode, chance: float = 1.0, random_source: RandomNumberGenerator = null) -> void:
+	func _init(
+		child_node: BTNode,
+		chance: float = 1.0,
+		random_source: RandomNumberGenerator = null
+	) -> void:
 		super(child_node)
 		name = "Probability"
-		probability = clampf(chance, 0.0, 1.0)
+		probability = clampf(
+			chance,
+			0.0,
+			1.0
+		)
 		rng = random_source
 
 
@@ -2343,7 +2693,11 @@ class Probability extends Decorator:
 	func tick(blackboard: Dictionary) -> int:
 		var started: int = Time.get_ticks_usec()
 		if _child == null:
-			return _record_tick(Status.ERROR, &"missing_child", started)
+			return _record_tick(
+				Status.ERROR,
+				&"missing_child",
+				started
+			)
 		if not _decision_made:
 			var active_rng: RandomNumberGenerator = _resolve_rng(blackboard)
 			var roll: float = active_rng.randf() if active_rng != null else randf()
@@ -2351,17 +2705,33 @@ class Probability extends Decorator:
 			_decision_made = true
 		if not _allowed_this_run:
 			reset()
-			return _record_tick(Status.FAILURE, &"probability_miss", started)
+			return _record_tick(
+				Status.FAILURE,
+				&"probability_miss",
+				started
+			)
 
 		var generation: int = _runtime_generation
 		var status_value: int = _child.tick(blackboard)
 		if generation != _runtime_generation:
-			return _record_tick(Status.ABORTED, &"runtime_reset", started)
+			return _record_tick(
+				Status.ABORTED,
+				&"runtime_reset",
+				started
+			)
 		var status: int = GFBehaviorTree._variant_to_status(status_value)
-		var reason: StringName = _get_child_status_reason(_child, status_value, status)
+		var reason: StringName = _get_child_status_reason(
+			_child,
+			status_value,
+			status
+		)
 		if not GFBehaviorTree._is_running(status):
 			reset()
-		return _record_tick(status, reason, started)
+		return _record_tick(
+			status,
+			reason,
+			started
+		)
 
 
 	## 重置当前概率轮次与子节点状态。
@@ -2379,7 +2749,11 @@ class Probability extends Decorator:
 	## [br]
 	## @return: 复制后的运行时节点。
 	func duplicate_runtime() -> BTNode:
-		var copy: Probability = Probability.new(_duplicate_child(), probability, GFBehaviorTree._duplicate_rng(rng))
+		var copy: Probability = Probability.new(
+			_duplicate_child(),
+			probability,
+			GFBehaviorTree._duplicate_rng(rng)
+		)
 		_copy_base_fields_to(copy)
 		return copy
 
@@ -2421,6 +2795,7 @@ class Cooldown extends Decorator:
 	## @since 8.0.0
 	var clock_msec: Callable = Callable()
 
+
 	# --- 私有变量 ---
 
 	## 冷却属性的内部秒数存储，由属性 setter 进行归一化。
@@ -2444,7 +2819,11 @@ class Cooldown extends Decorator:
 	## 绑定子节点，通过属性 setter 设置冷却秒数，并保存可选时钟回调。
 	## [br]
 	## @api private
-	func _init(child_node: BTNode, seconds: float = 0.0, p_clock_msec: Callable = Callable()) -> void:
+	func _init(
+		child_node: BTNode,
+		seconds: float = 0.0,
+		p_clock_msec: Callable = Callable()
+	) -> void:
 		super(child_node)
 		name = "Cooldown"
 		cooldown_seconds = seconds
@@ -2467,23 +2846,41 @@ class Cooldown extends Decorator:
 	func tick(blackboard: Dictionary) -> int:
 		var started: int = Time.get_ticks_usec()
 		if _child == null:
-			return _record_tick(Status.ERROR, &"missing_child", started)
+			return _record_tick(
+				Status.ERROR,
+				&"missing_child",
+				started
+			)
 		var now: int = _resolve_time_msec()
 		if _last_finish_msec >= 0 and now - _last_finish_msec < GFBehaviorTree._seconds_to_msec(cooldown_seconds):
-			return _record_tick(Status.FAILURE, &"cooldown_active", started)
+			return _record_tick(
+				Status.FAILURE,
+				&"cooldown_active",
+				started
+			)
 		var generation: int = _runtime_generation
 		var status_value: int = _child.tick(blackboard)
 		if generation != _runtime_generation:
-			return _record_tick(Status.ABORTED, &"runtime_reset", started)
+			return _record_tick(
+				Status.ABORTED,
+				&"runtime_reset",
+				started
+			)
 		var status: int = GFBehaviorTree._variant_to_status(status_value)
-		var reason: StringName = _get_child_status_reason(_child, status_value, status)
+		var reason: StringName = _get_child_status_reason(
+			_child,
+			status_value,
+			status
+		)
 		if not GFBehaviorTree._is_running(status):
 			_child.reset()
-		if (
-			(GFBehaviorTree._is_success(status) or GFBehaviorTree._is_failure(status))
-		):
+		if GFBehaviorTree._is_success(status) or GFBehaviorTree._is_failure(status):
 			_last_finish_msec = _resolve_time_msec()
-		return _record_tick(status, reason, started)
+		return _record_tick(
+			status,
+			reason,
+			started
+		)
 
 
 	## 重置运行状态，保留已经开始的冷却。
@@ -2506,7 +2903,11 @@ class Cooldown extends Decorator:
 	## [br]
 	## @return: 复制后的运行时节点。
 	func duplicate_runtime() -> BTNode:
-		var copy: Cooldown = Cooldown.new(_duplicate_child(), cooldown_seconds, clock_msec)
+		var copy: Cooldown = Cooldown.new(
+			_duplicate_child(),
+			cooldown_seconds,
+			clock_msec
+		)
 		_copy_base_fields_to(copy)
 		return copy
 
@@ -2517,10 +2918,7 @@ class Cooldown extends Decorator:
 	## [br]
 	## @api private
 	func _resolve_time_msec() -> int:
-		_last_observed_msec = GFBehaviorTree._resolve_monotonic_time_msec(
-			clock_msec,
-			_last_observed_msec
-		)
+		_last_observed_msec = GFBehaviorTree._resolve_monotonic_time_msec(clock_msec, _last_observed_msec)
 		return _last_observed_msec
 
 
@@ -2553,6 +2951,7 @@ class TimeLimit extends Decorator:
 	## @since 8.0.0
 	var clock_msec: Callable = Callable()
 
+
 	# --- 私有变量 ---
 
 	## 时间限制属性的内部秒数存储。
@@ -2576,7 +2975,11 @@ class TimeLimit extends Decorator:
 	## 绑定子节点，通过属性 setter 设置时间限制，并保存可选时钟回调。
 	## [br]
 	## @api private
-	func _init(child_node: BTNode, seconds: float = 1.0, p_clock_msec: Callable = Callable()) -> void:
+	func _init(
+		child_node: BTNode,
+		seconds: float = 1.0,
+		p_clock_msec: Callable = Callable()
+	) -> void:
 		super(child_node)
 		name = "TimeLimit"
 		limit_seconds = seconds
@@ -2599,22 +3002,42 @@ class TimeLimit extends Decorator:
 	func tick(blackboard: Dictionary) -> int:
 		var started: int = Time.get_ticks_usec()
 		if _child == null:
-			return _record_tick(Status.ERROR, &"missing_child", started)
+			return _record_tick(
+				Status.ERROR,
+				&"missing_child",
+				started
+			)
 		var now: int = _resolve_time_msec()
 		if _started_msec < 0:
 			_started_msec = now
 		if limit_seconds <= 0.0 or now - _started_msec >= GFBehaviorTree._seconds_to_msec(limit_seconds):
 			reset()
-			return _record_tick(Status.FAILURE, &"time_limit_exceeded", started)
+			return _record_tick(
+				Status.FAILURE,
+				&"time_limit_exceeded",
+				started
+			)
 		var generation: int = _runtime_generation
 		var status_value: int = _child.tick(blackboard)
 		if generation != _runtime_generation:
-			return _record_tick(Status.ABORTED, &"runtime_reset", started)
+			return _record_tick(
+				Status.ABORTED,
+				&"runtime_reset",
+				started
+			)
 		var status: int = GFBehaviorTree._variant_to_status(status_value)
-		var reason: StringName = _get_child_status_reason(_child, status_value, status)
+		var reason: StringName = _get_child_status_reason(
+			_child,
+			status_value,
+			status
+		)
 		if not GFBehaviorTree._is_running(status):
 			reset()
-		return _record_tick(status, reason, started)
+		return _record_tick(
+			status,
+			reason,
+			started
+		)
 
 
 	## 重置计时状态。
@@ -2631,7 +3054,11 @@ class TimeLimit extends Decorator:
 	## [br]
 	## @return: 复制后的运行时节点。
 	func duplicate_runtime() -> BTNode:
-		var copy: TimeLimit = TimeLimit.new(_duplicate_child(), limit_seconds, clock_msec)
+		var copy: TimeLimit = TimeLimit.new(
+			_duplicate_child(),
+			limit_seconds,
+			clock_msec
+		)
 		_copy_base_fields_to(copy)
 		return copy
 
@@ -2642,10 +3069,7 @@ class TimeLimit extends Decorator:
 	## [br]
 	## @api private
 	func _resolve_time_msec() -> int:
-		_last_observed_msec = GFBehaviorTree._resolve_monotonic_time_msec(
-			clock_msec,
-			_last_observed_msec
-		)
+		_last_observed_msec = GFBehaviorTree._resolve_monotonic_time_msec(clock_msec, _last_observed_msec)
 		return _last_observed_msec
 
 
@@ -2663,6 +3087,7 @@ class Limit extends Decorator:
 	## [br]
 	## @api public
 	var max_ticks: int = 1
+
 
 	# --- 私有变量 ---
 
@@ -2697,21 +3122,45 @@ class Limit extends Decorator:
 	func tick(blackboard: Dictionary) -> int:
 		var started: int = Time.get_ticks_usec()
 		if _child == null:
-			return _record_tick(Status.ERROR, &"missing_child", started)
+			return _record_tick(
+				Status.ERROR,
+				&"missing_child",
+				started
+			)
 		if max_ticks <= 0:
-			return _record_tick(Status.FAILURE, &"limit_blocked", started)
+			return _record_tick(
+				Status.FAILURE,
+				&"limit_blocked",
+				started
+			)
 		if _tick_count >= max_ticks:
 			_child.reset()
-			return _record_tick(Status.FAILURE, &"limit_exceeded", started)
+			return _record_tick(
+				Status.FAILURE,
+				&"limit_exceeded",
+				started
+			)
 
 		_tick_count += 1
 		var generation: int = _runtime_generation
 		var status_value: int = _child.tick(blackboard)
 		if generation != _runtime_generation:
-			return _record_tick(Status.ABORTED, &"runtime_reset", started)
+			return _record_tick(
+				Status.ABORTED,
+				&"runtime_reset",
+				started
+			)
 		var status: int = GFBehaviorTree._variant_to_status(status_value)
-		var reason: StringName = _get_child_status_reason(_child, status_value, status)
-		return _record_tick(status, reason, started)
+		var reason: StringName = _get_child_status_reason(
+			_child,
+			status_value,
+			status
+		)
+		return _record_tick(
+			status,
+			reason,
+			started
+		)
 
 
 	## 重置调用计数与子节点状态。
@@ -2728,7 +3177,10 @@ class Limit extends Decorator:
 	## [br]
 	## @return: 复制后的运行时节点。
 	func duplicate_runtime() -> BTNode:
-		var copy: Limit = Limit.new(_duplicate_child(), max_ticks)
+		var copy: Limit = Limit.new(
+			_duplicate_child(),
+			max_ticks
+		)
 		_copy_base_fields_to(copy)
 		return copy
 
@@ -2747,6 +3199,7 @@ class Repeat extends Decorator:
 	## [br]
 	## @api public
 	var repeat_count: int = 1
+
 
 	# --- 私有变量 ---
 
@@ -2781,29 +3234,61 @@ class Repeat extends Decorator:
 	func tick(blackboard: Dictionary) -> int:
 		var started: int = Time.get_ticks_usec()
 		if _child == null:
-			return _record_tick(Status.ERROR, &"missing_child", started)
+			return _record_tick(
+				Status.ERROR,
+				&"missing_child",
+				started
+			)
 
 		var generation: int = _runtime_generation
 		var status_value: int = _child.tick(blackboard)
 		if generation != _runtime_generation:
-			return _record_tick(Status.ABORTED, &"runtime_reset", started)
+			return _record_tick(
+				Status.ABORTED,
+				&"runtime_reset",
+				started
+			)
 		var status: int = GFBehaviorTree._variant_to_status(status_value)
-		var reason: StringName = _get_child_status_reason(_child, status_value, status)
+		var reason: StringName = _get_child_status_reason(
+			_child,
+			status_value,
+			status
+		)
 		if GFBehaviorTree._is_running(status):
-			return _record_tick(Status.RUNNING, &"", started)
+			return _record_tick(
+				Status.RUNNING,
+				&"",
+				started
+			)
 		if GFBehaviorTree._is_failure(status) or GFBehaviorTree._is_error(status):
 			reset()
-			return _record_tick(status, reason, started)
+			return _record_tick(
+				status,
+				reason,
+				started
+			)
 		if GFBehaviorTree._is_aborted(status):
 			reset()
-			return _record_tick(Status.ABORTED, reason, started)
+			return _record_tick(
+				Status.ABORTED,
+				reason,
+				started
+			)
 
 		_success_count += 1
 		_child.reset()
 		if repeat_count > 0 and _success_count >= repeat_count:
 			reset()
-			return _record_tick(Status.SUCCESS, &"", started)
-		return _record_tick(Status.RUNNING, &"", started)
+			return _record_tick(
+				Status.SUCCESS,
+				&"",
+				started
+			)
+		return _record_tick(
+			Status.RUNNING,
+			&"",
+			started
+		)
 
 
 	## 重置重复计数与子节点状态。
@@ -2820,7 +3305,10 @@ class Repeat extends Decorator:
 	## [br]
 	## @return: 复制后的运行时节点。
 	func duplicate_runtime() -> BTNode:
-		var copy: Repeat = Repeat.new(_duplicate_child(), repeat_count)
+		var copy: Repeat = Repeat.new(
+			_duplicate_child(),
+			repeat_count
+		)
 		_copy_base_fields_to(copy)
 		return copy
 
@@ -2861,22 +3349,46 @@ class UntilSuccess extends Decorator:
 	func tick(blackboard: Dictionary) -> int:
 		var started: int = Time.get_ticks_usec()
 		if _child == null:
-			return _record_tick(Status.ERROR, &"missing_child", started)
+			return _record_tick(
+				Status.ERROR,
+				&"missing_child",
+				started
+			)
 		var generation: int = _runtime_generation
 		var status_value: int = _child.tick(blackboard)
 		if generation != _runtime_generation:
-			return _record_tick(Status.ABORTED, &"runtime_reset", started)
+			return _record_tick(
+				Status.ABORTED,
+				&"runtime_reset",
+				started
+			)
 		var status: int = GFBehaviorTree._variant_to_status(status_value)
-		var reason: StringName = _get_child_status_reason(_child, status_value, status)
+		var reason: StringName = _get_child_status_reason(
+			_child,
+			status_value,
+			status
+		)
 		if GFBehaviorTree._is_error(status) or GFBehaviorTree._is_aborted(status):
 			reset()
-			return _record_tick(status, reason, started)
+			return _record_tick(
+				status,
+				reason,
+				started
+			)
 		if GFBehaviorTree._is_success(status):
 			reset()
-			return _record_tick(Status.SUCCESS, &"", started)
+			return _record_tick(
+				Status.SUCCESS,
+				&"",
+				started
+			)
 		if GFBehaviorTree._is_failure(status):
 			_child.reset()
-		return _record_tick(Status.RUNNING, &"", started)
+		return _record_tick(
+			Status.RUNNING,
+			&"",
+			started
+		)
 
 
 	## 创建可独立运行的直到成功装饰节点副本。
@@ -2926,22 +3438,46 @@ class UntilFail extends Decorator:
 	func tick(blackboard: Dictionary) -> int:
 		var started: int = Time.get_ticks_usec()
 		if _child == null:
-			return _record_tick(Status.ERROR, &"missing_child", started)
+			return _record_tick(
+				Status.ERROR,
+				&"missing_child",
+				started
+			)
 		var generation: int = _runtime_generation
 		var status_value: int = _child.tick(blackboard)
 		if generation != _runtime_generation:
-			return _record_tick(Status.ABORTED, &"runtime_reset", started)
+			return _record_tick(
+				Status.ABORTED,
+				&"runtime_reset",
+				started
+			)
 		var status: int = GFBehaviorTree._variant_to_status(status_value)
-		var reason: StringName = _get_child_status_reason(_child, status_value, status)
+		var reason: StringName = _get_child_status_reason(
+			_child,
+			status_value,
+			status
+		)
 		if GFBehaviorTree._is_error(status) or GFBehaviorTree._is_aborted(status):
 			reset()
-			return _record_tick(status, reason, started)
+			return _record_tick(
+				status,
+				reason,
+				started
+			)
 		if GFBehaviorTree._is_failure(status):
 			reset()
-			return _record_tick(Status.SUCCESS, &"", started)
+			return _record_tick(
+				Status.SUCCESS,
+				&"",
+				started
+			)
 		if GFBehaviorTree._is_success(status):
 			_child.reset()
-		return _record_tick(Status.RUNNING, &"", started)
+		return _record_tick(
+			Status.RUNNING,
+			&"",
+			started
+		)
 
 
 	## 创建可独立运行的直到失败装饰节点副本。
@@ -2969,6 +3505,8 @@ class UntilFail extends Decorator:
 ## [br]
 ## @since unreleased
 class RecoverError extends BTNode:
+
+
 	# --- 私有变量 ---
 
 	## 本次正常尝试的节点；恢复期间不再调用其 tick。
@@ -3027,11 +3565,19 @@ class RecoverError extends BTNode:
 	## 校验恢复策略并复制原因白名单；非法策略保留为可观察 ERROR，不触发分支。
 	## [br]
 	## @api private
-	func _init(child_node: BTNode, recovery_node: BTNode, allowed_reasons: Array[StringName]) -> void:
+	func _init(
+		child_node: BTNode,
+		recovery_node: BTNode,
+		allowed_reasons: Array[StringName]
+	) -> void:
 		name = "RecoverError"
 		_child = child_node
 		_recovery = recovery_node
-		if _child == null or _recovery == null or _child == _recovery:
+		if (
+			_child == null
+			or _recovery == null
+			or _child == _recovery
+		):
 			_configuration_error = &"invalid_recovery_children"
 			return
 		if allowed_reasons.is_empty() or allowed_reasons.size() > 64:
@@ -3060,16 +3606,32 @@ class RecoverError extends BTNode:
 	func tick(blackboard: Dictionary) -> int:
 		var started: int = Time.get_ticks_usec()
 		if _resetting:
-			return _record_tick(Status.ABORTED, &"reentrant_tick", started)
+			return _record_tick(
+				Status.ABORTED,
+				&"reentrant_tick",
+				started
+			)
 		if _tick_in_progress:
 			reset()
 			_terminal_status = Status.ABORTED
 			_terminal_reason = &"reentrant_tick"
-			return _record_tick(Status.ABORTED, &"reentrant_tick", started)
+			return _record_tick(
+				Status.ABORTED,
+				&"reentrant_tick",
+				started
+			)
 		if _configuration_error != &"":
-			return _record_tick(Status.ERROR, _configuration_error, started)
+			return _record_tick(
+				Status.ERROR,
+				_configuration_error,
+				started
+			)
 		if _terminal_status != Status.FRESH:
-			return _record_tick(_terminal_status, _terminal_reason, started)
+			return _record_tick(
+				_terminal_status,
+				_terminal_reason,
+				started
+			)
 		_tick_in_progress = true
 		var status: int = _tick_attempt(blackboard, started)
 		_tick_in_progress = false
@@ -3146,14 +3708,32 @@ class RecoverError extends BTNode:
 	## @api private
 	func _is_valid_allowed_reason(reason: StringName) -> bool:
 		var text: String = String(reason)
-		if text.is_empty() or text.length() > 128 or reason in [&"aborted", &"runtime_reset"]:
+		if (
+			text.is_empty()
+			or text.length() > 128
+			or reason in [&"aborted", &"runtime_reset"]
+		):
 			return false
 		for segment: String in text.split("."):
-			if segment.is_empty() or segment.unicode_at(0) < 97 or segment.unicode_at(0) > 122:
+			if (
+				segment.is_empty()
+				or segment.unicode_at(0) < 97
+				or segment.unicode_at(0) > 122
+			):
 				return false
 			for index: int in range(segment.length()):
 				var character: int = segment.unicode_at(index)
-				if not ((character >= 97 and character <= 122) or (character >= 48 and character <= 57) or character == 95):
+				if not (
+					(
+						character >= 97
+						and character <= 122
+					)
+					or (
+						character >= 48
+						and character <= 57
+					)
+					or character == 95
+				):
 					return false
 		return true
 
@@ -3166,15 +3746,31 @@ class RecoverError extends BTNode:
 		var generation: int = _runtime_generation
 		var status_value: int = active.tick(blackboard)
 		if generation != _runtime_generation:
-			return _record_tick(Status.ABORTED, &"runtime_reset", started)
+			return _record_tick(
+				Status.ABORTED,
+				&"runtime_reset",
+				started
+			)
 		var status: int = GFBehaviorTree._variant_to_status(status_value)
-		var reason: StringName = _get_child_status_reason(active, status_value, status)
-		if not _recovering and GFBehaviorTree._is_error(status) and _allowed_reasons.has(reason):
+		var reason: StringName = _get_child_status_reason(
+			active,
+			status_value,
+			status
+		)
+		if (
+			not _recovering
+			and GFBehaviorTree._is_error(status)
+			and _allowed_reasons.has(reason)
+		):
 			_caught_reason = reason
 			_recovering = true
 			_child.reset()
 			if generation != _runtime_generation:
-				return _record_tick(Status.ABORTED, &"runtime_reset", started)
+				return _record_tick(
+					Status.ABORTED,
+					&"runtime_reset",
+					started
+				)
 			return _tick_attempt(blackboard, started)
 		if not GFBehaviorTree._is_running(status):
 			_recovering = false
@@ -3182,8 +3778,16 @@ class RecoverError extends BTNode:
 			_terminal_reason = reason
 			active.reset()
 			if generation != _runtime_generation:
-				return _record_tick(Status.ABORTED, &"runtime_reset", started)
-		return _record_tick(status, reason, started)
+				return _record_tick(
+					Status.ABORTED,
+					&"runtime_reset",
+					started
+				)
+		return _record_tick(
+			status,
+			reason,
+			started
+		)
 
 
 ## 行为树的执行入口容器。
@@ -3208,6 +3812,7 @@ class Runner extends RefCounted:
 	## [br]
 	## @api public
 	var duplicates_runtime_tree: bool = true
+
 
 	# --- 私有变量 ---
 
@@ -3302,16 +3907,16 @@ class Runner extends RefCounted:
 	func _get_debug_snapshot_raw(budget: Dictionary) -> Dictionary:
 		var blackboard_keys: Array[String] = _get_blackboard_keys(budget)
 		var blackboard_key_count: int = blackboard.size()
-		var blackboard_keys_truncated: bool = (
-			blackboard_key_count > blackboard_keys.size()
-		)
+		var blackboard_keys_truncated: bool = blackboard_key_count > blackboard_keys.size()
 		if blackboard_keys_truncated:
-			GFBehaviorTree._mark_debug_snapshot_truncated(
-				budget,
-				&"max_blackboard_keys"
-			)
+			GFBehaviorTree._mark_debug_snapshot_truncated(budget, &"max_blackboard_keys")
 		return {
-			"root": _root_node._get_debug_snapshot_internal({}, {}, budget, 0) if _root_node != null else {},
+			"root": _root_node._get_debug_snapshot_internal(
+				{},
+				{},
+				budget,
+				0
+			) if _root_node != null else {},
 			"blackboard_keys": blackboard_keys,
 			"blackboard_key_count": blackboard_key_count,
 			"blackboard_keys_truncated": blackboard_keys_truncated,

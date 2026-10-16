@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFThumbnailRenderer" path="addons/gf/kernel/editor/gf_thumbnail_renderer.gd" module="kernel" extends="Node" classDigest="b4154386574b88520d9d1eb11aedc5539e883be32370d78fee5315cd2114030f">
+<class name="GFThumbnailRenderer" path="addons/gf/kernel/editor/gf_thumbnail_renderer.gd" module="kernel" extends="Node" classDigest="960bb5c3d122bb50ed21bf2b4a1a258403063f4ad43c8bd1bfb49f0bc87ba057">
 	<description>GFThumbnailRenderer: 编辑器缩略图渲染辅助节点。
 使用独立 SubViewport 渲染 CanvasItem、Node3D 或 Mesh，供项目自定义编辑器工具复用。
 默认仅快照受支持节点的原生视觉属性，资源只读共享；复杂运行时视觉和脚本自绘
@@ -101,7 +101,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="render_mesh">
-			<signature>func render_mesh(mesh: Mesh, size: Vector2i = Vector2i(256, 256), transparent: bool = true) -&gt; Image:</signature>
+			<signature>func render_mesh( mesh: Mesh, size: Vector2i = Vector2i(256, 256), transparent: bool = true ) -&gt; Image:</signature>
 			<description>渲染一个 Mesh 缩略图。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -109,6 +109,7 @@
 				<tag name="param">size: 输出尺寸。</tag>
 				<tag name="param">transparent: 是否透明背景。</tag>
 				<tag name="return">渲染出的 Image；失败时返回 null。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="render_mesh_texture">

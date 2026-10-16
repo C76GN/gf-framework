@@ -11,8 +11,8 @@
 class_name GFVariantData
 extends RefCounted
 
-# --- 常量 ---
 
+# --- 常量 ---
 
 ## 预载变体访问辅助脚本，供本类复用统一的访问实现。
 ## [br]
@@ -57,6 +57,8 @@ const _DEFAULT_MAX_DIFF_COLLECTION_ITEMS: int = 65_536
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param value: 待复制的值。
 ## [br]
 ## @schema value: 待复制的 Variant 值。
@@ -68,8 +70,16 @@ const _DEFAULT_MAX_DIFF_COLLECTION_ITEMS: int = 65_536
 ## @return 复制后的值。
 ## [br]
 ## @schema return: 复制后的 Variant 值。
-static func duplicate_variant(value: Variant, deep: bool = true, duplicate_resources: bool = false) -> Variant:
-	return _GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(value, deep, duplicate_resources)
+static func duplicate_variant(
+	value: Variant,
+	deep: bool = true,
+	duplicate_resources: bool = false
+) -> Variant:
+	return _GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(
+		value,
+		deep,
+		duplicate_resources
+	)
 
 
 ## 深拷贝集合值；语义同 duplicate_variant()，便于集合字段调用处表达意图。
@@ -93,6 +103,8 @@ static func duplicate_collection(value: Variant, deep: bool = true) -> Variant:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.22.0
+## [br]
 ## @param value: 待读取的值。
 ## [br]
 ## @schema value: 期望为 Dictionary 的 Variant 值。
@@ -106,8 +118,16 @@ static func duplicate_collection(value: Variant, deep: bool = true) -> Variant:
 ## @return Dictionary 副本。
 ## [br]
 ## @schema return: 复制后的 Dictionary 结果。
-static func to_dictionary(value: Variant, default_value: Dictionary = {}, deep: bool = true) -> Dictionary:
-	return _GF_VARIANT_ACCESS_SCRIPT.to_dictionary(value, default_value, deep)
+static func to_dictionary(
+	value: Variant,
+	default_value: Dictionary = {},
+	deep: bool = true
+) -> Dictionary:
+	return _GF_VARIANT_ACCESS_SCRIPT.to_dictionary(
+		value,
+		default_value,
+		deep
+	)
 
 
 ## 将 Variant 收窄为 Dictionary 引用；value 不是 Dictionary 时返回 default_value 引用。
@@ -133,6 +153,8 @@ static func as_dictionary(value: Variant, default_value: Variant = null) -> Dict
 ## [br]
 ## @api public
 ## [br]
+## @since 4.0.0
+## [br]
 ## @param value: 待读取的值。
 ## [br]
 ## @schema value: 期望为 Array 的 Variant 值。
@@ -146,8 +168,16 @@ static func as_dictionary(value: Variant, default_value: Variant = null) -> Dict
 ## @return Array 副本。
 ## [br]
 ## @schema return: 复制后的 Array 结果。
-static func to_array(value: Variant, default_value: Array = [], deep: bool = true) -> Array:
-	return _GF_VARIANT_ACCESS_SCRIPT.to_array(value, default_value, deep)
+static func to_array(
+	value: Variant,
+	default_value: Array = [],
+	deep: bool = true
+) -> Array:
+	return _GF_VARIANT_ACCESS_SCRIPT.to_array(
+		value,
+		default_value,
+		deep
+	)
 
 
 ## 将 Variant 收窄为 Array 引用；value 不是 Array 时返回 default_value 引用。
@@ -421,8 +451,16 @@ static func duplicate_metadata(metadata: Dictionary) -> Dictionary:
 ## @schema options: Dictionary，可选字段：numeric_epsilon 为 float/float 误差，默认 0；match_string_names 为 true 时 String 与 StringName 按文本比较。
 ## [br]
 ## @return 两个值按 GF 通用 Variant 语义等价时返回 true。
-static func values_equal(left: Variant, right: Variant, options: Dictionary = {}) -> bool:
-	return _GF_VARIANT_ACCESS_SCRIPT.values_equal(left, right, options)
+static func values_equal(
+	left: Variant,
+	right: Variant,
+	options: Dictionary = {}
+) -> bool:
+	return _GF_VARIANT_ACCESS_SCRIPT.values_equal(
+		left,
+		right,
+		options
+	)
 
 
 ## 将 source 合并到 target。
@@ -454,7 +492,12 @@ static func merge_dictionary(
 	overwrite: bool = true,
 	recursive: bool = true
 ) -> Dictionary:
-	return _GF_VARIANT_ACCESS_SCRIPT.merge_dictionary(target, source, overwrite, recursive)
+	return _GF_VARIANT_ACCESS_SCRIPT.merge_dictionary(
+		target,
+		source,
+		overwrite,
+		recursive
+	)
 
 
 ## 将 source 元数据合并到 target 元数据。
@@ -482,7 +525,12 @@ static func merge_metadata(
 	overwrite: bool = true,
 	recursive: bool = true
 ) -> Dictionary:
-	return merge_dictionary(target, source, overwrite, recursive)
+	return merge_dictionary(
+		target,
+		source,
+		overwrite,
+		recursive
+	)
 
 
 ## 将 defaults 中缺失的字段递归合并到 base。
@@ -501,7 +549,12 @@ static func merge_metadata(
 ## [br]
 ## @schema return: 合并后的 base Dictionary。
 static func deep_merge_defaults(base: Dictionary, defaults: Dictionary) -> Dictionary:
-	return merge_dictionary(base, defaults, false, true)
+	return merge_dictionary(
+		base,
+		defaults,
+		false,
+		true
+	)
 
 
 ## 对比两个 Variant 并返回结构化差异报告。
@@ -528,9 +581,19 @@ static func deep_merge_defaults(base: Dictionary, defaults: Dictionary) -> Dicti
 ## @return 差异报告。内容差异与遍历诊断分别存放在 changes 和 diagnostics。
 ## [br]
 ## @schema return: Dictionary；changes 每项包含 kind、path、path_segments、old_value、new_value、old_type、new_type，kind 仅为 added、removed、changed 或 type_changed；diagnostics 每项包含 kind、path、path_segments，循环重入 kind 为 cycle_detected，资源预算耗尽 kind 为 traversal_budget_exceeded 并包含 reason；complete/traversal_truncated 独立描述遍历完整性，changed 不受 diagnostics 或不完整状态影响。
-static func diff_variant(before: Variant, after: Variant, options: Dictionary = {}) -> Dictionary:
+static func diff_variant(
+	before: Variant,
+	after: Variant,
+	options: Dictionary = {}
+) -> Dictionary:
 	var state: Dictionary = _make_diff_state(options)
-	_diff_variant_recursive(before, after, [], 0, state)
+	_diff_variant_recursive(
+		before,
+		after,
+		[],
+		0,
+		state
+	)
 	var changes: Array = state["changes"]
 	var diagnostics: Array = state["diagnostics"]
 	var truncated: bool = state["truncated"]
@@ -563,6 +626,8 @@ static func diff_variant(before: Variant, after: Variant, options: Dictionary = 
 ## [br]
 ## @api public
 ## [br]
+## @since 3.22.0
+## [br]
 ## @param options: 可选项字典。
 ## [br]
 ## @schema options: 选项载荷 Dictionary。
@@ -578,13 +643,23 @@ static func diff_variant(before: Variant, after: Variant, options: Dictionary = 
 ## @return 读取到的值或默认值。
 ## [br]
 ## @schema return: Variant 选项值或默认值。
-static func get_option_value(options: Dictionary, key: Variant, default_value: Variant = null) -> Variant:
-	return _GF_VARIANT_ACCESS_SCRIPT.get_option_value(options, key, default_value)
+static func get_option_value(
+	options: Dictionary,
+	key: Variant,
+	default_value: Variant = null
+) -> Variant:
+	return _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+		options,
+		key,
+		default_value
+	)
 
 
 ## 读取 bool 选项。
 ## [br]
 ## @api public
+## [br]
+## @since 3.22.0
 ## [br]
 ## @param options: 可选项字典。
 ## [br]
@@ -597,13 +672,23 @@ static func get_option_value(options: Dictionary, key: Variant, default_value: V
 ## @param default_value: 缺少字段时返回的默认值。
 ## [br]
 ## @return bool 值。
-static func get_option_bool(options: Dictionary, key: Variant, default_value: bool = false) -> bool:
-	return _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, key, default_value)
+static func get_option_bool(
+	options: Dictionary,
+	key: Variant,
+	default_value: bool = false
+) -> bool:
+	return _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		options,
+		key,
+		default_value
+	)
 
 
 ## 读取 int 选项。
 ## [br]
 ## @api public
+## [br]
+## @since 3.22.0
 ## [br]
 ## @param options: 可选项字典。
 ## [br]
@@ -616,13 +701,23 @@ static func get_option_bool(options: Dictionary, key: Variant, default_value: bo
 ## @param default_value: 缺少字段时返回的默认值。
 ## [br]
 ## @return int 值。
-static func get_option_int(options: Dictionary, key: Variant, default_value: int = 0) -> int:
-	return _GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, key, default_value)
+static func get_option_int(
+	options: Dictionary,
+	key: Variant,
+	default_value: int = 0
+) -> int:
+	return _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+		options,
+		key,
+		default_value
+	)
 
 
 ## 读取 float 选项。
 ## [br]
 ## @api public
+## [br]
+## @since 3.22.0
 ## [br]
 ## @param options: 可选项字典。
 ## [br]
@@ -635,13 +730,23 @@ static func get_option_int(options: Dictionary, key: Variant, default_value: int
 ## @param default_value: 缺少字段时返回的默认值。
 ## [br]
 ## @return float 值。
-static func get_option_float(options: Dictionary, key: Variant, default_value: float = 0.0) -> float:
-	return _GF_VARIANT_ACCESS_SCRIPT.get_option_float(options, key, default_value)
+static func get_option_float(
+	options: Dictionary,
+	key: Variant,
+	default_value: float = 0.0
+) -> float:
+	return _GF_VARIANT_ACCESS_SCRIPT.get_option_float(
+		options,
+		key,
+		default_value
+	)
 
 
 ## 读取 String 选项。
 ## [br]
 ## @api public
+## [br]
+## @since 3.22.0
 ## [br]
 ## @param options: 可选项字典。
 ## [br]
@@ -654,13 +759,23 @@ static func get_option_float(options: Dictionary, key: Variant, default_value: f
 ## @param default_value: 缺少字段时返回的默认值。
 ## [br]
 ## @return String 值。
-static func get_option_string(options: Dictionary, key: Variant, default_value: String = "") -> String:
-	return _GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, key, default_value)
+static func get_option_string(
+	options: Dictionary,
+	key: Variant,
+	default_value: String = ""
+) -> String:
+	return _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+		options,
+		key,
+		default_value
+	)
 
 
 ## 读取 StringName 选项。
 ## [br]
 ## @api public
+## [br]
+## @since 3.22.0
 ## [br]
 ## @param options: 可选项字典。
 ## [br]
@@ -673,13 +788,23 @@ static func get_option_string(options: Dictionary, key: Variant, default_value: 
 ## @param default_value: 缺少字段时返回的默认值。
 ## [br]
 ## @return StringName 值。
-static func get_option_string_name(options: Dictionary, key: Variant, default_value: StringName = &"") -> StringName:
-	return _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(options, key, default_value)
+static func get_option_string_name(
+	options: Dictionary,
+	key: Variant,
+	default_value: StringName = &""
+) -> StringName:
+	return _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+		options,
+		key,
+		default_value
+	)
 
 
 ## 读取 Vector2 选项。
 ## [br]
 ## @api public
+## [br]
+## @since 4.0.0
 ## [br]
 ## @param options: 可选项字典。
 ## [br]
@@ -692,13 +817,23 @@ static func get_option_string_name(options: Dictionary, key: Variant, default_va
 ## @param default_value: 缺少字段时返回的默认值。
 ## [br]
 ## @return Vector2 值。
-static func get_option_vector2(options: Dictionary, key: Variant, default_value: Vector2 = Vector2.ZERO) -> Vector2:
-	return _GF_VARIANT_ACCESS_SCRIPT.get_option_vector2(options, key, default_value)
+static func get_option_vector2(
+	options: Dictionary,
+	key: Variant,
+	default_value: Vector2 = Vector2.ZERO
+) -> Vector2:
+	return _GF_VARIANT_ACCESS_SCRIPT.get_option_vector2(
+		options,
+		key,
+		default_value
+	)
 
 
 ## 读取 Vector3 选项。
 ## [br]
 ## @api public
+## [br]
+## @since 4.0.0
 ## [br]
 ## @param options: 可选项字典。
 ## [br]
@@ -711,13 +846,23 @@ static func get_option_vector2(options: Dictionary, key: Variant, default_value:
 ## @param default_value: 缺少字段时返回的默认值。
 ## [br]
 ## @return Vector3 值。
-static func get_option_vector3(options: Dictionary, key: Variant, default_value: Vector3 = Vector3.ZERO) -> Vector3:
-	return _GF_VARIANT_ACCESS_SCRIPT.get_option_vector3(options, key, default_value)
+static func get_option_vector3(
+	options: Dictionary,
+	key: Variant,
+	default_value: Vector3 = Vector3.ZERO
+) -> Vector3:
+	return _GF_VARIANT_ACCESS_SCRIPT.get_option_vector3(
+		options,
+		key,
+		default_value
+	)
 
 
 ## 读取 Dictionary 选项副本。
 ## [br]
 ## @api public
+## [br]
+## @since 3.22.0
 ## [br]
 ## @param options: 可选项字典。
 ## [br]
@@ -734,13 +879,23 @@ static func get_option_vector3(options: Dictionary, key: Variant, default_value:
 ## @return Dictionary 副本。
 ## [br]
 ## @schema return: Dictionary 选项值。
-static func get_option_dictionary(options: Dictionary, key: Variant, default_value: Dictionary = {}) -> Dictionary:
-	return _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(options, key, default_value)
+static func get_option_dictionary(
+	options: Dictionary,
+	key: Variant,
+	default_value: Dictionary = {}
+) -> Dictionary:
+	return _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
+		options,
+		key,
+		default_value
+	)
 
 
 ## 读取 Array 选项副本。
 ## [br]
 ## @api public
+## [br]
+## @since 3.22.0
 ## [br]
 ## @param options: 可选项字典。
 ## [br]
@@ -757,8 +912,16 @@ static func get_option_dictionary(options: Dictionary, key: Variant, default_val
 ## @return Array 副本。
 ## [br]
 ## @schema return: Array 选项值。
-static func get_option_array(options: Dictionary, key: Variant, default_value: Array = []) -> Array:
-	return _GF_VARIANT_ACCESS_SCRIPT.get_option_array(options, key, default_value)
+static func get_option_array(
+	options: Dictionary,
+	key: Variant,
+	default_value: Array = []
+) -> Array:
+	return _GF_VARIANT_ACCESS_SCRIPT.get_option_array(
+		options,
+		key,
+		default_value
+	)
 
 
 ## 读取 String 数组选项副本。
@@ -785,7 +948,11 @@ static func get_option_string_array(
 	key: Variant,
 	default_value: Array[String] = []
 ) -> Array[String]:
-	return _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(options, key, default_value)
+	return _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(
+		options,
+		key,
+		default_value
+	)
 
 
 ## 读取 StringName 数组选项副本。
@@ -812,7 +979,11 @@ static func get_option_string_name_array(
 	key: Variant,
 	default_value: Array[StringName] = []
 ) -> Array[StringName]:
-	return _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name_array(options, key, default_value)
+	return _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name_array(
+		options,
+		key,
+		default_value
+	)
 
 
 ## 读取 int 数组选项副本。
@@ -839,7 +1010,11 @@ static func get_option_int_array(
 	key: Variant,
 	default_value: Array[int] = []
 ) -> Array[int]:
-	return _GF_VARIANT_ACCESS_SCRIPT.get_option_int_array(options, key, default_value)
+	return _GF_VARIANT_ACCESS_SCRIPT.get_option_int_array(
+		options,
+		key,
+		default_value
+	)
 
 
 ## 读取 PackedStringArray 选项。
@@ -862,7 +1037,11 @@ static func get_option_packed_string_array(
 	key: Variant,
 	default_value: PackedStringArray = PackedStringArray()
 ) -> PackedStringArray:
-	return _GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(options, key, default_value)
+	return _GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(
+		options,
+		key,
+		default_value
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -872,13 +1051,21 @@ static func get_option_packed_string_array(
 ## @api private
 ## [br]
 static func _make_diff_state(options: Dictionary) -> Dictionary:
-	var max_changes: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, "max_changes", 1024)
+	var max_changes: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+		options,
+		"max_changes",
+		1024
+	)
 	var max_diagnostics: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
 		options,
 		"max_diagnostics",
 		_DEFAULT_MAX_DIFF_DIAGNOSTICS
 	)
-	var copy_values: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "copy_values", true)
+	var copy_values: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		options,
+		"copy_values",
+		true
+	)
 	return {
 		"changes": [],
 		"truncated": false,
@@ -932,7 +1119,11 @@ static func _diff_variant_recursive(
 ) -> void:
 	if _is_diff_truncated(state) or _is_diff_traversal_truncated(state):
 		return
-	if not _consume_diff_node(depth, path_segments, state):
+	if not _consume_diff_node(
+		depth,
+		path_segments,
+		state
+	):
 		return
 	if _diff_values_are_identical(before, after):
 		return
@@ -940,14 +1131,32 @@ static func _diff_variant_recursive(
 	var before_type: int = typeof(before)
 	var after_type: int = typeof(after)
 	if before_type != after_type:
-		_append_diff_change("type_changed", path_segments, before, after, state)
+		_append_diff_change(
+			"type_changed",
+			path_segments,
+			before,
+			after,
+			state
+		)
 		return
 
 	if before is Dictionary and after is Dictionary:
-		if _is_diff_pair_active(before, after, state):
-			_append_diff_diagnostic("cycle_detected", path_segments, state)
+		if _is_diff_pair_active(
+			before,
+			after,
+			state
+		):
+			_append_diff_diagnostic(
+				"cycle_detected",
+				path_segments,
+				state
+			)
 			return
-		_push_diff_pair(before, after, state)
+		_push_diff_pair(
+			before,
+			after,
+			state
+		)
 		var before_dictionary: Dictionary = before
 		var after_dictionary: Dictionary = after
 		if _consume_diff_collection_items(
@@ -955,15 +1164,33 @@ static func _diff_variant_recursive(
 			path_segments,
 			state
 		):
-			_diff_dictionary(before_dictionary, after_dictionary, path_segments, depth, state)
+			_diff_dictionary(
+				before_dictionary,
+				after_dictionary,
+				path_segments,
+				depth,
+				state
+			)
 		_pop_diff_pair(state)
 		return
 
 	if before is Array and after is Array:
-		if _is_diff_pair_active(before, after, state):
-			_append_diff_diagnostic("cycle_detected", path_segments, state)
+		if _is_diff_pair_active(
+			before,
+			after,
+			state
+		):
+			_append_diff_diagnostic(
+				"cycle_detected",
+				path_segments,
+				state
+			)
 			return
-		_push_diff_pair(before, after, state)
+		_push_diff_pair(
+			before,
+			after,
+			state
+		)
 		var before_array: Array = before
 		var after_array: Array = after
 		if _consume_diff_collection_items(
@@ -971,12 +1198,24 @@ static func _diff_variant_recursive(
 			path_segments,
 			state
 		):
-			_diff_array(before_array, after_array, path_segments, depth, state)
+			_diff_array(
+				before_array,
+				after_array,
+				path_segments,
+				depth,
+				state
+			)
 		_pop_diff_pair(state)
 		return
 
 	if not _variant_values_equal(before, after):
-		_append_diff_change("changed", path_segments, before, after, state)
+		_append_diff_change(
+			"changed",
+			path_segments,
+			before,
+			after,
+			state
+		)
 
 
 ## 按精确键和同文本 String/StringName 键配对比较字典，并记录新增、移除及变更项。
@@ -1004,12 +1243,24 @@ static func _diff_dictionary(
 			string_like_key_index
 		)
 		path_segments.append(before_key)
-		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(match, "found"):
-			_append_diff_change("removed", path_segments, before[before_key], null, state)
+		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			match,
+			"found"
+		):
+			_append_diff_change(
+				"removed",
+				path_segments,
+				before[before_key],
+				null,
+				state
+			)
 			var _removed_missing_path_segment: Variant = path_segments.pop_back()
 			continue
 
-		var after_key: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(match, "key")
+		var after_key: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+			match,
+			"key"
+		)
 		used_after_keys[after_key] = true
 		_diff_variant_recursive(
 			before[before_key],
@@ -1027,7 +1278,13 @@ static func _diff_dictionary(
 			continue
 
 		path_segments.append(after_key)
-		_append_diff_change("added", path_segments, null, after[after_key], state)
+		_append_diff_change(
+			"added",
+			path_segments,
+			null,
+			after[after_key],
+			state
+		)
 		var _removed_added_path_segment: Variant = path_segments.pop_back()
 
 
@@ -1042,29 +1299,56 @@ static func _diff_array(
 	depth: int,
 	state: Dictionary
 ) -> void:
-	var shared_size: int = mini(before.size(), after.size())
+	var shared_size: int = mini(
+		before.size(),
+		after.size()
+	)
 	for index: int in range(shared_size):
 		if _is_diff_truncated(state) or _is_diff_traversal_truncated(state):
 			return
 
 		path_segments.append(index)
-		_diff_variant_recursive(before[index], after[index], path_segments, depth + 1, state)
+		_diff_variant_recursive(
+			before[index],
+			after[index],
+			path_segments,
+			depth + 1,
+			state
+		)
 		var _removed_shared_path_segment: Variant = path_segments.pop_back()
 
-	for index: int in range(shared_size, before.size()):
+	for index: int in range(
+		shared_size,
+		before.size()
+	):
 		if _is_diff_truncated(state) or _is_diff_traversal_truncated(state):
 			return
 
 		path_segments.append(index)
-		_append_diff_change("removed", path_segments, before[index], null, state)
+		_append_diff_change(
+			"removed",
+			path_segments,
+			before[index],
+			null,
+			state
+		)
 		var _removed_old_path_segment: Variant = path_segments.pop_back()
 
-	for index: int in range(shared_size, after.size()):
+	for index: int in range(
+		shared_size,
+		after.size()
+	):
 		if _is_diff_truncated(state) or _is_diff_traversal_truncated(state):
 			return
 
 		path_segments.append(index)
-		_append_diff_change("added", path_segments, null, after[index], state)
+		_append_diff_change(
+			"added",
+			path_segments,
+			null,
+			after[index],
+			state
+		)
 		var _removed_new_path_segment: Variant = path_segments.pop_back()
 
 
@@ -1079,27 +1363,18 @@ static func _find_matching_dictionary_key(
 	string_like_key_index: Dictionary
 ) -> Dictionary:
 	if dictionary.has(key) and not used_keys.has(key):
-		return {
-			"found": true,
-			"key": key,
-		}
+		return { "found": true, "key": key, }
 
 	if not _is_string_like_key(key):
 		return { "found": false }
 
 	var key_text: String = to_text(key)
-	var candidates: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(
-		string_like_key_index,
-		key_text
-	)
+	var candidates: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(string_like_key_index, key_text)
 	for candidate_key: Variant in candidates:
 		if used_keys.has(candidate_key) or not _is_string_like_key(candidate_key):
 			continue
 		if to_text(candidate_key) == key_text:
-			return {
-				"found": true,
-				"key": candidate_key,
-			}
+			return { "found": true, "key": candidate_key, }
 
 	return { "found": false }
 
@@ -1137,15 +1412,21 @@ static func _append_diff_change(
 		state["truncated"] = true
 		return
 
-	changes.append({
-		"kind": kind,
-		"path": _format_diff_path(path_segments),
-		"path_segments": duplicate_variant(path_segments, true, false),
-		"old_value": _copy_diff_value(old_value, state),
-		"new_value": _copy_diff_value(new_value, state),
-		"old_type": type_string(typeof(old_value)),
-		"new_type": type_string(typeof(new_value)),
-	})
+	changes.append(
+		{
+			"kind": kind,
+			"path": _format_diff_path(path_segments),
+			"path_segments": duplicate_variant(
+				path_segments,
+				true,
+				false
+			),
+			"old_value": _copy_diff_value(old_value, state),
+			"new_value": _copy_diff_value(new_value, state),
+			"old_type": type_string(typeof(old_value)),
+			"new_type": type_string(typeof(new_value)),
+		}
+	)
 
 
 ## 在诊断数未超限时追加带路径和附加字段的诊断，并标记诊断截断。
@@ -1167,10 +1448,18 @@ static func _append_diff_diagnostic(
 	var diagnostic: Dictionary = {
 		"kind": kind,
 		"path": _format_diff_path(path_segments),
-		"path_segments": duplicate_variant(path_segments, true, false),
+		"path_segments": duplicate_variant(
+			path_segments,
+			true,
+			false
+		),
 	}
 	for field_key: Variant in additional_fields.keys():
-		diagnostic[field_key] = duplicate_variant(additional_fields[field_key], true, false)
+		diagnostic[field_key] = duplicate_variant(
+			additional_fields[field_key],
+			true,
+			false
+		)
 	diagnostics.append(diagnostic)
 
 
@@ -1182,7 +1471,11 @@ static func _copy_diff_value(value: Variant, state: Dictionary) -> Variant:
 	var copy_values: bool = state["copy_values"]
 	if not copy_values:
 		return value
-	return duplicate_variant(value, true, false)
+	return duplicate_variant(
+		value,
+		true,
+		false
+	)
 
 
 ## 把值相等判断委派给公开的 values_equal 实现。
@@ -1227,18 +1520,27 @@ static func _is_diff_traversal_truncated(state: Dictionary) -> bool:
 ## [br]
 ## @api private
 ## [br]
-static func _consume_diff_node(depth: int, path_segments: Array, state: Dictionary) -> bool:
+static func _consume_diff_node(
+	depth: int,
+	path_segments: Array,
+	state: Dictionary
+) -> bool:
 	var max_depth: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(state, "max_depth")
 	if max_depth > 0 and depth > max_depth:
-		_mark_diff_traversal_truncated("max_depth", path_segments, state)
+		_mark_diff_traversal_truncated(
+			"max_depth",
+			path_segments,
+			state
+		)
 		return false
-	var visited_node_count: int = (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(state, "visited_node_count")
-		+ 1
-	)
+	var visited_node_count: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(state, "visited_node_count") + 1
 	var max_nodes: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(state, "max_nodes")
 	if max_nodes > 0 and visited_node_count > max_nodes:
-		_mark_diff_traversal_truncated("max_nodes", path_segments, state)
+		_mark_diff_traversal_truncated(
+			"max_nodes",
+			path_segments,
+			state
+		)
 		return false
 	state["visited_node_count"] = visited_node_count
 	return true
@@ -1253,20 +1555,15 @@ static func _consume_diff_collection_items(
 	path_segments: Array,
 	state: Dictionary
 ) -> bool:
-	var visited_item_count: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-		state,
-		"visited_collection_item_count"
-	)
+	var visited_item_count: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(state, "visited_collection_item_count")
 	var bounded_item_count: int = maxi(item_count, 0)
-	var max_collection_items: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-		state,
-		"max_collection_items"
-	)
-	if (
-		max_collection_items > 0
-		and bounded_item_count > max_collection_items - mini(visited_item_count, max_collection_items)
-	):
-		_mark_diff_traversal_truncated("max_collection_items", path_segments, state)
+	var max_collection_items: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(state, "max_collection_items")
+	if (max_collection_items > 0 and bounded_item_count > max_collection_items - mini(visited_item_count, max_collection_items)):
+		_mark_diff_traversal_truncated(
+			"max_collection_items",
+			path_segments,
+			state
+		)
 		return false
 	state["visited_collection_item_count"] = visited_item_count + bounded_item_count
 	return true
@@ -1297,15 +1594,25 @@ static func _mark_diff_traversal_truncated(
 ## [br]
 ## @api private
 ## [br]
-static func _is_diff_pair_active(before: Variant, after: Variant, state: Dictionary) -> bool:
+static func _is_diff_pair_active(
+	before: Variant,
+	after: Variant,
+	state: Dictionary
+) -> bool:
 	var visited_pairs: Array = _get_diff_pair_stack(state)
 	for pair_value: Variant in visited_pairs:
 		if not (pair_value is Dictionary):
 			continue
 		var pair: Dictionary = pair_value
 		if (
-			is_same(_GF_VARIANT_ACCESS_SCRIPT.get_option_value(pair, "before"), before)
-			and is_same(_GF_VARIANT_ACCESS_SCRIPT.get_option_value(pair, "after"), after)
+			is_same(
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_value(pair, "before"),
+				before
+			)
+			and is_same(
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_value(pair, "after"),
+				after
+			)
 		):
 			return true
 	return false
@@ -1315,12 +1622,13 @@ static func _is_diff_pair_active(before: Variant, after: Variant, state: Diction
 ## [br]
 ## @api private
 ## [br]
-static func _push_diff_pair(before: Variant, after: Variant, state: Dictionary) -> void:
+static func _push_diff_pair(
+	before: Variant,
+	after: Variant,
+	state: Dictionary
+) -> void:
 	var visited_pairs: Array = _get_diff_pair_stack(state)
-	visited_pairs.append({
-		"before": before,
-		"after": after,
-	})
+	visited_pairs.append({ "before": before, "after": after, })
 	state["visited_pairs"] = visited_pairs
 
 
@@ -1407,7 +1715,17 @@ static func _is_simple_path_key(text: String) -> bool:
 ## @api private
 ## [br]
 static func _is_ascii_letter_or_underscore(code: int) -> bool:
-	return code == 95 or (code >= 65 and code <= 90) or (code >= 97 and code <= 122)
+	return (
+		code == 95
+		or (
+			code >= 65
+			and code <= 90
+		)
+		or (
+			code >= 97
+			and code <= 122
+		)
+	)
 
 
 ## 判断字符码是否为 ASCII 数字。

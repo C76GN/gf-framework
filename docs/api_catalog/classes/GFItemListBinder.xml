@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFItemListBinder" path="addons/gf/standard/utilities/ui/gf_item_list_binder.gd" module="standard" extends="RefCounted" classDigest="084cc7c2ff6fca86ac99b2c6dfc2d4ba04d9807ccb310352b232249b28d89107">
+<class name="GFItemListBinder" path="addons/gf/standard/utilities/ui/gf_item_list_binder.gd" module="standard" extends="RefCounted" classDigest="5c9b4902b7b97a85fed60d42d6c38a9f50a994a38811b72f94a02c476313dbba">
 	<description>GFItemListBinder: 响应式条目控件绑定器。
 将数组数据写入 `ItemList`、`OptionButton` 或 `PopupMenu`，也可以订阅
 `GFReactiveStateStore` 的路径并在数组变化时刷新目标控件。它只负责条目展示、
@@ -31,7 +31,7 @@ metadata 和选择状态同步，不定义业务字段含义。</description>
 			</tags>
 		</member>
 		<member kind="method" name="write_target_items">
-			<signature>func write_target_items(target: Object, items: Array, options: Dictionary = {}) -&gt; int:</signature>
+			<signature>func write_target_items( target: Object, items: Array, options: Dictionary = {} ) -&gt; int:</signature>
 			<description>直接写入目标控件条目。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -93,7 +93,7 @@ metadata 和选择状态同步，不定义业务字段含义。</description>
 			</tags>
 		</member>
 		<member kind="method" name="write_items">
-			<signature>static func write_items(target: Object, items: Array, options: Dictionary = {}) -&gt; int:</signature>
+			<signature>static func write_items( target: Object, items: Array, options: Dictionary = {} ) -&gt; int:</signature>
 			<description>将数组数据写入条目控件。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -107,7 +107,7 @@ metadata 和选择状态同步，不定义业务字段含义。</description>
 			</tags>
 		</member>
 		<member kind="method" name="get_item_metadata">
-			<signature>static func get_item_metadata(target: Object, index: int, fallback: Variant = null) -&gt; Variant:</signature>
+			<signature>static func get_item_metadata( target: Object, index: int, fallback: Variant = null ) -&gt; Variant:</signature>
 			<description>读取控件指定索引的 metadata。</description>
 			<tags>
 				<tag name="api">public</tag>

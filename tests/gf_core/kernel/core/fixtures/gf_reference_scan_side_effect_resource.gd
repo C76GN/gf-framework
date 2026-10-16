@@ -1,6 +1,5 @@
 extends Resource
 
-
 static var initialization_count: int = 0
 
 

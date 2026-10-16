@@ -21,7 +21,7 @@
 | 属性 | [`metadata`](#member-gftagcatalog-properties-metadata) | `var metadata: Dictionary = {}` |
 | 方法 | [`configure`](#member-gftagcatalog-methods-configure) | `func configure( p_catalog_id: StringName, p_definitions: Array[Dictionary] = [], options: Dictionary = {} ) -> GFTagCatalog:` |
 | 方法 | [`add_tag`](#member-gftagcatalog-methods-add_tag) | `func add_tag(tag: StringName, options: Dictionary = {}) -> bool:` |
-| 方法 | [`add_redirect`](#member-gftagcatalog-methods-add_redirect) | `func add_redirect(source_tag: StringName, target_tag: StringName, options: Dictionary = {}) -> bool:` |
+| 方法 | [`add_redirect`](#member-gftagcatalog-methods-add_redirect) | `func add_redirect( source_tag: StringName, target_tag: StringName, options: Dictionary = {} ) -> bool:` |
 | 方法 | [`has_tag`](#member-gftagcatalog-methods-has_tag) | `func has_tag(tag: StringName, include_redirects: bool = true) -> bool:` |
 | 方法 | [`get_tag_definition`](#member-gftagcatalog-methods-get_tag_definition) | `func get_tag_definition(tag: StringName, include_redirects: bool = true) -> Dictionary:` |
 | 方法 | [`get_tags`](#member-gftagcatalog-methods-get_tags) | `func get_tags() -> PackedStringArray:` |
@@ -160,7 +160,7 @@ func add_tag(tag: StringName, options: Dictionary = {}) -> bool:
 - 首次版本：`8.0.0`
 
 ```gdscript
-func add_redirect(source_tag: StringName, target_tag: StringName, options: Dictionary = {}) -> bool:
+func add_redirect( source_tag: StringName, target_tag: StringName, options: Dictionary = {} ) -> bool:
 ```
 
 添加标签重定向定义。

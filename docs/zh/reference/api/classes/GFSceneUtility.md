@@ -26,7 +26,7 @@
 | 信号 | [`scene_preload_cancelled`](#member-gfsceneutility-signals-scene_preload_cancelled) | `signal scene_preload_cancelled(path: String)` |
 | 信号 | [`scene_switch_started`](#member-gfsceneutility-signals-scene_switch_started) | `signal scene_switch_started(path: String, previous_path: String)` |
 | 信号 | [`scene_switch_completed`](#member-gfsceneutility-signals-scene_switch_completed) | `signal scene_switch_completed(path: String, previous_path: String)` |
-| 信号 | [`scene_switch_failed`](#member-gfsceneutility-signals-scene_switch_failed) | `signal scene_switch_failed(path: String, previous_path: String, message: String)` |
+| 信号 | [`scene_switch_failed`](#member-gfsceneutility-signals-scene_switch_failed) | `signal scene_switch_failed( path: String, previous_path: String, message: String )` |
 | 信号 | [`loading_scene_shown`](#member-gfsceneutility-signals-loading_scene_shown) | `signal loading_scene_shown(path: String)` |
 | 信号 | [`loading_scene_hidden`](#member-gfsceneutility-signals-loading_scene_hidden) | `signal loading_scene_hidden(path: String)` |
 | 信号 | [`scene_cache_added`](#member-gfsceneutility-signals-scene_cache_added) | `signal scene_cache_added(path: String, fixed: bool)` |
@@ -50,27 +50,27 @@
 | 方法 | [`dispose`](#member-gfsceneutility-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`release_dependencies`](#member-gfsceneutility-methods-release_dependencies) | `func release_dependencies() -> void:` |
 | 方法 | [`set_resource_broker`](#member-gfsceneutility-methods-set_resource_broker) | `func set_resource_broker(broker: GFResourceBroker) -> Error:` |
-| 方法 | [`setup_standalone_resource_broker`](#member-gfsceneutility-methods-setup_standalone_resource_broker) | `func setup_standalone_resource_broker( max_active_requests: int = 4, max_pending_requests: int = 256 ) -> GFResourceBroker:` |
+| 方法 | [`setup_standalone_resource_broker`](#member-gfsceneutility-methods-setup_standalone_resource_broker) | `func setup_standalone_resource_broker(max_active_requests: int = 4, max_pending_requests: int = 256) -> GFResourceBroker:` |
 | 方法 | [`get_resource_broker`](#member-gfsceneutility-methods-get_resource_broker) | `func get_resource_broker() -> GFResourceBroker:` |
 | 方法 | [`load_scene_async`](#member-gfsceneutility-methods-load_scene_async) | `func load_scene_async( path: String, loading_scene_path: String = "", params: Dictionary = {}, minimum_duration_seconds: float = -1.0 ) -> Error:` |
 | 方法 | [`load_scene_request_async`](#member-gfsceneutility-methods-load_scene_request_async) | `func load_scene_request_async( path: String, loading_scene_path: String = "", params: Dictionary = {}, minimum_duration_seconds: float = -1.0, request_owner: Object = null, cancellation_token: GFCancellationToken = null ) -> GFSceneOperation:` |
 | 方法 | [`load_scene_with_transition`](#member-gfsceneutility-methods-load_scene_with_transition) | `func load_scene_with_transition(config: GFSceneTransitionConfig) -> Error:` |
 | 方法 | [`preload_scene`](#member-gfsceneutility-methods-preload_scene) | `func preload_scene(path: String, fixed: bool = false) -> Error:` |
 | 方法 | [`preload_scene_request_async`](#member-gfsceneutility-methods-preload_scene_request_async) | `func preload_scene_request_async( path: String, fixed: bool = false, request_owner: Object = null, cancellation_token: GFCancellationToken = null ) -> GFSceneOperation:` |
-| 方法 | [`begin_background_scene_load`](#member-gfsceneutility-methods-begin_background_scene_load) | `func begin_background_scene_load(path: String, params: Dictionary = {}, fixed: bool = false) -> Error:` |
+| 方法 | [`begin_background_scene_load`](#member-gfsceneutility-methods-begin_background_scene_load) | `func begin_background_scene_load( path: String, params: Dictionary = {}, fixed: bool = false ) -> Error:` |
 | 方法 | [`activate_background_scene`](#member-gfsceneutility-methods-activate_background_scene) | `func activate_background_scene( path: String, loading_scene_path: String = "", minimum_duration_seconds: float = -1.0 ) -> Error:` |
 | 方法 | [`get_background_scene_params`](#member-gfsceneutility-methods-get_background_scene_params) | `func get_background_scene_params(path: String) -> Dictionary:` |
 | 方法 | [`preload_scenes`](#member-gfsceneutility-methods-preload_scenes) | `func preload_scenes(paths: PackedStringArray, fixed: bool = false) -> Dictionary:` |
 | 方法 | [`configure_scene_preload_map`](#member-gfsceneutility-methods-configure_scene_preload_map) | `func configure_scene_preload_map( preload_map: GFScenePreloadMap, radius: int = -1, auto_preload_on_switch: bool = true ) -> void:` |
-| 方法 | [`get_scene_preload_map_plan`](#member-gfsceneutility-methods-get_scene_preload_map_plan) | `func get_scene_preload_map_plan(path: String, radius: int = -1, include_fixed: bool = true) -> Dictionary:` |
-| 方法 | [`preload_scene_map_for`](#member-gfsceneutility-methods-preload_scene_map_for) | `func preload_scene_map_for(path: String, radius: int = -1, include_fixed: bool = true) -> Dictionary:` |
+| 方法 | [`get_scene_preload_map_plan`](#member-gfsceneutility-methods-get_scene_preload_map_plan) | `func get_scene_preload_map_plan( path: String, radius: int = -1, include_fixed: bool = true ) -> Dictionary:` |
+| 方法 | [`preload_scene_map_for`](#member-gfsceneutility-methods-preload_scene_map_for) | `func preload_scene_map_for( path: String, radius: int = -1, include_fixed: bool = true ) -> Dictionary:` |
 | 方法 | [`preload_current_scene_map`](#member-gfsceneutility-methods-preload_current_scene_map) | `func preload_current_scene_map(radius: int = -1, include_fixed: bool = true) -> Dictionary:` |
 | 方法 | [`cancel_scene_preload`](#member-gfsceneutility-methods-cancel_scene_preload) | `func cancel_scene_preload(path: String) -> void:` |
 | 方法 | [`cancel_all_scene_preloads`](#member-gfsceneutility-methods-cancel_all_scene_preloads) | `func cancel_all_scene_preloads() -> void:` |
 | 方法 | [`is_scene_preloading`](#member-gfsceneutility-methods-is_scene_preloading) | `func is_scene_preloading(path: String) -> bool:` |
 | 方法 | [`is_scene_preloaded`](#member-gfsceneutility-methods-is_scene_preloaded) | `func is_scene_preloaded(path: String) -> bool:` |
 | 方法 | [`get_preloaded_scene`](#member-gfsceneutility-methods-get_preloaded_scene) | `func get_preloaded_scene(path: String) -> PackedScene:` |
-| 方法 | [`put_preloaded_scene`](#member-gfsceneutility-methods-put_preloaded_scene) | `func put_preloaded_scene(path: String, scene: PackedScene, fixed: bool = false) -> void:` |
+| 方法 | [`put_preloaded_scene`](#member-gfsceneutility-methods-put_preloaded_scene) | `func put_preloaded_scene( path: String, scene: PackedScene, fixed: bool = false ) -> void:` |
 | 方法 | [`remove_preloaded_scene`](#member-gfsceneutility-methods-remove_preloaded_scene) | `func remove_preloaded_scene(path: String) -> void:` |
 | 方法 | [`clear_preloaded_scenes`](#member-gfsceneutility-methods-clear_preloaded_scenes) | `func clear_preloaded_scenes(include_fixed: bool = true) -> void:` |
 | 方法 | [`move_preloaded_scene_to_fixed`](#member-gfsceneutility-methods-move_preloaded_scene_to_fixed) | `func move_preloaded_scene_to_fixed(path: String) -> bool:` |
@@ -308,9 +308,10 @@ signal scene_switch_completed(path: String, previous_path: String)
 ### `scene_switch_failed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal scene_switch_failed(path: String, previous_path: String, message: String)
+signal scene_switch_failed( path: String, previous_path: String, message: String )
 ```
 
 当一次场景切换流程失败时发出。
@@ -669,7 +670,7 @@ func set_resource_broker(broker: GFResourceBroker) -> Error:
 - 首次版本：`11.0.0`
 
 ```gdscript
-func setup_standalone_resource_broker( max_active_requests: int = 4, max_pending_requests: int = 256 ) -> GFResourceBroker:
+func setup_standalone_resource_broker(max_active_requests: int = 4, max_pending_requests: int = 256) -> GFResourceBroker:
 ```
 
 为单个独立 Scene Utility 显式创建私有 Resource Broker。 需要与 Asset 或 BackgroundWork 协调时，应由项目创建一个共享 Broker 并分别注入。
@@ -827,9 +828,10 @@ func preload_scene_request_async( path: String, fixed: bool = false, request_own
 ### `begin_background_scene_load`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func begin_background_scene_load(path: String, params: Dictionary = {}, fixed: bool = false) -> Error:
+func begin_background_scene_load( path: String, params: Dictionary = {}, fixed: bool = false ) -> Error:
 ```
 
 后台加载一个场景并记录稍后激活时使用的参数。
@@ -947,7 +949,7 @@ func configure_scene_preload_map( preload_map: GFScenePreloadMap, radius: int = 
 - 首次版本：`3.17.0`
 
 ```gdscript
-func get_scene_preload_map_plan(path: String, radius: int = -1, include_fixed: bool = true) -> Dictionary:
+func get_scene_preload_map_plan( path: String, radius: int = -1, include_fixed: bool = true ) -> Dictionary:
 ```
 
 获取指定场景的图谱预加载计划。
@@ -971,9 +973,10 @@ func get_scene_preload_map_plan(path: String, radius: int = -1, include_fixed: b
 ### `preload_scene_map_for`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func preload_scene_map_for(path: String, radius: int = -1, include_fixed: bool = true) -> Dictionary:
+func preload_scene_map_for( path: String, radius: int = -1, include_fixed: bool = true ) -> Dictionary:
 ```
 
 按图谱为指定场景发起预加载。
@@ -1113,9 +1116,10 @@ func get_preloaded_scene(path: String) -> PackedScene:
 ### `put_preloaded_scene`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func put_preloaded_scene(path: String, scene: PackedScene, fixed: bool = false) -> void:
+func put_preloaded_scene( path: String, scene: PackedScene, fixed: bool = false ) -> void:
 ```
 
 手动写入预加载缓存。

@@ -34,7 +34,7 @@
 | 属性 | [`setter`](#member-gfruntimetunableproperty-properties-setter) | `var setter: Callable` |
 | 属性 | [`validator`](#member-gfruntimetunableproperty-properties-validator) | `var validator: Callable` |
 | 方法 | [`setup`](#member-gfruntimetunableproperty-methods-setup) | `func setup( p_property_id: StringName, p_property_name: NodePath = NodePath(""), p_value_kind: ValueKind = ValueKind.ANY ) -> GFRuntimeTunableProperty:` |
-| 方法 | [`configure_range`](#member-gfruntimetunableproperty-methods-configure_range) | `func configure_range(p_min_value: float, p_max_value: float, p_step: float = 1.0) -> bool:` |
+| 方法 | [`configure_range`](#member-gfruntimetunableproperty-methods-configure_range) | `func configure_range( p_min_value: float, p_max_value: float, p_step: float = 1.0 ) -> bool:` |
 | 方法 | [`with_options`](#member-gfruntimetunableproperty-methods-with_options) | `func with_options(p_options: Array) -> GFRuntimeTunableProperty:` |
 | 方法 | [`read_value`](#member-gfruntimetunableproperty-methods-read_value) | `func read_value(target: Object) -> Variant:` |
 | 方法 | [`write_value`](#member-gfruntimetunableproperty-methods-write_value) | `func write_value(target: Object, value: Variant) -> bool:` |
@@ -321,7 +321,7 @@ func setup( p_property_id: StringName, p_property_name: NodePath = NodePath(""),
 - 首次版本：`8.0.0`
 
 ```gdscript
-func configure_range(p_min_value: float, p_max_value: float, p_step: float = 1.0) -> bool:
+func configure_range( p_min_value: float, p_max_value: float, p_step: float = 1.0 ) -> bool:
 ```
 
 配置数值范围。

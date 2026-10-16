@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDragDropUtility" path="addons/gf/standard/input/drag_drop/gf_drag_drop_utility.gd" module="standard" extends="GFUtility" classDigest="7e931d5e01c93e039df81839f719853396180ed07fdd73b7d320482fdc71d90c">
+<class name="GFDragDropUtility" path="addons/gf/standard/input/drag_drop/gf_drag_drop_utility.gd" module="standard" extends="GFUtility" classDigest="ccd0d7dd8213165edc4f26a551da1645796f7faeccf4b55b6f8ebc11b402644f">
 	<description>GFDragDropUtility: 通用拖拽会话与落点匹配工具。
 该工具只管理拖拽生命周期、落点注册、命中排序和结果包装。
 它不读取输入、不移动节点、不保存业务历史，也不规定具体 UI 或玩法语义。</description>
@@ -20,17 +20,18 @@
 			</tags>
 		</member>
 		<member kind="signal" name="drag_moved">
-			<signature>signal drag_moved(session_id: int, position: Vector2, delta: Vector2)</signature>
+			<signature>signal drag_moved( session_id: int, position: Vector2, delta: Vector2 )</signature>
 			<description>拖拽位置更新时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">session_id: 会话 ID。</tag>
 				<tag name="param">position: 当前位置。</tag>
 				<tag name="param">delta: 本次位移。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="drag_dropped">
-			<signature>signal drag_dropped(session_id: int, zone_id: StringName, result: Dictionary)</signature>
+			<signature>signal drag_dropped( session_id: int, zone_id: StringName, result: Dictionary )</signature>
 			<description>会话提交成功终态并从注册表移除后同步发出。</description>
 			<tags>
 				<tag name="api">public</tag>

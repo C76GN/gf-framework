@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFExecutionLaneDiagnostics" path="addons/gf/standard/common/gf_execution_lane_diagnostics.gd" module="standard" extends="RefCounted" classDigest="0327052c4b372278d1ff59d9900d60e31bcf507279dca3cc0329d6f95313a563">
+<class name="GFExecutionLaneDiagnostics" path="addons/gf/standard/common/gf_execution_lane_diagnostics.gd" module="standard" extends="RefCounted" classDigest="0ae341c996920e6ead9f27134976568762a12222031fb5ba24191b796f2346dc">
 	<description>GFExecutionLaneDiagnostics: 通用执行通道诊断快照。
 用于记录按 lane 划分的 queued / active / completed / failed / timeout / cancelled
 等运行态指标。它只保存诊断数据，不调度任务、不决定重试策略，也不绑定具体业务通道。</description>
@@ -164,7 +164,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="record_lane_event">
-			<signature>func record_lane_event(lane_id: StringName, event_type: StringName, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>func record_lane_event( lane_id: StringName, event_type: StringName, options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>记录一个 lane 事件并更新计数。</description>
 			<tags>
 				<tag name="api">public</tag>

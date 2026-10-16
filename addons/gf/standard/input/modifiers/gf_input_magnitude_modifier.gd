@@ -46,6 +46,8 @@ extends GFInputModifier
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param value: 要写入或修改的值。
 ## [br]
 ## @param _event: 原始输入事件，默认实现不直接使用。
@@ -53,7 +55,11 @@ extends GFInputModifier
 ## @param _action: 当前输入动作配置，默认实现不直接使用。
 ## [br]
 ## @return 幅值投影后的二维输入值。
-func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = null) -> Vector2:
+func modify(
+	value: Vector2,
+	_event: InputEvent = null,
+	_action: GFInputAction = null
+) -> Vector2:
 	var magnitude: float = _get_magnitude_2d(value)
 	return Vector2(
 		magnitude if output_x else (_preserve_component(value.x)),
@@ -65,6 +71,8 @@ func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = 
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param value: 要写入或修改的值。
 ## [br]
 ## @param _event: 原始输入事件，默认实现不直接使用。
@@ -72,7 +80,11 @@ func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = 
 ## @param _action: 当前输入动作配置，默认实现不直接使用。
 ## [br]
 ## @return 幅值投影后的三维输入值。
-func modify_3d(value: Vector3, _event: InputEvent = null, _action: GFInputAction = null) -> Vector3:
+func modify_3d(
+	value: Vector3,
+	_event: InputEvent = null,
+	_action: GFInputAction = null
+) -> Vector3:
 	var magnitude: float = _get_magnitude_3d(value)
 	return Vector3(
 		magnitude if output_x else (_preserve_component(value.x)),
@@ -91,7 +103,13 @@ func _get_magnitude_2d(value: Vector2) -> float:
 	var magnitude: float = value.length()
 	if absolute_value:
 		return magnitude
-	return magnitude * _get_dominant_sign(Vector3(value.x, value.y, 0.0))
+	return magnitude * _get_dominant_sign(
+		Vector3(
+			value.x,
+			value.y,
+			0.0
+		)
+	)
 
 
 ## 计算三维向量长度；绝对值模式直接返回长度，否则按主导分量符号保留方向。

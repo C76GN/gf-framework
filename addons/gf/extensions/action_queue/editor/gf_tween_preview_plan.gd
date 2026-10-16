@@ -134,7 +134,10 @@ var ping_pong: bool = false
 ## [br]
 ## @return: 始终返回计划，通过 error 判断成功；失败计划没有部分可执行步骤。
 static func capture(config: Resource, target_kind: int) -> GFTweenPreviewPlan:
-	return _capture_properties(config, get_properties(target_kind))
+	return _capture_properties(
+		config,
+		get_properties(target_kind)
+	)
 
 
 ## 从精确原生配置捕获受限数值步骤；属性来自已注册描述，不探测来源对象。
@@ -154,7 +157,10 @@ static func capture_numeric(config: Resource, records: Array[Dictionary]) -> GFT
 	var properties: Dictionary = {}
 	var record_error: String = _RECORDS_SCRIPT.validate_numeric(records)
 	if not record_error.is_empty():
-		return _reject(GFTweenPreviewPlan.new(), record_error)
+		return _reject(
+			GFTweenPreviewPlan.new(),
+			record_error
+		)
 	for record: Dictionary in records:
 		properties[record["name"]] = record["initial"]
 	var plan: GFTweenPreviewPlan = _capture_properties(config, properties)
@@ -193,7 +199,16 @@ static func build_controlled_baseline(captured_steps: Array[Dictionary], initial
 		var root_name: String = String(property_path).get_slice(":", 0)
 		if baseline.has(root_name):
 			continue
-		if (root_name == "rotation" and baseline.has("rotation_degrees")) or (root_name == "rotation_degrees" and baseline.has("rotation")):
+		if (
+			(
+				root_name == "rotation"
+				and baseline.has("rotation_degrees")
+			)
+			or (
+				root_name == "rotation_degrees"
+				and baseline.has("rotation")
+			)
+		):
 			return {}
 		var value: Variant = initial_values.get(root_name)
 		if root_name == "rotation_degrees":
@@ -202,7 +217,11 @@ static func build_controlled_baseline(captured_steps: Array[Dictionary], initial
 				value = rad_to_deg(_read_number(rotation_value))
 			elif rotation_value is Vector3:
 				var rotation: Vector3 = rotation_value
-				value = Vector3(rad_to_deg(rotation.x), rad_to_deg(rotation.y), rad_to_deg(rotation.z))
+				value = Vector3(
+					rad_to_deg(rotation.x),
+					rad_to_deg(rotation.y),
+					rad_to_deg(rotation.z)
+				)
 			else:
 				return {}
 		if not _validate_value(value, value).is_empty():
@@ -223,7 +242,12 @@ static func build_controlled_baseline(captured_steps: Array[Dictionary], initial
 func get_numeric_definition() -> Dictionary:
 	if not error.is_empty():
 		return {}
-	return {"steps": steps.duplicate(true), "loop_count": loop_count, "duration_scale": 1.0, "ping_pong": ping_pong}
+	return {
+		"steps": steps.duplicate(true),
+		"loop_count": loop_count,
+		"duration_scale": 1.0,
+		"ping_pong": ping_pong,
+	}
 
 
 ## 用已验证的纯值快照重建受控配置，不暴露来源资源或 marker。
@@ -238,8 +262,20 @@ func make_controlled_config() -> GFTweenActionConfig:
 	config.loop_count = loop_count
 	for data: Dictionary in steps:
 		var step: GFTweenActionStep = GFTweenActionStep.new()
-		for field: StringName in [&"property_name", &"target_value", &"duration", &"delay", &"as_relative", &"parallel", &"transition_type", &"ease_type"]:
-			step.set(field, data.get(String(field)))
+		for field: StringName in [
+			&"property_name",
+			&"target_value",
+			&"duration",
+			&"delay",
+			&"as_relative",
+			&"parallel",
+			&"transition_type",
+			&"ease_type",
+		]:
+			step.set(
+				field,
+				data.get(String(field))
+			)
 		step.easing_curve = _EASING_CURVE_SCRIPT.create_curve(_VARIANT_ACCESS_SCRIPT.get_option_dictionary(data, "easing_curve_data"))
 		config.steps.append(step)
 	return config
@@ -284,12 +320,19 @@ static func get_properties(kind: int) -> Dictionary:
 ## @return: 合法时为空字符串，否则为拒绝原因。
 ## [br]
 ## @schema value: Variant，须与基线同型或为兼容的 int/float，所有数值分量有限且绝对值不超过 1000000。
-static func validate_initial_value(property_name: StringName, value: Variant, kind: int) -> String:
+static func validate_initial_value(
+	property_name: StringName,
+	value: Variant,
+	kind: int
+) -> String:
 	var initial_values: Dictionary = get_initial_values(kind)
 	var property_text: String = String(property_name)
 	if not initial_values.has(property_text):
 		return "不支持该预览初值属性。"
-	return _validate_value(value, initial_values[property_text])
+	return _validate_value(
+		value,
+		initial_values[property_text]
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -300,9 +343,21 @@ static func validate_initial_value(property_name: StringName, value: Variant, ki
 static func _capture_properties(config: Resource, properties: Dictionary) -> GFTweenPreviewPlan:
 	var plan: GFTweenPreviewPlan = GFTweenPreviewPlan.new()
 	if properties.is_empty():
-		return _reject(plan, "未知预览目标类型。", -1, &"", &"unsupported_target")
+		return _reject(
+			plan,
+			"未知预览目标类型。",
+			-1,
+			&"",
+			&"unsupported_target"
+		)
 	if not _has_exact_script(config, _CONFIG_SCRIPT):
-		return _reject(plan, "只支持使用 GFTweenActionConfig 原始脚本的配置资源。", -1, &"", &"unsupported_config")
+		return _reject(
+			plan,
+			"只支持使用 GFTweenActionConfig 原始脚本的配置资源。",
+			-1,
+			&"",
+			&"unsupported_config"
+		)
 	var ping_pong_value: Variant = config.get(&"ping_pong")
 	var control_value: Variant = config.get(&"enable_playback_control")
 	if not (ping_pong_value is bool) or not (control_value is bool):
@@ -314,23 +369,53 @@ static func _capture_properties(config: Resource, properties: Dictionary) -> GFT
 
 	var steps_value: Variant = config.get(&"steps")
 	if not (steps_value is Array):
-		return _reject(plan, "配置 steps 必须是数组。", -1, &"steps", &"invalid_steps")
+		return _reject(
+			plan,
+			"配置 steps 必须是数组。",
+			-1,
+			&"steps",
+			&"invalid_steps"
+		)
 	var source_steps: Array = steps_value
 	if source_steps.is_empty() or source_steps.size() > _MAX_STEPS:
-		return _reject(plan, "预览需要 1 至 %d 个步骤。" % _MAX_STEPS, -1, &"steps", &"step_budget")
+		return _reject(
+			plan,
+			"预览需要 1 至 %d 个步骤。" % _MAX_STEPS,
+			-1,
+			&"steps",
+			&"step_budget"
+		)
 
 	var loop_value: Variant = config.get(&"loop_count")
 	if not (loop_value is int):
-		return _reject(plan, "loop_count 必须是整数。", -1, &"loop_count", &"invalid_loop_count")
+		return _reject(
+			plan,
+			"loop_count 必须是整数。",
+			-1,
+			&"loop_count",
+			&"invalid_loop_count"
+		)
 	var loops: int = loop_value
 	if loops < 1 or loops > _MAX_LOOPS:
-		return _reject(plan, "预览只支持 1 至 %d 次有限循环。" % _MAX_LOOPS, -1, &"loop_count", &"invalid_loop_count")
+		return _reject(
+			plan,
+			"预览只支持 1 至 %d 次有限循环。" % _MAX_LOOPS,
+			-1,
+			&"loop_count",
+			&"invalid_loop_count"
+		)
 	plan.loop_count = loops
 
 	var scale_value: Variant = config.get(&"duration_scale")
 	var duration_scale: float = _read_number(scale_value)
 	if not is_finite(duration_scale) or duration_scale < 0.0:
-		return _reject(plan, "duration_scale 必须是有限非负数。", -1, &"duration_scale", &"invalid_duration_scale")
+		return _reject(
+			plan,
+			"duration_scale 必须是有限非负数。",
+			-1,
+			&"duration_scale",
+			&"invalid_duration_scale"
+		)
 	var restore_value: Variant = config.get(&"restore_initial_values_on_finish")
 	if not (restore_value is bool):
 		return _reject(plan, "restore_initial_values_on_finish 必须是布尔值。")
@@ -345,24 +430,52 @@ static func _capture_properties(config: Resource, properties: Dictionary) -> GFT
 	for index: int in range(source_steps.size()):
 		var step_value: Variant = source_steps[index]
 		if not (step_value is Resource):
-			return _reject(plan, "步骤 %d 必须是非空 GFTweenActionStep 资源。" % (index + 1), index, &"", &"invalid_step")
+			return _reject(
+				plan,
+				"步骤 %d 必须是非空 GFTweenActionStep 资源。" % (index + 1),
+				index,
+				&"",
+				&"invalid_step"
+			)
 		var source_step: Resource = step_value
-		var step_error: String = _capture_step(plan, source_step, properties, duration_scale, index)
+		var step_error: String = _capture_step(
+			plan,
+			source_step,
+			properties,
+			duration_scale,
+			index
+		)
 		if not step_error.is_empty():
-			return _reject(plan, "步骤 %d：%s" % [index + 1, step_error])
+			return _reject(
+				plan,
+				"步骤 %d：%s"
+				% [index + 1, step_error]
+			)
 		var captured_step: Dictionary = plan.steps[plan.steps.size() - 1]
 		var curve_data: Dictionary = _VARIANT_ACCESS_SCRIPT.get_option_dictionary(captured_step, "easing_curve_data")
 		curve_sample_count += _EASING_CURVE_SCRIPT.get_sample_count(curve_data)
 		curve_point_count += _EASING_CURVE_SCRIPT.get_point_count(curve_data)
 		if curve_sample_count > _MAX_CURVE_SAMPLES or curve_point_count > _MAX_CURVE_POINTS:
-			return _reject(plan, "预览曲线累计不能超过 65536 个烘焙采样和 4096 个控制点。", index, &"easing_curve", &"curve_budget")
+			return _reject(
+				plan,
+				"预览曲线累计不能超过 65536 个烘焙采样和 4096 个控制点。",
+				index,
+				&"easing_curve",
+				&"curve_budget"
+			)
 		var duration_value: Variant = captured_step["duration"]
 		var delay_value: Variant = captured_step["delay"]
 		var effective_duration: float = _read_number(duration_value)
 		var effective_delay: float = _read_number(delay_value)
 		total_seconds += effective_duration + effective_delay
-		if not is_finite(total_seconds) or total_seconds * float(loops) * (2.0 if plan.ping_pong else 1.0) > _MAX_SECONDS:
-			return _reject(plan, "全部步骤持续时间与延迟的保守累计值乘循环次数不能超过 120 秒。", -1, &"duration_scale", &"duration_budget")
+		if (not is_finite(total_seconds) or total_seconds * float(loops) * (2.0 if plan.ping_pong else 1.0) > _MAX_SECONDS):
+			return _reject(
+				plan,
+				"全部步骤持续时间与延迟的保守累计值乘循环次数不能超过 120 秒。",
+				-1,
+				&"duration_scale",
+				&"duration_budget"
+			)
 		var parallel_value: Variant = captured_step["parallel"]
 		var parallel: bool = false
 		if parallel_value is bool:
@@ -370,19 +483,33 @@ static func _capture_properties(config: Resource, properties: Dictionary) -> GFT
 		if not parallel and index > 0:
 			completed_groups_seconds += current_group_seconds
 			current_group_seconds = 0.0
-		current_group_seconds = maxf(current_group_seconds, effective_duration + effective_delay)
-	plan.duration_seconds = (completed_groups_seconds + current_group_seconds) * float(loops) * (2.0 if plan.ping_pong else 1.0)
+		current_group_seconds = maxf(
+			current_group_seconds,
+			effective_duration + effective_delay
+		)
+	plan.duration_seconds = ((completed_groups_seconds + current_group_seconds) * float(loops) * (2.0 if plan.ping_pong else 1.0))
 	return plan
 
 
 ## 拒绝计划并清除所有已捕获步骤；外层步骤编号包装保留内层的首次字段位置。
 ## [br]
 ## @api private
-static func _reject(plan: GFTweenPreviewPlan, message: String, step_index: int = -1, field: StringName = &"", error_kind: StringName = &"invalid_plan") -> GFTweenPreviewPlan:
+static func _reject(
+	plan: GFTweenPreviewPlan,
+	message: String,
+	step_index: int = -1,
+	field: StringName = &"",
+	error_kind: StringName = &"invalid_plan"
+) -> GFTweenPreviewPlan:
 	plan.steps.clear()
 	plan.error = message
 	if plan.diagnostic.is_empty():
-		plan.diagnostic = {"step_index": step_index, "field": field, "error_kind": error_kind, "message": message}
+		plan.diagnostic = {
+			"step_index": step_index,
+			"field": field,
+			"error_kind": error_kind,
+			"message": message,
+		}
 	else:
 		plan.diagnostic["message"] = message
 	return plan
@@ -391,8 +518,19 @@ static func _reject(plan: GFTweenPreviewPlan, message: String, step_index: int =
 ## 记录单步原始位置，不解析已本地化的说明；整体捕获负责丢弃所有步骤。
 ## [br]
 ## @api private
-static func _reject_step(plan: GFTweenPreviewPlan, step_index: int, field: StringName, error_kind: StringName, message: String) -> String:
-	plan.diagnostic = {"step_index": step_index, "field": field, "error_kind": error_kind, "message": message}
+static func _reject_step(
+	plan: GFTweenPreviewPlan,
+	step_index: int,
+	field: StringName,
+	error_kind: StringName,
+	message: String
+) -> String:
+	plan.diagnostic = {
+		"step_index": step_index,
+		"field": field,
+		"error_kind": error_kind,
+		"message": message,
+	}
 	return message
 
 
@@ -420,70 +558,149 @@ static func _capture_step(
 	step_index: int
 ) -> String:
 	if not _has_exact_script(source, _STEP_SCRIPT):
-		return _reject_step(plan, step_index, &"", &"unsupported_step", "只支持使用 GFTweenActionStep 原始脚本的步骤资源。")
+		return _reject_step(
+			plan,
+			step_index,
+			&"",
+			&"unsupported_step",
+			"只支持使用 GFTweenActionStep 原始脚本的步骤资源。"
+		)
 	var path_value: Variant = source.get(&"property_name")
 	if not (path_value is NodePath):
-		return _reject_step(plan, step_index, &"property_name", &"invalid_property_path", "property_name 必须是 NodePath。")
+		return _reject_step(
+			plan,
+			step_index,
+			&"property_name",
+			&"invalid_property_path",
+			"property_name 必须是 NodePath。"
+		)
 	var property_path: NodePath = path_value
 	var baseline: Variant = _get_property_baseline(property_path, properties)
 	if baseline == null:
-		return _reject_step(plan, step_index, &"property_name", &"unsupported_property", "当前预览目标不支持属性 %s；请选择支持该属性的预览目标。" % String(property_path))
+		return _reject_step(
+			plan,
+			step_index,
+			&"property_name",
+			&"unsupported_property",
+			"当前预览目标不支持属性 %s；请选择支持该属性的预览目标。" % String(property_path)
+		)
 	var target_value: Variant = source.get(&"target_value")
 	var value_error: String = _validate_value(target_value, baseline)
 	if not value_error.is_empty():
-		return _reject_step(plan, step_index, &"target_value", &"invalid_target_value", value_error)
+		return _reject_step(
+			plan,
+			step_index,
+			&"target_value",
+			&"invalid_target_value",
+			value_error
+		)
 
 	var duration: float = _read_number(source.get(&"duration"))
 	var delay: float = _read_number(source.get(&"delay"))
-	if not is_finite(duration) or duration < 0.0 or not is_finite(delay) or delay < 0.0:
+	if (
+		not is_finite(duration)
+		or duration < 0.0
+		or not is_finite(delay)
+		or delay < 0.0
+	):
 		var time_field: StringName = &"duration" if not is_finite(duration) or duration < 0.0 else &"delay"
-		return _reject_step(plan, step_index, time_field, &"invalid_step_time", "duration 和 delay 必须是有限非负数。")
+		return _reject_step(
+			plan,
+			step_index,
+			time_field,
+			&"invalid_step_time",
+			"duration 和 delay 必须是有限非负数。"
+		)
 	var effective_duration: float = duration * duration_scale
 	var effective_delay: float = delay * duration_scale
 	if not is_finite(effective_duration) or not is_finite(effective_delay):
-		return _reject_step(plan, step_index, &"duration", &"invalid_scaled_time", "缩放后的 duration 和 delay 必须是有限数。")
+		return _reject_step(
+			plan,
+			step_index,
+			&"duration",
+			&"invalid_scaled_time",
+			"缩放后的 duration 和 delay 必须是有限数。"
+		)
 
 	var relative_value: Variant = source.get(&"as_relative")
 	var parallel_value: Variant = source.get(&"parallel")
 	if not (relative_value is bool) or not (parallel_value is bool):
 		var flag_field: StringName = &"as_relative" if not relative_value is bool else &"parallel"
-		return _reject_step(plan, step_index, flag_field, &"invalid_step_flag", "as_relative 和 parallel 必须是布尔值。")
+		return _reject_step(
+			plan,
+			step_index,
+			flag_field,
+			&"invalid_step_flag",
+			"as_relative 和 parallel 必须是布尔值。"
+		)
 	var relative: bool = relative_value
 	var parallel: bool = parallel_value
 	var transition_value: Variant = source.get(&"transition_type")
 	var ease_value: Variant = source.get(&"ease_type")
 	if not (transition_value is int) or not (ease_value is int):
 		var enum_field: StringName = &"transition_type" if not transition_value is int else &"ease_type"
-		return _reject_step(plan, step_index, enum_field, &"invalid_easing", "transition_type 和 ease_type 必须是合法枚举整数。")
+		return _reject_step(
+			plan,
+			step_index,
+			enum_field,
+			&"invalid_easing",
+			"transition_type 和 ease_type 必须是合法枚举整数。"
+		)
 	var transition: int = transition_value
 	var ease_kind: int = ease_value
 	if transition < Tween.TRANS_LINEAR or transition > Tween.TRANS_SPRING:
-		return _reject_step(plan, step_index, &"transition_type", &"invalid_transition", "transition_type 超出合法枚举范围。")
+		return _reject_step(
+			plan,
+			step_index,
+			&"transition_type",
+			&"invalid_transition",
+			"transition_type 超出合法枚举范围。"
+		)
 	if ease_kind < Tween.EASE_IN or ease_kind > Tween.EASE_OUT_IN:
-		return _reject_step(plan, step_index, &"ease_type", &"invalid_ease", "ease_type 超出合法枚举范围。")
+		return _reject_step(
+			plan,
+			step_index,
+			&"ease_type",
+			&"invalid_ease",
+			"ease_type 超出合法枚举范围。"
+		)
 	var curve_value: Variant = source.get(&"easing_curve")
 	if curve_value != null and not (curve_value is Curve):
-		return _reject_step(plan, step_index, &"easing_curve", &"invalid_curve", "easing_curve 必须为原生 Curve 或 null。")
+		return _reject_step(
+			plan,
+			step_index,
+			&"easing_curve",
+			&"invalid_curve",
+			"easing_curve 必须为原生 Curve 或 null。"
+		)
 	var source_curve: Curve = null
 	if curve_value is Curve:
 		source_curve = curve_value
 	var curve_capture: Dictionary = _EASING_CURVE_SCRIPT.capture(source_curve)
 	var curve_error: String = _VARIANT_ACCESS_SCRIPT.get_option_string(curve_capture, "error")
 	if not curve_error.is_empty():
-		return _reject_step(plan, step_index, &"easing_curve", &"invalid_curve", "Invalid easing_curve: %s" % curve_error)
+		return _reject_step(
+			plan,
+			step_index,
+			&"easing_curve",
+			&"invalid_curve",
+			"Invalid easing_curve: %s" % curve_error
+		)
 	var curve_data: Dictionary = _VARIANT_ACCESS_SCRIPT.get_option_dictionary(curve_capture, "data")
 
-	plan.steps.append({
-		"property_name": property_path,
-		"target_value": target_value,
-		"duration": effective_duration,
-		"delay": effective_delay,
-		"as_relative": relative,
-		"parallel": parallel,
-		"transition_type": transition,
-		"ease_type": ease_kind,
-		"easing_curve_data": curve_data,
-	})
+	plan.steps.append(
+		{
+			"property_name": property_path,
+			"target_value": target_value,
+			"duration": effective_duration,
+			"delay": effective_delay,
+			"as_relative": relative,
+			"parallel": parallel,
+			"transition_type": transition,
+			"ease_type": ease_kind,
+			"easing_curve_data": curve_data,
+		}
+	)
 	return ""
 
 
@@ -492,17 +709,42 @@ static func _capture_step(
 ## @api private
 static func _get_property_baseline(property_path: NodePath, properties: Dictionary) -> Variant:
 	var parts: PackedStringArray = String(property_path).split(":")
-	if parts.is_empty() or parts.size() > 2 or not properties.has(parts[0]):
+	if (
+		parts.is_empty()
+		or parts.size() > 2
+		or not properties.has(parts[0])
+	):
 		return null
 	var baseline: Variant = properties[parts[0]]
 	if parts.size() == 1:
 		return baseline
 	var component: String = parts[1]
-	if baseline is Vector2 and (component == "x" or component == "y"):
+	if (
+		baseline is Vector2
+		and (
+			component == "x"
+			or component == "y"
+		)
+	):
 		return 0.0
-	if baseline is Vector3 and (component == "x" or component == "y" or component == "z"):
+	if (
+		baseline is Vector3
+		and (
+			component == "x"
+			or component == "y"
+			or component == "z"
+		)
+	):
 		return 0.0
-	if baseline is Color and (component == "r" or component == "g" or component == "b" or component == "a"):
+	if (
+		baseline is Color
+		and (
+			component == "r"
+			or component == "g"
+			or component == "b"
+			or component == "a"
+		)
+	):
 		return 0.0
 	return null
 
@@ -552,11 +794,17 @@ static func _is_bounded_value(value: Variant) -> bool:
 		return _is_bounded_number(vector.x) and _is_bounded_number(vector.y)
 	if value is Vector3:
 		var vector: Vector3 = value
-		return _is_bounded_number(vector.x) and _is_bounded_number(vector.y) and _is_bounded_number(vector.z)
+		return (
+			_is_bounded_number(vector.x)
+			and _is_bounded_number(vector.y)
+			and _is_bounded_number(vector.z)
+		)
 	if value is Color:
 		var color: Color = value
 		return (
-			_is_bounded_number(color.r) and _is_bounded_number(color.g)
-			and _is_bounded_number(color.b) and _is_bounded_number(color.a)
+			_is_bounded_number(color.r)
+			and _is_bounded_number(color.g)
+			and _is_bounded_number(color.b)
+			and _is_bounded_number(color.a)
 		)
 	return false

@@ -61,10 +61,7 @@ const _UINT_32_MASK: int = 0xffffffff
 ## [br]
 ## @api private
 ## [br]
-var _rules: Dictionary = {
-	"branches": {},
-	"results": [],
-}
+var _rules: Dictionary = { "branches": {}, "results": [], }
 
 ## 已注册规则记录数，与各终端节点的候选结果总数对应。
 ## [br]
@@ -79,6 +76,8 @@ var _rule_count: int = 0
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param neighbor_values: 邻域值序列。
 ## [br]
 ## @schema neighbor_values: Array ordered neighbor values used as a rule key.
@@ -88,7 +87,11 @@ var _rule_count: int = 0
 ## @schema result: Variant result returned when the rule matches.
 ## [br]
 ## @param weight: 同一邻域下多个结果的权重。
-func register_rule(neighbor_values: Array, result: Variant, weight: float = 1.0) -> void:
+func register_rule(
+	neighbor_values: Array,
+	result: Variant,
+	weight: float = 1.0
+) -> void:
 	if neighbor_values.is_empty():
 		return
 
@@ -100,10 +103,7 @@ func register_rule(neighbor_values: Array, result: Variant, weight: float = 1.0)
 		node = GFVariantData.as_dictionary(GFVariantData.get_option_value(branches, value))
 
 	var results: Array = _get_results(node)
-	results.append({
-		"value": result,
-		"weight": maxf(weight, 0.0),
-	})
+	results.append({ "value": result, "weight": maxf(weight, 0.0), })
 	_rule_count += 1
 
 
@@ -128,6 +128,8 @@ func get_rule_count() -> int:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param neighbor_values: 邻域值序列。
 ## [br]
 ## @schema neighbor_values: Array ordered neighbor values used as a rule key.
@@ -139,7 +141,11 @@ func get_rule_count() -> int:
 ## @return 匹配结果；没有匹配时返回 default_result。
 ## [br]
 ## @schema return: Variant matched result or default_result.
-func resolve(neighbor_values: Array, cell: Vector2i = Vector2i.ZERO, selection_seed: int = 0) -> Variant:
+func resolve(
+	neighbor_values: Array,
+	cell: Vector2i = Vector2i.ZERO,
+	selection_seed: int = 0
+) -> Variant:
 	if neighbor_values.is_empty():
 		return default_result
 
@@ -155,7 +161,11 @@ func resolve(neighbor_values: Array, cell: Vector2i = Vector2i.ZERO, selection_s
 	var results: Array = _get_results(node)
 	if results.is_empty():
 		return default_result
-	return _pick_result(results, cell, selection_seed)
+	return _pick_result(
+		results,
+		cell,
+		selection_seed
+	)
 
 
 ## 检查邻域值是否存在明确规则。
@@ -184,10 +194,7 @@ func has_rule(neighbor_values: Array) -> bool:
 ## @api private
 ## [br]
 func _make_node() -> Dictionary:
-	return {
-		"branches": {},
-		"results": [],
-	}
+	return { "branches": {}, "results": [], }
 
 
 ## 读取节点 branches 字典；类型不符时创建并写回空字典。
@@ -220,7 +227,11 @@ func _get_results(node: Dictionary) -> Array:
 ## [br]
 ## @api private
 ## [br]
-func _pick_result(results: Array, cell: Vector2i, selection_seed: int) -> Variant:
+func _pick_result(
+	results: Array,
+	cell: Vector2i,
+	selection_seed: int
+) -> Variant:
 	if results.size() == 1:
 		return _read_result_value(results, 0)
 
@@ -232,7 +243,11 @@ func _pick_result(results: Array, cell: Vector2i, selection_seed: int) -> Varian
 
 	var effective_seed: int = deterministic_seed if selection_seed == 0 else selection_seed
 	var rng: GFDeterministicRandom = GFDeterministicRandom.from_seed(
-		_stable_seed_for_choice(cell, effective_seed, results.size())
+		_stable_seed_for_choice(
+			cell,
+			effective_seed,
+			results.size()
+		)
 	)
 	var target: float = rng.next_float_range(0.0, total_weight)
 	var cursor: float = 0.0
@@ -240,7 +255,10 @@ func _pick_result(results: Array, cell: Vector2i, selection_seed: int) -> Varian
 		cursor += _get_result_weight(result_variant)
 		if target <= cursor:
 			return _read_result_entry_value(result_variant)
-	return _read_result_value(results, results.size() - 1)
+	return _read_result_value(
+		results,
+		results.size() - 1
+	)
 
 
 ## 安全读取指定结果项的 value；索引越界时返回 default_result。
@@ -268,21 +286,32 @@ func _read_result_entry_value(result_entry: Variant) -> Variant:
 ## [br]
 func _get_result_weight(result_entry: Variant) -> float:
 	var data: Dictionary = GFVariantData.as_dictionary(result_entry)
-	return GFVariantData.get_option_float(data, "weight", 0.0)
+	return GFVariantData.get_option_float(
+		data,
+		"weight",
+		0.0
+	)
 
 
 ## 对格坐标、选择种子和候选数的文本字节执行 FNV-1a 32 位哈希。
 ## [br]
 ## @api private
 ## [br]
-func _stable_seed_for_choice(cell: Vector2i, selection_seed: int, result_count: int) -> int:
+func _stable_seed_for_choice(
+	cell: Vector2i,
+	selection_seed: int,
+	result_count: int
+) -> int:
 	var hash_value: int = _FNV_32_OFFSET
-	var bytes: PackedByteArray = ("%d:%d:%d:%d" % [
-		cell.x,
-		cell.y,
-		selection_seed,
-		result_count,
-	]).to_utf8_buffer()
+	var bytes: PackedByteArray = (
+		"%d:%d:%d:%d"
+		% [
+			cell.x,
+			cell.y,
+			selection_seed,
+			result_count,
+		]
+	).to_utf8_buffer()
 	for value: int in bytes:
 		hash_value = ((hash_value ^ value) * _FNV_32_PRIME) & _UINT_32_MASK
 	return hash_value

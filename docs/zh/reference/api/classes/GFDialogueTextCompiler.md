@@ -18,9 +18,9 @@
 | 常量 | [`SOURCE_FORMAT`](#member-gfdialoguetextcompiler-constants-source_format) | `const SOURCE_FORMAT: String = "gf.dialogue"` |
 | 常量 | [`SOURCE_SCHEMA_VERSION`](#member-gfdialoguetextcompiler-constants-source_schema_version) | `const SOURCE_SCHEMA_VERSION: int = 1` |
 | 方法 | [`compile_structure_text`](#member-gfdialoguetextcompiler-methods-compile_structure_text) | `func compile_structure_text(text: String, options: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`compile_structure_source`](#member-gfdialoguetextcompiler-methods-compile_structure_source) | `func compile_structure_source(source_key: String, loader: GFSourceTextLoader, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`compile_structure_source`](#member-gfdialoguetextcompiler-methods-compile_structure_source) | `func compile_structure_source( source_key: String, loader: GFSourceTextLoader, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`build_runner_text`](#member-gfdialoguetextcompiler-methods-build_runner_text) | `func build_runner_text(text: String, options: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`build_runner_source`](#member-gfdialoguetextcompiler-methods-build_runner_source) | `func build_runner_source(source_key: String, loader: GFSourceTextLoader, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`build_runner_source`](#member-gfdialoguetextcompiler-methods-build_runner_source) | `func build_runner_source( source_key: String, loader: GFSourceTextLoader, options: Dictionary = {} ) -> Dictionary:` |
 
 ## 常量
 
@@ -87,7 +87,7 @@ func compile_structure_text(text: String, options: Dictionary = {}) -> Dictionar
 - 首次版本：`unreleased`
 
 ```gdscript
-func compile_structure_source(source_key: String, loader: GFSourceTextLoader, options: Dictionary = {}) -> Dictionary:
+func compile_structure_source( source_key: String, loader: GFSourceTextLoader, options: Dictionary = {} ) -> Dictionary:
 ```
 
 只编译结构资源：验证 strict JSON、schema 和资源图，不承诺 Runner 身份准入。 成功只描述本次资源和所选合同，不执行项目条件或 mutation，不保证所有运行分支成功。 失败不返回部分资源；报告为有界 JSON-safe 投影并保留来源。
@@ -142,7 +142,7 @@ func build_runner_text(text: String, options: Dictionary = {}) -> Dictionary:
 - 首次版本：`unreleased`
 
 ```gdscript
-func build_runner_source(source_key: String, loader: GFSourceTextLoader, options: Dictionary = {}) -> Dictionary:
+func build_runner_source( source_key: String, loader: GFSourceTextLoader, options: Dictionary = {} ) -> Dictionary:
 ```
 
 构建内置 Runner 生产资源：结构校验后验证默认完整身份预算。 成功只描述本次资源和所选合同，不执行项目条件或 mutation，不保证所有运行分支成功。 失败不返回部分资源；报告为有界 JSON-safe 投影并保留来源。

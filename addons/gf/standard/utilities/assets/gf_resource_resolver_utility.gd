@@ -19,7 +19,6 @@ extends GFUtility
 ## @api public
 const PROVIDER_METHOD: StringName = &"resolve_resource"
 
-
 ## 普通注册路径候选使用的 provider 标识。
 ## [br]
 ## @api private
@@ -188,7 +187,14 @@ func register_path_for_owner(
 ) -> StringName:
 	if owner_id == &"":
 		return &""
-	return _register_path_record(resource_key, owner_id, path, type_hint, priority, metadata)
+	return _register_path_record(
+		resource_key,
+		owner_id,
+		path,
+		type_hint,
+		priority,
+		metadata
+	)
 
 
 ## 注销显式路径映射。
@@ -218,8 +224,15 @@ func unregister_registration(registration_id: StringName) -> bool:
 	for key_value: Variant in _path_records.keys():
 		var key: StringName = GFVariantData.to_string_name(key_value)
 		var records: Array[Dictionary] = _get_path_records(key)
-		for index: int in range(records.size() - 1, -1, -1):
-			if GFVariantData.get_option_string_name(records[index], "registration_id") != registration_id:
+		for index: int in range(
+			records.size() - 1,
+			-1,
+			-1
+		):
+			if GFVariantData.get_option_string_name(
+				records[index],
+				"registration_id"
+			) != registration_id:
 				continue
 			records.remove_at(index)
 			_set_path_records(key, records)
@@ -244,8 +257,15 @@ func unregister_owner(owner_id: StringName) -> int:
 	for key_value: Variant in _path_records.keys():
 		var key: StringName = GFVariantData.to_string_name(key_value)
 		var records: Array[Dictionary] = _get_path_records(key)
-		for index: int in range(records.size() - 1, -1, -1):
-			if GFVariantData.get_option_string_name(records[index], "owner_id") != owner_id:
+		for index: int in range(
+			records.size() - 1,
+			-1,
+			-1
+		):
+			if GFVariantData.get_option_string_name(
+				records[index],
+				"owner_id"
+			) != owner_id:
 				continue
 			records.remove_at(index)
 			removed_count += 1
@@ -296,8 +316,16 @@ func replace_owner_paths(owner_id: StringName, entries: Array) -> Dictionary:
 			return report
 		var entry: Dictionary = entry_value
 		var parsed_entry: Dictionary = _parse_owner_path_entry(entry)
-		if not GFVariantData.get_option_bool(parsed_entry, "ok", false):
-			report["reason"] = GFVariantData.get_option_string_name(parsed_entry, "reason", &"invalid_entry_schema")
+		if not GFVariantData.get_option_bool(
+			parsed_entry,
+			"ok",
+			false
+		):
+			report["reason"] = GFVariantData.get_option_string_name(
+				parsed_entry,
+				"reason",
+				&"invalid_entry_schema"
+			)
 			report["failed_index"] = index
 			return report
 
@@ -319,9 +347,7 @@ func replace_owner_paths(owner_id: StringName, entries: Array) -> Dictionary:
 		var records: Array[Dictionary] = _get_path_records_from_map(candidate_records, resource_key)
 		records.append(path_record)
 		candidate_records[resource_key] = records
-		var _registration_appended: bool = registration_ids.append(
-			String(GFVariantData.get_option_string_name(path_record, "registration_id"))
-		)
+		var _registration_appended: bool = registration_ids.append(String(GFVariantData.get_option_string_name(path_record, "registration_id")))
 
 	_path_records = candidate_records
 	_registration_order = next_registration_order
@@ -354,19 +380,25 @@ func clear_paths() -> void:
 ## @param priority: 覆盖优先级；数值越大越优先。
 ## [br]
 ## @return 注册成功返回 true。
-func register_provider(provider: Object, provider_id: StringName = &"", priority: int = 0) -> bool:
+func register_provider(
+	provider: Object,
+	provider_id: StringName = &"",
+	priority: int = 0
+) -> bool:
 	if provider == null or not provider.has_method(PROVIDER_METHOD):
 		return false
 	if _find_provider_index(provider) != -1:
 		return false
 
 	_registration_order += 1
-	_providers.append({
-		"provider": provider,
-		"provider_id": _resolve_provider_id(provider, provider_id),
-		"priority": priority,
-		"order": _registration_order,
-	})
+	_providers.append(
+		{
+			"provider": provider,
+			"provider_id": _resolve_provider_id(provider, provider_id),
+			"priority": priority,
+			"order": _registration_order,
+		}
+	)
 	return true
 
 
@@ -442,9 +474,17 @@ func resolve(
 	options: Dictionary = {}
 ) -> Dictionary:
 	if resource_key == &"":
-		return _make_failure(resource_key, type_hint_override, _REASON_INVALID_KEY)
+		return _make_failure(
+			resource_key,
+			type_hint_override,
+			_REASON_INVALID_KEY
+		)
 
-	var request: Dictionary = _make_request(resource_key, type_hint_override, options)
+	var request: Dictionary = _make_request(
+		resource_key,
+		type_hint_override,
+		options
+	)
 	var candidates: Array[Dictionary] = _collect_candidates(request)
 	var best_failure: Dictionary = {}
 	for candidate: Dictionary in candidates:
@@ -456,7 +496,11 @@ func resolve(
 
 	if not best_failure.is_empty():
 		return best_failure
-	return _make_failure(resource_key, type_hint_override, _REASON_NOT_FOUND)
+	return _make_failure(
+		resource_key,
+		type_hint_override,
+		_REASON_NOT_FOUND
+	)
 
 
 ## 解析资源键并返回路径。
@@ -477,7 +521,11 @@ func resolve_path(
 	type_hint_override: String = "",
 	options: Dictionary = {}
 ) -> String:
-	var report: Dictionary = resolve(resource_key, type_hint_override, options)
+	var report: Dictionary = resolve(
+		resource_key,
+		type_hint_override,
+		options
+	)
 	if not GFVariantData.get_option_bool(report, "ok"):
 		return ""
 	return GFVariantData.get_option_string(report, "path")
@@ -504,7 +552,11 @@ func load(
 	cache_mode: int = ResourceLoader.CACHE_MODE_REUSE,
 	options: Dictionary = {}
 ) -> Resource:
-	var report: Dictionary = resolve(resource_key, type_hint_override, options)
+	var report: Dictionary = resolve(
+		resource_key,
+		type_hint_override,
+		options
+	)
 	if not GFVariantData.get_option_bool(report, "ok"):
 		return null
 
@@ -515,7 +567,11 @@ func load(
 	var path: String = GFVariantData.get_option_string(report, "path")
 	if path.is_empty():
 		return null
-	return ResourceLoader.load(path, GFVariantData.get_option_string(report, "type_hint"), cache_mode)
+	return ResourceLoader.load(
+		path,
+		GFVariantData.get_option_string(report, "type_hint"),
+		cache_mode
+	)
 
 
 ## 通过 GFAssetUtility 异步加载解析结果。
@@ -546,7 +602,11 @@ func load_async(
 			on_loaded.call(null)
 		return
 
-	var report: Dictionary = resolve(resource_key, type_hint_override, options)
+	var report: Dictionary = resolve(
+		resource_key,
+		type_hint_override,
+		options
+	)
 	if not GFVariantData.get_option_bool(report, "ok"):
 		on_loaded.call(null)
 		return
@@ -560,7 +620,11 @@ func load_async(
 	if path.is_empty():
 		on_loaded.call(null)
 		return
-	asset_utility.load_async(path, on_loaded, GFVariantData.get_option_string(report, "type_hint"))
+	asset_utility.load_async(
+		path,
+		on_loaded,
+		GFVariantData.get_option_string(report, "type_hint")
+	)
 
 
 ## 构建可传给 GFAssetUtility.preload_group_async() 的资源请求列表。
@@ -589,18 +653,24 @@ func make_asset_group_entries(
 ) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for key_text: String in resource_keys:
-		var report: Dictionary = resolve(StringName(key_text), type_hint_override, options)
+		var report: Dictionary = resolve(
+			StringName(key_text),
+			type_hint_override,
+			options
+		)
 		if not GFVariantData.get_option_bool(report, "ok"):
 			continue
 		var path: String = GFVariantData.get_option_string(report, "path")
 		if path.is_empty():
 			continue
-		result.append({
-			"path": path,
-			"type_hint": GFVariantData.get_option_string(report, "type_hint"),
-			"cache_key": GFVariantData.get_option_string(report, "cache_key"),
-			"resource_identity": GFVariantData.get_option_dictionary(report, "resource_identity"),
-		})
+		result.append(
+			{
+				"path": path,
+				"type_hint": GFVariantData.get_option_string(report, "type_hint"),
+				"cache_key": GFVariantData.get_option_string(report, "cache_key"),
+				"resource_identity": GFVariantData.get_option_dictionary(report, "resource_identity"),
+			}
+		)
 	return result
 
 
@@ -617,10 +687,7 @@ func get_debug_snapshot() -> Dictionary:
 	_prune_invalid_providers()
 	var providers: Array[Dictionary] = []
 	for provider_record: Dictionary in _providers:
-		providers.append({
-			"provider_id": _get_record_provider_id(provider_record),
-			"priority": _get_record_priority(provider_record),
-		})
+		providers.append({ "provider_id": _get_record_provider_id(provider_record), "priority": _get_record_priority(provider_record), })
 	var registered_cache_keys: Dictionary = {}
 	var registered_owner_ids: PackedStringArray = PackedStringArray()
 	var registered_path_count: int = 0
@@ -663,10 +730,7 @@ func _make_resource_identity(
 		path,
 		resource_key,
 		type_hint,
-		{
-			"check_exists": check_exists,
-			"metadata": metadata,
-		}
+		{ "check_exists": check_exists, "metadata": metadata, }
 	)
 
 
@@ -726,8 +790,15 @@ func _replace_ownerless_path_record(
 		return false
 
 	var records: Array[Dictionary] = _get_path_records(resource_key)
-	for index: int in range(records.size() - 1, -1, -1):
-		if GFVariantData.get_option_string_name(records[index], "owner_id") == _OWNERLESS_REGISTRATION_ID:
+	for index: int in range(
+		records.size() - 1,
+		-1,
+		-1
+	):
+		if GFVariantData.get_option_string_name(
+			records[index],
+			"owner_id"
+		) == _OWNERLESS_REGISTRATION_ID:
 			records.remove_at(index)
 	records.append(path_record)
 	_registration_order = next_registration_order
@@ -748,7 +819,11 @@ func _make_path_record(
 	metadata: Dictionary,
 	registration_order: int
 ) -> Dictionary:
-	if resource_key == &"" or path.strip_edges().is_empty() or registration_order <= 0:
+	if (
+		resource_key == &""
+		or path.strip_edges().is_empty()
+		or registration_order <= 0
+	):
 		return {}
 	var identity: GFResourceIdentity = _make_resource_identity(
 		resource_key,
@@ -759,11 +834,14 @@ func _make_path_record(
 	)
 	if not identity.has_identity():
 		return {}
-	var registration_id: StringName = StringName("%s:%s:%d" % [
-		String(owner_id),
-		String(resource_key),
-		registration_order,
-	])
+	var registration_id: StringName = StringName(
+		"%s:%s:%d"
+		% [
+			String(owner_id),
+			String(resource_key),
+			registration_order,
+		]
+	)
 	return {
 		"key": resource_key,
 		"path": _get_identity_load_path(identity),
@@ -832,8 +910,15 @@ func _remove_owner_records_from_map(path_records: Dictionary, owner_id: StringNa
 	for key_value: Variant in path_records.keys():
 		var resource_key: StringName = GFVariantData.to_string_name(key_value)
 		var records: Array[Dictionary] = _get_path_records_from_map(path_records, resource_key)
-		for index: int in range(records.size() - 1, -1, -1):
-			if GFVariantData.get_option_string_name(records[index], "owner_id") == owner_id:
+		for index: int in range(
+			records.size() - 1,
+			-1,
+			-1
+		):
+			if GFVariantData.get_option_string_name(
+				records[index],
+				"owner_id"
+			) == owner_id:
 				records.remove_at(index)
 		if records.is_empty():
 			var _erased_key: bool = path_records.erase(resource_key)
@@ -841,7 +926,7 @@ func _remove_owner_records_from_map(path_records: Dictionary, owner_id: StringNa
 			path_records[resource_key] = records
 
 
-## 从给定映射读取记录副本，同时兼容单 Dictionary 的旧存储形态。
+## 从给定映射的记录数组读取独立副本。
 ## [br]
 ## @api private
 ## [br]
@@ -854,9 +939,6 @@ func _get_path_records_from_map(path_records: Dictionary, resource_key: StringNa
 			if record_value is Dictionary:
 				var record: Dictionary = record_value
 				result.append(record.duplicate(true))
-	elif records_value is Dictionary:
-		var legacy_record: Dictionary = records_value
-		result.append(legacy_record.duplicate(true))
 	return result
 
 
@@ -906,7 +988,11 @@ func _get_identity_load_path(identity: GFResourceIdentity) -> String:
 ## [br]
 ## @api private
 ## [br]
-func _make_request(resource_key: StringName, type_hint_override: String, options: Dictionary) -> Dictionary:
+func _make_request(
+	resource_key: StringName,
+	type_hint_override: String,
+	options: Dictionary
+) -> Dictionary:
 	return {
 		"key": resource_key,
 		"key_text": String(resource_key),
@@ -928,28 +1014,37 @@ func _collect_candidates(request: Dictionary) -> Array[Dictionary]:
 
 	for provider_record: Dictionary in _providers:
 		var provider: Object = _get_record_provider(provider_record)
-		if provider == null or not is_instance_valid(provider) or not provider.has_method(PROVIDER_METHOD):
+		if (
+			provider == null
+			or not is_instance_valid(provider)
+			or not provider.has_method(PROVIDER_METHOD)
+		):
 			continue
-		var provider_result: Variant = provider.call(PROVIDER_METHOD, request.duplicate(true))
+		var provider_result: Variant = provider.call(
+			PROVIDER_METHOD,
+			request.duplicate(true)
+		)
 		candidates.append(_normalize_provider_candidate(provider_result, provider_record))
 
 	if _allow_direct_path(request):
 		var key_text: String = GFVariantData.get_option_string(request, "key_text")
 		if _is_resource_path(key_text):
-			candidates.append({
-				"ok": true,
-				"key": key,
-				"path": key_text,
-				"type_hint": GFVariantData.get_option_string(request, "type_hint"),
-				"cache_key": "",
-				"resource_identity": {},
-				"resource": null,
-				"provider_id": _DIRECT_PROVIDER_ID,
-				"priority": -1000000,
-				"order": -1000000,
-				"reason": "",
-				"metadata": {},
-			})
+			candidates.append(
+				{
+					"ok": true,
+					"key": key,
+					"path": key_text,
+					"type_hint": GFVariantData.get_option_string(request, "type_hint"),
+					"cache_key": "",
+					"resource_identity": {},
+					"resource": null,
+					"provider_id": _DIRECT_PROVIDER_ID,
+					"priority": -1000000,
+					"order": -1000000,
+					"reason": "",
+					"metadata": {},
+				}
+			)
 
 	candidates.sort_custom(_sort_candidates)
 	return candidates
@@ -986,29 +1081,65 @@ func _normalize_provider_candidate(provider_result: Variant, provider_record: Di
 	var provider_id: StringName = _get_record_provider_id(provider_record)
 	if provider_result is Resource:
 		var provided_resource: Resource = provider_result
-		return _make_resource_candidate(provided_resource, provider_record, {})
+		return _make_resource_candidate(
+			provided_resource,
+			provider_record,
+			{}
+		)
 	if provider_result is String:
-		return _make_path_candidate(GFVariantData.to_text(provider_result), provider_record, {})
+		return _make_path_candidate(
+			GFVariantData.to_text(provider_result),
+			provider_record,
+			{}
+		)
 	if provider_result is StringName:
-		return _make_path_candidate(GFVariantData.to_text(provider_result), provider_record, {})
+		return _make_path_candidate(
+			GFVariantData.to_text(provider_result),
+			provider_record,
+			{}
+		)
 	if not provider_result is Dictionary:
-		return _make_provider_failure(provider_id, provider_record, _REASON_PROVIDER_ERROR)
+		return _make_provider_failure(
+			provider_id,
+			provider_record,
+			_REASON_PROVIDER_ERROR
+		)
 
 	var data: Dictionary = GFVariantData.as_dictionary(provider_result)
-	if not GFVariantData.get_option_bool(data, "ok", true):
+	if not GFVariantData.get_option_bool(
+		data,
+		"ok",
+		true
+	):
 		return _make_provider_failure(
-			GFVariantData.get_option_string_name(data, "provider_id", provider_id),
+			GFVariantData.get_option_string_name(
+				data,
+				"provider_id",
+				provider_id
+			),
 			provider_record,
-			GFVariantData.get_option_string(data, "reason", _REASON_PROVIDER_ERROR),
+			GFVariantData.get_option_string(
+				data,
+				"reason",
+				_REASON_PROVIDER_ERROR
+			),
 			GFVariantData.get_option_dictionary(data, "metadata")
 		)
 
 	var report_resource: Resource = _get_report_resource(data)
 	if report_resource != null:
-		return _make_resource_candidate(report_resource, provider_record, data)
+		return _make_resource_candidate(
+			report_resource,
+			provider_record,
+			data
+		)
 
 	return _make_path_candidate(
-		GFVariantData.get_option_string(data, "path", GFVariantData.get_option_string(data, "resource_path")),
+		GFVariantData.get_option_string(
+			data,
+			"path",
+			GFVariantData.get_option_string(data, "resource_path")
+		),
 		provider_record,
 		data
 	)
@@ -1018,16 +1149,28 @@ func _normalize_provider_candidate(provider_result: Variant, provider_record: Di
 ## [br]
 ## @api private
 ## [br]
-func _make_resource_candidate(resource: Resource, provider_record: Dictionary, data: Dictionary) -> Dictionary:
+func _make_resource_candidate(
+	resource: Resource,
+	provider_record: Dictionary,
+	data: Dictionary
+) -> Dictionary:
 	return {
 		"ok": true,
 		"key": &"",
-		"path": GFVariantData.get_option_string(data, "path", resource.resource_path),
+		"path": GFVariantData.get_option_string(
+			data,
+			"path",
+			resource.resource_path
+		),
 		"type_hint": GFVariantData.get_option_string(data, "type_hint"),
 		"cache_key": GFVariantData.get_option_string(data, "cache_key"),
 		"resource_identity": GFVariantData.get_option_dictionary(data, "resource_identity"),
 		"resource": resource,
-		"provider_id": GFVariantData.get_option_string_name(data, "provider_id", _get_record_provider_id(provider_record)),
+		"provider_id": GFVariantData.get_option_string_name(
+			data,
+			"provider_id",
+			_get_record_provider_id(provider_record)
+		),
 		"priority": _get_record_priority(provider_record),
 		"order": _get_record_order(provider_record),
 		"reason": "",
@@ -1039,7 +1182,11 @@ func _make_resource_candidate(resource: Resource, provider_record: Dictionary, d
 ## [br]
 ## @api private
 ## [br]
-func _make_path_candidate(path: String, provider_record: Dictionary, data: Dictionary) -> Dictionary:
+func _make_path_candidate(
+	path: String,
+	provider_record: Dictionary,
+	data: Dictionary
+) -> Dictionary:
 	return {
 		"ok": true,
 		"key": &"",
@@ -1048,7 +1195,11 @@ func _make_path_candidate(path: String, provider_record: Dictionary, data: Dicti
 		"cache_key": GFVariantData.get_option_string(data, "cache_key"),
 		"resource_identity": GFVariantData.get_option_dictionary(data, "resource_identity"),
 		"resource": null,
-		"provider_id": GFVariantData.get_option_string_name(data, "provider_id", _get_record_provider_id(provider_record)),
+		"provider_id": GFVariantData.get_option_string_name(
+			data,
+			"provider_id",
+			_get_record_provider_id(provider_record)
+		),
 		"priority": _get_record_priority(provider_record),
 		"order": _get_record_order(provider_record),
 		"reason": "",
@@ -1102,7 +1253,11 @@ func _validate_candidate(candidate: Dictionary, request: Dictionary) -> Dictiona
 	if resource != null:
 		var resource_identity: GFResourceIdentity = _make_resource_identity(
 			key,
-			GFVariantData.get_option_string(report, "path", resource.resource_path),
+			GFVariantData.get_option_string(
+				report,
+				"path",
+				resource.resource_path
+			),
 			GFVariantData.get_option_string(report, "type_hint"),
 			false,
 			GFVariantData.get_option_dictionary(report, "metadata")
@@ -1110,7 +1265,10 @@ func _validate_candidate(candidate: Dictionary, request: Dictionary) -> Dictiona
 		report["path"] = _get_identity_load_path(resource_identity)
 		report["cache_key"] = resource_identity.cache_key
 		report["resource_identity"] = resource_identity.to_dictionary()
-		if _is_resource_compatible(resource, GFVariantData.get_option_string(report, "type_hint")):
+		if _is_resource_compatible(
+			resource,
+			GFVariantData.get_option_string(report, "type_hint")
+		):
 			report["ok"] = true
 			report["reason"] = ""
 			return report
@@ -1158,7 +1316,11 @@ func _validate_candidate(candidate: Dictionary, request: Dictionary) -> Dictiona
 ## [br]
 ## @api private
 ## [br]
-func _make_failure(resource_key: StringName, type_hint: String, reason: String) -> Dictionary:
+func _make_failure(
+	resource_key: StringName,
+	type_hint: String,
+	reason: String
+) -> Dictionary:
 	return {
 		"ok": false,
 		"key": resource_key,
@@ -1175,7 +1337,7 @@ func _make_failure(resource_key: StringName, type_hint: String, reason: String) 
 	}
 
 
-## 从实例映射读取指定键的记录副本，并兼容旧式单记录存储。
+## 从实例映射的记录数组读取指定键的独立副本。
 ## [br]
 ## @api private
 ## [br]
@@ -1188,10 +1350,6 @@ func _get_path_records(resource_key: StringName) -> Array[Dictionary]:
 			if record_value is Dictionary:
 				var record: Dictionary = record_value
 				result.append(record.duplicate(true))
-		return result
-	if records_value is Dictionary:
-		var legacy_record: Dictionary = records_value
-		result.append(legacy_record.duplicate(true))
 	return result
 
 
@@ -1285,9 +1443,17 @@ func _find_provider_index(provider: Object) -> int:
 ## @api private
 ## [br]
 func _prune_invalid_providers() -> void:
-	for index: int in range(_providers.size() - 1, -1, -1):
+	for index: int in range(
+		_providers.size() - 1,
+		-1,
+		-1
+	):
 		var provider: Object = _get_record_provider(_providers[index])
-		if provider == null or not is_instance_valid(provider) or not provider.has_method(PROVIDER_METHOD):
+		if (
+			provider == null
+			or not is_instance_valid(provider)
+			or not provider.has_method(PROVIDER_METHOD)
+		):
 			_providers.remove_at(index)
 
 
@@ -1304,7 +1470,10 @@ func _resolve_provider_id(provider: Object, provider_id: StringName) -> StringNa
 		var global_name: String = GFVariantData.to_text(script.get_global_name())
 		if not global_name.is_empty():
 			return StringName(global_name)
-	return StringName("%s:%d" % [provider.get_class(), provider.get_instance_id()])
+	return StringName(
+		"%s:%d"
+		% [provider.get_class(), provider.get_instance_id()]
+	)
 
 
 ## 读取请求选项中的直接路径候选开关。
@@ -1313,7 +1482,11 @@ func _resolve_provider_id(provider: Object, provider_id: StringName) -> StringNa
 ## [br]
 func _allow_direct_path(request: Dictionary) -> bool:
 	var options: Dictionary = GFVariantData.get_option_dictionary(request, "options")
-	return GFVariantData.get_option_bool(options, "allow_direct_path", false)
+	return GFVariantData.get_option_bool(
+		options,
+		"allow_direct_path",
+		false
+	)
 
 
 ## 读取请求选项中的资源存在性检查开关。
@@ -1322,7 +1495,11 @@ func _allow_direct_path(request: Dictionary) -> bool:
 ## [br]
 func _should_check_exists(request: Dictionary) -> bool:
 	var options: Dictionary = GFVariantData.get_option_dictionary(request, "options")
-	return GFVariantData.get_option_bool(options, "check_exists", true)
+	return GFVariantData.get_option_bool(
+		options,
+		"check_exists",
+		true
+	)
 
 
 ## 判断路径是否使用 `res://`、`uid://` 或 `user://` 资源 URI 前缀。
@@ -1330,7 +1507,11 @@ func _should_check_exists(request: Dictionary) -> bool:
 ## @api private
 ## [br]
 func _is_resource_path(path: String) -> bool:
-	return path.begins_with("res://") or path.begins_with("uid://") or path.begins_with("user://")
+	return (
+		path.begins_with("res://")
+		or path.begins_with("uid://")
+		or path.begins_with("user://")
+	)
 
 
 ## 按原生类名或脚本全局名/路径及其基脚本检查资源类型提示。

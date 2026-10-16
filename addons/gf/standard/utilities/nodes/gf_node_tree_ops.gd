@@ -43,7 +43,10 @@ static func add_child_with_owner(
 	parent.add_child(child, force_readable_name)
 	if child.get_parent() != parent:
 		return false
-	_apply_owner(child, _resolve_child_owner(parent, owner))
+	_apply_owner(
+		child,
+		_resolve_child_owner(parent, owner)
+	)
 	return true
 
 
@@ -72,14 +75,20 @@ static func reparent_node(
 		return false
 
 	if node.get_parent() == new_parent:
-		_apply_owner(node, _resolve_child_owner(new_parent, owner))
+		_apply_owner(
+			node,
+			_resolve_child_owner(new_parent, owner)
+		)
 		return true
 
 	if node.get_parent() != null:
 		node.reparent(new_parent, keep_global_transform)
 	else:
 		new_parent.add_child(node, true)
-	_apply_owner(node, _resolve_child_owner(new_parent, owner))
+	_apply_owner(
+		node,
+		_resolve_child_owner(new_parent, owner)
+	)
 	return true
 
 
@@ -108,7 +117,11 @@ static func replace_child(
 	free_old_child: bool = false,
 	owner: Node = null
 ) -> bool:
-	if parent == null or old_child == null or new_child == null:
+	if (
+		parent == null
+		or old_child == null
+		or new_child == null
+	):
 		return false
 	if old_child.get_parent() != parent:
 		return false
@@ -116,7 +129,12 @@ static func replace_child(
 		return true
 
 	var old_index: int = old_child.get_index(true)
-	if not reparent_node(new_child, parent, keep_global_transform, owner):
+	if not reparent_node(
+		new_child,
+		parent,
+		keep_global_transform,
+		owner
+	):
 		return false
 	parent.move_child(new_child, old_index)
 	parent.remove_child(old_child)
@@ -183,7 +201,11 @@ static func find_first_child_of_type(
 		return parent
 
 	var node_stack: Array[Node] = []
-	for child_index: int in range(parent.get_child_count(include_internal) - 1, -1, -1):
+	for child_index: int in range(
+		parent.get_child_count(include_internal) - 1,
+		-1,
+		-1
+	):
 		var child: Node = parent.get_child(child_index, include_internal)
 		node_stack.append(child)
 	while not node_stack.is_empty():
@@ -193,7 +215,11 @@ static func find_first_child_of_type(
 		if _matches_type(current, child_type):
 			return current
 		if recursive:
-			for child_index: int in range(current.get_child_count(include_internal) - 1, -1, -1):
+			for child_index: int in range(
+				current.get_child_count(include_internal) - 1,
+				-1,
+				-1
+			):
 				var child: Node = current.get_child(child_index, include_internal)
 				node_stack.append(child)
 
@@ -231,7 +257,14 @@ static func collect_node_tree(
 	max_depth: int = -1,
 	limit: int = -1
 ) -> Array[Node]:
-	return collect_descendants(root, type_filter, include_root, include_internal, max_depth, limit)
+	return collect_descendants(
+		root,
+		type_filter,
+		include_root,
+		include_internal,
+		max_depth,
+		limit
+	)
 
 
 ## 收集直接子节点，可选包含起点自身。
@@ -263,12 +296,22 @@ static func collect_children(
 	var result: Array[Node] = []
 	if parent == null or limit == 0:
 		return result
-	if include_self and not _append_if_matches(result, parent, type_filter, limit):
+	if include_self and not _append_if_matches(
+		result,
+		parent,
+		type_filter,
+		limit
+	):
 		return result
 
 	for child_index: int in range(parent.get_child_count(include_internal)):
 		var child: Node = parent.get_child(child_index, include_internal)
-		if not _append_if_matches(result, child, type_filter, limit):
+		if not _append_if_matches(
+			result,
+			child,
+			type_filter,
+			limit
+		):
 			return result
 	return result
 
@@ -316,12 +359,27 @@ static func collect_descendants(
 		var current_depth: int = depth_stack[depth_stack.size() - 1]
 		depth_stack.remove_at(depth_stack.size() - 1)
 
-		if (current_depth > 0 or include_root) and not _append_if_matches(result, current, type_filter, limit):
+		if (
+			(
+				current_depth > 0
+				or include_root
+			)
+			and not _append_if_matches(
+				result,
+				current,
+				type_filter,
+				limit
+			)
+		):
 			return result
 		if max_depth >= 0 and current_depth >= max_depth:
 			continue
 
-		for child_index: int in range(current.get_child_count(include_internal) - 1, -1, -1):
+		for child_index: int in range(
+			current.get_child_count(include_internal) - 1,
+			-1,
+			-1
+		):
 			var child: Node = current.get_child(child_index, include_internal)
 			node_stack.append(child)
 			depth_stack.append(current_depth + 1)
@@ -357,7 +415,12 @@ static func collect_ancestors(
 
 	var current: Node = node if include_self else node.get_parent()
 	while current != null:
-		if not _append_if_matches(result, current, type_filter, limit):
+		if not _append_if_matches(
+			result,
+			current,
+			type_filter,
+			limit
+		):
 			return result
 		current = current.get_parent()
 	return result
@@ -397,14 +460,23 @@ static func collect_previous_siblings(
 	if parent == null:
 		return result
 
-	var own_index: int = _find_child_index(parent, node, include_internal)
+	var own_index: int = _find_child_index(
+		parent,
+		node,
+		include_internal
+	)
 	if own_index < 0:
 		return result
 
 	var end_index: int = own_index + 1 if include_self else own_index
 	for sibling_index: int in range(0, end_index):
 		var sibling: Node = parent.get_child(sibling_index, include_internal)
-		if not _append_if_matches(result, sibling, type_filter, limit):
+		if not _append_if_matches(
+			result,
+			sibling,
+			type_filter,
+			limit
+		):
 			return result
 	return result
 
@@ -443,14 +515,26 @@ static func collect_next_siblings(
 	if parent == null:
 		return result
 
-	var own_index: int = _find_child_index(parent, node, include_internal)
+	var own_index: int = _find_child_index(
+		parent,
+		node,
+		include_internal
+	)
 	if own_index < 0:
 		return result
 
 	var start_index: int = own_index if include_self else own_index + 1
-	for sibling_index: int in range(start_index, parent.get_child_count(include_internal)):
+	for sibling_index: int in range(
+		start_index,
+		parent.get_child_count(include_internal)
+	):
 		var sibling: Node = parent.get_child(sibling_index, include_internal)
-		if not _append_if_matches(result, sibling, type_filter, limit):
+		if not _append_if_matches(
+			result,
+			sibling,
+			type_filter,
+			limit
+		):
 			return result
 	return result
 
@@ -473,7 +557,11 @@ static func set_owner_recursive(node: Node, owner: Node) -> void:
 		node_stack.remove_at(stack_index)
 		_apply_owner(current, owner)
 
-		for child_index: int in range(current.get_child_count(true) - 1, -1, -1):
+		for child_index: int in range(
+			current.get_child_count(true) - 1,
+			-1,
+			-1
+		):
 			var child: Node = current.get_child(child_index, true)
 			node_stack.append(child)
 
@@ -532,7 +620,11 @@ static func _is_result_limit_reached(result: Array[Node], limit: int) -> bool:
 ## [br]
 ## @api private
 ## [br]
-static func _find_child_index(parent: Node, target: Node, include_internal: bool) -> int:
+static func _find_child_index(
+	parent: Node,
+	target: Node,
+	include_internal: bool
+) -> int:
 	if parent == null or target == null:
 		return -1
 	for child_index: int in range(parent.get_child_count(include_internal)):
@@ -551,7 +643,10 @@ static func _matches_type(node: Node, type_filter: Variant) -> bool:
 	if type_filter == null:
 		return true
 	if typeof(type_filter) == TYPE_STRING or typeof(type_filter) == TYPE_STRING_NAME:
-		return _matches_type_name(node, GFVariantData.to_text(type_filter))
+		return _matches_type_name(
+			node,
+			GFVariantData.to_text(type_filter)
+		)
 	return is_instance_of(node, type_filter)
 
 
@@ -601,7 +696,11 @@ static func _apply_owner(node: Node, owner: Node) -> void:
 ## @api private
 ## [br]
 static func _can_apply_owner(node: Node, owner: Node) -> bool:
-	if node == null or owner == null or node == owner:
+	if (
+		node == null
+		or owner == null
+		or node == owner
+	):
 		return false
 	return owner.is_ancestor_of(node)
 

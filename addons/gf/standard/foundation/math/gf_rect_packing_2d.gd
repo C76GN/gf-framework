@@ -80,48 +80,103 @@ static func pack_fixed(
 			"rect_count exceeds max_rects."
 		)
 
-	var padding: int = maxi(GFVariantData.get_option_int(options, "padding", 0), 0)
+	var padding: int = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"padding",
+			0
+		),
+		0
+	)
 	var padding_error: String = _get_padding_error(rect_sizes, padding)
 	if not padding_error.is_empty():
-		return _make_unplaced_result(rect_sizes.size(), container_size, padding_error)
-	var allow_rotate: bool = GFVariantData.get_option_bool(options, "allow_rotate", false)
-	var should_sort: bool = GFVariantData.get_option_bool(options, "sort", true)
+		return _make_unplaced_result(
+			rect_sizes.size(),
+			container_size,
+			padding_error
+		)
+	var allow_rotate: bool = GFVariantData.get_option_bool(
+		options,
+		"allow_rotate",
+		false
+	)
+	var should_sort: bool = GFVariantData.get_option_bool(
+		options,
+		"sort",
+		true
+	)
 	var placements: Array[Rect2i] = []
 	var rotated: Array[bool] = []
-	_initialize_output_arrays(rect_sizes.size(), placements, rotated)
+	_initialize_output_arrays(
+		rect_sizes.size(),
+		placements,
+		rotated
+	)
 
 	var unplaced_indices: PackedInt32Array = PackedInt32Array()
 	if container_size.x <= 0 or container_size.y <= 0:
 		for index: int in range(rect_sizes.size()):
 			var _appended_invalid_container_index: bool = unplaced_indices.append(index)
-		return _make_result(container_size, placements, rotated, unplaced_indices)
+		return _make_result(
+			container_size,
+			placements,
+			rotated,
+			unplaced_indices
+		)
 
 	var items: Array[Dictionary] = _make_items(rect_sizes, padding)
 	if should_sort:
-		items.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
-			return _sort_item_before(left, right)
+		items.sort_custom(
+			func(left: Dictionary, right: Dictionary) -> bool:
+				return _sort_item_before(left, right)
 		)
 
 	var free_rects: Array[Rect2i] = [Rect2i(Vector2i.ZERO, container_size)]
 	for item: Dictionary in items:
-		var item_index: int = GFVariantData.get_option_int(item, "index", -1)
-		if not GFVariantData.get_option_bool(item, "valid", false):
+		var item_index: int = GFVariantData.get_option_int(
+			item,
+			"index",
+			-1
+		)
+		if not GFVariantData.get_option_bool(
+			item,
+			"valid",
+			false
+		):
 			var _appended_invalid_size_index: bool = unplaced_indices.append(item_index)
 			continue
 
-		var placement: Dictionary = _find_best_placement(free_rects, item, allow_rotate, padding)
-		if not GFVariantData.get_option_bool(placement, "ok", false):
+		var placement: Dictionary = _find_best_placement(
+			free_rects,
+			item,
+			allow_rotate,
+			padding
+		)
+		if not GFVariantData.get_option_bool(
+			placement,
+			"ok",
+			false
+		):
 			var _appended_unplaced_index: bool = unplaced_indices.append(item_index)
 			continue
 
 		var footprint_rect: Rect2i = _get_rect2i_value(GFVariantData.get_option_value(placement, "footprint_rect"))
 		var placed_rect: Rect2i = _get_rect2i_value(GFVariantData.get_option_value(placement, "rect"))
 		placements[item_index] = placed_rect
-		rotated[item_index] = GFVariantData.get_option_bool(placement, "rotated", false)
+		rotated[item_index] = GFVariantData.get_option_bool(
+			placement,
+			"rotated",
+			false
+		)
 		free_rects = _split_free_rects(free_rects, footprint_rect)
 		_prune_free_rects(free_rects)
 
-	return _make_result(container_size, placements, rotated, unplaced_indices)
+	return _make_result(
+		container_size,
+		placements,
+		rotated,
+		unplaced_indices
+	)
 
 
 ## 将矩形打包进自动求解的正方形容器。
@@ -143,7 +198,11 @@ static func pack_fixed(
 ## @schema return: Dictionary，包含 ok、error、container_size、placements、rotated、unplaced_indices、placed_count、used_area 和 occupancy。
 static func pack_square(rect_sizes: Array[Vector2i], options: Dictionary = {}) -> Dictionary:
 	if rect_sizes.is_empty():
-		return pack_fixed(rect_sizes, Vector2i.ZERO, options)
+		return pack_fixed(
+			rect_sizes,
+			Vector2i.ZERO,
+			options
+		)
 	var max_rects: int = _get_max_rects(options)
 	if rect_sizes.size() > max_rects:
 		return _make_unplaced_result(
@@ -152,12 +211,31 @@ static func pack_square(rect_sizes: Array[Vector2i], options: Dictionary = {}) -
 			"rect_count exceeds max_rects."
 		)
 
-	var padding: int = maxi(GFVariantData.get_option_int(options, "padding", 0), 0)
+	var padding: int = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"padding",
+			0
+		),
+		0
+	)
 	var padding_error: String = _get_padding_error(rect_sizes, padding)
 	if not padding_error.is_empty():
-		return _make_unplaced_result(rect_sizes.size(), Vector2i.ZERO, padding_error)
-	var power_of_two: bool = GFVariantData.get_option_bool(options, "power_of_two", false)
-	var max_size: int = GFVariantData.get_option_int(options, "max_size", 0)
+		return _make_unplaced_result(
+			rect_sizes.size(),
+			Vector2i.ZERO,
+			padding_error
+		)
+	var power_of_two: bool = GFVariantData.get_option_bool(
+		options,
+		"power_of_two",
+		false
+	)
+	var max_size: int = GFVariantData.get_option_int(
+		options,
+		"max_size",
+		0
+	)
 	if max_size > _MAX_VECTOR2I_COMPONENT:
 		return _make_unplaced_result(
 			rect_sizes.size(),
@@ -172,7 +250,11 @@ static func pack_square(rect_sizes: Array[Vector2i], options: Dictionary = {}) -
 			"required square container exceeds representable Vector2i bounds."
 		)
 	if lower_bound <= 0:
-		return pack_fixed(rect_sizes, Vector2i.ZERO, options)
+		return pack_fixed(
+			rect_sizes,
+			Vector2i.ZERO,
+			options
+		)
 
 	var low: int = _next_power_of_two(lower_bound) if power_of_two else lower_bound
 	if low <= 0:
@@ -185,18 +267,34 @@ static func pack_square(rect_sizes: Array[Vector2i], options: Dictionary = {}) -
 	if power_of_two:
 		search_cap = _previous_power_of_two(search_cap)
 	if low > search_cap:
-		return pack_fixed(rect_sizes, Vector2i(search_cap, search_cap), options)
+		return pack_fixed(
+			rect_sizes,
+			Vector2i(search_cap, search_cap),
+			options
+		)
 
 	var high: int = low
-	var high_result: Dictionary = pack_fixed(rect_sizes, Vector2i(high, high), options)
-	while not GFVariantData.get_option_bool(high_result, "ok", false):
+	var high_result: Dictionary = pack_fixed(
+		rect_sizes,
+		Vector2i(high, high),
+		options
+	)
+	while not GFVariantData.get_option_bool(
+		high_result,
+		"ok",
+		false
+	):
 		if high >= search_cap:
 			return high_result
 		if high > _divide_truncated(search_cap, 2):
 			high = search_cap
 		else:
 			high *= 2
-		high_result = pack_fixed(rect_sizes, Vector2i(high, high), options)
+		high_result = pack_fixed(
+			rect_sizes,
+			Vector2i(high, high),
+			options
+		)
 
 	if power_of_two:
 		return high_result
@@ -204,8 +302,16 @@ static func pack_square(rect_sizes: Array[Vector2i], options: Dictionary = {}) -
 	var best_result: Dictionary = high_result
 	while low < high:
 		var middle: int = floori(float(low + high) * 0.5)
-		var candidate: Dictionary = pack_fixed(rect_sizes, Vector2i(middle, middle), options)
-		if GFVariantData.get_option_bool(candidate, "ok", false):
+		var candidate: Dictionary = pack_fixed(
+			rect_sizes,
+			Vector2i(middle, middle),
+			options
+		)
+		if GFVariantData.get_option_bool(
+			candidate,
+			"ok",
+			false
+		):
 			best_result = candidate
 			high = middle
 		else:
@@ -228,24 +334,30 @@ static func pack_square(rect_sizes: Array[Vector2i], options: Dictionary = {}) -
 ## @schema placements: Array[Rect2i]，通常来自 pack_fixed() 或 pack_square() 的 placements 字段。
 ## [br]
 ## @schema return: Array[Rect2]，与输入顺序一致；无效容器或空矩形会返回空 Rect2。
-static func normalize_placements(
-	placements: Array[Rect2i],
-	container_size: Vector2i
-) -> Array[Rect2]:
+static func normalize_placements(placements: Array[Rect2i], container_size: Vector2i) -> Array[Rect2]:
 	var result: Array[Rect2] = []
 	var _resize_result: int = result.resize(placements.size())
 	if container_size.x <= 0 or container_size.y <= 0:
 		return result
 
-	var container_vector: Vector2 = Vector2(float(container_size.x), float(container_size.y))
+	var container_vector: Vector2 = Vector2(
+		float(container_size.x),
+		float(container_size.y)
+	)
 	for index: int in range(placements.size()):
 		var rect: Rect2i = placements[index]
 		if rect.size.x <= 0 or rect.size.y <= 0:
 			result[index] = Rect2()
 			continue
 		result[index] = Rect2(
-			Vector2(float(rect.position.x), float(rect.position.y)) / container_vector,
-			Vector2(float(rect.size.x), float(rect.size.y)) / container_vector
+			Vector2(
+				float(rect.position.x),
+				float(rect.position.y)
+			) / container_vector,
+			Vector2(
+				float(rect.size.x),
+				float(rect.size.y)
+			) / container_vector
 		)
 	return result
 
@@ -257,7 +369,14 @@ static func normalize_placements(
 ## @api private
 ## [br]
 static func _get_max_rects(options: Dictionary) -> int:
-	return maxi(GFVariantData.get_option_int(options, "max_rects", DEFAULT_MAX_RECTS), 0)
+	return maxi(
+		GFVariantData.get_option_int(
+			options,
+			"max_rects",
+			DEFAULT_MAX_RECTS
+		),
+		0
+	)
 
 
 ## 将放置与旋转输出数组调整到输入数量，并初始化为空矩形和未旋转。
@@ -285,12 +404,14 @@ static func _make_items(rect_sizes: Array[Vector2i], padding: int) -> Array[Dict
 	for index: int in range(rect_sizes.size()):
 		var size: Vector2i = rect_sizes[index]
 		var valid: bool = size.x > 0 and size.y > 0
-		items.append({
-			"index": index,
-			"size": size,
-			"footprint_size": _get_padded_size(size, padding) if valid else Vector2i.ZERO,
-			"valid": valid,
-		})
+		items.append(
+			{
+				"index": index,
+				"size": size,
+				"footprint_size": _get_padded_size(size, padding) if valid else Vector2i.ZERO,
+				"valid": valid,
+			}
+		)
 	return items
 
 
@@ -300,7 +421,10 @@ static func _make_items(rect_sizes: Array[Vector2i], padding: int) -> Array[Dict
 ## [br]
 static func _get_padded_size(size: Vector2i, padding: int) -> Vector2i:
 	var margin: int = maxi(padding, 0) * 2
-	return Vector2i(size.x + margin, size.y + margin)
+	return Vector2i(
+		size.x + margin,
+		size.y + margin
+	)
 
 
 ## 检查有效矩形加上双侧 padding 后是否超过 Vector2i 可表示尺寸。
@@ -312,8 +436,14 @@ static func _get_padding_error(rect_sizes: Array[Vector2i], padding: int) -> Str
 		if size.x <= 0 or size.y <= 0:
 			continue
 		if (
-			padding > _divide_truncated(_MAX_VECTOR2I_COMPONENT - int(size.x), 2)
-			or padding > _divide_truncated(_MAX_VECTOR2I_COMPONENT - int(size.y), 2)
+			padding > _divide_truncated(
+				_MAX_VECTOR2I_COMPONENT - int(size.x),
+				2
+			)
+			or padding > _divide_truncated(
+				_MAX_VECTOR2I_COMPONENT - int(size.y),
+				2
+			)
 		):
 			return "padding produces dimensions outside representable Vector2i bounds."
 	return ""
@@ -336,7 +466,15 @@ static func _sort_item_before(left: Dictionary, right: Dictionary) -> bool:
 	if left_max_side != right_max_side:
 		return left_max_side > right_max_side
 
-	return GFVariantData.get_option_int(left, "index", 0) < GFVariantData.get_option_int(right, "index", 0)
+	return GFVariantData.get_option_int(
+		left,
+		"index",
+		0
+	) < GFVariantData.get_option_int(
+		right,
+		"index",
+		0
+	)
 
 
 ## 遍历可用方向和空闲矩形，以评分元组选择最佳可行外框放置。
@@ -358,9 +496,18 @@ static func _find_best_placement(
 			if footprint_size.x > free_rect.size.x or footprint_size.y > free_rect.size.y:
 				continue
 			var footprint_rect: Rect2i = Rect2i(free_rect.position, footprint_size)
-			var placed_rect: Rect2i = Rect2i(free_rect.position + Vector2i(padding, padding), placed_size)
+			var placed_rect: Rect2i = Rect2i(
+				free_rect.position + Vector2i(padding, padding),
+				placed_size
+			)
 			var score: Array[int] = _score_placement(free_rect, footprint_size)
-			if best.is_empty() or _score_is_better(score, _get_score_value(GFVariantData.get_option_value(best, "score"))):
+			if (
+				best.is_empty()
+				or _score_is_better(
+					score,
+					_get_score_value(GFVariantData.get_option_value(best, "score"))
+				)
+			):
 				best = {
 					"ok": true,
 					"rect": placed_rect,
@@ -394,7 +541,7 @@ static func _score_placement(free_rect: Rect2i, footprint_size: Vector2i) -> Arr
 	return [
 		mini(leftover_width, leftover_height),
 		maxi(leftover_width, leftover_height),
-		free_rect.size.x * free_rect.size.y - footprint_size.x * footprint_size.y
+		free_rect.size.x * free_rect.size.y - footprint_size.x * footprint_size.y,
 	]
 
 
@@ -414,10 +561,7 @@ static func _score_is_better(left: Array[int], right: Array[int]) -> bool:
 ## [br]
 ## @api private
 ## [br]
-static func _split_free_rects(
-	free_rects: Array[Rect2i],
-	placed: Rect2i
-) -> Array[Rect2i]:
+static func _split_free_rects(free_rects: Array[Rect2i], placed: Rect2i) -> Array[Rect2i]:
 	var result: Array[Rect2i] = []
 	for free_rect: Rect2i in free_rects:
 		if not _rect_intersects(free_rect, placed):
@@ -434,7 +578,10 @@ static func _split_free_rects(
 				result,
 				Rect2i(
 					free_rect.position,
-					Vector2i(placed.position.x - free_rect.position.x, free_rect.size.y)
+					Vector2i(
+						placed.position.x - free_rect.position.x,
+						free_rect.size.y
+					)
 				)
 			)
 		if placed_right < free_right:
@@ -442,7 +589,10 @@ static func _split_free_rects(
 				result,
 				Rect2i(
 					Vector2i(placed_right, free_rect.position.y),
-					Vector2i(free_right - placed_right, free_rect.size.y)
+					Vector2i(
+						free_right - placed_right,
+						free_rect.size.y
+					)
 				)
 			)
 		if placed.position.y > free_rect.position.y:
@@ -450,7 +600,10 @@ static func _split_free_rects(
 				result,
 				Rect2i(
 					free_rect.position,
-					Vector2i(free_rect.size.x, placed.position.y - free_rect.position.y)
+					Vector2i(
+						free_rect.size.x,
+						placed.position.y - free_rect.position.y
+					)
 				)
 			)
 		if placed_bottom < free_bottom:
@@ -458,7 +611,10 @@ static func _split_free_rects(
 				result,
 				Rect2i(
 					Vector2i(free_rect.position.x, placed_bottom),
-					Vector2i(free_rect.size.x, free_bottom - placed_bottom)
+					Vector2i(
+						free_rect.size.x,
+						free_bottom - placed_bottom
+					)
 				)
 			)
 	return result
@@ -483,10 +639,16 @@ static func _prune_free_rects(free_rects: Array[Rect2i]) -> void:
 		var removed_index: bool = false
 		var other_index: int = index + 1
 		while other_index < free_rects.size():
-			if _rect_encloses(free_rects[index], free_rects[other_index]):
+			if _rect_encloses(
+				free_rects[index],
+				free_rects[other_index]
+			):
 				free_rects.remove_at(other_index)
 				continue
-			if _rect_encloses(free_rects[other_index], free_rects[index]):
+			if _rect_encloses(
+				free_rects[other_index],
+				free_rects[index]
+			):
 				free_rects.remove_at(index)
 				removed_index = true
 				break
@@ -536,10 +698,16 @@ static func _get_square_lower_bound(rect_sizes: Array[Vector2i], padding: int) -
 		if padded_area > _MAX_SQUARE_AREA - total_area:
 			return -1
 		total_area += padded_area
-		max_side = maxi(max_side, maxi(padded_size.x, padded_size.y))
+		max_side = maxi(
+			max_side,
+			maxi(padded_size.x, padded_size.y)
+		)
 	if total_area <= 0:
 		return 0
-	return maxi(ceili(sqrt(float(total_area))), max_side)
+	return maxi(
+		ceili(sqrt(float(total_area))),
+		max_side
+	)
 
 
 ## 返回不小于值的最小二次幂；越界输入返回零。
@@ -614,14 +782,28 @@ static func _make_result(
 ## [br]
 ## @api private
 ## [br]
-static func _make_unplaced_result(rect_count: int, container_size: Vector2i, error: String) -> Dictionary:
+static func _make_unplaced_result(
+	rect_count: int,
+	container_size: Vector2i,
+	error: String
+) -> Dictionary:
 	var placements: Array[Rect2i] = []
 	var rotated: Array[bool] = []
-	_initialize_output_arrays(rect_count, placements, rotated)
+	_initialize_output_arrays(
+		rect_count,
+		placements,
+		rotated
+	)
 	var unplaced_indices: PackedInt32Array = PackedInt32Array()
 	for index: int in range(rect_count):
 		var _index_appended: bool = unplaced_indices.append(index)
-	return _make_result(container_size, placements, rotated, unplaced_indices, error)
+	return _make_result(
+		container_size,
+		placements,
+		rotated,
+		unplaced_indices,
+		error
+	)
 
 
 ## 接受 Vector2i 或逐分量四舍五入的 Vector2，其它类型返回零向量。
@@ -634,7 +816,10 @@ static func _get_vector2i_value(value: Variant) -> Vector2i:
 		return vector
 	if value is Vector2:
 		var vector_2: Vector2 = value
-		return Vector2i(roundi(vector_2.x), roundi(vector_2.y))
+		return Vector2i(
+			roundi(vector_2.x),
+			roundi(vector_2.y)
+		)
 	return Vector2i.ZERO
 
 
@@ -643,7 +828,11 @@ static func _get_vector2i_value(value: Variant) -> Vector2i:
 ## @api private
 ## [br]
 static func _get_score_value(value: Variant) -> Array[int]:
-	var result: Array[int] = [_MAX_INT64, _MAX_INT64, _MAX_INT64]
+	var result: Array[int] = [
+		_MAX_INT64,
+		_MAX_INT64,
+		_MAX_INT64,
+	]
 	if not (value is Array):
 		return result
 	var values: Array = GFVariantData.as_array(value)

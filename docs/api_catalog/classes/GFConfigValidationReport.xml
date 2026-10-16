@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigValidationReport" path="addons/gf/standard/utilities/config/gf_config_validation_report.gd" module="standard" extends="RefCounted" classDigest="1907872a9011a7d89b94547d83ecdce90e3a106da621164cc2af0f2161896ea0">
+<class name="GFConfigValidationReport" path="addons/gf/standard/utilities/config/gf_config_validation_report.gd" module="standard" extends="RefCounted" classDigest="a86ad1bf0c23674cef5ac1bda09ad2401c7ab02bcd5c5fd720904b40194de0ea">
 	<description>GFConfigValidationReport: 配置表校验报告构建工具。
 统一创建、合并和补全配置表校验报告，保证 schema、导入器、引用解析和补丁合并使用相同问题结构。</description>
 	<tags>
@@ -87,7 +87,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="merge_report">
-			<signature>func merge_report(target: Dictionary, source: Dictionary, include_row_count: bool = false) -&gt; void:</signature>
+			<signature>func merge_report( target: Dictionary, source: Dictionary, include_row_count: bool = false ) -&gt; void:</signature>
 			<description>合并一份校验报告。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -96,6 +96,7 @@
 				<tag name="param">include_row_count: 为 true 时累加 row_count。</tag>
 				<tag name="schema">target: GFConfigValidationReport 兼容 Dictionary，会被当前方法修改。</tag>
 				<tag name="schema">source: GFConfigValidationReport 兼容 Dictionary，会复制合并到 target。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="finalize_report">

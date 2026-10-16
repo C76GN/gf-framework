@@ -4,10 +4,7 @@ extends GutTest
 
 # --- 常量 ---
 
-const SOURCE_ROOTS: Array[String] = [
-	"res://addons/gf/kernel",
-	"res://addons/gf/standard",
-]
+const SOURCE_ROOTS: Array[String] = ["res://addons/gf/kernel", "res://addons/gf/standard",]
 const GF_VARIANT_ACCESS = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 const GF_PLUGIN_ACTIONS = preload("res://addons/gf/kernel/editor/gf_plugin_actions.gd")
 const GF_PLUGIN_DOCK_TOOLS = preload("res://addons/gf/kernel/editor/gf_plugin_dock_tools.gd")
@@ -28,14 +25,38 @@ func test_all_extensions_disabled_keeps_extension_queries_empty() -> void:
 	var debugger_plugin_paths: Array[String] = GFExtensionSettings.get_enabled_debugger_plugin_paths()
 	_restore_enabled_extensions(restore)
 
-	assert_true(enabled_manifests.is_empty(), "全禁用时不应解析出启用扩展 manifest。")
-	assert_true(editor_action_paths.is_empty(), "全禁用时不应暴露扩展菜单动作。")
-	assert_true(editor_dock_paths.is_empty(), "全禁用时不应暴露扩展 Dock。")
-	assert_true(editor_inspector_paths.is_empty(), "全禁用时不应暴露扩展 Inspector。")
-	assert_true(export_plugin_paths.is_empty(), "全禁用时不应暴露扩展导出插件。")
-	assert_true(gltf_document_paths.is_empty(), "全禁用时不应暴露 glTF 文档扩展。")
-	assert_true(access_extension_paths.is_empty(), "全禁用时不应暴露扩展访问器扩展。")
-	assert_true(debugger_plugin_paths.is_empty(), "全禁用时不应暴露扩展 Debugger 插件。")
+	assert_true(
+		enabled_manifests.is_empty(),
+		"全禁用时不应解析出启用扩展 manifest。"
+	)
+	assert_true(
+		editor_action_paths.is_empty(),
+		"全禁用时不应暴露扩展菜单动作。"
+	)
+	assert_true(
+		editor_dock_paths.is_empty(),
+		"全禁用时不应暴露扩展 Dock。"
+	)
+	assert_true(
+		editor_inspector_paths.is_empty(),
+		"全禁用时不应暴露扩展 Inspector。"
+	)
+	assert_true(
+		export_plugin_paths.is_empty(),
+		"全禁用时不应暴露扩展导出插件。"
+	)
+	assert_true(
+		gltf_document_paths.is_empty(),
+		"全禁用时不应暴露 glTF 文档扩展。"
+	)
+	assert_true(
+		access_extension_paths.is_empty(),
+		"全禁用时不应暴露扩展访问器扩展。"
+	)
+	assert_true(
+		debugger_plugin_paths.is_empty(),
+		"全禁用时不应暴露扩展 Debugger 插件。"
+	)
 
 
 func test_all_extensions_disabled_plugin_helpers_discover_no_extension_extensions() -> void:
@@ -56,9 +77,18 @@ func test_all_extensions_disabled_plugin_helpers_discover_no_extension_extension
 	var inspector_records: Array = _call_array(inspector_tools, &"_collect_enabled_extension_inspector_records")
 	_restore_enabled_extensions(restore)
 
-	assert_true(action_entries.is_empty(), "全禁用时 GF 菜单不应注册扩展级动作。")
-	assert_true(dock_records.is_empty(), "全禁用时不应注册扩展级 Dock。")
-	assert_true(inspector_records.is_empty(), "全禁用时不应注册扩展级 Inspector。")
+	assert_true(
+		action_entries.is_empty(),
+		"全禁用时 GF 菜单不应注册扩展级动作。"
+	)
+	assert_true(
+		dock_records.is_empty(),
+		"全禁用时不应注册扩展级 Dock。"
+	)
+	assert_true(
+		inspector_records.is_empty(),
+		"全禁用时不应注册扩展级 Inspector。"
+	)
 
 
 func test_kernel_and_standard_scripts_load_with_all_extensions_disabled() -> void:
@@ -73,7 +103,11 @@ func test_kernel_and_standard_scripts_load_with_all_extensions_disabled() -> voi
 			issues.append(path)
 	_restore_enabled_extensions(restore)
 
-	assert_eq(issues, [], "全禁用时 kernel/standard 脚本仍应可加载：\n%s" % _join_lines(issues))
+	assert_eq(
+		issues,
+		[],
+		"全禁用时 kernel/standard 脚本仍应可加载：\n%s" % _join_lines(issues)
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -83,54 +117,79 @@ func _set_enabled_extensions(extension_ids: Array[String]) -> Dictionary:
 	var restore: Dictionary = {
 		"had_setting": ProjectSettings.has_setting(setting_name),
 		"value": ProjectSettings.get_setting(setting_name, []),
-		"selection_mode_had_setting": ProjectSettings.has_setting(
-			GFExtensionSettings.EXTENSION_SELECTION_MODE_SETTING
-		),
-		"selection_mode_value": ProjectSettings.get_setting(
-			GFExtensionSettings.EXTENSION_SELECTION_MODE_SETTING,
-			null
-		),
+		"selection_mode_had_setting": ProjectSettings.has_setting(GFExtensionSettings.EXTENSION_SELECTION_MODE_SETTING),
+		"selection_mode_value": ProjectSettings.get_setting(GFExtensionSettings.EXTENSION_SELECTION_MODE_SETTING, null),
 	}
 	ProjectSettings.set_setting(setting_name, extension_ids)
-	ProjectSettings.set_setting(
-		GFExtensionSettings.EXTENSION_SELECTION_MODE_SETTING,
-		GFExtensionSettings.SELECTION_MODE_EXPLICIT
-	)
+	ProjectSettings.set_setting(GFExtensionSettings.EXTENSION_SELECTION_MODE_SETTING, GFExtensionSettings.SELECTION_MODE_EXPLICIT)
 	return restore
 
 
 func _restore_enabled_extensions(restore: Dictionary) -> void:
 	var setting_name: String = GFExtensionSettings.ENABLED_EXTENSIONS_SETTING
-	if GF_VARIANT_ACCESS.get_option_bool(restore, "had_setting", false):
-		ProjectSettings.set_setting(setting_name, GF_VARIANT_ACCESS.get_option_value(restore, "value", []))
+	if GF_VARIANT_ACCESS.get_option_bool(
+		restore,
+		"had_setting",
+		false
+	):
+		ProjectSettings.set_setting(
+			setting_name,
+			GF_VARIANT_ACCESS.get_option_value(
+				restore,
+				"value",
+				[]
+			)
+		)
 	else:
 		ProjectSettings.clear(setting_name)
-	if GF_VARIANT_ACCESS.get_option_bool(restore, "selection_mode_had_setting", false):
+	if GF_VARIANT_ACCESS.get_option_bool(
+		restore,
+		"selection_mode_had_setting",
+		false
+	):
 		ProjectSettings.set_setting(
 			GFExtensionSettings.EXTENSION_SELECTION_MODE_SETTING,
-			GF_VARIANT_ACCESS.get_option_value(restore, "selection_mode_value", null)
+			GF_VARIANT_ACCESS.get_option_value(
+				restore,
+				"selection_mode_value",
+				null
+			)
 		)
 	else:
 		ProjectSettings.clear(GFExtensionSettings.EXTENSION_SELECTION_MODE_SETTING)
 
 
 func _new_object(script_value: Variant) -> Object:
-	assert_true(script_value is Script, "测试工具脚本应可实例化。")
+	assert_true(
+		script_value is Script,
+		"测试工具脚本应可实例化。"
+	)
 	if script_value is Script:
 		var script: Script = script_value
 		var instance: Variant = script.call(&"new")
-		assert_true(instance is Object, "测试工具脚本应实例化为 Object。")
+		assert_true(
+			instance is Object,
+			"测试工具脚本应实例化为 Object。"
+		)
 		if instance is Object:
 			var object_instance: Object = instance
 			return object_instance
 	return null
 
 
-func _call_void(target: Object, method_name: StringName, args: Array = []) -> void:
+func _call_void(
+	target: Object,
+	method_name: StringName,
+	args: Array = []
+) -> void:
 	var _call_result: Variant = target.callv(method_name, args)
 
 
-func _call_array(target: Object, method_name: StringName, args: Array = []) -> Array:
+func _call_array(
+	target: Object,
+	method_name: StringName,
+	args: Array = []
+) -> Array:
 	return GF_VARIANT_ACCESS.as_array(target.callv(method_name, args))
 
 
@@ -162,7 +221,11 @@ func _filter_extension_menu_entries(entries: Array, extension_menu_id_start: int
 		if not entry_variant is Dictionary:
 			continue
 		var entry: Dictionary = GF_VARIANT_ACCESS.as_dictionary(entry_variant)
-		if GF_VARIANT_ACCESS.get_option_int(entry, "id", -1) >= extension_menu_id_start:
+		if GF_VARIANT_ACCESS.get_option_int(
+			entry,
+			"id",
+			-1
+		) >= extension_menu_id_start:
 			result.append(entry.duplicate(true))
 	return result
 

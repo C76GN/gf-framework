@@ -32,7 +32,7 @@
 | 属性 | [`default_max_attachment_bytes`](#member-gfsupportreportutility-properties-default_max_attachment_bytes) | `var default_max_attachment_bytes: int = 2 * 1024 * 1024` |
 | 属性 | [`include_screenshot_by_default`](#member-gfsupportreportutility-properties-include_screenshot_by_default) | `var include_screenshot_by_default: bool = false` |
 | 方法 | [`dispose`](#member-gfsupportreportutility-methods-dispose) | `func dispose() -> void:` |
-| 方法 | [`register_section`](#member-gfsupportreportutility-methods-register_section) | `func register_section(section_id: StringName, provider: Callable, options: Dictionary = {}) -> bool:` |
+| 方法 | [`register_section`](#member-gfsupportreportutility-methods-register_section) | `func register_section( section_id: StringName, provider: Callable, options: Dictionary = {} ) -> bool:` |
 | 方法 | [`unregister_section`](#member-gfsupportreportutility-methods-unregister_section) | `func unregister_section(section_id: StringName) -> void:` |
 | 方法 | [`has_section`](#member-gfsupportreportutility-methods-has_section) | `func has_section(section_id: StringName) -> bool:` |
 | 方法 | [`get_section_catalog`](#member-gfsupportreportutility-methods-get_section_catalog) | `func get_section_catalog() -> Dictionary:` |
@@ -44,8 +44,8 @@
 | 方法 | [`export_report_json`](#member-gfsupportreportutility-methods-export_report_json) | `func export_report_json(report: Dictionary, indent: String = "\t") -> String:` |
 | 方法 | [`export_report_markdown`](#member-gfsupportreportutility-methods-export_report_markdown) | `func export_report_markdown(report: Dictionary, options: Dictionary = {}) -> String:` |
 | 方法 | [`save_report`](#member-gfsupportreportutility-methods-save_report) | `func save_report(report: Dictionary, path: String) -> Error:` |
-| 方法 | [`build_and_save_report`](#member-gfsupportreportutility-methods-build_and_save_report) | `func build_and_save_report(path: String, description: String = "", options: Dictionary = {}) -> Error:` |
-| 方法 | [`submit_report`](#member-gfsupportreportutility-methods-submit_report) | `func submit_report(report: Dictionary, transport: Callable, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`build_and_save_report`](#member-gfsupportreportutility-methods-build_and_save_report) | `func build_and_save_report( path: String, description: String = "", options: Dictionary = {} ) -> Error:` |
+| 方法 | [`submit_report`](#member-gfsupportreportutility-methods-submit_report) | `func submit_report( report: Dictionary, transport: Callable, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`get_debug_snapshot`](#member-gfsupportreportutility-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
 
 ## 信号
@@ -310,7 +310,7 @@ func dispose() -> void:
 - 首次版本：`11.0.0`
 
 ```gdscript
-func register_section(section_id: StringName, provider: Callable, options: Dictionary = {}) -> bool:
+func register_section( section_id: StringName, provider: Callable, options: Dictionary = {} ) -> bool:
 ```
 
 注册自定义报告分区。
@@ -602,9 +602,10 @@ func save_report(report: Dictionary, path: String) -> Error:
 ### `build_and_save_report`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func build_and_save_report(path: String, description: String = "", options: Dictionary = {}) -> Error:
+func build_and_save_report( path: String, description: String = "", options: Dictionary = {} ) -> Error:
 ```
 
 构建并保存支持报告。
@@ -631,7 +632,7 @@ func build_and_save_report(path: String, description: String = "", options: Dict
 - 首次版本：`11.0.0`
 
 ```gdscript
-func submit_report(report: Dictionary, transport: Callable, options: Dictionary = {}) -> Dictionary:
+func submit_report( report: Dictionary, transport: Callable, options: Dictionary = {} ) -> Dictionary:
 ```
 
 通过外部回调提交报告。

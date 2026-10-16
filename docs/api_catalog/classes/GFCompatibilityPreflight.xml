@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCompatibilityPreflight" path="addons/gf/standard/foundation/policy/gf_compatibility_preflight.gd" module="standard" extends="RefCounted" classDigest="abef99bf0eea5105c192fcdc17133f567ced938938ba96a5f8b3ac36bbd8718c">
+<class name="GFCompatibilityPreflight" path="addons/gf/standard/foundation/policy/gf_compatibility_preflight.gd" module="standard" extends="RefCounted" classDigest="9cdab94c65986a6e1d5d894b36530ea5c0e525ff217867461d924e0d8c8b9107">
 	<description>GFCompatibilityPreflight: 通用兼容性预检报告构建器。
 将版本、平台、功能、包、artifact 和外部报告合并为标准校验报告。它只做显式声明的
 预检，不安装包、不下载资源、不执行代码，也不把项目发布策略写入框架。</description>
@@ -206,7 +206,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="add_check">
-			<signature>func add_check(check_id: StringName, ok: bool, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>func add_check( check_id: StringName, ok: bool, options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>添加自定义检查结果。</description>
 			<tags>
 				<tag name="api">public</tag>

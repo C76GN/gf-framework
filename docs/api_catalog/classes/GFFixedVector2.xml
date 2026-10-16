@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFFixedVector2" path="addons/gf/standard/foundation/numeric/gf_fixed_vector2.gd" module="standard" extends="RefCounted" classDigest="0d2d4a488897811e7f219d241d5aefeb75b1c7445aee7a2756e41664f810c6c3">
+<class name="GFFixedVector2" path="addons/gf/standard/foundation/numeric/gf_fixed_vector2.gd" module="standard" extends="RefCounted" classDigest="eccd3eb7986e9565f452b602ff835ad83c79fc09219ed40ec517f6cf56e0a3f1">
 	<description>GFFixedVector2: 基于统一整数缩放的二维定点向量值对象。
 它适合锁步、回放、黄金测试和需要稳定序列化的二维坐标或方向值。
 该类型不替代 Vector2i 格子坐标，也不替代 Godot Vector2 在渲染和物理中的浮点表达。</description>
@@ -39,7 +39,7 @@
 	</properties>
 	<methods>
 		<member kind="method" name="from_raw">
-			<signature>static func from_raw(p_raw_x: int, p_raw_y: int, p_decimal_places: int = 2) -&gt; GFFixedVector2:</signature>
+			<signature>static func from_raw( p_raw_x: int, p_raw_y: int, p_decimal_places: int = 2 ) -&gt; GFFixedVector2:</signature>
 			<description>从 raw 分量创建定点二维向量。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -144,7 +144,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="rescaled">
-			<signature>func rescaled( target_decimal_places: int, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP ) -&gt; GFFixedVector2:</signature>
+			<signature>func rescaled(target_decimal_places: int, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP) -&gt; GFFixedVector2:</signature>
 			<description>重设小数位数。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -208,7 +208,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="length_squared">
-			<signature>func length_squared( target_decimal_places: int = -1, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP ) -&gt; GFFixedDecimal:</signature>
+			<signature>func length_squared(target_decimal_places: int = -1, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP) -&gt; GFFixedDecimal:</signature>
 			<description>计算长度平方。</description>
 			<tags>
 				<tag name="api">public</tag>

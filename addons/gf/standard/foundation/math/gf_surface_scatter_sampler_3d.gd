@@ -63,11 +63,22 @@ static func sample_heightfield(
 	options: Dictionary = {}
 ) -> Dictionary:
 	if heightfield == null or not heightfield.is_valid():
-		return _make_failure_result(area, count, options, "heightfield must be valid.")
+		return _make_failure_result(
+			area,
+			count,
+			options,
+			"heightfield must be valid."
+		)
 
 	var height_provider: Callable = Callable(heightfield, "sample_world")
 	var normal_provider: Callable = Callable(heightfield, "sample_normal_world")
-	return sample(area, count, height_provider, normal_provider, options)
+	return sample(
+		area,
+		count,
+		height_provider,
+		normal_provider,
+		options
+	)
 
 
 ## 将候选 X/Z 点投射到高度场并生成散布 Transform。
@@ -93,11 +104,21 @@ static func sample_heightfield_points(
 	options: Dictionary = {}
 ) -> Dictionary:
 	if heightfield == null or not heightfield.is_valid():
-		return _make_failure_result(Rect2(), points.size(), options, "heightfield must be valid.")
+		return _make_failure_result(
+			Rect2(),
+			points.size(),
+			options,
+			"heightfield must be valid."
+		)
 
 	var height_provider: Callable = Callable(heightfield, "sample_world")
 	var normal_provider: Callable = Callable(heightfield, "sample_normal_world")
-	return sample_points(points, height_provider, normal_provider, options)
+	return sample_points(
+		points,
+		height_provider,
+		normal_provider,
+		options
+	)
 
 
 ## 在 X/Z 区域中随机生成候选点并采样散布 Transform。
@@ -128,15 +149,28 @@ static func sample(
 	normal_provider: Callable = Callable(),
 	options: Dictionary = {}
 ) -> Dictionary:
-	var validation_error: String = _get_random_input_error(area, count, height_provider)
+	var validation_error: String = _get_random_input_error(
+		area,
+		count,
+		height_provider
+	)
 	if not validation_error.is_empty():
-		return _make_failure_result(area, count, options, validation_error)
+		return _make_failure_result(
+			area,
+			count,
+			options,
+			validation_error
+		)
 
 	var settings: Dictionary = _make_settings(options)
 	var target_count: int = maxi(count, 0)
 	var max_attempts: int = _get_random_max_attempts(target_count, settings)
 	var rng: GFDeterministicRandom = GFDeterministicRandom.from_seed(
-		GFVariantData.get_option_int(settings, "seed", 0)
+		GFVariantData.get_option_int(
+			settings,
+			"seed",
+			0
+		)
 	)
 	var transforms: Array[Transform3D] = []
 	var sampled_points: PackedVector3Array = PackedVector3Array()
@@ -168,7 +202,11 @@ static func sample(
 			var _normal_appended: bool = sampled_normals.append(_get_candidate_normal(candidate_result))
 			continue
 
-		match GFVariantData.get_option_string(candidate_result, "rejection", "invalid"):
+		match GFVariantData.get_option_string(
+			candidate_result,
+			"rejection",
+			"invalid"
+		):
 			"height":
 				rejected_height_count += 1
 			"slope":
@@ -217,13 +255,29 @@ static func sample_points(
 	options: Dictionary = {}
 ) -> Dictionary:
 	if not height_provider.is_valid():
-		return _make_failure_result(Rect2(), points.size(), options, "height_provider must be valid.")
+		return _make_failure_result(
+			Rect2(),
+			points.size(),
+			options,
+			"height_provider must be valid."
+		)
 
 	var settings: Dictionary = _make_settings(options)
-	var max_points: int = GFVariantData.get_option_int(options, "max_points", 0)
-	var target_count: int = points.size() if max_points <= 0 else mini(max_points, points.size())
+	var max_points: int = GFVariantData.get_option_int(
+		options,
+		"max_points",
+		0
+	)
+	var target_count: int = points.size() if max_points <= 0 else mini(
+		max_points,
+		points.size()
+	)
 	var rng: GFDeterministicRandom = GFDeterministicRandom.from_seed(
-		GFVariantData.get_option_int(settings, "seed", 0)
+		GFVariantData.get_option_int(
+			settings,
+			"seed",
+			0
+		)
 	)
 	var transforms: Array[Transform3D] = []
 	var sampled_points: PackedVector3Array = PackedVector3Array()
@@ -255,7 +309,11 @@ static func sample_points(
 			var _normal_appended: bool = sampled_normals.append(_get_candidate_normal(candidate_result))
 			continue
 
-		match GFVariantData.get_option_string(candidate_result, "rejection", "invalid"):
+		match GFVariantData.get_option_string(
+			candidate_result,
+			"rejection",
+			"invalid"
+		):
 			"height":
 				rejected_height_count += 1
 			"slope":
@@ -305,7 +363,11 @@ static func to_json_compatible_report(report: Dictionary, options: Dictionary = 
 ## [br]
 ## @api private
 ## [br]
-static func _get_random_input_error(area: Rect2, count: int, height_provider: Callable) -> String:
+static func _get_random_input_error(
+	area: Rect2,
+	count: int,
+	height_provider: Callable
+) -> String:
 	if count < 0:
 		return "count must be greater than or equal to 0."
 	if not height_provider.is_valid():
@@ -322,29 +384,73 @@ static func _get_random_input_error(area: Rect2, count: int, height_provider: Ca
 ## @api private
 ## [br]
 static func _make_settings(options: Dictionary) -> Dictionary:
-	var height_min: float = _get_height_limit(options, "height_min", -INF)
-	var height_max: float = _get_height_limit(options, "height_max", INF)
+	var height_min: float = _get_height_limit(
+		options,
+		"height_min",
+		-INF
+	)
+	var height_max: float = _get_height_limit(
+		options,
+		"height_max",
+		INF
+	)
 	if height_max < height_min:
 		var old_height_min: float = height_min
 		height_min = height_max
 		height_max = old_height_min
 
-	var slope_min: float = clampf(_get_finite_option_float(options, "slope_min", 0.0), 0.0, 1.0)
-	var slope_max: float = clampf(_get_finite_option_float(options, "slope_max", 1.0), 0.0, 1.0)
+	var slope_min: float = clampf(
+		_get_finite_option_float(
+			options,
+			"slope_min",
+			0.0
+		),
+		0.0,
+		1.0
+	)
+	var slope_max: float = clampf(
+		_get_finite_option_float(
+			options,
+			"slope_max",
+			1.0
+		),
+		0.0,
+		1.0
+	)
 	if slope_max < slope_min:
 		var old_slope_min: float = slope_min
 		slope_min = slope_max
 		slope_max = old_slope_min
 
-	var yaw_min: float = _get_finite_option_float(options, "yaw_min", 0.0)
-	var yaw_max: float = _get_finite_option_float(options, "yaw_max", TAU)
+	var yaw_min: float = _get_finite_option_float(
+		options,
+		"yaw_min",
+		0.0
+	)
+	var yaw_max: float = _get_finite_option_float(
+		options,
+		"yaw_max",
+		TAU
+	)
 	if yaw_max < yaw_min:
 		var old_yaw_min: float = yaw_min
 		yaw_min = yaw_max
 		yaw_max = old_yaw_min
 
-	var raw_scale_min: Vector3 = _get_non_negative_scale(_get_scale_option(options, "scale_min", Vector3.ONE))
-	var raw_scale_max: Vector3 = _get_non_negative_scale(_get_scale_option(options, "scale_max", Vector3.ONE))
+	var raw_scale_min: Vector3 = _get_non_negative_scale(
+		_get_scale_option(
+			options,
+			"scale_min",
+			Vector3.ONE
+		)
+	)
+	var raw_scale_max: Vector3 = _get_non_negative_scale(
+		_get_scale_option(
+			options,
+			"scale_max",
+			Vector3.ONE
+		)
+	)
 	var scale_min: Vector3 = Vector3(
 		minf(raw_scale_min.x, raw_scale_max.x),
 		minf(raw_scale_min.y, raw_scale_max.y),
@@ -364,9 +470,17 @@ static func _make_settings(options: Dictionary) -> Dictionary:
 		max_random_attempts = DEFAULT_MAX_RANDOM_ATTEMPTS
 
 	return {
-		"seed": GFVariantData.get_option_int(options, "seed", 0),
+		"seed": GFVariantData.get_option_int(
+			options,
+			"seed",
+			0
+		),
 		"max_attempt_multiplier": maxi(
-			GFVariantData.get_option_int(options, "max_attempt_multiplier", DEFAULT_MAX_ATTEMPT_MULTIPLIER),
+			GFVariantData.get_option_int(
+				options,
+				"max_attempt_multiplier",
+				DEFAULT_MAX_ATTEMPT_MULTIPLIER
+			),
 			1
 		),
 		"max_random_attempts": max_random_attempts,
@@ -379,9 +493,21 @@ static func _make_settings(options: Dictionary) -> Dictionary:
 		"scale_min": scale_min,
 		"scale_max": scale_max,
 		"scale_axis_mode": _get_scale_axis_mode(options),
-		"y_offset": _get_finite_option_float(options, "y_offset", 0.0),
-		"align_to_normal": GFVariantData.get_option_bool(options, "align_to_normal", true),
-		"vertical_scale": _get_finite_option_float(options, "vertical_scale", 1.0),
+		"y_offset": _get_finite_option_float(
+			options,
+			"y_offset",
+			0.0
+		),
+		"align_to_normal": GFVariantData.get_option_bool(
+			options,
+			"align_to_normal",
+			true
+		),
+		"vertical_scale": _get_finite_option_float(
+			options,
+			"vertical_scale",
+			1.0
+		),
 	}
 
 
@@ -430,14 +556,34 @@ static func _evaluate_candidate(
 	settings: Dictionary,
 	rng: GFDeterministicRandom
 ) -> Dictionary:
-	var height_sample: Dictionary = _call_height_provider(height_provider, candidate_point.x, candidate_point.y)
-	if not GFVariantData.get_option_bool(height_sample, "ok", false):
+	var height_sample: Dictionary = _call_height_provider(
+		height_provider,
+		candidate_point.x,
+		candidate_point.y
+	)
+	if not GFVariantData.get_option_bool(
+		height_sample,
+		"ok",
+		false
+	):
 		return _make_candidate_rejection("height")
 
-	var height: float = GFVariantData.get_option_float(height_sample, "height", 0.0)
+	var height: float = GFVariantData.get_option_float(
+		height_sample,
+		"height",
+		0.0
+	)
 	if (
-		height < GFVariantData.get_option_float(settings, "height_min", -INF)
-		or height > GFVariantData.get_option_float(settings, "height_max", INF)
+		height < GFVariantData.get_option_float(
+			settings,
+			"height_min",
+			-INF
+		)
+		or height > GFVariantData.get_option_float(
+			settings,
+			"height_max",
+			INF
+		)
 	):
 		return _make_candidate_rejection("height")
 
@@ -445,29 +591,57 @@ static func _evaluate_candidate(
 		normal_provider,
 		candidate_point.x,
 		candidate_point.y,
-		GFVariantData.get_option_float(settings, "vertical_scale", 1.0)
+		GFVariantData.get_option_float(
+			settings,
+			"vertical_scale",
+			1.0
+		)
 	)
 	var slope: float = _normal_to_slope(normal)
 	if (
-		slope < GFVariantData.get_option_float(settings, "slope_min", 0.0)
-		or slope > GFVariantData.get_option_float(settings, "slope_max", 1.0)
+		slope < GFVariantData.get_option_float(
+			settings,
+			"slope_min",
+			0.0
+		)
+		or slope > GFVariantData.get_option_float(
+			settings,
+			"slope_max",
+			1.0
+		)
 	):
 		return _make_candidate_rejection("slope")
 
 	var yaw: float = rng.next_float_range(
-		GFVariantData.get_option_float(settings, "yaw_min", 0.0),
-		GFVariantData.get_option_float(settings, "yaw_max", TAU)
+		GFVariantData.get_option_float(
+			settings,
+			"yaw_min",
+			0.0
+		),
+		GFVariantData.get_option_float(
+			settings,
+			"yaw_max",
+			TAU
+		)
 	)
 	var scale_value: Vector3 = _get_random_scale(settings, rng)
 	var position: Vector3 = Vector3(
 		candidate_point.x,
-		height + GFVariantData.get_option_float(settings, "y_offset", 0.0),
+		height + GFVariantData.get_option_float(
+			settings,
+			"y_offset",
+			0.0
+		),
 		candidate_point.y
 	)
 	var basis: Basis = _make_surface_basis(
 		normal,
 		yaw,
-		GFVariantData.get_option_bool(settings, "align_to_normal", true)
+		GFVariantData.get_option_bool(
+			settings,
+			"align_to_normal",
+			true
+		)
 	)
 	basis = basis.scaled(scale_value)
 	return {
@@ -483,7 +657,11 @@ static func _evaluate_candidate(
 ## [br]
 ## @api private
 ## [br]
-static func _call_height_provider(height_provider: Callable, world_x: float, world_z: float) -> Dictionary:
+static func _call_height_provider(
+	height_provider: Callable,
+	world_x: float,
+	world_z: float
+) -> Dictionary:
 	var value: Variant = height_provider.call(world_x, world_z)
 	if value is int or value is float:
 		var height: float = GFVariantData.to_float(value, NAN)
@@ -505,7 +683,11 @@ static func _call_normal_provider(
 	if not normal_provider.is_valid():
 		return Vector3.UP
 
-	var value: Variant = normal_provider.call(world_x, world_z, vertical_scale)
+	var value: Variant = normal_provider.call(
+		world_x,
+		world_z,
+		vertical_scale
+	)
 	if value is Vector3:
 		var normal: Vector3 = value
 		if _is_finite_vector3(normal) and normal.length_squared() > _EPSILON:
@@ -525,7 +707,11 @@ static func _normal_to_slope(normal: Vector3) -> float:
 ## [br]
 ## @api private
 ## [br]
-static func _make_surface_basis(normal: Vector3, yaw: float, align_to_normal: bool) -> Basis:
+static func _make_surface_basis(
+	normal: Vector3,
+	yaw: float,
+	align_to_normal: bool
+) -> Basis:
 	var up: Vector3 = normal.normalized() if align_to_normal and normal.length_squared() > _EPSILON else Vector3.UP
 	var yaw_forward: Vector3 = Vector3.FORWARD.rotated(Vector3.UP, yaw).normalized()
 	var right: Vector3 = yaw_forward.cross(up)
@@ -535,7 +721,11 @@ static func _make_surface_basis(normal: Vector3, yaw: float, align_to_normal: bo
 
 	right = right.normalized()
 	var forward: Vector3 = up.cross(right).normalized()
-	return Basis(right, up, -forward)
+	return Basis(
+		right,
+		up,
+		-forward
+	)
 
 
 ## 组装成功采样报告并汇总接受数量、尝试耗尽状态及各类拒绝数量。
@@ -563,7 +753,11 @@ static func _make_success_result(
 		"accepted_count": transforms.size(),
 		"attempt_count": attempt_count,
 		"max_attempts": max_attempts,
-		"seed": GFVariantData.get_option_int(settings, "seed", 0),
+		"seed": GFVariantData.get_option_int(
+			settings,
+			"seed",
+			0
+		),
 		"transforms": transforms,
 		"points": points,
 		"normals": normals,
@@ -578,7 +772,12 @@ static func _make_success_result(
 ## [br]
 ## @api private
 ## [br]
-static func _make_failure_result(area: Rect2, target_count: int, options: Dictionary, error: String) -> Dictionary:
+static func _make_failure_result(
+	area: Rect2,
+	target_count: int,
+	options: Dictionary,
+	error: String
+) -> Dictionary:
 	return {
 		"ok": false,
 		"error": error,
@@ -587,7 +786,11 @@ static func _make_failure_result(area: Rect2, target_count: int, options: Dictio
 		"accepted_count": 0,
 		"attempt_count": 0,
 		"max_attempts": 0,
-		"seed": GFVariantData.get_option_int(options, "seed", 0),
+		"seed": GFVariantData.get_option_int(
+			options,
+			"seed",
+			0
+		),
 		"transforms": [],
 		"points": PackedVector3Array(),
 		"normals": PackedVector3Array(),
@@ -617,7 +820,11 @@ static func _make_candidate_rejection(reason: String) -> Dictionary:
 ## @api private
 ## [br]
 static func _candidate_is_accepted(candidate_result: Dictionary) -> bool:
-	return GFVariantData.get_option_bool(candidate_result, "accepted", false)
+	return GFVariantData.get_option_bool(
+		candidate_result,
+		"accepted",
+		false
+	)
 
 
 ## 读取候选 Transform3D；字段类型不符时返回单位变换。
@@ -625,7 +832,11 @@ static func _candidate_is_accepted(candidate_result: Dictionary) -> bool:
 ## @api private
 ## [br]
 static func _get_candidate_transform(candidate_result: Dictionary) -> Transform3D:
-	var value: Variant = GFVariantData.get_option_value(candidate_result, "transform", Transform3D.IDENTITY)
+	var value: Variant = GFVariantData.get_option_value(
+		candidate_result,
+		"transform",
+		Transform3D.IDENTITY
+	)
 	if value is Transform3D:
 		var transform: Transform3D = value
 		return transform
@@ -637,7 +848,11 @@ static func _get_candidate_transform(candidate_result: Dictionary) -> Transform3
 ## @api private
 ## [br]
 static func _get_candidate_position(candidate_result: Dictionary) -> Vector3:
-	var value: Variant = GFVariantData.get_option_value(candidate_result, "position", Vector3.ZERO)
+	var value: Variant = GFVariantData.get_option_value(
+		candidate_result,
+		"position",
+		Vector3.ZERO
+	)
 	if value is Vector3:
 		var position: Vector3 = value
 		return position
@@ -649,7 +864,11 @@ static func _get_candidate_position(candidate_result: Dictionary) -> Vector3:
 ## @api private
 ## [br]
 static func _get_candidate_normal(candidate_result: Dictionary) -> Vector3:
-	var value: Variant = GFVariantData.get_option_value(candidate_result, "normal", Vector3.UP)
+	var value: Variant = GFVariantData.get_option_value(
+		candidate_result,
+		"normal",
+		Vector3.UP
+	)
 	if value is Vector3:
 		var normal: Vector3 = value
 		return normal
@@ -680,15 +899,26 @@ static func _make_points_area(points: PackedVector2Array) -> Rect2:
 		max_point.y = maxf(max_point.y, point.y)
 	if not found_finite_point:
 		return Rect2()
-	return Rect2(min_point, max_point - min_point)
+	return Rect2(
+		min_point,
+		max_point - min_point
+	)
 
 
 ## 读取高度边界；仅 NaN 会回退默认值，允许无穷作为开区间端点。
 ## [br]
 ## @api private
 ## [br]
-static func _get_height_limit(options: Dictionary, key: String, default_value: float) -> float:
-	var value: float = GFVariantData.get_option_float(options, key, default_value)
+static func _get_height_limit(
+	options: Dictionary,
+	key: String,
+	default_value: float
+) -> float:
+	var value: float = GFVariantData.get_option_float(
+		options,
+		key,
+		default_value
+	)
 	if is_nan(value):
 		return default_value
 	return value
@@ -698,8 +928,16 @@ static func _get_height_limit(options: Dictionary, key: String, default_value: f
 ## [br]
 ## @api private
 ## [br]
-static func _get_scale_option(options: Dictionary, key: String, default_value: Vector3) -> Vector3:
-	var value: Variant = GFVariantData.get_option_value(options, key, default_value)
+static func _get_scale_option(
+	options: Dictionary,
+	key: String,
+	default_value: Vector3
+) -> Vector3:
+	var value: Variant = GFVariantData.get_option_value(
+		options,
+		key,
+		default_value
+	)
 	if value is Vector3:
 		var vector: Vector3 = value
 		if _is_finite_vector3(vector):
@@ -777,8 +1015,16 @@ static func _scale_axis_mode_from_text(value: String) -> GFTransform3DMath.Scale
 ## [br]
 ## @api private
 ## [br]
-static func _get_scale_setting(settings: Dictionary, key: String, default_value: Vector3) -> Vector3:
-	var value: Variant = GFVariantData.get_option_value(settings, key, default_value)
+static func _get_scale_setting(
+	settings: Dictionary,
+	key: String,
+	default_value: Vector3
+) -> Vector3:
+	var value: Variant = GFVariantData.get_option_value(
+		settings,
+		key,
+		default_value
+	)
 	if value is Vector3:
 		var scale_value: Vector3 = value
 		if _is_finite_vector3(scale_value):
@@ -802,8 +1048,16 @@ static func _get_random_scale(settings: Dictionary, rng: GFDeterministicRandom) 
 	var mode: GFTransform3DMath.ScaleAxisMode = _get_scale_axis_mode_setting(settings)
 	var weight: Vector3 = _get_random_scale_weight(mode, rng)
 	return GFTransform3DMath.interpolate_scale(
-		_get_scale_setting(settings, "scale_min", Vector3.ONE),
-		_get_scale_setting(settings, "scale_max", Vector3.ONE),
+		_get_scale_setting(
+			settings,
+			"scale_min",
+			Vector3.ONE
+		),
+		_get_scale_setting(
+			settings,
+			"scale_max",
+			Vector3.ONE
+		),
 		weight,
 		mode
 	)
@@ -813,19 +1067,32 @@ static func _get_random_scale(settings: Dictionary, rng: GFDeterministicRandom) 
 ## LOCK_YZ 使用 y 权重同时驱动 Y/Z，因此此处 z=0 不表示最终 Z 缩放为零。
 ## [br]
 ## @api private
-static func _get_random_scale_weight(
-	mode: GFTransform3DMath.ScaleAxisMode,
-	rng: GFDeterministicRandom
-) -> Vector3:
+static func _get_random_scale_weight(mode: GFTransform3DMath.ScaleAxisMode, rng: GFDeterministicRandom) -> Vector3:
 	match mode:
 		GFTransform3DMath.ScaleAxisMode.FREE:
-			return Vector3(rng.next_float_unit(), rng.next_float_unit(), rng.next_float_unit())
+			return Vector3(
+				rng.next_float_unit(),
+				rng.next_float_unit(),
+				rng.next_float_unit()
+			)
 		GFTransform3DMath.ScaleAxisMode.LOCK_XY:
-			return Vector3(rng.next_float_unit(), 0.0, rng.next_float_unit())
+			return Vector3(
+				rng.next_float_unit(),
+				0.0,
+				rng.next_float_unit()
+			)
 		GFTransform3DMath.ScaleAxisMode.LOCK_XZ:
-			return Vector3(rng.next_float_unit(), rng.next_float_unit(), 0.0)
+			return Vector3(
+				rng.next_float_unit(),
+				rng.next_float_unit(),
+				0.0
+			)
 		GFTransform3DMath.ScaleAxisMode.LOCK_YZ:
-			return Vector3(rng.next_float_unit(), rng.next_float_unit(), 0.0)
+			return Vector3(
+				rng.next_float_unit(),
+				rng.next_float_unit(),
+				0.0
+			)
 		_:
 			return Vector3.ONE * rng.next_float_unit()
 
@@ -834,8 +1101,16 @@ static func _get_random_scale_weight(
 ## [br]
 ## @api private
 ## [br]
-static func _get_finite_option_float(options: Dictionary, key: String, default_value: float) -> float:
-	var value: float = GFVariantData.get_option_float(options, key, default_value)
+static func _get_finite_option_float(
+	options: Dictionary,
+	key: String,
+	default_value: float
+) -> float:
+	var value: float = GFVariantData.get_option_float(
+		options,
+		key,
+		default_value
+	)
 	if not _is_finite_float(value):
 		return default_value
 	return value
@@ -862,4 +1137,8 @@ static func _is_finite_vector2(value: Vector2) -> bool:
 ## @api private
 ## [br]
 static func _is_finite_vector3(value: Vector3) -> bool:
-	return _is_finite_float(value.x) and _is_finite_float(value.y) and _is_finite_float(value.z)
+	return (
+		_is_finite_float(value.x)
+		and _is_finite_float(value.y)
+		and _is_finite_float(value.z)
+	)

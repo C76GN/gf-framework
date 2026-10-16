@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFRequestOutboxUtility" path="addons/gf/standard/utilities/io/gf_request_outbox_utility.gd" module="standard" extends="GFUtility" classDigest="bdb5b16915dfcf2d9e4be9e54192d2a2cd2923ee37e5fcd4762fd27f44ca0f91">
+<class name="GFRequestOutboxUtility" path="addons/gf/standard/utilities/io/gf_request_outbox_utility.gd" module="standard" extends="GFUtility" classDigest="d6dc3ab957b00f513d7e01fbc8f141cd08780653892635c98c94da8a34b80b04">
 	<description>GFRequestOutboxUtility: 通用离线请求队列。
 负责把项目提交的请求描述持久化、按重试策略重放，并通过 transport_callback
 交给项目自己的网络、SDK 或工具链发送。它不内置任何账号、云服务或业务协议。</description>
@@ -60,7 +60,7 @@
 			</tags>
 		</member>
 		<member kind="signal" name="persistence_failed">
-			<signature>signal persistence_failed(operation: StringName, error: Error, path: String)</signature>
+			<signature>signal persistence_failed( operation: StringName, error: Error, path: String )</signature>
 			<description>队列持久化操作失败。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -110,11 +110,17 @@
 			</tags>
 		</member>
 		<member kind="property" name="retry_delays_msec">
-			<signature>var retry_delays_msec: Array[int] = [500, 1000, 2000, 5000]</signature>
+			<signature>var retry_delays_msec: Array[int] = [
+	500,
+	1000,
+	2000,
+	5000,
+]</signature>
 			<description>重试延迟序列，单位毫秒；超过长度后复用最后一个值。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">retry_delays_msec: Array，按毫秒记录的重试延迟列表。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="keep_failed_requests">
@@ -204,7 +210,7 @@ envelope 是隔离副本，回调修改不会写回内部队列。</description>
 			</tags>
 		</member>
 		<member kind="method" name="enqueue_with_report">
-			<signature>func enqueue_with_report( envelope: GFRequestEnvelope, require_persistence: bool = false ) -&gt; Dictionary:</signature>
+			<signature>func enqueue_with_report(envelope: GFRequestEnvelope, require_persistence: bool = false) -&gt; Dictionary:</signature>
 			<description>以隔离快照入队请求，并返回内存与持久化结果。
 该入口不会把调用方持有的 envelope 直接放入内部队列。require_persistence=true 时，
 会先验证 body 与 metadata 可由 GFVariantJsonCodec 无损往返；Object、Callable、

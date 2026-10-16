@@ -37,7 +37,14 @@ extends Resource
 ## 调试绘制颜色。透明色会沿用 Godot 默认调试显示。
 ## [br]
 ## @api public
-@export var debug_color: Color = Color(0.0, 0.0, 0.0, 0.0)
+## [br]
+## @since 3.2.0
+@export var debug_color: Color = Color(
+	0.0,
+	0.0,
+	0.0,
+	0.0
+)
 
 ## 是否禁用生成的 CollisionShape2D。
 ## [br]

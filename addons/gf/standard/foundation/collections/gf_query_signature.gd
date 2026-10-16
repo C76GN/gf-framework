@@ -122,7 +122,13 @@ func has_domain(domain: StringName) -> bool:
 ## @return 已排序的规范化值列表。
 func get_domain_values(domain: StringName) -> PackedStringArray:
 	var values: PackedStringArray = PackedStringArray()
-	var domain_values: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(_domains, String(domain), {}))
+	var domain_values: Dictionary = GFVariantData.as_dictionary(
+		GFVariantData.get_option_value(
+			_domains,
+			String(domain),
+			{}
+		)
+	)
 	for value_key: String in domain_values.keys():
 		var _value_appended: bool = values.append(value_key)
 	values.sort()
@@ -157,9 +163,19 @@ func to_text() -> String:
 	var result: String = "gfq1:%d:" % domain_keys.size()
 	for domain_key: String in domain_keys:
 		var values: PackedStringArray = get_domain_values(StringName(domain_key))
-		result += "%d:%s%d:" % [domain_key.length(), domain_key, values.size()]
+		result += (
+			"%d:%s%d:"
+			% [
+				domain_key.length(),
+				domain_key,
+				values.size(),
+			]
+		)
 		for encoded_value: String in values:
-			result += "%d:%s" % [encoded_value.length(), encoded_value]
+			result += (
+				"%d:%s"
+				% [encoded_value.length(), encoded_value]
+			)
 	return result
 
 
@@ -189,7 +205,10 @@ static func from_dictionary(domains: Dictionary) -> GFQuerySignature:
 	var signature: GFQuerySignature = GFQuerySignature.new()
 	for domain_variant: Variant in domains.keys():
 		var domain: StringName = GFVariantData.to_string_name(domain_variant)
-		var _restored: GFQuerySignature = signature._set_encoded_values(domain, domains[domain_variant])
+		var _restored: GFQuerySignature = signature._set_encoded_values(
+			domain,
+			domains[domain_variant]
+		)
 	return signature
 
 

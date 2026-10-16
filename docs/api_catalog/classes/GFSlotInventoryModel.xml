@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSlotInventoryModel" path="addons/gf/extensions/domain/inventory/gf_slot_inventory_model.gd" module="extensions/domain" extends="GFModel" classDigest="0d4e08cc63dda8cb516c330d188c5b32992dbbf6000a4338dd168ee5f4fe2750">
+<class name="GFSlotInventoryModel" path="addons/gf/extensions/domain/inventory/gf_slot_inventory_model.gd" module="extensions/domain" extends="GFModel" classDigest="aa1cce809264658d228d8195056ddb06c7122d3f724e276f057361c3ad22b4c9">
 	<description>GFSlotInventoryModel: 通用可序列化槽位库存模型。
 管理固定或可增长槽位中的 `GFInventoryStack`，支持槽位接收规则、
 堆叠容量、最大堆叠数量、实例数据兼容性、移动、交换和序列化。</description>
@@ -18,7 +18,7 @@
 			</tags>
 		</member>
 		<member kind="signal" name="slot_state_changed">
-			<signature>signal slot_state_changed(slot_index: int, before_stack_data: Dictionary, after_stack_data: Dictionary)</signature>
+			<signature>signal slot_state_changed( slot_index: int, before_stack_data: Dictionary, after_stack_data: Dictionary )</signature>
 			<description>槽位内容变化时发出，并携带变化前后的稳定快照。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -27,6 +27,7 @@
 				<tag name="param">after_stack_data: 变化后的槽位堆叠字典；空槽为 `{}`。</tag>
 				<tag name="schema">before_stack_data: Dictionary，GFInventoryStack.to_dict() 形状的槽位快照；空槽为空字典。</tag>
 				<tag name="schema">after_stack_data: Dictionary，GFInventoryStack.to_dict() 形状的槽位快照；空槽为空字典。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="slot_filled">
@@ -50,23 +51,25 @@
 			</tags>
 		</member>
 		<member kind="signal" name="item_added">
-			<signature>signal item_added(slot_index: int, item_id: StringName, amount: int)</signature>
+			<signature>signal item_added( slot_index: int, item_id: StringName, amount: int )</signature>
 			<description>物品加入槽位后发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">slot_index: 物品加入的槽位索引。</tag>
 				<tag name="param">item_id: 加入的物品 ID。</tag>
 				<tag name="param">amount: 实际加入数量。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="item_removed">
-			<signature>signal item_removed(slot_index: int, item_id: StringName, amount: int)</signature>
+			<signature>signal item_removed( slot_index: int, item_id: StringName, amount: int )</signature>
 			<description>物品从槽位移除后发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">slot_index: 物品移除的槽位索引。</tag>
 				<tag name="param">item_id: 移除的物品 ID。</tag>
 				<tag name="param">amount: 实际移除数量。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="inventory_changed">
@@ -332,7 +335,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="move_between_slots">
-			<signature>func move_between_slots(source_slot: int, target_slot: int, amount: int = 0) -&gt; GFInventoryOperationResult:</signature>
+			<signature>func move_between_slots( source_slot: int, target_slot: int, amount: int = 0 ) -&gt; GFInventoryOperationResult:</signature>
 			<description>移动一个槽位的内容到另一个槽位，目标为空时移动，兼容时合并。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -340,6 +343,7 @@
 				<tag name="param">target_slot: 目标槽位。</tag>
 				<tag name="param">amount: 移动数量；小于等于 0 时移动全部。</tag>
 				<tag name="return">操作结果。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_item_total">
@@ -354,7 +358,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="has_item">
-			<signature>func has_item(item_id: StringName, amount: int = 1, instance_data: Dictionary = {}) -&gt; bool:</signature>
+			<signature>func has_item( item_id: StringName, amount: int = 1, instance_data: Dictionary = {} ) -&gt; bool:</signature>
 			<description>检查是否拥有足够数量。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -363,6 +367,7 @@
 				<tag name="param">instance_data: 实例数据。</tag>
 				<tag name="return">数量足够返回 true。</tag>
 				<tag name="schema">instance_data: Dictionary，项目自定义物品实例数据；为空时统计全部同 ID 物品。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_remaining_capacity_for_item">

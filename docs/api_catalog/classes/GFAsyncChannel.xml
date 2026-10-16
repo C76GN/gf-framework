@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAsyncChannel" path="addons/gf/standard/common/gf_async_channel.gd" module="standard" extends="RefCounted" classDigest="59830652e98ad1d9bb418e11466a815cdfd5646459f6fc847dbec52edaead2cc">
+<class name="GFAsyncChannel" path="addons/gf/standard/common/gf_async_channel.gd" module="standard" extends="RefCounted" classDigest="349350b5298436338d422267bb0362ec9ee9e71f3e4352a2db3cbc627e3fb9a6">
 	<description>GFAsyncChannel: 轻量异步事件通道。
 提供多逻辑生产者、单消费者的有界环形队列语义，可同步写入，也可异步等待下一条数据。
 通道只允许在主线程使用；后台线程应先通过 GFMainThreadDispatchQueue 回到主线程。
@@ -158,7 +158,7 @@
 	<properties />
 	<methods>
 		<member kind="method" name="configure_ingress">
-			<signature>func configure_ingress( max_buffered_items: int, overflow_policy: StringName = OVERFLOW_REJECT ) -&gt; bool:</signature>
+			<signature>func configure_ingress(max_buffered_items: int, overflow_policy: StringName = OVERFLOW_REJECT) -&gt; bool:</signature>
 			<description>配置有界缓冲和容量满时的处理策略。
 该配置不会驱逐现有数据；max_buffered_items 小于当前缓冲数量时配置失败。</description>
 			<tags>

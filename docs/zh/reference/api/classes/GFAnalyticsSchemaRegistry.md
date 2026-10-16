@@ -17,7 +17,7 @@
 |---|---|---|
 | 方法 | [`register_schema`](#member-gfanalyticsschemaregistry-methods-register_schema) | `func register_schema(schema: GFAnalyticsEventSchema) -> Dictionary:` |
 | 方法 | [`has_schema`](#member-gfanalyticsschemaregistry-methods-has_schema) | `func has_schema(event_name: StringName, schema_version: int) -> bool:` |
-| 方法 | [`get_schema`](#member-gfanalyticsschemaregistry-methods-get_schema) | `func get_schema( event_name: StringName, schema_version: int ) -> GFAnalyticsEventSchema:` |
+| 方法 | [`get_schema`](#member-gfanalyticsschemaregistry-methods-get_schema) | `func get_schema(event_name: StringName, schema_version: int) -> GFAnalyticsEventSchema:` |
 | 方法 | [`get_versions`](#member-gfanalyticsschemaregistry-methods-get_versions) | `func get_versions(event_name: StringName) -> PackedInt32Array:` |
 | 方法 | [`validate`](#member-gfanalyticsschemaregistry-methods-validate) | `func validate( event_name: StringName, schema_version: int, properties: Dictionary, options: Dictionary = {} ) -> GFValidationReport:` |
 | 方法 | [`get_debug_snapshot`](#member-gfanalyticsschemaregistry-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
@@ -79,7 +79,7 @@ func has_schema(event_name: StringName, schema_version: int) -> bool:
 - 首次版本：`10.0.0`
 
 ```gdscript
-func get_schema( event_name: StringName, schema_version: int ) -> GFAnalyticsEventSchema:
+func get_schema(event_name: StringName, schema_version: int) -> GFAnalyticsEventSchema:
 ```
 
 获取精确事件 Schema 版本的隔离副本。

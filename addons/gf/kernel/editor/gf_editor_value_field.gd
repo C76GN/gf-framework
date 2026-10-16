@@ -162,7 +162,11 @@ func configure(property_info: Dictionary, value: Variant = null) -> void:
 	_property_info = property_info.duplicate(true)
 	_value = value
 	if label_text.is_empty():
-		label_text = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(_property_info, "label", _GF_VARIANT_ACCESS_SCRIPT.get_option_string(_property_info, "name"))
+		label_text = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			_property_info,
+			"label",
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(_property_info, "name")
+		)
 	_rebuild_editor()
 
 
@@ -401,7 +405,10 @@ func _create_custom_editor(value_type: Variant.Type) -> Control:
 	if not factory.is_valid():
 		return null
 
-	var control_value: Variant = factory.call(_property_info.duplicate(true), _GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(_value))
+	var control_value: Variant = factory.call(
+		_property_info.duplicate(true),
+		_GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(_value)
+	)
 	if control_value is Control:
 		var control: Control = control_value
 		control.set_meta(_CUSTOM_EDITOR_META, true)
@@ -431,11 +438,18 @@ func _create_enum_editor() -> OptionButton:
 ## @api private
 func _create_vector_editor(component_count: int, integer_components: bool) -> HBoxContainer:
 	var container: HBoxContainer = HBoxContainer.new()
-	container.set_meta(_VECTOR_EDITOR_META, {
-		"component_count": component_count,
-		"integer_components": integer_components,
-	})
-	var component_names: PackedStringArray = PackedStringArray(["x", "y", "z", "w"])
+	container.set_meta(
+		_VECTOR_EDITOR_META,
+		{ "component_count": component_count, "integer_components": integer_components, }
+	)
+	var component_names: PackedStringArray = PackedStringArray(
+		[
+			"x",
+			"y",
+			"z",
+			"w",
+		]
+	)
 	for index: int in range(component_count):
 		var spin: SpinBox = SpinBox.new()
 		spin.name = component_names[index]
@@ -542,7 +556,11 @@ func _read_editor_value() -> Variant:
 			if line_edit == null:
 				return _value
 			var parse_result: Dictionary = _try_parse_json_value(line_edit.text, value_type)
-			if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(parse_result, "ok", false):
+			if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+				parse_result,
+				"ok",
+				false
+			):
 				return _value
 			return _GF_VARIANT_ACCESS_SCRIPT.get_option_value(parse_result, "value")
 		_:
@@ -594,7 +612,12 @@ func _apply_spin_options(spin: SpinBox, integer_value: bool) -> void:
 		spin.max_value = parts[1].to_float()
 	if parts.size() >= 3 and parts[2].is_valid_float():
 		if integer_value:
-			spin.step = float(maxi(parts[2].to_int(), 1))
+			spin.step = float(
+				maxi(
+					parts[2].to_int(),
+					1
+				)
+			)
 		else:
 			spin.step = parts[2].to_float()
 
@@ -604,7 +627,10 @@ func _apply_spin_options(spin: SpinBox, integer_value: bool) -> void:
 ## @api private
 func _sync_custom_editor_from_value(control: Control) -> void:
 	if control.has_method("set_value"):
-		control.call("set_value", _GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(_value))
+		control.call(
+			"set_value",
+			_GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(_value)
+		)
 
 
 ## 自定义控件实现 get_value 时读取其值，否则退回当前 `_value`。
@@ -621,7 +647,10 @@ func _read_custom_editor_value(control: Control) -> Variant:
 ## @api private
 func _connect_custom_editor(control: Control) -> void:
 	if control.has_signal("value_changed"):
-		var _connect_result_custom: Error = control.connect("value_changed", Callable(self, "_on_custom_value_changed")) as Error
+		var _connect_result_custom: Error = control.connect(
+			"value_changed",
+			Callable(self, "_on_custom_value_changed")
+		) as Error
 
 
 ## 根据自定义编辑器 metadata 判断控件是否由注册工厂提供。
@@ -657,10 +686,7 @@ func _parse_enum_items(hint_string: String) -> Array[Dictionary]:
 			var value_text: String = item_text.substr(separator_index + 1).strip_edges()
 			if value_text.is_valid_int():
 				value = value_text.to_int()
-		result.append({
-			"label": label,
-			"value": value,
-		})
+		result.append({ "label": label, "value": value, })
 		next_value = value + 1
 	return result
 
@@ -688,7 +714,10 @@ func _sync_vector_from_value() -> void:
 	var container: HBoxContainer = _get_vector_editor()
 	if container == null:
 		return
-	var components: Array[float] = _get_vector_components(_value, _get_property_type())
+	var components: Array[float] = _get_vector_components(
+		_value,
+		_get_property_type()
+	)
 	var index: int = 0
 	for child: Node in container.get_children():
 		if child is SpinBox and index < components.size():
@@ -710,7 +739,10 @@ func _read_vector_editor_value() -> Variant:
 		if child is SpinBox:
 			var spin: SpinBox = child
 			components.append(spin.value)
-	return _make_vector_value(components, _get_property_type())
+	return _make_vector_value(
+		components,
+		_get_property_type()
+	)
 
 
 ## 返回匹配 Variant 向量的浮点分量；类型不匹配时按声明维度返回零填充值。
@@ -729,21 +761,47 @@ func _get_vector_components(value: Variant, value_type: Variant.Type) -> Array[f
 		TYPE_VECTOR3:
 			if value is Vector3:
 				var vector3_value: Vector3 = value
-				return [vector3_value.x, vector3_value.y, vector3_value.z]
+				return [
+					vector3_value.x,
+					vector3_value.y,
+					vector3_value.z,
+				]
 		TYPE_VECTOR3I:
 			if value is Vector3i:
 				var vector3i_value: Vector3i = value
-				return [vector3i_value.x, vector3i_value.y, vector3i_value.z]
+				return [
+					vector3i_value.x,
+					vector3i_value.y,
+					vector3i_value.z,
+				]
 		TYPE_VECTOR4:
 			if value is Vector4:
 				var vector4_value: Vector4 = value
-				return [vector4_value.x, vector4_value.y, vector4_value.z, vector4_value.w]
+				return [
+					vector4_value.x,
+					vector4_value.y,
+					vector4_value.z,
+					vector4_value.w,
+				]
 		TYPE_VECTOR4I:
 			if value is Vector4i:
 				var vector4i_value: Vector4i = value
-				return [vector4i_value.x, vector4i_value.y, vector4i_value.z, vector4i_value.w]
+				return [
+					vector4i_value.x,
+					vector4i_value.y,
+					vector4i_value.z,
+					vector4i_value.w,
+				]
 
-	var component_count: int = 4 if value_type == TYPE_VECTOR4 or value_type == TYPE_VECTOR4I else 3 if value_type == TYPE_VECTOR3 or value_type == TYPE_VECTOR3I else 2
+	var component_count: int = (
+		4
+		if value_type == TYPE_VECTOR4 or value_type == TYPE_VECTOR4I
+		else (
+			3
+			if value_type == TYPE_VECTOR3 or value_type == TYPE_VECTOR3I
+			else 2
+		)
+	)
 	var result: Array[float] = []
 	for _index: int in range(component_count):
 		result.append(0.0)
@@ -757,17 +815,41 @@ func _get_vector_components(value: Variant, value_type: Variant.Type) -> Array[f
 func _make_vector_value(components: Array[float], value_type: Variant.Type) -> Variant:
 	match value_type:
 		TYPE_VECTOR2:
-			return Vector2(_get_component_float(components, 0), _get_component_float(components, 1))
+			return Vector2(
+				_get_component_float(components, 0),
+				_get_component_float(components, 1)
+			)
 		TYPE_VECTOR2I:
-			return Vector2i(_get_component_int(components, 0), _get_component_int(components, 1))
+			return Vector2i(
+				_get_component_int(components, 0),
+				_get_component_int(components, 1)
+			)
 		TYPE_VECTOR3:
-			return Vector3(_get_component_float(components, 0), _get_component_float(components, 1), _get_component_float(components, 2))
+			return Vector3(
+				_get_component_float(components, 0),
+				_get_component_float(components, 1),
+				_get_component_float(components, 2)
+			)
 		TYPE_VECTOR3I:
-			return Vector3i(_get_component_int(components, 0), _get_component_int(components, 1), _get_component_int(components, 2))
+			return Vector3i(
+				_get_component_int(components, 0),
+				_get_component_int(components, 1),
+				_get_component_int(components, 2)
+			)
 		TYPE_VECTOR4:
-			return Vector4(_get_component_float(components, 0), _get_component_float(components, 1), _get_component_float(components, 2), _get_component_float(components, 3))
+			return Vector4(
+				_get_component_float(components, 0),
+				_get_component_float(components, 1),
+				_get_component_float(components, 2),
+				_get_component_float(components, 3)
+			)
 		TYPE_VECTOR4I:
-			return Vector4i(_get_component_int(components, 0), _get_component_int(components, 1), _get_component_int(components, 2), _get_component_int(components, 3))
+			return Vector4i(
+				_get_component_int(components, 0),
+				_get_component_int(components, 1),
+				_get_component_int(components, 2),
+				_get_component_int(components, 3)
+			)
 	return _value
 
 
@@ -789,14 +871,22 @@ func _get_component_int(components: Array[float], index: int) -> int:
 ## [br]
 ## @api private
 func _get_property_type() -> Variant.Type:
-	return _GF_VARIANT_ACCESS_SCRIPT.get_option_int(_property_info, "type", TYPE_STRING) as Variant.Type
+	return _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+		_property_info,
+		"type",
+		TYPE_STRING
+	) as Variant.Type
 
 
 ## 从属性信息读取 hint；字段缺失或类型不符时退回 PROPERTY_HINT_NONE。
 ## [br]
 ## @api private
 func _get_property_hint() -> PropertyHint:
-	return _GF_VARIANT_ACCESS_SCRIPT.get_option_int(_property_info, "hint", PROPERTY_HINT_NONE) as PropertyHint
+	return _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+		_property_info,
+		"hint",
+		PROPERTY_HINT_NONE
+	) as PropertyHint
 
 
 ## 从属性信息读取 hint_string；缺失或类型不符时返回空字符串。
@@ -895,9 +985,7 @@ func _stringify_value(value: Variant) -> String:
 			value,
 			"",
 			false,
-			_GF_REPORT_VALUE_CODEC_SCRIPT.make_redaction_options(
-				_GF_REPORT_VALUE_CODEC_SCRIPT.REDACTION_PROFILE_DEBUG
-			)
+			_GF_REPORT_VALUE_CODEC_SCRIPT.make_redaction_options(_GF_REPORT_VALUE_CODEC_SCRIPT.REDACTION_PROFILE_DEBUG)
 		)
 	if value == null:
 		return ""
@@ -1040,10 +1128,18 @@ func _on_text_changed(_text: String) -> void:
 		if line_edit == null:
 			return
 		var parse_result: Dictionary = _try_parse_json_value(line_edit.text, value_type)
-		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(parse_result, "ok", false):
+		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			parse_result,
+			"ok",
+			false
+		):
 			value_parse_failed.emit(
 				line_edit.text,
-				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(parse_result, "error", "")
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+					parse_result,
+					"error",
+					""
+				)
 			)
 			return
 		_emit_value_changed(_GF_VARIANT_ACCESS_SCRIPT.get_option_value(parse_result, "value"))

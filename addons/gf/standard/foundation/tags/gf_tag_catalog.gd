@@ -95,8 +95,16 @@ func configure(
 	tag_definitions = []
 	for definition: Dictionary in p_definitions:
 		tag_definitions.append(definition.duplicate(true))
-	allow_undefined_tags = GFVariantData.get_option_bool(options, "allow_undefined_tags", allow_undefined_tags)
-	metadata = GFVariantData.get_option_dictionary(options, "metadata", metadata)
+	allow_undefined_tags = GFVariantData.get_option_bool(
+		options,
+		"allow_undefined_tags",
+		allow_undefined_tags
+	)
+	metadata = GFVariantData.get_option_dictionary(
+		options,
+		"metadata",
+		metadata
+	)
 	_invalidate_cache()
 	return self
 
@@ -144,8 +152,16 @@ func add_tag(tag: StringName, options: Dictionary = {}) -> bool:
 ## @return 添加成功返回 true。
 ## [br]
 ## @schema options: Dictionary redirect definition options.
-func add_redirect(source_tag: StringName, target_tag: StringName, options: Dictionary = {}) -> bool:
-	if source_tag == &"" or target_tag == &"" or has_tag(source_tag):
+func add_redirect(
+	source_tag: StringName,
+	target_tag: StringName,
+	options: Dictionary = {}
+) -> bool:
+	if (
+		source_tag == &""
+		or target_tag == &""
+		or has_tag(source_tag)
+	):
 		return false
 
 	var definition: Dictionary = {
@@ -287,8 +303,16 @@ func resolve_tag(tag: StringName, max_depth: int = 16) -> StringName:
 ## @schema options: Dictionary normalization options.
 func normalize_tag_source(source: Variant, options: Dictionary = {}) -> GFTagSet:
 	var result: GFTagSet = GFTagSet.new()
-	var drop_undefined: bool = GFVariantData.get_option_bool(options, "drop_undefined", false)
-	var max_redirect_depth: int = GFVariantData.get_option_int(options, "max_redirect_depth", 16)
+	var drop_undefined: bool = GFVariantData.get_option_bool(
+		options,
+		"drop_undefined",
+		false
+	)
+	var max_redirect_depth: int = GFVariantData.get_option_int(
+		options,
+		"max_redirect_depth",
+		16
+	)
 	var counts: Dictionary = GFTagSourceAdapter.get_tag_counts(source)
 	for tag_variant: Variant in counts.keys():
 		var source_tag: StringName = GFVariantData.to_string_name(tag_variant)
@@ -316,12 +340,25 @@ func normalize_tag_source(source: Variant, options: Dictionary = {}) -> GFTagSet
 ## [br]
 ## @schema options: Dictionary validation options.
 func validate_tag_source(source: Variant, options: Dictionary = {}) -> GFValidationReport:
-	var subject: String = GFVariantData.get_option_string(options, "subject", String(catalog_id))
-	var report: GFValidationReport = GFValidationReport.new(subject, {
-		"catalog_id": catalog_id,
-	})
-	var allowed_unknown: bool = GFVariantData.get_option_bool(options, "allow_undefined_tags", allow_undefined_tags)
-	var max_redirect_depth: int = GFVariantData.get_option_int(options, "max_redirect_depth", 16)
+	var subject: String = GFVariantData.get_option_string(
+		options,
+		"subject",
+		String(catalog_id)
+	)
+	var report: GFValidationReport = GFValidationReport.new(
+		subject,
+		{ "catalog_id": catalog_id, }
+	)
+	var allowed_unknown: bool = GFVariantData.get_option_bool(
+		options,
+		"allow_undefined_tags",
+		allow_undefined_tags
+	)
+	var max_redirect_depth: int = GFVariantData.get_option_int(
+		options,
+		"max_redirect_depth",
+		16
+	)
 	var counts: Dictionary = GFTagSourceAdapter.get_tag_counts(source)
 	for tag_variant: Variant in counts.keys():
 		var source_tag: StringName = GFVariantData.to_string_name(tag_variant)
@@ -332,10 +369,7 @@ func validate_tag_source(source: Variant, options: Dictionary = {}) -> GFValidat
 				"tag is redirected by catalog.",
 				source_tag,
 				"",
-				{
-					"source_tag": source_tag,
-					"resolved_tag": resolved_tag,
-				}
+				{ "source_tag": source_tag, "resolved_tag": resolved_tag, }
 			)
 		if not allowed_unknown and not has_tag(resolved_tag, false):
 			var _undefined_issue: RefCounted = report.add_error(
@@ -343,10 +377,7 @@ func validate_tag_source(source: Variant, options: Dictionary = {}) -> GFValidat
 				"tag is not declared in catalog.",
 				source_tag,
 				"",
-				{
-					"source_tag": source_tag,
-					"resolved_tag": resolved_tag,
-				}
+				{ "source_tag": source_tag, "resolved_tag": resolved_tag, }
 			)
 	return report
 
@@ -363,10 +394,15 @@ func validate_tag_source(source: Variant, options: Dictionary = {}) -> GFValidat
 ## [br]
 ## @schema options: Dictionary validation options.
 func validate_definition(options: Dictionary = {}) -> GFValidationReport:
-	var subject: String = GFVariantData.get_option_string(options, "subject", String(catalog_id))
-	var report: GFValidationReport = GFValidationReport.new(subject, {
-		"catalog_id": catalog_id,
-	})
+	var subject: String = GFVariantData.get_option_string(
+		options,
+		"subject",
+		String(catalog_id)
+	)
+	var report: GFValidationReport = GFValidationReport.new(
+		subject,
+		{ "catalog_id": catalog_id, }
+	)
 	var seen_tags: Dictionary = {}
 	var target_tags: Dictionary = {}
 	for definition: Dictionary in tag_definitions:
@@ -375,7 +411,11 @@ func validate_definition(options: Dictionary = {}) -> GFValidationReport:
 			var _empty_issue: RefCounted = report.add_error(&"empty_tag", "tag definition must declare a tag.")
 			continue
 		if seen_tags.has(tag):
-			var _duplicate_issue: RefCounted = report.add_error(&"duplicate_tag", "tag definition is duplicated.", tag)
+			var _duplicate_issue: RefCounted = report.add_error(
+				&"duplicate_tag",
+				"tag definition is duplicated.",
+				tag
+			)
 		seen_tags[tag] = true
 		var redirect_to: StringName = _definition_redirect(definition)
 		if redirect_to != &"":
@@ -386,12 +426,20 @@ func validate_definition(options: Dictionary = {}) -> GFValidationReport:
 		var source_tag: StringName = GFVariantData.to_string_name(source_tag_variant)
 		var resolved_tag: StringName = resolve_tag(source_tag)
 		if resolved_tag == source_tag:
-			var _cycle_issue: RefCounted = report.add_error(&"redirect_cycle", "tag redirect chain is cyclic or invalid.", source_tag)
+			var _cycle_issue: RefCounted = report.add_error(
+				&"redirect_cycle",
+				"tag redirect chain is cyclic or invalid.",
+				source_tag
+			)
 
 	for target_tag_variant: Variant in target_tags.keys():
 		var target_tag: StringName = GFVariantData.to_string_name(target_tag_variant)
 		if not seen_tags.has(target_tag):
-			var _missing_issue: RefCounted = report.add_warning(&"missing_redirect_target", "redirect target is not declared in catalog.", target_tag)
+			var _missing_issue: RefCounted = report.add_warning(
+				&"missing_redirect_target",
+				"redirect target is not declared in catalog.",
+				target_tag
+			)
 	return report
 
 
@@ -454,7 +502,11 @@ static func from_dictionary(data: Dictionary) -> GFTagCatalog:
 		GFVariantData.get_option_string_name(data, "catalog_id"),
 		definitions,
 		{
-			"allow_undefined_tags": GFVariantData.get_option_bool(data, "allow_undefined_tags", true),
+			"allow_undefined_tags": GFVariantData.get_option_bool(
+				data,
+				"allow_undefined_tags",
+				true
+			),
 			"metadata": GFVariantData.get_option_dictionary(data, "metadata"),
 		}
 	)
@@ -505,16 +557,19 @@ func _make_catalog_signature() -> String:
 		var redirect_to: String = String(_definition_redirect(definition))
 		var description: String = GFVariantData.get_option_string(definition, "description")
 		var metadata_text: String = str(GFVariantData.get_option_dictionary(definition, "metadata"))
-		var _part_appended: bool = parts.append("%d:%s>%d:%s#%d:%s@%d:%s" % [
-			tag.length(),
-			tag,
-			redirect_to.length(),
-			redirect_to,
-			description.length(),
-			description,
-			metadata_text.length(),
-			metadata_text,
-		])
+		var _part_appended: bool = parts.append(
+			"%d:%s>%d:%s#%d:%s@%d:%s"
+			% [
+				tag.length(),
+				tag,
+				redirect_to.length(),
+				redirect_to,
+				description.length(),
+				description,
+				metadata_text.length(),
+				metadata_text,
+			]
+		)
 	parts.sort()
 	return "|".join(parts)
 

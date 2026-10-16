@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigSetValidationRule" path="addons/gf/standard/utilities/config/validation/gf_config_set_validation_rule.gd" module="standard" extends="GFConfigValidationRule" classDigest="da87262f624df081aa340bf2d9b2e9ca60a5f2a9229a2fc4fd4e689dc908ee0b">
+<class name="GFConfigSetValidationRule" path="addons/gf/standard/utilities/config/validation/gf_config_set_validation_rule.gd" module="standard" extends="GFConfigValidationRule" classDigest="137d3db791589350621cdf564d918a6fefd13ca4f2513018645d95afb6344fcf">
 	<description>GFConfigSetValidationRule: 值集合校验规则。
 用于限制字段值必须出现在一个显式白名单中，不解释白名单背后的业务含义。</description>
 	<tags>
@@ -46,7 +46,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="_validate_value">
-			<signature>func _validate_value(value: Variant, context: Dictionary, report: Dictionary) -&gt; void:</signature>
+			<signature>func _validate_value( value: Variant, context: Dictionary, report: Dictionary ) -&gt; void:</signature>
 			<description>校验单个字段值是否属于允许集合。</description>
 			<tags>
 				<tag name="api">protected</tag>
@@ -56,6 +56,7 @@
 				<tag name="schema">value: Variant，与 allowed_values 比较的字段值。</tag>
 				<tag name="schema">context: Dictionary，可包含 table_name、row_key、field、source、line 和 column 字段。</tag>
 				<tag name="schema">report: GFConfigValidationReport 兼容 Dictionary，会被当前规则修改。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

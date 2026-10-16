@@ -80,7 +80,11 @@ signal queue_changed(snapshot: Dictionary)
 ## @param error: Godot 错误码。
 ## [br]
 ## @param path: 队列持久化路径。
-signal persistence_failed(operation: StringName, error: Error, path: String)
+signal persistence_failed(
+	operation: StringName,
+	error: Error,
+	path: String
+)
 
 
 # --- 常量 ---
@@ -161,25 +165,19 @@ const _PERSISTENCE_JSON_CODEC_EXPANSION_FACTOR: int = 8
 ## [br]
 ## @api private
 ## [br]
-const _PERSISTENCE_JSON_MAX_DEPTH: int = (
-	_PERSISTENCE_MAX_DEPTH * _PERSISTENCE_JSON_CODEC_EXPANSION_FACTOR + 32
-)
+const _PERSISTENCE_JSON_MAX_DEPTH: int = _PERSISTENCE_MAX_DEPTH * _PERSISTENCE_JSON_CODEC_EXPANSION_FACTOR + 32
 
 ## JSON 编码标记校验采用的最大累计节点数。
 ## [br]
 ## @api private
 ## [br]
-const _PERSISTENCE_JSON_MAX_TOTAL_NODES: int = (
-	_PERSISTENCE_MAX_TOTAL_NODES * _PERSISTENCE_JSON_CODEC_EXPANSION_FACTOR
-)
+const _PERSISTENCE_JSON_MAX_TOTAL_NODES: int = _PERSISTENCE_MAX_TOTAL_NODES * _PERSISTENCE_JSON_CODEC_EXPANSION_FACTOR
 
 ## JSON 编码标记校验采用的最大估算工作量字节数。
 ## [br]
 ## @api private
 ## [br]
-const _PERSISTENCE_JSON_MAX_ESTIMATED_BYTES: int = (
-	_PERSISTENCE_MAX_ESTIMATED_BYTES * _PERSISTENCE_JSON_CODEC_EXPANSION_FACTOR
-)
+const _PERSISTENCE_JSON_MAX_ESTIMATED_BYTES: int = (_PERSISTENCE_MAX_ESTIMATED_BYTES * _PERSISTENCE_JSON_CODEC_EXPANSION_FACTOR)
 
 ## max_storage_bytes 关闭时仍强制执行的原始存储文件上限（512 MiB）。
 ## [br]
@@ -219,8 +217,15 @@ var default_max_attempts: int = 3
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @schema retry_delays_msec: Array，按毫秒记录的重试延迟列表。
-var retry_delays_msec: Array[int] = [500, 1000, 2000, 5000]
+var retry_delays_msec: Array[int] = [
+	500,
+	1000,
+	2000,
+	5000,
+]
 
 ## 请求耗尽尝试次数后是否保留在失败列表中。
 ## [br]
@@ -392,7 +397,13 @@ func enqueue_request(
 	headers: PackedStringArray = PackedStringArray(),
 	metadata: Dictionary = {}
 ) -> GFRequestEnvelope:
-	var envelope: GFRequestEnvelope = GFRequestEnvelope.new(method, url, body, headers, metadata)
+	var envelope: GFRequestEnvelope = GFRequestEnvelope.new(
+		method,
+		url,
+		body,
+		headers,
+		metadata
+	)
 	envelope.max_attempts = default_max_attempts
 	return envelope if enqueue(envelope) else null
 
@@ -448,16 +459,25 @@ func enqueue(envelope: GFRequestEnvelope) -> bool:
 ## @return 入队报告。
 ## [br]
 ## @schema return: Dictionary，包含 ok、status、reason、envelope、persisted 和 persistence_error。
-func enqueue_with_report(
-	envelope: GFRequestEnvelope,
-	require_persistence: bool = false
-) -> Dictionary:
+func enqueue_with_report(envelope: GFRequestEnvelope, require_persistence: bool = false) -> Dictionary:
 	if _disposed:
-		return _make_enqueue_report(false, &"rejected", &"disposed")
+		return _make_enqueue_report(
+			false,
+			&"rejected",
+			&"disposed"
+		)
 	if envelope == null or not envelope.is_valid():
-		return _make_enqueue_report(false, &"rejected", &"invalid_envelope")
+		return _make_enqueue_report(
+			false,
+			&"rejected",
+			&"invalid_envelope"
+		)
 	if max_queue_size > 0 and _queue.size() >= max_queue_size:
-		return _make_enqueue_report(false, &"rejected", &"queue_full")
+		return _make_enqueue_report(
+			false,
+			&"rejected",
+			&"queue_full"
+		)
 	if (
 		require_persistence
 		and not _validate_persistable_envelope(
@@ -465,7 +485,11 @@ func enqueue_with_report(
 			_make_persistence_validation_state()
 		)
 	):
-		return _make_enqueue_report(false, &"rejected", &"non_persistable_envelope")
+		return _make_enqueue_report(
+			false,
+			&"rejected",
+			&"non_persistable_envelope"
+		)
 
 	var receipt_storage_path: String = storage_path
 	var persist_on_enqueue: bool = require_persistence or auto_persist
@@ -603,12 +627,18 @@ func replay(max_count: int = 0) -> Dictionary:
 			if not _checkpoint_replay_state(report):
 				return _make_persistence_failed_replay_report(report)
 			continue
-		var can_replay: bool = _can_replay_envelope(envelope, _get_unix_time_msec())
+		var can_replay: bool = _can_replay_envelope(
+			envelope,
+			_get_unix_time_msec()
+		)
 		if _is_replay_invalid(replay_generation):
 			return _make_interrupted_replay_report(report, replay_generation)
 		var filtered_queue_index: int = _find_queue_index(envelope)
 		if filtered_queue_index < 0:
-			index = mini(index, _queue.size())
+			index = mini(
+				index,
+				_queue.size()
+			)
 			continue
 		if not can_replay:
 			_increment_report_count(report, "skipped")
@@ -621,7 +651,10 @@ func replay(max_count: int = 0) -> Dictionary:
 			return _make_interrupted_replay_report(report, replay_generation)
 		var started_queue_index: int = _find_queue_index(envelope)
 		if started_queue_index < 0:
-			index = mini(index, _queue.size())
+			index = mini(
+				index,
+				_queue.size()
+			)
 			continue
 		index = started_queue_index
 		envelope.mark_attempt()
@@ -636,11 +669,17 @@ func replay(max_count: int = 0) -> Dictionary:
 				_queue.remove_at(queue_index)
 				index = queue_index
 			else:
-				index = mini(index, _queue.size())
+				index = mini(
+					index,
+					_queue.size()
+				)
 			_mark_queue_changed()
 			_increment_report_count(report, "succeeded")
 			var success_checkpoint_ok: bool = _checkpoint_replay_state(report)
-			request_completed.emit(envelope.duplicate_request(), result.duplicate(true))
+			request_completed.emit(
+				envelope.duplicate_request(),
+				result.duplicate(true)
+			)
 			if _is_replay_invalid(replay_generation):
 				return _make_interrupted_replay_report(report, replay_generation)
 			if not success_checkpoint_ok:
@@ -660,13 +699,19 @@ func replay(max_count: int = 0) -> Dictionary:
 		elif queue_index >= 0:
 			index = queue_index + 1
 		else:
-			index = mini(index, _queue.size())
+			index = mini(
+				index,
+				_queue.size()
+			)
 		if queue_index >= 0:
 			_mark_queue_changed()
 		var failure_checkpoint_ok: bool = true
 		if queue_index >= 0:
 			failure_checkpoint_ok = _checkpoint_replay_state(report)
-		request_failed.emit(envelope.duplicate_request(), result.duplicate(true))
+		request_failed.emit(
+			envelope.duplicate_request(),
+			result.duplicate(true)
+		)
 		if _is_replay_invalid(replay_generation):
 			return _make_interrupted_replay_report(report, replay_generation)
 		if not failure_checkpoint_ok:
@@ -677,9 +722,15 @@ func replay(max_count: int = 0) -> Dictionary:
 		if current_queue_index >= 0:
 			index = current_queue_index + 1
 		elif queue_index >= 0:
-			index = mini(queue_index, _queue.size())
+			index = mini(
+				queue_index,
+				_queue.size()
+			)
 		else:
-			index = mini(index, _queue.size())
+			index = mini(
+				index,
+				_queue.size()
+			)
 
 	report["pending"] = _queue.size()
 	report["failed_stored"] = _failed_requests.size()
@@ -795,7 +846,10 @@ func save_queue() -> Error:
 	var text_bytes: int = text.to_utf8_buffer().size()
 	if (
 		text_bytes > _PERSISTENCE_MAX_RAW_STORAGE_BYTES
-		or (max_storage_bytes > 0 and text_bytes > max_storage_bytes)
+		or (
+			max_storage_bytes > 0
+			and text_bytes > max_storage_bytes
+		)
 	):
 		return _record_persistence_result(&"save", ERR_OUT_OF_MEMORY)
 	return _record_persistence_result(
@@ -824,7 +878,10 @@ func load_queue() -> Error:
 	if not GFVariantData.get_option_bool(recovery_report, "found"):
 		_commit_loaded_state([], [])
 		_last_persistence_error = OK
-		_set_persistence_proof(storage_path, _serialize_current_queue_state())
+		_set_persistence_proof(
+			storage_path,
+			_serialize_current_queue_state()
+		)
 		queue_changed.emit(get_debug_snapshot())
 		return OK
 	if not GFVariantData.get_option_bool(recovery_report, "ok"):
@@ -839,7 +896,10 @@ func load_queue() -> Error:
 	var failed: Array[GFRequestEnvelope] = _get_parsed_envelopes(recovery_report, "failed")
 	_commit_loaded_state(pending, failed)
 	_last_persistence_error = OK
-	_set_persistence_proof(storage_path, _serialize_current_queue_state())
+	_set_persistence_proof(
+		storage_path,
+		_serialize_current_queue_state()
+	)
 	queue_changed.emit(get_debug_snapshot())
 	return OK
 
@@ -954,8 +1014,16 @@ func _get_result_success(result: Dictionary) -> bool:
 ## @api private
 ## [br]
 func _get_result_error_text(result: Dictionary) -> String:
-	var fallback: String = GFVariantData.get_option_string(result, "reason", "request_failed")
-	return GFVariantData.get_option_string(result, "error", fallback)
+	var fallback: String = GFVariantData.get_option_string(
+		result,
+		"reason",
+		"request_failed"
+	)
+	return GFVariantData.get_option_string(
+		result,
+		"error",
+		fallback
+	)
 
 
 ## 先检查请求重试时间与次数，再用隔离副本调用可选重放过滤器。
@@ -1005,7 +1073,11 @@ func _normalize_transport_result(value: Variant) -> Dictionary:
 		return { "ok": GFVariantData.to_bool(value) }
 	if value is int:
 		var error: int = GFVariantData.to_int(value)
-		return { "ok": error == OK, "error_code": error, "error": error_string(error) }
+		return {
+			"ok": error == OK,
+			"error_code": error,
+			"error": error_string(error),
+		}
 	return { "ok": value != null }
 
 
@@ -1027,7 +1099,10 @@ func _is_success_result(result: Dictionary) -> bool:
 ## [br]
 func _find_queue_index(envelope: GFRequestEnvelope) -> int:
 	for index: int in range(_queue.size()):
-		if is_same(_queue[index], envelope):
+		if is_same(
+			_queue[index],
+			envelope
+		):
 			return index
 	return -1
 
@@ -1112,10 +1187,7 @@ func _validate_persistable_queue() -> bool:
 ## [br]
 ## @api private
 ## [br]
-func _validate_persistable_envelope_arrays(
-	pending: Array[GFRequestEnvelope],
-	failed: Array[GFRequestEnvelope]
-) -> bool:
+func _validate_persistable_envelope_arrays(pending: Array[GFRequestEnvelope], failed: Array[GFRequestEnvelope]) -> bool:
 	var state: Dictionary = _make_persistence_validation_state()
 	if not _reserve_persistence_budget(
 		state,
@@ -1136,10 +1208,7 @@ func _validate_persistable_envelope_arrays(
 ## [br]
 ## @api private
 ## [br]
-func _validate_persistable_envelope(
-	envelope: GFRequestEnvelope,
-	state: Dictionary
-) -> bool:
+func _validate_persistable_envelope(envelope: GFRequestEnvelope, state: Dictionary) -> bool:
 	if envelope == null:
 		return false
 	if not _reserve_persistence_budget(
@@ -1156,11 +1225,23 @@ func _validate_persistable_envelope(
 	]:
 		if not _validate_persistence_text(text, state):
 			return false
-	if not _validate_persistable_value(envelope.headers, 0, state):
+	if not _validate_persistable_value(
+		envelope.headers,
+		0,
+		state
+	):
 		return false
-	if not _validate_persistable_value(envelope.body, 0, state):
+	if not _validate_persistable_value(
+		envelope.body,
+		0,
+		state
+	):
 		return false
-	return _validate_persistable_value(envelope.metadata, 0, state)
+	return _validate_persistable_value(
+		envelope.metadata,
+		0,
+		state
+	)
 
 
 ## 递归限制持久化值的类型、深度、集合大小、循环引用、节点数与估算字节数。
@@ -1174,10 +1255,15 @@ func _validate_persistable_value(
 	state: Dictionary,
 	is_dictionary_key: bool = false
 ) -> bool:
-	if depth > GFVariantData.get_option_int(
-		state,
-		"max_depth",
-		_PERSISTENCE_MAX_DEPTH
+	if (
+		depth
+		> (
+			GFVariantData.get_option_int(
+				state,
+				"max_depth",
+				_PERSISTENCE_MAX_DEPTH
+			)
+		)
 	):
 		return false
 	var value_type: int = typeof(value)
@@ -1189,8 +1275,25 @@ func _validate_persistable_value(
 				_PERSISTENCE_SCALAR_ESTIMATED_BYTES
 			)
 		TYPE_STRING, TYPE_STRING_NAME, TYPE_NODE_PATH:
-			return _validate_persistence_text(str(value), state)
-		TYPE_VECTOR2, TYPE_VECTOR2I, TYPE_VECTOR3, TYPE_VECTOR3I, TYPE_VECTOR4, TYPE_VECTOR4I, TYPE_RECT2, TYPE_RECT2I, TYPE_COLOR, TYPE_PLANE, TYPE_QUATERNION, TYPE_AABB, TYPE_BASIS, TYPE_TRANSFORM2D, TYPE_TRANSFORM3D:
+			return _validate_persistence_text(
+				str(value),
+				state
+			)
+		TYPE_VECTOR2, \
+		TYPE_VECTOR2I, \
+		TYPE_VECTOR3, \
+		TYPE_VECTOR3I, \
+		TYPE_VECTOR4, \
+		TYPE_VECTOR4I, \
+		TYPE_RECT2, \
+		TYPE_RECT2I, \
+		TYPE_COLOR, \
+		TYPE_PLANE, \
+		TYPE_QUATERNION, \
+		TYPE_AABB, \
+		TYPE_BASIS, \
+		TYPE_TRANSFORM2D, \
+		TYPE_TRANSFORM3D:
 			return _reserve_persistence_budget(
 				state,
 				1,
@@ -1212,7 +1315,11 @@ func _validate_persistable_value(
 				return false
 			_push_active_persistence_collection(array, state)
 			for item: Variant in array:
-				if not _validate_persistable_value(item, depth + 1, state):
+				if not _validate_persistable_value(
+					item,
+					depth + 1,
+					state
+				):
 					_pop_active_persistence_collection(state)
 					return false
 			_pop_active_persistence_collection(state)
@@ -1234,8 +1341,17 @@ func _validate_persistable_value(
 			_push_active_persistence_collection(dictionary, state)
 			for key: Variant in dictionary.keys():
 				if (
-					not _validate_persistable_value(key, depth + 1, state, true)
-					or not _validate_persistable_value(dictionary[key], depth + 1, state)
+					not _validate_persistable_value(
+						key,
+						depth + 1,
+						state,
+						true
+					)
+					or not _validate_persistable_value(
+						dictionary[key],
+						depth + 1,
+						state
+					)
 				):
 					_pop_active_persistence_collection(state)
 					return false
@@ -1257,7 +1373,15 @@ func _validate_persistable_value(
 				if not _validate_persistence_text(item, state):
 					return false
 			return true
-		TYPE_PACKED_BYTE_ARRAY, TYPE_PACKED_INT32_ARRAY, TYPE_PACKED_INT64_ARRAY, TYPE_PACKED_FLOAT32_ARRAY, TYPE_PACKED_FLOAT64_ARRAY, TYPE_PACKED_VECTOR2_ARRAY, TYPE_PACKED_VECTOR3_ARRAY, TYPE_PACKED_COLOR_ARRAY, TYPE_PACKED_VECTOR4_ARRAY:
+		TYPE_PACKED_BYTE_ARRAY, \
+		TYPE_PACKED_INT32_ARRAY, \
+		TYPE_PACKED_INT64_ARRAY, \
+		TYPE_PACKED_FLOAT32_ARRAY, \
+		TYPE_PACKED_FLOAT64_ARRAY, \
+		TYPE_PACKED_VECTOR2_ARRAY, \
+		TYPE_PACKED_VECTOR3_ARRAY, \
+		TYPE_PACKED_COLOR_ARRAY, \
+		TYPE_PACKED_VECTOR4_ARRAY:
 			if is_dictionary_key:
 				return false
 			var packed_size: int = len(value)
@@ -1266,8 +1390,7 @@ func _validate_persistable_value(
 			return _reserve_persistence_budget(
 				state,
 				1 + packed_size,
-				_PERSISTENCE_COLLECTION_ESTIMATED_BYTES
-				+ packed_size * _get_persistence_packed_element_bytes(value_type)
+				_PERSISTENCE_COLLECTION_ESTIMATED_BYTES + packed_size * _get_persistence_packed_element_bytes(value_type)
 			)
 	return false
 
@@ -1298,20 +1421,27 @@ func _reserve_persistence_budget(
 	if node_count < 0 or estimated_bytes < 0:
 		return false
 	var next_nodes: int = GFVariantData.get_option_int(state, "nodes") + node_count
-	if next_nodes > GFVariantData.get_option_int(
-		state,
-		"max_total_nodes",
-		_PERSISTENCE_MAX_TOTAL_NODES
+	if (
+		next_nodes
+		> (
+			GFVariantData.get_option_int(
+				state,
+				"max_total_nodes",
+				_PERSISTENCE_MAX_TOTAL_NODES
+			)
+		)
 	):
 		return false
-	var next_estimated_bytes: int = (
-		GFVariantData.get_option_int(state, "estimated_bytes")
-		+ estimated_bytes
-	)
-	if next_estimated_bytes > GFVariantData.get_option_int(
-		state,
-		"max_estimated_bytes",
-		_PERSISTENCE_MAX_ESTIMATED_BYTES
+	var next_estimated_bytes: int = GFVariantData.get_option_int(state, "estimated_bytes") + estimated_bytes
+	if (
+		next_estimated_bytes
+		> (
+			GFVariantData.get_option_int(
+				state,
+				"max_estimated_bytes",
+				_PERSISTENCE_MAX_ESTIMATED_BYTES
+			)
+		)
 	):
 		return false
 	state["nodes"] = next_nodes
@@ -1345,7 +1475,11 @@ func _get_persistence_packed_element_bytes(value_type: int) -> int:
 ## @api private
 ## [br]
 func _is_active_persistence_collection(value: Variant, state: Dictionary) -> bool:
-	var active_value: Variant = GFVariantData.get_option_value(state, "active", [])
+	var active_value: Variant = GFVariantData.get_option_value(
+		state,
+		"active",
+		[]
+	)
 	if not (active_value is Array):
 		return false
 	var active: Array = active_value
@@ -1381,7 +1515,11 @@ func _pop_active_persistence_collection(state: Dictionary) -> void:
 ## @api private
 ## [br]
 func _get_active_persistence_collections(state: Dictionary) -> Array:
-	var active_value: Variant = GFVariantData.get_option_value(state, "active", [])
+	var active_value: Variant = GFVariantData.get_option_value(
+		state,
+		"active",
+		[]
+	)
 	if active_value is Array:
 		var active: Array = active_value
 		return active
@@ -1397,8 +1535,15 @@ func _get_active_persistence_collections(state: Dictionary) -> Array:
 func _get_retry_delay_msec(attempt_count: int) -> int:
 	if retry_delays_msec.is_empty():
 		return 0
-	var index: int = clampi(attempt_count - 1, 0, retry_delays_msec.size() - 1)
-	return maxi(retry_delays_msec[index], 0)
+	var index: int = clampi(
+		attempt_count - 1,
+		0,
+		retry_delays_msec.size() - 1
+	)
+	return maxi(
+		retry_delays_msec[index],
+		0
+	)
 
 
 ## 按保留配置追加失败请求，并从队首移除超出上限的最旧项。
@@ -1463,17 +1608,9 @@ func _to_storage_dict() -> Dictionary:
 ## [br]
 func _envelope_to_storage_dict(envelope: GFRequestEnvelope) -> Dictionary:
 	var result: Dictionary = envelope.to_dict()
-	var codec_options: Dictionary = {
-		"encode_dictionary_keys": true,
-	}
-	result["body"] = GFVariantJsonCodec.variant_to_json_compatible(
-		envelope.body,
-		codec_options
-	)
-	result["metadata"] = GFVariantJsonCodec.variant_to_json_compatible(
-		envelope.metadata,
-		codec_options
-	)
+	var codec_options: Dictionary = { "encode_dictionary_keys": true, }
+	result["body"] = GFVariantJsonCodec.variant_to_json_compatible(envelope.body, codec_options)
+	result["metadata"] = GFVariantJsonCodec.variant_to_json_compatible(envelope.metadata, codec_options)
 	return result
 
 
@@ -1488,7 +1625,10 @@ func _parse_storage_dict(data: Dictionary) -> Dictionary:
 		or not data.has("pending")
 		or not data.has("failed")
 		or not _is_exact_json_integer(data["version"])
-		or GFVariantData.to_exact_int(data["version"], -1) != _STORAGE_VERSION
+		or GFVariantData.to_exact_int(
+			data["version"],
+			-1
+		) != _STORAGE_VERSION
 	):
 		return { "ok": false }
 	var pending_report: Dictionary = _parse_envelope_array(
@@ -1552,21 +1692,23 @@ func _parse_envelope_array(value: Variant, max_count: int) -> Dictionary:
 ## @api private
 ## [br]
 func _is_exact_stored_envelope(data: Dictionary) -> bool:
-	var required_fields: PackedStringArray = PackedStringArray([
-		"request_id",
-		"method",
-		"method_name",
-		"url",
-		"body",
-		"headers",
-		"idempotency_key",
-		"created_at_unix",
-		"attempt_count",
-		"max_attempts",
-		"next_attempt_at_unix_msec",
-		"last_error",
-		"metadata",
-	])
+	var required_fields: PackedStringArray = PackedStringArray(
+		[
+			"request_id",
+			"method",
+			"method_name",
+			"url",
+			"body",
+			"headers",
+			"idempotency_key",
+			"created_at_unix",
+			"attempt_count",
+			"max_attempts",
+			"next_attempt_at_unix_msec",
+			"last_error",
+			"metadata",
+		]
+	)
 	if data.size() != required_fields.size():
 		return false
 	for field_name: String in required_fields:
@@ -1599,9 +1741,18 @@ func _is_exact_stored_envelope(data: Dictionary) -> bool:
 		request_id.is_empty()
 		or url.is_empty()
 		or idempotency_key.is_empty()
-		or GFVariantData.to_exact_int(data["created_at_unix"], 0) <= 0
-		or GFVariantData.to_exact_int(data["attempt_count"], -1) < 0
-		or GFVariantData.to_exact_int(data["next_attempt_at_unix_msec"], -1) < 0
+		or GFVariantData.to_exact_int(
+			data["created_at_unix"],
+			0
+		) <= 0
+		or GFVariantData.to_exact_int(
+			data["attempt_count"],
+			-1
+		) < 0
+		or GFVariantData.to_exact_int(
+			data["next_attempt_at_unix_msec"],
+			-1
+		) < 0
 	):
 		return false
 	var headers: Array = data["headers"]
@@ -1634,7 +1785,11 @@ func _is_exact_json_integer(value: Variant) -> bool:
 ## [br]
 func _get_parsed_envelopes(report: Dictionary, key: String) -> Array[GFRequestEnvelope]:
 	var result: Array[GFRequestEnvelope] = []
-	var values: Variant = GFVariantData.get_option_value(report, key, [])
+	var values: Variant = GFVariantData.get_option_value(
+		report,
+		key,
+		[]
+	)
 	if not (values is Array):
 		return result
 	for value: Variant in values:
@@ -1647,10 +1802,7 @@ func _get_parsed_envelopes(report: Dictionary, key: String) -> Array[GFRequestEn
 ## [br]
 ## @api private
 ## [br]
-func _has_duplicate_request_ids(
-	pending: Array[GFRequestEnvelope],
-	failed: Array[GFRequestEnvelope]
-) -> bool:
+func _has_duplicate_request_ids(pending: Array[GFRequestEnvelope], failed: Array[GFRequestEnvelope]) -> bool:
 	var request_ids: Dictionary = {}
 	for envelope: GFRequestEnvelope in pending:
 		if request_ids.has(envelope.request_id):
@@ -1667,10 +1819,7 @@ func _has_duplicate_request_ids(
 ## [br]
 ## @api private
 ## [br]
-func _commit_loaded_state(
-	pending: Array[GFRequestEnvelope],
-	failed: Array[GFRequestEnvelope]
-) -> void:
+func _commit_loaded_state(pending: Array[GFRequestEnvelope], failed: Array[GFRequestEnvelope]) -> void:
 	_invalidate_replay()
 	_queue.clear()
 	_failed_requests.clear()
@@ -1695,11 +1844,14 @@ func _get_request_ids(requests: Array[GFRequestEnvelope]) -> PackedStringArray:
 ## @api private
 ## [br]
 func _generate_request_id() -> String:
-	return "req_%d_%d_%d" % [
-		int(Time.get_unix_time_from_system() * 1000000.0),
-		OS.get_process_id(),
-		randi(),
-	]
+	return (
+		"req_%d_%d_%d"
+		% [
+			int(Time.get_unix_time_from_system() * 1000000.0),
+			OS.get_process_id(),
+			randi(),
+		]
+	)
 
 
 ## 仅接受非空 user:// 相对路径，并拒绝任一 .. 路径片段。
@@ -1818,7 +1970,11 @@ func _emit_persistence_failure(operation: StringName, error: Error) -> void:
 	if _is_emitting_persistence_failure:
 		return
 	_is_emitting_persistence_failure = true
-	persistence_failed.emit(operation, error, storage_path)
+	persistence_failed.emit(
+		operation,
+		error,
+		storage_path
+	)
 	_is_emitting_persistence_failure = false
 
 
@@ -1881,7 +2037,11 @@ func _load_storage_with_recovery() -> Dictionary:
 	var temp_path: String = storage_path + _TEMP_SUFFIX
 	var backup_path: String = storage_path + _BACKUP_SUFFIX
 	var candidates: PackedStringArray = PackedStringArray()
-	for path: String in [storage_path, temp_path, backup_path]:
+	for path: String in [
+		storage_path,
+		temp_path,
+		backup_path,
+	]:
 		if FileAccess.file_exists(path):
 			var _appended: bool = candidates.append(path)
 	if candidates.is_empty():
@@ -1920,11 +2080,7 @@ func _parse_storage_path(path: String) -> Dictionary:
 	if file == null:
 		return { "ok": false, "error": FileAccess.get_open_error() }
 	var initial_length: int = file.get_length()
-	var read_limit: int = (
-		mini(max_storage_bytes, _PERSISTENCE_MAX_RAW_STORAGE_BYTES)
-		if max_storage_bytes > 0
-		else _PERSISTENCE_MAX_RAW_STORAGE_BYTES
-	)
+	var read_limit: int = (mini(max_storage_bytes, _PERSISTENCE_MAX_RAW_STORAGE_BYTES) if max_storage_bytes > 0 else _PERSISTENCE_MAX_RAW_STORAGE_BYTES)
 	if initial_length < 0 or initial_length > read_limit:
 		file.close()
 		return { "ok": false, "error": ERR_OUT_OF_MEMORY }
@@ -1948,7 +2104,11 @@ func _parse_storage_path(path: String) -> Dictionary:
 		_PERSISTENCE_JSON_MAX_TOTAL_NODES,
 		_PERSISTENCE_JSON_MAX_ESTIMATED_BYTES
 	)
-	if not _validate_persistable_value(json.data, 0, json_validation_state):
+	if not _validate_persistable_value(
+		json.data,
+		0,
+		json_validation_state
+	):
 		return { "ok": false, "error": ERR_OUT_OF_MEMORY }
 	if not _validate_canonical_json_codec_markers(json.data):
 		return { "ok": false, "error": ERR_PARSE_ERROR }
@@ -1979,9 +2139,7 @@ func _validate_canonical_json_codec_markers(value: Variant) -> bool:
 		var decoded: Variant = GFVariantJsonCodec.json_compatible_to_variant(dictionary)
 		var canonical: Variant = GFVariantJsonCodec.variant_to_json_compatible(
 			decoded,
-			{
-				"encode_dictionary_keys": true,
-			}
+			{ "encode_dictionary_keys": true, }
 		)
 		return _json_compatible_values_match(dictionary, canonical)
 	for key: Variant in dictionary.keys():
@@ -1994,10 +2152,23 @@ func _validate_canonical_json_codec_markers(value: Variant) -> bool:
 ## [br]
 ## @api private
 ## [br]
-func _json_compatible_values_match(left: Variant, right: Variant, depth: int = 0) -> bool:
+func _json_compatible_values_match(
+	left: Variant,
+	right: Variant,
+	depth: int = 0
+) -> bool:
 	if depth > _PERSISTENCE_JSON_MAX_DEPTH:
 		return false
-	if (left is int or left is float) and (right is int or right is float):
+	if (
+		(
+			left is int
+			or left is float
+		)
+		and (
+			right is int
+			or right is float
+		)
+	):
 		var left_number: float = GFVariantData.to_float(left, NAN)
 		var right_number: float = GFVariantData.to_float(right, NAN)
 		return (

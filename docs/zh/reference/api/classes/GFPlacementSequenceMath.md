@@ -20,8 +20,8 @@
 | 常量 | [`MODE_EXTRAPOLATED`](#member-gfplacementsequencemath-constants-mode_extrapolated) | `const MODE_EXTRAPOLATED: StringName = &"extrapolated"` |
 | 方法 | [`predict_next_position_2d`](#member-gfplacementsequencemath-methods-predict_next_position_2d) | `static func predict_next_position_2d( positions: Array[Vector2], fallback_position: Vector2 = Vector2.ZERO, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`predict_next_position_3d`](#member-gfplacementsequencemath-methods-predict_next_position_3d) | `static func predict_next_position_3d( positions: Array[Vector3], fallback_position: Vector3 = Vector3.ZERO, options: Dictionary = {} ) -> Dictionary:` |
-| 方法 | [`predict_next_cell_2d`](#member-gfplacementsequencemath-methods-predict_next_cell_2d) | `static func predict_next_cell_2d( cells: Array[Vector2i], fallback_cell: Vector2i = Vector2i.ZERO ) -> Dictionary:` |
-| 方法 | [`predict_next_cell_3d`](#member-gfplacementsequencemath-methods-predict_next_cell_3d) | `static func predict_next_cell_3d( cells: Array[Vector3i], fallback_cell: Vector3i = Vector3i.ZERO ) -> Dictionary:` |
+| 方法 | [`predict_next_cell_2d`](#member-gfplacementsequencemath-methods-predict_next_cell_2d) | `static func predict_next_cell_2d(cells: Array[Vector2i], fallback_cell: Vector2i = Vector2i.ZERO) -> Dictionary:` |
+| 方法 | [`predict_next_cell_3d`](#member-gfplacementsequencemath-methods-predict_next_cell_3d) | `static func predict_next_cell_3d(cells: Array[Vector3i], fallback_cell: Vector3i = Vector3i.ZERO) -> Dictionary:` |
 
 ## 常量
 
@@ -130,7 +130,7 @@ static func predict_next_position_3d( positions: Array[Vector3], fallback_positi
 - 首次版本：`8.0.0`
 
 ```gdscript
-static func predict_next_cell_2d( cells: Array[Vector2i], fallback_cell: Vector2i = Vector2i.ZERO ) -> Dictionary:
+static func predict_next_cell_2d(cells: Array[Vector2i], fallback_cell: Vector2i = Vector2i.ZERO) -> Dictionary:
 ```
 
 预测下一次 2D 离散格子。
@@ -156,7 +156,7 @@ static func predict_next_cell_2d( cells: Array[Vector2i], fallback_cell: Vector2
 - 首次版本：`8.0.0`
 
 ```gdscript
-static func predict_next_cell_3d( cells: Array[Vector3i], fallback_cell: Vector3i = Vector3i.ZERO ) -> Dictionary:
+static func predict_next_cell_3d(cells: Array[Vector3i], fallback_cell: Vector3i = Vector3i.ZERO) -> Dictionary:
 ```
 
 预测下一次 3D 离散格子。

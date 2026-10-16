@@ -15,7 +15,7 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 信号 | [`active_profile_changed`](#member-gfsaveprofiletransactioncoordinator-signals-active_profile_changed) | `signal active_profile_changed( previous_profile_id: StringName, current_profile_id: StringName )` |
+| 信号 | [`active_profile_changed`](#member-gfsaveprofiletransactioncoordinator-signals-active_profile_changed) | `signal active_profile_changed(previous_profile_id: StringName, current_profile_id: StringName)` |
 | 信号 | [`transaction_completed`](#member-gfsaveprofiletransactioncoordinator-signals-transaction_completed) | `signal transaction_completed(result: GFSaveProfileTransactionResult)` |
 | 常量 | [`DOMAIN_STATE_INACTIVE`](#member-gfsaveprofiletransactioncoordinator-constants-domain_state_inactive) | `const DOMAIN_STATE_INACTIVE: StringName = &"inactive"` |
 | 常量 | [`DOMAIN_STATE_ACTIVE`](#member-gfsaveprofiletransactioncoordinator-constants-domain_state_active) | `const DOMAIN_STATE_ACTIVE: StringName = &"active"` |
@@ -29,19 +29,19 @@
 | 方法 | [`tick`](#member-gfsaveprofiletransactioncoordinator-methods-tick) | `func tick(_delta: float) -> void:` |
 | 方法 | [`dispose`](#member-gfsaveprofiletransactioncoordinator-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`release_dependencies`](#member-gfsaveprofiletransactioncoordinator-methods-release_dependencies) | `func release_dependencies() -> void:` |
-| 方法 | [`setup`](#member-gfsaveprofiletransactioncoordinator-methods-setup) | `func setup( profile_utility: GFSaveProfileUtility ) -> GFSaveProfileTransactionCoordinator:` |
-| 方法 | [`register_profile`](#member-gfsaveprofiletransactioncoordinator-methods-register_profile) | `func register_profile( profile: GFSaveProfile, migrations: GFSaveMigrationRegistry = null ) -> Dictionary:` |
+| 方法 | [`setup`](#member-gfsaveprofiletransactioncoordinator-methods-setup) | `func setup(profile_utility: GFSaveProfileUtility) -> GFSaveProfileTransactionCoordinator:` |
+| 方法 | [`register_profile`](#member-gfsaveprofiletransactioncoordinator-methods-register_profile) | `func register_profile(profile: GFSaveProfile, migrations: GFSaveMigrationRegistry = null) -> Dictionary:` |
 | 方法 | [`unregister_profile`](#member-gfsaveprofiletransactioncoordinator-methods-unregister_profile) | `func unregister_profile(profile_id: StringName) -> bool:` |
 | 方法 | [`get_active_profile_id`](#member-gfsaveprofiletransactioncoordinator-methods-get_active_profile_id) | `func get_active_profile_id(profile_id: StringName) -> StringName:` |
 | 方法 | [`get_domain_state_snapshot`](#member-gfsaveprofiletransactioncoordinator-methods-get_domain_state_snapshot) | `func get_domain_state_snapshot(profile_id: StringName) -> Dictionary:` |
 | 方法 | [`activate_profile`](#member-gfsaveprofiletransactioncoordinator-methods-activate_profile) | `func activate_profile( profile_id: StringName, context: Dictionary = {}, metadata: Dictionary = {} ) -> GFSaveProfileTransactionOperation:` |
 | 方法 | [`switch_profile`](#member-gfsaveprofiletransactioncoordinator-methods-switch_profile) | `func switch_profile( target_profile_id: StringName, context: Dictionary = {}, metadata: Dictionary = {} ) -> GFSaveProfileTransactionOperation:` |
-| 方法 | [`bootstrap_profile`](#member-gfsaveprofiletransactioncoordinator-methods-bootstrap_profile) | `func bootstrap_profile( lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null ) -> GFSaveProfileTransactionOperation:` |
-| 方法 | [`adopt_profile`](#member-gfsaveprofiletransactioncoordinator-methods-adopt_profile) | `func adopt_profile( lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null ) -> GFSaveProfileTransactionOperation:` |
-| 方法 | [`bootstrap_and_switch_profile`](#member-gfsaveprofiletransactioncoordinator-methods-bootstrap_and_switch_profile) | `func bootstrap_and_switch_profile( lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null ) -> GFSaveProfileTransactionOperation:` |
-| 方法 | [`adopt_and_switch_profile`](#member-gfsaveprofiletransactioncoordinator-methods-adopt_and_switch_profile) | `func adopt_and_switch_profile( lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null ) -> GFSaveProfileTransactionOperation:` |
-| 方法 | [`mutate_and_persist`](#member-gfsaveprofiletransactioncoordinator-methods-mutate_and_persist) | `func mutate_and_persist( profile_id: StringName, request: GFSaveProfileMutationRequest ) -> GFSaveProfileTransactionOperation:` |
-| 方法 | [`reconcile_profile`](#member-gfsaveprofiletransactioncoordinator-methods-reconcile_profile) | `func reconcile_profile( lease: GFSaveProfileReconcileLease, request: GFSaveProfileReconcileRequest = null ) -> GFSaveProfileTransactionOperation:` |
+| 方法 | [`bootstrap_profile`](#member-gfsaveprofiletransactioncoordinator-methods-bootstrap_profile) | `func bootstrap_profile(lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null) -> GFSaveProfileTransactionOperation:` |
+| 方法 | [`adopt_profile`](#member-gfsaveprofiletransactioncoordinator-methods-adopt_profile) | `func adopt_profile(lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null) -> GFSaveProfileTransactionOperation:` |
+| 方法 | [`bootstrap_and_switch_profile`](#member-gfsaveprofiletransactioncoordinator-methods-bootstrap_and_switch_profile) | `func bootstrap_and_switch_profile(lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null) -> GFSaveProfileTransactionOperation:` |
+| 方法 | [`adopt_and_switch_profile`](#member-gfsaveprofiletransactioncoordinator-methods-adopt_and_switch_profile) | `func adopt_and_switch_profile(lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null) -> GFSaveProfileTransactionOperation:` |
+| 方法 | [`mutate_and_persist`](#member-gfsaveprofiletransactioncoordinator-methods-mutate_and_persist) | `func mutate_and_persist(profile_id: StringName, request: GFSaveProfileMutationRequest) -> GFSaveProfileTransactionOperation:` |
+| 方法 | [`reconcile_profile`](#member-gfsaveprofiletransactioncoordinator-methods-reconcile_profile) | `func reconcile_profile(lease: GFSaveProfileReconcileLease, request: GFSaveProfileReconcileRequest = null) -> GFSaveProfileTransactionOperation:` |
 
 ## 信号
 
@@ -53,7 +53,7 @@
 - 首次版本：`11.0.0`
 
 ```gdscript
-signal active_profile_changed( previous_profile_id: StringName, current_profile_id: StringName )
+signal active_profile_changed(previous_profile_id: StringName, current_profile_id: StringName)
 ```
 
 活动 Profile 身份完成原子提交后发出。
@@ -276,7 +276,7 @@ func release_dependencies() -> void:
 - 首次版本：`11.0.0`
 
 ```gdscript
-func setup( profile_utility: GFSaveProfileUtility ) -> GFSaveProfileTransactionCoordinator:
+func setup(profile_utility: GFSaveProfileUtility) -> GFSaveProfileTransactionCoordinator:
 ```
 
 显式注入底层 Profile Utility，供 standalone 场景与测试使用。
@@ -297,7 +297,7 @@ func setup( profile_utility: GFSaveProfileUtility ) -> GFSaveProfileTransactionC
 - 首次版本：`11.0.0`
 
 ```gdscript
-func register_profile( profile: GFSaveProfile, migrations: GFSaveMigrationRegistry = null ) -> Dictionary:
+func register_profile(profile: GFSaveProfile, migrations: GFSaveMigrationRegistry = null) -> Dictionary:
 ```
 
 注册并声明一个受管 Profile。 完全相同且同序的 Provider 实例序列共享 domain；任意部分重叠或同实例异序 会在触碰底层注册前失败。
@@ -446,7 +446,7 @@ func switch_profile( target_profile_id: StringName, context: Dictionary = {}, me
 - 首次版本：`11.0.0`
 
 ```gdscript
-func bootstrap_profile( lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null ) -> GFSaveProfileTransactionOperation:
+func bootstrap_profile(lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null) -> GFSaveProfileTransactionOperation:
 ```
 
 使用 activate 返回的 missing lease 创建存档并首次激活。
@@ -468,7 +468,7 @@ func bootstrap_profile( lease: GFSaveProfileRecoveryLease, request: GFSaveProfil
 - 首次版本：`11.0.0`
 
 ```gdscript
-func adopt_profile( lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null ) -> GFSaveProfileTransactionOperation:
+func adopt_profile(lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null) -> GFSaveProfileTransactionOperation:
 ```
 
 使用 activate 返回的 corrupt lease 明确覆盖损坏存档并首次激活。
@@ -490,7 +490,7 @@ func adopt_profile( lease: GFSaveProfileRecoveryLease, request: GFSaveProfileReq
 - 首次版本：`11.0.0`
 
 ```gdscript
-func bootstrap_and_switch_profile( lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null ) -> GFSaveProfileTransactionOperation:
+func bootstrap_and_switch_profile(lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null) -> GFSaveProfileTransactionOperation:
 ```
 
 使用 switch 返回的 missing lease 创建目标并原子切换活动身份。 接纳后会重新 flush Lease 绑定的当前来源，再把最新 Provider 状态保存到目标； 目标持久化确认前来源始终保持权威。
@@ -512,7 +512,7 @@ func bootstrap_and_switch_profile( lease: GFSaveProfileRecoveryLease, request: G
 - 首次版本：`11.0.0`
 
 ```gdscript
-func adopt_and_switch_profile( lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null ) -> GFSaveProfileTransactionOperation:
+func adopt_and_switch_profile(lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null) -> GFSaveProfileTransactionOperation:
 ```
 
 使用 switch 返回的 corrupt lease 恢复目标并原子切换活动身份。 接纳后会重新 flush Lease 绑定的当前来源。Storage family 结构损坏必须先凭 同一读取来源的授权完成 reset；高层 Save 文档损坏则直接保存最新 Provider 状态。 reset 或目标保存确定失败时来源身份保持不变，无法签发结构 reset 授权时 switch 会 fail closed 且不会返回可执行的 Recovery Lease。
@@ -534,7 +534,7 @@ func adopt_and_switch_profile( lease: GFSaveProfileRecoveryLease, request: GFSav
 - 首次版本：`11.0.0`
 
 ```gdscript
-func mutate_and_persist( profile_id: StringName, request: GFSaveProfileMutationRequest ) -> GFSaveProfileTransactionOperation:
+func mutate_and_persist(profile_id: StringName, request: GFSaveProfileMutationRequest) -> GFSaveProfileTransactionOperation:
 ```
 
 事务化应用一个或多个完整 section replacement 并持久化活动 Profile。
@@ -556,7 +556,7 @@ func mutate_and_persist( profile_id: StringName, request: GFSaveProfileMutationR
 - 首次版本：`11.0.0`
 
 ```gdscript
-func reconcile_profile( lease: GFSaveProfileReconcileLease, request: GFSaveProfileReconcileRequest = null ) -> GFSaveProfileTransactionOperation:
+func reconcile_profile(lease: GFSaveProfileReconcileLease, request: GFSaveProfileReconcileRequest = null) -> GFSaveProfileTransactionOperation:
 ```
 
 在 late generation 证据收敛后严格重载 lease 指定 Profile 并解除 fence。 waiting lease 返回 `reconcile_pending`，且不 claim lease/request；调用方可在 `GFSaveProfileReconcileLease.settled` 后用同一 lease 与新请求重试。

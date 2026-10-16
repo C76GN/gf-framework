@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFArchitecture" path="addons/gf/kernel/core/gf_architecture.gd" module="kernel" extends="Object" classDigest="3f7e2441a2470059d0550d2b14f5528843cbdefc774d44313c806327ab00fc30">
+<class name="GFArchitecture" path="addons/gf/kernel/core/gf_architecture.gd" module="kernel" extends="Object" classDigest="a8c6b551341ca7344b5c88f8867eadaa5f17344e332fa861703704ef9171c161">
 	<description>GFArchitecture: 管理 Model、System 和 Utility 的注册与生命周期的容器。
 生命周期遵循四阶段初始化协议：
 阶段一 (init)       ：各模块按声明依赖 DAG 执行自身内部变量初始化。
@@ -365,7 +365,7 @@ token 只取消自身等待，不会中断共享初始化。架构已经 READY �
 			</tags>
 		</member>
 		<member kind="method" name="shutdown_async">
-			<signature>func shutdown_async( cancellation_token: GFCancellationToken = null, timeout_seconds: float = -1.0 ) -&gt; GFArchitectureShutdownResult:</signature>
+			<signature>func shutdown_async(cancellation_token: GFCancellationToken = null, timeout_seconds: float = -1.0) -&gt; GFArchitectureShutdownResult:</signature>
 			<description>异步关闭架构。
 若活动子架构仍持有本架构的外部依赖租约，本方法会在改变任何生命周期
 状态前返回失败；否则新工作准入会不可逆关闭，已接纳工作按激活计划逆序
@@ -445,7 +445,7 @@ query 缺少 execute() 方法时会输出 warning 并返回 null。</description
 			</tags>
 		</member>
 		<member kind="method" name="register_event">
-			<signature>func register_event(event_type: Script, listener: GFEventListener, priority: int = 0) -&gt; void:</signature>
+			<signature>func register_event( event_type: Script, listener: GFEventListener, priority: int = 0 ) -&gt; void:</signature>
 			<description>为脚本类型注册事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -456,7 +456,7 @@ query 缺少 execute() 方法时会输出 warning 并返回 null。</description
 			</tags>
 		</member>
 		<member kind="method" name="register_event_owned">
-			<signature>func register_event_owned(owner: Object, event_type: Script, listener: GFEventListener, priority: int = 0) -&gt; void:</signature>
+			<signature>func register_event_owned( owner: Object, event_type: Script, listener: GFEventListener, priority: int = 0 ) -&gt; void:</signature>
 			<description>为脚本类型注册带拥有者的事件监听器。
 拥有者注销或释放后，可通过 unregister_owner_events() 一次性清理相关监听。</description>
 			<tags>
@@ -484,7 +484,7 @@ listener 携带 owner 时返回的句柄会绑定该 owner 生命周期。`once`
 			</tags>
 		</member>
 		<member kind="method" name="register_assignable_event">
-			<signature>func register_assignable_event(base_event_type: Script, listener: GFEventListener, priority: int = 0) -&gt; void:</signature>
+			<signature>func register_assignable_event( base_event_type: Script, listener: GFEventListener, priority: int = 0 ) -&gt; void:</signature>
 			<description>为脚本类型注册可赋值事件监听器。
 监听基类事件时，也会收到继承自该脚本类型的事件实例。</description>
 			<tags>
@@ -533,7 +533,7 @@ listener 携带 owner 时返回的句柄会绑定该 owner 生命周期。监听
 			</tags>
 		</member>
 		<member kind="method" name="unregister_event_owned">
-			<signature>func unregister_event_owned(owner: Object, event_type: Script, listener: GFEventListener) -&gt; void:</signature>
+			<signature>func unregister_event_owned( owner: Object, event_type: Script, listener: GFEventListener ) -&gt; void:</signature>
 			<description>注销带拥有者的脚本类型事件监听器。
 只移除 owner 与监听器回调都匹配的监听，不影响其它 owner 使用同一 Callable 注册的监听。</description>
 			<tags>
@@ -555,7 +555,7 @@ listener 携带 owner 时返回的句柄会绑定该 owner 生命周期。监听
 			</tags>
 		</member>
 		<member kind="method" name="unregister_assignable_event_owned">
-			<signature>func unregister_assignable_event_owned(owner: Object, base_event_type: Script, listener: GFEventListener) -&gt; void:</signature>
+			<signature>func unregister_assignable_event_owned( owner: Object, base_event_type: Script, listener: GFEventListener ) -&gt; void:</signature>
 			<description>注销带拥有者的可赋值类型事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -576,7 +576,7 @@ listener 携带 owner 时返回的句柄会绑定该 owner 生命周期。监听
 			</tags>
 		</member>
 		<member kind="method" name="register_simple_event_owned">
-			<signature>func register_simple_event_owned(owner: Object, event_id: StringName, listener: GFEventListener) -&gt; void:</signature>
+			<signature>func register_simple_event_owned( owner: Object, event_id: StringName, listener: GFEventListener ) -&gt; void:</signature>
 			<description>注册带拥有者的轻量级 StringName 事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -611,7 +611,7 @@ listener 携带 owner 时返回的句柄会绑定该 owner 生命周期。`once`
 			</tags>
 		</member>
 		<member kind="method" name="unregister_simple_event_owned">
-			<signature>func unregister_simple_event_owned(owner: Object, event_id: StringName, listener: GFEventListener) -&gt; void:</signature>
+			<signature>func unregister_simple_event_owned( owner: Object, event_id: StringName, listener: GFEventListener ) -&gt; void:</signature>
 			<description>注销带拥有者的轻量级 StringName 事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -1205,7 +1205,7 @@ listener 携带 owner 时返回的句柄会绑定该 owner 生命周期。`once`
 			</tags>
 		</member>
 		<member kind="method" name="restore_all_models_state_async">
-			<signature>func restore_all_models_state_async( data: Dictionary, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<signature>func restore_all_models_state_async(data: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
 			<description>分帧恢复所有已注册 Model 的数据。
 与同步版本使用相同的 validate/apply/commit 事务；Model 会按
 `max_models_per_frame` 分帧应用和核对，失败时回滚本事务已应用的全部 Model。
@@ -1252,7 +1252,7 @@ listener 携带 owner 时返回的句柄会绑定该 owner 生命周期。`once`
 			</tags>
 		</member>
 		<member kind="method" name="restore_global_snapshot">
-			<signature>func restore_global_snapshot( data: Dictionary, command_builder: Callable = Callable() ) -&gt; Dictionary:</signature>
+			<signature>func restore_global_snapshot(data: Dictionary, command_builder: Callable = Callable()) -&gt; Dictionary:</signature>
 			<description>从全局快照中恢复整个框架的状态，包含 Model 状态以及可选命令历史记录。
 `data` 必须是成功捕获 Result 的 `snapshot` 字段。仅接受当前
 `format_version`、Dictionary `models` 与可选 Dictionary `command_history`；

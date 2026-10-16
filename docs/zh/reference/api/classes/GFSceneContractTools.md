@@ -26,9 +26,9 @@
 | 常量 | [`KEY_PATH_SUFFIX`](#member-gfscenecontracttools-constants-key_path_suffix) | `const KEY_PATH_SUFFIX: StringName = &"path_suffix"` |
 | 常量 | [`KEY_SCRIPT_STRUCTURE`](#member-gfscenecontracttools-constants-key_script_structure) | `const KEY_SCRIPT_STRUCTURE: StringName = &"script_structure"` |
 | 方法 | [`scan_scene_paths`](#member-gfscenecontracttools-methods-scan_scene_paths) | `static func scan_scene_paths(root_path: String = "res://", options: Dictionary = {}) -> PackedStringArray:` |
-| 方法 | [`check_node`](#member-gfscenecontracttools-methods-check_node) | `static func check_node(root: Node, contract: Dictionary = {}, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`check_node`](#member-gfscenecontracttools-methods-check_node) | `static func check_node( root: Node, contract: Dictionary = {}, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`check_packed_scene`](#member-gfscenecontracttools-methods-check_packed_scene) | `static func check_packed_scene( packed_scene: PackedScene, contract: Dictionary = {}, options: Dictionary = {} ) -> Dictionary:` |
-| 方法 | [`check_scene_path`](#member-gfscenecontracttools-methods-check_scene_path) | `static func check_scene_path(scene_path: String, contract: Dictionary = {}, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`check_scene_path`](#member-gfscenecontracttools-methods-check_scene_path) | `static func check_scene_path( scene_path: String, contract: Dictionary = {}, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`check_scene_paths`](#member-gfscenecontracttools-methods-check_scene_paths) | `static func check_scene_paths( paths: PackedStringArray, contract: Dictionary = {}, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`check_scene_directory`](#member-gfscenecontracttools-methods-check_scene_directory) | `static func check_scene_directory( root_path: String = "res://", contract: Dictionary = {}, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`make_validation_rule`](#member-gfscenecontracttools-methods-make_validation_rule) | `static func make_validation_rule(contract: Dictionary = {}, options: Dictionary = {}) -> GFValidationRule:` |
@@ -201,7 +201,7 @@ static func scan_scene_paths(root_path: String = "res://", options: Dictionary =
 - 首次版本：`8.0.0`
 
 ```gdscript
-static func check_node(root: Node, contract: Dictionary = {}, options: Dictionary = {}) -> Dictionary:
+static func check_node( root: Node, contract: Dictionary = {}, options: Dictionary = {} ) -> Dictionary:
 ```
 
 检查一个已存在的场景根节点。 name_prefix、name_suffix、path_prefix、path_suffix 和 script_structure。
@@ -259,7 +259,7 @@ static func check_packed_scene( packed_scene: PackedScene, contract: Dictionary 
 - 首次版本：`8.0.0`
 
 ```gdscript
-static func check_scene_path(scene_path: String, contract: Dictionary = {}, options: Dictionary = {}) -> Dictionary:
+static func check_scene_path( scene_path: String, contract: Dictionary = {}, options: Dictionary = {} ) -> Dictionary:
 ```
 
 加载场景路径并检查根节点契约。

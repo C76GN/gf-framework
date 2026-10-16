@@ -83,8 +83,16 @@ func configure(
 	identity = p_identity.duplicate_identity() if p_identity != null else null
 	if identity != null and identity.peer_id < 0:
 		identity.peer_id = peer_id
-	is_owner = GFVariantData.get_option_bool(options, "is_owner", false)
-	is_local = GFVariantData.get_option_bool(options, "is_local", false)
+	is_owner = GFVariantData.get_option_bool(
+		options,
+		"is_owner",
+		false
+	)
+	is_local = GFVariantData.get_option_bool(
+		options,
+		"is_local",
+		false
+	)
 	metadata = p_metadata.duplicate(true)
 	return self
 
@@ -133,11 +141,23 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @schema data: Dictionary with peer_id, identity, is_owner, is_local, and metadata.
 func apply_dict(data: Dictionary) -> void:
-	peer_id = GFVariantData.get_option_int(data, "peer_id", -1)
+	peer_id = GFVariantData.get_option_int(
+		data,
+		"peer_id",
+		-1
+	)
 	var identity_data: Dictionary = GFVariantData.get_option_dictionary(data, "identity")
 	identity = GFNetworkPeerIdentity.from_dict(identity_data) if not identity_data.is_empty() else null
-	is_owner = GFVariantData.get_option_bool(data, "is_owner", false)
-	is_local = GFVariantData.get_option_bool(data, "is_local", false)
+	is_owner = GFVariantData.get_option_bool(
+		data,
+		"is_owner",
+		false
+	)
+	is_local = GFVariantData.get_option_bool(
+		data,
+		"is_local",
+		false
+	)
 	metadata = GFVariantData.get_option_dictionary(data, "metadata")
 
 

@@ -67,7 +67,11 @@ const STATUS_INVALID: StringName = &"invalid"
 ## @schema return: Dictionary，包含 status、completed、cancelled、timed_out、invalid、reason、metadata 和 args。
 static func await_signal_state(result_signal: Signal, options: Dictionary = {}) -> Dictionary:
 	if result_signal.is_null():
-		return _make_signal_wait_result(STATUS_INVALID, [], &"invalid_signal")
+		return _make_signal_wait_result(
+			STATUS_INVALID,
+			[],
+			&"invalid_signal"
+		)
 
 	var cancel_token: GFCancellationToken = _get_cancel_token(options)
 	if cancel_token != null and cancel_token.is_cancel_requested():
@@ -80,13 +84,21 @@ static func await_signal_state(result_signal: Signal, options: Dictionary = {}) 
 
 	var target_obj: Object = result_signal.get_object()
 	if not is_instance_valid(target_obj):
-		return _make_signal_wait_result(STATUS_INVALID, [], &"target_invalid")
+		return _make_signal_wait_result(
+			STATUS_INVALID,
+			[],
+			&"target_invalid"
+		)
 
 	var guard_value: Variant = GFVariantData.get_option_value(options, "guard_node")
 	var guard_configured: bool = typeof(guard_value) != TYPE_NIL
 	var guard_node: Node = _GF_INSTANCE_GUARD._get_live_node(guard_value)
 	if guard_configured and guard_node == null:
-		return _make_signal_wait_result(STATUS_INVALID, [], &"guard_exited")
+		return _make_signal_wait_result(
+			STATUS_INVALID,
+			[],
+			&"guard_exited"
+		)
 
 	var completion_state: Dictionary = {
 		"completed": false,
@@ -98,15 +110,23 @@ static func await_signal_state(result_signal: Signal, options: Dictionary = {}) 
 	var on_signal_completed: Callable = func() -> void:
 		_try_complete_signal_wait(completion_state, STATUS_COMPLETED)
 	var on_target_exited: Callable = func() -> void:
-		_try_complete_signal_wait(completion_state, STATUS_INVALID, &"target_exited")
+		_try_complete_signal_wait(
+			completion_state,
+			STATUS_INVALID,
+			&"target_exited"
+		)
 	var on_guard_exited: Callable = func() -> void:
-		_try_complete_signal_wait(completion_state, STATUS_INVALID, &"guard_exited")
-	var capture_payload: bool = GFVariantData.get_option_bool(options, "capture_payload", false)
-	var result_callback: Callable = (
-		_make_signal_capture_callable(result_signal, completion_state)
-		if capture_payload
-		else make_signal_resume_callable(result_signal, on_signal_completed)
+		_try_complete_signal_wait(
+			completion_state,
+			STATUS_INVALID,
+			&"guard_exited"
+		)
+	var capture_payload: bool = GFVariantData.get_option_bool(
+		options,
+		"capture_payload",
+		false
 	)
+	var result_callback: Callable = (_make_signal_capture_callable(result_signal, completion_state) if capture_payload else make_signal_resume_callable(result_signal, on_signal_completed))
 	var tree_exit_callback: Callable = on_target_exited
 	var guard_exit_callback: Callable = on_guard_exited
 
@@ -115,7 +135,11 @@ static func await_signal_state(result_signal: Signal, options: Dictionary = {}) 
 		CONNECT_ONE_SHOT as Object.ConnectFlags
 	) as Error
 	if result_connect_result != OK:
-		return _make_signal_wait_result(STATUS_INVALID, [], &"connect_failed")
+		return _make_signal_wait_result(
+			STATUS_INVALID,
+			[],
+			&"connect_failed"
+		)
 
 	var tree_exit_signal: Signal = Signal()
 	var guard_exit_signal: Signal = Signal()
@@ -123,10 +147,18 @@ static func await_signal_state(result_signal: Signal, options: Dictionary = {}) 
 		var target_node: Node = _variant_to_node(target_obj)
 		if target_node == null:
 			disconnect_signal_if_connected(result_signal, result_callback)
-			return _make_signal_wait_result(STATUS_INVALID, [], &"target_invalid")
+			return _make_signal_wait_result(
+				STATUS_INVALID,
+				[],
+				&"target_invalid"
+			)
 		if not target_node.is_inside_tree() and result_signal != target_node.tree_exited:
 			disconnect_signal_if_connected(result_signal, result_callback)
-			return _make_signal_wait_result(STATUS_INVALID, [], &"target_exited")
+			return _make_signal_wait_result(
+				STATUS_INVALID,
+				[],
+				&"target_exited"
+			)
 		if result_signal != target_node.tree_exited:
 			tree_exit_callback = make_signal_resume_callable(target_node.tree_exited, on_target_exited)
 			var tree_exit_connect_result: Error = target_node.tree_exited.connect(
@@ -135,14 +167,26 @@ static func await_signal_state(result_signal: Signal, options: Dictionary = {}) 
 			) as Error
 			if tree_exit_connect_result != OK:
 				disconnect_signal_if_connected(result_signal, result_callback)
-				return _make_signal_wait_result(STATUS_INVALID, [], &"connect_failed")
+				return _make_signal_wait_result(
+					STATUS_INVALID,
+					[],
+					&"connect_failed"
+				)
 			tree_exit_signal = target_node.tree_exited
 
-	if guard_node != null and result_signal != guard_node.tree_exited and tree_exit_signal != guard_node.tree_exited:
+	if (
+		guard_node != null
+		and result_signal != guard_node.tree_exited
+		and tree_exit_signal != guard_node.tree_exited
+	):
 		if not guard_node.is_inside_tree():
 			disconnect_signal_if_connected(result_signal, result_callback)
 			disconnect_signal_if_connected(tree_exit_signal, tree_exit_callback)
-			return _make_signal_wait_result(STATUS_INVALID, [], &"guard_exited")
+			return _make_signal_wait_result(
+				STATUS_INVALID,
+				[],
+				&"guard_exited"
+			)
 		guard_exit_callback = make_signal_resume_callable(guard_node.tree_exited, on_guard_exited)
 		var guard_exit_connect_result: Error = guard_node.tree_exited.connect(
 			guard_exit_callback,
@@ -151,7 +195,11 @@ static func await_signal_state(result_signal: Signal, options: Dictionary = {}) 
 		if guard_exit_connect_result != OK:
 			disconnect_signal_if_connected(result_signal, result_callback)
 			disconnect_signal_if_connected(tree_exit_signal, tree_exit_callback)
-			return _make_signal_wait_result(STATUS_INVALID, [], &"connect_failed")
+			return _make_signal_wait_result(
+				STATUS_INVALID,
+				[],
+				&"connect_failed"
+			)
 		guard_exit_signal = guard_node.tree_exited
 
 	var status: StringName = await _wait_signal_loop(
@@ -179,13 +227,24 @@ static func await_signal_state(result_signal: Signal, options: Dictionary = {}) 
 		if not timeout_warning.is_empty():
 			push_warning(timeout_warning)
 
-	var args: Array = GFVariantData.as_array(GFVariantData.get_option_value(completion_state, "args", []))
+	var args: Array = GFVariantData.as_array(
+		GFVariantData.get_option_value(
+			completion_state,
+			"args",
+			[]
+		)
+	)
 	if (
 		status == STATUS_CANCELLED
 		and cancel_token != null
 		and cancel_token.is_cancel_requested()
 	):
-		return _make_signal_wait_result(status, args, cancel_token.get_cancel_reason(), cancel_token.get_cancel_metadata())
+		return _make_signal_wait_result(
+			status,
+			args,
+			cancel_token.get_cancel_reason(),
+			cancel_token.get_cancel_metadata()
+		)
 	return _make_signal_wait_result(
 		status,
 		args,
@@ -227,15 +286,18 @@ static func await_signal_safely(
 	guard_node: Node = null,
 	should_pause_timeout: Callable = Callable()
 ) -> bool:
-	var result: Dictionary = await await_signal_state(result_signal, {
-		"should_continue": should_continue,
-		"should_pause_timeout": should_pause_timeout,
-		"time_utility": time_utility,
-		"timeout_seconds": timeout_seconds,
-		"respect_time_scale": respect_time_scale,
-		"timeout_warning": timeout_warning,
-		"guard_node": guard_node,
-	})
+	var result: Dictionary = await await_signal_state(
+		result_signal,
+		{
+			"should_continue": should_continue,
+			"should_pause_timeout": should_pause_timeout,
+			"time_utility": time_utility,
+			"timeout_seconds": timeout_seconds,
+			"respect_time_scale": respect_time_scale,
+			"timeout_warning": timeout_warning,
+			"guard_node": guard_node,
+		}
+	)
 	return GFVariantData.get_option_bool(result, "completed")
 
 
@@ -274,16 +336,19 @@ static func await_signal_payload_safely(
 	guard_node: Node = null,
 	should_pause_timeout: Callable = Callable()
 ) -> Dictionary:
-	return await await_signal_state(result_signal, {
-		"should_continue": should_continue,
-		"should_pause_timeout": should_pause_timeout,
-		"time_utility": time_utility,
-		"timeout_seconds": timeout_seconds,
-		"respect_time_scale": respect_time_scale,
-		"timeout_warning": timeout_warning,
-		"guard_node": guard_node,
-		"capture_payload": true,
-	})
+	return await await_signal_state(
+		result_signal,
+		{
+			"should_continue": should_continue,
+			"should_pause_timeout": should_pause_timeout,
+			"time_utility": time_utility,
+			"timeout_seconds": timeout_seconds,
+			"respect_time_scale": respect_time_scale,
+			"timeout_warning": timeout_warning,
+			"guard_node": guard_node,
+			"capture_payload": true,
+		}
+	)
 
 
 ## 计算超时累计增量。
@@ -353,9 +418,19 @@ static func get_signal_argument_count(target_signal: Signal) -> int:
 
 	var target_name: StringName = StringName(target_signal.get_name())
 	for signal_info: Dictionary in target_obj.get_signal_list():
-		if GFVariantData.get_option_string_name(signal_info, "name", &"") != target_name:
+		if GFVariantData.get_option_string_name(
+			signal_info,
+			"name",
+			&""
+		) != target_name:
 			continue
-		var args: Array = GFVariantData.to_array(GFVariantData.get_option_value(signal_info, "args", []))
+		var args: Array = GFVariantData.to_array(
+			GFVariantData.get_option_value(
+				signal_info,
+				"args",
+				[]
+			)
+		)
 		return args.size()
 	return 0
 
@@ -391,14 +466,26 @@ static func _wait_signal_loop(
 	completion_state: Dictionary,
 	options: Dictionary
 ) -> StringName:
-	var timeout_seconds: float = GFVariantData.get_option_float(options, "timeout_seconds", 0.0)
+	var timeout_seconds: float = GFVariantData.get_option_float(
+		options,
+		"timeout_seconds",
+		0.0
+	)
 	var timeout_msec: float = maxf(timeout_seconds, 0.0) * 1000.0
 	var elapsed_timeout_msec: float = 0.0
 	var last_timeout_msec: int = Time.get_ticks_msec()
 	var time_utility: GFTimeUtility = _get_time_utility(options)
-	var respect_time_scale: bool = GFVariantData.get_option_bool(options, "respect_time_scale", true)
+	var respect_time_scale: bool = GFVariantData.get_option_bool(
+		options,
+		"respect_time_scale",
+		true
+	)
 	var tree: SceneTree = _get_scene_tree(options)
-	var process_in_physics: bool = GFVariantData.get_option_bool(options, "process_in_physics", false)
+	var process_in_physics: bool = GFVariantData.get_option_bool(
+		options,
+		"process_in_physics",
+		false
+	)
 	var should_continue: Callable = _get_callable(options, "should_continue")
 	var should_continue_is_configured: bool = not should_continue.is_null()
 	var should_pause_timeout: Callable = _get_callable(options, "should_pause_timeout")
@@ -412,10 +499,20 @@ static func _wait_signal_loop(
 			completion_state["reason"] = &"target_exited"
 			return STATUS_INVALID
 		var target_node: Node = _variant_to_node(target_obj)
-		if target_node != null and not target_node.is_inside_tree() and result_signal != target_node.tree_exited:
+		if (
+			target_node != null
+			and not target_node.is_inside_tree()
+			and result_signal != target_node.tree_exited
+		):
 			completion_state["reason"] = &"target_exited"
 			return STATUS_INVALID
-		if guard_node != null and (not is_instance_valid(guard_node) or not guard_node.is_inside_tree()):
+		if (
+			guard_node != null
+			and (
+				not is_instance_valid(guard_node)
+				or not guard_node.is_inside_tree()
+			)
+		):
 			completion_state["reason"] = &"guard_exited"
 			return STATUS_INVALID
 
@@ -429,10 +526,7 @@ static func _wait_signal_loop(
 
 		var current_timeout_msec: int = Time.get_ticks_msec()
 		if timeout_msec > 0.0:
-			var timeout_is_paused: bool = (
-				should_pause_timeout.is_valid()
-				and GFVariantData.to_bool(should_pause_timeout.call())
-			)
+			var timeout_is_paused: bool = (should_pause_timeout.is_valid() and GFVariantData.to_bool(should_pause_timeout.call()))
 			if not timeout_is_paused:
 				elapsed_timeout_msec += get_timeout_elapsed_msec(
 					last_timeout_msec,
@@ -446,7 +540,11 @@ static func _wait_signal_loop(
 
 		await _await_frame(tree, process_in_physics)
 
-	return GFVariantData.get_option_string_name(completion_state, "status", STATUS_COMPLETED)
+	return GFVariantData.get_option_string_name(
+		completion_state,
+		"status",
+		STATUS_COMPLETED
+	)
 
 
 ## 创建最多捕获 MAX_CAPTURED_SIGNAL_ARGUMENTS 个发射参数的完成回调。

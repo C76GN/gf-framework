@@ -21,10 +21,10 @@
 | 属性 | [`max_depth`](#member-gfquadtreeutility-properties-max_depth) | `var max_depth: int = DEFAULT_MAX_DEPTH` |
 | 属性 | [`max_entities_per_node`](#member-gfquadtreeutility-properties-max_entities_per_node) | `var max_entities_per_node: int = DEFAULT_MAX_ENTITIES` |
 | 方法 | [`init`](#member-gfquadtreeutility-methods-init) | `func init() -> void:` |
-| 方法 | [`setup`](#member-gfquadtreeutility-methods-setup) | `func setup(world_bounds: Rect2, depth: int = DEFAULT_MAX_DEPTH, entities_per_node: int = DEFAULT_MAX_ENTITIES) -> void:` |
+| 方法 | [`setup`](#member-gfquadtreeutility-methods-setup) | `func setup( world_bounds: Rect2, depth: int = DEFAULT_MAX_DEPTH, entities_per_node: int = DEFAULT_MAX_ENTITIES ) -> void:` |
 | 方法 | [`can_index_rect`](#member-gfquadtreeutility-methods-can_index_rect) | `func can_index_rect(rect: Rect2) -> bool:` |
 | 方法 | [`insert`](#member-gfquadtreeutility-methods-insert) | `func insert(entity_id: int, rect: Rect2) -> bool:` |
-| 方法 | [`insert_with_hit_test`](#member-gfquadtreeutility-methods-insert_with_hit_test) | `func insert_with_hit_test(entity_id: int, rect: Rect2, hit_test: Callable) -> bool:` |
+| 方法 | [`insert_with_hit_test`](#member-gfquadtreeutility-methods-insert_with_hit_test) | `func insert_with_hit_test( entity_id: int, rect: Rect2, hit_test: Callable ) -> bool:` |
 | 方法 | [`remove`](#member-gfquadtreeutility-methods-remove) | `func remove(entity_id: int) -> void:` |
 | 方法 | [`update`](#member-gfquadtreeutility-methods-update) | `func update(entity_id: int, new_rect: Rect2) -> bool:` |
 | 方法 | [`set_entity_hit_test`](#member-gfquadtreeutility-methods-set_entity_hit_test) | `func set_entity_hit_test(entity_id: int, hit_test: Callable) -> bool:` |
@@ -125,9 +125,10 @@ func init() -> void:
 ### `setup`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func setup(world_bounds: Rect2, depth: int = DEFAULT_MAX_DEPTH, entities_per_node: int = DEFAULT_MAX_ENTITIES) -> void:
+func setup( world_bounds: Rect2, depth: int = DEFAULT_MAX_DEPTH, entities_per_node: int = DEFAULT_MAX_ENTITIES ) -> void:
 ```
 
 配置四叉树参数并重建。应在 init() 之前或之后调用。
@@ -191,7 +192,7 @@ func insert(entity_id: int, rect: Rect2) -> bool:
 - 首次版本：`3.17.0`
 
 ```gdscript
-func insert_with_hit_test(entity_id: int, rect: Rect2, hit_test: Callable) -> bool:
+func insert_with_hit_test( entity_id: int, rect: Rect2, hit_test: Callable ) -> bool:
 ```
 
 将带精确点命中测试的实体插入四叉树。

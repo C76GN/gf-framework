@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConsoleUtility" path="addons/gf/standard/utilities/debug/gf_console_utility.gd" module="standard" extends="GFUtility" classDigest="3325b41a665ef3569d69ac18aee13fc1cb1471559ddbc8aed62398fb48d966be">
+<class name="GFConsoleUtility" path="addons/gf/standard/utilities/debug/gf_console_utility.gd" module="standard" extends="GFUtility" classDigest="1d35f6930aa19f086a6940a5ea4ce1148bb53cef9d43d2323e7e950e4c74f99f">
 	<description>GFConsoleUtility: 运行时开发者控制台。
 提供命令注册、解析与执行能力，并在初始化时构建覆盖全屏的调试 GUI。
 默认通过快捷键呼出，同时会消费 `GFLogUtility` 的日志信号进行彩色输出。</description>
@@ -213,7 +213,7 @@ prefix 和 raw_input。GF 会按当前参数前缀做一次稳定过滤。</desc
 			</tags>
 		</member>
 		<member kind="method" name="suggest_similar_commands">
-			<signature>func suggest_similar_commands(cmd_name: String, limit: int = 3, threshold: float = 0.5) -&gt; PackedStringArray:</signature>
+			<signature>func suggest_similar_commands( cmd_name: String, limit: int = 3, threshold: float = 0.5 ) -&gt; PackedStringArray:</signature>
 			<description>根据字符串相似度获取可能的命令名，用于未知命令诊断。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -221,6 +221,7 @@ prefix 和 raw_input。GF 会按当前参数前缀做一次稳定过滤。</desc
 				<tag name="param">limit: 最多返回的候选数量。</tag>
 				<tag name="param">threshold: 最低相似度，范围 0 到 1。</tag>
 				<tag name="return">按相似度降序排列的候选命令名。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="execute_command">

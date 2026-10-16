@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectileBodyResult3D" path="addons/gf/extensions/combat/projectiles/gf_projectile_body_result_3d.gd" module="extensions/combat" extends="RefCounted" classDigest="66c962d07775aa4a192bb44d19d2481c74aeac00fecd33a2002fa4bc034dc67d">
+<class name="GFProjectileBodyResult3D" path="addons/gf/extensions/combat/projectiles/gf_projectile_body_result_3d.gd" module="extensions/combat" extends="RefCounted" classDigest="34c25cc231b1d6e6acb93089bc73255929cbfe03597c34a2a3f50d422435fe56">
 	<description>GFProjectileBodyResult3D: 3D body adapter 的捕获或应用结果。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -12,7 +12,7 @@
 	<properties />
 	<methods>
 		<member kind="method" name="successful">
-			<signature>static func successful( transform_value: Transform3D, actual_displacement: Vector3 = Vector3.ZERO ) -&gt; GFProjectileBodyResult3D:</signature>
+			<signature>static func successful(transform_value: Transform3D, actual_displacement: Vector3 = Vector3.ZERO) -&gt; GFProjectileBodyResult3D:</signature>
 			<description>构造成功的 3D body 结果。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -23,7 +23,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="failed">
-			<signature>static func failed( reason: StringName, transform_value: Transform3D = Transform3D.IDENTITY ) -&gt; GFProjectileBodyResult3D:</signature>
+			<signature>static func failed(reason: StringName, transform_value: Transform3D = Transform3D.IDENTITY) -&gt; GFProjectileBodyResult3D:</signature>
 			<description>构造失败的 3D body 结果。</description>
 			<tags>
 				<tag name="api">public</tag>

@@ -10,17 +10,39 @@ func test_schema_validate_table_reports_missing_type_and_extra_fields() -> void:
 	var schema: GFConfigTableSchema = _make_item_schema()
 	schema.allow_extra_fields = false
 
-	var report: Dictionary = schema.validate_table([
-		{ "id": 1, "name": "Potion", "power": 3.5 },
-		{ "id": "bad", "extra": true },
-	])
+	var report: Dictionary = schema.validate_table(
+		[
+			{
+				"id": 1,
+				"name": "Potion",
+				"power": 3.5,
+			},
+			{ "id": "bad", "extra": true },
+		]
+	)
 	var issues: Array = GFVariantData.get_option_array(report, "issues")
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "包含缺字段、类型错误和额外字段时校验应失败。")
-	assert_eq(GFVariantData.get_option_int(report, "row_count"), 2, "表校验应记录行数。")
-	assert_true(_has_issue_kind(issues, "invalid_type"), "错误报告应包含类型错误。")
-	assert_true(_has_issue_kind(issues, "missing_required"), "错误报告应包含缺失必填字段。")
-	assert_true(_has_issue_kind(issues, "extra_field"), "错误报告应包含额外字段。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"包含缺字段、类型错误和额外字段时校验应失败。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(report, "row_count"),
+		2,
+		"表校验应记录行数。"
+	)
+	assert_true(
+		_has_issue_kind(issues, "invalid_type"),
+		"错误报告应包含类型错误。"
+	)
+	assert_true(
+		_has_issue_kind(issues, "missing_required"),
+		"错误报告应包含缺失必填字段。"
+	)
+	assert_true(
+		_has_issue_kind(issues, "extra_field"),
+		"错误报告应包含额外字段。"
+	)
 
 
 func test_schema_coerce_record_applies_column_types_and_defaults() -> void:
@@ -29,9 +51,21 @@ func test_schema_coerce_record_applies_column_types_and_defaults() -> void:
 
 	var record: Dictionary = schema.coerce_record({ "id": "7", "name": 42 })
 
-	assert_eq(GFVariantData.get_option_int(record, "id"), 7, "id 应按列声明转换为 int。")
-	assert_eq(GFVariantData.get_option_string(record, "name"), "42", "name 应按列声明转换为 String。")
-	assert_eq(GFVariantData.get_option_float(record, "power"), 1.0, "缺失字段应补默认值并转换。")
+	assert_eq(
+		GFVariantData.get_option_int(record, "id"),
+		7,
+		"id 应按列声明转换为 int。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(record, "name"),
+		"42",
+		"name 应按列声明转换为 String。"
+	)
+	assert_eq(
+		GFVariantData.get_option_float(record, "power"),
+		1.0,
+		"缺失字段应补默认值并转换。"
+	)
 
 
 func test_required_field_default_does_not_hide_missing_source_value() -> void:
@@ -44,19 +78,40 @@ func test_required_field_default_does_not_hide_missing_source_value() -> void:
 
 	var report: Dictionary = schema.validate_record({})
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "required 表示源记录必须显式提供字段，默认值只能参与 coercion。")
-	assert_true(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "missing_required"))
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"required 表示源记录必须显式提供字段，默认值只能参与 coercion。"
+	)
+	assert_true(
+		_has_issue_kind(
+			GFVariantData.get_option_array(report, "issues"),
+			"missing_required"
+		)
+	)
 
 
 func test_schema_coerce_validation_reports_invalid_conversion() -> void:
 	var schema: GFConfigTableSchema = _make_item_schema()
 	schema.coerce_values = true
 
-	var report: Dictionary = schema.validate_record({ "id": "bad", "name": "Potion", "power": "abc" }, "bad")
+	var report: Dictionary = schema.validate_record(
+		{
+			"id": "bad",
+			"name": "Potion",
+			"power": "abc",
+		},
+		"bad"
+	)
 	var issues: Array = GFVariantData.get_option_array(report, "issues")
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "严格转换失败时校验应失败。")
-	assert_true(_has_issue_kind(issues, "coerce_failed"), "错误报告应包含转换失败。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"严格转换失败时校验应失败。"
+	)
+	assert_true(
+		_has_issue_kind(issues, "coerce_failed"),
+		"错误报告应包含转换失败。"
+	)
 
 
 func test_schema_table_rules_receive_coerced_records() -> void:
@@ -64,11 +119,20 @@ func test_schema_table_rules_receive_coerced_records() -> void:
 	schema.coerce_values = true
 	schema.table_validation_rules.append(RequireIntegerIdsTableRule.new())
 
-	var report: Dictionary = schema.validate_table([
-		{ "id": "7", "name": "Potion", "power": "2.5" },
-	])
+	var report: Dictionary = schema.validate_table(
+		[
+			{
+				"id": "7",
+				"name": "Potion",
+				"power": "2.5",
+			},
+		]
+	)
 
-	assert_true(GFVariantData.get_option_bool(report, "ok"), "启用 coerce_values 时表级规则应看到转换后的记录。")
+	assert_true(
+		GFVariantData.get_option_bool(report, "ok"),
+		"启用 coerce_values 时表级规则应看到转换后的记录。"
+	)
 
 
 func test_color_column_rejects_invalid_text() -> void:
@@ -79,34 +143,78 @@ func test_color_column_rejects_invalid_text() -> void:
 	var invalid: Dictionary = column.try_coerce_value("not-a-color")
 	var valid: Dictionary = column.try_coerce_value("#ff00ff")
 
-	assert_false(GFVariantData.get_option_bool(invalid, "ok"), "任意文本不应被静默转换为 Color。")
-	assert_true(GFVariantData.get_option_bool(valid, "ok"), "合法 HTML 颜色应可转换。")
+	assert_false(
+		GFVariantData.get_option_bool(invalid, "ok"),
+		"任意文本不应被静默转换为 Color。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(valid, "ok"),
+		"合法 HTML 颜色应可转换。"
+	)
 
 
 func test_schema_can_report_duplicate_array_ids() -> void:
 	var schema: GFConfigTableSchema = _make_item_schema()
 	schema.require_unique_id = true
 
-	var report: Dictionary = schema.validate_table([
-		{ "id": 1, "name": "Potion", "power": 1.0 },
-		{ "id": 1, "name": "Ether", "power": 2.0 },
-	])
+	var report: Dictionary = schema.validate_table(
+		[
+			{
+				"id": 1,
+				"name": "Potion",
+				"power": 1.0,
+			},
+			{
+				"id": 1,
+				"name": "Ether",
+				"power": 2.0,
+			},
+		]
+	)
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "要求唯一 ID 时重复记录应失败。")
-	assert_true(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "duplicate_id"), "错误报告应包含重复 ID。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"要求唯一 ID 时重复记录应失败。"
+	)
+	assert_true(
+		_has_issue_kind(
+			GFVariantData.get_option_array(report, "issues"),
+			"duplicate_id"
+		),
+		"错误报告应包含重复 ID。"
+	)
 
 
 func test_schema_can_report_duplicate_dictionary_ids() -> void:
 	var schema: GFConfigTableSchema = _make_item_schema()
 	schema.require_unique_id = true
 
-	var report: Dictionary = schema.validate_table({
-		"potion": { "id": 1, "name": "Potion", "power": 1.0 },
-		"ether": { "id": 1, "name": "Ether", "power": 2.0 },
-	})
+	var report: Dictionary = schema.validate_table(
+		{
+			"potion": {
+				"id": 1,
+				"name": "Potion",
+				"power": 1.0,
+			},
+			"ether": {
+				"id": 1,
+				"name": "Ether",
+				"power": 2.0,
+			},
+		}
+	)
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "Dictionary 表要求唯一 ID 时重复记录应失败。")
-	assert_true(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "duplicate_id"), "错误报告应包含重复 ID。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"Dictionary 表要求唯一 ID 时重复记录应失败。"
+	)
+	assert_true(
+		_has_issue_kind(
+			GFVariantData.get_option_array(report, "issues"),
+			"duplicate_id"
+		),
+		"错误报告应包含重复 ID。"
+	)
 
 
 func test_schema_definition_reports_invalid_declarations() -> void:
@@ -142,42 +250,103 @@ func test_schema_definition_reports_invalid_declarations() -> void:
 	var report: Dictionary = schema.validate_definition()
 	var issues: Array = GFVariantData.get_option_array(report, "issues")
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "schema 定义存在结构问题时应失败。")
-	assert_true(_has_issue_kind(issues, "duplicate_column_field"), "应报告重复字段声明。")
-	assert_true(_has_issue_kind(issues, "empty_field"), "应报告空字段声明。")
-	assert_true(_has_issue_kind(issues, "null_column"), "应报告空列声明。")
-	assert_true(_has_issue_kind(issues, "index_unknown_field"), "应报告索引未知字段。")
-	assert_true(_has_issue_kind(issues, "duplicate_index_id"), "应报告重复索引 ID。")
-	assert_true(_has_issue_kind(issues, "reference_unknown_source_field"), "应报告引用未知来源字段。")
-	assert_true(_has_issue_kind(issues, "duplicate_reference_id"), "应报告重复引用 ID。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"schema 定义存在结构问题时应失败。"
+	)
+	assert_true(
+		_has_issue_kind(issues, "duplicate_column_field"),
+		"应报告重复字段声明。"
+	)
+	assert_true(
+		_has_issue_kind(issues, "empty_field"),
+		"应报告空字段声明。"
+	)
+	assert_true(
+		_has_issue_kind(issues, "null_column"),
+		"应报告空列声明。"
+	)
+	assert_true(
+		_has_issue_kind(issues, "index_unknown_field"),
+		"应报告索引未知字段。"
+	)
+	assert_true(
+		_has_issue_kind(issues, "duplicate_index_id"),
+		"应报告重复索引 ID。"
+	)
+	assert_true(
+		_has_issue_kind(issues, "reference_unknown_source_field"),
+		"应报告引用未知来源字段。"
+	)
+	assert_true(
+		_has_issue_kind(issues, "duplicate_reference_id"),
+		"应报告重复引用 ID。"
+	)
 
 
 func test_config_provider_registers_schema_and_validates_table() -> void:
 	var provider: GFConfigProvider = GFConfigProvider.new()
 	var schema: GFConfigTableSchema = _make_item_schema()
 
-	assert_true(provider.register_schema(schema), "有效 schema 应注册成功。")
-	assert_true(provider.has_schema(&"items"), "Provider 应可查询已注册 schema。")
+	assert_true(
+		provider.register_schema(schema),
+		"有效 schema 应注册成功。"
+	)
+	assert_true(
+		provider.has_schema(&"items"),
+		"Provider 应可查询已注册 schema。"
+	)
 
-	var report: Dictionary = provider.validate_record(&"items", { "id": 1, "name": "Potion", "power": 2.0 })
+	var report: Dictionary = provider.validate_record(
+		&"items",
+		{
+			"id": 1,
+			"name": "Potion",
+			"power": 2.0,
+		}
+	)
 
-	assert_true(GFVariantData.get_option_bool(report, "ok"), "Provider 应通过已注册 schema 校验记录。")
-	assert_eq(provider.get_schema_ids(), PackedStringArray(["items"]), "schema id 应排序返回。")
+	assert_true(
+		GFVariantData.get_option_bool(report, "ok"),
+		"Provider 应通过已注册 schema 校验记录。"
+	)
+	assert_eq(
+		provider.get_schema_ids(),
+		PackedStringArray(["items"]),
+		"schema id 应排序返回。"
+	)
 
 
 func test_config_provider_get_schema_returns_copy() -> void:
 	var provider: GFConfigProvider = GFConfigProvider.new()
 	var schema: GFConfigTableSchema = _make_item_schema()
-	assert_true(provider.register_schema(schema), "有效 schema 应注册成功。")
+	assert_true(
+		provider.register_schema(schema),
+		"有效 schema 应注册成功。"
+	)
 	schema.columns.clear()
 
 	var schema_copy: GFConfigTableSchema = provider.get_schema(&"items")
-	assert_eq(schema_copy.columns.size(), 3, "注册后修改调用方原 schema 不应污染 Provider。")
+	assert_eq(
+		schema_copy.columns.size(),
+		3,
+		"注册后修改调用方原 schema 不应污染 Provider。"
+	)
 	schema_copy.columns.clear()
 
-	var report: Dictionary = provider.validate_record(&"items", { "id": 1, "name": "Potion", "power": 2.0 })
+	var report: Dictionary = provider.validate_record(
+		&"items",
+		{
+			"id": 1,
+			"name": "Potion",
+			"power": 2.0,
+		}
+	)
 
-	assert_true(GFVariantData.get_option_bool(report, "ok"), "修改 get_schema 返回值不应污染 Provider 内部 schema。")
+	assert_true(
+		GFVariantData.get_option_bool(report, "ok"),
+		"修改 get_schema 返回值不应污染 Provider 内部 schema。"
+	)
 
 
 func test_csv_importer_parses_quotes_and_validates_with_coercion() -> void:
@@ -194,10 +363,30 @@ func test_csv_importer_parses_quotes_and_validates_with_coercion() -> void:
 		var parsed_header: PackedStringArray = header_value
 		header = parsed_header
 
-	assert_true(GFVariantData.get_option_bool(parsed, "success"), "CSV 应解析成功。")
-	assert_eq(header, PackedStringArray(["id", "name", "power"]), "CSV 解析结果应保留表头。")
-	assert_eq(GFVariantData.get_option_string(first_row, "name"), "A,B", "引号内逗号应保留为单元格内容。")
-	assert_true(GFVariantData.get_option_bool(report, "ok"), "启用 coerce_values 后 CSV 字符串值应可通过 schema 校验。")
+	assert_true(
+		GFVariantData.get_option_bool(parsed, "success"),
+		"CSV 应解析成功。"
+	)
+	assert_eq(
+		header,
+		PackedStringArray(
+			[
+				"id",
+				"name",
+				"power",
+			]
+		),
+		"CSV 解析结果应保留表头。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(first_row, "name"),
+		"A,B",
+		"引号内逗号应保留为单元格内容。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(report, "ok"),
+		"启用 coerce_values 后 CSV 字符串值应可通过 schema 校验。"
+	)
 
 
 func test_csv_importer_strips_bom_from_first_header() -> void:
@@ -205,23 +394,75 @@ func test_csv_importer_strips_bom_from_first_header() -> void:
 	var rows: Array = GFVariantData.get_option_array(parsed, "data")
 	var row: Dictionary = GFVariantData.as_dictionary(rows[0])
 
-	assert_true(GFVariantData.get_option_bool(parsed, "success"), "带 UTF-8 BOM 的 CSV 应解析成功。")
-	assert_true(row.has(&"id"), "BOM 不应污染第一列表头。")
+	assert_true(
+		GFVariantData.get_option_bool(parsed, "success"),
+		"带 UTF-8 BOM 的 CSV 应解析成功。"
+	)
+	assert_true(
+		row.has(&"id"),
+		"BOM 不应污染第一列表头。"
+	)
 
 
 func test_rows_importer_filters_comment_rows_columns_and_keeps_source_locations() -> void:
 	var rows: Array[PackedStringArray] = [
-		PackedStringArray(["id", "#note", "name", "CommentLocal"]),
-		PackedStringArray(["# skip", "", "", ""]),
-		PackedStringArray(["1", "internal", "Potion", "ignored"]),
-		PackedStringArray(["Comment row", "", "", ""]),
-		PackedStringArray(["2", "internal", "Ether", "ignored"]),
+		PackedStringArray(
+			[
+				"id",
+				"#note",
+				"name",
+				"CommentLocal",
+			]
+		),
+		PackedStringArray(
+			[
+				"# skip",
+				"",
+				"",
+				"",
+			]
+		),
+		PackedStringArray(
+			[
+				"1",
+				"internal",
+				"Potion",
+				"ignored",
+			]
+		),
+		PackedStringArray(
+			[
+				"Comment row",
+				"",
+				"",
+				"",
+			]
+		),
+		PackedStringArray(
+			[
+				"2",
+				"internal",
+				"Ether",
+				"ignored",
+			]
+		),
 	]
-	var parsed: Dictionary = GFConfigTableImporter.parse_rows_table(rows, {
-		"comment_prefixes": PackedStringArray(["#", "Comment"]),
-		"row_numbers": PackedInt32Array([10, 11, 12, 13, 14]),
-		"source": "res://configs/items.csv",
-	})
+	var parsed: Dictionary = GFConfigTableImporter.parse_rows_table(
+		rows,
+		{
+			"comment_prefixes": PackedStringArray(["#", "Comment"]),
+			"row_numbers": PackedInt32Array(
+				[
+					10,
+					11,
+					12,
+					13,
+					14,
+				]
+			),
+			"source": "res://configs/items.csv",
+		}
+	)
 	var records: Array = GFVariantData.get_option_array(parsed, "data")
 	var header_value: Variant = GFVariantData.get_option_value(parsed, "header")
 	var header: PackedStringArray = header_value if header_value is PackedStringArray else PackedStringArray()
@@ -231,13 +472,39 @@ func test_rows_importer_filters_comment_rows_columns_and_keeps_source_locations(
 	var fields: Dictionary = GFVariantData.get_option_dictionary(first_location, "fields")
 	var name_location: Dictionary = GFVariantData.get_option_dictionary(fields, &"name")
 
-	assert_true(GFVariantData.get_option_bool(parsed, "success"), "二维文本表应解析成功。")
-	assert_eq(header, PackedStringArray(["id", "name"]), "注释列不应进入输出表头。")
-	assert_eq(records.size(), 2, "注释行不应进入数据记录。")
-	assert_eq(GFVariantData.get_option_string(first_row, "name"), "Potion", "非注释列应保留。")
-	assert_false(first_row.has(&"#note"), "注释列不应进入记录。")
-	assert_eq(GFVariantData.get_option_int(first_location, "line"), 12, "行定位应保留源行号。")
-	assert_eq(GFVariantData.get_option_int(name_location, "column"), 3, "字段定位应保留源列号。")
+	assert_true(
+		GFVariantData.get_option_bool(parsed, "success"),
+		"二维文本表应解析成功。"
+	)
+	assert_eq(
+		header,
+		PackedStringArray(["id", "name"]),
+		"注释列不应进入输出表头。"
+	)
+	assert_eq(
+		records.size(),
+		2,
+		"注释行不应进入数据记录。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(first_row, "name"),
+		"Potion",
+		"非注释列应保留。"
+	)
+	assert_false(
+		first_row.has(&"#note"),
+		"注释列不应进入记录。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(first_location, "line"),
+		12,
+		"行定位应保留源行号。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(name_location, "column"),
+		3,
+		"字段定位应保留源列号。"
+	)
 
 
 func test_csv_importer_filters_condition_blocks() -> void:
@@ -251,9 +518,20 @@ func test_csv_importer_filters_condition_blocks() -> void:
 	var records: Array = GFVariantData.get_option_array(parsed, "data")
 	var first_row: Dictionary = GFVariantData.as_dictionary(records[0])
 
-	assert_true(GFVariantData.get_option_bool(parsed, "success"), "启用条件块的 CSV 应解析成功。")
-	assert_eq(records.size(), 1, "仅命中的条件块应进入数据记录。")
-	assert_eq(GFVariantData.get_option_string(first_row, "name"), "Potion", "命中的条件块内容应保留。")
+	assert_true(
+		GFVariantData.get_option_bool(parsed, "success"),
+		"启用条件块的 CSV 应解析成功。"
+	)
+	assert_eq(
+		records.size(),
+		1,
+		"仅命中的条件块应进入数据记录。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(first_row, "name"),
+		"Potion",
+		"命中的条件块内容应保留。"
+	)
 
 
 func test_csv_importer_reports_missing_condition_end() -> void:
@@ -265,64 +543,134 @@ func test_csv_importer_reports_missing_condition_end() -> void:
 		}
 	)
 
-	assert_false(GFVariantData.get_option_bool(parsed, "success"), "未闭合条件块不应静默解析。")
-	assert_true(GFVariantData.get_option_string(parsed, "error").contains("missing_condition_end"), "错误信息应说明条件块未闭合。")
-	assert_eq(GFVariantData.get_option_int(parsed, "error_line"), 2, "错误应指向未闭合条件块起始行。")
+	assert_false(
+		GFVariantData.get_option_bool(parsed, "success"),
+		"未闭合条件块不应静默解析。"
+	)
+	assert_true(
+		GFVariantData.get_option_string(parsed, "error").contains("missing_condition_end"),
+		"错误信息应说明条件块未闭合。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(parsed, "error_line"),
+		2,
+		"错误应指向未闭合条件块起始行。"
+	)
 
 
 func test_csv_importer_rejects_condition_if_without_symbols() -> void:
 	var parsed: Dictionary = GFConfigTableImporter.parse_csv_table(
 		"id,name\n#if\n1,Potion\n#endif\n",
-		{
-			"enable_condition_directives": true,
-			"condition_symbols": PackedStringArray(),
-		}
+		{ "enable_condition_directives": true, "condition_symbols": PackedStringArray(), }
 	)
 
-	assert_false(GFVariantData.get_option_bool(parsed, "success"), "裸 #if 是语法错误，不得作为空条件集合 fail-open。")
+	assert_false(
+		GFVariantData.get_option_bool(parsed, "success"),
+		"裸 #if 是语法错误，不得作为空条件集合 fail-open。"
+	)
 	assert_true(
 		GFVariantData.get_option_string(parsed, "error").contains("empty_condition_symbols"),
 		"错误应稳定区分缺失 condition symbol。"
 	)
-	assert_eq(GFVariantData.get_option_int(parsed, "error_line"), 2, "错误应指向裸 #if 的物理行。")
-	assert_eq(GFVariantData.get_option_int(parsed, "error_column"), 1, "条件指令错误应指向第一列。")
+	assert_eq(
+		GFVariantData.get_option_int(parsed, "error_line"),
+		2,
+		"错误应指向裸 #if 的物理行。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(parsed, "error_column"),
+		1,
+		"条件指令错误应指向第一列。"
+	)
 
 
 func test_csv_importer_reports_duplicate_headers() -> void:
 	var parsed: Dictionary = GFConfigTableImporter.parse_csv_table("id,id\n1,2\n")
 
-	assert_false(GFVariantData.get_option_bool(parsed, "success"), "重复表头应报告解析失败。")
-	assert_true(GFVariantData.get_option_string(parsed, "error").contains("duplicate"), "错误信息应说明重复表头。")
+	assert_false(
+		GFVariantData.get_option_bool(parsed, "success"),
+		"重复表头应报告解析失败。"
+	)
+	assert_true(
+		GFVariantData.get_option_string(parsed, "error").contains("duplicate"),
+		"错误信息应说明重复表头。"
+	)
 
 
 func test_csv_importer_reports_unclosed_quote_location() -> void:
 	var parsed: Dictionary = GFConfigTableImporter.parse_csv_table("id,name\n1,\"Potion\n")
-	var report: Dictionary = GFConfigTableImporter.validate_csv_table("id,name\n1,\"Potion\n", _make_item_schema())
+	var report: Dictionary = GFConfigTableImporter.validate_csv_table(
+		"id,name\n1,\"Potion\n",
+		_make_item_schema()
+	)
 	var issues: Array = GFVariantData.get_option_array(report, "issues")
 	var issue: Dictionary = GFVariantData.as_dictionary(issues[0])
 
-	assert_false(GFVariantData.get_option_bool(parsed, "success"), "未闭合引号应报告解析失败。")
-	assert_eq(GFVariantData.get_option_int(parsed, "error_line"), 2, "解析结果应报告引号起始行。")
-	assert_eq(GFVariantData.get_option_int(parsed, "error_column"), 3, "解析结果应报告引号起始列。")
-	assert_eq(GFVariantData.get_option_string(issue, "kind"), "parse_failed", "校验报告应标记解析失败。")
-	assert_eq(GFVariantData.get_option_int(issue, "line"), 2, "校验报告应透出解析失败行号。")
+	assert_false(
+		GFVariantData.get_option_bool(parsed, "success"),
+		"未闭合引号应报告解析失败。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(parsed, "error_line"),
+		2,
+		"解析结果应报告引号起始行。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(parsed, "error_column"),
+		3,
+		"解析结果应报告引号起始列。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(issue, "kind"),
+		"parse_failed",
+		"校验报告应标记解析失败。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(issue, "line"),
+		2,
+		"校验报告应透出解析失败行号。"
+	)
 
 
 func test_csv_importer_reports_extra_cells() -> void:
 	var parsed: Dictionary = GFConfigTableImporter.parse_csv_table("id,name\n1,Potion,Unexpected\n")
 
-	assert_false(GFVariantData.get_option_bool(parsed, "success"), "超过 header 宽度的 CSV 行应报告解析失败。")
-	assert_true(GFVariantData.get_option_string(parsed, "error").contains("row_has_extra_cells"), "错误信息应说明存在多余单元格。")
-	assert_eq(GFVariantData.get_option_int(parsed, "error_line"), 2, "多余单元格错误应报告行号。")
-	assert_eq(GFVariantData.get_option_int(parsed, "error_column"), 3, "多余单元格错误应报告首个越界列。")
+	assert_false(
+		GFVariantData.get_option_bool(parsed, "success"),
+		"超过 header 宽度的 CSV 行应报告解析失败。"
+	)
+	assert_true(
+		GFVariantData.get_option_string(parsed, "error").contains("row_has_extra_cells"),
+		"错误信息应说明存在多余单元格。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(parsed, "error_line"),
+		2,
+		"多余单元格错误应报告行号。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(parsed, "error_column"),
+		3,
+		"多余单元格错误应报告首个越界列。"
+	)
 
 
 func test_csv_importer_reports_unescaped_quote_inside_unquoted_cell() -> void:
 	var parsed: Dictionary = GFConfigTableImporter.parse_csv_table("id,name\n1,Po\"tion\n")
 
-	assert_false(GFVariantData.get_option_bool(parsed, "success"), "未转义 quote 不应被静默解析。")
-	assert_true(GFVariantData.get_option_string(parsed, "error").contains("malformed_quote"), "错误信息应说明 quote 格式错误。")
-	assert_eq(GFVariantData.get_option_int(parsed, "error_line"), 2, "quote 格式错误应报告行号。")
+	assert_false(
+		GFVariantData.get_option_bool(parsed, "success"),
+		"未转义 quote 不应被静默解析。"
+	)
+	assert_true(
+		GFVariantData.get_option_string(parsed, "error").contains("malformed_quote"),
+		"错误信息应说明 quote 格式错误。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(parsed, "error_line"),
+		2,
+		"quote 格式错误应报告行号。"
+	)
 
 
 func test_config_file_importer_maps_sections_to_records_and_validates() -> void:
@@ -330,30 +678,55 @@ func test_config_file_importer_maps_sections_to_records_and_validates() -> void:
 	schema.coerce_values = true
 	var text: String = "[1]\nname=\"Potion\"\npower=2.5\n\n[2]\nname=\"Ether\"\npower=3\n"
 
-	var parsed: Dictionary = GFConfigTableImporter.parse_config_file_table(text, {
-		"section_field": &"id",
-		"source": "res://configs/items.cfg",
-	})
-	var report: Dictionary = GFConfigTableImporter.validate_config_file_table(text, schema, {
-		"section_field": &"id",
-		"source": "res://configs/items.cfg",
-	})
+	var parsed: Dictionary = GFConfigTableImporter.parse_config_file_table(
+		text,
+		{ "section_field": &"id", "source": "res://configs/items.cfg", }
+	)
+	var report: Dictionary = GFConfigTableImporter.validate_config_file_table(
+		text,
+		schema,
+		{ "section_field": &"id", "source": "res://configs/items.cfg", }
+	)
 	var rows: Array = GFVariantData.get_option_array(parsed, "data")
 	var first_row: Dictionary = GFVariantData.as_dictionary(rows[0])
 
-	assert_true(GFVariantData.get_option_bool(parsed, "success"), "ConfigFile 表应解析成功。")
-	assert_eq(GFVariantData.get_option_string(first_row, "id"), "1", "section_field 应把 section 名写入记录。")
-	assert_eq(GFVariantData.get_option_string(first_row, "name"), "Potion", "ConfigFile 键值应写入记录字段。")
-	assert_true(GFVariantData.get_option_bool(report, "ok"), "ConfigFile 表应复用 schema 校验和类型转换。")
+	assert_true(
+		GFVariantData.get_option_bool(parsed, "success"),
+		"ConfigFile 表应解析成功。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(first_row, "id"),
+		"1",
+		"section_field 应把 section 名写入记录。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(first_row, "name"),
+		"Potion",
+		"ConfigFile 键值应写入记录字段。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(report, "ok"),
+		"ConfigFile 表应复用 schema 校验和类型转换。"
+	)
 
 
 func test_json_importer_reports_parse_failure_as_validation_report() -> void:
-	var report: Dictionary = GFConfigTableImporter.validate_json_table("{bad", _make_item_schema())
+	var report: Dictionary = GFConfigTableImporter.validate_json_table(
+		"{bad",
+		_make_item_schema()
+	)
 	var issues: Array = GFVariantData.get_option_array(report, "issues")
 	var issue: Dictionary = GFVariantData.as_dictionary(issues[0])
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "非法 JSON 应返回失败校验报告。")
-	assert_eq(GFVariantData.get_option_string(issue, "kind"), "parse_failed", "失败报告应标记解析错误。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"非法 JSON 应返回失败校验报告。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(issue, "kind"),
+		"parse_failed",
+		"失败报告应标记解析错误。"
+	)
 
 
 func test_json_record_importer_validates_single_dictionary_record() -> void:
@@ -367,8 +740,15 @@ func test_json_record_importer_validates_single_dictionary_record() -> void:
 		{ "source": "res://configs/item.json" }
 	)
 
-	assert_true(GFVariantData.get_option_bool(report, "ok"), "JSON 单记录根节点为 Dictionary 时应按 schema 校验。")
-	assert_eq(GFVariantData.get_option_int(report, "row_count"), 1, "单记录校验报告应记录一行。")
+	assert_true(
+		GFVariantData.get_option_bool(report, "ok"),
+		"JSON 单记录根节点为 Dictionary 时应按 schema 校验。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(report, "row_count"),
+		1,
+		"单记录校验报告应记录一行。"
+	)
 
 
 func test_json_record_importer_reports_non_dictionary_root_context() -> void:
@@ -378,41 +758,114 @@ func test_json_record_importer_reports_non_dictionary_root_context() -> void:
 		null,
 		{ "source": "res://configs/item.json" }
 	)
-	var issue: Dictionary = _find_issue_kind(GFVariantData.get_option_array(report, "issues"), "invalid_json_record")
+	var issue: Dictionary = _find_issue_kind(
+		GFVariantData.get_option_array(report, "issues"),
+		"invalid_json_record"
+	)
 	var supported_formats: Array = GFVariantData.get_option_array(issue, "supported_formats")
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "JSON 单记录不接受 Array 根节点。")
-	assert_eq(GFVariantData.get_option_string(issue, "expected_value"), "Dictionary", "错误应说明期望根节点类型。")
-	assert_true(supported_formats.has("JSON object"), "错误应说明支持的 JSON 形态。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"JSON 单记录不接受 Array 根节点。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(issue, "expected_value"),
+		"Dictionary",
+		"错误应说明期望根节点类型。"
+	)
+	assert_true(
+		supported_formats.has("JSON object"),
+		"错误应说明支持的 JSON 形态。"
+	)
 
 
 func test_csv_exporter_uses_schema_column_order_and_quotes_cells() -> void:
 	var schema: GFConfigTableSchema = _make_item_schema()
 	schema.columns.reverse()
-	var exported: Dictionary = GFConfigTableImporter.export_csv_table([
-		{ "id": 1, "name": "A,B", "power": 2.0 },
-	], schema)
+	var exported: Dictionary = GFConfigTableImporter.export_csv_table(
+		[
+			{
+				"id": 1,
+				"name": "A,B",
+				"power": 2.0,
+			},
+		],
+		schema
+	)
 
-	assert_true(GFVariantData.get_option_bool(exported, "success"), "CSV 导出应成功。")
-	assert_true(GFVariantData.get_option_string(exported, "text").begins_with("power,name,id"), "schema 声明顺序应作为默认导出顺序，不得偷偷按字母排序。")
-	assert_true(GFVariantData.get_option_string(exported, "text").contains("\"A,B\""), "包含分隔符的单元格应加引号。")
-	var explicit: Dictionary = GFConfigTableImporter.export_csv_table([], schema, {"columns": ["name", "id"]})
-	assert_true(GFVariantData.get_option_string(explicit, "text").begins_with("name,id"), "显式列序应覆盖 schema。")
+	assert_true(
+		GFVariantData.get_option_bool(exported, "success"),
+		"CSV 导出应成功。"
+	)
+	assert_true(
+		GFVariantData.get_option_string(exported, "text").begins_with("power,name,id"),
+		"schema 声明顺序应作为默认导出顺序，不得偷偷按字母排序。"
+	)
+	assert_true(
+		GFVariantData.get_option_string(exported, "text").contains("\"A,B\""),
+		"包含分隔符的单元格应加引号。"
+	)
+	var explicit: Dictionary = GFConfigTableImporter.export_csv_table(
+		[],
+		schema,
+		{
+			"columns": ["name", "id"],
+		}
+	)
+	assert_true(
+		GFVariantData.get_option_string(explicit, "text").begins_with("name,id"),
+		"显式列序应覆盖 schema。"
+	)
 
 
 func test_schema_infer_from_records_creates_columns() -> void:
-	var schema: GFConfigTableSchema = GFConfigTableSchema.infer_from_records(&"items", [
-		{ "id": 1, "name": "Potion", "power": 2.0 },
-		{ "id": 2, "name": "Ether", "power": 3 },
-	], {
-		"required_if_present_in_all_rows": true,
-	})
+	var schema: GFConfigTableSchema = GFConfigTableSchema.infer_from_records(
+		&"items",
+		[
+			{
+				"id": 1,
+				"name": "Potion",
+				"power": 2.0,
+			},
+			{
+				"id": 2,
+				"name": "Ether",
+				"power": 3,
+			},
+		],
+		{ "required_if_present_in_all_rows": true, }
+	)
 
-	assert_eq(schema.table_name, &"items", "推导 schema 应保留表名。")
-	assert_eq(schema.get_column_names(), PackedStringArray(["id", "name", "power"]), "推导 schema 应包含记录字段。")
-	assert_eq(schema.get_column(&"id").value_type, GFConfigTableColumn.ValueType.INT, "int 字段应被推导为 INT。")
-	assert_eq(schema.get_column(&"power").value_type, GFConfigTableColumn.ValueType.FLOAT, "int/float 混合数字应被推导为 FLOAT。")
-	assert_true(schema.get_column(&"name").required, "所有行都出现的字段可按选项标记为 required。")
+	assert_eq(
+		schema.table_name,
+		&"items",
+		"推导 schema 应保留表名。"
+	)
+	assert_eq(
+		schema.get_column_names(),
+		PackedStringArray(
+			[
+				"id",
+				"name",
+				"power",
+			]
+		),
+		"推导 schema 应包含记录字段。"
+	)
+	assert_eq(
+		schema.get_column(&"id").value_type,
+		GFConfigTableColumn.ValueType.INT,
+		"int 字段应被推导为 INT。"
+	)
+	assert_eq(
+		schema.get_column(&"power").value_type,
+		GFConfigTableColumn.ValueType.FLOAT,
+		"int/float 混合数字应被推导为 FLOAT。"
+	)
+	assert_true(
+		schema.get_column(&"name").required,
+		"所有行都出现的字段可按选项标记为 required。"
+	)
 
 
 func test_schema_unique_composite_index_reports_duplicates() -> void:
@@ -423,13 +876,32 @@ func test_schema_unique_composite_index_reports_duplicates() -> void:
 	index.unique = true
 	schema.indexes.append(index)
 
-	var report: Dictionary = schema.validate_table([
-		{ "id": 1, "name": "Potion", "power": 2.0 },
-		{ "id": 2, "name": "Potion", "power": 2.0 },
-	])
+	var report: Dictionary = schema.validate_table(
+		[
+			{
+				"id": 1,
+				"name": "Potion",
+				"power": 2.0,
+			},
+			{
+				"id": 2,
+				"name": "Potion",
+				"power": 2.0,
+			},
+		]
+	)
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "唯一复合索引重复时表校验应失败。")
-	assert_true(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "duplicate_index_key"), "错误报告应包含重复索引键。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"唯一复合索引重复时表校验应失败。"
+	)
+	assert_true(
+		_has_issue_kind(
+			GFVariantData.get_option_array(report, "issues"),
+			"duplicate_index_key"
+		),
+		"错误报告应包含重复索引键。"
+	)
 
 
 func test_reference_resolver_validates_and_resolves_cross_table_records() -> void:
@@ -456,13 +928,20 @@ func test_reference_resolver_validates_and_resolves_cross_table_records() -> voi
 
 	var tables: Dictionary = {
 		&"items": [
-			{ "id": 1, "name": "Potion", "power": 2.0 },
+			{
+				"id": 1,
+				"name": "Potion",
+				"power": 2.0,
+			},
 		],
 		&"owners": [
 			{ "id": 10, "item_id": 1 },
 		],
 	}
-	var report: Dictionary = GFConfigReferenceResolver.validate_tables(tables, [item_schema, owner_schema])
+	var report: Dictionary = GFConfigReferenceResolver.validate_tables(
+		tables,
+		[item_schema, owner_schema]
+	)
 	var resolved: Dictionary = GFConfigReferenceResolver.resolve_record_references(
 		{ "id": 10, "item_id": 1 },
 		owner_schema,
@@ -471,8 +950,15 @@ func test_reference_resolver_validates_and_resolves_cross_table_records() -> voi
 	)
 	var owner_item: Dictionary = GFVariantData.get_option_dictionary(resolved, &"owner_item")
 
-	assert_true(GFVariantData.get_option_bool(report, "ok"), "合法跨表引用应通过校验。")
-	assert_eq(GFVariantData.get_option_string(owner_item, "name"), "Potion", "引用解析应返回目标记录副本。")
+	assert_true(
+		GFVariantData.get_option_bool(report, "ok"),
+		"合法跨表引用应通过校验。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(owner_item, "name"),
+		"Potion",
+		"引用解析应返回目标记录副本。"
+	)
 
 
 func test_reference_resolver_reports_missing_target_record() -> void:
@@ -490,17 +976,33 @@ func test_reference_resolver_reports_missing_target_record() -> void:
 	reference.target_fields = PackedStringArray(["id"])
 	owner_schema.references.append(reference)
 
-	var report: Dictionary = GFConfigReferenceResolver.validate_tables({
-		&"items": [
-			{ "id": 1, "name": "Potion", "power": 2.0 },
-		],
-		&"owners": [
-			{ "item_id": 99 },
-		],
-	}, [item_schema, owner_schema])
+	var report: Dictionary = GFConfigReferenceResolver.validate_tables(
+		{
+			&"items": [
+				{
+					"id": 1,
+					"name": "Potion",
+					"power": 2.0,
+				},
+			],
+			&"owners": [
+				{ "item_id": 99 },
+			],
+		},
+		[item_schema, owner_schema]
+	)
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "缺失引用目标时应报告失败。")
-	assert_true(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "missing_reference"), "错误报告应包含缺失引用。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"缺失引用目标时应报告失败。"
+	)
+	assert_true(
+		_has_issue_kind(
+			GFVariantData.get_option_array(report, "issues"),
+			"missing_reference"
+		),
+		"错误报告应包含缺失引用。"
+	)
 
 
 func test_reference_resolver_cache_identity_distinguishes_table_name_boundaries() -> void:
@@ -519,9 +1021,15 @@ func test_reference_resolver_cache_identity_distinguishes_table_name_boundaries(
 		PackedStringArray(["b::c"])
 	)
 	var tables: Dictionary = {
-		&"a::b": [{ &"c": 11 }],
-		&"a": [{ &"b::c": 22 }],
-		&"owners": [{ &"namespaced_value": 11, &"field_value": 22 }],
+		&"a::b": [
+			{ &"c": 11 },
+		],
+		&"a": [
+			{ &"b::c": 22 },
+		],
+		&"owners": [
+			{ &"namespaced_value": 11, &"field_value": 22 },
+		],
 	}
 
 	for reverse_order: bool in [false, true]:
@@ -558,18 +1066,22 @@ func test_reference_resolver_cache_identity_distinguishes_field_boundaries() -> 
 		PackedStringArray(["a", "b|c"])
 	)
 	var tables: Dictionary = {
-		&"targets": [{
-			&"a|b": 1,
-			&"c": 2,
-			&"a": 3,
-			&"b|c": 4,
-		}],
-		&"owners": [{
-			&"left_a": 1,
-			&"left_b": 2,
-			&"right_a": 3,
-			&"right_b": 4,
-		}],
+		&"targets": [
+			{
+				&"a|b": 1,
+				&"c": 2,
+				&"a": 3,
+				&"b|c": 4,
+			},
+		],
+		&"owners": [
+			{
+				&"left_a": 1,
+				&"left_b": 2,
+				&"right_a": 3,
+				&"right_b": 4,
+			},
+		],
 	}
 
 	for reverse_order: bool in [false, true]:
@@ -592,16 +1104,31 @@ func test_reference_resolver_cache_identity_distinguishes_field_boundaries() -> 
 
 func test_reference_source_mode_defaults_to_fields_and_survives_copy_and_description() -> void:
 	var reference: GFConfigTableReference = _make_reference(
-		&"owner_item", PackedStringArray(["item_ids"]), &"items", PackedStringArray(["id"])
+		&"owner_item",
+		PackedStringArray(["item_ids"]),
+		&"items",
+		PackedStringArray(["id"])
 	)
-	assert_eq(reference.source_mode, GFConfigTableReference.SourceMode.FIELDS, "既有引用默认仍按字段构建键。")
+	assert_eq(
+		reference.source_mode,
+		GFConfigTableReference.SourceMode.FIELDS,
+		"既有引用默认仍按字段构建键。"
+	)
 	reference.source_mode = GFConfigTableReference.SourceMode.ARRAY_ELEMENTS
 	reference.required = false
 	reference.allow_null_values = false
 	var copied: GFConfigTableReference = reference.duplicate_reference()
 	var description: Dictionary = reference.describe()
-	assert_ne(copied, reference, "引用拷贝应独立。")
-	assert_eq(copied.source_mode, GFConfigTableReference.SourceMode.ARRAY_ELEMENTS, "拷贝应保留逐元素模式。")
+	assert_ne(
+		copied,
+		reference,
+		"引用拷贝应独立。"
+	)
+	assert_eq(
+		copied.source_mode,
+		GFConfigTableReference.SourceMode.ARRAY_ELEMENTS,
+		"拷贝应保留逐元素模式。"
+	)
 	assert_false(copied.required, "拷贝应保留可选引用语义。")
 	assert_false(copied.allow_null_values, "拷贝应保留 null 策略。")
 	assert_eq(
@@ -609,162 +1136,492 @@ func test_reference_source_mode_defaults_to_fields_and_survives_copy_and_descrip
 		GFConfigTableReference.SourceMode.ARRAY_ELEMENTS,
 		"描述应提供实际整型来源模式。"
 	)
-	assert_eq(reference.make_source_key({ "item_ids": [1, 2] }), "", "数组声明没有代表整个数组的单一来源键。")
-	assert_false(reference.make_target_key({ "id": 1 }).is_empty(), "数组声明仍能构造单个目标记录键。")
+	assert_eq(
+		reference.make_source_key(
+			{
+				"item_ids": [1, 2],
+			}
+		),
+		"",
+		"数组声明没有代表整个数组的单一来源键。"
+	)
+	assert_false(
+		reference.make_target_key({ "id": 1 }).is_empty(),
+		"数组声明仍能构造单个目标记录键。"
+	)
 
 
 func test_array_reference_definition_requires_one_source_and_at_most_one_target_field() -> void:
 	var reference: GFConfigTableReference = _make_array_reference()
-	assert_true(reference.is_valid_definition(), "单来源、单目标字段是有效数组引用。")
+	assert_true(
+		reference.is_valid_definition(),
+		"单来源、单目标字段是有效数组引用。"
+	)
 	reference.target_fields = PackedStringArray()
-	assert_true(reference.is_valid_definition(), "空目标字段允许稍后使用目标 schema 的 id_field。")
+	assert_true(
+		reference.is_valid_definition(),
+		"空目标字段允许稍后使用目标 schema 的 id_field。"
+	)
 	reference.source_fields = PackedStringArray()
-	assert_false(reference.is_valid_definition(), "数组引用必须有来源字段。")
+	assert_false(
+		reference.is_valid_definition(),
+		"数组引用必须有来源字段。"
+	)
 	reference.source_fields = PackedStringArray(["item_ids", "other_ids"])
-	assert_false(reference.is_valid_definition(), "数组引用不得隐式组合多个来源字段。")
+	assert_false(
+		reference.is_valid_definition(),
+		"数组引用不得隐式组合多个来源字段。"
+	)
 	reference.source_fields = PackedStringArray(["item_ids"])
 	reference.target_fields = PackedStringArray(["id", "kind"])
-	assert_false(reference.is_valid_definition(), "数组元素不得隐式展开为复合目标键。")
+	assert_false(
+		reference.is_valid_definition(),
+		"数组元素不得隐式展开为复合目标键。"
+	)
 	reference.target_fields = PackedStringArray(["id"])
 	reference.set(&"source_mode", -1)
-	assert_false(reference.is_valid_definition(), "未知来源模式应拒绝。")
+	assert_false(
+		reference.is_valid_definition(),
+		"未知来源模式应拒绝。"
+	)
 
 
 func test_array_reference_accepts_supported_scalar_ids_empty_arrays_and_duplicates() -> void:
 	var report: Dictionary = _validate_array_reference(
 		[
-			{ "id": 10, "item_ids": [true, 1, 1.5, "item", &"named", 1, true] },
+			{
+				"id": 10,
+				"item_ids": [
+					true,
+					1,
+					1.5,
+					"item",
+					&"named",
+					1,
+					true,
+				],
+			},
 			{ "id": 11, "item_ids": [] },
 		],
-		[{ "id": true }, { "id": 1 }, { "id": 1.5 }, { "id": "item" }, { "id": &"named" }]
+		[
+			{ "id": true },
+			{ "id": 1 },
+			{ "id": 1.5 },
+			{ "id": "item" },
+			{ "id": &"named" },
+		]
 	)
-	assert_true(GFVariantData.get_option_bool(report, "ok"), "支持的标量 ID、重复有效 ID 和空数组均应通过。")
-	assert_eq(GFVariantData.get_option_array(report, "issues").size(), 0, "空数组与重复引用不应制造问题。")
+	assert_true(
+		GFVariantData.get_option_bool(report, "ok"),
+		"支持的标量 ID、重复有效 ID 和空数组均应通过。"
+	)
+	assert_eq(
+		GFVariantData.get_option_array(report, "issues").size(),
+		0,
+		"空数组与重复引用不应制造问题。"
+	)
 
 
 func test_array_reference_does_not_coerce_scalar_id_types() -> void:
 	var report: Dictionary = _validate_array_reference(
-		[{ "id": 10, "item_ids": [1, true, 1.0, "1", &"1"] }], [{ "id": 1 }]
+		[
+			{
+				"id": 10,
+				"item_ids": [
+					1,
+					true,
+					1.0,
+					"1",
+					&"1",
+				],
+			},
+		],
+		[
+			{ "id": 1 },
+		]
 	)
 	var issues: Array = GFVariantData.get_option_array(report, "issues")
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "数值或文本相近的不同类型 ID 不得自动匹配。")
-	assert_eq(issues.size(), 4, "只有真正的 int ID 应匹配 int 目标。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"数值或文本相近的不同类型 ID 不得自动匹配。"
+	)
+	assert_eq(
+		issues.size(),
+		4,
+		"只有真正的 int ID 应匹配 int 目标。"
+	)
 	for index: int in range(issues.size()):
 		var issue: Dictionary = GFVariantData.as_dictionary(issues[index])
-		assert_eq(GFVariantData.get_option_string(issue, "kind"), "missing_reference", "合法但类型不同的元素是缺少目标。")
-		assert_eq(_reference_issue_int(issue, "element_index"), index + 1, "应定位原始数组中的元素。")
-		assert_eq(GFVariantData.get_option_string_name(issue, "field"), &"item_ids", "字段名不得改写为带下标的路径。")
+		assert_eq(
+			GFVariantData.get_option_string(issue, "kind"),
+			"missing_reference",
+			"合法但类型不同的元素是缺少目标。"
+		)
+		assert_eq(
+			_reference_issue_int(issue, "element_index"),
+			index + 1,
+			"应定位原始数组中的元素。"
+		)
+		assert_eq(
+			GFVariantData.get_option_string_name(issue, "field"),
+			&"item_ids",
+			"字段名不得改写为带下标的路径。"
+		)
 
 
 func test_array_reference_missing_field_obeys_required_without_element_location() -> void:
 	var reference: GFConfigTableReference = _make_array_reference()
-	var required_report: Dictionary = _validate_array_reference([{ "id": 10 }], [], reference)
+	var required_report: Dictionary = _validate_array_reference(
+		[
+			{ "id": 10 },
+		],
+		[],
+		reference
+	)
 	var issues: Array = GFVariantData.get_option_array(required_report, "issues")
 	var issue: Dictionary = _find_issue_kind(issues, "missing_reference_value")
-	assert_false(GFVariantData.get_option_bool(required_report, "ok"), "必填引用缺少来源字段应失败。")
-	assert_eq(issues.size(), 1, "缺少容器只应报告一次。")
-	assert_false(issue.is_empty(), "缺失来源字段应使用稳定问题类型。")
-	assert_false(issue.has("element_index"), "不存在的数组不得伪造元素位置。")
-	assert_eq(GFVariantData.get_option_string_name(issue, "field"), &"item_ids", "缺失来源仍应保留字段名。")
+	assert_false(
+		GFVariantData.get_option_bool(required_report, "ok"),
+		"必填引用缺少来源字段应失败。"
+	)
+	assert_eq(
+		issues.size(),
+		1,
+		"缺少容器只应报告一次。"
+	)
+	assert_false(
+		issue.is_empty(),
+		"缺失来源字段应使用稳定问题类型。"
+	)
+	assert_false(
+		issue.has("element_index"),
+		"不存在的数组不得伪造元素位置。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(issue, "field"),
+		&"item_ids",
+		"缺失来源仍应保留字段名。"
+	)
 	reference.required = false
-	var optional_report: Dictionary = _validate_array_reference([{ "id": 10 }], [], reference)
-	assert_true(GFVariantData.get_option_bool(optional_report, "ok"), "可选引用允许完全省略来源字段。")
-	assert_eq(GFVariantData.get_option_array(optional_report, "issues").size(), 0, "可选缺字段不应产生问题。")
+	var optional_report: Dictionary = _validate_array_reference(
+		[
+			{ "id": 10 },
+		],
+		[],
+		reference
+	)
+	assert_true(
+		GFVariantData.get_option_bool(optional_report, "ok"),
+		"可选引用允许完全省略来源字段。"
+	)
+	assert_eq(
+		GFVariantData.get_option_array(optional_report, "issues").size(),
+		0,
+		"可选缺字段不应产生问题。"
+	)
 
 
 func test_array_reference_rejects_invalid_containers_even_when_optional() -> void:
 	var reference: GFConfigTableReference = _make_array_reference()
 	reference.required = false
-	for container: Variant in [null, 1, "1", { "id": 1 }, PackedInt32Array([1])]:
-		var report: Dictionary = _validate_array_reference([{ "id": 10, "item_ids": container }], [], reference)
+	for container: Variant in [
+		null,
+		1,
+		"1",
+		{ "id": 1 },
+		PackedInt32Array([1]),
+	]:
+		var report: Dictionary = _validate_array_reference(
+			[
+				{ "id": 10, "item_ids": container },
+			],
+			[],
+			reference
+		)
 		var issues: Array = GFVariantData.get_option_array(report, "issues")
 		var issue: Dictionary = _find_issue_kind(issues, "invalid_reference_value")
-		assert_false(GFVariantData.get_option_bool(report, "ok"), "已提供的来源必须是普通 Array，包括允许 null 时。")
-		assert_eq(issues.size(), 1, "非法容器只应报告一次。")
-		assert_false(issue.is_empty(), "非法容器应与缺失字段区分。")
-		assert_false(issue.has("element_index"), "容器错误没有元素位置。")
-		assert_eq(GFVariantData.get_option_string_name(issue, "field"), &"item_ids", "容器错误保留原字段名。")
+		assert_false(
+			GFVariantData.get_option_bool(report, "ok"),
+			"已提供的来源必须是普通 Array，包括允许 null 时。"
+		)
+		assert_eq(
+			issues.size(),
+			1,
+			"非法容器只应报告一次。"
+		)
+		assert_false(
+			issue.is_empty(),
+			"非法容器应与缺失字段区分。"
+		)
+		assert_false(
+			issue.has("element_index"),
+			"容器错误没有元素位置。"
+		)
+		assert_eq(
+			GFVariantData.get_option_string_name(issue, "field"),
+			&"item_ids",
+			"容器错误保留原字段名。"
+		)
 
 
 func test_array_reference_reports_each_invalid_element_even_when_optional() -> void:
 	var reference: GFConfigTableReference = _make_array_reference()
 	reference.required = false
 	reference.allow_null_values = false
-	var elements: Array = [null, [], {}, Vector2(1.0, 2.0), Resource.new(), PackedInt32Array([1]), NAN, INF, -INF]
-	var report: Dictionary = _validate_array_reference([{ "id": 10, "item_ids": elements }], [], reference)
+	var elements: Array = [
+		null,
+		[],
+		{},
+		Vector2(1.0, 2.0),
+		Resource.new(),
+		PackedInt32Array([1]),
+		NAN,
+		INF,
+		-INF,
+	]
+	var report: Dictionary = _validate_array_reference(
+		[
+			{ "id": 10, "item_ids": elements },
+		],
+		[],
+		reference
+	)
 	var issues: Array = GFVariantData.get_option_array(report, "issues")
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "可选引用仍须拒绝非法元素与非有限数值。")
-	assert_eq(issues.size(), elements.size(), "每个非法元素均应报告，不得首错后终止。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"可选引用仍须拒绝非法元素与非有限数值。"
+	)
+	assert_eq(
+		issues.size(),
+		elements.size(),
+		"每个非法元素均应报告，不得首错后终止。"
+	)
 	for index: int in range(issues.size()):
 		var issue: Dictionary = GFVariantData.as_dictionary(issues[index])
-		assert_eq(GFVariantData.get_option_string(issue, "kind"), "invalid_reference_element", "元素类型错误不应伪装成缺少目标。")
-		assert_eq(_reference_issue_int(issue, "element_index"), index, "非法元素应保留零基位置。")
-		assert_eq(GFVariantData.get_option_string_name(issue, "field"), &"item_ids", "元素错误保留原字段名。")
-		assert_true(issue.has("value"), "元素错误应保存实际值或报告 codec 编码后的值。")
+		assert_eq(
+			GFVariantData.get_option_string(issue, "kind"),
+			"invalid_reference_element",
+			"元素类型错误不应伪装成缺少目标。"
+		)
+		assert_eq(
+			_reference_issue_int(issue, "element_index"),
+			index,
+			"非法元素应保留零基位置。"
+		)
+		assert_eq(
+			GFVariantData.get_option_string_name(issue, "field"),
+			&"item_ids",
+			"元素错误保留原字段名。"
+		)
+		assert_true(
+			issue.has("value"),
+			"元素错误应保存实际值或报告 codec 编码后的值。"
+		)
 	var encoded: String = JSON.stringify(report)
-	assert_true(encoded.contains("__gf_report_value__"), "对象元素应经报告 codec 脱敏，不能泄漏活对象。")
-	assert_true(encoded.contains(GFVariantJsonCodec.JSON_MARKER_KEY), "非有限数值与特殊 Variant 应使用 JSON 安全编码。")
+	assert_true(
+		encoded.contains("__gf_report_value__"),
+		"对象元素应经报告 codec 脱敏，不能泄漏活对象。"
+	)
+	assert_true(
+		encoded.contains(GFVariantJsonCodec.JSON_MARKER_KEY),
+		"非有限数值与特殊 Variant 应使用 JSON 安全编码。"
+	)
 
 
 func test_array_reference_null_elements_match_null_targets_only_when_allowed() -> void:
 	var reference: GFConfigTableReference = _make_array_reference()
 	reference.allow_null_values = true
-	var matching_report: Dictionary = _validate_array_reference([{ "id": 10, "item_ids": [null] }], [{ "id": null }], reference)
-	assert_true(GFVariantData.get_option_bool(matching_report, "ok"), "允许 null 时，null 元素应匹配目标的实际 null 键。")
-	var missing_report: Dictionary = _validate_array_reference([{ "id": 10, "item_ids": [null] }], [], reference)
-	var missing_issue: Dictionary = _find_issue_kind(GFVariantData.get_option_array(missing_report, "issues"), "missing_reference")
-	assert_false(GFVariantData.get_option_bool(missing_report, "ok"), "允许 null 不代表忽略目标匹配。")
-	assert_eq(_reference_issue_int(missing_issue, "element_index"), 0, "null 缺少目标也应有元素位置。")
-	assert_true(missing_issue.has("value"), "null 实际值不能与缺少 value 键混淆。")
-	var missing_value: Variant = missing_issue.get("value")
-	assert_true(missing_value == null, "报告应保留实际 null 元素。")
-	reference.required = false
-	var optional_report: Dictionary = _validate_array_reference([{ "id": 10, "item_ids": [null, 99] }], [], reference)
-	assert_true(GFVariantData.get_option_bool(optional_report, "ok"), "可选引用允许合法元素没有目标记录。")
-	reference.allow_null_values = false
-	var forbidden_report: Dictionary = _validate_array_reference([{ "id": 10, "item_ids": [null] }], [{ "id": null }], reference)
+	var matching_report: Dictionary = _validate_array_reference(
+		[
+			{
+				"id": 10,
+				"item_ids": [null],
+			},
+		],
+		[
+			{ "id": null },
+		],
+		reference
+	)
 	assert_true(
-		_has_issue_kind(GFVariantData.get_option_array(forbidden_report, "issues"), "invalid_reference_element"),
+		GFVariantData.get_option_bool(matching_report, "ok"),
+		"允许 null 时，null 元素应匹配目标的实际 null 键。"
+	)
+	var missing_report: Dictionary = _validate_array_reference(
+		[
+			{
+				"id": 10,
+				"item_ids": [null],
+			},
+		],
+		[],
+		reference
+	)
+	var missing_issue: Dictionary = _find_issue_kind(
+		GFVariantData.get_option_array(missing_report, "issues"),
+		"missing_reference"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(missing_report, "ok"),
+		"允许 null 不代表忽略目标匹配。"
+	)
+	assert_eq(
+		_reference_issue_int(missing_issue, "element_index"),
+		0,
+		"null 缺少目标也应有元素位置。"
+	)
+	assert_true(
+		missing_issue.has("value"),
+		"null 实际值不能与缺少 value 键混淆。"
+	)
+	var missing_value: Variant = missing_issue.get("value")
+	assert_true(
+		missing_value == null,
+		"报告应保留实际 null 元素。"
+	)
+	reference.required = false
+	var optional_report: Dictionary = _validate_array_reference(
+		[
+			{
+				"id": 10,
+				"item_ids": [null, 99],
+			},
+		],
+		[],
+		reference
+	)
+	assert_true(
+		GFVariantData.get_option_bool(optional_report, "ok"),
+		"可选引用允许合法元素没有目标记录。"
+	)
+	reference.allow_null_values = false
+	var forbidden_report: Dictionary = _validate_array_reference(
+		[
+			{
+				"id": 10,
+				"item_ids": [null],
+			},
+		],
+		[
+			{ "id": null },
+		],
+		reference
+	)
+	assert_true(
+		_has_issue_kind(
+			GFVariantData.get_option_array(forbidden_report, "issues"),
+			"invalid_reference_element"
+		),
 		"禁用 null 时，即使存在目标且引用可选，也应拒绝该元素。"
 	)
 
 
 func test_array_reference_reports_repeated_missing_ids_at_each_original_position() -> void:
 	var report: Dictionary = _validate_array_reference(
-		[{ "id": 10, "item_ids": [1, 99, 1, 99] }], [{ "id": 1 }]
+		[
+			{
+				"id": 10,
+				"item_ids": [
+					1,
+					99,
+					1,
+					99,
+				],
+			},
+		],
+		[
+			{ "id": 1 },
+		]
 	)
 	var issues: Array = GFVariantData.get_option_array(report, "issues")
-	assert_eq(issues.size(), 2, "重复无效 ID 应按位置报告，重复有效 ID 不应报告。")
+	assert_eq(
+		issues.size(),
+		2,
+		"重复无效 ID 应按位置报告，重复有效 ID 不应报告。"
+	)
 	for index: int in range(issues.size()):
 		var issue: Dictionary = GFVariantData.as_dictionary(issues[index])
-		assert_eq(GFVariantData.get_option_string(issue, "kind"), "missing_reference", "合法元素缺少目标应使用 missing_reference。")
-		assert_eq(_reference_issue_int(issue, "element_index"), 1 + index * 2, "问题应定位原始位置，不能使用去重后的索引。")
-		assert_eq(_reference_issue_int(issue, "value"), 99, "应保存具体元素，不能保存整个来源数组。")
-		assert_eq(_reference_issue_int(issue, "row_key"), 10, "元素问题应保留来源记录标识。")
-		assert_eq(GFVariantData.get_option_string_name(issue, "field"), &"item_ids", "元素问题应保留来源字段名。")
+		assert_eq(
+			GFVariantData.get_option_string(issue, "kind"),
+			"missing_reference",
+			"合法元素缺少目标应使用 missing_reference。"
+		)
+		assert_eq(
+			_reference_issue_int(issue, "element_index"),
+			1 + index * 2,
+			"问题应定位原始位置，不能使用去重后的索引。"
+		)
+		assert_eq(
+			_reference_issue_int(issue, "value"),
+			99,
+			"应保存具体元素，不能保存整个来源数组。"
+		)
+		assert_eq(
+			_reference_issue_int(issue, "row_key"),
+			10,
+			"元素问题应保留来源记录标识。"
+		)
+		assert_eq(
+			GFVariantData.get_option_string_name(issue, "field"),
+			&"item_ids",
+			"元素问题应保留来源字段名。"
+		)
 
 
 func test_array_reference_uses_custom_target_and_source_id_fields() -> void:
 	var reference: GFConfigTableReference = _make_array_reference()
 	reference.target_fields = PackedStringArray()
 	var report: Dictionary = _validate_array_reference(
-		[{ "owner_key": 73, "id": 900, "item_ids": [1, 2] }],
-		[{ "code": 1, "id": 999 }], reference, &"owner_key", &"code"
+		[
+			{
+				"owner_key": 73,
+				"id": 900,
+				"item_ids": [1, 2],
+			},
+		],
+		[
+			{ "code": 1, "id": 999 },
+		],
+		reference,
+		&"owner_key",
+		&"code"
 	)
 	var issues: Array = GFVariantData.get_option_array(report, "issues")
 	var issue: Dictionary = _find_issue_kind(issues, "missing_reference")
-	assert_eq(issues.size(), 1, "省略目标字段时应使用目标 schema 的 code 字段匹配。")
-	assert_eq(_reference_issue_int(issue, "row_key"), 73, "行标识应使用来源 schema 的 owner_key，不能硬编码 id。")
-	assert_eq(_reference_issue_int(issue, "element_index"), 1, "只有缺少目标的第二个元素应报告。")
-	assert_eq(_reference_issue_int(issue, "value"), 2, "自定义 ID 字段不应改变实际元素值。")
+	assert_eq(
+		issues.size(),
+		1,
+		"省略目标字段时应使用目标 schema 的 code 字段匹配。"
+	)
+	assert_eq(
+		_reference_issue_int(issue, "row_key"),
+		73,
+		"行标识应使用来源 schema 的 owner_key，不能硬编码 id。"
+	)
+	assert_eq(
+		_reference_issue_int(issue, "element_index"),
+		1,
+		"只有缺少目标的第二个元素应报告。"
+	)
+	assert_eq(
+		_reference_issue_int(issue, "value"),
+		2,
+		"自定义 ID 字段不应改变实际元素值。"
+	)
 
 
 func test_fields_reference_retains_composite_and_whole_array_keys() -> void:
 	var composite: GFConfigTableReference = _make_reference(
-		&"composite", PackedStringArray(["item_id", "kind"]), &"items", PackedStringArray(["id", "kind"])
+		&"composite",
+		PackedStringArray(["item_id", "kind"]),
+		&"items",
+		PackedStringArray(["id", "kind"])
 	)
 	var whole_array: GFConfigTableReference = _make_reference(
-		&"whole_array", PackedStringArray(["item_ids"]), &"items", PackedStringArray(["ids"])
+		&"whole_array",
+		PackedStringArray(["item_ids"]),
+		&"items",
+		PackedStringArray(["ids"])
 	)
 	assert_eq(
 		composite.make_source_key({ "item_id": 1, "kind": "tool" }),
@@ -772,33 +1629,78 @@ func test_fields_reference_retains_composite_and_whole_array_keys() -> void:
 		"默认 FIELDS 模式仍按整个字段 tuple 匹配复合键。"
 	)
 	assert_eq(
-		whole_array.make_source_key({ "item_ids": [1, 2] }), whole_array.make_target_key({ "ids": [1, 2] }),
+		whole_array.make_source_key(
+			{
+				"item_ids": [1, 2],
+			}
+		),
+		whole_array.make_target_key(
+			{
+				"ids": [1, 2],
+			}
+		),
 		"旧 FIELDS 声明中的数组仍是完整字段值，不应自动切换为逐元素引用。"
 	)
 	assert_ne(
-		whole_array.make_source_key({ "item_ids": [1, 2] }), whole_array.make_target_key({ "ids": [2, 1] }),
+		whole_array.make_source_key(
+			{
+				"item_ids": [1, 2],
+			}
+		),
+		whole_array.make_target_key(
+			{
+				"ids": [2, 1],
+			}
+		),
 		"原有数组字段键应保留元素顺序。"
 	)
 	composite.allow_null_values = false
-	assert_eq(composite.make_source_key({ "item_id": 1, "kind": null }), "", "原有字段模式的 null 策略应保留。")
+	assert_eq(
+		composite.make_source_key({ "item_id": 1, "kind": null }),
+		"",
+		"原有字段模式的 null 策略应保留。"
+	)
 
 
 func test_resolve_record_references_only_resolves_fields_in_mixed_schema() -> void:
 	var scalar: GFConfigTableReference = _make_reference(
-		&"primary_item", PackedStringArray(["item_id"]), &"items", PackedStringArray(["id"])
+		&"primary_item",
+		PackedStringArray(["item_id"]),
+		&"items",
+		PackedStringArray(["id"])
 	)
 	var array_reference: GFConfigTableReference = _make_array_reference()
 	var schema: GFConfigTableSchema = GFConfigTableSchema.new()
 	schema.table_name = &"owners"
 	schema.references = [scalar, array_reference]
 	var resolved: Dictionary = GFConfigReferenceResolver.resolve_record_references(
-		{ "item_id": 1, "item_ids": [1, 2] }, schema,
-		{ &"items": [{ "id": 1, "name": "Potion" }, { "id": 2, "name": "Shield" }] }
+		{
+			"item_id": 1,
+			"item_ids": [1, 2],
+		},
+		schema,
+		{
+			&"items": [
+				{ "id": 1, "name": "Potion" },
+				{ "id": 2, "name": "Shield" },
+			],
+		}
 	)
-	assert_eq(resolved.size(), 1, "单记录解析 API 不应隐式新增数组解析结果或覆盖既有映射。")
-	assert_false(resolved.has(array_reference.get_reference_id()), "逐元素声明只参与校验，不参与单记录解析。")
+	assert_eq(
+		resolved.size(),
+		1,
+		"单记录解析 API 不应隐式新增数组解析结果或覆盖既有映射。"
+	)
+	assert_false(
+		resolved.has(array_reference.get_reference_id()),
+		"逐元素声明只参与校验，不参与单记录解析。"
+	)
 	var primary_item: Dictionary = GFVariantData.get_option_dictionary(resolved, &"primary_item")
-	assert_eq(GFVariantData.get_option_string(primary_item, "name"), "Potion", "混合 schema 中既有标量解析应继续工作。")
+	assert_eq(
+		GFVariantData.get_option_string(primary_item, "name"),
+		"Potion",
+		"混合 schema 中既有标量解析应继续工作。"
+	)
 
 
 func test_column_validation_rules_report_common_data_errors() -> void:
@@ -839,25 +1741,56 @@ func test_column_validation_rules_report_common_data_errors() -> void:
 	range_rule.maximum = 10.0
 	schema.get_column(&"power").validation_rules.append(range_rule)
 
-	var report: Dictionary = schema.validate_record({
-		"id": 0,
-		"code": "Bad Code",
-		"kind": "consumable",
-		"tags": ["a", "b", "c"],
-		"icon_path": "res://missing_icon.png",
-		"name_key": "item.name.missing",
-		"power": 99.0,
-	}, 0)
+	var report: Dictionary = schema.validate_record(
+		{
+			"id": 0,
+			"code": "Bad Code",
+			"kind": "consumable",
+			"tags": [
+				"a",
+				"b",
+				"c",
+			],
+			"icon_path": "res://missing_icon.png",
+			"name_key": "item.name.missing",
+			"power": 99.0,
+		},
+		0
+	)
 	var issues: Array = GFVariantData.get_option_array(report, "issues")
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "内置字段规则命中时校验应失败。")
-	assert_true(_has_issue_kind(issues, "default_value_not_allowed"), "应报告默认值。")
-	assert_true(_has_issue_kind(issues, "regex_mismatch"), "应报告正则不匹配。")
-	assert_true(_has_issue_kind(issues, "set_value_not_allowed"), "应报告集合外取值。")
-	assert_true(_has_issue_kind(issues, "size_out_of_range"), "应报告数量越界。")
-	assert_true(_has_issue_kind(issues, "resource_path_extension_not_allowed"), "应报告资源扩展名不匹配。")
-	assert_true(_has_issue_kind(issues, "localization_key_missing"), "应报告文本 key 缺失。")
-	assert_true(_has_issue_kind(issues, "range_above_maximum"), "应报告范围越界。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"内置字段规则命中时校验应失败。"
+	)
+	assert_true(
+		_has_issue_kind(issues, "default_value_not_allowed"),
+		"应报告默认值。"
+	)
+	assert_true(
+		_has_issue_kind(issues, "regex_mismatch"),
+		"应报告正则不匹配。"
+	)
+	assert_true(
+		_has_issue_kind(issues, "set_value_not_allowed"),
+		"应报告集合外取值。"
+	)
+	assert_true(
+		_has_issue_kind(issues, "size_out_of_range"),
+		"应报告数量越界。"
+	)
+	assert_true(
+		_has_issue_kind(issues, "resource_path_extension_not_allowed"),
+		"应报告资源扩展名不匹配。"
+	)
+	assert_true(
+		_has_issue_kind(issues, "localization_key_missing"),
+		"应报告文本 key 缺失。"
+	)
+	assert_true(
+		_has_issue_kind(issues, "range_above_maximum"),
+		"应报告范围越界。"
+	)
 
 
 func test_size_validation_rule_supports_every_packed_array_type() -> void:
@@ -889,11 +1822,17 @@ func test_size_validation_rule_supports_every_packed_array_type() -> void:
 	var empty_report: Dictionary = rule.validate_value(PackedVector4Array())
 	var oversized_report: Dictionary = rule.validate_value(PackedVector4Array([Vector4.ZERO, Vector4.ONE]))
 	assert_true(
-		_has_issue_kind(GFVariantData.get_option_array(empty_report, "issues"), "size_out_of_range"),
+		_has_issue_kind(
+			GFVariantData.get_option_array(empty_report, "issues"),
+			"size_out_of_range"
+		),
 		"空 PackedVector4Array 应按 size=0 命中下限，而不是 invalid type。"
 	)
 	assert_true(
-		_has_issue_kind(GFVariantData.get_option_array(oversized_report, "issues"), "size_out_of_range"),
+		_has_issue_kind(
+			GFVariantData.get_option_array(oversized_report, "issues"),
+			"size_out_of_range"
+		),
 		"双元素 PackedVector4Array 应按 size=2 命中上限。"
 	)
 
@@ -909,18 +1848,24 @@ func test_regex_validation_rule_recompiles_when_pattern_changes() -> void:
 	regex.pattern = "^a+$"
 	var recovered_report: Dictionary = regex.validate_value("aaa")
 
-	assert_true(GFVariantData.get_option_bool(first_report, "ok"), "初始正则应匹配。")
-	assert_false(GFVariantData.get_option_bool(second_report, "ok"), "pattern 改变后应使用新正则。")
-	assert_true(GFVariantData.get_option_bool(recovered_report, "ok"), "pattern 改回后应重新编译并恢复通过。")
+	assert_true(
+		GFVariantData.get_option_bool(first_report, "ok"),
+		"初始正则应匹配。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(second_report, "ok"),
+		"pattern 改变后应使用新正则。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(recovered_report, "ok"),
+		"pattern 改回后应重新编译并恢复通过。"
+	)
 
 
 func test_resource_and_localization_rules_accept_valid_values() -> void:
 	var schema: GFConfigTableSchema = GFConfigTableSchema.new()
 	schema.table_name = &"assets"
-	schema.columns = [
-		_make_column(&"path", GFConfigTableColumn.ValueType.STRING),
-		_make_column(&"title_key", GFConfigTableColumn.ValueType.STRING),
-	]
+	schema.columns = [_make_column(&"path", GFConfigTableColumn.ValueType.STRING), _make_column(&"title_key", GFConfigTableColumn.ValueType.STRING),]
 	var resource_path: GFConfigResourcePathValidationRule = GFConfigResourcePathValidationRule.new()
 	resource_path.allowed_extensions = PackedStringArray(["gd"])
 	schema.get_column(&"path").validation_rules.append(resource_path)
@@ -929,27 +1874,34 @@ func test_resource_and_localization_rules_accept_valid_values() -> void:
 	text_key.use_translation_server = false
 	schema.get_column(&"title_key").validation_rules.append(text_key)
 
-	var report: Dictionary = schema.validate_record({
-		"path": "res://addons/gf/standard/utilities/config/gf_config_provider.gd",
-		"title_key": "ui.title",
-	})
+	var report: Dictionary = schema.validate_record({ "path": "res://addons/gf/standard/utilities/config/gf_config_provider.gd", "title_key": "ui.title", })
 
-	assert_true(GFVariantData.get_option_bool(report, "ok"), "存在的 Godot 资源路径和显式文本 key 应通过校验。")
+	assert_true(
+		GFVariantData.get_option_bool(report, "ok"),
+		"存在的 Godot 资源路径和显式文本 key 应通过校验。"
+	)
 
 
 func test_resource_path_rule_accepts_uid_paths_with_resolved_extension() -> void:
 	var script_path: String = "res://addons/gf/standard/utilities/config/gf_config_provider.gd"
 	var uid: int = ResourceLoader.get_resource_uid(script_path)
-	assert_ne(uid, ResourceUID.INVALID_ID, "测试脚本资源应具有 Godot UID。")
+	assert_ne(
+		uid,
+		ResourceUID.INVALID_ID,
+		"测试脚本资源应具有 Godot UID。"
+	)
 	var resource_path: GFConfigResourcePathValidationRule = GFConfigResourcePathValidationRule.new()
 	resource_path.allowed_extensions = PackedStringArray(["gd"])
 
-	var report: Dictionary = resource_path.validate_value(ResourceUID.id_to_text(uid), {
-		"table_name": &"assets",
-		"field": &"path",
-	})
+	var report: Dictionary = resource_path.validate_value(
+		ResourceUID.id_to_text(uid),
+		{ "table_name": &"assets", "field": &"path", }
+	)
 
-	assert_true(GFVariantData.get_option_bool(report, "ok"), "uid:// 资源路径应按真实资源扩展名通过校验。")
+	assert_true(
+		GFVariantData.get_option_bool(report, "ok"),
+		"uid:// 资源路径应按真实资源扩展名通过校验。"
+	)
 
 
 func test_resource_path_rule_does_not_cache_missing_paths_across_calls() -> void:
@@ -969,8 +1921,14 @@ func test_resource_path_rule_does_not_cache_missing_paths_across_calls() -> void
 	var existing_report: Dictionary = resource_path.validate_value(path)
 	var _cleanup_after: Error = DirAccess.remove_absolute(path)
 
-	assert_false(GFVariantData.get_option_bool(missing_report, "ok"), "文件创建前应报告缺失。")
-	assert_true(GFVariantData.get_option_bool(existing_report, "ok"), "同一路径创建后应重新读取当前存在状态。")
+	assert_false(
+		GFVariantData.get_option_bool(missing_report, "ok"),
+		"文件创建前应报告缺失。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(existing_report, "ok"),
+		"同一路径创建后应重新读取当前存在状态。"
+	)
 
 
 func test_table_resource_path_checks_share_operation_cache_and_enforce_budget() -> void:
@@ -984,19 +1942,32 @@ func test_table_resource_path_checks_share_operation_cache_and_enforce_budget() 
 	var first_path: String = "res://addons/gf/standard/utilities/config/gf_config_provider.gd"
 	var second_path: String = "res://addons/gf/standard/utilities/config/gf_config_table_schema.gd"
 
-	var repeated_report: Dictionary = schema.validate_table([
-		{"path": first_path},
-		{"path": first_path},
-	])
-	var exhausted_report: Dictionary = schema.validate_table([
-		{"path": first_path},
-		{"path": second_path},
-	])
+	var repeated_report: Dictionary = schema.validate_table(
+		[
+			{ "path": first_path },
+			{ "path": first_path },
+		]
+	)
+	var exhausted_report: Dictionary = schema.validate_table(
+		[
+			{ "path": first_path },
+			{ "path": second_path },
+		]
+	)
 
-	assert_true(GFVariantData.get_option_bool(repeated_report, "ok"), "同一次校验中的重复路径应命中操作级缓存。")
-	assert_false(GFVariantData.get_option_bool(exhausted_report, "ok"), "唯一资源路径探测数超过硬预算时应失败关闭。")
 	assert_true(
-		_has_issue_kind(GFVariantData.get_option_array(exhausted_report, "issues"), "resource_path_check_budget_exhausted"),
+		GFVariantData.get_option_bool(repeated_report, "ok"),
+		"同一次校验中的重复路径应命中操作级缓存。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(exhausted_report, "ok"),
+		"唯一资源路径探测数超过硬预算时应失败关闭。"
+	)
+	assert_true(
+		_has_issue_kind(
+			GFVariantData.get_option_array(exhausted_report, "issues"),
+			"resource_path_check_budget_exhausted"
+		),
 		"预算耗尽应产生稳定问题类型。"
 	)
 
@@ -1004,20 +1975,29 @@ func test_table_resource_path_checks_share_operation_cache_and_enforce_budget() 
 func test_path_budget_warning_does_not_suppress_later_error() -> void:
 	var schema: GFConfigTableSchema = GFConfigTableSchema.new()
 	schema.max_resource_path_checks_per_validation = 1
-	for field: StringName in [&"first", &"warning", &"error"]:
+	for field: StringName in [
+		&"first",
+		&"warning",
+		&"error",
+	]:
 		var column: GFConfigTableColumn = _make_column(field, GFConfigTableColumn.ValueType.STRING)
 		var rule: GFConfigResourcePathValidationRule = GFConfigResourcePathValidationRule.new()
 		if field == &"warning":
 			rule.severity = GFConfigValidationRule.IssueSeverity.WARNING
 		column.validation_rules.append(rule)
 		schema.columns.append(column)
-	var report: Dictionary = schema.validate_record({
-		"first": "res://addons/gf/standard/utilities/config/gf_config_provider.gd",
-		"warning": "res://addons/gf/standard/utilities/config/gf_config_table_schema.gd",
-		"error": "res://missing-budget-fixture.gd",
-	})
+	var report: Dictionary = schema.validate_record(
+		{
+			"first": "res://addons/gf/standard/utilities/config/gf_config_provider.gd",
+			"warning": "res://addons/gf/standard/utilities/config/gf_config_table_schema.gd",
+			"error": "res://missing-budget-fixture.gd",
+		}
+	)
 	assert_false(GFVariantData.get_option_bool(report, "ok"))
-	assert_gt(GFVariantData.get_option_int(report, "error_count"), 0)
+	assert_gt(
+		GFVariantData.get_option_int(report, "error_count"),
+		0
+	)
 
 
 func test_localization_rule_treats_translation_server_identity_as_indeterminate() -> void:
@@ -1029,8 +2009,14 @@ func test_localization_rule_treats_translation_server_identity_as_indeterminate(
 	var report: Dictionary = text_key.validate_value("item.identity_key")
 	var issues: Array = GFVariantData.get_option_array(report, "issues")
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "严格模式下无显式 key 源时应 fail closed。")
-	assert_true(_has_issue_kind(issues, "localization_key_source_missing"), "应报告缺少显式 key 来源。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"严格模式下无显式 key 源时应 fail closed。"
+	)
+	assert_true(
+		_has_issue_kind(issues, "localization_key_source_missing"),
+		"应报告缺少显式 key 来源。"
+	)
 
 
 func test_schema_and_rules_surface_actionable_issue_context() -> void:
@@ -1045,22 +2031,52 @@ func test_schema_and_rules_surface_actionable_issue_context() -> void:
 	range_rule.maximum = 10.0
 	schema.get_column(&"power").validation_rules.append(range_rule)
 
-	var report: Dictionary = schema.validate_record({
-		"id": "bad",
-		"name": "Potion",
-		"power": 99.0,
-		"kind": "consumable",
-	}, "bad")
-	var invalid_type_issue: Dictionary = _find_issue_kind(GFVariantData.get_option_array(report, "issues"), "invalid_type")
-	var set_issue: Dictionary = _find_issue_kind(GFVariantData.get_option_array(report, "issues"), "set_value_not_allowed")
-	var range_issue: Dictionary = _find_issue_kind(GFVariantData.get_option_array(report, "issues"), "range_above_maximum")
+	var report: Dictionary = schema.validate_record(
+		{
+			"id": "bad",
+			"name": "Potion",
+			"power": 99.0,
+			"kind": "consumable",
+		},
+		"bad"
+	)
+	var invalid_type_issue: Dictionary = _find_issue_kind(
+		GFVariantData.get_option_array(report, "issues"),
+		"invalid_type"
+	)
+	var set_issue: Dictionary = _find_issue_kind(
+		GFVariantData.get_option_array(report, "issues"),
+		"set_value_not_allowed"
+	)
+	var range_issue: Dictionary = _find_issue_kind(
+		GFVariantData.get_option_array(report, "issues"),
+		"range_above_maximum"
+	)
 	var supported_values: Array = GFVariantData.get_option_array(set_issue, "supported_values")
 
-	assert_eq(GFVariantData.get_option_string(invalid_type_issue, "expected_value"), "int", "类型错误应说明期望类型。")
-	assert_eq(GFVariantData.get_option_string(invalid_type_issue, "value"), "bad", "类型错误应保留原始值。")
-	assert_true(supported_values.has("weapon"), "集合规则错误应带允许值。")
-	assert_eq(GFVariantData.get_option_float(range_issue, "actual_value"), 99.0, "范围规则错误应带实际数值。")
-	assert_true(GFVariantData.get_option_string(range_issue, "expected_value").contains("<= 10"), "范围规则错误应说明期望范围。")
+	assert_eq(
+		GFVariantData.get_option_string(invalid_type_issue, "expected_value"),
+		"int",
+		"类型错误应说明期望类型。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(invalid_type_issue, "value"),
+		"bad",
+		"类型错误应保留原始值。"
+	)
+	assert_true(
+		supported_values.has("weapon"),
+		"集合规则错误应带允许值。"
+	)
+	assert_eq(
+		GFVariantData.get_option_float(range_issue, "actual_value"),
+		99.0,
+		"范围规则错误应带实际数值。"
+	)
+	assert_true(
+		GFVariantData.get_option_string(range_issue, "expected_value").contains("<= 10"),
+		"范围规则错误应说明期望范围。"
+	)
 
 
 func test_set_rule_summarizes_large_supported_values() -> void:
@@ -1069,17 +2085,37 @@ func test_set_rule_summarizes_large_supported_values() -> void:
 		rule.allowed_values.append("kind_%d" % index)
 
 	var report: Dictionary = rule.validate_value("missing")
-	var issue: Dictionary = _find_issue_kind(GFVariantData.get_option_array(report, "issues"), "set_value_not_allowed")
+	var issue: Dictionary = _find_issue_kind(
+		GFVariantData.get_option_array(report, "issues"),
+		"set_value_not_allowed"
+	)
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "集合外取值应报告失败。")
-	assert_false(issue.has("supported_values"), "大集合不应完整塞进 issue context。")
-	assert_eq(GFVariantData.get_option_int(issue, "supported_values_count"), 40, "大集合报告应保留总数。")
-	assert_eq(GFVariantData.get_option_array(issue, "supported_values_sample").size(), 32, "大集合报告应保留固定样本。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"集合外取值应报告失败。"
+	)
+	assert_false(
+		issue.has("supported_values"),
+		"大集合不应完整塞进 issue context。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(issue, "supported_values_count"),
+		40,
+		"大集合报告应保留总数。"
+	)
+	assert_eq(
+		GFVariantData.get_option_array(issue, "supported_values_sample").size(),
+		32,
+		"大集合报告应保留固定样本。"
+	)
 	assert_false(
 		GFVariantData.get_option_string(issue, "supported_values_preview_hash").is_empty(),
 		"大集合报告应提供明确命名的预算内预览 hash。"
 	)
-	assert_true(GFVariantData.get_option_bool(issue, "supported_values_truncated"), "大集合报告应明确被截断。")
+	assert_true(
+		GFVariantData.get_option_bool(issue, "supported_values_truncated"),
+		"大集合报告应明确被截断。"
+	)
 
 
 func test_localization_rule_summarizes_large_supported_key_catalog() -> void:
@@ -1088,11 +2124,23 @@ func test_localization_rule_summarizes_large_supported_key_catalog() -> void:
 		var _appended: bool = rule.known_keys.append("ui.key_%d" % index)
 
 	var report: Dictionary = rule.validate_value("ui.missing")
-	var issue: Dictionary = _find_issue_kind(GFVariantData.get_option_array(report, "issues"), "localization_key_missing")
+	var issue: Dictionary = _find_issue_kind(
+		GFVariantData.get_option_array(report, "issues"),
+		"localization_key_missing"
+	)
 
-	assert_false(issue.has("supported_values"), "大文本目录不应完整复制进单条 issue。")
-	assert_eq(GFVariantData.get_option_int(issue, "supported_values_count"), 64)
-	assert_eq(GFVariantData.get_option_array(issue, "supported_values_sample").size(), 32)
+	assert_false(
+		issue.has("supported_values"),
+		"大文本目录不应完整复制进单条 issue。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(issue, "supported_values_count"),
+		64
+	)
+	assert_eq(
+		GFVariantData.get_option_array(issue, "supported_values_sample").size(),
+		32
+	)
 	assert_true(GFVariantData.get_option_bool(issue, "supported_values_truncated"))
 
 
@@ -1105,14 +2153,35 @@ func test_record_and_table_validation_rules_can_be_customized() -> void:
 	table_size.maximum_size = 1
 	schema.table_validation_rules.append(table_size)
 
-	var report: Dictionary = schema.validate_table([
-		{ "id": 1, "name": "Potion", "power": 1.0 },
-		{ "id": 2, "name": "Ether" },
-	])
+	var report: Dictionary = schema.validate_table(
+		[
+			{
+				"id": 1,
+				"name": "Potion",
+				"power": 1.0,
+			},
+			{ "id": 2, "name": "Ether" },
+		]
+	)
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "记录级和表级规则应参与 schema 校验。")
-	assert_true(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "name_power_pair_missing"), "应报告自定义记录规则。")
-	assert_true(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "table_size_out_of_range"), "应报告表级数量规则。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"记录级和表级规则应参与 schema 校验。"
+	)
+	assert_true(
+		_has_issue_kind(
+			GFVariantData.get_option_array(report, "issues"),
+			"name_power_pair_missing"
+		),
+		"应报告自定义记录规则。"
+	)
+	assert_true(
+		_has_issue_kind(
+			GFVariantData.get_option_array(report, "issues"),
+			"table_size_out_of_range"
+		),
+		"应报告表级数量规则。"
+	)
 
 
 func test_csv_validation_report_keeps_source_line_and_column() -> void:
@@ -1127,10 +2196,25 @@ func test_csv_validation_report_keeps_source_line_and_column() -> void:
 	var issues: Array = GFVariantData.get_option_array(report, "issues")
 	var first_issue: Dictionary = GFVariantData.as_dictionary(issues[0])
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "CSV 类型转换失败应报告错误。")
-	assert_eq(GFVariantData.get_option_string(first_issue, "source"), "res://configs/items.csv", "错误应保留来源文件。")
-	assert_eq(GFVariantData.get_option_int(first_issue, "line"), 2, "错误应保留 CSV 行号。")
-	assert_eq(GFVariantData.get_option_int(first_issue, "column"), 1, "错误应保留 CSV 列号。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"CSV 类型转换失败应报告错误。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(first_issue, "source"),
+		"res://configs/items.csv",
+		"错误应保留来源文件。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(first_issue, "line"),
+		2,
+		"错误应保留 CSV 行号。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(first_issue, "column"),
+		1,
+		"错误应保留 CSV 列号。"
+	)
 
 
 func test_csv_validation_keeps_physical_lines_after_multiline_cells() -> void:
@@ -1138,13 +2222,15 @@ func test_csv_validation_keeps_physical_lines_after_multiline_cells() -> void:
 	schema.coerce_values = true
 
 	for line_ending: String in ["\n", "\r\n"]:
-		var csv_text: String = line_ending.join([
-			"id,name,power",
-			"1,\"first line",
-			"second line\",1.0",
-			"bad,Potion,2.0",
-			"",
-		])
+		var csv_text: String = line_ending.join(
+			[
+				"id,name,power",
+				"1,\"first line",
+				"second line\",1.0",
+				"bad,Potion,2.0",
+				"",
+			]
+		)
 		var report: Dictionary = GFConfigTableImporter.validate_csv_table(
 			csv_text,
 			schema,
@@ -1176,25 +2262,73 @@ func test_element_rules_keep_whole_array_rules_and_original_positions() -> void:
 	size_rule.has_maximum_size = true
 	size_rule.maximum_size = 2
 	schema.columns[0].validation_rules = [size_rule]
-	var values: Array = [1, -1, 101, -1]
-	var report: Dictionary = schema.validate_record({ "values": values }, "row-a", {
-		"source": "table.csv", "line": 7, "column": 3, "row_index": 2,
-	})
+	var values: Array = [
+		1,
+		-1,
+		101,
+		-1,
+	]
+	var report: Dictionary = schema.validate_record(
+		{ "values": values },
+		"row-a",
+		{
+			"source": "table.csv",
+			"line": 7,
+			"column": 3,
+			"row_index": 2,
+		}
+	)
 	var issues: Array = GFVariantData.get_option_array(report, "issues")
 	assert_false(GFVariantData.get_option_bool(report, "ok"))
-	assert_eq(issues.size(), 4, "整数组大小问题和三个元素问题必须同时存在。")
+	assert_eq(
+		issues.size(),
+		4,
+		"整数组大小问题和三个元素问题必须同时存在。"
+	)
 	var positions: Array[int] = []
 	for issue: Dictionary in issues:
 		if not issue.has("element_index"):
 			continue
 		positions.append(_reference_issue_int(issue, "element_index"))
-		assert_eq(GFVariantData.get_option_string_name(issue, "field"), &"values")
-		assert_eq(GFVariantData.get_option_string(issue, "row_key"), "row-a")
-		assert_eq(GFVariantData.get_option_string(issue, "source"), "table.csv")
-		assert_eq(_reference_issue_int(issue, "line"), 7)
-		assert_eq(_reference_issue_int(issue, "column"), 3)
-	assert_eq(positions, [1, 2, 3], "重复坏值不能合并或压缩原下标。")
-	assert_eq(values, [1, -1, 101, -1], "校验不得改写来源数组。")
+		assert_eq(
+			GFVariantData.get_option_string_name(issue, "field"),
+			&"values"
+		)
+		assert_eq(
+			GFVariantData.get_option_string(issue, "row_key"),
+			"row-a"
+		)
+		assert_eq(
+			GFVariantData.get_option_string(issue, "source"),
+			"table.csv"
+		)
+		assert_eq(
+			_reference_issue_int(issue, "line"),
+			7
+		)
+		assert_eq(
+			_reference_issue_int(issue, "column"),
+			3
+		)
+	assert_eq(
+		positions,
+		[
+			1,
+			2,
+			3,
+		],
+		"重复坏值不能合并或压缩原下标。"
+	)
+	assert_eq(
+		values,
+		[
+			1,
+			-1,
+			101,
+			-1,
+		],
+		"校验不得改写来源数组。"
+	)
 
 
 func test_element_rules_reuse_regex_set_and_localization_without_coercing_values() -> void:
@@ -1204,19 +2338,55 @@ func test_element_rules_reuse_regex_set_and_localization_without_coercing_values
 	allowed.allowed_values = ["good"]
 	var schema: GFConfigTableSchema = _make_element_schema([regex, allowed])
 	schema.coerce_values = true
-	var report: Dictionary = schema.validate_record({ "values": ["good", "BAD", 42] })
+	var report: Dictionary = schema.validate_record(
+		{
+			"values": [
+				"good",
+				"BAD",
+				42,
+			],
+		}
+	)
 	var issues: Array = GFVariantData.get_option_array(report, "issues")
-	assert_eq(issues.size(), 4)
-	assert_true(_has_issue_kind(issues, "regex_invalid_type"), "元素不继承列的字符串强转。")
-	assert_eq(_reference_issue_int(_find_issue_kind(issues, "regex_invalid_type"), "element_index"), 2)
+	assert_eq(
+		issues.size(),
+		4
+	)
+	assert_true(
+		_has_issue_kind(issues, "regex_invalid_type"),
+		"元素不继承列的字符串强转。"
+	)
+	assert_eq(
+		_reference_issue_int(
+			_find_issue_kind(issues, "regex_invalid_type"),
+			"element_index"
+		),
+		2
+	)
 	var localization: GFConfigLocalizationKeyValidationRule = GFConfigLocalizationKeyValidationRule.new()
 	localization.known_keys = PackedStringArray(["ui.ok"])
-	_set_element_rules(schema.columns[0], [localization])
-	var localization_report: Dictionary = schema.validate_record({ "values": ["ui.ok", "ui.missing"] })
-	assert_eq(GFVariantData.get_option_int(localization_report, "error_count"), 1)
+	_set_element_rules(
+		schema.columns[0],
+		[localization]
+	)
+	var localization_report: Dictionary = schema.validate_record(
+		{
+			"values": ["ui.ok", "ui.missing"],
+		}
+	)
+	assert_eq(
+		GFVariantData.get_option_int(localization_report, "error_count"),
+		1
+	)
 	var localization_issues: Array = GFVariantData.get_option_array(localization_report, "issues")
 	if not localization_issues.is_empty():
-		assert_eq(_reference_issue_int(GFVariantData.as_dictionary(localization_issues[0]), "element_index"), 1)
+		assert_eq(
+			_reference_issue_int(
+				GFVariantData.as_dictionary(localization_issues[0]),
+				"element_index"
+			),
+			1
+		)
 
 
 func test_element_rules_preserve_missing_container_and_element_null_policies() -> void:
@@ -1225,43 +2395,116 @@ func test_element_rules_preserve_missing_container_and_element_null_policies() -
 	var schema: GFConfigTableSchema = _make_element_schema([rule])
 	schema.columns[0].required = false
 	schema.columns[0].allow_null = true
-	for record: Dictionary in [{}, { "values": null }, { "values": [] }, { "values": [null, 1] }]:
-		assert_true(GFVariantData.get_option_bool(schema.validate_record(record), "ok"))
+	for record: Dictionary in [
+		{},
+		{ "values": null },
+		{ "values": [] },
+		{
+			"values": [null, 1],
+		},
+	]:
+		assert_true(
+			GFVariantData.get_option_bool(
+				schema.validate_record(record),
+				"ok"
+			)
+		)
 	rule.allow_null = false
-	var report: Dictionary = schema.validate_record({ "values": [null, 1, null, -1] })
+	var report: Dictionary = schema.validate_record(
+		{
+			"values": [
+				null,
+				1,
+				null,
+				-1,
+			],
+		}
+	)
 	var issues: Array = GFVariantData.get_option_array(report, "issues")
-	assert_eq(issues.size(), 3)
+	assert_eq(
+		issues.size(),
+		3
+	)
 	var positions: Array[int] = []
 	for issue: Dictionary in issues:
 		positions.append(_reference_issue_int(issue, "element_index"))
-	assert_eq(positions, [0, 2, 3])
+	assert_eq(
+		positions,
+		[
+			0,
+			2,
+			3,
+		]
+	)
 	schema.columns[0].required = true
-	assert_false(GFVariantData.get_option_bool(schema.validate_record({}), "ok"))
+	assert_false(
+		GFVariantData.get_option_bool(
+			schema.validate_record({}),
+			"ok"
+		)
+	)
 	schema.columns[0].allow_null = false
-	assert_false(GFVariantData.get_option_bool(schema.validate_record({ "values": null }), "ok"))
-	assert_false(GFVariantData.get_option_bool(schema.validate_record({ "values": "1,2" }), "ok"))
+	assert_false(
+		GFVariantData.get_option_bool(
+			schema.validate_record({ "values": null }),
+			"ok"
+		)
+	)
+	assert_false(
+		GFVariantData.get_option_bool(
+			schema.validate_record({ "values": "1,2" }),
+			"ok"
+		)
+	)
 
 
 func test_element_rules_reject_nested_and_object_values_without_invoking_rules() -> void:
 	var rule: CountingElementRule = CountingElementRule.new()
 	var schema: GFConfigTableSchema = _make_element_schema([rule])
 	var object: RefCounted = RefCounted.new()
-	var values: Array = [[1], { "value": 1 }, PackedInt32Array([1]), object, Callable(), Signal(), RID()]
+	var values: Array = [
+		[1],
+		{ "value": 1 },
+		PackedInt32Array([1]),
+		object,
+		Callable(),
+		Signal(),
+		RID(),
+	]
 	var report: Dictionary = schema.validate_record({ "values": values })
 	var issues: Array = GFVariantData.get_option_array(report, "issues")
 	assert_false(GFVariantData.get_option_bool(report, "ok"))
-	assert_eq(issues.size(), values.size())
-	assert_eq(rule.calls, 0, "不可把对象或嵌套容器交给自定义元素回调。")
+	assert_eq(
+		issues.size(),
+		values.size()
+	)
+	assert_eq(
+		rule.calls,
+		0,
+		"不可把对象或嵌套容器交给自定义元素回调。"
+	)
 	for index: int in range(issues.size()):
 		var issue: Dictionary = GFVariantData.as_dictionary(issues[index])
-		assert_eq(GFVariantData.get_option_string(issue, "kind"), "invalid_element_validation_value")
-		assert_eq(_reference_issue_int(issue, "element_index"), index)
-		assert_false(issue.has("value"), "被拒绝的对象/集合不能被复制进入诊断报告。")
+		assert_eq(
+			GFVariantData.get_option_string(issue, "kind"),
+			"invalid_element_validation_value"
+		)
+		assert_eq(
+			_reference_issue_int(issue, "element_index"),
+			index
+		)
+		assert_false(
+			issue.has("value"),
+			"被拒绝的对象/集合不能被复制进入诊断报告。"
+		)
 	var cycle: Array = []
 	cycle.append(cycle)
 	var cyclic_report: Dictionary = schema.validate_record({ "values": cycle })
 	cycle.clear()
-	assert_false(GFVariantData.get_option_bool(cyclic_report, "ok"), "只检查一层并拒绝自引用。")
+	assert_false(
+		GFVariantData.get_option_bool(cyclic_report, "ok"),
+		"只检查一层并拒绝自引用。"
+	)
 
 
 func test_empty_and_disabled_element_rules_do_not_restrict_array_contents() -> void:
@@ -1270,30 +2513,102 @@ func test_empty_and_disabled_element_rules_do_not_restrict_array_contents() -> v
 	var schema: GFConfigTableSchema = _make_element_schema([rule])
 	schema.set(&"max_elements_per_validation", 1)
 	schema.set(&"max_element_rule_checks_per_validation", 1)
-	var data: Dictionary = { "values": [[1], {}, null] }
-	assert_true(GFVariantData.get_option_bool(schema.validate_record(data), "ok"))
+	var data: Dictionary = {
+		"values": [
+			[1],
+			{},
+			null,
+		],
+	}
+	assert_true(
+		GFVariantData.get_option_bool(
+			schema.validate_record(data),
+			"ok"
+		)
+	)
 	assert_eq(rule.calls, 0)
-	_set_element_rules(schema.columns[0], [])
-	assert_true(GFVariantData.get_option_bool(schema.validate_record(data), "ok"))
+	_set_element_rules(
+		schema.columns[0],
+		[]
+	)
+	assert_true(
+		GFVariantData.get_option_bool(
+			schema.validate_record(data),
+			"ok"
+		)
+	)
 
 
 func test_element_rule_definition_errors_are_explicit_and_fail_at_runtime() -> void:
 	var rule: CountingElementRule = CountingElementRule.new()
 	var schema: GFConfigTableSchema = _make_element_schema([rule])
 	schema.columns[0].value_type = GFConfigTableColumn.ValueType.ANY
-	assert_true(_has_issue_kind(GFVariantData.get_option_array(schema.validate_definition(), "issues"), "element_rules_require_array"))
-	assert_false(GFVariantData.get_option_bool(schema.validate_record({ "values": [1] }), "ok"))
+	assert_true(
+		_has_issue_kind(
+			GFVariantData.get_option_array(
+				schema.validate_definition(),
+				"issues"
+			),
+			"element_rules_require_array"
+		)
+	)
+	assert_false(
+		GFVariantData.get_option_bool(
+			schema.validate_record(
+				{
+					"values": [1],
+				}
+			),
+			"ok"
+		)
+	)
 	assert_eq(rule.calls, 0)
 	schema.columns[0].value_type = GFConfigTableColumn.ValueType.ARRAY
-	_set_element_rules(schema.columns[0], [null])
-	assert_true(_has_issue_kind(GFVariantData.get_option_array(schema.validate_definition(), "issues"), "null_element_validation_rule"))
-	assert_false(GFVariantData.get_option_bool(schema.validate_record({ "values": [] }), "ok"))
+	_set_element_rules(
+		schema.columns[0],
+		[null]
+	)
+	assert_true(
+		_has_issue_kind(
+			GFVariantData.get_option_array(
+				schema.validate_definition(),
+				"issues"
+			),
+			"null_element_validation_rule"
+		)
+	)
+	assert_false(
+		GFVariantData.get_option_bool(
+			schema.validate_record({ "values": [] }),
+			"ok"
+		)
+	)
 	var too_many: Array[GFConfigValidationRule] = []
 	for index: int in range(65):
 		too_many.append(rule)
-	_set_element_rules(schema.columns[0], too_many)
-	assert_true(_has_issue_kind(GFVariantData.get_option_array(schema.validate_definition(), "issues"), "element_validation_rule_limit_exceeded"))
-	assert_false(GFVariantData.get_option_bool(schema.validate_record({ "values": [1] }), "ok"))
+	_set_element_rules(
+		schema.columns[0],
+		too_many
+	)
+	assert_true(
+		_has_issue_kind(
+			GFVariantData.get_option_array(
+				schema.validate_definition(),
+				"issues"
+			),
+			"element_validation_rule_limit_exceeded"
+		)
+	)
+	assert_false(
+		GFVariantData.get_option_bool(
+			schema.validate_record(
+				{
+					"values": [1],
+				}
+			),
+			"ok"
+		)
+	)
 	assert_eq(rule.calls, 0)
 
 
@@ -1302,16 +2617,49 @@ func test_element_budgets_are_shared_across_rows_and_reset_between_public_calls(
 	var schema: GFConfigTableSchema = _make_element_schema([rule])
 	schema.set(&"max_elements_per_validation", 3)
 	schema.set(&"max_element_rule_checks_per_validation", 3)
-	var rows: Array = [{ "values": [1, 2] }, { "values": [3, 4] }]
+	var rows: Array = [
+		{
+			"values": [1, 2],
+		},
+		{
+			"values": [3, 4],
+		},
+	]
 	var report: Dictionary = schema.validate_table(rows)
 	assert_false(GFVariantData.get_option_bool(report, "ok"))
-	assert_eq(rule.calls, 2, "第二个字段整体预算不足时不能先执行部分元素。")
-	assert_true(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "element_validation_budget_exhausted"))
-	assert_true(GFVariantData.get_option_bool(schema.validate_record({ "values": [3, 4] }), "ok"))
-	assert_eq(rule.calls, 4, "新的公开校验调用必须得到新预算。")
+	assert_eq(
+		rule.calls,
+		2,
+		"第二个字段整体预算不足时不能先执行部分元素。"
+	)
+	assert_true(
+		_has_issue_kind(
+			GFVariantData.get_option_array(report, "issues"),
+			"element_validation_budget_exhausted"
+		)
+	)
+	assert_true(
+		GFVariantData.get_option_bool(
+			schema.validate_record(
+				{
+					"values": [3, 4],
+				}
+			),
+			"ok"
+		)
+	)
+	assert_eq(
+		rule.calls,
+		4,
+		"新的公开校验调用必须得到新预算。"
+	)
 	var dictionary_report: Dictionary = schema.validate_table({ "a": rows[0], "b": rows[1] })
 	assert_false(GFVariantData.get_option_bool(dictionary_report, "ok"))
-	assert_eq(rule.calls, 6, "Dictionary 表同样只允许第一个字段进入回调。")
+	assert_eq(
+		rule.calls,
+		6,
+		"Dictionary 表同样只允许第一个字段进入回调。"
+	)
 
 
 func test_element_call_budget_counts_enabled_rules_and_keeps_whole_value_validation() -> void:
@@ -1324,52 +2672,151 @@ func test_element_call_budget_counts_enabled_rules_and_keeps_whole_value_validat
 	size_rule.has_maximum_size = true
 	size_rule.maximum_size = 1
 	schema.columns[0].validation_rules = [size_rule]
-	var report: Dictionary = schema.validate_record({ "values": [1, 2] })
-	assert_eq(GFVariantData.get_option_int(report, "error_count"), 2, "整值规则仍报告，元素调用预算独立失败。")
-	assert_eq(first.calls + second.calls, 0)
+	var report: Dictionary = schema.validate_record(
+		{
+			"values": [1, 2],
+		}
+	)
+	assert_eq(
+		GFVariantData.get_option_int(report, "error_count"),
+		2,
+		"整值规则仍报告，元素调用预算独立失败。"
+	)
+	assert_eq(
+		first.calls + second.calls,
+		0
+	)
 	schema.coerce_values = true
-	var coerced_report: Dictionary = schema.validate_record({ "values": [1, 2] })
-	assert_eq(GFVariantData.get_option_int(coerced_report, "error_count"), 1, "转换校验必须在记录复制及整值回调前拒绝预算不足的记录。")
-	assert_true(_has_issue_kind(GFVariantData.get_option_array(coerced_report, "issues"), "element_validation_budget_exhausted"))
-	assert_eq(first.calls + second.calls, 0)
+	var coerced_report: Dictionary = schema.validate_record(
+		{
+			"values": [1, 2],
+		}
+	)
+	assert_eq(
+		GFVariantData.get_option_int(coerced_report, "error_count"),
+		1,
+		"转换校验必须在记录复制及整值回调前拒绝预算不足的记录。"
+	)
+	assert_true(
+		_has_issue_kind(
+			GFVariantData.get_option_array(coerced_report, "issues"),
+			"element_validation_budget_exhausted"
+		)
+	)
+	assert_eq(
+		first.calls + second.calls,
+		0
+	)
 	second.enabled = false
 	schema.columns[0].validation_rules.clear()
-	assert_true(GFVariantData.get_option_bool(schema.validate_record({ "values": [1, 2] }), "ok"))
+	assert_true(
+		GFVariantData.get_option_bool(
+			schema.validate_record(
+				{
+					"values": [1, 2],
+				}
+			),
+			"ok"
+		)
+	)
 	assert_eq(first.calls, 2)
 	assert_eq(second.calls, 0)
 
 
 func test_invalid_element_limits_fail_definition_and_runtime_without_callbacks() -> void:
 	for field: StringName in [&"max_elements_per_validation", &"max_element_rule_checks_per_validation"]:
-		for value: int in [0, -1, 1048577]:
+		for value: int in [
+			0,
+			-1,
+			1048577,
+		]:
 			var rule: CountingElementRule = CountingElementRule.new()
 			var schema: GFConfigTableSchema = _make_element_schema([rule])
 			schema.set(field, value)
-			assert_true(_has_issue_kind(GFVariantData.get_option_array(schema.validate_definition(), "issues"), "invalid_element_validation_limits"))
-			assert_false(GFVariantData.get_option_bool(schema.validate_record({ "values": [1] }), "ok"))
-			assert_false(GFVariantData.get_option_bool(schema.validate_table([]), "ok"))
-			assert_eq(rule.calls, 0, "非法限制必须失败，不能钳制后继续。")
+			assert_true(
+				_has_issue_kind(
+					GFVariantData.get_option_array(
+						schema.validate_definition(),
+						"issues"
+					),
+					"invalid_element_validation_limits"
+				)
+			)
+			assert_false(
+				GFVariantData.get_option_bool(
+					schema.validate_record(
+						{
+							"values": [1],
+						}
+					),
+					"ok"
+				)
+			)
+			assert_false(
+				GFVariantData.get_option_bool(
+					schema.validate_table([]),
+					"ok"
+				)
+			)
+			assert_eq(
+				rule.calls,
+				0,
+				"非法限制必须失败，不能钳制后继续。"
+			)
 
 
 func test_element_resource_rules_share_the_existing_operation_probe_budget() -> void:
 	var rule: CountingPathRule = CountingPathRule.new()
 	var schema: GFConfigTableSchema = _make_element_schema([rule])
 	var other: GFConfigTableColumn = _make_column(&"other", GFConfigTableColumn.ValueType.ARRAY)
-	_set_element_rules(other, [rule])
+	_set_element_rules(
+		other,
+		[rule]
+	)
 	schema.columns.append(other)
 	schema.max_resource_path_checks_per_validation = 1
-	var repeated: Dictionary = schema.validate_table([
-		{ "values": ["res://a.tres", "res://a.tres"], "other": ["res://a.tres"] },
-		{ "values": ["res://a.tres"], "other": ["res://a.tres"] },
-	])
+	var repeated: Dictionary = schema.validate_table(
+		[
+			{
+				"values": ["res://a.tres", "res://a.tres"],
+				"other": ["res://a.tres"],
+			},
+			{
+				"values": ["res://a.tres"],
+				"other": ["res://a.tres"],
+			},
+		]
+	)
 	assert_true(GFVariantData.get_option_bool(repeated, "ok"))
-	assert_eq(rule.checks, 1, "元素与列/行共享同一次路径探测缓存。")
-	var report: Dictionary = schema.validate_record({ "values": ["res://a.tres"], "other": ["res://b.tres"] })
+	assert_eq(
+		rule.checks,
+		1,
+		"元素与列/行共享同一次路径探测缓存。"
+	)
+	var report: Dictionary = schema.validate_record(
+		{
+			"values": ["res://a.tres"],
+			"other": ["res://b.tres"],
+		}
+	)
 	assert_false(GFVariantData.get_option_bool(report, "ok"))
-	assert_eq(rule.checks, 2, "新校验重建缓存，但超预算的第二路径不可探测。")
-	var issue: Dictionary = _find_issue_kind(GFVariantData.get_option_array(report, "issues"), "resource_path_check_budget_exhausted")
-	assert_eq(_reference_issue_int(issue, "element_index"), 0)
-	assert_eq(GFVariantData.get_option_string_name(issue, "field"), &"other")
+	assert_eq(
+		rule.checks,
+		2,
+		"新校验重建缓存，但超预算的第二路径不可探测。"
+	)
+	var issue: Dictionary = _find_issue_kind(
+		GFVariantData.get_option_array(report, "issues"),
+		"resource_path_check_budget_exhausted"
+	)
+	assert_eq(
+		_reference_issue_int(issue, "element_index"),
+		0
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(issue, "field"),
+		&"other"
+	)
 
 
 func test_element_callbacks_use_frozen_values_rules_and_independent_context() -> void:
@@ -1383,21 +2830,62 @@ func test_element_callbacks_use_frozen_values_rules_and_independent_context() ->
 		whole_rule.extra_rule = extra
 		schema.columns[0].validation_rules = [whole_rule]
 		var values: Array = [1, -1]
-		var report: Dictionary = schema.validate_record({ "values": values }, "original")
+		var report: Dictionary = schema.validate_record(
+			{ "values": values },
+			"original"
+		)
 		var issues: Array = GFVariantData.get_option_array(report, "issues")
 		assert_false(GFVariantData.get_option_bool(report, "ok"))
-		assert_eq(issues.size(), 1)
+		assert_eq(
+			issues.size(),
+			1
+		)
 		var issue: Dictionary = _find_issue_kind(issues, "range_below_minimum")
-		assert_eq(_reference_issue_int(issue, "element_index"), 1, "整值回调改数组不能改变已捕获的元素及下标。")
-		assert_eq(GFVariantData.get_option_string_name(issue, "field"), &"values")
-		assert_eq(GFVariantData.get_option_string(issue, "row_key"), "original")
-		assert_eq(extra.calls, 0, "回调追加的规则不能进入已预留的本批执行。")
+		assert_eq(
+			_reference_issue_int(issue, "element_index"),
+			1,
+			"整值回调改数组不能改变已捕获的元素及下标。"
+		)
+		assert_eq(
+			GFVariantData.get_option_string_name(issue, "field"),
+			&"values"
+		)
+		assert_eq(
+			GFVariantData.get_option_string(issue, "row_key"),
+			"original"
+		)
+		assert_eq(
+			extra.calls,
+			0,
+			"回调追加的规则不能进入已预留的本批执行。"
+		)
 		if coerce:
-			assert_eq(values, [1, -1], "转换后的规则输入不能共享来源数组。")
+			assert_eq(
+				values,
+				[1, -1],
+				"转换后的规则输入不能共享来源数组。"
+			)
 		else:
-			assert_eq(values, [100], "夹具确实主动修改了原始数组。")
-		assert_true(GFVariantData.get_option_bool(schema.validate_record({ "values": [1] }), "ok"))
-		assert_eq(extra.calls, 1, "下一次公开调用应采用新的规则列表。")
+			assert_eq(
+				values,
+				[100],
+				"夹具确实主动修改了原始数组。"
+			)
+		assert_true(
+			GFVariantData.get_option_bool(
+				schema.validate_record(
+					{
+						"values": [1],
+					}
+				),
+				"ok"
+			)
+		)
+		assert_eq(
+			extra.calls,
+			1,
+			"下一次公开调用应采用新的规则列表。"
+		)
 
 
 func test_element_rule_hard_bounds_admit_64_rules_and_reject_oversized_array_without_callbacks() -> void:
@@ -1406,8 +2894,22 @@ func test_element_rule_hard_bounds_admit_64_rules_and_reject_oversized_array_wit
 	for index: int in range(64):
 		rules.append(rule)
 	var schema: GFConfigTableSchema = _make_element_schema(rules)
-	assert_true(GFVariantData.get_option_bool(schema.validate_definition(), "ok"))
-	assert_true(GFVariantData.get_option_bool(schema.validate_record({ "values": [1] }), "ok"))
+	assert_true(
+		GFVariantData.get_option_bool(
+			schema.validate_definition(),
+			"ok"
+		)
+	)
+	assert_true(
+		GFVariantData.get_option_bool(
+			schema.validate_record(
+				{
+					"values": [1],
+				}
+			),
+			"ok"
+		)
+	)
 	assert_eq(rule.calls, 64)
 	schema.max_elements_per_validation = 65536
 	schema.max_element_rule_checks_per_validation = 262144
@@ -1416,8 +2918,17 @@ func test_element_rule_hard_bounds_admit_64_rules_and_reject_oversized_array_wit
 	oversized.fill(1)
 	var report: Dictionary = schema.validate_record({ "values": oversized })
 	assert_false(GFVariantData.get_option_bool(report, "ok"))
-	assert_true(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "element_validation_budget_exhausted"))
-	assert_eq(rule.calls, 64, "超限数组不能调用任何元素规则。")
+	assert_true(
+		_has_issue_kind(
+			GFVariantData.get_option_array(report, "issues"),
+			"element_validation_budget_exhausted"
+		)
+	)
+	assert_eq(
+		rule.calls,
+		64,
+		"超限数组不能调用任何元素规则。"
+	)
 
 
 func test_coerced_element_arrays_reject_cycles_and_oversize_without_recursive_copy_errors() -> void:
@@ -1427,19 +2938,42 @@ func test_coerced_element_arrays_reject_cycles_and_oversize_without_recursive_co
 	var cycle: Array = []
 	cycle.append(cycle)
 	var record_report: Dictionary = schema.validate_record({ "values": cycle })
-	var table_report: Dictionary = schema.validate_table([{ "values": cycle }])
+	var table_report: Dictionary = schema.validate_table(
+		[
+			{ "values": cycle },
+		]
+	)
 	cycle.clear()
 	assert_false(GFVariantData.get_option_bool(record_report, "ok"))
 	assert_false(GFVariantData.get_option_bool(table_report, "ok"))
-	assert_true(_has_issue_kind(GFVariantData.get_option_array(record_report, "issues"), "invalid_element_validation_value"))
-	assert_true(_has_issue_kind(GFVariantData.get_option_array(table_report, "issues"), "invalid_element_validation_value"))
+	assert_true(
+		_has_issue_kind(
+			GFVariantData.get_option_array(record_report, "issues"),
+			"invalid_element_validation_value"
+		)
+	)
+	assert_true(
+		_has_issue_kind(
+			GFVariantData.get_option_array(table_report, "issues"),
+			"invalid_element_validation_value"
+		)
+	)
 	assert_eq(rule.calls, 0)
 	var oversized: Array = []
 	var _resized: int = oversized.resize(65537)
 	oversized.fill(1)
-	var oversized_report: Dictionary = schema.validate_table({ "row": { "values": oversized } })
+	var oversized_report: Dictionary = schema.validate_table(
+		{
+			"row": { "values": oversized },
+		}
+	)
 	assert_false(GFVariantData.get_option_bool(oversized_report, "ok"))
-	assert_true(_has_issue_kind(GFVariantData.get_option_array(oversized_report, "issues"), "element_validation_budget_exhausted"))
+	assert_true(
+		_has_issue_kind(
+			GFVariantData.get_option_array(oversized_report, "issues"),
+			"element_validation_budget_exhausted"
+		)
+	)
 	assert_eq(rule.calls, 0)
 
 
@@ -1461,13 +2995,34 @@ func test_coerced_element_arrays_reject_deep_content_before_copying() -> void:
 	var default_report: Dictionary = schema.validate_record({})
 	for layer: Array in layers:
 		layer.clear()
-	for report: Dictionary in [direct_report, array_report, keyed_report, default_report]:
+	for report: Dictionary in [
+		direct_report,
+		array_report,
+		keyed_report,
+		default_report,
+	]:
 		assert_false(GFVariantData.get_option_bool(report, "ok"))
-		var issue: Dictionary = _find_issue_kind(GFVariantData.get_option_array(report, "issues"), "invalid_element_validation_value")
-		assert_eq(_reference_issue_int(issue, "element_index"), 0)
-		assert_eq(GFVariantData.get_option_string_name(issue, "field"), &"values")
-		assert_false(issue.has("value"), "拒绝嵌套内容时不能复制原值进入报告。")
-	assert_eq(rule.calls, 0, "非法一维数组不得进入项目规则回调。")
+		var issue: Dictionary = _find_issue_kind(
+			GFVariantData.get_option_array(report, "issues"),
+			"invalid_element_validation_value"
+		)
+		assert_eq(
+			_reference_issue_int(issue, "element_index"),
+			0
+		)
+		assert_eq(
+			GFVariantData.get_option_string_name(issue, "field"),
+			&"values"
+		)
+		assert_false(
+			issue.has("value"),
+			"拒绝嵌套内容时不能复制原值进入报告。"
+		)
+	assert_eq(
+		rule.calls,
+		0,
+		"非法一维数组不得进入项目规则回调。"
+	)
 
 
 func test_element_rule_contexts_isolate_nested_collections_between_callbacks() -> void:
@@ -1481,18 +3036,54 @@ func test_element_rule_contexts_isolate_nested_collections_between_callbacks() -
 	schema.columns[0].validation_rules = [whole_mutator, whole_observer]
 	var options: Dictionary = {
 		"supported_values": ["original"],
-		"expected_value": { "nested": [1] },
+		"expected_value": {
+			"nested": [1],
+		},
 	}
-	var report: Dictionary = schema.validate_record({ "values": [1, 2] }, "row", options)
+	var report: Dictionary = schema.validate_record(
+		{
+			"values": [1, 2],
+		},
+		"row",
+		options
+	)
 	assert_true(GFVariantData.get_option_bool(report, "ok"))
-	assert_eq(whole_observer.observed.size(), 1)
-	assert_eq(element_observer.observed.size(), 2)
-	for rule: NestedContextRule in [whole_mutator, whole_observer, element_mutator, element_observer]:
+	assert_eq(
+		whole_observer.observed.size(),
+		1
+	)
+	assert_eq(
+		element_observer.observed.size(),
+		2
+	)
+	for rule: NestedContextRule in [
+		whole_mutator,
+		whole_observer,
+		element_mutator,
+		element_observer,
+	]:
 		for observed: Dictionary in rule.observed:
-			assert_eq(GFVariantData.get_option_array(observed, "supported_values"), ["original"], "规则之间及元素之间不能共享公开上下文集合。")
-			assert_eq(GFVariantData.get_option_dictionary(observed, "expected_value"), { "nested": [1] })
-	assert_eq(GFVariantData.get_option_array(options, "supported_values"), ["original"])
-	assert_eq(GFVariantData.get_option_dictionary(options, "expected_value"), { "nested": [1] })
+			assert_eq(
+				GFVariantData.get_option_array(observed, "supported_values"),
+				["original"],
+				"规则之间及元素之间不能共享公开上下文集合。"
+			)
+			assert_eq(
+				GFVariantData.get_option_dictionary(observed, "expected_value"),
+				{
+					"nested": [1],
+				}
+			)
+	assert_eq(
+		GFVariantData.get_option_array(options, "supported_values"),
+		["original"]
+	)
+	assert_eq(
+		GFVariantData.get_option_dictionary(options, "expected_value"),
+		{
+			"nested": [1],
+		}
+	)
 
 
 func test_element_admission_budget_precedes_coerced_shape_scan() -> void:
@@ -1505,16 +3096,42 @@ func test_element_admission_budget_precedes_coerced_shape_scan() -> void:
 	schema.columns[0].validation_rules = [whole_rule]
 	schema.record_validation_rules = [lifecycle_rule]
 	schema.table_validation_rules = [lifecycle_rule]
-	var values: Array = [[1], [2], [3]]
-	var report: Dictionary = schema.validate_table([{ "values": values }])
+	var values: Array = [
+		[1],
+		[2],
+		[3],
+	]
+	var report: Dictionary = schema.validate_table(
+		[
+			{ "values": values },
+		]
+	)
 	var issues: Array = GFVariantData.get_option_array(report, "issues")
 	assert_false(GFVariantData.get_option_bool(report, "ok"))
-	assert_eq(issues.size(), 1, "超预算字段只返回一次预算问题，不得先逐元素报告类型。")
+	assert_eq(
+		issues.size(),
+		1,
+		"超预算字段只返回一次预算问题，不得先逐元素报告类型。"
+	)
 	assert_true(_has_issue_kind(issues, "element_validation_budget_exhausted"))
 	assert_false(_has_issue_kind(issues, "invalid_element_validation_value"))
-	assert_eq(element_rule.calls + whole_rule.calls + lifecycle_rule.record_calls, 0)
-	assert_eq(lifecycle_rule.row_count, 0, "未准入记录不能进入表规则输入。")
-	assert_eq(values, [[1], [2], [3]])
+	assert_eq(
+		element_rule.calls + whole_rule.calls + lifecycle_rule.record_calls,
+		0
+	)
+	assert_eq(
+		lifecycle_rule.row_count,
+		0,
+		"未准入记录不能进入表规则输入。"
+	)
+	assert_eq(
+		values,
+		[
+			[1],
+			[2],
+			[3],
+		]
+	)
 
 
 func test_element_admission_charges_malformed_rows_to_shared_budgets() -> void:
@@ -1526,18 +3143,46 @@ func test_element_admission_charges_malformed_rows_to_shared_budgets() -> void:
 				schema.coerce_values = coerce
 				schema.max_elements_per_validation = limits.x
 				schema.max_element_rule_checks_per_validation = limits.y
-				var rows: Array = [{ "values": [[], {}] }, { "values": [1] }]
+				var rows: Array = [
+					{
+						"values": [[], {}],
+					},
+					{
+						"values": [1],
+					},
+				]
 				var table_data: Variant = rows
 				if dictionary_table:
 					table_data = { "bad": rows[0], "good": rows[1] }
 				var report: Dictionary = schema.validate_table(table_data)
 				var issues: Array = GFVariantData.get_option_array(report, "issues")
-				assert_eq(issues.size(), 3, "坏元素预留的元素数或调用数分别耗尽时，后一记录都必须被拒绝。")
+				assert_eq(
+					issues.size(),
+					3,
+					"坏元素预留的元素数或调用数分别耗尽时，后一记录都必须被拒绝。"
+				)
 				var budget_issue: Dictionary = _find_issue_kind(issues, "element_validation_budget_exhausted")
 				assert_false(budget_issue.is_empty())
-				assert_eq(rule.calls, 0, "坏记录不能免费扫描并把全部预算留给后续记录。")
-				assert_true(GFVariantData.get_option_bool(schema.validate_record({ "values": [1] }), "ok"))
-				assert_eq(rule.calls, 2, "新的公开调用应获得独立预算。")
+				assert_eq(
+					rule.calls,
+					0,
+					"坏记录不能免费扫描并把全部预算留给后续记录。"
+				)
+				assert_true(
+					GFVariantData.get_option_bool(
+						schema.validate_record(
+							{
+								"values": [1],
+							}
+						),
+						"ok"
+					)
+				)
+				assert_eq(
+					rule.calls,
+					2,
+					"新的公开调用应获得独立预算。"
+				)
 
 
 func test_element_admission_reuses_once_across_columns_and_default_values() -> void:
@@ -1551,18 +3196,42 @@ func test_element_admission_reuses_once_across_columns_and_default_values() -> v
 	var other: GFConfigTableColumn = _make_column(&"other", GFConfigTableColumn.ValueType.ARRAY)
 	other.required = false
 	other.default_value = [2]
-	_set_element_rules(other, [rule])
+	_set_element_rules(
+		other,
+		[rule]
+	)
 	schema.columns.append(other)
 	var report: Dictionary = schema.validate_table([{}, {}])
 	assert_false(GFVariantData.get_option_bool(report, "ok"))
-	assert_eq(rule.calls, 2, "首行两列各预留一次，默认值也应计账。")
-	assert_true(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "element_validation_budget_exhausted"))
+	assert_eq(
+		rule.calls,
+		2,
+		"首行两列各预留一次，默认值也应计账。"
+	)
+	assert_true(
+		_has_issue_kind(
+			GFVariantData.get_option_array(report, "issues"),
+			"element_validation_budget_exhausted"
+		)
+	)
 	var empty_report: Dictionary = schema.validate_record({ "values": [], "other": [] })
 	assert_true(GFVariantData.get_option_bool(empty_report, "ok"))
 	assert_eq(rule.calls, 2)
 	rule.enabled = false
-	var disabled_report: Dictionary = schema.validate_record({ "values": [[1], [2], [3]], "other": [] })
-	assert_true(GFVariantData.get_option_bool(disabled_report, "ok"), "全部禁用的规则不触发元素准入。")
+	var disabled_report: Dictionary = schema.validate_record(
+		{
+			"values": [
+				[1],
+				[2],
+				[3],
+			],
+			"other": [],
+		}
+	)
+	assert_true(
+		GFVariantData.get_option_bool(disabled_report, "ok"),
+		"全部禁用的规则不触发元素准入。"
+	)
 	assert_eq(rule.calls, 2)
 
 
@@ -1571,25 +3240,52 @@ func test_element_rules_duplicate_describe_and_build_profile_keep_their_scope() 
 	retained.rule_id = &"retained"
 	var excluded: GFConfigRangeValidationRule = _make_element_range()
 	excluded.rule_id = &"excluded"
-	excluded.metadata = { "tags": ["omit"] }
+	excluded.metadata = {
+		"tags": ["omit"],
+	}
 	var schema: GFConfigTableSchema = _make_element_schema([retained, excluded])
 	schema.set(&"max_elements_per_validation", 17)
 	schema.set(&"max_element_rule_checks_per_validation", 31)
 	var copied: GFConfigTableSchema = schema.duplicate_schema()
 	var copied_rules: Array[GFConfigValidationRule] = copied.columns[0].element_validation_rules
-	assert_eq(copied_rules.size(), 2)
+	assert_eq(
+		copied_rules.size(),
+		2
+	)
 	if not copied_rules.is_empty():
-		assert_true(copied_rules[0] != retained, "复制schema不能共享规则可变资源。")
+		assert_true(
+			copied_rules[0] != retained,
+			"复制schema不能共享规则可变资源。"
+		)
 	var summary: Dictionary = copied.describe()
-	assert_eq(GFVariantData.get_option_int(summary, "max_elements_per_validation"), 17)
-	assert_eq(GFVariantData.get_option_int(summary, "max_element_rule_checks_per_validation"), 31)
-	assert_eq(GFVariantData.get_option_array(copied.columns[0].describe(), "element_validation_rules").size(), 2)
+	assert_eq(
+		GFVariantData.get_option_int(summary, "max_elements_per_validation"),
+		17
+	)
+	assert_eq(
+		GFVariantData.get_option_int(summary, "max_element_rule_checks_per_validation"),
+		31
+	)
+	assert_eq(
+		GFVariantData.get_option_array(
+			copied.columns[0].describe(),
+			"element_validation_rules"
+		).size(),
+		2
+	)
 	var profile: GFConfigBuildProfile = GFConfigBuildProfile.new()
 	profile.exclude_tags = PackedStringArray(["omit"])
 	var filtered: GFConfigTableSchema = profile.filter_schema(schema)
 	var filtered_rules: Array = GFVariantData.as_array(filtered.columns[0].get(&"element_validation_rules"))
-	assert_eq(filtered_rules.size(), 1, "构建profile也应过滤元素规则。")
-	assert_eq(GFVariantData.as_array(schema.columns[0].get(&"element_validation_rules")).size(), 2)
+	assert_eq(
+		filtered_rules.size(),
+		1,
+		"构建profile也应过滤元素规则。"
+	)
+	assert_eq(
+		GFVariantData.as_array(schema.columns[0].get(&"element_validation_rules")).size(),
+		2
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -1616,6 +3312,7 @@ func _make_element_range() -> GFConfigRangeValidationRule:
 	rule.maximum = 100
 	return rule
 
+
 func _make_item_schema() -> GFConfigTableSchema:
 	var id_column: GFConfigTableColumn = GFConfigTableColumn.new()
 	id_column.field_name = &"id"
@@ -1636,7 +3333,11 @@ func _make_item_schema() -> GFConfigTableSchema:
 
 	var schema: GFConfigTableSchema = GFConfigTableSchema.new()
 	schema.table_name = &"items"
-	schema.columns = [id_column, name_column, power_column]
+	schema.columns = [
+		id_column,
+		name_column,
+		power_column,
+	]
 	return schema
 
 
@@ -1666,7 +3367,10 @@ func _make_reference(
 
 func _make_array_reference() -> GFConfigTableReference:
 	var reference: GFConfigTableReference = _make_reference(
-		&"owner_items", PackedStringArray(["item_ids"]), &"items", PackedStringArray(["id"])
+		&"owner_items",
+		PackedStringArray(["item_ids"]),
+		&"items",
+		PackedStringArray(["id"])
 	)
 	reference.source_mode = GFConfigTableReference.SourceMode.ARRAY_ELEMENTS
 	return reference
@@ -1689,13 +3393,18 @@ func _validate_array_reference(
 		reference = _make_array_reference()
 	owner_schema.references = [reference]
 	return GFConfigReferenceResolver.validate_tables(
-		{ &"owners": source_rows, &"items": target_rows }, [owner_schema, item_schema], { "validate_schema": false }
+		{ &"owners": source_rows, &"items": target_rows },
+		[owner_schema, item_schema],
+		{ "validate_schema": false }
 	)
 
 
 func _reference_issue_int(issue: Dictionary, field: String) -> int:
 	var value: Variant = issue.get(field)
-	assert_true(value is int, "%s 应保留真正的 int 类型。" % field)
+	assert_true(
+		value is int,
+		"%s 应保留真正的 int 类型。" % field
+	)
 	if value is int:
 		var int_value: int = value
 		return int_value
@@ -1719,35 +3428,46 @@ func _find_issue_kind(issues: Array, kind: String) -> Dictionary:
 # --- 内部类 ---
 
 class CountingElementRule extends GFConfigValidationRule:
-
 	var calls: int = 0
 
-	func _validate_value(_value: Variant, _context: Dictionary, _report: Dictionary) -> void:
+	func _validate_value(
+		_value: Variant,
+		_context: Dictionary,
+		_report: Dictionary
+	) -> void:
 		calls += 1
 
 
 class CountingRecordTableRule extends GFConfigValidationRule:
-
 	var record_calls: int = 0
 	var row_count: int = 0
 
-	func _validate_record(_record: Dictionary, _context: Dictionary, _report: Dictionary) -> void:
+	func _validate_record(
+		_record: Dictionary,
+		_context: Dictionary,
+		_report: Dictionary
+	) -> void:
 		record_calls += 1
 
-	func _validate_table(rows: Array[Dictionary], _context: Dictionary, _report: Dictionary) -> void:
+
+	func _validate_table(
+		rows: Array[Dictionary],
+		_context: Dictionary,
+		_report: Dictionary
+	) -> void:
 		row_count += rows.size()
 
 
 class NestedContextRule extends GFConfigValidationRule:
-
 	var mutate_context: bool = false
 	var observed: Array[Dictionary] = []
 
-	func _validate_value(_value: Variant, context: Dictionary, _report: Dictionary) -> void:
-		observed.append({
-			"supported_values": GFVariantData.duplicate_variant(context.get("supported_values")),
-			"expected_value": GFVariantData.duplicate_variant(context.get("expected_value")),
-		})
+	func _validate_value(
+		_value: Variant,
+		context: Dictionary,
+		_report: Dictionary
+	) -> void:
+		observed.append({ "supported_values": GFVariantData.duplicate_variant(context.get("supported_values")), "expected_value": GFVariantData.duplicate_variant(context.get("expected_value")), })
 		if mutate_context:
 			GFVariantData.as_array(context.get("supported_values")).append("changed")
 			var expected: Dictionary = GFVariantData.as_dictionary(context.get("expected_value"))
@@ -1755,11 +3475,14 @@ class NestedContextRule extends GFConfigValidationRule:
 
 
 class MutatingWholeValueRule extends GFConfigValidationRule:
-
 	var element_rules: Array[GFConfigValidationRule] = []
 	var extra_rule: GFConfigValidationRule
 
-	func _validate_value(value: Variant, context: Dictionary, _report: Dictionary) -> void:
+	func _validate_value(
+		value: Variant,
+		context: Dictionary,
+		_report: Dictionary
+	) -> void:
 		if value is Array:
 			var elements: Array = value
 			elements.clear()
@@ -1771,30 +3494,48 @@ class MutatingWholeValueRule extends GFConfigValidationRule:
 
 
 class CountingPathRule extends GFConfigResourcePathValidationRule:
-
 	var checks: int = 0
 
 	func _path_exists(_path: String) -> bool:
 		checks += 1
 		return true
 
-class RequireNamePowerPairRule extends GFConfigValidationRule:
 
+class RequireNamePowerPairRule extends GFConfigValidationRule:
 	func _get_default_rule_id() -> StringName:
 		return &"name_power_pair"
 
-	func _validate_record(record: Dictionary, context: Dictionary, report: Dictionary) -> void:
+
+	func _validate_record(
+		record: Dictionary,
+		context: Dictionary,
+		report: Dictionary
+	) -> void:
 		if record.has(&"name") and not record.has(&"power"):
-			_add_issue(report, context, "name_power_pair_missing", "包含 name 时必须同时包含 power。")
+			_add_issue(
+				report,
+				context,
+				"name_power_pair_missing",
+				"包含 name 时必须同时包含 power。"
+			)
 
 
 class RequireIntegerIdsTableRule extends GFConfigValidationRule:
-
 	func _get_default_rule_id() -> StringName:
 		return &"integer_ids"
 
-	func _validate_table(rows: Array[Dictionary], context: Dictionary, report: Dictionary) -> void:
+
+	func _validate_table(
+		rows: Array[Dictionary],
+		context: Dictionary,
+		report: Dictionary
+	) -> void:
 		for row_entry: Dictionary in rows:
 			var record: Dictionary = GFVariantData.get_option_dictionary(row_entry, "record")
 			if not (GFVariantData.get_option_value(record, &"id") is int):
-				_add_issue(report, context, "id_not_coerced", "表级规则收到的 id 必须是 int。")
+				_add_issue(
+					report,
+					context,
+					"id_not_coerced",
+					"表级规则收到的 id 必须是 int。"
+				)

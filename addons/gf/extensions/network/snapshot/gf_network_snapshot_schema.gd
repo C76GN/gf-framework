@@ -260,7 +260,10 @@ func _state_has_field(state: Dictionary, field_name: StringName) -> bool:
 func _state_get_field(state: Dictionary, field_name: StringName) -> Variant:
 	if state.has(field_name):
 		return state[field_name]
-	return GFVariantData.get_option_value(state, String(field_name))
+	return GFVariantData.get_option_value(
+		state,
+		String(field_name)
+	)
 
 
 ## 按 encode 方向转换 patch 的 set 与 erase 部分。
@@ -269,8 +272,21 @@ func _state_get_field(state: Dictionary, field_name: StringName) -> Variant:
 ## [br]
 func _transform_patch(patch: Dictionary, encode: bool) -> Dictionary:
 	var result: Dictionary = patch.duplicate(true)
-	result["set"] = _transform_patch_set_ops(GFVariantData.get_option_value(patch, "set", []), encode)
-	result["erase"] = _filter_patch_erase_ops(GFVariantData.get_option_value(patch, "erase", []))
+	result["set"] = _transform_patch_set_ops(
+		GFVariantData.get_option_value(
+			patch,
+			"set",
+			[]
+		),
+		encode
+	)
+	result["erase"] = _filter_patch_erase_ops(
+		GFVariantData.get_option_value(
+			patch,
+			"erase",
+			[]
+		)
+	)
 	return result
 
 
@@ -280,7 +296,10 @@ func _transform_patch(patch: Dictionary, encode: bool) -> Dictionary:
 ## [br]
 func _transform_patch_set_ops(set_value: Variant, encode: bool) -> Variant:
 	if set_value is Dictionary:
-		return _transform_patch_set_dictionary(GFVariantData.as_dictionary(set_value), encode)
+		return _transform_patch_set_dictionary(
+			GFVariantData.as_dictionary(set_value),
+			encode
+		)
 	if not (set_value is Array):
 		return set_value
 
@@ -290,11 +309,21 @@ func _transform_patch_set_ops(set_value: Variant, encode: bool) -> Variant:
 		if not (op_value is Dictionary):
 			continue
 		var op: Dictionary = GFVariantData.as_dictionary(op_value).duplicate(true)
-		var path: Array = _patch_path_from_value(GFVariantData.get_option_value(op, "path", []))
+		var path: Array = _patch_path_from_value(
+			GFVariantData.get_option_value(
+				op,
+				"path",
+				[]
+			)
+		)
 		if not _should_include_patch_path(path):
 			continue
 		op["path"] = path
-		op["value"] = _transform_patch_value_for_path(path, GFVariantData.get_option_value(op, "value"), encode)
+		op["value"] = _transform_patch_value_for_path(
+			path,
+			GFVariantData.get_option_value(op, "value"),
+			encode
+		)
 		result.append(op)
 	return result
 
@@ -309,7 +338,11 @@ func _transform_patch_set_dictionary(set_values: Dictionary, encode: bool) -> Di
 		var path: Array = [key]
 		if not _should_include_patch_path(path):
 			continue
-		result[key] = _transform_patch_value_for_path(path, set_values[key], encode)
+		result[key] = _transform_patch_value_for_path(
+			path,
+			set_values[key],
+			encode
+		)
 	return result
 
 
@@ -340,7 +373,11 @@ func _filter_patch_erase_ops(erase_value: Variant) -> Variant:
 ## [br]
 ## @api private
 ## [br]
-func _transform_patch_value_for_path(path: Array, value: Variant, encode: bool) -> Variant:
+func _transform_patch_value_for_path(
+	path: Array,
+	value: Variant,
+	encode: bool
+) -> Variant:
 	if path.size() != 1:
 		return GFVariantData.duplicate_variant(value)
 

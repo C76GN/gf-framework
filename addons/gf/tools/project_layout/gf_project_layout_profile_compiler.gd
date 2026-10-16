@@ -11,17 +11,13 @@ extends RefCounted
 ## [br]
 ## @api private
 ## [br]
-const _BOUNDED_JSON_OBJECT_READER_SCRIPT = preload(
-	"res://addons/gf/kernel/core/gf_bounded_json_object_reader.gd"
-)
+const _BOUNDED_JSON_OBJECT_READER_SCRIPT = preload("res://addons/gf/kernel/core/gf_bounded_json_object_reader.gd")
 
 ## 提供 profile 编译资源边界的 analysis contract 脚本。
 ## [br]
 ## @api private
 ## [br]
-const _ANALYSIS_CONTRACT_SCRIPT = preload(
-	"res://addons/gf/tools/project_layout/gf_project_layout_analysis_contract.gd"
-)
+const _ANALYSIS_CONTRACT_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_analysis_contract.gd")
 
 ## 唯一 capture_scope 声明与来源绑定核心。
 ## [br]
@@ -178,13 +174,21 @@ const _MAX_OPERATION_SCOPE_EXECUTED_FIELDS: int = 128
 ## [br]
 ## @api private
 ## [br]
-const _SEVERITY_DOMAIN: PackedStringArray = ["error", "warning", "info"]
+const _SEVERITY_DOMAIN: PackedStringArray = [
+	"error",
+	"warning",
+	"info",
+]
 
 ## naming target domain 接受的值集合。
 ## [br]
 ## @api private
 ## [br]
-const _NAMING_TARGET_DOMAIN: PackedStringArray = ["path", "name", "stem"]
+const _NAMING_TARGET_DOMAIN: PackedStringArray = [
+	"path",
+	"name",
+	"stem",
+]
 
 ## canonical contract 根字典允许的字段名集合。
 ## [br]
@@ -327,10 +331,7 @@ const _REGISTRY_ENTRY_FIELDS: PackedStringArray = ["handler", "executed_fields"]
 ## [br]
 ## @api private
 ## [br]
-const _OPERATION_HANDLER_ARGUMENT_COUNTS: Dictionary = {
-	"analyze": 4,
-	"plan": 3,
-}
+const _OPERATION_HANDLER_ARGUMENT_COUNTS: Dictionary = { "analyze": 4, "plan": 3, }
 
 ## contract 必须提供的诊断 reason key 集合。
 ## [br]
@@ -383,13 +384,27 @@ var _profile_compile_terminal: bool = false
 ## [br]
 ## @return: 路径不符合 profile 的规范相对字面路径约束时为 true。
 static func _profile_relative_path_is_invalid(path: String) -> bool:
-	if path.is_empty() or path != path.strip_edges() or path.contains("\\") or path.ends_with("/"):
+	if (
+		path.is_empty()
+		or path != path.strip_edges()
+		or path.contains("\\")
+		or path.ends_with("/")
+	):
 		return true
-	if path.begins_with("/") or path.contains("://") or path.contains(":"):
+	if (
+		path.begins_with("/")
+		or path.contains("://")
+		or path.contains(":")
+	):
 		return true
 	if path.is_absolute_path() or _is_filesystem_absolute_path(path):
 		return true
-	if path.contains("*") or path.contains("?") or path.contains("[") or path.contains("]"):
+	if (
+		path.contains("*")
+		or path.contains("?")
+		or path.contains("[")
+		or path.contains("]")
+	):
 		return true
 	return _path_has_invalid_segment(path)
 
@@ -402,13 +417,28 @@ static func _profile_relative_path_is_invalid(path: String) -> bool:
 ## [br]
 ## @return: 模式超出支持的相对 glob 语法时为 true。
 static func _profile_pattern_is_invalid(pattern: String) -> bool:
-	if pattern.is_empty() or pattern != pattern.strip_edges() or pattern.contains("\\") or pattern.ends_with("/"):
+	if (
+		pattern.is_empty()
+		or pattern != pattern.strip_edges()
+		or pattern.contains("\\")
+		or pattern.ends_with("/")
+	):
 		return true
-	if pattern.begins_with("/") or pattern.contains("://") or pattern.contains(":"):
+	if (
+		pattern.begins_with("/")
+		or pattern.contains("://")
+		or pattern.contains(":")
+	):
 		return true
-	if pattern.contains("?") or pattern.contains("[") or pattern.contains("]") or pattern.contains("***"):
+	if (
+		pattern.contains("?")
+		or pattern.contains("[")
+		or pattern.contains("]")
+		or pattern.contains("***")
+	):
 		return true
 	return _path_has_invalid_segment(pattern)
+
 
 ## 判断摘要是否精确绑定当前规范版本的 canonical contract bytes。
 ## [br]
@@ -453,10 +483,22 @@ func compile_profile(profile: Dictionary, operation_scope: Dictionary) -> Dictio
 		_add_issue(
 			result,
 			"error",
-			_get_string(contract_result, "kind", "profile_contract_unavailable"),
-			_get_string(contract_result, "reason_code", _BOOTSTRAP_REASON_CONTRACT_UNAVAILABLE),
+			_get_string(
+				contract_result,
+				"kind",
+				"profile_contract_unavailable"
+			),
+			_get_string(
+				contract_result,
+				"reason_code",
+				_BOOTSTRAP_REASON_CONTRACT_UNAVAILABLE
+			),
 			"",
-			_get_string(contract_result, "message", "项目结构 profile contract 不可用。")
+			_get_string(
+				contract_result,
+				"message",
+				"项目结构 profile contract 不可用。"
+			)
 		)
 		return _finalize_result(result)
 
@@ -475,12 +517,21 @@ func compile_profile(profile: Dictionary, operation_scope: Dictionary) -> Dictio
 	result["contract_id"] = _get_string(contract, "contract_id")
 	result["contract_digest"] = _get_string(contract_result, "contract_digest")
 
-	var scope_result: Dictionary = _compile_operation_scope(operation_scope, contract, result)
+	var scope_result: Dictionary = _compile_operation_scope(
+		operation_scope,
+		contract,
+		result
+	)
 	if _get_int(result, "error_count") > 0:
 		return _finalize_result(result)
 	result["capabilities"] = _get_dictionary(scope_result, "capabilities").duplicate(true)
 
-	var compiled_profile: Dictionary = _compile_profile_data(profile, contract, scope_result, result)
+	var compiled_profile: Dictionary = _compile_profile_data(
+		profile,
+		contract,
+		scope_result,
+		result
+	)
 	if _profile_compile_terminal:
 		return _finalize_result(result)
 	result["profile"] = compiled_profile
@@ -512,10 +563,7 @@ func _make_compile_result() -> Dictionary:
 ## 在编译执行器声明前限制注册表、字段集合及递归结构，累计文本字节和工作量并拒绝循环；允许 handler 所需 Callable，但不执行它们。
 ## [br]
 ## @api private
-func _operation_scope_structure_is_admissible(
-	operation_scope: Dictionary,
-	result: Dictionary
-) -> bool:
+func _operation_scope_structure_is_admissible(operation_scope: Dictionary, result: Dictionary) -> bool:
 	if operation_scope.size() > _OPERATION_SCOPE_FIELDS.size():
 		_fail_profile_compile_limit(result, "operation_scope_fields")
 		return false
@@ -537,11 +585,13 @@ func _operation_scope_structure_is_admissible(
 			_fail_profile_compile_limit(result, "operation_scope_zone_fields")
 			return false
 
-	var stack: Array = [{
-		"value": operation_scope,
-		"depth": 0,
-		"exit": false,
-	}]
+	var stack: Array = [
+		{
+			"value": operation_scope,
+			"depth": 0,
+			"exit": false,
+		},
+	]
 	var active_containers: Array = []
 	var structure_value_count: int = 0
 	var string_bytes: int = 0
@@ -576,40 +626,75 @@ func _operation_scope_structure_is_admissible(
 				_fail_profile_compile_limit(result, "operation_scope_string_bytes")
 				return false
 			string_bytes += text_bytes
-			if not _consume_profile_work(result, ceili(float(text_bytes) / 256.0)):
+			if not _consume_profile_work(
+				result,
+				ceili(float(text_bytes) / 256.0)
+			):
 				return false
 			continue
 		if value is Dictionary:
 			var dictionary_value: Dictionary = value
-			if (
-				dictionary_value.size() > _MAX_OPERATION_SCOPE_COLLECTION_ITEMS
-				or _active_profile_container_exists(active_containers, dictionary_value)
-			):
+			if (dictionary_value.size() > _MAX_OPERATION_SCOPE_COLLECTION_ITEMS or _active_profile_container_exists(active_containers, dictionary_value)):
 				_fail_profile_compile_limit(result, "operation_scope_collection")
 				return false
 			active_containers.append(dictionary_value)
-			stack.append({ "value": dictionary_value, "depth": depth, "exit": true })
+			stack.append(
+				{
+					"value": dictionary_value,
+					"depth": depth,
+					"exit": true,
+				}
+			)
 			var keys: Array = dictionary_value.keys()
-			for key_index: int in range(keys.size() - 1, -1, -1):
+			for key_index: int in range(
+				keys.size() - 1,
+				-1,
+				-1
+			):
 				var key: Variant = keys[key_index]
 				if not key is String:
 					_fail_profile_compile_limit(result, "dictionary_key")
 					return false
-				stack.append({ "value": dictionary_value[key], "depth": depth + 1, "exit": false })
-				stack.append({ "value": key, "depth": depth + 1, "exit": false })
+				stack.append(
+					{
+						"value": dictionary_value[key],
+						"depth": depth + 1,
+						"exit": false,
+					}
+				)
+				stack.append(
+					{
+						"value": key,
+						"depth": depth + 1,
+						"exit": false,
+					}
+				)
 			continue
 		if value is Array:
 			var array_value: Array = value
-			if (
-				array_value.size() > _MAX_OPERATION_SCOPE_COLLECTION_ITEMS
-				or _active_profile_container_exists(active_containers, array_value)
-			):
+			if (array_value.size() > _MAX_OPERATION_SCOPE_COLLECTION_ITEMS or _active_profile_container_exists(active_containers, array_value)):
 				_fail_profile_compile_limit(result, "operation_scope_collection")
 				return false
 			active_containers.append(array_value)
-			stack.append({ "value": array_value, "depth": depth, "exit": true })
-			for item_index: int in range(array_value.size() - 1, -1, -1):
-				stack.append({ "value": array_value[item_index], "depth": depth + 1, "exit": false })
+			stack.append(
+				{
+					"value": array_value,
+					"depth": depth,
+					"exit": true,
+				}
+			)
+			for item_index: int in range(
+				array_value.size() - 1,
+				-1,
+				-1
+			):
+				stack.append(
+					{
+						"value": array_value[item_index],
+						"depth": depth + 1,
+						"exit": false,
+					}
+				)
 			continue
 		if value is PackedStringArray:
 			var packed_values: PackedStringArray = value
@@ -618,10 +703,7 @@ func _operation_scope_structure_is_admissible(
 				return false
 			for text: String in packed_values:
 				structure_value_count += 1
-				if (
-					structure_value_count > _MAX_OPERATION_SCOPE_STRUCTURE_VALUES
-					or text.length() > _MAX_PROFILE_STRING_LENGTH
-				):
+				if (structure_value_count > _MAX_OPERATION_SCOPE_STRUCTURE_VALUES or text.length() > _MAX_PROFILE_STRING_LENGTH):
 					_fail_profile_compile_limit(result, "operation_scope_string")
 					return false
 				var text_bytes: int = text.to_utf8_buffer().size()
@@ -635,7 +717,12 @@ func _operation_scope_structure_is_admissible(
 				):
 					return false
 			continue
-		if value is Callable or value == null or value is bool or value is int:
+		if (
+			value is Callable
+			or value == null
+			or value is bool
+			or value is int
+		):
 			continue
 		if value is float:
 			var float_value: float = value
@@ -652,11 +739,13 @@ func _operation_scope_structure_is_admissible(
 ## [br]
 ## @api private
 func _profile_structure_is_admissible(profile: Dictionary, result: Dictionary) -> bool:
-	var stack: Array = [{
-		"value": profile,
-		"depth": 0,
-		"exit": false,
-	}]
+	var stack: Array = [
+		{
+			"value": profile,
+			"depth": 0,
+			"exit": false,
+		},
+	]
 	var active_containers: Array = []
 	var structure_value_count: int = 0
 	var string_bytes: int = 0
@@ -704,15 +793,37 @@ func _profile_structure_is_admissible(profile: Dictionary, result: Dictionary) -
 				_fail_profile_compile_limit(result, "cyclic_structure")
 				return false
 			active_containers.append(dictionary_value)
-			stack.append({ "value": dictionary_value, "depth": depth, "exit": true })
+			stack.append(
+				{
+					"value": dictionary_value,
+					"depth": depth,
+					"exit": true,
+				}
+			)
 			var keys: Array = dictionary_value.keys()
-			for key_index: int in range(keys.size() - 1, -1, -1):
+			for key_index: int in range(
+				keys.size() - 1,
+				-1,
+				-1
+			):
 				var key: Variant = keys[key_index]
 				if not key is String:
 					_fail_profile_compile_limit(result, "dictionary_key")
 					return false
-				stack.append({ "value": dictionary_value[key], "depth": depth + 1, "exit": false })
-				stack.append({ "value": key, "depth": depth + 1, "exit": false })
+				stack.append(
+					{
+						"value": dictionary_value[key],
+						"depth": depth + 1,
+						"exit": false,
+					}
+				)
+				stack.append(
+					{
+						"value": key,
+						"depth": depth + 1,
+						"exit": false,
+					}
+				)
 			continue
 		if value is Array:
 			var array_value: Array = value
@@ -723,11 +834,31 @@ func _profile_structure_is_admissible(profile: Dictionary, result: Dictionary) -
 				_fail_profile_compile_limit(result, "cyclic_structure")
 				return false
 			active_containers.append(array_value)
-			stack.append({ "value": array_value, "depth": depth, "exit": true })
-			for item_index: int in range(array_value.size() - 1, -1, -1):
-				stack.append({ "value": array_value[item_index], "depth": depth + 1, "exit": false })
+			stack.append(
+				{
+					"value": array_value,
+					"depth": depth,
+					"exit": true,
+				}
+			)
+			for item_index: int in range(
+				array_value.size() - 1,
+				-1,
+				-1
+			):
+				stack.append(
+					{
+						"value": array_value[item_index],
+						"depth": depth + 1,
+						"exit": false,
+					}
+				)
 			continue
-		if value == null or value is bool or value is int:
+		if (
+			value == null
+			or value is bool
+			or value is int
+		):
 			continue
 		if value is float:
 			var float_value: float = value
@@ -772,14 +903,16 @@ func _fail_profile_compile_limit(result: Dictionary, _limit_name: String) -> voi
 	_profile_compile_terminal = true
 	var issues: Array = _get_array(result, "issues")
 	issues.clear()
-	issues.append({
-		"severity": "error",
-		"kind": "profile_compile_resource_limit_exceeded",
-		"reason_code": _RESOURCE_LIMIT_REASON_CODE,
-		"path": "",
-		"message": "项目结构 profile 超出不可关闭的编译资源边界。",
-		"context": {},
-	})
+	issues.append(
+		{
+			"severity": "error",
+			"kind": "profile_compile_resource_limit_exceeded",
+			"reason_code": _RESOURCE_LIMIT_REASON_CODE,
+			"path": "",
+			"message": "项目结构 profile 超出不可关闭的编译资源边界。",
+			"context": {},
+		}
+	)
 	result["profile"] = {}
 	result["capabilities"] = {}
 	result["contract_id"] = ""
@@ -792,11 +925,7 @@ func _fail_profile_compile_limit(result: Dictionary, _limit_name: String) -> voi
 ## [br]
 ## @api private
 func _load_contract() -> Dictionary:
-	var read_result: Dictionary = (
-		_BOUNDED_JSON_OBJECT_READER_SCRIPT.read_object_with_content_sha256(
-			_CONTRACT_PATH
-		)
-	)
+	var read_result: Dictionary = _BOUNDED_JSON_OBJECT_READER_SCRIPT.read_object_with_content_sha256(_CONTRACT_PATH)
 	if not _get_bool(read_result, "ok"):
 		return _contract_read_failure_result(read_result)
 	var contract_digest: String = _get_string(read_result, "content_sha256")
@@ -835,7 +964,11 @@ func _load_contract() -> Dictionary:
 ## @api private
 func _contract_read_failure_result(read_result: Dictionary) -> Dictionary:
 	var error_kind: String = _get_string(read_result, "error_kind")
-	if error_kind == "open_failed" or error_kind == "read_failed" or error_kind == "payload_too_large":
+	if (
+		error_kind == "open_failed"
+		or error_kind == "read_failed"
+		or error_kind == "payload_too_large"
+	):
 		return {
 			"success": false,
 			"kind": "profile_contract_unavailable",
@@ -846,10 +979,13 @@ func _contract_read_failure_result(read_result: Dictionary) -> Dictionary:
 		"success": false,
 		"kind": "profile_contract_invalid",
 		"reason_code": _BOOTSTRAP_REASON_CONTRACT_INVALID,
-		"message": "项目结构 profile contract 不是有效的有界 JSON Dictionary：%s" % _get_string(
-			read_result,
-			"error",
-			"读取失败。"
+		"message": (
+			"项目结构 profile contract 不是有效的有界 JSON Dictionary：%s"
+			% _get_string(
+				read_result,
+				"error",
+				"读取失败。"
+			)
 		),
 	}
 
@@ -882,13 +1018,21 @@ func _contract_is_valid(contract: Dictionary) -> bool:
 	if not _dictionary_has_exact_fields(domains, _DOMAIN_FIELDS):
 		return false
 	for domain_name: String in _DOMAIN_FIELDS:
-		if not _string_collection_is_valid(domains.get(domain_name), false, true):
+		if not _string_collection_is_valid(
+			domains.get(domain_name),
+			false,
+			true
+		):
 			return false
 	if _to_string_list(domains.get("severity")) != _SEVERITY_DOMAIN:
 		return false
 	if _to_string_list(domains.get("naming_target")) != _NAMING_TARGET_DOMAIN:
 		return false
-	for field_map_name: String in ["profile_fields", "zone_fields", "rule_common_fields"]:
+	for field_map_name: String in [
+		"profile_fields",
+		"zone_fields",
+		"rule_common_fields",
+	]:
 		var field_map_value: Variant = contract.get(field_map_name)
 		if not field_map_value is Dictionary:
 			return false
@@ -913,7 +1057,11 @@ func _contract_is_valid(contract: Dictionary) -> bool:
 		if not _dictionary_has_only_fields(rule_descriptor, _RULE_DESCRIPTOR_FIELDS):
 			return false
 		var default_severity: String = _get_string(rule_descriptor, "default_severity")
-		if not _domain_has_value(contract, "severity", default_severity):
+		if not _domain_has_value(
+			contract,
+			"severity",
+			default_severity
+		):
 			return false
 		var fields_value: Variant = rule_descriptor.get("fields")
 		if not fields_value is Dictionary:
@@ -952,14 +1100,54 @@ func _contract_core_fields_are_valid(contract: Dictionary) -> bool:
 	var zone_fields: Dictionary = _get_dictionary(contract, "zone_fields")
 	var rule_common_fields: Dictionary = _get_dictionary(contract, "rule_common_fields")
 	return (
-		_descriptor_matches(profile_fields, "schema_version", "exact_integer", true)
-		and _descriptor_matches(profile_fields, "id", "non_empty_string", true)
-		and _descriptor_matches(profile_fields, "zones", "object_array", true)
-		and _descriptor_matches(profile_fields, "rules", "object_array", true)
-		and _descriptor_matches(zone_fields, "id", "non_empty_string", true)
-		and _descriptor_matches(zone_fields, "roots", "relative_path_list", true)
-		and _descriptor_matches(rule_common_fields, "id", "non_empty_string", true)
-		and _descriptor_matches(rule_common_fields, "kind", "non_empty_string", true)
+		_descriptor_matches(
+			profile_fields,
+			"schema_version",
+			"exact_integer",
+			true
+		)
+		and _descriptor_matches(
+			profile_fields,
+			"id",
+			"non_empty_string",
+			true
+		)
+		and _descriptor_matches(
+			profile_fields,
+			"zones",
+			"object_array",
+			true
+		)
+		and _descriptor_matches(
+			profile_fields,
+			"rules",
+			"object_array",
+			true
+		)
+		and _descriptor_matches(
+			zone_fields,
+			"id",
+			"non_empty_string",
+			true
+		)
+		and _descriptor_matches(
+			zone_fields,
+			"roots",
+			"relative_path_list",
+			true
+		)
+		and _descriptor_matches(
+			rule_common_fields,
+			"id",
+			"non_empty_string",
+			true
+		)
+		and _descriptor_matches(
+			rule_common_fields,
+			"kind",
+			"non_empty_string",
+			true
+		)
 	)
 
 
@@ -1004,7 +1192,11 @@ func _field_descriptor_is_valid(descriptor: Dictionary, contract: Dictionary) ->
 	var field_type: String = _get_string(descriptor, "type")
 	if not _FIELD_TYPES.has(field_type):
 		return false
-	for bool_field: String in ["required", "allow_empty", "requires_capability"]:
+	for bool_field: String in [
+		"required",
+		"allow_empty",
+		"requires_capability",
+	]:
 		if descriptor.has(bool_field) and not descriptor[bool_field] is bool:
 			return false
 	if descriptor.has("allow_empty") and not field_type.ends_with("_list"):
@@ -1020,7 +1212,11 @@ func _field_descriptor_is_valid(descriptor: Dictionary, contract: Dictionary) ->
 	if descriptor.has("empty_semantics"):
 		if not field_type.ends_with("_list") or _get_string(descriptor, "empty_semantics") != "deny_all":
 			return false
-	if descriptor.has("default") and not _raw_value_matches_descriptor(descriptor["default"], descriptor, contract):
+	if descriptor.has("default") and not _raw_value_matches_descriptor(
+		descriptor["default"],
+		descriptor,
+		contract
+	):
 		return false
 	return true
 
@@ -1043,19 +1239,17 @@ func _semantics_are_valid(contract: Dictionary) -> bool:
 		return false
 	if _get_int(semantics, "regex_max_alternatives") != _REGEX_MAX_ALTERNATIVES:
 		return false
-	if (
-		_get_int(semantics, "regex_max_quantifiers_per_branch")
-		!= _REGEX_MAX_QUANTIFIERS_PER_BRANCH
-	):
+	if _get_int(semantics, "regex_max_quantifiers_per_branch") != _REGEX_MAX_QUANTIFIERS_PER_BRANCH:
 		return false
 	if not semantics.get("regex_ascii_only") is bool or not _get_bool(semantics, "regex_ascii_only"):
 		return false
-	if not semantics.get("regex_allow_groups") is bool or _get_bool(semantics, "regex_allow_groups", true):
-		return false
-	if (
-		_get_string(semantics, "regex_allowed_escaped_literals")
-		!= _REGEX_ALLOWED_ESCAPED_LITERALS
+	if not semantics.get("regex_allow_groups") is bool or _get_bool(
+		semantics,
+		"regex_allow_groups",
+		true
 	):
+		return false
+	if _get_string(semantics, "regex_allowed_escaped_literals") != _REGEX_ALLOWED_ESCAPED_LITERALS:
 		return false
 	if _get_string(semantics, "collection_duplicate_policy") != "preserve_first_warn":
 		return false
@@ -1068,7 +1262,11 @@ func _semantics_are_valid(contract: Dictionary) -> bool:
 	if not _dictionary_has_exact_fields(relative_path, _RELATIVE_PATH_SEMANTICS_FIELDS):
 		return false
 	for field_name: String in _RELATIVE_PATH_SEMANTICS_FIELDS:
-		if not relative_path[field_name] is bool or _get_bool(relative_path, field_name, true):
+		if not relative_path[field_name] is bool or _get_bool(
+			relative_path,
+			field_name,
+			true
+		):
 			return false
 	var extension_value: Variant = semantics.get("extension")
 	if not extension_value is Dictionary:
@@ -1090,26 +1288,62 @@ func _semantics_are_valid(contract: Dictionary) -> bool:
 			return false
 	return (
 		_get_bool(glob, "match_entire_path")
-		and not _get_bool(glob, "single_star_crosses_separator", true)
+		and not _get_bool(
+			glob,
+			"single_star_crosses_separator",
+			true
+		)
 		and _get_bool(glob, "double_star_crosses_separator")
 		and _get_bool(glob, "double_star_slash_matches_zero_segments")
-		and not _get_bool(glob, "allow_dot_segments", true)
-		and not _get_bool(glob, "allow_empty_segments", true)
-		and not _get_bool(glob, "allow_trailing_separator", true)
-		and not _get_bool(glob, "allow_question_mark", true)
-		and not _get_bool(glob, "allow_character_classes", true)
-		and not _get_bool(glob, "allow_triple_star", true)
+		and not _get_bool(
+			glob,
+			"allow_dot_segments",
+			true
+		)
+		and not _get_bool(
+			glob,
+			"allow_empty_segments",
+			true
+		)
+		and not _get_bool(
+			glob,
+			"allow_trailing_separator",
+			true
+		)
+		and not _get_bool(
+			glob,
+			"allow_question_mark",
+			true
+		)
+		and not _get_bool(
+			glob,
+			"allow_character_classes",
+			true
+		)
+		and not _get_bool(
+			glob,
+			"allow_triple_star",
+			true
+		)
 	)
 
 
 ## 验证执行器操作、策略及注册表，要求有效 Callable 参数数匹配操作协议且声明字段属于契约；输出排序能力描述并保留注册表引用。
 ## [br]
 ## @api private
-func _compile_operation_scope(operation_scope: Dictionary, contract: Dictionary, result: Dictionary) -> Dictionary:
+func _compile_operation_scope(
+	operation_scope: Dictionary,
+	contract: Dictionary,
+	result: Dictionary
+) -> Dictionary:
 	if not _consume_profile_work(result):
 		return {}
 	if not _dictionary_has_only_fields(operation_scope, _OPERATION_SCOPE_FIELDS):
-		_add_registry_issue(contract, result, "operation_scope 包含未知字段。")
+		_add_registry_issue(
+			contract,
+			result,
+			"operation_scope 包含未知字段。"
+		)
 		return {}
 	var executor_id: String = _get_string(operation_scope, "executor_id")
 	var operation: String = _get_string(operation_scope, "operation")
@@ -1119,12 +1353,24 @@ func _compile_operation_scope(operation_scope: Dictionary, contract: Dictionary,
 		or not _OPERATION_HANDLER_ARGUMENT_COUNTS.has(operation)
 		or not ["error", "schema_only"].has(unsupported_policy)
 	):
-		_add_registry_issue(contract, result, "operation_scope 缺少有效 executor、operation 或 unsupported policy。")
+		_add_registry_issue(
+			contract,
+			result,
+			"operation_scope 缺少有效 executor、operation 或 unsupported policy。"
+		)
 		return {}
 	var expected_handler_argument_count: int = _get_int(_OPERATION_HANDLER_ARGUMENT_COUNTS, operation)
 	var zone_fields_value: Variant = operation_scope.get("zone_executed_fields")
-	if not _string_collection_is_valid(zone_fields_value, true, true):
-		_add_registry_issue(contract, result, "operation_scope zone_executed_fields 必须是字符串数组。")
+	if not _string_collection_is_valid(
+		zone_fields_value,
+		true,
+		true
+	):
+		_add_registry_issue(
+			contract,
+			result,
+			"operation_scope zone_executed_fields 必须是字符串数组。"
+		)
 		return {}
 	var zone_fields: PackedStringArray = _to_string_list(zone_fields_value)
 	var zone_definitions: Dictionary = _get_dictionary(contract, "zone_fields")
@@ -1132,12 +1378,20 @@ func _compile_operation_scope(operation_scope: Dictionary, contract: Dictionary,
 		if not _consume_profile_work(result):
 			return {}
 		if not zone_definitions.has(field_name):
-			_add_registry_issue(contract, result, "operation_scope 声明了 contract 未定义的 zone 字段。")
+			_add_registry_issue(
+				contract,
+				result,
+				"operation_scope 声明了 contract 未定义的 zone 字段。"
+			)
 			return {}
 
 	var registry_value: Variant = operation_scope.get("rule_registry")
 	if not registry_value is Dictionary:
-		_add_registry_issue(contract, result, "operation_scope rule_registry 必须是 Dictionary。")
+		_add_registry_issue(
+			contract,
+			result,
+			"operation_scope rule_registry 必须是 Dictionary。"
+		)
 		return {}
 	var registry: Dictionary = registry_value
 	var rule_kinds: Dictionary = _get_dictionary(contract, "rule_kinds")
@@ -1148,30 +1402,62 @@ func _compile_operation_scope(operation_scope: Dictionary, contract: Dictionary,
 			return {}
 		var rule_kind: String = _string_value(rule_kind_value)
 		if rule_kind.is_empty() or not rule_kinds.has(rule_kind):
-			_add_registry_issue(contract, result, "rule_registry 声明了 contract 未定义的 rule kind。")
+			_add_registry_issue(
+				contract,
+				result,
+				"rule_registry 声明了 contract 未定义的 rule kind。"
+			)
 			return {}
 		var entry_value: Variant = registry[rule_kind_value]
 		if not entry_value is Dictionary:
-			_add_registry_issue(contract, result, "rule_registry entry 必须是 Dictionary。")
+			_add_registry_issue(
+				contract,
+				result,
+				"rule_registry entry 必须是 Dictionary。"
+			)
 			return {}
 		var entry: Dictionary = entry_value
 		if not _dictionary_has_only_fields(entry, _REGISTRY_ENTRY_FIELDS):
-			_add_registry_issue(contract, result, "rule_registry entry 包含未知字段。")
+			_add_registry_issue(
+				contract,
+				result,
+				"rule_registry entry 包含未知字段。"
+			)
 			return {}
 		var handler_value: Variant = entry.get("handler")
 		if not handler_value is Callable:
-			_add_registry_issue(contract, result, "rule_registry handler 必须是 Callable。")
+			_add_registry_issue(
+				contract,
+				result,
+				"rule_registry handler 必须是 Callable。"
+			)
 			return {}
 		var handler: Callable = handler_value
 		if not handler.is_valid():
-			_add_registry_issue(contract, result, "rule_registry handler 无效。")
+			_add_registry_issue(
+				contract,
+				result,
+				"rule_registry handler 无效。"
+			)
 			return {}
 		if handler.get_argument_count() != expected_handler_argument_count:
-			_add_registry_issue(contract, result, "rule_registry handler 参数数量与 operation 执行协议不一致。")
+			_add_registry_issue(
+				contract,
+				result,
+				"rule_registry handler 参数数量与 operation 执行协议不一致。"
+			)
 			return {}
 		var executed_fields_value: Variant = entry.get("executed_fields")
-		if not _string_collection_is_valid(executed_fields_value, true, true):
-			_add_registry_issue(contract, result, "rule_registry executed_fields 必须是字符串数组。")
+		if not _string_collection_is_valid(
+			executed_fields_value,
+			true,
+			true
+		):
+			_add_registry_issue(
+				contract,
+				result,
+				"rule_registry executed_fields 必须是字符串数组。"
+			)
 			return {}
 		var executed_fields: PackedStringArray = _to_string_list(executed_fields_value)
 		var allowed_fields: Dictionary = _rule_field_definitions(contract, rule_kind)
@@ -1179,7 +1465,11 @@ func _compile_operation_scope(operation_scope: Dictionary, contract: Dictionary,
 			if not _consume_profile_work(result):
 				return {}
 			if not allowed_fields.has(field_name):
-				_add_registry_issue(contract, result, "rule_registry 声明了 contract 未定义的 rule 字段。")
+				_add_registry_issue(
+					contract,
+					result,
+					"rule_registry 声明了 contract 未定义的 rule 字段。"
+				)
 				return {}
 		capability_rule_kinds.append(rule_kind)
 		var sorted_fields: Array[String] = []
@@ -1209,7 +1499,12 @@ func _compile_operation_scope(operation_scope: Dictionary, contract: Dictionary,
 ## 编译顶层字段并校验 schema 版本，再分别编译 zones 和 rules；错误留在共享结果，仍构造候选字典供外层统一决定是否发布。
 ## [br]
 ## @api private
-func _compile_profile_data(profile: Dictionary, contract: Dictionary, scope: Dictionary, result: Dictionary) -> Dictionary:
+func _compile_profile_data(
+	profile: Dictionary,
+	contract: Dictionary,
+	scope: Dictionary,
+	result: Dictionary
+) -> Dictionary:
 	var profile_definitions: Dictionary = _get_dictionary(contract, "profile_fields")
 	var compiled: Dictionary = _compile_fields(
 		profile,
@@ -1239,23 +1534,65 @@ func _compile_profile_data(profile: Dictionary, contract: Dictionary, scope: Dic
 	var zones_value: Variant = profile.get("zones")
 	var compiled_zones: Array = []
 	if not profile.has("zones"):
-		_add_field_issue(contract, result, "profile", "profile", "zones", null, "required_field_missing")
+		_add_field_issue(
+			contract,
+			result,
+			"profile",
+			"profile",
+			"zones",
+			null,
+			"required_field_missing"
+		)
 	elif not zones_value is Array:
-		_add_field_issue(contract, result, "profile", "profile", "zones", profile.get("zones"), "field_type_invalid")
+		_add_field_issue(
+			contract,
+			result,
+			"profile",
+			"profile",
+			"zones",
+			profile.get("zones"),
+			"field_type_invalid"
+		)
 	else:
 		var zones: Array = zones_value
-		compiled_zones = _compile_zones(zones, contract, scope, result)
+		compiled_zones = _compile_zones(
+			zones,
+			contract,
+			scope,
+			result
+		)
 	compiled["zones"] = compiled_zones
 
 	var rules_value: Variant = profile.get("rules")
 	var compiled_rules: Array = []
 	if not profile.has("rules"):
-		_add_field_issue(contract, result, "profile", "profile", "rules", null, "required_field_missing")
+		_add_field_issue(
+			contract,
+			result,
+			"profile",
+			"profile",
+			"rules",
+			null,
+			"required_field_missing"
+		)
 	elif not rules_value is Array:
-		_add_field_issue(contract, result, "profile", "profile", "rules", profile.get("rules"), "field_type_invalid")
+		_add_field_issue(
+			contract,
+			result,
+			"profile",
+			"profile",
+			"rules",
+			profile.get("rules"),
+			"field_type_invalid"
+		)
 	else:
 		var rules: Array = rules_value
-		compiled_rules = _compile_rules(rules, contract, scope, result)
+		compiled_rules = _compile_rules(
+			rules,
+			contract,
+			scope,
+			result
+		)
 	compiled["rules"] = compiled_rules
 	if compiled.has("capture_scope"):
 		var declaration_value: Variant = compiled["capture_scope"]
@@ -1266,14 +1603,27 @@ func _compile_profile_data(profile: Dictionary, contract: Dictionary, scope: Dic
 				compiled["capture_scope"] = normalized["declaration"]
 			else:
 				var error: String = normalized["error"]
-				_add_issue(result, "error", "invalid_capture_scope", "PROJECT_LAYOUT_CAPTURE_SCOPE_INVALID", "capture_scope", error, {})
+				_add_issue(
+					result,
+					"error",
+					"invalid_capture_scope",
+					"PROJECT_LAYOUT_CAPTURE_SCOPE_INVALID",
+					"capture_scope",
+					error,
+					{}
+				)
 	return compiled
 
 
 ## 按输入顺序编译区域字段，依据执行器能力处理未执行字段并记录重复区域 ID；资源终止时丢弃整个候选区域数组。
 ## [br]
 ## @api private
-func _compile_zones(zones: Array, contract: Dictionary, scope: Dictionary, result: Dictionary) -> Array:
+func _compile_zones(
+	zones: Array,
+	contract: Dictionary,
+	scope: Dictionary,
+	result: Dictionary
+) -> Array:
 	var compiled_zones: Array = []
 	var seen_ids: Dictionary = {}
 	var definitions: Dictionary = _get_dictionary(contract, "zone_fields")
@@ -1307,7 +1657,12 @@ func _compile_zones(zones: Array, contract: Dictionary, scope: Dictionary, resul
 		var compiled_id: String = _get_string(compiled_zone, "id")
 		if not compiled_id.is_empty():
 			if seen_ids.has(compiled_id):
-				_add_duplicate_id_issue(contract, result, "zone", compiled_id)
+				_add_duplicate_id_issue(
+					contract,
+					result,
+					"zone",
+					compiled_id
+				)
 			else:
 				seen_ids[compiled_id] = true
 		compiled_zones.append(compiled_zone)
@@ -1317,7 +1672,12 @@ func _compile_zones(zones: Array, contract: Dictionary, scope: Dictionary, resul
 ## 按输入顺序合并规则描述并编译字段，核对重复 ID、契约支持及执行器策略；缺省严重级别取规则契约，资源终止时返回空数组。
 ## [br]
 ## @api private
-func _compile_rules(rules: Array, contract: Dictionary, scope: Dictionary, result: Dictionary) -> Array:
+func _compile_rules(
+	rules: Array,
+	contract: Dictionary,
+	scope: Dictionary,
+	result: Dictionary
+) -> Array:
 	var compiled_rules: Array = []
 	var seen_ids: Dictionary = {}
 	var registry: Dictionary = _get_dictionary(scope, "registry")
@@ -1361,7 +1721,12 @@ func _compile_rules(rules: Array, contract: Dictionary, scope: Dictionary, resul
 		var compiled_id: String = _get_string(compiled_rule, "id")
 		if not compiled_id.is_empty():
 			if seen_ids.has(compiled_id):
-				_add_duplicate_id_issue(contract, result, "rule", compiled_id)
+				_add_duplicate_id_issue(
+					contract,
+					result,
+					"rule",
+					compiled_id
+				)
 			else:
 				seen_ids[compiled_id] = true
 		if not rule_kinds.has(rule_kind):
@@ -1443,7 +1808,15 @@ func _compile_fields(
 			if descriptor.has("default"):
 				compiled[field_name] = _copy_contract_value(descriptor["default"])
 			elif _get_bool(descriptor, "required"):
-				_add_field_issue(contract, result, scope_kind, scope_id, field_name, null, "required_field_missing")
+				_add_field_issue(
+					contract,
+					result,
+					scope_kind,
+					scope_id,
+					field_name,
+					null,
+					"required_field_missing"
+				)
 			continue
 		var field_result: Dictionary = _compile_field_value(
 			source[field_name],
@@ -1456,7 +1829,11 @@ func _compile_fields(
 		)
 		if not _get_bool(field_result, "success"):
 			continue
-		if _get_bool(descriptor, "requires_capability") and warn_unexecuted and not executed_fields.has(field_name):
+		if (
+			_get_bool(descriptor, "requires_capability")
+			and warn_unexecuted
+			and not executed_fields.has(field_name)
+		):
 			_add_issue(
 				result,
 				"warning",
@@ -1484,63 +1861,175 @@ func _compile_field_value(
 	field_name: String
 ) -> Dictionary:
 	var field_type: String = _get_string(descriptor, "type")
-	if field_type == "string" or field_type == "non_empty_string" or field_type == "regex":
+	if (
+		field_type == "string"
+		or field_type == "non_empty_string"
+		or field_type == "regex"
+	):
 		if not (value is String or value is StringName):
-			_add_field_issue(contract, result, scope_kind, scope_id, field_name, value, "field_type_invalid")
+			_add_field_issue(
+				contract,
+				result,
+				scope_kind,
+				scope_id,
+				field_name,
+				value,
+				"field_type_invalid"
+			)
 			return { "success": false }
 		var string_value: String = _string_value(value)
 		if field_type != "string" and string_value.strip_edges().is_empty():
-			_add_field_issue(contract, result, scope_kind, scope_id, field_name, value, "field_value_invalid")
+			_add_field_issue(
+				contract,
+				result,
+				scope_kind,
+				scope_id,
+				field_name,
+				value,
+				"field_value_invalid"
+			)
 			return { "success": false }
 		if field_type == "regex":
-			var portable_error: String = _portable_regex_error(string_value, contract, result)
+			var portable_error: String = _portable_regex_error(
+				string_value,
+				contract,
+				result
+			)
 			if _profile_compile_terminal:
 				return { "success": false }
 			if not portable_error.is_empty() and portable_error != "syntax":
-				_add_regex_unsafe_issue(contract, result, scope_id, field_name, portable_error)
+				_add_regex_unsafe_issue(
+					contract,
+					result,
+					scope_id,
+					field_name,
+					portable_error
+				)
 				return { "success": false }
 		if field_type == "regex" and _compile_regex(string_value) == null:
-			_add_regex_issue(contract, result, scope_id, field_name)
+			_add_regex_issue(
+				contract,
+				result,
+				scope_id,
+				field_name
+			)
 			return { "success": false }
 		return { "success": true, "value": string_value }
 	if field_type == "bool":
 		if not value is bool:
-			_add_field_issue(contract, result, scope_kind, scope_id, field_name, value, "field_type_invalid")
+			_add_field_issue(
+				contract,
+				result,
+				scope_kind,
+				scope_id,
+				field_name,
+				value,
+				"field_type_invalid"
+			)
 			return { "success": false }
 		return { "success": true, "value": value }
 	if field_type == "exact_integer" or field_type == "positive_integer":
 		if not _is_exact_integer(value):
-			_add_field_issue(contract, result, scope_kind, scope_id, field_name, value, "field_type_invalid")
+			_add_field_issue(
+				contract,
+				result,
+				scope_kind,
+				scope_id,
+				field_name,
+				value,
+				"field_type_invalid"
+			)
 			return { "success": false }
 		var integer_value: int = _exact_integer_value(value)
 		if field_type == "positive_integer" and integer_value <= 0:
-			_add_field_issue(contract, result, scope_kind, scope_id, field_name, value, "field_value_invalid")
+			_add_field_issue(
+				contract,
+				result,
+				scope_kind,
+				scope_id,
+				field_name,
+				value,
+				"field_value_invalid"
+			)
 			return { "success": false }
 		return { "success": true, "value": integer_value }
 	if field_type == "enum":
 		if not (value is String or value is StringName):
-			_add_field_issue(contract, result, scope_kind, scope_id, field_name, value, "field_type_invalid")
+			_add_field_issue(
+				contract,
+				result,
+				scope_kind,
+				scope_id,
+				field_name,
+				value,
+				"field_type_invalid"
+			)
 			return { "success": false }
 		var enum_value: String = _string_value(value)
-		if not _domain_has_value(contract, _get_string(descriptor, "domain"), enum_value):
-			_add_field_issue(contract, result, scope_kind, scope_id, field_name, value, "field_value_invalid")
+		if not _domain_has_value(
+			contract,
+			_get_string(descriptor, "domain"),
+			enum_value
+		):
+			_add_field_issue(
+				contract,
+				result,
+				scope_kind,
+				scope_id,
+				field_name,
+				value,
+				"field_value_invalid"
+			)
 			return { "success": false }
 		return { "success": true, "value": enum_value }
 	if field_type == "object":
 		if not value is Dictionary:
-			_add_field_issue(contract, result, scope_kind, scope_id, field_name, value, "field_type_invalid")
+			_add_field_issue(
+				contract,
+				result,
+				scope_kind,
+				scope_id,
+				field_name,
+				value,
+				"field_type_invalid"
+			)
 			return { "success": false }
 		var dictionary_value: Dictionary = value
 		return { "success": true, "value": dictionary_value.duplicate(true) }
 	if field_type == "object_array":
 		if not value is Array:
-			_add_field_issue(contract, result, scope_kind, scope_id, field_name, value, "field_type_invalid")
+			_add_field_issue(
+				contract,
+				result,
+				scope_kind,
+				scope_id,
+				field_name,
+				value,
+				"field_type_invalid"
+			)
 			return { "success": false }
 		var array_value: Array = value
 		return { "success": true, "value": array_value.duplicate(true) }
 	if field_type.ends_with("_list"):
-		return _compile_string_list(value, descriptor, contract, result, scope_kind, scope_id, field_name, field_type)
-	_add_field_issue(contract, result, scope_kind, scope_id, field_name, value, "field_type_invalid")
+		return _compile_string_list(
+			value,
+			descriptor,
+			contract,
+			result,
+			scope_kind,
+			scope_id,
+			field_name,
+			field_type
+		)
+	_add_field_issue(
+		contract,
+		result,
+		scope_kind,
+		scope_id,
+		field_name,
+		value,
+		"field_type_invalid"
+	)
 	return { "success": false }
 
 
@@ -1558,7 +2047,15 @@ func _compile_string_list(
 	field_type: String
 ) -> Dictionary:
 	if not (value is Array or value is PackedStringArray):
-		_add_field_issue(contract, result, scope_kind, scope_id, field_name, value, "field_type_invalid")
+		_add_field_issue(
+			contract,
+			result,
+			scope_kind,
+			scope_id,
+			field_name,
+			value,
+			"field_type_invalid"
+		)
 		return { "success": false }
 	var values: Array = []
 	if value is Array:
@@ -1568,7 +2065,15 @@ func _compile_string_list(
 		for packed_value: String in packed_values:
 			values.append(packed_value)
 	if values.is_empty() and not _get_bool(descriptor, "allow_empty"):
-		_add_field_issue(contract, result, scope_kind, scope_id, field_name, value, "field_value_invalid")
+		_add_field_issue(
+			contract,
+			result,
+			scope_kind,
+			scope_id,
+			field_name,
+			value,
+			"field_value_invalid"
+		)
 		return { "success": false }
 	var normalized: Array[String] = []
 	var normalized_set: Dictionary = {}
@@ -1578,21 +2083,49 @@ func _compile_string_list(
 			return { "success": false }
 		if not (item is String or item is StringName):
 			valid = false
-			_add_field_issue(contract, result, scope_kind, scope_id, field_name, item, "field_type_invalid")
+			_add_field_issue(
+				contract,
+				result,
+				scope_kind,
+				scope_id,
+				field_name,
+				item,
+				"field_type_invalid"
+			)
 			continue
 		var string_value: String = _string_value(item)
 		if string_value.strip_edges().is_empty():
 			valid = false
-			_add_field_issue(contract, result, scope_kind, scope_id, field_name, item, "field_value_invalid")
+			_add_field_issue(
+				contract,
+				result,
+				scope_kind,
+				scope_id,
+				field_name,
+				item,
+				"field_value_invalid"
+			)
 			continue
 		var canonical_value: String = _canonicalize_string_list_value(string_value, field_type)
 		if field_type == "relative_path_list" and _profile_relative_path_is_invalid(canonical_value):
 			valid = false
-			_add_relative_path_issue(contract, result, scope_id, field_name, canonical_value)
+			_add_relative_path_issue(
+				contract,
+				result,
+				scope_id,
+				field_name,
+				canonical_value
+			)
 			continue
 		if field_type == "glob_list" and _profile_pattern_is_invalid(canonical_value):
 			valid = false
-			_add_relative_path_issue(contract, result, scope_id, field_name, canonical_value)
+			_add_relative_path_issue(
+				contract,
+				result,
+				scope_id,
+				field_name,
+				canonical_value
+			)
 			continue
 		if normalized_set.has(canonical_value):
 			_add_issue(
@@ -1646,7 +2179,11 @@ func _rule_field_definitions(contract: Dictionary, rule_kind: String) -> Diction
 ## 校验契约默认值能否直接使用，包括正则子集及列表规范后唯一性；不同于用户 profile 编译，此处不会通过告警去重修正默认值。
 ## [br]
 ## @api private
-func _raw_value_matches_descriptor(value: Variant, descriptor: Dictionary, contract: Dictionary) -> bool:
+func _raw_value_matches_descriptor(
+	value: Variant,
+	descriptor: Dictionary,
+	contract: Dictionary
+) -> bool:
 	var field_type: String = _get_string(descriptor, "type")
 	if field_type == "string":
 		return value is String or value is StringName
@@ -1671,14 +2208,22 @@ func _raw_value_matches_descriptor(value: Variant, descriptor: Dictionary, contr
 	if field_type == "positive_integer":
 		return _is_exact_integer(value) and _exact_integer_value(value) > 0
 	if field_type == "enum":
-		return _domain_has_value(contract, _get_string(descriptor, "domain"), _string_value(value))
+		return _domain_has_value(
+			contract,
+			_get_string(descriptor, "domain"),
+			_string_value(value)
+		)
 	if field_type == "object":
 		return value is Dictionary
 	if field_type == "object_array":
 		return value is Array
 	if field_type.ends_with("_list"):
 		var require_original_unique: bool = field_type != "extension_list"
-		if not _string_collection_is_valid(value, _get_bool(descriptor, "allow_empty"), require_original_unique):
+		if not _string_collection_is_valid(
+			value,
+			_get_bool(descriptor, "allow_empty"),
+			require_original_unique
+		):
 			return false
 		var canonical_values: Dictionary = {}
 		for item: String in _to_string_list(value):
@@ -1723,7 +2268,11 @@ func _contract_has_domain(contract: Dictionary, domain_name: String) -> bool:
 ## [br]
 ## @api private
 ## [br]
-func _domain_has_value(contract: Dictionary, domain_name: String, value: String) -> bool:
+func _domain_has_value(
+	contract: Dictionary,
+	domain_name: String,
+	value: String
+) -> bool:
 	var domains: Dictionary = _get_dictionary(contract, "domains")
 	var domain_value: Variant = domains.get(domain_name)
 	if not (domain_value is Array or domain_value is PackedStringArray):
@@ -1757,7 +2306,11 @@ func _dictionary_has_exact_fields(data: Dictionary, expected_fields: PackedStrin
 ## [br]
 ## @api private
 ## [br]
-func _string_collection_is_valid(value: Variant, allow_empty: bool, require_unique: bool) -> bool:
+func _string_collection_is_valid(
+	value: Variant,
+	allow_empty: bool,
+	require_unique: bool
+) -> bool:
 	if not (value is Array or value is PackedStringArray):
 		return false
 	var values: PackedStringArray = _to_string_list(value)
@@ -1768,7 +2321,13 @@ func _string_collection_is_valid(value: Variant, allow_empty: bool, require_uniq
 	else:
 		var packed_value: PackedStringArray = value
 		value_count = packed_value.size()
-	if values.size() != value_count or (values.is_empty() and not allow_empty):
+	if (
+		values.size() != value_count
+		or (
+			values.is_empty()
+			and not allow_empty
+		)
+	):
 		return false
 	var seen: Dictionary = {}
 	for item: String in values:
@@ -1829,7 +2388,11 @@ func _copy_contract_value(value: Variant) -> Variant:
 ## @api private
 func _reason(contract: Dictionary, reason_key: String) -> String:
 	var reason_codes: Dictionary = _get_dictionary(contract, "reason_codes")
-	return _get_string(reason_codes, reason_key, _BOOTSTRAP_REASON_CONTRACT_INVALID)
+	return _get_string(
+		reason_codes,
+		reason_key,
+		_BOOTSTRAP_REASON_CONTRACT_INVALID
+	)
 
 
 ## 按 profile、zone 或 rule 范围选择既有未知字段问题种类，选择稳定问题分类。
@@ -1846,22 +2409,42 @@ func _unsupported_field_kind(scope_kind: String) -> String:
 ## 根据范围、字段名及缺失原因映射兼容问题种类，保留旧整数、布尔、列表和命名字段的分类约定。
 ## [br]
 ## @api private
-func _field_issue_kind(scope_kind: String, field_name: String, reason_key: String) -> String:
+func _field_issue_kind(
+	scope_kind: String,
+	field_name: String,
+	reason_key: String
+) -> String:
 	if field_name == "schema_version" or field_name == "max_files":
 		return "invalid_integer_field"
 	if scope_kind == "profile" and field_name == "id":
 		return "missing_profile_id" if reason_key == "required_field_missing" else "invalid_string_field"
-	if scope_kind == "profile" and field_name in ["zones", "rules", "metadata"]:
+	if scope_kind == "profile" and field_name in [
+		"zones",
+		"rules",
+		"metadata",
+	]:
 		return "invalid_profile_field_type"
 	if field_name == "severity":
 		return "invalid_severity"
 	if field_name == "target":
 		return "invalid_naming_target"
-	if field_name in ["required", "allow_root_files", "any"]:
+	if field_name in [
+		"required",
+		"allow_root_files",
+		"any",
+	]:
 		return "invalid_bool_field"
 	var list_fields: PackedStringArray = [
-		"roots", "allow_extensions", "deny_extensions", "exclude", "paths", "extensions",
-		"include", "allowed_files", "required_subdirs", "allowed_subdirs",
+		"roots",
+		"allow_extensions",
+		"deny_extensions",
+		"exclude",
+		"paths",
+		"extensions",
+		"include",
+		"allowed_files",
+		"required_subdirs",
+		"allowed_subdirs",
 	]
 	if list_fields.has(field_name):
 		return "invalid_string_list_field"
@@ -1883,7 +2466,11 @@ func _add_field_issue(
 	_add_issue(
 		result,
 		"error",
-		_field_issue_kind(scope_kind, field_name, reason_key),
+		_field_issue_kind(
+			scope_kind,
+			field_name,
+			reason_key
+		),
 		_reason(contract, reason_key),
 		scope_id,
 		"项目结构 profile 字段缺失、类型错误或值无效。",
@@ -1915,8 +2502,13 @@ func _add_relative_path_issue(
 ## 将引擎无法编译的正则映射为字段对应的兼容问题种类，并使用语法无效原因码。
 ## [br]
 ## @api private
-func _add_regex_issue(contract: Dictionary, result: Dictionary, scope_id: String, field_name: String) -> void:
-	var issue_kind: String = "invalid_feature_id_pattern" if field_name == "feature_id_pattern" else "invalid_naming_pattern"
+func _add_regex_issue(
+	contract: Dictionary,
+	result: Dictionary,
+	scope_id: String,
+	field_name: String
+) -> void:
+	var issue_kind: String = ("invalid_feature_id_pattern" if field_name == "feature_id_pattern" else "invalid_naming_pattern")
 	_add_issue(
 		result,
 		"error",
@@ -1938,11 +2530,7 @@ func _add_regex_unsafe_issue(
 	field_name: String,
 	portable_reason: String
 ) -> void:
-	var issue_kind: String = (
-		"invalid_feature_id_pattern"
-		if field_name == "feature_id_pattern"
-		else "invalid_naming_pattern"
-	)
+	var issue_kind: String = ("invalid_feature_id_pattern" if field_name == "feature_id_pattern" else "invalid_naming_pattern")
 	_add_issue(
 		result,
 		"error",
@@ -1957,7 +2545,12 @@ func _add_regex_unsafe_issue(
 ## 记录区域或规则 ID 重复的统一错误，并在上下文保留条目种类。
 ## [br]
 ## @api private
-func _add_duplicate_id_issue(contract: Dictionary, result: Dictionary, item_kind: String, item_id: String) -> void:
+func _add_duplicate_id_issue(
+	contract: Dictionary,
+	result: Dictionary,
+	item_kind: String,
+	item_id: String
+) -> void:
 	_add_issue(
 		result,
 		"error",
@@ -1972,7 +2565,11 @@ func _add_duplicate_id_issue(contract: Dictionary, result: Dictionary, item_kind
 ## 用契约中的注册表无效原因码记录执行器声明错误，具体失败说明由调用方提供。
 ## [br]
 ## @api private
-func _add_registry_issue(contract: Dictionary, result: Dictionary, message: String) -> void:
+func _add_registry_issue(
+	contract: Dictionary,
+	result: Dictionary,
+	message: String
+) -> void:
 	_add_issue(
 		result,
 		"error",
@@ -2001,14 +2598,16 @@ func _add_issue(
 	if issues.size() >= _MAX_PROFILE_DIAGNOSTICS - 1:
 		_fail_profile_compile_limit(result, "diagnostics")
 		return
-	issues.append({
-		"severity": severity,
-		"kind": kind,
-		"reason_code": reason_code,
-		"path": path,
-		"message": message,
-		"context": context.duplicate(true),
-	})
+	issues.append(
+		{
+			"severity": severity,
+			"kind": kind,
+			"reason_code": reason_code,
+			"path": path,
+			"message": message,
+			"context": context.duplicate(true),
+		}
+	)
 	if severity == "error":
 		result["error_count"] = _get_int(result, "error_count") + 1
 	elif severity == "warning":
@@ -2028,11 +2627,13 @@ func _finalize_result(result: Dictionary) -> Dictionary:
 ## @api private
 func _describe_value(value: Variant) -> Dictionary:
 	var value_type: int = typeof(value)
-	var result: Dictionary = {
-		"type": value_type,
-		"type_name": type_string(value_type),
-	}
-	if value == null or value is bool or value is int or value is String:
+	var result: Dictionary = { "type": value_type, "type_name": type_string(value_type), }
+	if (
+		value == null
+		or value is bool
+		or value is int
+		or value is String
+	):
 		result["value"] = value
 	elif value is StringName:
 		result["value"] = _string_value(value)
@@ -2111,7 +2712,12 @@ func _portable_regex_error(
 		if character == "\\":
 			if (
 				index + 1 >= pattern.length()
-				or not allowed_escapes.contains(pattern.substr(index + 1, 1))
+				or not allowed_escapes.contains(
+					pattern.substr(
+						index + 1,
+						1
+					)
+				)
 			):
 				return "escape"
 			branch_has_syntax = true
@@ -2136,7 +2742,11 @@ func _portable_regex_error(
 			branch_has_syntax = true
 			branch_at_start = false
 			can_quantify = true
-			index = _get_int(class_result, "end", index + 1)
+			index = _get_int(
+				class_result,
+				"end",
+				index + 1
+			)
 			continue
 		if character == "]":
 			return "character_class"
@@ -2153,7 +2763,11 @@ func _portable_regex_error(
 			quantifier_count = 0
 			index += 1
 			continue
-		if character == "*" or character == "+" or character == "?":
+		if (
+			character == "*"
+			or character == "+"
+			or character == "?"
+		):
 			if not can_quantify:
 				return "quantifier"
 			if not branch_is_start_anchored:
@@ -2177,7 +2791,10 @@ func _portable_regex_error(
 			index += 1
 			continue
 		if character == "$":
-			if index + 1 < pattern.length() and pattern.substr(index + 1, 1) != "|":
+			if index + 1 < pattern.length() and pattern.substr(
+				index + 1,
+				1
+			) != "|":
 				return "anchor"
 			branch_has_syntax = true
 			branch_at_start = false
@@ -2214,7 +2831,12 @@ func _portable_regex_class_result(
 			if tokens.is_empty():
 				return { "end": index + 1, "error": "character_class" }
 			var joined_tokens: String = "".join(tokens)
-			for set_operator: String in ["&&", "--", "~~", "||"]:
+			for set_operator: String in [
+				"&&",
+				"--",
+				"~~",
+				"||",
+			]:
 				if joined_tokens.contains(set_operator):
 					return { "end": index + 1, "error": "character_class" }
 			for token_index: int in tokens.size():
@@ -2228,10 +2850,7 @@ func _portable_regex_class_result(
 				var right_codepoint: int = tokens[token_index + 1].unicode_at(0)
 				if (
 					_portable_regex_range_category(left_codepoint) == 0
-					or (
-						_portable_regex_range_category(left_codepoint)
-						!= _portable_regex_range_category(right_codepoint)
-					)
+					or (_portable_regex_range_category(left_codepoint) != _portable_regex_range_category(right_codepoint))
 					or left_codepoint > right_codepoint
 				):
 					return { "end": index + 1, "error": "character_class" }
@@ -2241,10 +2860,18 @@ func _portable_regex_class_result(
 		if character == "\\":
 			if (
 				index + 1 >= pattern.length()
-				or not allowed_escapes.contains(pattern.substr(index + 1, 1))
+				or not allowed_escapes.contains(
+					pattern.substr(
+						index + 1,
+						1
+					)
+				)
 			):
 				return { "end": index + 1, "error": "escape" }
-			var escaped_character: String = pattern.substr(index + 1, 1)
+			var escaped_character: String = pattern.substr(
+				index + 1,
+				1
+			)
 			tokens.append(escaped_character)
 			index += 2
 			continue
@@ -2283,7 +2910,11 @@ func _compile_regex(pattern: String) -> RegEx:
 static func _path_has_invalid_segment(path: String) -> bool:
 	var parts: PackedStringArray = path.split("/", true)
 	for part: String in parts:
-		if part.is_empty() or part == "." or part == "..":
+		if (
+			part.is_empty()
+			or part == "."
+			or part == ".."
+		):
 			return true
 	return false
 
@@ -2338,7 +2969,11 @@ func _is_non_empty_string_value(value: Variant) -> bool:
 ## [br]
 ## @api private
 ## [br]
-func _get_string(source: Dictionary, key: String, default_value: String = "") -> String:
+func _get_string(
+	source: Dictionary,
+	key: String,
+	default_value: String = ""
+) -> String:
 	if not source.has(key):
 		return default_value
 	var value: Variant = source[key]
@@ -2351,7 +2986,11 @@ func _get_string(source: Dictionary, key: String, default_value: String = "") ->
 ## [br]
 ## @api private
 ## [br]
-func _get_bool(source: Dictionary, key: String, default_value: bool = false) -> bool:
+func _get_bool(
+	source: Dictionary,
+	key: String,
+	default_value: bool = false
+) -> bool:
 	if not source.has(key) or not source[key] is bool:
 		return default_value
 	var value: bool = source[key]
@@ -2362,10 +3001,17 @@ func _get_bool(source: Dictionary, key: String, default_value: bool = false) -> 
 ## [br]
 ## @api private
 ## [br]
-func _get_int(source: Dictionary, key: String, default_value: int = 0) -> int:
+func _get_int(
+	source: Dictionary,
+	key: String,
+	default_value: int = 0
+) -> int:
 	if not source.has(key):
 		return default_value
-	return _exact_integer_value(source[key], default_value)
+	return _exact_integer_value(
+		source[key],
+		default_value
+	)
 
 
 ## 判断值是否为 int，或有限且等于其向下取整结果的 float。
