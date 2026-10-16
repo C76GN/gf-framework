@@ -1046,6 +1046,62 @@ func _has_native_binding(target: Object) -> bool:
 	return false
 
 
+## 表单布局后只显露仍属于同一来源、请求和代次的当前焦点；不重新聚焦或保活旧控件。
+## [br]
+## @api private
+func _reveal_navigation_field(
+	focus_ref: WeakRef,
+	target_ref: WeakRef,
+	context: GFTweenPreviewContext,
+	request: Dictionary,
+	generation: int
+) -> void:
+	if (
+		not is_inside_tree()
+		or is_queued_for_deletion()
+		or not is_visible_in_tree()
+		or context == null
+		or _preview_context != context
+		or generation != _generation
+	):
+		return
+	var current: bool = context.is_navigation_request_current(request)
+	if (
+		not is_instance_valid(self)
+		or not current
+		or not is_inside_tree()
+		or is_queued_for_deletion()
+		or not is_visible_in_tree()
+		or _preview_context != context
+		or generation != _generation
+	):
+		return
+	var focus_value: Variant = focus_ref.get_ref()
+	var target_value: Variant = target_ref.get_ref()
+	if not focus_value is Control or not target_value is Object:
+		return
+	var control: Control = focus_value
+	var target: Object = target_value
+	if (
+		not is_instance_valid(_root)
+		or control.is_queued_for_deletion()
+		or not control.is_visible_in_tree()
+		or not _root.is_ancestor_of(control)
+		or get_edited_object() != target
+		or not _has_native_binding(target)
+		or get_viewport().gui_get_focus_owner() != control
+	):
+		return
+	var ancestor: Node = get_parent()
+	while ancestor != null:
+		if ancestor is EditorInspector:
+			var inspector: EditorInspector = ancestor
+			if inspector.get_edited_object() == target:
+				inspector.ensure_control_visible(control)
+			return
+		ancestor = ancestor.get_parent()
+
+
 ## 在复制的外层数组中替换当前步骤并提交；null 不产生编辑，调用方负责先验证索引与编辑资格。
 ## [br]
 ## @api private
@@ -1395,6 +1451,14 @@ func _on_navigation_requested(request: Dictionary) -> void:
 		feedback.text = (
 			"已定位步骤 %d%s"
 			% [index + 1, " · " + String(field_name) if field_name != &"" else ""]
+		)
+	if is_instance_valid(focus_control) and is_instance_valid(target):
+		_reveal_navigation_field.call_deferred(
+			weakref(focus_control),
+			weakref(target),
+			context,
+			request,
+			generation
 		)
 
 

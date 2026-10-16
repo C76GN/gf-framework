@@ -27,6 +27,8 @@ var _duration_time: float = 0.0
 var _duration_probe_plan: GFTweenPreviewPlan = null
 var _duration_probe_numeric: bool = false
 var _duration_probe_registration: GFTweenPreviewRegistration = null
+var _navigation_layout_frames: int = 0
+var _navigation_retired_editor: WeakRef = null
 var _recipe_snapshot: Dictionary = {}
 var _runtime_target: Node2D = null
 var _runtime_initial: Color = Color(
@@ -227,9 +229,13 @@ func _process(_delta: float) -> void:
 			var location: Button = location_node
 			if not _check(not location.disabled, "The structured value type error must offer field navigation."):
 				return
+			inspector.scroll_vertical = 0
+			_navigation_layout_frames = 0
 			_phase = 8
 			location.pressed.emit()
 		8:
+			if not _navigation_layout_ready():
+				return
 			var picker: OptionButton = _picker(editor)
 			var field: GFEditorValueField = _field(editor, "Field_target_value")
 			if not _check(
@@ -250,6 +256,12 @@ func _process(_delta: float) -> void:
 				"The selected field must show location feedback."
 			):
 				return
+			if not _check(
+				_visible_rect_in_inspector(field, inspector).has_area() and _control_fully_visible_in_inspector(focus, inspector),
+				"Error navigation must reveal the field and the complete focused input after layout, not only assign offscreen focus."
+			):
+				return
+			print("GF_TWEEN_ERROR_FIELD_VISIBLE_OK")
 			var source_value: Variant = _config.steps[2].target_value
 			var preserved: bool = false
 			if source_value is String:
@@ -591,9 +603,100 @@ func _process(_delta: float) -> void:
 			print("GF_TWEEN_DURATION_INITIAL_VALUE_OK %s" % ("numeric" if _duration_probe_numeric else "native"))
 			_duration_probe_plan = null
 			if _duration_probe_numeric:
-				_begin_cleanup(0)
+				_open_navigation_visibility_probe()
 			else:
 				_open_duration_probe(true)
+		20:
+			if config != _config:
+				return
+			var location: Button = _location_button(panel)
+			var picker: OptionButton = _picker(editor)
+			if (
+				location == null
+				or picker == null
+				or location.disabled
+			):
+				return
+			location.pressed.emit()
+			picker = _picker(editor)
+			if picker == null:
+				return
+			picker.select(0)
+			picker.item_selected.emit(0)
+			inspector.grab_focus()
+			inspector.scroll_vertical = 0
+			_navigation_layout_frames = 0
+			_phase = 21
+		21:
+			if config != _config or not _navigation_layout_ready():
+				return
+			var picker: OptionButton = _picker(editor)
+			if not _check(
+				picker != null
+				and picker.selected == 0
+				and inspector.scroll_vertical == 0
+				and get_viewport().gui_get_focus_owner() == inspector,
+				"A newer step selection must revoke the old deferred field reveal and preserve the current scroll and focus."
+			):
+				return
+			var location: Button = _location_button(panel)
+			if location == null or location.disabled:
+				return
+			location.pressed.emit()
+			_config = _navigation_visibility_config()
+			_phase = 22
+			_navigation_layout_frames = 0
+			EditorInterface.edit_resource(_config)
+			inspector.grab_focus()
+			inspector.scroll_vertical = 0
+		22:
+			if config != _config or not _navigation_layout_ready():
+				return
+			if not _check(
+				inspector.scroll_vertical == 0 and get_viewport().gui_get_focus_owner() == inspector,
+				"A retired source must not reveal its field or take focus in the replacement resource's Inspector."
+			):
+				return
+			var location: Button = _location_button(panel)
+			if location == null or location.disabled:
+				return
+			location.pressed.emit()
+			_navigation_retired_editor = weakref(editor)
+			_retired_controls.append(weakref(editor))
+			_retired_controls.append(weakref(panel))
+			# Native Inspector restores scroll per Resource after reopening; establish the expected cache before closing.
+			inspector.scroll_vertical = 0
+			inspector.edit(null)
+			inspector.edit(_config)
+			inspector.grab_focus()
+			inspector.scroll_vertical = 0
+			_navigation_layout_frames = 0
+			_phase = 23
+		23:
+			if config != _config or not _navigation_layout_ready():
+				return
+			var retired_released: bool = _navigation_retired_editor != null and _navigation_retired_editor.get_ref() == null
+			var scroll_preserved: bool = inspector.scroll_vertical == 0
+			var focus_preserved: bool = get_viewport().gui_get_focus_owner() == inspector
+			var retirement_state: Dictionary = {
+				"retired_released": retired_released,
+				"scroll_preserved": scroll_preserved,
+				"focus_preserved": focus_preserved,
+				"scroll_vertical": inspector.scroll_vertical,
+			}
+			print("GF_TWEEN_FIELD_REVEAL_RETIREMENT_STATE %s" % JSON.stringify(retirement_state))
+			var retired_ok: bool = _check(retired_released, "Closing and reopening the same resource must release the retired step editor.")
+			var scroll_ok: bool = _check(scroll_preserved, "The retired reveal callback must preserve the replacement form's explicit zero scroll.")
+			var focus_ok: bool = _check(focus_preserved, "The retired reveal callback must preserve the replacement Inspector's focus.")
+			if (
+				not retired_ok
+				or not scroll_ok
+				or not focus_ok
+			):
+				return
+			_navigation_retired_editor = null
+			print("GF_TWEEN_FIELD_REVEAL_LIFECYCLE_OK")
+			_begin_cleanup(0)
 
 
 func _exit_tree() -> void:
@@ -604,6 +707,7 @@ func _exit_tree() -> void:
 	_history = null
 	_duration_plan = null
 	_duration_probe_plan = null
+	_navigation_retired_editor = null
 	if _duration_probe_registration != null:
 		_duration_probe_registration.release()
 	_duration_probe_registration = null
@@ -611,6 +715,79 @@ func _exit_tree() -> void:
 	if is_instance_valid(_runtime_target):
 		_runtime_target.free()
 	_runtime_target = null
+
+
+func _navigation_visibility_config() -> GFTweenActionConfig:
+	var config: GFTweenActionConfig = GFTweenActionConfig.new()
+	var first: GFTweenActionStep = config.add_property_step(
+		^"position:x",
+		1.0,
+		0.5
+	)
+	first.resource_name = "First navigation step"
+	var second: GFTweenActionStep = config.add_property_step(
+		^"position:y",
+		1.0,
+		0.5
+	)
+	second.resource_name = "Error navigation step"
+	var selected: bool = _ACTIONS_SCRIPT.remember_created_preview(config, 0)
+	if not _check(selected, "The navigation lifecycle probe requires an explicit native 2D purpose."):
+		return null
+	second.target_value = "invalid"
+	return config
+
+
+func _open_navigation_visibility_probe() -> void:
+	_config = _navigation_visibility_config()
+	if _config == null:
+		return
+	_phase = 20
+	EditorInterface.edit_resource(_config)
+
+
+func _navigation_layout_ready() -> bool:
+	_navigation_layout_frames += 1
+	return _navigation_layout_frames >= 3
+
+
+func _location_button(panel: GFTweenPreviewPanel) -> Button:
+	var node: Node = panel.find_child(
+		"LocateError",
+		true,
+		false
+	)
+	if node is Button:
+		var button: Button = node
+		return button
+	return null
+
+
+func _control_fully_visible_in_inspector(control: Control, inspector: EditorInspector) -> bool:
+	if not is_instance_valid(control):
+		return false
+	var original_rect: Rect2 = control.get_global_rect()
+	return original_rect.has_area() and _visible_rect_in_inspector(control, inspector).encloses(original_rect)
+
+
+func _visible_rect_in_inspector(control: Control, inspector: EditorInspector) -> Rect2:
+	if not is_instance_valid(control) or not control.is_visible_in_tree():
+		return Rect2()
+	var visible_rect: Rect2 = control.get_global_rect()
+	if not visible_rect.has_area():
+		return Rect2()
+	var ancestor: Node = control.get_parent()
+	while ancestor != null:
+		if ancestor is Control:
+			var ancestor_control: Control = ancestor
+			if ancestor_control.clip_contents or ancestor_control == inspector:
+				visible_rect = visible_rect.intersection(ancestor_control.get_global_rect())
+				if not visible_rect.has_area():
+					return Rect2()
+		if ancestor == inspector:
+			return visible_rect
+		ancestor = ancestor.get_parent()
+	return Rect2()
 
 
 func _open_duration_probe(numeric: bool) -> void:
